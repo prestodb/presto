@@ -29,16 +29,20 @@ public class PlanOptimizerInformation
     // For optimizers which are not enabled. True if the query matches the pattern of the optimizer and could be applied.
     // False if cannot be applied. Empty if information not available.
     private final Optional<Boolean> optimizerApplicable;
+    // True if optimizer encounter failures (for example timeout etc.), false if no failures, empty if information not available.
+    private final Optional<Boolean> optimizerFailure;
 
     @JsonCreator
     public PlanOptimizerInformation(
             @JsonProperty("optimizerName") String optimizerName,
             @JsonProperty("optimizerTriggered") boolean optimizerTriggered,
-            @JsonProperty("optimizerApplicable") Optional<Boolean> optimizerApplicable)
+            @JsonProperty("optimizerApplicable") Optional<Boolean> optimizerApplicable,
+            @JsonProperty("optimizerFailure") Optional<Boolean> optimizerFailure)
     {
         this.optimizerName = requireNonNull(optimizerName, "optimizerName is null");
         this.optimizerTriggered = requireNonNull(optimizerTriggered, "optimizerTriggered is null");
         this.optimizerApplicable = requireNonNull(optimizerApplicable, "optimizerApplicable is null");
+        this.optimizerFailure = requireNonNull(optimizerFailure, "optimizerFailure is null");
     }
 
     @JsonProperty
@@ -57,5 +61,11 @@ public class PlanOptimizerInformation
     public Optional<Boolean> getOptimizerApplicable()
     {
         return optimizerApplicable;
+    }
+
+    @JsonProperty
+    public Optional<Boolean> getOptimizerFailure()
+    {
+        return optimizerFailure;
     }
 }

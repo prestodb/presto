@@ -143,7 +143,8 @@ public class TestHiveRecoverableExecution
         return new Object[][] {{1, true}, {2, false}, {2, true}};
     }
 
-    @Test(timeOut = TEST_TIMEOUT, dataProvider = "testSettings", invocationCount = INVOCATION_COUNT)
+    // Flaky test: https://github.com/prestodb/presto/issues/20272
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "testSettings", invocationCount = INVOCATION_COUNT, enabled = false)
     public void testCreateBucketedTable(int writerConcurrency, boolean optimizedPartitionUpdateSerializationEnabled)
             throws Exception
     {

@@ -13,19 +13,25 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.TypeSignatureParameterUnion.convertToTypeSignatureParameterUnion;
+import static com.facebook.presto.common.type.TypeSignatureParameterUnion.convertToValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TypeSignatureParameter
 {
     private final ParameterKind kind;
-    private final Object value;
+    private final TypeSignatureParameterUnion value;
 
     public static TypeSignatureParameter of(TypeSignature typeSignature)
     {
@@ -65,18 +71,32 @@ public class TypeSignatureParameter
     private TypeSignatureParameter(ParameterKind kind, Object value)
     {
         this.kind = requireNonNull(kind, "kind is null");
-        this.value = requireNonNull(value, "value is null");
+        this.value = convertToTypeSignatureParameterUnion(requireNonNull(value, "value is null"));
+    }
+
+    @ThriftConstructor
+    public TypeSignatureParameter(ParameterKind kind, TypeSignatureParameterUnion value)
+    {
+        this.kind = kind;
+        this.value = value;
     }
 
     @Override
     public String toString()
     {
-        return value.toString();
+        return convertToValue(value).toString();
     }
 
+    @ThriftField(1)
     public ParameterKind getKind()
     {
         return kind;
+    }
+
+    @ThriftField(2)
+    public TypeSignatureParameterUnion getValue()
+    {
+        return value;
     }
 
     public boolean isTypeSignature()
@@ -119,7 +139,7 @@ public class TypeSignatureParameter
         if (kind != expectedParameterKind) {
             throw new IllegalArgumentException(format("ParameterKind is [%s] but expected [%s]", kind, expectedParameterKind));
         }
-        return target.cast(value);
+        return target.cast(convertToValue(value));
     }
 
     public TypeSignature getTypeSignature()

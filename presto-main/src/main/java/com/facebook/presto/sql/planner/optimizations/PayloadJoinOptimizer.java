@@ -122,6 +122,7 @@ public class PayloadJoinOptimizer
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private boolean isEnabledForTesting;
 
     public PayloadJoinOptimizer(Metadata metadata)
     {
@@ -141,9 +142,16 @@ public class PayloadJoinOptimizer
         return plan;
     }
 
-    private boolean isEnabled(Session session)
+    @Override
+    public void setEnabledForTesting(boolean isSet)
     {
-        return isOptimizePayloadJoins(session);
+        isEnabledForTesting = isSet;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isEnabledForTesting || isOptimizePayloadJoins(session);
     }
 
     private static class Rewriter

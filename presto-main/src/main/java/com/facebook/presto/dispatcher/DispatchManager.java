@@ -51,6 +51,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -299,7 +300,8 @@ public class DispatchManager
                     sessionContext.getResourceEstimates(),
                     queryType.map(Enum::name),
                     Optional.ofNullable(sessionContext.getClientInfo()),
-                    Optional.ofNullable(sessionContext.getSchema())));
+                    Optional.ofNullable(sessionContext.getSchema()),
+                    sessionContext.getIdentity().getPrincipal().map(Principal::getName)));
 
             // apply system default session properties (does not override user set properties)
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType.map(Enum::name), Optional.of(selectionContext.getResourceGroupId()));

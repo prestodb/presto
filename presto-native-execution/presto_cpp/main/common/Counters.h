@@ -135,6 +135,74 @@ constexpr folly::StringPiece kCounterMmapRawAllocBytesSmall{
 constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
     "presto_cpp.exchange_source_peak_queued_bytes"};
 
+/// ================== Memory Arbitrator Counters =================
+
+/// The number of arbitration requests.
+constexpr folly::StringPiece kCounterArbitratorNumRequests{
+    "presto_cpp.arbitrator_num_requests"};
+/// The number of aborted arbitration requests.
+constexpr folly::StringPiece kCounterArbitratorNumAborted{
+    "presto_cpp.arbitrator_num_aborted"};
+/// The number of arbitration request failures.
+constexpr folly::StringPiece kCounterArbitratorNumFailures{
+    "presto_cpp.arbitrator_num_failures"};
+/// The sum of all the arbitration request queue times in microseconds.
+constexpr folly::StringPiece kCounterArbitratorQueueTimeUs{
+    "presto_cpp.arbitrator_queue_time_us"};
+/// The sum of all the arbitration run times in microseconds.
+constexpr folly::StringPiece kCounterArbitratorArbitrationTimeUs{
+    "presto_cpp.arbitrator_arbitration_time_us"};
+/// The amount of memory bytes freed by reducing the memory pool's capacity
+/// without actually freeing memory.
+constexpr folly::StringPiece kCounterArbitratorNumShrunkBytes{
+    "presto_cpp.arbitrator_num_shrunk_bytes"};
+/// The amount of memory bytes freed by memory reclamation.
+constexpr folly::StringPiece kCounterArbitratorNumReclaimedBytes{
+    "presto_cpp.arbitrator_num_reclaimed_bytes"};
+/// The free memory capacity in bytes.
+constexpr folly::StringPiece kCounterArbitratorFreeCapacityBytes{
+    "presto_cpp.arbitrator_free_capacity_bytes"};
+
+/// ================== Disk Spilling Counters =================
+
+/// The number of times that spilling runs on a velox operator.
+constexpr folly::StringPiece kCounterSpillRuns{"presto_cpp.spill_run_count"};
+/// The number of spilled files.
+constexpr folly::StringPiece kCounterSpilledFiles{
+    "presto_cpp.spilled_file_count"};
+/// The number of spilled rows.
+constexpr folly::StringPiece kCounterSpilledRows{
+    "presto_cpp.spilled_row_count"};
+/// The number of bytes spilled to disks.
+///
+/// NOTE: if compression is enabled, this counts the compressed bytes.
+constexpr folly::StringPiece kCounterSpilledBytes{"presto_cpp.spilled_bytes"};
+/// The time spent on filling rows for spilling.
+constexpr folly::StringPiece kCounterSpillFillTimeUs{
+    "presto_cpp.spill_fill_time_us"};
+/// The time spent on sorting rows for spilling.
+constexpr folly::StringPiece kCounterSpillSortTimeUs{
+    "presto_cpp.spill_sort_time_us"};
+/// The time spent on serializing rows for spilling.
+constexpr folly::StringPiece kCounterSpillSerializationTimeUs{
+    "presto_cpp.spill_serialization_time_us"};
+/// The number of disk writes to spill rows.
+constexpr folly::StringPiece kCounterSpillDiskWrites{
+    "presto_cpp.spill_disk_write_count"};
+/// The time spent on copy out serialized rows for disk write. If compression
+/// is enabled, this includes the compression time.
+constexpr folly::StringPiece kCounterSpillFlushTimeUs{
+    "presto_cpp.spill_flush_time_us"};
+/// The time spent on writing spilled rows to disk.
+constexpr folly::StringPiece kCounterSpillWriteTimeUs{
+    "presto_cpp.spill_write_time_us"};
+/// The current spilling memory usage in bytes.
+constexpr folly::StringPiece kCounterSpillMemoryBytes{
+    "presto_cpp.spill_memory_bytes"};
+/// The peak spilling memory usage in bytes.
+constexpr folly::StringPiece kCounterSpillPeakMemoryBytes{
+    "presto_cpp.spill_peak_memory_bytes"};
+
 /// ================== Cache Counters ==================
 
 /// Total number of cache entries.
@@ -182,6 +250,14 @@ constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeHit{
 /// prefetched entry does not count.
 constexpr folly::StringPiece kCounterMemoryCacheNumHit{
     "presto_cpp.memory_cache_num_hit"};
+/// Cumulated amount of hit bytes (saved IO). The first hit to a prefetched
+/// entry does not count.
+constexpr folly::StringPiece kCounterMemoryCacheCumulativeHitBytes{
+    "presto_cpp.memory_cache_cumulative_hit_bytes"};
+/// Amount of hit bytes (saved IO) since last counter retrieval. The first hit
+/// to a prefetched entry does not count.
+constexpr folly::StringPiece kCounterMemoryCacheHitBytes{
+    "presto_cpp.memory_cache_hit_bytes"};
 /// Cumulated number of new entries created.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeNew{
     "presto_cpp.memory_cache_num_cumulative_new"};

@@ -25,12 +25,6 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
-#include "velox/type/tz/TimeZoneMap.h"
-
-DEFINE_int32(
-    old_task_ms,
-    60'000, // 1 minute, by default.
-    "Time (ms) since the task execution ended, when task is considered old.");
 
 using namespace facebook::velox;
 
@@ -43,27 +37,35 @@ namespace facebook::presto {
 constexpr uint32_t kMaxConcurrentLifespans{16};
 
 namespace {
-
 // If spilling is enabled and the given Task can spill, then this helper
 // generates the spilling directory path for the Task, creates that directory in
 // the file system and sets the path to it to the Task.
 static void maybeSetupTaskSpillDirectory(
     const core::PlanFragment& planFragment,
-    exec::Task& execTask) {
-  const auto baseSpillPath = SystemConfig::instance()->spillerSpillPath();
-  if (baseSpillPath.hasValue() &&
-      planFragment.canSpill(execTask.queryCtx()->queryConfig())) {
-    const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
-        baseSpillPath.value(),
-        execTask.queryCtx()->queryId(),
-        execTask.taskId());
-    execTask.setSpillDirectory(taskSpillDirPath);
-    // Create folder for the task spilling.
-    auto fileSystem =
-        velox::filesystems::getFileSystem(taskSpillDirPath, nullptr);
-    VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
-    fileSystem->mkdir(taskSpillDirPath);
+    exec::Task& execTask,
+    const std::string& baseSpillDirectory) {
+  if (baseSpillDirectory.empty() ||
+      !planFragment.canSpill(execTask.queryCtx()->queryConfig())) {
+    return;
   }
+
+  const auto includeNodeInSpillPath =
+      SystemConfig::instance()->includeNodeInSpillPath();
+  auto nodeConfig = NodeConfig::instance();
+
+  const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
+      baseSpillDirectory,
+      nodeConfig->nodeInternalAddress(),
+      nodeConfig->nodeId(),
+      execTask.queryCtx()->queryId(),
+      execTask.taskId(),
+      includeNodeInSpillPath);
+  execTask.setSpillDirectory(taskSpillDirPath);
+  // Create folder for the task spilling.
+  auto fileSystem =
+      velox::filesystems::getFileSystem(taskSpillDirPath, nullptr);
+  VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
+  fileSystem->mkdir(taskSpillDirPath);
 }
 
 // Keep outstanding Promises in RequestHandler's state itself.
@@ -83,31 +85,6 @@ void keepPromiseAlive(
   handlerState->runOnFinalization(
       [promiseHolder]() mutable { promiseHolder.reset(); });
 }
-} // namespace
-
-TaskManager::TaskManager()
-    : bufferManager_(
-          velox::exec::PartitionedOutputBufferManager::getInstance().lock()) {
-  VELOX_CHECK_NOT_NULL(
-      bufferManager_, "invalid PartitionedOutputBufferManager");
-}
-
-void TaskManager::abortResults(const TaskId& taskId, long bufferId) {
-  VLOG(1) << "TaskManager::abortResults " << taskId;
-
-  bufferManager_->deleteResults(taskId, bufferId);
-}
-
-void TaskManager::acknowledgeResults(
-    const TaskId& taskId,
-    const long bufferId,
-    long token) {
-  VLOG(1) << "TaskManager::acknowledgeResults " << taskId << ", " << bufferId
-          << ", " << token;
-  bufferManager_->acknowledge(taskId, bufferId, token);
-}
-
-namespace {
 
 std::unique_ptr<Result> createTimeOutResult(long token) {
   auto result = std::make_unique<Result>();
@@ -184,108 +161,12 @@ void getData(
     promiseHolder->promise.setValue(std::move(createTimeOutResult(token)));
   }
 }
-} // namespace
 
-std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
-    const TaskId& taskId,
-    const std::exception_ptr& exception) {
-  auto prestoTask = findOrCreateTask(taskId);
-  {
-    std::lock_guard<std::mutex> l(prestoTask->mutex);
-    prestoTask->updateHeartbeatLocked();
-    if (prestoTask->error == nullptr) {
-      prestoTask->error = exception;
-    }
-    prestoTask->info.needsPlan = false;
-  }
-
-  auto info = prestoTask->updateInfo();
-  return std::make_unique<TaskInfo>(info);
-}
-
-/*static*/ std::string TaskManager::buildTaskSpillDirectoryPath(
-    const std::string& baseSpillPath,
-    const std::string& queryId,
-    const protocol::TaskId& taskId) {
-  // Generate 'YYYY-MM-DD' from the query ID, which starts with 'YYYYMMDD'.
-  // In case query id is malformed (should not be the case in production) we
-  // fall back to the predefined date.
-  const std::string dateString = (queryId.size() >= 8)
-      ? fmt::format(
-            "{}-{}-{}",
-            queryId.substr(0, 4),
-            queryId.substr(4, 2),
-            queryId.substr(6, 2))
-      : "1970-01-01";
-
-  std::stringstream ss;
-  ss << baseSpillPath << "/";
-  ss << dateString;
-  ss << "/";
-  // TODO(spershin): We will like need to use identity (from config?) in the
-  // long run. Use 'presto_native' for now.
-  ss << "presto_native/" << queryId << "/" << taskId << "/";
-  return ss.str();
-}
-
-void TaskManager::getDataForResultRequests(
-    const std::unordered_map<int64_t, std::shared_ptr<ResultRequest>>&
-        resultRequests) {
-  for (const auto& entry : resultRequests) {
-    auto resultRequest = entry.second.get();
-
-    VLOG(1) << "Processing pending result request for task "
-            << resultRequest->taskId << ", buffer " << resultRequest->bufferId
-            << ", sequence " << resultRequest->token;
-    getData(
-        resultRequest->promise.lock(),
-        resultRequest->taskId,
-        resultRequest->bufferId,
-        resultRequest->token,
-        resultRequest->maxSize,
-        *bufferManager_);
-  }
-}
-
-namespace {
-std::unordered_map<std::string, std::string> toConfigs(
-    const protocol::SessionRepresentation& session) {
-  // Use base velox query config as the starting point and add Presto session
-  // properties on top of it.
-  auto configs = BaseVeloxQueryConfig::instance()->values();
-  for (const auto& it : session.systemProperties) {
-    configs[it.first] = it.second;
-  }
-
-  // If there's a timeZoneKey, convert to timezone name and add to the
-  // configs. Throws if timeZoneKey can't be resolved.
-  if (session.timeZoneKey != 0) {
-    configs.emplace(
-        velox::core::QueryConfig::kSessionTimezone,
-        velox::util::getTimeZoneName(session.timeZoneKey));
-  }
-  return configs;
-}
-
-std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
-toConnectorConfigs(const protocol::SessionRepresentation& session) {
-  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
-      connectorConfigs;
-  for (const auto& entry : session.catalogProperties) {
-    connectorConfigs.insert(
-        {entry.first,
-         std::unordered_map<std::string, std::string>(
-             entry.second.begin(), entry.second.end())});
-  }
-
-  return connectorConfigs;
-}
-
-/// Presto-on-Spark is expected to specify all splits at once along with
-/// no-more-splits flag. Verify that all plan nodes that require splits
-/// have received splits and no-more-splits flag. This check helps
-/// prevent hard-to-debug query hangs caused by Velox Task waiting for
-/// splits that never arrive.
+// Presto-on-Spark is expected to specify all splits at once along with
+// no-more-splits flag. Verify that all plan nodes that require splits
+// have received splits and no-more-splits flag. This check helps
+// prevent hard-to-debug query hangs caused by Velox Task waiting for
+// splits that never arrive.
 void checkSplitsForBatchTask(
     const velox::core::PlanNodePtr& planNode,
     const std::vector<protocol::TaskSource>& sources) {
@@ -311,40 +192,229 @@ void checkSplitsForBatchTask(
       "Expected all splits and no-more-splits message for all plan nodes: {}",
       folly::join(", ", splitNodeIds));
 }
+
+struct ZombieTaskStats {
+  const std::string taskId;
+  const std::string taskInfo;
+
+  explicit ZombieTaskStats(const std::shared_ptr<exec::Task>& task)
+      : taskId(task->taskId()), taskInfo(task->toString()) {}
+
+  std::string toString() const {
+    return SystemConfig::instance()->logZombieTaskInfo() ? taskInfo : taskId;
+  }
+};
+
+// Helper structure holding stats for 'zombie' tasks.
+struct ZombieTaskStatsSet {
+  size_t numRunning{0};
+  size_t numFinished{0};
+  size_t numCanceled{0};
+  size_t numAborted{0};
+  size_t numFailed{0};
+  size_t numTotal{0};
+
+  const size_t numSampleTasks;
+  std::vector<ZombieTaskStats> tasks;
+
+  ZombieTaskStatsSet()
+      : numSampleTasks(SystemConfig::instance()->logNumZombieTasks()) {
+    tasks.reserve(numSampleTasks);
+  }
+
+  void updateCounts(std::shared_ptr<exec::Task>& task) {
+    switch (task->state()) {
+      case exec::TaskState::kRunning:
+        ++numRunning;
+        break;
+      case exec::TaskState::kFinished:
+        ++numFinished;
+        break;
+      case exec::TaskState::kCanceled:
+        ++numCanceled;
+        break;
+      case exec::TaskState::kAborted:
+        ++numAborted;
+        break;
+      case exec::TaskState::kFailed:
+        ++numFailed;
+        break;
+      default:
+        break;
+    }
+    if (tasks.size() < numSampleTasks) {
+      tasks.emplace_back(task);
+    }
+  }
+
+  void logZombieTaskStatus(const std::string& hangingClassName) {
+    LOG(ERROR) << "There are " << numTotal << " zombie " << hangingClassName
+               << " that satisfy cleanup conditions but could not be "
+                  "cleaned up, because the "
+               << hangingClassName
+               << " are referenced by more than 1 owners. RUNNING["
+               << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
+               << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
+               << numFailed << "]  Sample task IDs (shows only "
+               << numSampleTasks << " IDs): " << std::endl;
+    for (int i = 0; i < tasks.size(); ++i) {
+      LOG(ERROR) << "Zombie Task[" << i + 1 << "/" << tasks.size()
+                 << "]: " << tasks[i].toString() << std::endl;
+    }
+  }
+};
 } // namespace
+
+TaskManager::TaskManager()
+    : bufferManager_(
+          velox::exec::PartitionedOutputBufferManager::getInstance().lock()) {
+  VELOX_CHECK_NOT_NULL(
+      bufferManager_, "invalid PartitionedOutputBufferManager");
+}
+
+void TaskManager::setBaseUri(const std::string& baseUri) {
+  baseUri_ = baseUri;
+}
+
+void TaskManager::setNodeId(const std::string& nodeId) {
+  nodeId_ = nodeId;
+}
+
+void TaskManager::setBaseSpillDirectory(const std::string& baseSpillDirectory) {
+  VELOX_CHECK(!baseSpillDirectory.empty());
+  baseSpillDir_.withWLock(
+      [&](auto& baseSpillDir) { baseSpillDir = baseSpillDirectory; });
+}
+
+bool TaskManager::emptyBaseSpillDirectory() const {
+  return baseSpillDir_.withRLock(
+      [](const auto& baseSpillDir) { return baseSpillDir.empty(); });
+}
+
+void TaskManager::setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs) {
+  VELOX_CHECK_GE(oldTaskCleanUpMs, 0);
+  oldTaskCleanUpMs_ = oldTaskCleanUpMs;
+}
+
+TaskMap TaskManager::tasks() const {
+  return taskMap_.withRLock([](const auto& tasks) { return tasks; });
+}
+
+const QueryContextManager* TaskManager::getQueryContextManager() const {
+  return &queryContextManager_;
+}
+
+void TaskManager::abortResults(const TaskId& taskId, long bufferId) {
+  VLOG(1) << "TaskManager::abortResults " << taskId;
+
+  bufferManager_->deleteResults(taskId, bufferId);
+}
+
+void TaskManager::acknowledgeResults(
+    const TaskId& taskId,
+    const long bufferId,
+    long token) {
+  VLOG(1) << "TaskManager::acknowledgeResults " << taskId << ", " << bufferId
+          << ", " << token;
+  bufferManager_->acknowledge(taskId, bufferId, token);
+}
+
+std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
+    const TaskId& taskId,
+    const std::exception_ptr& exception,
+    long startProcessCpuTime) {
+  auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
+  {
+    std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateHeartbeatLocked();
+    if (prestoTask->error == nullptr) {
+      prestoTask->error = exception;
+    }
+    prestoTask->info.needsPlan = false;
+  }
+
+  auto info = prestoTask->updateInfo();
+  return std::make_unique<TaskInfo>(info);
+}
+
+/*static*/ std::string TaskManager::buildTaskSpillDirectoryPath(
+    const std::string& baseSpillPath,
+    const std::string& nodeIp,
+    const std::string& nodeId,
+    const std::string& queryId,
+    const protocol::TaskId& taskId,
+    bool includeNodeInSpillPath) {
+  // Generate 'YYYY-MM-DD' from the query ID, which starts with 'YYYYMMDD'.
+  // In case query id is malformed (should not be the case in production) we
+  // fall back to the predefined date.
+  const std::string dateString = (queryId.size() >= 8)
+      ? fmt::format(
+            "{}-{}-{}",
+            queryId.substr(0, 4),
+            queryId.substr(4, 2),
+            queryId.substr(6, 2))
+      : "1970-01-01";
+
+  std::string path;
+  folly::toAppend(fmt::format("{}/presto_native/", baseSpillPath), &path);
+  if (includeNodeInSpillPath) {
+    folly::toAppend(fmt::format("{}_{}/", nodeIp, nodeId), &path);
+  }
+  folly::toAppend(fmt::format("{}/{}/{}/", dateString, queryId, taskId), &path);
+  return path;
+}
+
+void TaskManager::getDataForResultRequests(
+    const std::unordered_map<int64_t, std::shared_ptr<ResultRequest>>&
+        resultRequests) {
+  for (const auto& entry : resultRequests) {
+    auto resultRequest = entry.second.get();
+
+    VLOG(1) << "Processing pending result request for task "
+            << resultRequest->taskId << ", buffer " << resultRequest->bufferId
+            << ", sequence " << resultRequest->token;
+    getData(
+        resultRequest->promise.lock(),
+        resultRequest->taskId,
+        resultRequest->bufferId,
+        resultRequest->token,
+        resultRequest->maxSize,
+        *bufferManager_);
+  }
+}
 
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& updateRequest,
-    const velox::core::PlanFragment& planFragment) {
-  const auto& session = updateRequest.session;
-
+    const velox::core::PlanFragment& planFragment,
+    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    long startProcessCpuTime) {
   return createOrUpdateTask(
       taskId,
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
-      toConfigs(session),
-      toConnectorConfigs(session));
+      queryCtx,
+      startProcessCpuTime);
 }
 
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
-    const velox::core::PlanFragment& planFragment) {
+    const velox::core::PlanFragment& planFragment,
+    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    long startProcessCpuTime) {
   auto updateRequest = batchUpdateRequest.taskUpdateRequest;
 
   checkSplitsForBatchTask(planFragment.planNode, updateRequest.sources);
-
-  const auto& session = updateRequest.session;
 
   return createOrUpdateTask(
       taskId,
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
-      toConfigs(session),
-      toConnectorConfigs(session));
+      std::move(queryCtx),
+      startProcessCpuTime);
 }
 
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
@@ -352,14 +422,11 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     const velox::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
-    std::unordered_map<std::string, std::string>&& configStrings,
-    std::unordered_map<
-        std::string,
-        std::unordered_map<std::string, std::string>>&&
-        connectorConfigStrings) {
+    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    long startProcessCpuTime) {
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
-  auto prestoTask = findOrCreateTask(taskId);
+  auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     if (not prestoTask->task && planFragment.planNode) {
@@ -369,12 +436,10 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
         return std::make_unique<TaskInfo>(prestoTask->updateInfoLocked());
       }
 
-      auto queryCtx = queryContextManager_.findOrCreateQueryCtx(
-          taskId, std::move(configStrings), std::move(connectorConfigStrings));
-
       execTask = exec::Task::create(
           taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
-      maybeSetupTaskSpillDirectory(planFragment, *execTask);
+      auto baseSpillDir = *(baseSpillDir_.rlock());
+      maybeSetupTaskSpillDirectory(planFragment, *execTask, baseSpillDir);
 
       prestoTask->task = execTask;
       prestoTask->info.needsPlan = false;
@@ -383,7 +448,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       execTask = prestoTask->task;
     }
   }
-  // outside of prestoTask->mutex.
+  // Outside of prestoTask->mutex.
   VELOX_CHECK(
       execTask,
       "Task update received before setting a plan. The splits in "
@@ -431,16 +496,16 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
   getDataForResultRequests(resultRequests);
 
-  if (outputBuffers.type == protocol::BufferType::BROADCAST &&
-      !execTask->updateBroadcastOutputBuffers(
+  if (outputBuffers.type != protocol::BufferType::PARTITIONED &&
+      !execTask->updateOutputBuffers(
           outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds)) {
-    LOG(INFO) << "Failed to update broadcast buffers for task: " << taskId;
+    LOG(WARNING) << "Failed to update output buffers for task: " << taskId;
   }
 
   for (const auto& source : sources) {
     // Add all splits from the source to the task.
-    LOG(INFO) << "Adding " << source.splits.size() << " splits to " << taskId
-              << " for node " << source.planNodeId;
+    VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
+            << " for node " << source.planNodeId;
     // Keep track of the max sequence for this batch of splits.
     long maxSplitSequenceId{-1};
     for (const auto& protocolSplit : source.splits) {
@@ -488,20 +553,19 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
     bool /*abort*/) {
   LOG(INFO) << "Deleting task " << taskId;
   // Fast. non-blocking delete and cancel serialized on 'taskMap'.
-  auto taskMap = taskMap_.wlock();
-  auto it = taskMap->find(taskId);
-  if (it == taskMap->cend()) {
-    VLOG(1) << "Task not found for delete: " << taskId;
-    // If task is not found than we observe DELETE message coming before CREATE.
-    // In that case we create the task with ABORTED state, so we know we don't
-    // need to do anything on CREATE message and can clean up the cancelled task
-    // later.
-    auto prestoTask = findOrCreateTaskLocked(*taskMap, taskId);
-    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
-    return std::make_unique<TaskInfo>(prestoTask->info);
-  }
+  std::shared_ptr<facebook::presto::PrestoTask> prestoTask;
 
-  auto prestoTask = it->second;
+  taskMap_.withRLock([&](const auto& taskMap) {
+    auto it = taskMap.find(taskId);
+    if (it != taskMap.cend()) {
+      prestoTask = it->second;
+    }
+  });
+
+  if (prestoTask == nullptr) {
+    VLOG(1) << "Task not found for delete: " << taskId;
+    prestoTask = findOrCreateTask(taskId, 0);
+  }
 
   std::lock_guard<std::mutex> l(prestoTask->mutex);
   prestoTask->updateHeartbeatLocked();
@@ -514,6 +578,13 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
     prestoTask->info.stats.endTime =
         util::toISOTimestamp(velox::getCurrentTimeMs());
     prestoTask->updateInfoLocked();
+  } else {
+    // If task is not found than we observe DELETE message coming before
+    // CREATE. In that case we create the task with ABORTED state, so we know
+    // we don't need to do anything on CREATE message and can clean up the
+    // cancelled task later.
+    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
+    return std::make_unique<TaskInfo>(prestoTask->info);
   }
 
   // Do not erase the finished/aborted tasks, because someone might still want
@@ -526,72 +597,13 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
   return std::make_unique<TaskInfo>(prestoTask->info);
 }
 
-namespace {
-
-// Helper structure holding stats for 'zombie' tasks.
-struct ZombieTaskCounts {
-  size_t numRunning{0};
-  size_t numFinished{0};
-  size_t numCanceled{0};
-  size_t numAborted{0};
-  size_t numFailed{0};
-  size_t numTotal{0};
-
-  const size_t numSampleTaskId{20};
-  std::vector<std::string> taskIds;
-
-  ZombieTaskCounts() {
-    taskIds.reserve(numSampleTaskId);
-  }
-
-  void updateCounts(std::shared_ptr<exec::Task>& task) {
-    switch (task->state()) {
-      case exec::TaskState::kRunning:
-        ++numRunning;
-        break;
-      case exec::TaskState::kFinished:
-        ++numFinished;
-        break;
-      case exec::TaskState::kCanceled:
-        ++numCanceled;
-        break;
-      case exec::TaskState::kAborted:
-        ++numAborted;
-        break;
-      case exec::TaskState::kFailed:
-        ++numFailed;
-        break;
-      default:
-        break;
-    }
-    if (taskIds.size() < numSampleTaskId) {
-      taskIds.emplace_back(task->taskId());
-    }
-  }
-
-  void logZombieTaskStatus(const std::string& hangingClassName) {
-    LOG(ERROR) << "There are " << numTotal << " zombie " << hangingClassName
-               << " that satisfy cleanup conditions but could not be "
-                  "cleaned up, because the "
-               << hangingClassName
-               << " are referenced by more than 1 owners. RUNNING["
-               << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
-               << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
-               << numFailed << "]  Sample task IDs (shows only "
-               << numSampleTaskId << " IDs): {" << folly::join(',', taskIds)
-               << "}";
-  }
-};
-
-}; // namespace
-
 size_t TaskManager::cleanOldTasks() {
   const auto startTimeMs = getCurrentTimeMs();
 
   folly::F14FastSet<protocol::TaskId> taskIdsToClean;
 
-  ZombieTaskCounts zombieVeloxTaskCounts;
-  ZombieTaskCounts zombiePrestoTaskCounts;
+  ZombieTaskStatsSet zombieVeloxTaskCounts;
+  ZombieTaskStatsSet zombiePrestoTaskCounts;
   {
     // We copy task map locally to avoid locking task map for a potentially long
     // time. We also lock for 'read'.
@@ -601,14 +613,14 @@ size_t TaskManager::cleanOldTasks() {
       bool eraseTask{false};
       if (it->second->task != nullptr) {
         if (it->second->task->state() != exec::TaskState::kRunning) {
-          if (it->second->task->timeSinceEndMs() >= FLAGS_old_task_ms) {
+          if (it->second->task->timeSinceEndMs() >= oldTaskCleanUpMs_) {
             // Not running and old.
             eraseTask = true;
           }
         }
       } else {
         // Use heartbeat to determine the task's age.
-        if (it->second->timeSinceLastHeartbeatMs() >= FLAGS_old_task_ms) {
+        if (it->second->timeSinceLastHeartbeatMs() >= oldTaskCleanUpMs_) {
           eraseTask = true;
         }
       }
@@ -645,15 +657,18 @@ size_t TaskManager::cleanOldTasks() {
 
   const auto elapsedMs = (getCurrentTimeMs() - startTimeMs);
   if (not taskIdsToClean.empty()) {
+    std::vector<std::shared_ptr<PrestoTask>> tasksToDelete;
+    tasksToDelete.reserve(taskIdsToClean.size());
     {
       // Remove tasks from the task map. We briefly lock for write here.
       auto writableTaskMap = taskMap_.wlock();
       for (const auto& taskId : taskIdsToClean) {
+        tasksToDelete.push_back(std::move(writableTaskMap->at(taskId)));
         writableTaskMap->erase(taskId);
       }
     }
     LOG(INFO) << "cleanOldTasks: Cleaned " << taskIdsToClean.size()
-              << " old task(s) in " << elapsedMs << "ms";
+              << " old task(s) in " << elapsedMs << " ms";
   } else if (elapsedMs > 1000) {
     // If we took more than 1 second to run this, something might be wrong.
     LOG(INFO) << "cleanOldTasks: Didn't clean any old task(s). Took "
@@ -905,27 +920,30 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
 
 void TaskManager::removeRemoteSource(
     const TaskId& taskId,
-    const TaskId& remoteSourceTaskId) {}
-
-std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
-    const TaskId& taskId) {
-  auto taskMap = taskMap_.wlock();
-  return findOrCreateTaskLocked(*taskMap, taskId);
+    const TaskId& remoteSourceTaskId) {
+  VELOX_NYI();
 }
 
-std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
-    TaskMap& taskMap,
-    const TaskId& taskId) {
-  auto it = taskMap.find(taskId);
-  if (it != taskMap.end()) {
-    auto prestoTask = it->second;
+std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
+    const TaskId& taskId,
+    long startProcessCpuTime) {
+  std::shared_ptr<PrestoTask> prestoTask;
+  taskMap_.withRLock([&](const auto& taskMap) {
+    auto it = taskMap.find(taskId);
+    if (it != taskMap.end()) {
+      prestoTask = it->second;
+    }
+  });
+
+  if (prestoTask != nullptr) {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateHeartbeatLocked();
     ++prestoTask->info.taskStatus.version;
     return prestoTask;
   }
 
-  auto prestoTask = std::make_shared<PrestoTask>(taskId, nodeId_);
+  prestoTask =
+      std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
   prestoTask->info.stats.createTime =
       util::toISOTimestamp(velox::getCurrentTimeMs());
   prestoTask->info.needsPlan = true;
@@ -951,11 +969,16 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
   prestoTask->info.taskStatus.state = protocol::TaskState::RUNNING;
   prestoTask->info.taskStatus.self =
       fmt::format("{}/v1/task/{}", baseUri_, taskId);
-  prestoTask->info.taskStatus.outputBufferUtilization = 1;
   prestoTask->updateHeartbeatLocked();
   ++prestoTask->info.taskStatus.version;
 
-  taskMap[taskId] = prestoTask;
+  taskMap_.withWLock([&](auto& taskMap) {
+    if (taskMap.count(taskId) == 0) {
+      taskMap[taskId] = prestoTask;
+    } else {
+      prestoTask = taskMap[taskId];
+    }
+  });
   return prestoTask;
 }
 
@@ -988,6 +1011,23 @@ DriverCountStats TaskManager::getDriverCountStats() const {
   return driverCountStats;
 }
 
+int32_t TaskManager::yieldTasks(
+    int32_t numTargetThreadsToYield,
+    int32_t timeSliceMicros) {
+  const auto taskMap = taskMap_.rlock();
+  int32_t numYields = 0;
+  uint64_t now = getCurrentTimeMicro();
+  for (const auto& pair : *taskMap) {
+    if (pair.second->task != nullptr) {
+      numYields += pair.second->task->yieldIfDue(now - timeSliceMicros);
+      if (numYields >= numTargetThreadsToYield) {
+        return numYields;
+      }
+    }
+  }
+  return numYields;
+}
+
 std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
   std::array<size_t, 5> res{0};
   auto taskMap = taskMap_.rlock();
@@ -1001,19 +1041,38 @@ std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
   return res;
 }
 
-void TaskManager::waitForTasksToComplete() {
+void TaskManager::shutdown() {
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
   while (taskNumbers[velox::exec::TaskState::kRunning] > 0) {
-    LOG(INFO) << "Waiting (" << seconds
-              << " seconds so far) for 'Running' tasks to complete. "
-              << numTasks << " tasks left: "
-              << PrestoTask::taskNumbersToString(taskNumbers);
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Waited (" << seconds
+        << " seconds so far) for 'Running' tasks to complete. " << numTasks
+        << " tasks left: " << PrestoTask::taskNumbersToString(taskNumbers);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     taskNumbers = getTaskNumbers(numTasks);
     ++seconds;
   }
+
+  taskMap_.withRLock([&](const TaskMap& taskMap) {
+    for (auto it = taskMap.begin(); it != taskMap.end(); ++it) {
+      const auto veloxTaskRefCount = it->second->task.use_count();
+      if (veloxTaskRefCount > 1) {
+        VELOX_CHECK_NOT_NULL(it->second->task);
+        PRESTO_SHUTDOWN_LOG(WARNING)
+            << "Velox task has pending reference on destruction: "
+            << it->second->task->taskId();
+        continue;
+      }
+      const auto prestoTaskRefCount = it->second.use_count();
+      if (prestoTaskRefCount > 1) {
+        PRESTO_SHUTDOWN_LOG(WARNING)
+            << "Presto task has pending reference on destruction: "
+            << it->second->id.toString();
+      }
+    }
+  });
 }
 
 } // namespace facebook::presto

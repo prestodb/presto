@@ -69,7 +69,6 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -323,7 +322,24 @@ public class PlanBuilder
 
     public RemoteSourceNode remoteSource(List<PlanFragmentId> sourceFragmentIds)
     {
-        return new RemoteSourceNode(Optional.empty(), idAllocator.getNextId(), sourceFragmentIds, ImmutableList.of(), false, Optional.empty(), REPARTITION);
+        return remoteSource(idAllocator.getNextId(), sourceFragmentIds, ImmutableList.of());
+    }
+
+    public RemoteSourceNode remoteSource(PlanNodeId planNodeId, List<PlanFragmentId> sourceFragmentIds, List<VariableReferenceExpression> outputVariables)
+    {
+        return new RemoteSourceNode(Optional.empty(), planNodeId, sourceFragmentIds, outputVariables, false, Optional.empty(), REPARTITION);
+    }
+
+    public RemoteSourceNode remoteSource(List<PlanFragmentId> sourceFragmentIds, PlanNode statsEquivalentPlanNode)
+    {
+        return new RemoteSourceNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                Optional.of(statsEquivalentPlanNode),
+                sourceFragmentIds, ImmutableList.of(),
+                false,
+                Optional.empty(),
+                REPARTITION);
     }
 
     public CallExpression binaryOperation(OperatorType operatorType, RowExpression left, RowExpression right)
@@ -920,6 +936,7 @@ public class PlanBuilder
                 partitionBy,
                 rowNumberVariable,
                 maxRowCountPerPartition,
+                false,
                 Optional.empty());
     }
 
@@ -932,11 +949,6 @@ public class PlanBuilder
                 replicateVariables,
                 unnestVariables,
                 ordinalityVariable);
-    }
-
-    public NativeExecutionNode nativeExecution(PlanNode subPlan)
-    {
-        return new NativeExecutionNode(subPlan);
     }
 
     public static Expression expression(String sql)
@@ -975,7 +987,7 @@ public class PlanBuilder
                 expression,
                 expressionTypes,
                 ImmutableMap.of(),
-                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                metadata.getFunctionAndTypeManager(),
                 session);
     }
 

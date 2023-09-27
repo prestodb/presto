@@ -20,7 +20,7 @@ export nproc=$(getconf _NPROCESSORS_ONLN)
 
 dnf install -y maven
 dnf install -y java
-dnf install -y python3
+dnf install -y python3-devel
 dnf install -y clang-tools-extra
 dnf install -y jq
 dnf install -y perl-XML-XPath
@@ -67,7 +67,7 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
   git clone https://github.com/facebook/folly &&
   cd folly &&
   git checkout $FB_OS_VERSION &&
-  cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
+  cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON -DFOLLY_HAVE_INT128_T=ON
 )
 
 (

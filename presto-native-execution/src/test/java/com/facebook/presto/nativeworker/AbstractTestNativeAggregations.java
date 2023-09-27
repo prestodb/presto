@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
@@ -62,13 +63,13 @@ public abstract class AbstractTestNativeAggregations
 
         assertQuery("SELECT sum(custkey), clerk FROM orders GROUP BY clerk HAVING sum(custkey) > 10000");
 
-        // TODO results from array_agg() are not deterministic so we just compare cardinality for the time being
-        // We can switch to array_sort() once it becomes available from velox
-        assertQuery("SELECT orderkey, cardinality(array_agg(linenumber)) FROM lineitem GROUP BY 1");
+        assertQuery("SELECT orderkey, array_sort(array_agg(linenumber)) FROM lineitem GROUP BY 1");
         assertQuery("SELECT orderkey, map_agg(linenumber, discount) FROM lineitem GROUP BY 1");
 
-        // TODO results from map_union() are not deterministic so we just compare cardinality for the time being
-        assertQuery("SELECT cardinality(map_union(quantity_by_linenumber)) FROM orders_ex");
+        assertQuery("SELECT array_agg(nationkey ORDER BY name) FROM nation");
+        assertQuery("SELECT orderkey, array_agg(quantity ORDER BY linenumber DESC) FROM lineitem GROUP BY 1");
+
+        assertQuery("SELECT array_sort(map_keys(map_union(quantity_by_linenumber))) FROM orders_ex");
 
         assertQuery("SELECT orderkey, count_if(linenumber % 2 > 0) FROM lineitem GROUP BY 1");
         assertQuery("SELECT orderkey, bool_and(linenumber % 2 = 1) FROM lineitem GROUP BY 1");
@@ -102,6 +103,9 @@ public abstract class AbstractTestNativeAggregations
 
         // distinct limit
         assertQueryResultCount("SELECT orderkey FROM lineitem GROUP BY 1 LIMIT 17", 17);
+
+        // aggregation with no grouping keys and no aggregates
+        assertQuery("with a as (select sum(nationkey) from nation) select x from a, unnest(array[1, 2,3]) as t(x)");
     }
 
     @Test
@@ -174,33 +178,52 @@ public abstract class AbstractTestNativeAggregations
     {
         // tinyint
         assertQuery("SELECT min(cast(linenumber as tinyint)), max(cast(linenumber as tinyint)) FROM lineitem");
+        assertQuery("SELECT min(cast(linenumber as tinyint), 2), max(cast(linenumber as tinyint), 3) FROM lineitem");
         // smallint
         assertQuery("SELECT min(cast(linenumber as smallint)), max(cast(linenumber as smallint)) FROM lineitem");
+        assertQuery("SELECT min(cast(linenumber as smallint), 2), max(cast(linenumber as smallint), 3) FROM lineitem");
         // integer
         assertQuery("SELECT min(linenumber), max(linenumber) FROM lineitem");
+        assertQuery("SELECT min(linenumber, 3), max(linenumber, 2) FROM lineitem");
         // bigint
         assertQuery("SELECT min(orderkey), max(orderkey) FROM lineitem");
+        assertQuery("SELECT min(orderkey, 10), max(orderkey, 100) FROM lineitem");
         // real
         assertQuery("SELECT min(cast(quantity as real)), max(cast(quantity as real)) FROM lineitem");
+        assertQuery("SELECT min(cast(quantity as real), 7), max(cast(quantity as real), 5) FROM lineitem");
         // double
         assertQuery("SELECT min(quantity), max(quantity) FROM lineitem");
+        assertQuery("SELECT min(quantity, 8), max(quantity, 6) FROM lineitem");
         // timestamp
         assertQuery("SELECT min(from_unixtime(orderkey)), max(from_unixtime(orderkey)) FROM lineitem");
+        assertQueryFails("SELECT min(from_unixtime(orderkey), 2), max(from_unixtime(orderkey), 3) FROM lineitem",
+                ".*Aggregate function signature is not supported.*");
         // Commitdate is cast to date here since the original commitdate column read from lineitem in dwrf format is
         // of type char. The cast to date can be removed for Parquet which has date support.
         assertQuery("SELECT min(cast(commitdate as date)), max(cast(commitdate as date)) FROM lineitem");
+        assertQueryFails("SELECT min(cast(commitdate as date), 2), max(cast(commitdate as date), 3) FROM lineitem",
+                ".*Aggregate function signature is not supported.*");
     }
 
     @Test
     public void testMinMaxBy()
     {
-        // TODO(spershin): Need to add use cases with non-numeric types when implemented.
         // We use filters to make queries deterministic.
         assertQuery("SELECT max_by(partkey, orderkey), max_by(quantity, orderkey), max_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
         assertQuery("SELECT min_by(partkey, orderkey), min_by(quantity, orderkey), min_by(tax_as_real, orderkey) FROM lineitem where shipmode='MAIL'");
 
         assertQuery("SELECT max_by(orderkey, extendedprice), max_by(orderkey, cast(extendedprice as REAL)) FROM lineitem");
         assertQuery("SELECT min_by(orderkey, extendedprice), min_by(orderkey, cast(extendedprice as REAL)) FROM lineitem where shipmode='MAIL'");
+
+        // 3 argument variant of max_by, min_by
+        assertQuery("SELECT max_by(orderkey, linenumber, 5), min_by(orderkey, linenumber, 5) FROM lineitem GROUP BY orderkey");
+
+        // Non-numeric arguments
+        assertQuery("SELECT max_by(row(orderkey, custkey), orderkey, 5), min_by(row(orderkey, custkey), orderkey, 5) FROM orders");
+        assertQuery("SELECT max_by(row(orderkey, linenumber), linenumber, 5), min_by(row(orderkey, linenumber), linenumber, 5) FROM lineitem GROUP BY orderkey");
+        assertQuery("SELECT orderkey, MAX_BY(v, c, 5), MIN_BY(v, c, 5) FROM " +
+                "(SELECT orderkey, 'This is a long line ' || CAST(orderkey AS VARCHAR) AS v, 'This is also a really long line ' || CAST(linenumber AS VARCHAR) AS c FROM lineitem) " +
+                "GROUP BY 1");
     }
 
     @Test
@@ -280,10 +303,36 @@ public abstract class AbstractTestNativeAggregations
     }
 
     @Test
-    public void testUnsupported()
+    public void testMultiMapAgg()
     {
-        assertQueryFails("SELECT array_agg(nationkey ORDER BY name) FROM nation",
-                ".* Aggregations with ORDER BY are not supported yet.");
+        assertQuery("SELECT orderkey, multimap_agg(linenumber % 3, discount) FROM lineitem GROUP BY 1");
+    }
+
+    @Test
+    public void testMarkDistinct()
+    {
+        assertQuery("SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
+        assertQuery("SELECT orderkey, count(distinct comment), sum(distinct linenumber) FROM lineitem GROUP BY 1");
+    }
+
+    @Test
+    public void testDistinct()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("use_mark_distinct", "falze")
+                .build();
+        assertQuery(session, "SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
+        assertQuery(session, "SELECT count(distinct orderkey), sum(distinct linenumber), array_sort(array_agg(distinct linenumber)) FROM lineitem");
+        assertQueryFails(session, "SELECT count(distinct orderkey), array_agg(distinct linenumber ORDER BY linenumber) FROM lineitem",
+                ".*Aggregations over sorted unique values are not supported yet");
+    }
+
+    @Test
+    public void testReduceAgg()
+    {
+        assertQuery("SELECT reduce_agg(orderkey, 0, (x, y) -> x + y, (x, y) -> x + y) FROM orders");
+        assertQuery("SELECT orderkey, reduce_agg(linenumber, 0, (x, y) -> x + y, (x, y) -> x + y) FROM lineitem GROUP BY orderkey");
+        assertQuery("SELECT orderkey, array_sort(reduce_agg(linenumber, array[], (s, x) -> s || x, (s, s2) -> s || s2)) FROM lineitem GROUP BY orderkey");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)

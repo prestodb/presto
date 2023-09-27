@@ -70,6 +70,7 @@ public abstract class AbstractTestNativeJoinQueries
     @Test(dataProvider = "joinTypeProvider")
     public void testSemiJoin(Session joinTypeSession)
     {
+        assertQuery(joinTypeSession, "SELECT * FROM orders WHERE orderdate IN (SELECT shipdate FROM lineitem) or orderdate IN (SELECT commitdate FROM lineitem)");
         assertQuery(joinTypeSession, "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
         assertQuery(joinTypeSession, "SELECT * FROM lineitem " +
                 "WHERE linenumber = 3 OR orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
@@ -104,6 +105,7 @@ public abstract class AbstractTestNativeJoinQueries
         assertQuery("SELECT * FROM nation n, region r WHERE n.regionkey < r.regionkey");
 
         assertQueryReturnsEmptyResult("SELECT l.linenumber FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND o.orderkey = 12345 AND o.totalprice > 0");
+
         assertQuery("SELECT l.linenumber FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND o.orderkey = 14209 AND o.totalprice > 0");
 
         assertQuery("SELECT * FROM nation_partitioned a, nation_partitioned b");
@@ -116,6 +118,19 @@ public abstract class AbstractTestNativeJoinQueries
     {
         String sql = "SELECT COUNT(*) FROM lineitem_bucketed a, orders_bucketed b WHERE a.orderkey = b.orderkey AND a.ds = '2021-12-20' AND b.ds = '2021-12-20'";
         assertQuery(mergeJoin(), sql, getSession(), sql);
+    }
+
+    @Test
+    public void testJoinsWithoutEquiClause()
+    {
+        // Test double filtered left, right, full and inner joins with right constant equality.
+        String query = "SELECT count(*) FROM (SELECT * FROM lineitem WHERE orderkey %% 1024 = 0) "
+                + "lineitem %s JOIN (SELECT * FROM orders WHERE orderkey %% 1024 = 0) "
+                + "orders ON orders.orderkey = 1024";
+        assertQuery(String.format(query, "LEFT"));
+        assertQuery(String.format(query, "RIGHT"));
+        assertQuery(String.format(query, "FULL"));
+        assertQuery(String.format(query, "INNER"));
     }
 
     @DataProvider(name = "joinTypeProvider")

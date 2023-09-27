@@ -25,9 +25,12 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.verifier.source.MySqlSourceQuerySupplier.MYSQL_SOURCE_QUERY_SUPPLIER;
+import static java.util.Locale.ENGLISH;
 
 public class VerifierConfig
 {
+    public static final String CONTROL_TEST_MODE = "control-test";
+    public static final String QUERY_BANK_MODE = "query-bank";
     private Optional<Set<String>> whitelist = Optional.empty();
     private Optional<Set<String>> blacklist = Optional.empty();
 
@@ -55,6 +58,8 @@ public class VerifierConfig
     private boolean concurrentControlAndTest;
 
     private boolean explain;
+    private boolean saveSnapshot;
+    private String runningMode = CONTROL_TEST_MODE;
 
     @NotNull
     public Optional<Set<String>> getWhitelist()
@@ -343,6 +348,34 @@ public class VerifierConfig
     public VerifierConfig setConcurrentControlAndTest(boolean concurrentControlAndTest)
     {
         this.concurrentControlAndTest = concurrentControlAndTest;
+        return this;
+    }
+
+    public boolean isSaveSnapshot()
+    {
+        return saveSnapshot;
+    }
+    @ConfigDescription("Save control query results to database as snapshots.")
+    @Config("save-snapshot")
+    public VerifierConfig setSaveSnapshot(boolean saveSnapshot)
+    {
+        this.saveSnapshot = saveSnapshot;
+        return this;
+    }
+
+    public String getRunningMode()
+    {
+        return runningMode;
+    }
+
+    @ConfigDescription("Set running mode to 'control-test' or 'query-bank'.")
+    @Config("running-mode")
+    public VerifierConfig setRunningMode(String runningMode)
+    {
+        this.runningMode = runningMode;
+        if (QUERY_BANK_MODE.toLowerCase(ENGLISH).equals(runningMode)) {
+            skipControl = true;
+        }
         return this;
     }
 }

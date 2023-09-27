@@ -46,6 +46,8 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
@@ -614,6 +616,11 @@ public final class PlanMatchPattern
         return node(TableWriterNode.class, source).with(new TableWriterMatcher(columns, columnNames));
     }
 
+    public static PlanMatchPattern remoteSource(List<PlanFragmentId> sourceFragmentIds, Map<String, Integer> outputSymbolAliases)
+    {
+        return node(RemoteSourceNode.class).with(new RemoteSourceMatcher(sourceFragmentIds, outputSymbolAliases));
+    }
+
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
     {
         requireNonNull(sourcePatterns, "sourcePatterns are null");
@@ -746,6 +753,12 @@ public final class PlanMatchPattern
     public PlanMatchPattern withOutputSize(double expectedOutputSize)
     {
         matchers.add(new StatsOutputSizeMatcher(expectedOutputSize));
+        return this;
+    }
+
+    public PlanMatchPattern withJoinBuildKeyStatistics(double expectedJoinBuildKeyCount, double expectedNullJoinBuildKeyCount)
+    {
+        matchers.add(new StatsJoinBuildKeyCountMatcher(expectedJoinBuildKeyCount, expectedNullJoinBuildKeyCount));
         return this;
     }
 

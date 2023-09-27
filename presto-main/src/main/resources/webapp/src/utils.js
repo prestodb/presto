@@ -199,14 +199,14 @@ export function addExponentiallyWeightedToHistory (value: number, valuesArray: n
 // DagreD3 Graph-related functions
 // ===============================
 
-export function initializeGraph()
+export function initializeGraph(): any
 {
     return new dagreD3.graphlib.Graph({compound: true})
         .setGraph({rankdir: 'BT'})
         .setDefaultEdgeLabel(function () { return {}; });
 }
 
-export function initializeSvg(selector: any)
+export function initializeSvg(selector: any): any
 {
     const svg = d3.select(selector);
     svg.append("g");
@@ -214,7 +214,7 @@ export function initializeSvg(selector: any)
     return svg;
 }
 
-export function getChildren(nodeInfo: any)
+export function getChildren(nodeInfo: any): any[]
 {
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
     const nodeType = removeNodeTypePackage(nodeInfo["@type"]);

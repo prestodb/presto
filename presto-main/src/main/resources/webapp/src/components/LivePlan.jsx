@@ -35,19 +35,30 @@ type StageNodeInfo = {
     nodes: Map<string, any>,
 }
 
+type OutputStage = {
+    subStages: any,
+    stageId: string,
+    latestAttemptExecutionInfo: any,
+    plan: any
+}
+
+type QueryInfo = {
+    outputStage: OutputStage
+}
+
 class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
-    static getStages(queryInfo): Map<string, StageNodeInfo> {
+    static getStages(queryInfo: QueryInfo): Map<string, StageNodeInfo> {
         const stages: Map<string, StageNodeInfo> = new Map();
         StageStatistics.flattenStage(queryInfo.outputStage, stages);
         return stages;
     }
 
-    static flattenStage(stageInfo, result) {
+    static flattenStage(stageInfo: OutputStage, result: any) {
         stageInfo.subStages.forEach(function (stage) {
             StageStatistics.flattenStage(stage, result);
         });
 
-        const nodes = new Map();
+        const nodes = new Map<any, any>();
         StageStatistics.flattenNode(result, stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes);
 
         result.set(stageInfo.plan.id, {
@@ -61,7 +72,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         });
     }
 
-    static flattenNode(stages, rootNodeInfo, node: any, result: Map<any, PlanNodeProps>) {
+    static flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any, PlanNodeProps>) {
         result.set(node.id, {
             id: node.id,
             name: node['name'],
@@ -76,7 +87,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         });
     }
 
-    render() {
+    render(): any {
         const stage = this.props.stage;
         const stats = this.props.stage.stageStats;
         return (
@@ -119,7 +130,7 @@ class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
         super(props);
     }
 
-    render() {
+    render(): any {
         return (
             <div style={{color: "#000"}} data-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
                  title={"<h4>" + this.props.name + "</h4>" + this.props.identifier}>
@@ -173,7 +184,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         }
     }
 
-    refreshLoop() {
+    refreshLoop: () => void = () => {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         fetch('/v1/query/' + this.props.queryId)
             .then(response => response.json())
@@ -199,7 +210,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
     }
 
     componentDidMount() {
-        this.refreshLoop.bind(this)();
+        this.refreshLoop();
     }
 
     updateD3Stage(stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) {
@@ -301,11 +312,11 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         $('[data-toggle="tooltip"]').tooltip()
     }
 
-    render() {
+    render(): any {
         const query = this.state.query;
 
         if (query === null || this.state.initialized === false) {
-            let label = (<div className="loader">Loading...</div>);
+            let label: any = (<div className="loader">Loading...</div>);
             if (this.state.initialized) {
                 label = "Query not found";
             }

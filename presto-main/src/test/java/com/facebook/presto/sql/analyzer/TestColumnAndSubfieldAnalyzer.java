@@ -50,6 +50,28 @@ public class TestColumnAndSubfieldAnalyzer
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of()));
     }
 
+    public void testIsNull()
+    {
+        assertTableColumns(
+                "SELECT a IS NULL FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of()));
+
+        assertTableColumns(
+                "SELECT transform(b.x, yo -> yo IS NULL) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of()));
+    }
+
+    public void testIsNotNull()
+    {
+        assertTableColumns(
+                "SELECT a IS NOT NULL FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of()));
+
+        assertTableColumns(
+                "SELECT transform(b.x, yo -> yo IS NOT NULL) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of()));
+    }
+
     @Test
     public void testTransform()
     {

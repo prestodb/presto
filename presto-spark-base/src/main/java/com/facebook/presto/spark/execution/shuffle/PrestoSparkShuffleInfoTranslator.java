@@ -16,8 +16,6 @@ package com.facebook.presto.spark.execution.shuffle;
 import com.facebook.presto.Session;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleReadDescriptor;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleWriteDescriptor;
-import com.facebook.presto.spark.execution.PrestoSparkShuffleReadInfo;
-import com.facebook.presto.spark.execution.PrestoSparkShuffleWriteInfo;
 
 /**
  * PrestoSparkShuffleInfoTranslator is used to translate the {@link PrestoSparkShuffleWriteDescriptor} and

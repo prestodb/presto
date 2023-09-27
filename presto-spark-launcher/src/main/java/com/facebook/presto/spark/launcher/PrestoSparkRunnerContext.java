@@ -16,6 +16,7 @@ package com.facebook.presto.spark.launcher;
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -43,7 +44,7 @@ public class PrestoSparkRunnerContext
     private final Optional<String> sparkQueueName;
     private final Optional<String> queryStatusInfoOutputLocation;
     private final Optional<String> queryDataOutputLocation;
-    private final Optional<RetryExecutionStrategy> retryExecutionStrategy;
+    private final List<RetryExecutionStrategy> retryExecutionStrategies;
 
     public PrestoSparkRunnerContext(
             String user,
@@ -65,7 +66,7 @@ public class PrestoSparkRunnerContext
             Optional<String> sparkQueueName,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+            List<RetryExecutionStrategy> retryExecutionStrategies)
     {
         this.user = user;
         this.principal = principal;
@@ -86,7 +87,7 @@ public class PrestoSparkRunnerContext
         this.sparkQueueName = sparkQueueName;
         this.queryStatusInfoOutputLocation = queryStatusInfoOutputLocation;
         this.queryDataOutputLocation = queryDataOutputLocation;
-        this.retryExecutionStrategy = retryExecutionStrategy;
+        this.retryExecutionStrategies = retryExecutionStrategies;
     }
 
     public String getUser()
@@ -184,9 +185,9 @@ public class PrestoSparkRunnerContext
         return queryDataOutputLocation;
     }
 
-    public Optional<RetryExecutionStrategy> getRetryExecutionStrategy()
+    public List<RetryExecutionStrategy> getRetryExecutionStrategies()
     {
-        return retryExecutionStrategy;
+        return retryExecutionStrategies;
     }
 
     public static class Builder
@@ -210,7 +211,7 @@ public class PrestoSparkRunnerContext
         private Optional<String> sparkQueueName;
         private Optional<String> queryStatusInfoOutputLocation;
         private Optional<String> queryDataOutputLocation;
-        private Optional<RetryExecutionStrategy> retryExecutionStrategy;
+        private List<RetryExecutionStrategy> retryExecutionStrategies;
 
         public Builder(PrestoSparkRunnerContext prestoSparkRunnerContext)
         {
@@ -233,12 +234,12 @@ public class PrestoSparkRunnerContext
             this.sparkQueueName = prestoSparkRunnerContext.getSparkQueueName();
             this.queryStatusInfoOutputLocation = prestoSparkRunnerContext.getQueryStatusInfoOutputLocation();
             this.queryDataOutputLocation = prestoSparkRunnerContext.getQueryDataOutputLocation();
-            this.retryExecutionStrategy = prestoSparkRunnerContext.getRetryExecutionStrategy();
+            this.retryExecutionStrategies = prestoSparkRunnerContext.getRetryExecutionStrategies();
         }
 
-        public Builder setRetryExecutionStrategy(Optional<RetryExecutionStrategy> retryExecutionStrategy)
+        public Builder setRetryExecutionStrategies(List<RetryExecutionStrategy> retryExecutionStrategies)
         {
-            this.retryExecutionStrategy = requireNonNull(retryExecutionStrategy, "retryExecutionStrategy is null");
+            this.retryExecutionStrategies = requireNonNull(retryExecutionStrategies, "retryExecutionStrategies is null");
             return this;
         }
 
@@ -264,7 +265,7 @@ public class PrestoSparkRunnerContext
                     sparkQueueName,
                     queryStatusInfoOutputLocation,
                     queryDataOutputLocation,
-                    retryExecutionStrategy);
+                    retryExecutionStrategies);
         }
     }
 }

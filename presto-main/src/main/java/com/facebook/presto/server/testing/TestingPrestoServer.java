@@ -440,6 +440,7 @@ public class TestingPrestoServer
         serverProperties.put("task.max-worker-threads", "4");
         serverProperties.put("exchange.client-threads", "4");
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
+        serverProperties.put("internal-communication.shared-secret", "internal-shared-secret");
         if (coordinator || resourceManager || catalogServer) {
             // enabling failure detector in tests can make them flakey
             serverProperties.put("failure-detector.enabled", "false");

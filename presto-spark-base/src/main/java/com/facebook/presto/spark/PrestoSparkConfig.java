@@ -66,6 +66,7 @@ public class PrestoSparkConfig
     private boolean hashPartitionCountAllocationStrategyEnabled;
     private boolean adaptiveQueryExecutionEnabled;
     private boolean adaptiveJoinSideSwitchingEnabled;
+    private String nativeExecutionBroadcastBasePath;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -475,6 +476,19 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setAdaptiveJoinSideSwitchingEnabled(boolean adaptiveJoinSideSwitchingEnabled)
     {
         this.adaptiveJoinSideSwitchingEnabled = adaptiveJoinSideSwitchingEnabled;
+        return this;
+    }
+
+    public String getNativeExecutionBroadcastBasePath()
+    {
+        return nativeExecutionBroadcastBasePath;
+    }
+
+    @Config("native-execution-broadcast-base-path")
+    @ConfigDescription("Base path for temporary broadcast files for native execution")
+    public PrestoSparkConfig setNativeExecutionBroadcastBasePath(String nativeExecutionBroadcastBasePath)
+    {
+        this.nativeExecutionBroadcastBasePath = nativeExecutionBroadcastBasePath;
         return this;
     }
 }

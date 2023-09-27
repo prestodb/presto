@@ -31,7 +31,7 @@ import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.RpcShuffleClient;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
+import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -41,6 +41,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.http.client.HttpStatus.familyForStatusCode;
@@ -76,6 +77,7 @@ public class PrestoSparkHttpTaskClient
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration infoRefreshMaxWait;
+    private final Map<String, TokenAuthenticator> tokenAuthenticator;
 
     public PrestoSparkHttpTaskClient(
             HttpClient httpClient,
@@ -84,7 +86,8 @@ public class PrestoSparkHttpTaskClient
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
             JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
-            Duration infoRefreshMaxWait)
+            Duration infoRefreshMaxWait,
+            Map<String, TokenAuthenticator> tokenAuthenticators)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
@@ -92,8 +95,9 @@ public class PrestoSparkHttpTaskClient
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
-        this.taskUri = getTaskUri(location, taskId);
+        this.taskUri = createTaskUri(location, taskId);
         this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
+        this.tokenAuthenticator = requireNonNull(tokenAuthenticators, "tokenAuthenticator is null");
     }
 
     /**
@@ -191,6 +195,7 @@ public class PrestoSparkHttpTaskClient
             PlanFragment planFragment,
             TableWriteInfo tableWriteInfo,
             Optional<String> shuffleWriteInfo,
+            Optional<String> broadcastBasePath,
             Session session,
             OutputBuffers outputBuffers)
     {
@@ -203,12 +208,11 @@ public class PrestoSparkHttpTaskClient
                 sources,
                 outputBuffers,
                 writeInfo);
-        BatchTaskUpdateRequest batchTaskUpdateRequest = new BatchTaskUpdateRequest(updateRequest, shuffleWriteInfo);
+        BatchTaskUpdateRequest batchTaskUpdateRequest = new BatchTaskUpdateRequest(updateRequest, shuffleWriteInfo, broadcastBasePath);
 
         URI batchTaskUri = uriBuilderFrom(taskUri)
                 .appendPath("batch")
                 .build();
-        log.info(format("BatchTaskUpdate: \n %s", taskUpdateRequestCodec.toJson(batchTaskUpdateRequest)));
         return httpClient.executeAsync(
                 setContentTypeHeaders(false, preparePost())
                         .setUri(batchTaskUri)
@@ -222,11 +226,21 @@ public class PrestoSparkHttpTaskClient
         return location;
     }
 
-    private URI getTaskUri(URI baseUri, TaskId taskId)
+    public URI getTaskUri()
+    {
+        return taskUri;
+    }
+
+    private URI createTaskUri(URI baseUri, TaskId taskId)
     {
         return uriBuilderFrom(baseUri)
                 .appendPath(TASK_URI)
                 .appendPath(taskId.toString())
                 .build();
+    }
+
+    public Map<String, TokenAuthenticator> getTokenAuthenticator()
+    {
+        return tokenAuthenticator;
     }
 }

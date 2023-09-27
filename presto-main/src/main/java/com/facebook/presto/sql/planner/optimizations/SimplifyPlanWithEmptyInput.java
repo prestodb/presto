@@ -102,14 +102,28 @@ import static java.util.function.Function.identity;
 public class SimplifyPlanWithEmptyInput
         implements PlanOptimizer
 {
+    private boolean isEnabledForTesting;
+
+    @Override
+    public void setEnabledForTesting(boolean isSet)
+    {
+        isEnabledForTesting = isSet;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isEnabledForTesting || isSimplifyPlanWithEmptyInputEnabled(session);
+    }
+
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        if (isSimplifyPlanWithEmptyInputEnabled(session)) {
+        if (isEnabled(session)) {
             Rewriter rewriter = new Rewriter(idAllocator);
             PlanNode rewrittenNode = SimplePlanRewriter.rewriteWith(rewriter, plan);
             if (rewriter.isPlanChanged()) {
-                session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(SimplifyPlanWithEmptyInput.class.getSimpleName(), true, Optional.empty()));
+                session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(SimplifyPlanWithEmptyInput.class.getSimpleName(), true, Optional.empty(), Optional.empty()));
             }
             return rewrittenNode;
         }

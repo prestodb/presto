@@ -310,7 +310,7 @@ public class IcebergPageSink
         return new WriteContext(writer, outputPath, partitionData);
     }
 
-    private static Optional<PartitionData> getPartitionData(List<PartitionColumn> columns, Page page, int position)
+    private Optional<PartitionData> getPartitionData(List<PartitionColumn> columns, Page page, int position)
     {
         if (columns.isEmpty()) {
             return Optional.empty();
@@ -321,16 +321,17 @@ public class IcebergPageSink
             PartitionColumn column = columns.get(i);
             Block block = page.getBlock(column.getSourceChannel());
             Type type = column.getSourceType();
+            org.apache.iceberg.types.Type icebergType = outputSchema.findType(column.getField().sourceId());
             Object value = getIcebergValue(block, position, type);
-            values[i] = applyTransform(column.getField().transform(), value);
+            values[i] = applyTransform(column.getField().transform(), icebergType, value);
         }
         return Optional.of(new PartitionData(values));
     }
 
     @SuppressWarnings("unchecked")
-    private static Object applyTransform(Transform<?, ?> transform, Object value)
+    private static Object applyTransform(Transform<?, ?> transform, org.apache.iceberg.types.Type icebergType, Object value)
     {
-        return ((Transform<Object, Object>) transform).apply(value);
+        return ((Transform<Object, Object>) transform).bind(icebergType).apply(value);
     }
 
     public static Object getIcebergValue(Block block, int position, Type type)

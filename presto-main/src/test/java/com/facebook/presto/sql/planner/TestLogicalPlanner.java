@@ -73,7 +73,6 @@ import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -483,12 +482,13 @@ public class TestLogicalPlanner
     {
         assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey < l.orderkey WHERE l.orderkey IS NOT NULL",
                 anyTree(
-                        filter("O_ORDERKEY < L_ORDERKEY",
-                                join(INNER, ImmutableList.of(), Optional.empty(),
-                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
-                                        any(
-                                                filter("NOT (L_ORDERKEY IS NULL)",
-                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
+                        project(
+                                filter("O_ORDERKEY < L_ORDERKEY",
+                                        join(INNER, ImmutableList.of(), Optional.empty(),
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                                any(
+                                                        filter("NOT (L_ORDERKEY IS NULL)",
+                                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))))));
     }
 
     @Test
@@ -712,14 +712,13 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
                 noJoinReordering(),
                 anyTree(
-                        filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%s, 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
-                                markDistinct("is_distinct", ImmutableList.of("unique"),
+                        markDistinct("is_distinct", ImmutableList.of("unique"),
                                         join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
                                                 assignUniqueId("unique",
                                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                                 anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
                                                 anyTree(
-                                                        tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))));
+                                                        tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))));
     }
 
     @Test

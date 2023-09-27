@@ -41,10 +41,12 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
 import com.facebook.presto.sql.planner.EqualityInference;
+import com.facebook.presto.sql.planner.InequalityInference;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -80,6 +82,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
+import static com.facebook.presto.SystemSessionProperties.shouldInferInequalityPredicates;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -95,6 +98,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.extractConju
 import static com.facebook.presto.spi.plan.ProjectNode.Locality;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -433,7 +437,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputVariables());
+                            node.getLeft().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = innerJoinPushDownResult.getLeftPredicate();
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
@@ -444,7 +449,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputVariables());
+                            node.getLeft().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
@@ -455,7 +461,8 @@ public class PredicatePushDown
                             rightEffectivePredicate,
                             leftEffectivePredicate,
                             joinPredicate,
-                            node.getRight().getOutputVariables());
+                            node.getRight().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = rightOuterJoinPushDownResult.getInnerJoinPredicate();
                     rightPredicate = rightOuterJoinPushDownResult.getOuterJoinPredicate();
                     postJoinPredicate = rightOuterJoinPushDownResult.getPostJoinPredicate();
@@ -533,8 +540,8 @@ public class PredicatePushDown
             boolean equiJoinClausesUnmodified = ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()));
 
             if (dynamicFilterEnabled && !equiJoinClausesUnmodified) {
-                leftSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getLeft(), leftProjections.build()), leftPredicate);
-                rightSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getRight(), rightProjections.build()), rightPredicate);
+                leftSource = context.rewrite(wrapInProjectIfNeeded(node.getLeft(), leftProjections.build()), leftPredicate);
+                rightSource = context.rewrite(wrapInProjectIfNeeded(node.getRight(), rightProjections.build()), rightPredicate);
             }
             else {
                 leftSource = context.rewrite(node.getLeft(), leftPredicate);
@@ -565,8 +572,14 @@ public class PredicatePushDown
                     !filtersEquivalent ||
                     (dynamicFilterEnabled && !dynamicFilters.equals(node.getDynamicFilters())) ||
                     !equiJoinClausesUnmodified) {
-                leftSource = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), leftSource, leftProjections.build(), leftLocality);
-                rightSource = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), rightSource, rightProjections.build(), rightLocality);
+                leftSource = wrapInProjectIfNeeded(leftSource, leftProjections.build(), leftLocality);
+                rightSource = wrapInProjectIfNeeded(rightSource, rightProjections.build(), rightLocality);
+
+                checkState(ImmutableSet.<VariableReferenceExpression>builder()
+                                .addAll(leftSource.getOutputVariables())
+                                .addAll(rightSource.getOutputVariables())
+                                .build().containsAll(node.getOutputVariables()),
+                        "JoinNode predicate pushdown incorrect : Left and right source are not producing original JoinNode output variables");
 
                 // if the distribution type is already set, make sure that changes from PredicatePushDown
                 // don't make the join node invalid.
@@ -580,6 +593,18 @@ public class PredicatePushDown
                     }
                 }
 
+                List<VariableReferenceExpression> newJoinOutputVariables = node.getOutputVariables();
+                // If, the new Join node is a cross-join OR
+                // we have a post join predicate that refers to variables that were not already referenced by the JoinNode
+                if ((node.getType() == INNER && equiJoinClauses.isEmpty() && !newJoinFilter.isPresent())
+                        || (!ImmutableSet.copyOf(newJoinOutputVariables).containsAll(VariablesExtractor.extractUnique(postJoinPredicate)))) {
+                    // Set the new output variables to be left + right output variables
+                    newJoinOutputVariables = ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(leftSource.getOutputVariables())
+                            .addAll(rightSource.getOutputVariables())
+                            .build();
+                }
+
                 output = new JoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -587,10 +612,7 @@ public class PredicatePushDown
                         leftSource,
                         rightSource,
                         equiJoinClauses,
-                        ImmutableList.<VariableReferenceExpression>builder()
-                                .addAll(leftSource.getOutputVariables())
-                                .addAll(rightSource.getOutputVariables())
-                                .build(),
+                        newJoinOutputVariables,
                         newJoinFilter,
                         node.getLeftHashVariable(),
                         node.getRightHashVariable(),
@@ -607,6 +629,25 @@ public class PredicatePushDown
             }
 
             return output;
+        }
+
+        private PlanNode wrapInProjectIfNeeded(PlanNode childNode, Assignments assignments)
+        {
+            return wrapInProjectIfNeeded(childNode, assignments, UNKNOWN);
+        }
+
+        private PlanNode wrapInProjectIfNeeded(PlanNode childNode, Assignments assignments, Locality locality)
+        {
+            if ((childNode instanceof ProjectNode || childNode instanceof JoinNode)
+                    && AssignmentUtils.isIdentity(assignments)) {
+                // By wrapping an identity Project over a child node of type :
+                // ProjectNode - we are adding no value
+                // JoinNode - we are preventing this JoinNode from participating in join re-ordering
+                // So we return the child node as is, without an identity project
+                return childNode;
+            }
+
+            return new ProjectNode(childNode.getSourceLocation(), idAllocator.getNextId(), childNode, assignments, locality);
         }
 
         private static DynamicFiltersResult createDynamicFilters(
@@ -857,7 +898,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputVariables());
+                            node.getLeft().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = innerJoinPushDownResult.getLeftPredicate();
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
@@ -869,7 +911,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputVariables());
+                            node.getLeft().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
@@ -928,7 +971,12 @@ public class PredicatePushDown
             return variableAllocator.newVariable(expression);
         }
 
-        private OuterJoinPushDownResult processLimitedOuterJoin(RowExpression inheritedPredicate, RowExpression outerEffectivePredicate, RowExpression innerEffectivePredicate, RowExpression joinPredicate, Collection<VariableReferenceExpression> outerVariables)
+        private OuterJoinPushDownResult processLimitedOuterJoin(RowExpression inheritedPredicate,
+                RowExpression outerEffectivePredicate,
+                RowExpression innerEffectivePredicate,
+                RowExpression joinPredicate,
+                Collection<VariableReferenceExpression> outerVariables,
+                boolean inferInequalityPredicates)
         {
             checkArgument(Iterables.all(VariablesExtractor.extractUnique(outerEffectivePredicate), in(outerVariables)), "outerEffectivePredicate must only contain variables from outerVariables");
             checkArgument(Iterables.all(VariablesExtractor.extractUnique(innerEffectivePredicate), not(in(outerVariables))), "innerEffectivePredicate must not contain variables from outerVariables");
@@ -954,6 +1002,14 @@ public class PredicatePushDown
             EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(in(outerVariables));
             RowExpression outerOnlyInheritedEqualities = logicalRowExpressions.combineConjuncts(equalityPartition.getScopeEqualities());
             EqualityInference potentialNullSymbolInference = createEqualityInference(outerOnlyInheritedEqualities, outerEffectivePredicate, innerEffectivePredicate, joinPredicate);
+
+            // Generate inequality inferences
+            if (inferInequalityPredicates) {
+                InequalityInference inequalityInference = new InequalityInference.Builder(functionAndTypeManager, expressionEquivalence, Optional.of(outerVariables))
+                        .addInequalityInferences(joinPredicate, inheritedPredicate)
+                        .build();
+                innerPushdownConjuncts.addAll(inequalityInference.inferInequalities());
+            }
 
             // See if we can push inherited predicates down
             for (RowExpression conjunct : nonInferableConjuncts(inheritedPredicate)) {
@@ -1049,7 +1105,12 @@ public class PredicatePushDown
             }
         }
 
-        private InnerJoinPushDownResult processInnerJoin(RowExpression inheritedPredicate, RowExpression leftEffectivePredicate, RowExpression rightEffectivePredicate, RowExpression joinPredicate, Collection<VariableReferenceExpression> leftVariables)
+        private InnerJoinPushDownResult processInnerJoin(RowExpression inheritedPredicate,
+                RowExpression leftEffectivePredicate,
+                RowExpression rightEffectivePredicate,
+                RowExpression joinPredicate,
+                Collection<VariableReferenceExpression> leftVariables,
+                boolean inferInequalityPredicates)
         {
             checkArgument(Iterables.all(VariablesExtractor.extractUnique(leftEffectivePredicate), in(leftVariables)), "leftEffectivePredicate must only contain variables from leftVariables");
             checkArgument(Iterables.all(VariablesExtractor.extractUnique(rightEffectivePredicate), not(in(leftVariables))), "rightEffectivePredicate must not contain variables from leftVariables");
@@ -1067,6 +1128,14 @@ public class PredicatePushDown
 
             leftEffectivePredicate = logicalRowExpressions.filterDeterministicConjuncts(leftEffectivePredicate);
             rightEffectivePredicate = logicalRowExpressions.filterDeterministicConjuncts(rightEffectivePredicate);
+
+            // Generate inequality inferences
+            if (inferInequalityPredicates) {
+                InequalityInference inequalityInference = new InequalityInference.Builder(functionAndTypeManager, expressionEquivalence, Optional.empty())
+                        .addInequalityInferences(joinPredicate, inheritedPredicate)
+                        .build();
+                joinConjuncts.addAll(inequalityInference.inferInequalities());
+            }
 
             // Generate equality inferences
             EqualityInference allInference = new EqualityInference.Builder(functionAndTypeManager)

@@ -23,7 +23,7 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spark.execution.PrestoSparkTaskExecution;
+import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecution;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -114,22 +114,16 @@ public class TestPrestoSparkTaskExecution
     }
 
     @Test
-    public void testNativeDriverInstanceCount()
-    {
-        testDriverCount(nativeTestSession, true, 1);
-    }
-
-    @Test
     public void testJavaDriverInstanceCount()
     {
-        testDriverCount(nonNativeTestSession, false, 3);
+        testDriverCount(nonNativeTestSession, 3);
     }
 
-    private void testDriverCount(Session session, boolean isNative, int expectedDriverCount)
+    private void testDriverCount(Session session, int expectedDriverCount)
     {
         TaskContext taskContext = TestingTaskContext.createTaskContext(taskNotificationExecutor, scheduledExecutor, session, new DataSize(2, GIGABYTE));
         taskExecutor.start();
-        PrestoSparkTaskExecution taskExecution = new PrestoSparkTaskExecution(taskStateMachine, taskContext, localExecutionPlan, taskExecutor, TaskTestUtils.createTestSplitMonitor(), taskNotificationExecutor, scheduledExecutor, isNative);
+        PrestoSparkTaskExecution taskExecution = new PrestoSparkTaskExecution(taskStateMachine, taskContext, localExecutionPlan, taskExecutor, TaskTestUtils.createTestSplitMonitor(), taskNotificationExecutor, scheduledExecutor);
         taskExecution.start(ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)));
         assertEquals(taskContext.getPipelineContexts().get(0).getPipelineStats().getDrivers().size(), expectedDriverCount);
     }

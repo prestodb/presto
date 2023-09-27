@@ -9,8 +9,26 @@ env:
   RETRY: .github/bin/retry
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      codechange: ${{ steps.filter.outputs.codechange }}
+    steps:
+    # For pull requests it's not necessary to checkout the code
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          codechange:
+            - '!presto-docs/**'
   web-ui-checks:
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 30
     concurrency:
       group: ${{ github.workflow }}-web-ui-checks-${{ github.event.pull_request.number }}

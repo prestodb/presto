@@ -16,9 +16,9 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <folly/futures/Retrying.h>
 #include <velox/common/memory/Memory.h>
-#include "presto_cpp/external/json/json.hpp"
-#include "presto_cpp/main/http/HttpClient.h"
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 
 namespace facebook::presto {
 namespace {
@@ -80,11 +80,17 @@ Announcer::Announcer(
     const std::string& nodeId,
     const std::string& nodeLocation,
     const std::vector<std::string>& connectorIds,
-    uint64_t frequencyMs,
+    const uint64_t maxFrequencyMs,
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers)
-    : coordinatorDiscoverer_(coordinatorDiscoverer),
-      frequencyMs_(frequencyMs),
+    : PeriodicServiceInventoryManager(
+          address,
+          port,
+          coordinatorDiscoverer,
+          clientCertAndKeyPath,
+          ciphers,
+          "Announcement",
+          maxFrequencyMs),
       announcementBody_(announcementBody(
           address,
           useHttps,
@@ -94,81 +100,10 @@ Announcer::Announcer(
           nodeLocation,
           connectorIds)),
       announcementRequest_(
-          announcementRequest(address, port, nodeId, announcementBody_)),
-      pool_(velox::memory::addDefaultLeafMemoryPool("Announcer")),
-      eventBaseThread_(false /*autostart*/),
-      clientCertAndKeyPath_(clientCertAndKeyPath),
-      ciphers_(ciphers) {}
+          announcementRequest(address, port, nodeId, announcementBody_)) {}
 
-void Announcer::start() {
-  eventBaseThread_.start("Announcer");
-  stopped_ = false;
-  auto* eventBase = eventBaseThread_.getEventBase();
-  eventBase->runOnDestruction([this] { client_.reset(); });
-  eventBase->schedule([this]() { return makeAnnouncement(); });
-}
-
-void Announcer::stop() {
-  stopped_ = true;
-  eventBaseThread_.stop();
-}
-
-void Announcer::makeAnnouncement() {
-  // stop() calls EventBase's destructor which executed all pending callbacks;
-  // make sure not to do anything if that's the case
-  if (stopped_) {
-    return;
-  }
-
-  try {
-    auto newAddress = coordinatorDiscoverer_->updateAddress();
-    if (newAddress != address_) {
-      LOG(INFO) << "Discovery service changed to " << newAddress.getAddressStr()
-                << ":" << newAddress.getPort();
-      std::swap(address_, newAddress);
-      client_ = std::make_shared<http::HttpClient>(
-          eventBaseThread_.getEventBase(),
-          address_,
-          std::chrono::milliseconds(10'000),
-          clientCertAndKeyPath_,
-          ciphers_);
-    }
-  } catch (const std::exception& ex) {
-    LOG(WARNING) << "Error occurred during announcement run: " << ex.what();
-    scheduleNext();
-    return;
-  }
-
-  client_->sendRequest(announcementRequest_, pool_.get(), announcementBody_)
-      .via(eventBaseThread_.getEventBase())
-      .thenValue([](auto response) {
-        auto message = response->headers();
-        if (message->getStatusCode() != http::kHttpAccepted) {
-          LOG(WARNING) << "Announcement failed: HTTP "
-                       << message->getStatusCode() << " - "
-                       << response->dumpBodyChain();
-        } else if (response->hasError()) {
-          LOG(ERROR) << "Announcement failed: " << response->error();
-        } else {
-          LOG(INFO) << "Announcement succeeded: " << message->getStatusCode();
-        }
-      })
-      .thenError(
-          folly::tag_t<std::exception>{},
-          [](const std::exception& e) {
-            LOG(WARNING) << "Announcement failed: " << e.what();
-          })
-      .thenTry([this](auto /*unused*/) { scheduleNext(); });
-}
-
-void Announcer::scheduleNext() {
-  if (stopped_) {
-    return;
-  }
-  eventBaseThread_.getEventBase()->scheduleAt(
-      [this]() { return makeAnnouncement(); },
-      std::chrono::steady_clock::now() +
-          std::chrono::milliseconds(frequencyMs_));
+std::tuple<proxygen::HTTPMessage, std::string> Announcer::httpRequest() {
+  return {announcementRequest_, announcementBody_};
 }
 
 } // namespace facebook::presto

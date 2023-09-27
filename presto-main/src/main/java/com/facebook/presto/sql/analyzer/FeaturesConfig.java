@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
@@ -94,6 +95,7 @@ public class FeaturesConfig
     private boolean trackHistoryBasedPlanStatistics;
     private boolean usePerfectlyConsistentHistories;
     private int historyCanonicalPlanNodeLimit = 1000;
+    private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -233,6 +235,7 @@ public class FeaturesConfig
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private String analyzerType = "BUILTIN";
     private boolean verboseRuntimeStatsEnabled;
+    private boolean verboseOptimizerInfoEnabled;
 
     private boolean streamingForPartialAggregationEnabled;
     private boolean preferMergeJoinForSortedInputs;
@@ -259,13 +262,20 @@ public class FeaturesConfig
     private boolean isOptimizeJoinProbeWithEmptyBuildRuntime;
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
+    private boolean fieldNamesInJsonCastEnabled;
     private boolean mergeAggregationsWithAndWithoutFilter;
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
     private boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin = true;
+    private boolean rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin = true;
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
     private boolean leftJoinNullFilterToSemiJoin = true;
+    private boolean broadcastJoinWithSmallBuildUnknownProbe;
+    private boolean addPartialNodeForRowNumberWithLimit = true;
+    private boolean inferInequalityPredicates;
+    private boolean pullUpExpressionFromLambda;
+    private boolean rewriteConstantArrayContainsToIn;
 
     private boolean preProcessMetadataCalls;
 
@@ -356,6 +366,7 @@ public class FeaturesConfig
     {
         DISABLED,
         KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
+        COST_BASED,
         ALWAYS
     }
 
@@ -536,6 +547,18 @@ public class FeaturesConfig
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
+    }
+
+    public boolean isFieldNamesInJsonCastEnabled()
+    {
+        return fieldNamesInJsonCastEnabled;
+    }
+
+    @Config("field-names-in-json-cast-enabled")
+    public FeaturesConfig setFieldNamesInJsonCastEnabled(boolean fieldNamesInJsonCastEnabled)
+    {
+        this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
+        return this;
     }
 
     @Config("reduce-agg-for-complex-types-enabled")
@@ -844,6 +867,19 @@ public class FeaturesConfig
     public FeaturesConfig setHistoryCanonicalPlanNodeLimit(int historyCanonicalPlanNodeLimit)
     {
         this.historyCanonicalPlanNodeLimit = historyCanonicalPlanNodeLimit;
+        return this;
+    }
+
+    @NotNull
+    public Duration getHistoryBasedOptimizerTimeout()
+    {
+        return historyBasedOptimizerTimeout;
+    }
+
+    @Config("optimizer.history-based-optimizer-timeout")
+    public FeaturesConfig setHistoryBasedOptimizerTimeout(Duration historyBasedOptimizerTimeout)
+    {
+        this.historyBasedOptimizerTimeout = historyBasedOptimizerTimeout;
         return this;
     }
 
@@ -1475,7 +1511,8 @@ public class FeaturesConfig
         return enableDynamicFiltering;
     }
 
-    @Config("experimental.enable-dynamic-filtering")
+    @Config("enable-dynamic-filtering")
+    @LegacyConfig("experimental.enable-dynamic-filtering")
     public FeaturesConfig setEnableDynamicFiltering(boolean value)
     {
         this.enableDynamicFiltering = value;
@@ -1487,7 +1524,8 @@ public class FeaturesConfig
         return dynamicFilteringMaxPerDriverRowCount;
     }
 
-    @Config("experimental.dynamic-filtering-max-per-driver-row-count")
+    @Config("dynamic-filtering-max-per-driver-row-count")
+    @LegacyConfig("experimental.dynamic-filtering-max-per-driver-row-count")
     public FeaturesConfig setDynamicFilteringMaxPerDriverRowCount(int dynamicFilteringMaxPerDriverRowCount)
     {
         this.dynamicFilteringMaxPerDriverRowCount = dynamicFilteringMaxPerDriverRowCount;
@@ -1500,7 +1538,8 @@ public class FeaturesConfig
         return dynamicFilteringMaxPerDriverSize;
     }
 
-    @Config("experimental.dynamic-filtering-max-per-driver-size")
+    @Config("dynamic-filtering-max-per-driver-size")
+    @LegacyConfig("experimental.dynamic-filtering-max-per-driver-size")
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
@@ -1512,7 +1551,8 @@ public class FeaturesConfig
         return dynamicFilteringRangeRowLimitPerDriver;
     }
 
-    @Config("experimental.dynamic-filtering-range-row-limit-per-driver")
+    @Config("dynamic-filtering-range-row-limit-per-driver")
+    @LegacyConfig("experimental.dynamic-filtering-range-row-limit-per-driver")
     @ConfigDescription("Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering")
     public FeaturesConfig setDynamicFilteringRangeRowLimitPerDriver(int dynamicFilteringRangeRowLimitPerDriver)
     {
@@ -1525,7 +1565,8 @@ public class FeaturesConfig
         return fragmentResultCachingEnabled;
     }
 
-    @Config("experimental.fragment-result-caching-enabled")
+    @Config("fragment-result-cache.enabled")
+    @LegacyConfig("experimental.fragment-result-caching-enabled")
     @ConfigDescription("Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable")
     public FeaturesConfig setFragmentResultCachingEnabled(boolean fragmentResultCachingEnabled)
     {
@@ -1922,16 +1963,23 @@ public class FeaturesConfig
         return optimizeNullsInJoin;
     }
 
-    public boolean isOptimizePayloadJoins()
-    {
-        return optimizePayloadJoins;
-    }
-
     @Config("optimize-nulls-in-join")
     public FeaturesConfig setOptimizeNullsInJoin(boolean optimizeNullsInJoin)
     {
         this.optimizeNullsInJoin = optimizeNullsInJoin;
         return this;
+    }
+
+    @Config("optimize-payload-joins")
+    public FeaturesConfig setOptimizePayloadJoins(boolean optimizePayloadJoins)
+    {
+        this.optimizePayloadJoins = optimizePayloadJoins;
+        return this;
+    }
+
+    public boolean isOptimizePayloadJoins()
+    {
+        return optimizePayloadJoins;
     }
 
     public String getWarnOnNoTableLayoutFilter()
@@ -2198,6 +2246,11 @@ public class FeaturesConfig
     public boolean isVerboseRuntimeStatsEnabled()
     {
         return verboseRuntimeStatsEnabled;
+    }
+
+    public boolean isVerboseOptimizerInfoEnabled()
+    {
+        return verboseOptimizerInfoEnabled;
     }
 
     @Config("verbose-runtime-stats-enabled")
@@ -2610,6 +2663,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin()
+    {
+        return this.rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin;
+    }
+
+    @Config("optimizer.rewrite-cross-join-with-array-not-contains-filter-to-anti-join")
+    @ConfigDescription("Enable optimization to rewrite cross join with array not contains filter to anti join")
+    public FeaturesConfig setRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin(boolean rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin)
+    {
+        this.rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin = rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin;
+        return this;
+    }
+
     public boolean isLeftJoinNullFilterToSemiJoin()
     {
         return this.leftJoinNullFilterToSemiJoin;
@@ -2620,6 +2686,71 @@ public class FeaturesConfig
     public FeaturesConfig setLeftJoinNullFilterToSemiJoin(boolean leftJoinNullFilterToSemiJoin)
     {
         this.leftJoinNullFilterToSemiJoin = leftJoinNullFilterToSemiJoin;
+        return this;
+    }
+
+    public boolean isBroadcastJoinWithSmallBuildUnknownProbe()
+    {
+        return this.broadcastJoinWithSmallBuildUnknownProbe;
+    }
+
+    @Config("experimental.optimizer.broadcast-join-with-small-build-unknown-probe")
+    @ConfigDescription("Experimental: When probe side size is unknown but build size is within broadcast limit, choose broadcast join")
+    public FeaturesConfig setBroadcastJoinWithSmallBuildUnknownProbe(boolean broadcastJoinWithSmallBuildUnknownProbe)
+    {
+        this.broadcastJoinWithSmallBuildUnknownProbe = broadcastJoinWithSmallBuildUnknownProbe;
+        return this;
+    }
+
+    public boolean isAddPartialNodeForRowNumberWithLimitEnabled()
+    {
+        return this.addPartialNodeForRowNumberWithLimit;
+    }
+
+    @Config("optimizer.add-partial-node-for-row-number-with-limit")
+    @ConfigDescription("Add partial row number node for row number node with limit")
+    public FeaturesConfig setAddPartialNodeForRowNumberWithLimitEnabled(boolean addPartialNodeForRowNumberWithLimit)
+    {
+        this.addPartialNodeForRowNumberWithLimit = addPartialNodeForRowNumberWithLimit;
+        return this;
+    }
+
+    public boolean isPullUpExpressionFromLambdaEnabled()
+    {
+        return this.pullUpExpressionFromLambda;
+    }
+
+    @Config("optimizer.pull-up-expression-from-lambda")
+    @ConfigDescription("Pull up expression from lambda which does not refer to arguments of the lambda function")
+    public FeaturesConfig setPullUpExpressionFromLambdaEnabled(boolean pullUpExpressionFromLambda)
+    {
+        this.pullUpExpressionFromLambda = pullUpExpressionFromLambda;
+        return this;
+    }
+
+    public boolean getInferInequalityPredicates()
+    {
+        return inferInequalityPredicates;
+    }
+
+    @Config("optimizer.infer-inequality-predicates")
+    @ConfigDescription("Enabled inference of inequality predicates for joins")
+    public FeaturesConfig setInferInequalityPredicates(boolean inferInequalityPredicates)
+    {
+        this.inferInequalityPredicates = inferInequalityPredicates;
+        return this;
+    }
+
+    public boolean isRewriteConstantArrayContainsToInEnabled()
+    {
+        return this.rewriteConstantArrayContainsToIn;
+    }
+
+    @Config("optimizer.rewrite-constant-array-contains-to-in")
+    @ConfigDescription("Rewrite constant array contains function to IN expression")
+    public FeaturesConfig setRewriteConstantArrayContainsToInEnabled(boolean rewriteConstantArrayContainsToIn)
+    {
+        this.rewriteConstantArrayContainsToIn = rewriteConstantArrayContainsToIn;
         return this;
     }
 }

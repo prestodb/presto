@@ -34,7 +34,13 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
     return !atEnd_;
   }
 
-  void request() override;
+  bool supportsFlowControlV2() const override {
+    return true;
+  }
+
+  folly::SemiFuture<Response> request(
+      uint32_t maxBytes,
+      uint32_t maxWaitSeconds) override;
 
   void close() override {}
 

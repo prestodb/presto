@@ -20,19 +20,41 @@ workflows:
   version: 2
   dist-compile:
     jobs:
-      - linux-build
+      - linux-build-and-unit-test
+      - linux-presto-e2e-tests:
+          requires:
+            - linux-build-and-unit-test
+      - linux-spark-e2e-tests:
+          requires:
+            - linux-build-and-unit-test
 
   conditionals:
     when: << pipeline.parameters.run_native_specific_jobs >>
     jobs:
       - format-check
       - header-check
-      - linux-parquet-S3-build
+      - linux-build-all
+
+commands:
+  maven_install:
+    description: "Maven Install"
+    parameters:
+      maven_install_opts:
+        type: string
+      maven_fast_install:
+        type: string
+    steps:
+      - run:
+          name: "Maven Install"
+          command: |
+            export MAVEN_OPTS=<< parameters.maven_install_opts>>
+            # Sometimes mvn build fails because of network failures. Add logic to rerun the build to avoid non PR-relelated CI failures.
+            for i in $(seq 1 3); do ./mvnw clean install << parameters.maven_fast_install>> -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
 executors:
   build:
     docker:
-      - image: prestocpp/prestocpp-avx-centos:kpai-20221018
+      - image: prestocpp/prestocpp-avx-centos:root-20230613
     resource_class: 2xlarge
     environment:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
@@ -48,9 +70,8 @@ executors:
     resource_class: macos.x86.medium.gen2
 
 jobs:
-  linux-build:
+  linux-build-and-unit-test:
     executor: build
-    parallelism: 5
     steps:
       - checkout
       - run:
@@ -59,59 +80,127 @@ jobs:
             cd presto-native-execution
             make velox-submodule
       - run:
+          name: "Calculate merge-base date for CCache"
+          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/master HEAD) | tee merge-base-date
+      - restore_cache:
+          name: "Restore CCache cache"
+          keys:
+            - native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+      - run:
           name: Build
           command: |
+            mkdir -p .ccache
+            export CCACHE_DIR=$(realpath .ccache)
+            ccache -sz -M 8Gi
             source /opt/rh/gcc-toolset-9/enable
             cd presto-native-execution
-            cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DPRESTO_ENABLE_PARQUET=ON -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake \
+              -B _build/debug \
+              -GNinja \
+              -DTREAT_WARNINGS_AS_ERRORS=1 \
+              -DENABLE_ALL_WARNINGS=1 \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DPRESTO_ENABLE_PARQUET=ON \
+              -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+              -DCMAKE_PREFIX_PATH=/usr/local \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
             ninja -C _build/debug -j 8
+            ccache -s
+      - save_cache:
+          name: "Save CCache cache"
+          key: native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          paths:
+            - .ccache/
       - run:
           name: 'Run Unit Tests'
           command: |
             cd presto-native-execution/_build/debug
             ctest -j 8 -VV --output-on-failure --exclude-regex velox.*
-      - run:
-          name: 'Maven Install'
-          command: |
-            export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-            # Sometimes mvn build fails because of network failures. Add logic to rerun the build to avoid non PR-relelated CI failures.
-            for i in $(seq 1 3); do ./mvnw clean install ${MAVEN_FAST_INSTALL} -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
+      - persist_to_workspace:
+          root: presto-native-execution
+          paths:
+            - _build/debug/presto_cpp/main/presto_server
+            - _build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main
+
+  linux-presto-e2e-tests:
+    executor: build
+    parallelism: 5
+    steps:
+      - checkout
+      - attach_workspace:
+          at: presto-native-execution
+      - maven_install:
+          maven_install_opts: ${MAVEN_INSTALL_OPTS}
+          maven_fast_install: ${MAVEN_FAST_INSTALL}
+
       - run:
           name: 'Run presto-native e2e tests'
           command: |
             export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
             export TEMP_PATH="/tmp"
-            TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/Test*.java" | circleci tests split --split-by=timings)
+            TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoNative*.java" | circleci tests split --split-by=timings)
             # Convert file paths to comma separated class names
             export TESTCLASSES=
-            export SPARKTESTS=
             for test_file in $TESTFILES
             do
               tmp=${test_file##*/}
               test_class=${tmp%%\.*}
-              if [[ $test_class == TestPrestoSpark* ]]; then
-                export SPARKTESTS="${SPARKTESTS},$test_class"
-              else
-                export TESTCLASSES="${TESTCLASSES},$test_class"
-              fi
+              export TESTCLASSES="${TESTCLASSES},$test_class"
             done
             export TESTCLASSES=${TESTCLASSES#,}
-            export SPARKTESTS=${SPARKTESTS#,}
+
+            # TODO: neeed to enable remote function tests with
+            # "-Ppresto-native-execution-remote-functions" once
+            # > https://github.com/facebookincubator/velox/discussions/6163
+            # is fixed.
             if [ ! -z $TESTCLASSES ]; then
-              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${TESTCLASSES}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
+              mvn test \
+                ${MAVEN_TEST} \
+                -pl 'presto-native-execution' \
+                -Dtest="${TESTCLASSES}" \
+                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+                -DDATA_DIR=${TEMP_PATH} \
+                -Duser.timezone=America/Bahia_Banderas \
+                -T1C
             fi
-            # set Spark tests as an environment variable
-            echo "export SPARKTESTS=$SPARKTESTS" >> "$BASH_ENV"
+
+  linux-spark-e2e-tests:
+    executor: build
+    parallelism: 5
+    steps:
+      - checkout
+      - attach_workspace:
+          at: presto-native-execution
+      - maven_install:
+          maven_install_opts: ${MAVEN_INSTALL_OPTS}
+          maven_fast_install: ${MAVEN_FAST_INSTALL}
       - run:
-          name: 'Run spark-native e2e tests'
+          name: 'Run spark e2e tests'
           command: |
             export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
             export TEMP_PATH="/tmp"
-            if [ ! -z $SPARKTESTS ]; then
-              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${SPARKTESTS}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C || true
+            TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoSpark*.java" | circleci tests split --split-by=timings)
+            # Convert file paths to comma separated class names
+            export TESTCLASSES=
+            for test_file in $TESTFILES
+            do
+              tmp=${test_file##*/}
+              test_class=${tmp%%\.*}
+              export TESTCLASSES="${TESTCLASSES},$test_class"
+            done
+            export TESTCLASSES=${TESTCLASSES#,}
+            if [ ! -z $TESTCLASSES ]; then
+              mvn test \
+                ${MAVEN_TEST} \
+                -pl 'presto-native-execution' \
+                -Dtest="${TESTCLASSES}" \
+                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+                -DDATA_DIR=${TEMP_PATH} \
+                -Duser.timezone=America/Bahia_Banderas \
+                -T1C
             fi
 
-  linux-parquet-S3-build:
+  linux-build-all:
     executor: build
     steps:
       - checkout
@@ -129,11 +218,22 @@ jobs:
             cd presto-native-execution
             DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./velox/scripts/setup-adapters.sh
       - run:
-          name: Build
+          name: "Build All"
           command: |
             source /opt/rh/gcc-toolset-9/enable
             cd presto-native-execution
-            cmake -B _build/release -GNinja -DAWSSDK_ROOT_DIR=${HOME}/adapter-deps/install -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Release -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake \
+              -B _build/release \
+              -GNinja \
+              -DAWSSDK_ROOT_DIR=${HOME}/adapter-deps/install \
+              -DTREAT_WARNINGS_AS_ERRORS=1 \
+              -DENABLE_ALL_WARNINGS=1 \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DPRESTO_ENABLE_PARQUET=ON \
+              -DPRESTO_ENABLE_S3=ON \
+              -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+              -DCMAKE_PREFIX_PATH=/usr/local \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
             ninja -C _build/release -j 8
 
   format-check:

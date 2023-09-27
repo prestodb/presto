@@ -192,6 +192,7 @@ public class TestQueryInfo
                 ImmutableSet.of(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
@@ -199,6 +200,7 @@ public class TestQueryInfo
                         new CanonicalPlan(
                                 new ValuesNode(Optional.empty(), new PlanNodeId("0"), ImmutableList.of(), ImmutableList.of(), Optional.empty()),
                                 PlanCanonicalizationStrategy.DEFAULT),
-                        new PlanNodeCanonicalInfo("a", ImmutableList.of()))));
+                        new PlanNodeCanonicalInfo("a", ImmutableList.of()))),
+                ImmutableMap.of());
     }
 }

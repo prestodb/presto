@@ -15,12 +15,14 @@
 package com.facebook.presto.type.setdigest;
 
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
+import io.airlift.slice.Slice;
 
 @AggregationFunction("make_set_digest")
 public final class BuildSetDigestAggregation
@@ -30,7 +32,18 @@ public final class BuildSetDigestAggregation
     private BuildSetDigestAggregation() {}
 
     @InputFunction
-    public static void input(SetDigestState state, @SqlType(StandardTypes.BIGINT) long value)
+    @TypeParameter("T")
+    public static void input(@AggregationState SetDigestState state, @SqlType("T") long value)
+    {
+        if (state.getDigest() == null) {
+            state.setDigest(new SetDigest());
+        }
+        state.getDigest().add(value);
+    }
+
+    @InputFunction
+    @TypeParameter("T")
+    public static void input(@AggregationState SetDigestState state, @SqlType("T") Slice value)
     {
         if (state.getDigest() == null) {
             state.setDigest(new SetDigest());

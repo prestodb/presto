@@ -36,6 +36,8 @@ public final class IcebergQueryRunner
     private static final Logger log = Logger.get(IcebergQueryRunner.class);
 
     public static final String ICEBERG_CATALOG = "iceberg";
+    public static final String TEST_DATA_DIRECTORY = "iceberg_data";
+    public static final String TEST_CATALOG_DIRECTORY = "catalog";
 
     private IcebergQueryRunner() {}
 
@@ -98,15 +100,14 @@ public final class IcebergQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("iceberg_data");
-        Path catalogDirectory = dataDirectory.getParent().resolve("catalog");
+        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve(TEST_DATA_DIRECTORY);
+        Path catalogDirectory = dataDirectory.getParent().resolve(TEST_CATALOG_DIRECTORY);
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
+                .put("iceberg.file-format", format.name())
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
-                .put("iceberg.file-format", format.name())
-                .put("iceberg.catalog.warehouse", dataDirectory.getParent().toFile().toURI().toString())
                 .putAll(extraConnectorProperties)
                 .build();
 

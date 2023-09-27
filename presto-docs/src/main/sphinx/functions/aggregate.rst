@@ -177,6 +177,10 @@ Bitwise Aggregate Functions
 
     Returns the bitwise OR of all input values in 2's complement representation.
 
+.. function:: bitwise_xor_agg(x) -> bigint
+
+    Returns the bitwise XOR of all input values in 2's complement representation.
+
 Map Aggregate Functions
 -----------------------
 
@@ -332,6 +336,149 @@ Approximate Aggregate Functions
     for all ``value``\ s. This function is equivalent to the variant of
     :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
     In this case, the total weight in the returned map is the count of items in the bin.
+
+.. function:: noisy_count_gaussian(x, noise_scale) -> bigint
+
+    Counts the non-null values and then adds a random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale`` to the true count.
+    The noisy count is post-processed to be non-negative and rounded to bigint.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Noise is from a secure random. ::
+
+        SELECT noisy_count_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_count_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; -- (0 row)
+
+.. function:: noisy_count_gaussian(x, noise_scale, random_seed) -> bigint
+
+    Counts the non-null values and then adds a random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale`` to the true count.
+    The noisy count is post-processed to be non-negative and rounded to bigint.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Random seed is used to seed the random generator.
+    This method does not use a secure random. ::
+
+        SELECT noisy_count_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_count_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; --  (0 row)
+
+.. function:: noisy_sum_gaussian(x, noise_scale) -> double
+
+    Calculates the sum over the input values and then adds random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale``.
+    All values are converted to double before being added to the sum, and the return type is double.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Noise is from a secure random. ::
+
+        SELECT noisy_sum_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_sum_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; -- (0 row)
+
+.. function:: noisy_sum_gaussian(x, noise_scale, random_seed) -> double
+
+    Calculates the sum over the input values and then adds random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale``.
+    All values are converted to double before being added to the sum, and the return type is double.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Random seed is used to seed the random generator.
+    This method does not use a secure random. ::
+
+        SELECT noisy_sum_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_sum_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; --  (0 row)
+
+.. function:: noisy_sum_gaussian(x, noise_scale, lower, upper) -> double
+
+    Calculates the sum over the input values and then adds random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale``.
+    All values are converted to double before being added to the sum, and the return type is double.
+
+    Each value is clipped to the range of ``[lower, upper]`` before adding to the sum.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Noise is from a secure random. ::
+
+        SELECT noisy_sum_gaussian(orderkey, 20.0, 10.0, 50.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_sum_gaussian(orderkey, 20.0, 10.0, 51.0) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; -- (0 row)
+
+.. function:: noisy_sum_gaussian(x, noise_scale, lower, upper, random_seed) -> double
+
+    Calculates the sum over the input values and then adds random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale``.
+    All values are converted to double before being added to the sum, and the return type is double.
+
+    Each value is clipped to the range of ``[lower, upper]`` before adding to the sum.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Random seed is used to seed the random generator.
+    This method does not use a secure random. ::
+
+        SELECT noisy_sum_gaussian(orderkey, 20.0, 10.0, 50.0, 321) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_sum_gaussian(orderkey, 20.0, 10.0, 50.0, 321) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; --  (0 row)
+
+.. function:: noisy_avg_gaussian(x, noise_scale) -> double
+
+    Calculates the average (arithmetic mean) of all the input values and then adds random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale``.
+    All values are converted to double before being added to the avg, and the return type is double.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Noise is from a secure random. ::
+
+        SELECT noisy_avg_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_avg_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; -- (0 row)
+
+.. function:: noisy_avg_gaussian(x, noise_scale, random_seed) -> double
+
+    Calculates the average (arithmetic mean) of all the input values and then adds random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale``.
+    All values are converted to double before being added to the avg, and the return type is double.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Random seed is used to seed the random generator.
+    This method does not use a secure random. ::
+
+        SELECT noisy_avg_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_avg_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; --  (0 row)
+
+.. function:: noisy_avg_gaussian(x, noise_scale, lower, upper) -> double
+
+    Calculates the average (arithmetic mean) of all the input values and then adds random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale``.
+    All values are converted to double before being added to the avg, and the return type is double.
+
+    Each value is clipped to the range of ``[lower, upper]`` before adding to the avg.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Noise is from a secure random. ::
+
+        SELECT noisy_avg_gaussian(orderkey, 20.0, 10.0, 50.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_avg_gaussian(orderkey, 20.0, 10.0, 51.0) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; -- (0 row)
+
+.. function:: noisy_avg_gaussian(x, noise_scale, lower, upper, random_seed) -> double
+
+    Calculates the average (arithmetic mean) of all the input values and then adds random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale``.
+    All values are converted to double before being added to the avg, and the return type is double.
+
+    Each value is clipped to the range of ``[lower, upper]`` before adding to the avg.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Random seed is used to seed the random generator.
+    This method does not use a secure random. ::
+
+        SELECT noisy_avg_gaussian(orderkey, 20.0, 10.0, 50.0, 321) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_avg_gaussian(orderkey, 20.0, 10.0, 50.0, 321) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; --  (0 row)
 
 
 Statistical Aggregate Functions

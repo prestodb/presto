@@ -12,7 +12,8 @@
  * limitations under the License.
  */
 
-#include "PrestoTask.h"
+#include "presto_cpp/main/PrestoTask.h"
+#include <sys/resource.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -25,6 +26,17 @@ using namespace facebook::velox;
 namespace facebook::presto {
 
 namespace {
+
+#define TASK_STATS_SUM(taskStats, taskStatusSum, statsName)      \
+  do {                                                           \
+    for (int i = 0; i < taskStats.pipelineStats.size(); ++i) {   \
+      auto& pipeline = taskStats.pipelineStats[i];               \
+      for (auto j = 0; j < pipeline.operatorStats.size(); ++j) { \
+        auto& op = pipeline.operatorStats[j];                    \
+        (taskStatusSum) += op.statsName;                         \
+      }                                                          \
+    }                                                            \
+  } while (0)
 
 protocol::TaskState toPrestoTaskState(exec::TaskState state) {
   switch (state) {
@@ -210,8 +222,14 @@ static void processTaskStats(
 
 } // namespace
 
-PrestoTask::PrestoTask(const std::string& taskId, const std::string& nodeId)
-    : id(taskId) {
+PrestoTask::PrestoTask(
+    const std::string& taskId,
+    const std::string& nodeId,
+    long _startProcessCpuTime)
+    : id(taskId),
+      startProcessCpuTime{
+          _startProcessCpuTime > 0 ? _startProcessCpuTime
+                                   : getProcessCpuTime()} {
   info.taskId = taskId;
   info.nodeId = nodeId;
 }
@@ -227,6 +245,26 @@ uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
     return 0UL;
   }
   return getCurrentTimeMs() - lastHeartbeatMs;
+}
+
+// static
+long PrestoTask::getProcessCpuTime() {
+  struct rusage rusageEnd;
+  getrusage(RUSAGE_SELF, &rusageEnd);
+
+  auto tvNanos = [](struct timeval tv) {
+    return tv.tv_sec * 1000000000 + tv.tv_usec * 1000;
+  };
+
+  return tvNanos(rusageEnd.ru_utime) + tvNanos(rusageEnd.ru_stime);
+}
+
+void PrestoTask::recordProcessCpuTime() {
+  if (processCpuTime_ > 0) {
+    return;
+  }
+
+  processCpuTime_ = getProcessCpuTime() - startProcessCpuTime;
 }
 
 protocol::TaskStatus PrestoTask::updateStatusLocked() {
@@ -245,6 +283,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
       info.taskStatus.failures.emplace_back(toPrestoError(error));
     }
     info.taskStatus.state = protocol::TaskState::FAILED;
+    recordProcessCpuTime();
     return info.taskStatus;
   }
   VELOX_CHECK_NOT_NULL(task, "task is null when updating status")
@@ -268,8 +307,19 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   info.taskStatus.systemMemoryReservationInBytes = 0;
   info.taskStatus.peakNodeTotalMemoryReservationInBytes = stats.peakBytes;
 
+  TASK_STATS_SUM(
+      taskStats,
+      info.taskStatus.physicalWrittenDataSizeInBytes,
+      physicalWrittenBytes);
+
+  info.taskStatus.outputBufferUtilization = taskStats.outputBufferUtilization;
+  info.taskStatus.outputBufferOverutilized = taskStats.outputBufferOverutilized;
+
   if (task->error() && info.taskStatus.failures.empty()) {
     info.taskStatus.failures.emplace_back(toPrestoError(task->error()));
+  }
+  if (isFinalState(info.taskStatus.state)) {
+    recordProcessCpuTime();
   }
   return info.taskStatus;
 }
@@ -362,6 +412,10 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
     taskRuntimeStats["createTime"].addValue(taskStats.executionStartTimeMs);
     taskRuntimeStats["endTime"].addValue(taskStats.endTimeMs);
   }
+
+  taskRuntimeStats.insert(
+      {"nativeProcessCpuTime",
+       RuntimeMetric(processCpuTime_, RuntimeCounter::Unit::kNanos)});
 
   for (int i = 0; i < taskStats.pipelineStats.size(); ++i) {
     auto& pipelineOut = info.stats.pipelines[i];
@@ -456,8 +510,11 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
           opOut.getOutputCalls,
           opOut.getOutputWall,
           opOut.getOutputCpu);
+      CpuWallTiming finishAndBackgroundTiming;
+      finishAndBackgroundTiming.add(op.finishTiming);
+      finishAndBackgroundTiming.add(op.backgroundTiming);
       setTiming(
-          op.finishTiming,
+          finishAndBackgroundTiming,
           opOut.finishCalls,
           opOut.finishWall,
           opOut.finishCpu);
@@ -581,6 +638,21 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
     }
   }
   return str;
+}
+
+std::string PrestoTask::toJsonString() const {
+  std::lock_guard<std::mutex> l(mutex);
+  folly::dynamic obj = folly::dynamic::object;
+  obj["task"] = task ? task->toJsonString() : "null";
+  obj["taskStarted"] = taskStarted;
+  obj["lastHeartbeatMs"] = lastHeartbeatMs;
+  obj["lastTaskStatsUpdateMs"] = lastTaskStatsUpdateMs;
+  obj["lastMemoryReservation"] = lastMemoryReservation;
+
+  json j;
+  to_json(j, info);
+  obj["taskInfo"] = to_string(j);
+  return folly::toPrettyJson(obj);
 }
 
 protocol::RuntimeMetric toRuntimeMetric(

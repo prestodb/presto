@@ -28,12 +28,16 @@ namespace facebook::presto::operators {
     VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
   }
 
-void UnsafeRowExchangeSource::request() {
+folly::SemiFuture<UnsafeRowExchangeSource::Response>
+UnsafeRowExchangeSource::request(
+    uint32_t /*maxBytes*/,
+    uint32_t /*maxWaitSeconds*/) {
   std::vector<velox::ContinuePromise> promises;
+  int64_t totalBytes = 0;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     if (atEnd_) {
-      return;
+      return folly::makeFuture(Response{0, true});
     }
 
     bool hasNext;
@@ -45,6 +49,7 @@ void UnsafeRowExchangeSource::request() {
     } else {
       velox::BufferPtr buffer;
       CALL_SHUFFLE(buffer = shuffle_->next(), "next");
+      totalBytes = buffer->size();
 
       ++numBatches_;
 
@@ -63,6 +68,8 @@ void UnsafeRowExchangeSource::request() {
   for (auto& promise : promises) {
     promise.setValue();
   }
+
+  return folly::makeFuture(Response{totalBytes, atEnd_});
 }
 
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
@@ -92,18 +99,20 @@ UnsafeRowExchangeSource::createExchangeSource(
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
   }
+
+  auto uri = folly::Uri(url);
+  auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
+  // Not shuffle exchange source.
+  if (!serializedShuffleInfo.has_value()) {
+    return nullptr;
+  }
+
   auto shuffleName = SystemConfig::instance()->shuffleName();
   VELOX_CHECK(
       !shuffleName.empty(),
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");
   auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-  auto uri = folly::Uri(url);
-  auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
-  VELOX_USER_CHECK(
-      serializedShuffleInfo.has_value(),
-      "Cannot find shuffleInfo parameter in split url '{}'",
-      url);
   return std::make_unique<UnsafeRowExchangeSource>(
       uri.host(),
       destination,

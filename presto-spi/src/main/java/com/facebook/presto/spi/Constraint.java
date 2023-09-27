@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 
@@ -64,5 +65,25 @@ public class Constraint<T>
     public Optional<Predicate<Map<T, NullableValue>>> predicate()
     {
         return predicate;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof Constraint)) {
+            return false;
+        }
+
+        Constraint other = (Constraint) obj;
+        return this.summary.equals(other.summary) && this.predicate.equals(other.predicate);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(summary, predicate);
     }
 }

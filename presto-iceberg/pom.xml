@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.282-SNAPSHOT</version>
+        <version>0.284-SNAPSHOT</version>
     </parent>
     <artifactId>presto-iceberg</artifactId>
     <description>Presto - Iceberg Connector</description>
@@ -12,8 +12,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.iceberg.version>1.2.1</dep.iceberg.version>
-        <dep.nessie.version>0.51.1</dep.nessie.version>
+        <dep.iceberg.version>1.3.1</dep.iceberg.version>
+        <dep.nessie.version>0.59.0</dep.nessie.version>
     </properties>
 
     <dependencies>
@@ -534,6 +534,7 @@
                             <ignoredClassPattern>module-info</ignoredClassPattern>
                             <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
                             <ignoredClassPattern>org.apache.parquet.*</ignoredClassPattern>
+                            <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
                 </plugin>

@@ -171,7 +171,9 @@ public class TestHiveClientConfig
                 .setThriftBufferSize(new DataSize(128, BYTE))
                 .setReadNullMaskedParquetEncryptedValue(false)
                 .setCopyOnFirstWriteConfigurationEnabled(true)
-                .setPartitionFilteringFromMetastoreEnabled(true));
+                .setPartitionFilteringFromMetastoreEnabled(true)
+                .setParallelParsingOfPartitionValuesEnabled(false)
+                .setMaxParallelParsingConcurrency(100));
     }
 
     @Test
@@ -302,6 +304,8 @@ public class TestHiveClientConfig
                 .put("hive.read-null-masked-parquet-encrypted-value-enabled", "true")
                 .put("hive.copy-on-first-write-configuration-enabled", "false")
                 .put("hive.partition-filtering-from-metastore-enabled", "false")
+                .put("hive.parallel-parsing-of-partition-values-enabled", "true")
+                .put("hive.max-parallel-parsing-concurrency", "200")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -427,7 +431,9 @@ public class TestHiveClientConfig
                 .setThriftBufferSize(new DataSize(256, BYTE))
                 .setReadNullMaskedParquetEncryptedValue(true)
                 .setCopyOnFirstWriteConfigurationEnabled(false)
-                .setPartitionFilteringFromMetastoreEnabled(false);
+                .setPartitionFilteringFromMetastoreEnabled(false)
+                .setParallelParsingOfPartitionValuesEnabled(true)
+                .setMaxParallelParsingConcurrency(200);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

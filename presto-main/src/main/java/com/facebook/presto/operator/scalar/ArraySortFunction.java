@@ -27,12 +27,18 @@ import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
 import java.util.AbstractList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.Float.floatToIntBits;
+import static java.lang.Float.intBitsToFloat;
 
 @ScalarFunction("array_sort")
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
@@ -110,6 +116,134 @@ public final class ArraySortFunction
 
         for (int i = 0; i < arrayLength; i++) {
             type.appendTo(block, sortedListOfPositions.get(i), blockBuilder);
+        }
+
+        return blockBuilder.build();
+    }
+
+    @SqlType("array(bigint)")
+    public static Block bigintSort(@SqlType("array(bigint)") Block array)
+    {
+        final int arrayLength = array.getPositionCount();
+        if (arrayLength < 2) {
+            return array;
+        }
+
+        long[] values = new long[array.getPositionCount()];
+        int nulls = 0;
+
+        if (array.mayHaveNull()) {
+            int j = 0;
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                if (array.isNull(i)) {
+                    nulls++;
+                }
+                else {
+                    values[j++] = BIGINT.getLong(array, i);
+                }
+            }
+        }
+        else {
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                values[i] = BIGINT.getLong(array, i);
+            }
+        }
+
+        Arrays.sort(values, 0, values.length - nulls);
+
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, arrayLength);
+        for (int i = 0; i < values.length - nulls; i++) {
+            BIGINT.writeLong(blockBuilder, values[i]);
+        }
+        // Nulls last
+        for (int i = 0; i < nulls; i++) {
+            blockBuilder.appendNull();
+        }
+
+        return blockBuilder.build();
+    }
+
+    @SqlType("array(double)")
+    public static Block doubleSort(@SqlType("array(double)") Block array)
+    {
+        final int arrayLength = array.getPositionCount();
+        if (arrayLength < 2) {
+            return array;
+        }
+
+        double[] values = new double[array.getPositionCount()];
+        int nulls = 0;
+
+        if (array.mayHaveNull()) {
+            int j = 0;
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                if (array.isNull(i)) {
+                    nulls++;
+                }
+                else {
+                    values[j++] = DOUBLE.getDouble(array, i);
+                }
+            }
+        }
+        else {
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                values[i] = DOUBLE.getDouble(array, i);
+            }
+        }
+
+        Arrays.sort(values, 0, values.length - nulls);
+
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, arrayLength);
+        for (int i = 0; i < values.length - nulls; i++) {
+            DOUBLE.writeDouble(blockBuilder, values[i]);
+        }
+
+        // Nulls last
+        for (int i = 0; i < nulls; i++) {
+            blockBuilder.appendNull();
+        }
+
+        return blockBuilder.build();
+    }
+
+    @SqlType("array(real)")
+    public static Block floatSort(@SqlType("array(real)") Block array)
+    {
+        final int arrayLength = array.getPositionCount();
+        if (arrayLength < 2) {
+            return array;
+        }
+
+        float[] values = new float[array.getPositionCount()];
+        int nulls = 0;
+
+        if (array.mayHaveNull()) {
+            int j = 0;
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                if (array.isNull(i)) {
+                    nulls++;
+                }
+                else {
+                    values[j++] = intBitsToFloat(array.getInt(i));
+                }
+            }
+        }
+        else {
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                values[i] = intBitsToFloat(array.getInt(i));
+            }
+        }
+
+        Arrays.sort(values, 0, values.length - nulls);
+
+        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, arrayLength);
+        for (int i = 0; i < values.length - nulls; i++) {
+            REAL.writeLong(blockBuilder, floatToIntBits(values[i]));
+        }
+
+        // Nulls last
+        for (int i = 0; i < nulls; i++) {
+            blockBuilder.appendNull();
         }
 
         return blockBuilder.build();

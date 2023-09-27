@@ -63,6 +63,13 @@ public class AlluxioCachingConfigurationProvider
             }
             configuration.set("alluxio.user.client.cache.shadow.enabled", String.valueOf(alluxioCacheConfig.isShadowCacheEnabled()));
             configuration.set("alluxio.user.client.cache.shadow.window", String.valueOf(alluxioCacheConfig.getShadowCacheWindow().toMillis()));
+            configuration.set("alluxio.user.client.cache.ttl.enabled", String.valueOf(alluxioCacheConfig.isTtlEnabled()));
+            if (alluxioCacheConfig.isTtlEnabled()) {
+                configuration.set("alluxio.user.client.cache.ttl.check.interval.seconds",
+                        String.valueOf(alluxioCacheConfig.getTtlCheckInterval().toMillis() / 1000));
+                configuration.set("alluxio.user.client.cache.ttl.threshold.seconds",
+                        String.valueOf(alluxioCacheConfig.getTtlThreshold().toMillis() / 1000));
+            }
         }
     }
 

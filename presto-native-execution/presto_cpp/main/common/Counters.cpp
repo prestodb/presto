@@ -35,7 +35,7 @@ void registerPrestoCppCounters() {
       facebook::velox::StatType::COUNT);
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterHttpClientPrestoExchangeOnBodyBytes,
-      100,
+      1000,
       0,
       1000000,
       50,
@@ -45,7 +45,7 @@ void registerPrestoCppCounters() {
       100);
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterPrestoExchangeSerializedPageSize,
-      100,
+      10000,
       0,
       10000000,
       50,
@@ -101,9 +101,9 @@ void registerPrestoCppCounters() {
       kCounterOsNumForcedContextSwitches, facebook::velox::StatType::AVG);
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterExchangeSourcePeakQueuedBytes,
-      (1024 * 1024), // bucket unit: 1MB
+      1l * 1024 * 1024 * 1024,
       0,
-      (62l * 1024 * 1024 * 1024), // max bucket size: 62GB
+      62l * 1024 * 1024 * 1024, // max bucket value: 62GB
       100);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryCacheNumEntries, facebook::velox::StatType::AVG);
@@ -134,6 +134,10 @@ void registerPrestoCppCounters() {
       kCounterMemoryCacheNumCumulativeHit, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryCacheNumHit, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheCumulativeHitBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheHitBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryCacheNumCumulativeNew, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
@@ -191,6 +195,53 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSsdCacheCumulativeReadCheckpointErrors,
       facebook::velox::StatType::AVG);
+  // Disk spilling stats.
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillRuns, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpilledFiles, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpilledRows, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpilledBytes, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillFillTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillSortTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillSerializationTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillDiskWrites, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillFlushTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillWriteTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillMemoryBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
+      kCounterSpillPeakMemoryBytes,
+      1l * 512 * 1024 * 1024,
+      0,
+      20l * 1024 * 1024 * 1024, // max bucket value: 20GB
+      100);
+  // Memory arbitrator stats.
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumRequests, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumAborted, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumFailures, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorQueueTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorArbitrationTimeUs, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumShrunkBytes, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNumReclaimedBytes, facebook::velox::StatType::SUM);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorFreeCapacityBytes, facebook::velox::StatType::AVG);
+
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters
   // have their type exported there:

@@ -14,24 +14,34 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.UpdateProperties;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -84,24 +94,26 @@ public class IcebergDistributedSmokeTestBase
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
     }
-
+    @Test
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE iceberg.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   clerk varchar,\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar\n" +
+                .isEqualTo(format("CREATE TABLE iceberg.tpch.orders (\n" +
+                        "   \"orderkey\" bigint,\n" +
+                        "   \"custkey\" bigint,\n" +
+                        "   \"orderstatus\" varchar,\n" +
+                        "   \"totalprice\" double,\n" +
+                        "   \"orderdate\" date,\n" +
+                        "   \"orderpriority\" varchar,\n" +
+                        "   \"clerk\" varchar,\n" +
+                        "   \"shippriority\" integer,\n" +
+                        "   \"comment\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC'\n" +
-                        ")");
+                        "   format = 'PARQUET',\n" +
+                        "   format_version = '1',\n" +
+                        "   location = '%s'\n" +
+                        ")", getLocation("tpch", "orders")));
     }
 
     @Test
@@ -329,7 +341,7 @@ public class IcebergDistributedSmokeTestBase
     private void testCreatePartitionedTableAs(Session session, FileFormat fileFormat)
     {
         @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_create_partitioned_table_as " +
+                "CREATE TABLE test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH) + " " +
                 "WITH (" +
                 "format = '" + fileFormat + "', " +
                 "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(order_key,9)']" +
@@ -348,18 +360,21 @@ public class IcebergDistributedSmokeTestBase
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + fileFormat + "',\n" +
+                        "   format_version = '1',\n" +
+                        "   location = '%s',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
-                "test_create_partitioned_table_as");
+                "test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH),
+                getLocation(getSession().getSchema().get(), "test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH)));
 
-        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_partitioned_table_as");
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH));
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
 
-        assertQuery(session, "SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
+        assertQuery(session, "SELECT * from test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH), "SELECT orderkey, shippriority, orderstatus FROM orders");
 
-        dropTable(session, "test_create_partitioned_table_as");
+        dropTable(session, "test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH));
     }
 
     @Test
@@ -383,16 +398,31 @@ public class IcebergDistributedSmokeTestBase
     public void testTableComments()
     {
         Session session = getSession();
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
+                "   \"_x\" bigint\n" +
+                ")\n" +
+                "COMMENT '%s'\n" +
+                "WITH (\n" +
+                "   format = 'ORC',\n" +
+                "   format_version = '1'\n" +
+                ")";
+
+        assertUpdate(format(createTable, "test table comment"));
+
         String createTableTemplate = "" +
                 "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
                 "   \"_x\" bigint\n" +
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
-                "   format = 'ORC'\n" +
+                "   format = 'ORC',\n" +
+                "   format_version = '1',\n" +
+                "   location = '%s'\n" +
                 ")";
-        String createTableSql = format(createTableTemplate, "test table comment");
-        assertUpdate(createTableSql);
+        String createTableSql = format(createTableTemplate, "test table comment", getLocation("tpch", "test_table_comments"));
+
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
         assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
 
@@ -471,11 +501,14 @@ public class IcebergDistributedSmokeTestBase
     private void testCreateTableLike()
     {
         Session session = getSession();
+
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
-        assertEquals(getTablePropertiesString("test_create_table_like_original"), "WITH (\n" +
+        assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
+                "   format_version = '1',\n" +
+                "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
-                ")");
+                ")", getLocation("tpch", "test_create_table_like_original")));
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
         assertUpdate(session, "INSERT INTO test_create_table_like_copy0 (col1, aDate, col2) VALUES (1, CAST('1950-06-28' AS DATE), 3)", 1);
@@ -483,32 +516,93 @@ public class IcebergDistributedSmokeTestBase
         dropTable(session, "test_create_table_like_copy0");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy1"), "WITH (\n" +
-                "   format = 'PARQUET'\n" +
-                ")");
+        assertEquals(getTablePropertiesString("test_create_table_like_copy1"), format("WITH (\n" +
+                "   format = 'PARQUET',\n" +
+                "   format_version = '1',\n" +
+                "   location = '%s'\n" +
+                ")", getLocation("tpch", "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy2"), "WITH (\n" +
-                "   format = 'PARQUET'\n" +
-                ")");
+        assertEquals(getTablePropertiesString("test_create_table_like_copy2"), format("WITH (\n" +
+                "   format = 'PARQUET',\n" +
+                "   format_version = '1',\n" +
+                "   location = '%s'\n" +
+                ")", getLocation("tpch", "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy3"), "WITH (\n" +
+        assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
+                "   format_version = '1',\n" +
+                "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
-                ")");
+                ")", catalogType.equals(CatalogType.HIVE) ?
+                getLocation("tpch", "test_create_table_like_original") :
+                getLocation("tpch", "test_create_table_like_copy3")));
         dropTable(session, "test_create_table_like_copy3");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy4"), "WITH (\n" +
+        assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
                 "   format = 'ORC',\n" +
+                "   format_version = '1',\n" +
+                "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
-                ")");
+                ")", catalogType.equals(CatalogType.HIVE) ?
+                getLocation("tpch", "test_create_table_like_original") :
+                getLocation("tpch", "test_create_table_like_copy4")));
         dropTable(session, "test_create_table_like_copy4");
 
         dropTable(session, "test_create_table_like_original");
+    }
+
+    @Test
+    public void testCreateTableWithFormatVersion()
+    {
+        testWithAllFormatVersions(this::testCreateTableWithFormatVersion);
+    }
+
+    private void testCreateTableWithFormatVersion(Session session, String formatVersion)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_create_table_with_format_version_" + formatVersion + " " +
+                "WITH (" +
+                "format = 'PARQUET', " +
+                "format_version = '" + formatVersion + "'" +
+                ") " +
+                "AS " +
+                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
+                "FROM tpch.tiny.orders";
+
+        assertUpdate(session, createTable, "SELECT count(*) from orders");
+
+        String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (\n" +
+                        "   \"order_key\" bigint,\n" +
+                        "   \"ship_priority\" integer,\n" +
+                        "   \"order_status\" varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'PARQUET',\n" +
+                        "   format_version = '%s',\n" +
+                        "   location = '%s'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_create_table_with_format_version_" + formatVersion,
+                formatVersion,
+                getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion));
+
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_table_with_format_version_" + formatVersion);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+
+        dropTable(session, "test_create_table_with_format_version_" + formatVersion);
+    }
+
+    private void testWithAllFormatVersions(BiConsumer<Session, String> test)
+    {
+        test.accept(getSession(), "1");
+        test.accept(getSession(), "2");
     }
 
     private String getTablePropertiesString(String tableName)
@@ -734,5 +828,122 @@ public class IcebergDistributedSmokeTestBase
                         "  (NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
 
         dropTable(session, tableName);
+    }
+
+    @Test
+    public void testPartitionedByRealWithNaNInf()
+    {
+        Session session = getSession();
+        String tableName = "test_partitioned_by_real";
+
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, part real) WITH(partitioning = ARRAY['part'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, real 'NaN')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, real 'Infinity')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, real '-Infinity')", 1);
+
+        assertQuery("SELECT part FROM " + tableName + " WHERE id = 1", "VALUES cast('NaN' as real)");
+        assertQuery("SELECT part FROM " + tableName + " WHERE id = 2", "VALUES cast('Infinity' as real)");
+        assertQuery("SELECT part FROM " + tableName + " WHERE id = 3", "VALUES cast('-Infinity' as real)");
+
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_infinite(part) ORDER BY id", "VALUES (2),(3)");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testPartitionedByDoubleWithNaNInf()
+    {
+        Session session = getSession();
+        String tableName = "test_partitioned_by_double";
+
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, part double) WITH(partitioning = ARRAY['part'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, double 'NaN')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, double 'Infinity')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, double '-Infinity')", 1);
+
+        assertQuery("SELECT part FROM " + tableName + " WHERE id = 1", "VALUES cast('NaN' as double)");
+        assertQuery("SELECT part FROM " + tableName + " WHERE id = 2", "VALUES cast('Infinity' as double)");
+        assertQuery("SELECT part FROM " + tableName + " WHERE id = 3", "VALUES cast('-Infinity' as double)");
+
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
+        assertQuery("SELECT id FROM " + tableName + " WHERE is_infinite(part) ORDER BY id", "VALUES (2),(3)");
+
+        dropTable(session, tableName);
+    }
+
+    protected String getLocation(String schema, String table)
+    {
+        return null;
+    }
+
+    protected Path getCatalogDirectory()
+    {
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory().resolve(TEST_DATA_DIRECTORY);
+        return dataDirectory.getParent().resolve(TEST_CATALOG_DIRECTORY);
+    }
+
+    protected Table getIcebergTable(ConnectorSession session, String namespace, String tableName)
+    {
+        return null;
+    }
+
+    protected void createTableWithMergeOnRead(Session session, String schema, String tableName)
+    {
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer) WITH (format_version = '2')");
+
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+
+        Table icebergTable = getIcebergTable(session.toConnectorSession(connectorId), schema, tableName);
+
+        UpdateProperties updateProperties = icebergTable.updateProperties();
+        updateProperties.set("write.merge.mode", "merge-on-read");
+        updateProperties.commit();
+    }
+
+    protected void cleanupTableWithMergeOnRead(String tableName)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "true")
+                .build();
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testMergeOnReadEnabled()
+    {
+        String tableName = "test_merge_on_read_enabled";
+        try {
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "true")
+                    .build();
+
+            createTableWithMergeOnRead(session, "tpch", tableName);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 1)", 1);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, 2)", 1);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, 1), (2, 2)");
+        }
+        finally {
+            cleanupTableWithMergeOnRead(tableName);
+        }
+    }
+
+    @Test
+    public void testMergeOnReadDisabled()
+    {
+        String tableName = "test_merge_on_read_disabled";
+        @Language("RegExp") String errorMessage = "merge-on-read table mode not supported yet";
+        try {
+            Session session = getSession();
+
+            createTableWithMergeOnRead(session, "tpch", tableName);
+            assertQueryFails("INSERT INTO " + tableName + " VALUES (1, 1)", errorMessage);
+            assertQueryFails("INSERT INTO " + tableName + " VALUES (2, 2)", errorMessage);
+            assertQueryFails("SELECT * FROM " + tableName, errorMessage);
+        }
+        finally {
+            cleanupTableWithMergeOnRead(tableName);
+        }
     }
 }

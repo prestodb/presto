@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Strings.nullToEmpty;
 
 public class PrestoSparkSessionProperties
@@ -64,6 +65,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY = "spark_hash_partition_count_scaling_factor_on_out_of_memory";
     public static final String SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED = "spark_adaptive_query_execution_enabled";
     public static final String ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED = "adaptive_join_side_switching_enabled";
+    public static final String NATIVE_EXECUTION_BROADCAST_BASE_PATH = "native_execution_broadcast_base_path";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -228,6 +230,11 @@ public class PrestoSparkSessionProperties
                         ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED,
                         "Enables the adaptive optimizer to switch the build and probe sides of a join",
                         prestoSparkConfig.isAdaptiveJoinSideSwitchingEnabled(),
+                        false),
+                stringProperty(
+                        NATIVE_EXECUTION_BROADCAST_BASE_PATH,
+                        "Base path for temporary storage of broadcast data",
+                        prestoSparkConfig.getNativeExecutionBroadcastBasePath(),
                         false));
     }
 
@@ -379,5 +386,10 @@ public class PrestoSparkSessionProperties
     public static boolean isAdaptiveJoinSideSwitchingEnabled(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED, Boolean.class);
+    }
+
+    public static String getNativeExecutionBroadcastBasePath(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_BROADCAST_BASE_PATH, String.class);
     }
 }

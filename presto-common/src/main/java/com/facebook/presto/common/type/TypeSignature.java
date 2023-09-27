@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
@@ -45,6 +48,7 @@ import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 
+@ThriftStruct
 public class TypeSignature
 {
     private final TypeSignatureBase base;
@@ -96,9 +100,10 @@ public class TypeSignature
         this(TypeSignatureBase.of(base), parameters);
     }
 
-    private TypeSignature(TypeSignatureBase base, List<TypeSignatureParameter> parameters)
+    @ThriftConstructor
+    public TypeSignature(TypeSignatureBase typeSignatureBase, List<TypeSignatureParameter> parameters)
     {
-        this.base = base;
+        this.base = typeSignatureBase;
         checkArgument(parameters != null, "parameters is null");
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
 
@@ -110,6 +115,7 @@ public class TypeSignature
         return new TypeSignature(base.getStandardTypeBase(), parameters);
     }
 
+    @ThriftField(1)
     public TypeSignatureBase getTypeSignatureBase()
     {
         return base;
@@ -120,6 +126,7 @@ public class TypeSignature
         return base.toString();
     }
 
+    @ThriftField(2)
     public List<TypeSignatureParameter> getParameters()
     {
         return parameters;

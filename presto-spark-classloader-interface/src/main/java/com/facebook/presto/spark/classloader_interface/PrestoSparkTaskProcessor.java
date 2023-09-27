@@ -79,12 +79,12 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
             Map<String, PrestoSparkShuffleReadDescriptor> shuffleReadDescriptors,
             Optional<PrestoSparkShuffleWriteDescriptor> shuffleWriteDescriptor)
     {
-        return taskExecutorFactoryProvider.get().create(
+        return taskExecutorFactoryProvider.getNative().create(
                 TaskContext.get().partitionId(),
                 TaskContext.get().attemptNumber(),
                 serializedTaskDescriptor,
                 serializedTaskSources,
-                new PrestoSparkNativeTaskInputs(shuffleReadDescriptors, shuffleWriteDescriptor),
+                new PrestoSparkNativeTaskInputs(shuffleReadDescriptors, shuffleWriteDescriptor, broadcastInputs),
                 taskInfoCollector,
                 shuffleStatsCollector,
                 outputType);

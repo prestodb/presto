@@ -382,7 +382,7 @@ public class TestEqualityInference
         return compare(OperatorType.GREATER_THAN, expression1, expression2);
     }
 
-    private static RowExpression add(String symbol1, String symbol2)
+    static RowExpression add(String symbol1, String symbol2)
     {
         return arithmeticOperation(ADD, variable(symbol1), variable(symbol2));
     }
@@ -392,12 +392,12 @@ public class TestEqualityInference
         return arithmeticOperation(ADD, expression1, expression2);
     }
 
-    private static RowExpression multiply(String symbol1, String symbol2)
+    static RowExpression multiply(String symbol1, String symbol2)
     {
         return arithmeticOperation(MULTIPLY, variable(symbol1), variable(symbol2));
     }
 
-    private static RowExpression multiply(RowExpression expression1, RowExpression expression2)
+    static RowExpression multiply(RowExpression expression1, RowExpression expression2)
     {
         return arithmeticOperation(MULTIPLY, expression1, expression2);
     }
@@ -412,12 +412,12 @@ public class TestEqualityInference
         return compare(OperatorType.EQUAL, expression1, expression2);
     }
 
-    private static VariableReferenceExpression variable(String name)
+    static VariableReferenceExpression variable(String name)
     {
         return Expressions.variable(name, BIGINT);
     }
 
-    private static RowExpression number(long number)
+    static RowExpression number(long number)
     {
         return constant(number, BIGINT);
     }
@@ -478,7 +478,7 @@ public class TestEqualityInference
         return ImmutableSet.copyOf(elements);
     }
 
-    private static CallExpression compare(OperatorType type, RowExpression left, RowExpression right)
+    static CallExpression compare(OperatorType type, RowExpression left, RowExpression right)
     {
         return call(
                 type.getFunctionName().getObjectName(),

@@ -28,6 +28,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -46,6 +47,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThro
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractAll;
 import static com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayContainsToInnerJoin.getCandidateArrayContainsExpression;
+import static com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayNotContainsToAntiJoin.getCandidateArrayNotContainsExpression;
 import static com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithOrFilterToInnerJoin.getCandidateOrExpression;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
@@ -76,7 +78,6 @@ import static java.util.stream.Stream.concat;
 public class PushDownFilterExpressionEvaluationThroughCrossJoin
         implements Rule<FilterNode>
 {
-    private static final String CONTAINS_FUNCTION_NAME = "presto.default.contains";
     private static final Capture<JoinNode> CHILD = newCapture();
 
     private static final Pattern<FilterNode> PATTERN = filter()
@@ -91,9 +92,11 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
         this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
     }
 
-    private static boolean canRewrittenToInnerJoin(RowExpression filter, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    private static boolean canRewriteToInnerJoin(FunctionResolution functionResolution, RowExpression filter, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
     {
-        return getCandidateOrExpression(filter, left, right) != null || getCandidateArrayContainsExpression(filter, left, right) != null;
+        return getCandidateOrExpression(filter, left, right) != null
+                || getCandidateArrayContainsExpression(functionResolution, filter, left, right) != null
+                || getCandidateArrayNotContainsExpression(functionResolution, filter, left, right) != null;
     }
 
     @Override
@@ -112,7 +115,8 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
     public Result apply(FilterNode filterNode, Captures captures, Context context)
     {
         JoinNode joinNode = captures.get(CHILD);
-        List<Set<RowExpression>> rowExpressionToProject = getRowExpressions(filterNode.getPredicate(), joinNode.getLeft().getOutputVariables(), joinNode.getRight().getOutputVariables());
+        FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+        List<Set<RowExpression>> rowExpressionToProject = getRowExpressions(functionResolution, filterNode.getPredicate(), joinNode.getLeft().getOutputVariables(), joinNode.getRight().getOutputVariables());
         if (rowExpressionToProject.stream().allMatch(x -> x.isEmpty())) {
             return Result.empty();
         }
@@ -134,7 +138,7 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
 
         // Only enable if the cross join can be rewritten to inner join after the rewrite
         if (getPushdownFilterExpressionEvaluationThroughCrossJoinStrategy(context.getSession()).equals(REWRITTEN_TO_INNER_JOIN)
-                && !canRewrittenToInnerJoin(rewrittenFilter, leftInput.getOutputVariables(), rightInput.getOutputVariables())) {
+                && !canRewriteToInnerJoin(functionResolution, rewrittenFilter, leftInput.getOutputVariables(), rightInput.getOutputVariables())) {
             return Result.empty();
         }
 
@@ -167,18 +171,21 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
     }
 
     // TODO: this function only works for filter in form of or condition and array contains function etc. make it generic to work for all RowExpressions
-    private List<Set<RowExpression>> getRowExpressions(RowExpression filterPredicate, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    private List<Set<RowExpression>> getRowExpressions(FunctionResolution functionResolution, RowExpression filterPredicate, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
     {
         List<Set<RowExpression>> candidateFromOrCondition = getRowExpressionsFromOrCondition(filterPredicate, left, right);
-        List<Set<RowExpression>> candidateFromArrayContains = getRowExpressionsFromArrayContains(filterPredicate, left, right);
+        List<Set<RowExpression>> candidateFromArrayContains = getRowExpressionsFromArrayContains(functionResolution, filterPredicate, left, right);
+        List<Set<RowExpression>> candidateFromArrayNotContains = getRowExpressionsFromArrayNotContains(functionResolution, filterPredicate, left, right);
 
         ImmutableSet.Builder<RowExpression> leftCandidate = ImmutableSet.builder();
         leftCandidate.addAll(candidateFromOrCondition.get(0));
         leftCandidate.addAll(candidateFromArrayContains.get(0));
+        leftCandidate.addAll(candidateFromArrayNotContains.get(0));
 
         ImmutableSet.Builder<RowExpression> rightCandidate = ImmutableSet.builder();
         rightCandidate.addAll(candidateFromOrCondition.get(1));
         rightCandidate.addAll(candidateFromArrayContains.get(1));
+        rightCandidate.addAll(candidateFromArrayNotContains.get(1));
 
         return ImmutableList.of(leftCandidate.build(), rightCandidate.build());
     }
@@ -199,14 +206,29 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
         return ImmutableList.of(leftRowExpression, rightRowExpression);
     }
 
-    private List<Set<RowExpression>> getRowExpressionsFromArrayContains(RowExpression filterPredicate, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    private List<Set<RowExpression>> getRowExpressionsFromArrayContains(FunctionResolution functionResolution, RowExpression filterPredicate, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
     {
         Set<RowExpression> leftRowExpression = new HashSet<>();
         Set<RowExpression> rightRowExpression = new HashSet<>();
-        if (filterPredicate instanceof CallExpression && ((CallExpression) filterPredicate).getFunctionHandle().getName().equals(CONTAINS_FUNCTION_NAME)) {
+        if (filterPredicate instanceof CallExpression && functionResolution.isArrayContainsFunction(((CallExpression) filterPredicate).getFunctionHandle())) {
             CallExpression callExpression = (CallExpression) filterPredicate;
             addCandidateExpression(callExpression.getArguments().get(0), left, right, leftRowExpression, rightRowExpression);
             addCandidateExpression(callExpression.getArguments().get(1), left, right, leftRowExpression, rightRowExpression);
+        }
+        return ImmutableList.of(leftRowExpression, rightRowExpression);
+    }
+
+    private List<Set<RowExpression>> getRowExpressionsFromArrayNotContains(FunctionResolution functionResolution, RowExpression filterPredicate, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    {
+        Set<RowExpression> leftRowExpression = new HashSet<>();
+        Set<RowExpression> rightRowExpression = new HashSet<>();
+        if (PlannerUtils.isNegationExpression(functionResolution, filterPredicate)) {
+            RowExpression argument = filterPredicate.getChildren().get(0);
+            if (argument instanceof CallExpression && functionResolution.isArrayContainsFunction(((CallExpression) argument).getFunctionHandle())) {
+                CallExpression callExpression = (CallExpression) argument;
+                addCandidateExpression(callExpression.getArguments().get(0), left, right, leftRowExpression, rightRowExpression);
+                addCandidateExpression(callExpression.getArguments().get(1), left, right, leftRowExpression, rightRowExpression);
+            }
         }
         return ImmutableList.of(leftRowExpression, rightRowExpression);
     }

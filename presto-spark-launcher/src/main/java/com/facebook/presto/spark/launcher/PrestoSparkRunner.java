@@ -24,6 +24,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.google.common.collect.ImmutableList;
 import org.apache.spark.TaskContext;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Option;
@@ -116,14 +117,14 @@ public class PrestoSparkRunner
                 sparkQueueName,
                 queryStatusInfoOutputLocation,
                 queryDataOutputLocation,
-                Optional.empty());
+                ImmutableList.of());
         try {
             execute(queryExecutionFactory, prestoSparkRunnerContext);
         }
         catch (PrestoSparkFailure failure) {
-            if (failure.getRetryExecutionStrategy().isPresent()) {
+            if (!failure.getRetryExecutionStrategies().isEmpty()) {
                 PrestoSparkRunnerContext retryRunnerContext = new PrestoSparkRunnerContext.Builder(prestoSparkRunnerContext)
-                        .setRetryExecutionStrategy(failure.getRetryExecutionStrategy())
+                        .setRetryExecutionStrategies(failure.getRetryExecutionStrategies())
                         .build();
                 execute(queryExecutionFactory, retryRunnerContext);
                 return;
@@ -162,7 +163,7 @@ public class PrestoSparkRunner
                 new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution, bootstrapMetricsCollector),
                 prestoSparkRunnerContext.getQueryStatusInfoOutputLocation(),
                 prestoSparkRunnerContext.getQueryDataOutputLocation(),
-                prestoSparkRunnerContext.getRetryExecutionStrategy(),
+                prestoSparkRunnerContext.getRetryExecutionStrategies(),
                 Optional.of(bootstrapMetricsCollector));
 
         List<List<Object>> results = queryExecution.execute();
@@ -295,6 +296,14 @@ public class PrestoSparkRunner
             checkState(TaskContext.get() != null, "this method is expected to be called only from the main task thread on the spark executor");
             IPrestoSparkService prestoSparkService = getOrCreatePrestoSparkService();
             return prestoSparkService.getTaskExecutorFactory();
+        }
+
+        @Override
+        public IPrestoSparkTaskExecutorFactory getNative()
+        {
+            checkState(TaskContext.get() != null, "this method is expected to be called only from the main task thread on the spark executor");
+            IPrestoSparkService prestoSparkService = getOrCreatePrestoSparkService();
+            return prestoSparkService.getNativeTaskExecutorFactory();
         }
 
         private static IPrestoSparkService service;

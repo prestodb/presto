@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
@@ -65,7 +66,7 @@ public class IcebergPageSource
 
     public IcebergPageSource(
             List<IcebergColumnHandle> columns,
-            Map<Integer, String> partitionKeys,
+            Map<Integer, HivePartitionKey> partitionKeys,
             ConnectorPageSource delegate,
             TimeZoneKey timeZoneKey)
     {
@@ -80,9 +81,9 @@ public class IcebergPageSource
         int delegateIndex = 0;
         for (IcebergColumnHandle column : columns) {
             if (partitionKeys.containsKey(column.getId())) {
-                String partitionValue = partitionKeys.get(column.getId());
+                HivePartitionKey icebergPartition = partitionKeys.get(column.getId());
                 Type type = column.getType();
-                Object prefilledValue = deserializePartitionValue(type, partitionValue, column.getName(), timeZoneKey);
+                Object prefilledValue = deserializePartitionValue(type, icebergPartition.getValue().orElse(null), column.getName(), timeZoneKey);
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(type, prefilledValue);
                 delegateIndexes[outputIndex] = -1;
             }

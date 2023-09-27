@@ -15,6 +15,7 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
 
@@ -49,6 +50,49 @@ folly::IOThreadPoolExecutor* spillExecutorPtr() {
   return spillExecutor().get();
 }
 
+namespace {
+std::unordered_map<std::string, std::string> toConfigs(
+    const protocol::SessionRepresentation& session) {
+  // Use base velox query config as the starting point and add Presto session
+  // properties on top of it.
+  auto configs = BaseVeloxQueryConfig::instance()->values();
+  for (const auto& it : session.systemProperties) {
+    configs[it.first] = it.second;
+  }
+
+  // If there's a timeZoneKey, convert to timezone name and add to the
+  // configs. Throws if timeZoneKey can't be resolved.
+  if (session.timeZoneKey != 0) {
+    configs.emplace(
+        velox::core::QueryConfig::kSessionTimezone,
+        velox::util::getTimeZoneName(session.timeZoneKey));
+  }
+  return configs;
+}
+
+std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+toConnectorConfigs(const protocol::SessionRepresentation& session) {
+  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+      connectorConfigs;
+  for (const auto& entry : session.catalogProperties) {
+    connectorConfigs.insert(
+        {entry.first,
+         std::unordered_map<std::string, std::string>(
+             entry.second.begin(), entry.second.end())});
+  }
+
+  return connectorConfigs;
+}
+} // namespace
+
+std::shared_ptr<velox::core::QueryCtx>
+QueryContextManager::findOrCreateQueryCtx(
+    const protocol::TaskId& taskId,
+    const protocol::SessionRepresentation& session) {
+  return findOrCreateQueryCtx(
+      taskId, toConfigs(session), toConnectorConfigs(session));
+}
+
 std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
     const TaskId& taskId,
     std::unordered_map<std::string, std::string>&& configStrings,
@@ -81,13 +125,17 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   }
 
   auto pool = memory::defaultMemoryManager().addRootPool(
-      queryId, SystemConfig::instance()->queryMaxMemoryPerNode());
+      queryId,
+      SystemConfig::instance()->queryMaxMemoryPerNode(),
+      !SystemConfig::instance()->memoryArbitratorKind().empty()
+          ? memory::MemoryReclaimer::create()
+          : nullptr);
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
       executor().get(),
       std::move(configStrings),
       connectorConfigs,
-      memory::MemoryAllocator::getInstance(),
+      cache::AsyncDataCache::getInstance(),
       std::move(pool),
       spillExecutor(),
       queryId);

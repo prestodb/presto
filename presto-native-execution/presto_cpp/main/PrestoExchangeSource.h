@@ -14,6 +14,8 @@
 #pragma once
 
 #include <folly/Uri.h>
+#include <folly/executors/IOThreadPoolExecutor.h>
+#include <folly/futures/Retrying.h>
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
@@ -21,28 +23,114 @@
 #include "velox/exec/Exchange.h"
 
 namespace facebook::presto {
+
 class PrestoExchangeSource : public velox::exec::ExchangeSource {
  public:
+  class RetryState {
+   public:
+    RetryState(int64_t maxWaitMs = 1'000)
+        : maxWaitMs_(maxWaitMs), startMs_(velox::getCurrentTimeMs()) {}
+
+    // Returns the delay in millis to wait before next try. This is an
+    // exponential backoff delay with jitter. The first call to this always
+    // returns 0.
+    int64_t nextDelayMs() {
+      if (++numTries_ == 1) {
+        return 0;
+      }
+      auto rng = folly::ThreadLocalPRNG();
+      return folly::futures::detail::retryingJitteredExponentialBackoffDur(
+                 numTries_ - 1,
+                 std::chrono::milliseconds(kMinBackoffMs),
+                 std::chrono::milliseconds(kMaxBackoffMs),
+                 kJitterParam,
+                 rng)
+          .count();
+    }
+
+    // Returns whether we have exhausted all retries. We only retry if we spent
+    // less than maxWaitMs_ time after we first started.
+    bool isExhausted() const {
+      return velox::getCurrentTimeMs() - startMs_ > maxWaitMs_;
+    }
+
+   private:
+    int64_t maxWaitMs_;
+    int64_t startMs_;
+    size_t numTries_{0};
+
+    static constexpr int64_t kMinBackoffMs = 100;
+    static constexpr int64_t kMaxBackoffMs = 10000;
+    static constexpr double kJitterParam = 0.1;
+  };
+
   PrestoExchangeSource(
       const folly::Uri& baseUri,
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
       velox::memory::MemoryPool* pool,
+      const std::shared_ptr<folly::IOThreadPoolExecutor>& executor,
       const std::string& clientCertAndKeyPath_ = "",
       const std::string& ciphers_ = "");
 
+  bool supportsFlowControlV2() const override {
+    return true;
+  }
+
+  /// Returns 'true' is there is no request in progress, this source is not at
+  /// end and most recent request hasn't failed. Transitions into
+  /// 'request-pending' state if not there already. The caller must follow up
+  /// with a call to 'request()' if this method returns true. The caller must
+  /// hold a lock over queue's mutex while making this call.
   bool shouldRequestLocked() override;
 
-  static std::unique_ptr<ExchangeSource> createExchangeSource(
+  /// Requests up to 'maxBytes' from the upstream worker. Returns a future that
+  /// completes after successful response is received from the upstream worker
+  /// and the data received (if any) has been added to the queue. The future
+  /// completes even if response came back empty. Failed responses are retried
+  /// until SystemConfig::exchangeMaxErrorDuration() timeout expires. Retries
+  /// use exponential backoff starting at 100ms and going up to 10s. Final
+  /// failure is reported to the queue and completes the future.
+  ///
+  /// This method should not be called concurrently. The caller must receive
+  /// 'true' from shouldRequestLocked() before calling this method. The caller
+  /// should not hold a lock over queue's mutex when making this call.
+  folly::SemiFuture<Response> request(
+      uint32_t maxBytes,
+      uint32_t maxWaitSeconds) override;
+
+  static std::unique_ptr<ExchangeSource> create(
       const std::string& url,
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
-      velox::memory::MemoryPool* pool);
+      velox::memory::MemoryPool* pool,
+      std::shared_ptr<folly::IOThreadPoolExecutor> executor);
 
+  /// Completes the future returned by 'request()' if it hasn't completed
+  /// already.
   void close() override;
 
   folly::F14FastMap<std::string, int64_t> stats() const override {
-    return {{"prestoExchangeSource.numPages", numPages_}};
+    return {
+        {"prestoExchangeSource.numPages", numPages_},
+        {"prestoExchangeSource.totalBytes", totalBytes_},
+    };
+  }
+
+  std::string toJsonString() override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["taskId"] = taskId_;
+    obj["destination"] = destination_;
+    obj["sequence"] = sequence_;
+    obj["requestPending"] = requestPending_.load();
+    obj["basePath"] = basePath_;
+    obj["host"] = host_;
+    obj["numPages"] = numPages_;
+    obj["totalBytes"] = totalBytes_;
+    obj["closed"] = std::to_string(closed_);
+    obj["abortResultsSucceeded"] = std::to_string(abortResultsSucceeded_);
+    obj["atEnd"] = atEnd_;
+    return folly::toPrettyJson(obj);
   }
 
   int testingFailedAttempts() const {
@@ -68,24 +156,37 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   static void testingClearMemoryUsage();
 
  private:
-  void request() override;
+  void doRequest(int64_t delayMs, uint32_t maxBytes, uint32_t maxWaitSeconds);
 
-  void doRequest();
-
+  /// Handles successful, possibly empty, response. Adds received data to the
+  /// queue. If received an end marker, notifies the queue by adding null page.
+  /// Completes the future returned by 'request()' unless it has been completed
+  /// already by a call to 'close()'. Sends an ack if received non-empty
+  /// response without an end marker. Sends delete-results if received an end
+  /// marker. The sequence of operations is: add data or end marker to the
+  /// queue; complete the future, send ack or delete-results.
   void processDataResponse(std::unique_ptr<http::HttpResponse> response);
 
-  // If 'retry' is true, then retry the http request failure until reaches the
-  // retry limit, otherwise just set exchange source error without retry. As
-  // for now, we don't retry on the request failure which is caused by the
-  // memory allocation failure for the http response data.
+  /// If 'retry' is true, then retry the http request failure until reaches the
+  /// retry limit, otherwise just set exchange source error without retry. As
+  /// for now, we don't retry on the request failure which is caused by the
+  /// memory allocation failure for the http response data.
+  ///
+  /// Upon final failure, completes the future returned from 'request'.
   void processDataError(
       const std::string& path,
+      uint32_t maxBytes,
+      uint32_t maxWaitSeconds,
       const std::string& error,
       bool retry = true);
 
   void acknowledgeResults(int64_t ackSequence);
 
   void abortResults();
+
+  /// Completes the future returned from 'request()' if it hasn't completed
+  /// already.
+  bool checkSetRequestPromise();
 
   // Returns a shared ptr owning the current object.
   std::shared_ptr<PrestoExchangeSource> getSelfPtr();
@@ -108,14 +209,19 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const uint16_t port_;
   const std::string clientCertAndKeyPath_;
   const std::string ciphers_;
+  const std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
 
   std::shared_ptr<http::HttpClient> httpClient_;
+  RetryState retryState_;
   int failedAttempts_;
   // The number of pages received from this presto exchange source.
   uint64_t numPages_{0};
+  uint64_t totalBytes_{0};
   std::atomic_bool closed_{false};
   // A boolean indicating whether abortResults() call was issued and was
   // successfully processed by the remote server.
   std::atomic_bool abortResultsSucceeded_{false};
+  velox::VeloxPromise<Response> promise_{
+      velox::VeloxPromise<Response>::makeEmpty()};
 };
 } // namespace facebook::presto

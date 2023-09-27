@@ -17,6 +17,7 @@
 #include "presto_cpp/main/types/ParseTypeSignature.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
@@ -53,8 +54,6 @@ std::string mapScalarFunction(const std::string& name) {
       {"presto.default.$operator$subscript", "presto.default.subscript"},
       // Special form function overrides.
       {"presto.default.in", "in"},
-      {"presto.default.row_constructor", "in"},
-      {"presto.default.in", "is_null"},
   };
 
   std::string lowerCaseName = boost::to_lower_copy(name);
@@ -68,7 +67,18 @@ std::string mapScalarFunction(const std::string& name) {
 }
 
 std::string mapAggregateOrWindowFunction(const std::string& name) {
-  return boost::to_lower_copy(name);
+  static const std::unordered_map<std::string, std::string> kFunctionNames = {
+      {"presto.default.$internal$max_data_size_for_stats",
+       "presto.default.max_data_size_for_stats"},
+      {"presto.default.$internal$sum_data_size_for_stats",
+       "presto.default.sum_data_size_for_stats"},
+  };
+  std::string lowerCaseName = boost::to_lower_copy(name);
+  auto it = kFunctionNames.find(name);
+  if (it != kFunctionNames.end()) {
+    return it->second;
+  }
+  return lowerCaseName;
 }
 
 std::string getFunctionName(const protocol::Signature& signature) {
@@ -118,8 +128,6 @@ velox::variant VeloxExprConverter::getConstantValue(
     case TypeKind::TIMESTAMP:
       return valueVector->as<velox::SimpleVector<velox::Timestamp>>()->valueAt(
           0);
-    case TypeKind::DATE:
-      return valueVector->as<velox::SimpleVector<velox::Date>>()->valueAt(0);
     case TypeKind::BOOLEAN:
       return valueVector->as<velox::SimpleVector<bool>>()->valueAt(0);
     case TypeKind::DOUBLE:
@@ -154,18 +162,27 @@ std::vector<TypedExprPtr> VeloxExprConverter::toVeloxExpr(
 namespace {
 /// Converts cast and try_cast functions to CastTypedExpr with nullOnFailure
 /// flag set to false and true appropriately.
-/// Removed cast to Re2JRegExp type. Velox doesn't have such type and uses
+/// Removes cast to Re2JRegExp type. Velox doesn't have such type and uses
 /// different mechanism (stateful vector functions) to avoid re-compiling
 /// regular expressions needlessly.
+/// Removes cast to CodePoints type. Velox doesn't have such type and uses
+/// different mechanisms to implement trim functions efficiently.
 std::optional<TypedExprPtr> tryConvertCast(
     const protocol::Signature& signature,
     const std::string& returnType,
     const std::vector<TypedExprPtr>& args) {
   static const char* kCast = "presto.default.$operator$cast";
   static const char* kTryCast = "presto.default.try_cast";
+  static const char* kJsonToArrayCast =
+      "presto.default.$internal$json_string_to_array_cast";
+  static const char* kJsonToMapCast =
+      "presto.default.$internal$json_string_to_map_cast";
+  static const char* kJsonToRowCast =
+      "presto.default.$internal$json_string_to_row_cast";
 
   static const char* kRe2JRegExp = "Re2JRegExp";
   static const char* kJsonPath = "JsonPath";
+  static const char* kCodePoints = "CodePoints";
 
   if (signature.kind != protocol::FunctionKind::SCALAR) {
     return std::nullopt;
@@ -176,6 +193,16 @@ std::optional<TypedExprPtr> tryConvertCast(
     nullOnFailure = false;
   } else if (signature.name.compare(kTryCast) == 0) {
     nullOnFailure = true;
+  } else if (
+      signature.name.compare(kJsonToArrayCast) == 0 ||
+      signature.name.compare(kJsonToMapCast) == 0 ||
+      signature.name.compare(kJsonToRowCast) == 0) {
+    auto type = parseTypeSignature(returnType);
+    return std::make_shared<CastTypedExpr>(
+        type,
+        std::vector<TypedExprPtr>{std::make_shared<CallTypedExpr>(
+            velox::JSON(), args, "presto.default.json_parse")},
+        false);
   } else {
     return std::nullopt;
   }
@@ -185,6 +212,10 @@ std::optional<TypedExprPtr> tryConvertCast(
   }
 
   if (returnType == kJsonPath) {
+    return args[0];
+  }
+
+  if (returnType == kCodePoints) {
     return args[0];
   }
 
@@ -398,8 +429,7 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
       auto valueVector =
           protocol::readBlock(type, pexpr->valueBlock.data, pool_);
       return std::make_shared<ConstantTypedExpr>(
-          std::make_shared<velox::ConstantVector<velox::ComplexType>>(
-              pool_, 1, 0, valueVector));
+          velox::BaseVector::wrapInConstant(1, 0, valueVector));
     }
     default: {
       const auto value = getConstantValue(type, pexpr->valueBlock);
@@ -506,8 +536,42 @@ TypedExprPtr convertBindExpr(const std::vector<TypedExprPtr>& args) {
       newSignature, lambda->body()->rewriteInputNames(mapping));
 }
 
+velox::ArrayVectorPtr wrapInArray(const velox::VectorPtr& elements) {
+  auto* pool = elements->pool();
+  auto size = elements->size();
+  auto offsets = velox::allocateOffsets(size, pool);
+  auto sizes = velox::allocateSizes(size, pool);
+
+  auto rawSizes = sizes->asMutable<velox::vector_size_t>();
+  rawSizes[0] = size;
+
+  return std::make_shared<velox::ArrayVector>(
+      pool, ARRAY(elements->type()), nullptr, 1, offsets, sizes, elements);
+}
+
+velox::ArrayVectorPtr toArrayOfComplexTypeVector(
+    const velox::TypePtr& elementType,
+    std::vector<TypedExprPtr>::const_iterator begin,
+    std::vector<TypedExprPtr>::const_iterator end,
+    velox::memory::MemoryPool* pool) {
+  const auto size = end - begin;
+  auto elements = velox::BaseVector::create(elementType, size, pool);
+
+  for (auto i = 0; i < size; ++i) {
+    auto constant =
+        dynamic_cast<const ConstantTypedExpr*>((*(begin + i)).get());
+    if (constant == nullptr) {
+      VELOX_UNSUPPORTED("IN predicate supports only constant list of values");
+    }
+    elements->copy(constant->valueVector().get(), i, 0, 1);
+  }
+
+  return wrapInArray(elements);
+}
+
 template <TypeKind KIND>
 velox::ArrayVectorPtr toArrayVector(
+    const velox::TypePtr& elementType,
     std::vector<TypedExprPtr>::const_iterator begin,
     std::vector<TypedExprPtr>::const_iterator end,
     velox::memory::MemoryPool* pool) {
@@ -515,7 +579,7 @@ velox::ArrayVectorPtr toArrayVector(
 
   const auto size = end - begin;
   auto elements = std::dynamic_pointer_cast<velox::FlatVector<T>>(
-      velox::BaseVector::create(velox::CppToType<T>::create(), size, pool));
+      velox::BaseVector::create(elementType, size, pool));
 
   for (auto i = 0; i < size; ++i) {
     auto constant =
@@ -535,20 +599,7 @@ velox::ArrayVectorPtr toArrayVector(
     }
   }
 
-  auto offsets = velox::allocateOffsets(size, pool);
-  auto sizes = velox::allocateSizes(size, pool);
-
-  auto rawSizes = sizes->asMutable<velox::vector_size_t>();
-  rawSizes[0] = size;
-
-  return std::make_shared<velox::ArrayVector>(
-      pool,
-      ARRAY(velox::Type::create<KIND>()),
-      nullptr,
-      1,
-      offsets,
-      sizes,
-      elements);
+  return wrapInArray(elements);
 }
 
 TypedExprPtr convertInExpr(
@@ -557,12 +608,28 @@ TypedExprPtr convertInExpr(
   auto numArgs = args.size();
   VELOX_USER_CHECK_GE(numArgs, 2);
 
-  auto arrayVector = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      toArrayVector,
-      args[0]->type()->kind(),
-      args.begin() + 1,
-      args.end(),
-      pool);
+  const auto typeKind = args[0]->type()->kind();
+
+  velox::ArrayVectorPtr arrayVector;
+  switch (typeKind) {
+    case velox::TypeKind::ARRAY:
+      [[fallthrough]];
+    case velox::TypeKind::MAP:
+      [[fallthrough]];
+    case velox::TypeKind::ROW:
+      arrayVector = toArrayOfComplexTypeVector(
+          args[0]->type(), args.begin() + 1, args.end(), pool);
+      break;
+    default:
+      arrayVector = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          toArrayVector,
+          typeKind,
+          args[0]->type(),
+          args.begin() + 1,
+          args.end(),
+          pool);
+  }
+
   auto constantVector =
       std::make_shared<velox::ConstantVector<velox::ComplexType>>(
           pool, 1, 0, arrayVector);
@@ -592,25 +659,8 @@ TypedExprPtr convertDereferenceExpr(
   auto childIndex = childIndexExpr->value().value<int32_t>();
 
   VELOX_USER_CHECK_LT(childIndex, inputType.size());
-  auto childName = inputType.names()[childIndex];
 
-  return std::make_shared<FieldAccessTypedExpr>(returnType, input, childName);
-}
-
-TypedExprPtr convertNullIfExpr(
-    const velox::TypePtr& returnType,
-    const std::vector<TypedExprPtr>& args) {
-  VELOX_CHECK_EQ(args.size(), 2);
-
-  // Convert nullif(a, b) to if(a = b, null, a).
-
-  std::vector<TypedExprPtr> newArgs = {
-      std::make_shared<CallTypedExpr>(
-          velox::BOOLEAN(), args, "presto.default.eq"),
-      std::make_shared<ConstantTypedExpr>(
-          returnType, velox::variant::null(returnType->kind())),
-      args[0]};
-  return std::make_shared<CallTypedExpr>(returnType, newArgs, "if");
+  return std::make_shared<DereferenceTypedExpr>(returnType, input, childIndex);
 }
 } // namespace
 
@@ -642,7 +692,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
   }
 
   if (pexpr->form == protocol::Form::NULL_IF) {
-    return convertNullIfExpr(returnType, args);
+    VELOX_UNREACHABLE("NULL_IF not supported in specialForm")
   }
 
   auto form = std::string(json(pexpr->form));

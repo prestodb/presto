@@ -163,6 +163,12 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQuery(queryRunner, getSession(), actual, queryRunner, expected, false, false);
     }
 
+    protected void assertQueryWithSameQueryRunner(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        checkArgument(!actual.equals(expected));
+        QueryAssertions.assertQuery(queryRunner, session, actual, queryRunner, expected, false, false);
+    }
+
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
         QueryAssertions.assertQuery(queryRunner, session, actual, expectedQueryRunner, expected, false, false);
@@ -491,6 +497,13 @@ public abstract class AbstractTestQueryFramework
     {
         checkState(queryRunner != null, "queryRunner not set");
         return queryRunner;
+    }
+
+    protected DistributedQueryRunner getDistributedQueryRunner()
+    {
+        checkState(queryRunner != null, "queryRunner not set");
+        checkState(queryRunner instanceof DistributedQueryRunner, "queryRunner is not an instance of DistributedQueryRunner");
+        return (DistributedQueryRunner) queryRunner;
     }
 
     protected ExpectedQueryRunner getExpectedQueryRunner()

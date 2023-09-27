@@ -71,7 +71,7 @@ TEST_F(PlanNodeSerdeTest, partitionAndSerializeNode) {
                   .values(data_, true)
                   .addNode(addPartitionAndSerializeNode(
                       4, false, reverseColumns(asRowType(data_[0]->type()))))
-                  .localPartition({})
+                  .localPartition(std::vector<std::string>{})
                   .planNode();
   testSerde(plan);
 }
@@ -94,12 +94,13 @@ TEST_F(PlanNodeSerdeTest, shuffleWriteNode) {
       "}}";
   const std::string shuffleInfo =
       fmt::format(kTestShuffleInfoFormat, numPartitions, 1 << 20);
-  auto plan = exec::test::PlanBuilder()
-                  .values(data_, true)
-                  .addNode(addPartitionAndSerializeNode(numPartitions, false))
-                  .localPartition({})
-                  .addNode(addShuffleWriteNode(shuffleName, shuffleInfo))
-                  .planNode();
+  auto plan =
+      exec::test::PlanBuilder()
+          .values(data_, true)
+          .addNode(addPartitionAndSerializeNode(numPartitions, false))
+          .localPartition(std::vector<std::string>{})
+          .addNode(addShuffleWriteNode(numPartitions, shuffleName, shuffleInfo))
+          .planNode();
   testSerde(plan);
 }
 

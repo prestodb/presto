@@ -46,6 +46,7 @@ class ByteArraySeekableStream
     public int read(long position, byte[] buffer, int offset, int length)
             throws IOException
     {
+        seek(position);
         return read(buffer, 0, buffer.length);
     }
 

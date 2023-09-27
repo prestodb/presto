@@ -792,7 +792,7 @@ class StatementAnalyzer
             SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName()));
             if (tablePredicates.containsKey(baseTableName)) {
                 Query tableSubquery = buildQueryWithPredicate(baseTable, tablePredicates.get(baseTableName));
-                analysis.registerNamedQuery(baseTable, tableSubquery);
+                analysis.registerNamedQuery(baseTable, tableSubquery, true);
 
                 Scope subqueryScope = process(tableSubquery, scope);
 
@@ -1073,10 +1073,10 @@ class StatementAnalyzer
             }
             Set<String> names = new HashSet<>();
             for (Identifier identifier : columnAliases) {
-                if (names.contains(identifier.getValue().toLowerCase(ENGLISH))) {
+                if (names.contains(identifier.getValueLowerCase())) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getValue());
                 }
-                names.add(identifier.getValue().toLowerCase(ENGLISH));
+                names.add(identifier.getValueLowerCase());
             }
         }
 
@@ -1196,7 +1196,7 @@ class StatementAnalyzer
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(name);
                 if (withQuery.isPresent()) {
                     Query query = withQuery.get().getQuery();
-                    analysis.registerNamedQuery(table, query);
+                    analysis.registerNamedQuery(table, query, false);
 
                     // re-alias the fields with the name assigned to the query in the WITH declaration
                     RelationType queryDescriptor = analysis.getOutputDescriptor(query);
@@ -1364,11 +1364,10 @@ class StatementAnalyzer
 
             Query query = parseView(view.getOriginalSql(), name, table);
 
-            analysis.registerNamedQuery(table, query);
+            analysis.registerNamedQuery(table, query, true);
             analysis.registerTableForView(table);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
             analysis.unregisterTableForView();
-
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
             }
@@ -1405,7 +1404,7 @@ class StatementAnalyzer
             String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition, scope);
 
             Query query = (Query) sqlParser.createStatement(newSql, createParsingOptions(session, warningCollector));
-            analysis.registerNamedQuery(materializedView, query);
+            analysis.registerNamedQuery(materializedView, query, true);
 
             Scope queryScope = process(query, scope);
             RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
@@ -1495,7 +1494,7 @@ class StatementAnalyzer
                         viewQueryWhereClause,
                         analysis.getTypes(),
                         ImmutableMap.of(),
-                        functionAndTypeResolver,
+                        metadata.getFunctionAndTypeManager(),
                         session);
 
                 TupleDomain<String> viewQueryDomain = MaterializedViewUtils.getDomainFromFilter(session, domainTranslator, rowExpression);
@@ -2099,11 +2098,7 @@ class StatementAnalyzer
                 }
 
                 Window window = windowFunction.getWindow().get();
-                if (window.getOrderBy().filter(
-                        orderBy -> orderBy.getSortItems()
-                                .stream()
-                                .anyMatch(item -> item.getSortKey() instanceof Literal))
-                        .isPresent()) {
+                if (window.getOrderBy().filter(orderBy -> orderBy.getSortItems().stream().anyMatch(item -> item.getSortKey() instanceof Literal)).isPresent()) {
                     if (isAllowWindowOrderByLiterals(session)) {
                         warningCollector.add(
                                 new PrestoWarning(
@@ -2694,7 +2689,7 @@ class StatementAnalyzer
             }
             catch (RuntimeException e) {
                 throwIfInstanceOf(e, PrestoException.class);
-                throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Failed analyzing stored view '%s': %s", name, e.getMessage());
+                throw new SemanticException(VIEW_ANALYSIS_ERROR, e, node.getLocation(), "Failed analyzing stored view '%s': %s", name, e.getMessage());
             }
         }
 
@@ -2767,7 +2762,7 @@ class StatementAnalyzer
                 Query query = withQuery.getQuery();
                 process(query, withScopeBuilder.build());
 
-                String name = withQuery.getName().getValue().toLowerCase(ENGLISH);
+                String name = withQuery.getName().getValueLowerCase();
                 if (withScopeBuilder.containsNamedQuery(name)) {
                     throw new SemanticException(DUPLICATE_RELATION, withQuery, "WITH query name '%s' specified more than once", name);
                 }

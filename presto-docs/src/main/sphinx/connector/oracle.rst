@@ -22,6 +22,9 @@ connection properties as appropriate for your setup:
     # The correct syntax of the connection-url varies by Oracle version and
     # configuration. The following example URL connects to an Oracle SID named
     # "orcl".
+    # In some situations, the connection-url has to include the user and password.
+    # example: connection-url=jdbc:oracle:thin:user/password@example.net:1521:orcl
+    #
     connection-url=jdbc:oracle:thin:@example.net:1521:orcl
     connection-user=root
     connection-password=secret
@@ -46,6 +49,28 @@ Oracle servers, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
+
+General Configuration Properties
+---------------------------------
+
+================================================== ==================================================================== ===========
+Property Name                                      Description                                                          Default
+================================================== ==================================================================== ===========
+``user-credential-name``                           Name of the ``extraCredentials`` property whose value is the JDBC
+                                                   driver's user name. See ``extraCredentials`` in `Parameter Reference
+                                                   <https://prestodb.io/docs/current/installation/jdbc.html
+                                                   #parameter-reference>`_.
+
+``password-credential-name``                       Name of the ``extraCredentials`` property whose value is the JDBC
+                                                   driver's user password. See ``extraCredentials`` in `Parameter
+                                                   Reference <https://prestodb.io/docs/current/installation/jdbc.html
+                                                   #parameter-reference>`_.
+
+``case-insensitive-name-matching``                 Match dataset and table names case-insensitively.                    ``false``
+
+``case-insensitive-name-matching.cache-ttl``       Duration for which remote dataset and table names will be
+                                                   cached. Set to ``0ms`` to disable the cache.                         ``1m``
+================================================== ==================================================================== ===========
 
 Querying Oracle
 ---------------

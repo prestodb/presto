@@ -1,0 +1,6 @@
+
+blank_issues_enabled: false
+contact_links:
+  - name: Slack Support
+    url: https://prestodb.io/slack
+    about: Join the Presto Slack Channel to engage in conversations and get faster support.

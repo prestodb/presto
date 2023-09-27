@@ -87,7 +87,10 @@ public class TestJsonRenderer
                 root,
                 TypeProvider.viewOf(VARIABLE_ALLOCATOR.getVariables()),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of());
     }
 
     private NodeRepresentation getNodeRepresentation(PlanNode root, List<PlanNodeId> planNodeIds)
@@ -103,6 +106,7 @@ public class TestJsonRenderer
                 ImmutableList.of(),
                 ImmutableList.of(),
                 planNodeIds,
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 

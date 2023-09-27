@@ -159,12 +159,12 @@ public class ParquetColumnChunk
             {
                 DataPage readPage = null;
                 try {
-                    byte[] pageHeaderAadditionalAuthenticationData = dataPageHeaderAdditionalAuthenticationData;
+                    byte[] pageHeaderAdditionalAuthenticationData = dataPageHeaderAdditionalAuthenticationData;
                     if (headerBlockDecryptor != null) {
                         // Important: this verifies file integrity (makes sure dictionary page had not been removed)
                         AesCipher.quickUpdatePageAAD(dataPageHeaderAdditionalAuthenticationData, pageOrdinal);
                     }
-                    PageHeader pageHeader = readPageHeader(headerBlockDecryptor, pageHeaderAadditionalAuthenticationData);
+                    PageHeader pageHeader = readPageHeader(headerBlockDecryptor, pageHeaderAdditionalAuthenticationData);
                     int uncompressedPageSize = pageHeader.getUncompressed_page_size();
                     int compressedPageSize = pageHeader.getCompressed_page_size();
                     long firstRowIndex;
@@ -197,7 +197,7 @@ public class ParquetColumnChunk
                             // The pageHeaderAdditionalAuthenticationData is used to decrypt the stream and create a ByteArrayInputStream to read the PageHeader in the Apache
                             // Parquet library. The memory allocated in that library cannot be measured but pageHeaderAdditionalAuthenticationData can be. Although they are not
                             // retained by this class, it still makes sense to count them because they are actual being used in the PageDataPage's lifetime.
-                            sizeOf(pageHeaderAadditionalAuthenticationData) +
+                            sizeOf(pageHeaderAdditionalAuthenticationData) +
                             // The memory to hold the ParquetDataPage data is allocated in getSlice() with size compressedPageSize. This slice will be read, uncompressed and
                             // decoded while the PageDataPage is alive, therefore it's better to also count it.
                             readPage.getRetainedSizeInBytes());

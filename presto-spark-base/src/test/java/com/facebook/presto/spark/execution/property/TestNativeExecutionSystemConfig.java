@@ -38,11 +38,19 @@ public class TestNativeExecutionSystemConfig
     {
         // Test defaults
         assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionVeloxConfig.class)
-                .setCodegenEnabled(false));
+                .setCodegenEnabled(false)
+                .setSpillEnabled(true)
+                .setAggregationSpillEnabled(true)
+                .setJoinSpillEnabled(true)
+                .setOrderBySpillEnabled(true));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
-                .setCodegenEnabled(true);
+                .setCodegenEnabled(true)
+                .setSpillEnabled(false)
+                .setAggregationSpillEnabled(false)
+                .setJoinSpillEnabled(false)
+                .setOrderBySpillEnabled(false);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }
@@ -66,7 +74,13 @@ public class TestNativeExecutionSystemConfig
                 .setNumIoThreads(30)
                 .setShutdownOnsetSec(10)
                 .setSystemMemoryGb(10)
-                .setQueryMemoryGb(new DataSize(10, DataSize.Unit.GIGABYTE))
+                .setQueryMemoryGb(new DataSize(8, DataSize.Unit.GIGABYTE))
+                .setUseMmapAllocator(true)
+                .setMemoryArbitratorKind("SHARED")
+                .setMemoryArbitratorCapacityGb(8)
+                .setMemoryPoolInitCapacity(8L << 30)
+                .setMemoryPoolTransferCapacity(2L << 30)
+                .setSpillerSpillPath("")
                 .setConcurrentLifespansPerTask(5)
                 .setMaxDriversPerTask(15)
                 .setPrestoVersion("dummy.presto.version")
@@ -93,6 +107,12 @@ public class TestNativeExecutionSystemConfig
                 .setShutdownOnsetSec(30)
                 .setSystemMemoryGb(40)
                 .setQueryMemoryGb(new DataSize(20, DataSize.Unit.GIGABYTE))
+                .setUseMmapAllocator(false)
+                .setMemoryArbitratorKind("")
+                .setMemoryArbitratorCapacityGb(10)
+                .setMemoryPoolInitCapacity(7L << 30)
+                .setMemoryPoolTransferCapacity(1L << 30)
+                .setSpillerSpillPath("dummy.spill.path")
                 .setMaxDriversPerTask(30)
                 .setShuffleName("custom")
                 .setRegisterTestFunctions(true)

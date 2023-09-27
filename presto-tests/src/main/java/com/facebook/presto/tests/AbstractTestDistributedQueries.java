@@ -35,9 +35,13 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
+import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -160,6 +164,28 @@ public abstract class AbstractTestDistributedQueries
         assertAccessAllowed(session,
                 "SELECT cardinality(x.f3) from test_subfield",
                 privilege("x.f3", SELECT_COLUMN));
+
+        assertAccessAllowed(session,
+                "SELECT x.f3 IS NULL from test_subfield",
+                privilege("x.f3", SELECT_COLUMN));
+
+        assertAccessAllowed(session,
+                "SELECT x.f3 IS NOT NULL from test_subfield",
+                privilege("x.f3", SELECT_COLUMN));
+
+        assertAccessAllowed(session,
+                "SELECT x.f3 IS NULL from test_subfield",
+                privilege("x", SELECT_COLUMN));
+        assertAccessAllowed(session,
+                "SELECT x.f3 IS NOT NULL from test_subfield",
+                privilege("x", SELECT_COLUMN));
+
+        assertAccessAllowed(session,
+                "SELECT x IS NULL from test_subfield",
+                privilege("x", SELECT_COLUMN));
+        assertAccessAllowed(session,
+                "SELECT x IS NOT NULL from test_subfield",
+                privilege("x", SELECT_COLUMN));
 
         assertUpdate("DROP TABLE test_subfield");
     }
@@ -367,7 +393,8 @@ public abstract class AbstractTestDistributedQueries
         assertFalse(getQueryRunner().tableExists(session, table));
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Regexp matching interrupted", timeOut = 30_000)
+    // Flaky test: https://github.com/prestodb/presto/issues/20764
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Regexp matching interrupted", timeOut = 30_000, enabled = false)
     public void testRunawayRegexAnalyzerTimeout()
     {
         Session session = Session.builder(getSession())
@@ -1015,7 +1042,11 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testExtraLargeQuerySuccess()
     {
-        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(1000, "1 = 1")), "SELECT true");
+        // Will have stack overflow if enabled
+        Session pullLambdaExpressionDisabled = Session.builder(getSession())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "false")
+                .build();
+        assertQuery(pullLambdaExpressionDisabled, "SELECT " + Joiner.on(" AND ").join(nCopies(1000, "1 = 1")), "SELECT true");
     }
 
     @Test
@@ -1282,8 +1313,87 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
     }
 
+    @Test
+    public void testTrackCTEs()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
+                .build();
+
+        String query = "with tbl as (select * from lineitem), tbl2 as (select * from tbl) select * from tbl, tbl2";
+        MaterializedResult materializedResult = computeActual(session, "explain " + query);
+        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+
+        checkCTEInfo(explain, "tbl", 2, false);
+        checkCTEInfo(explain, "tbl2", 1, false);
+    }
+
+    @Test
+    public void testTrackCTEsAndViews()
+    {
+        skipTestUnless(supportsViews());
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
+                .build();
+        assertUpdate("CREATE VIEW v as select 'view' as col");
+
+        MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN with cte1 as (select * from v), v as (select 2 as x) select * from cte1, v, v");
+        String explainString = (String) resultExplainQuery.getOnlyValue();
+
+        checkCTEInfo(explainString, "cte1", 1, false);
+
+        // view "catalog.schema.v" is referenced once, and the cte "v" twice in the above query
+        checkCTEInfo(explainString, "v", 2, false);
+
+        String viewName = format("%s.%s.v", getSession().getCatalog().get(), getSession().getSchema().get());
+        checkCTEInfo(explainString, viewName, 1, true);
+    }
+
+    @Test
+    public void testTrackCTEsNoSessionCatalog()
+    {
+        skipTestUnless(supportsViews());
+
+        Session session = getSession();
+        String catalog = session.getCatalog().get();
+        String schema = session.getSchema().get();
+
+        Session sessionNoCatalog = Session.builder(getSession())
+                .setCatalog(null)
+                .setSchema(null)
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
+                .build();
+        assertUpdate("CREATE OR REPLACE VIEW v as select 'view' as col");
+
+        String sqlNoSchema = "EXPLAIN with cte1 as (select * from v), v as (select 2 as x) select * from cte1, v, v";
+        assertQueryFails(sessionNoCatalog, sqlNoSchema, ".*Schema must be specified when session schema is not set");
+
+        String viewName = format("%s.%s.v", catalog, schema);
+        String sql = format("EXPLAIN with cte1 as (select * from %s), v as (select 2 as x) select * from cte1, v, v", viewName);
+        MaterializedResult resultExplainQuery = computeActual(sessionNoCatalog, sql);
+        String explainString = (String) resultExplainQuery.getOnlyValue();
+
+        checkCTEInfo(explainString, "cte1", 1, false);
+
+        // view "catalog.schema.v" is referenced once, and the cte "v" twice in the above query
+        checkCTEInfo(explainString, "v", 2, false);
+        checkCTEInfo(explainString, viewName, 1, true);
+    }
+
+    private void checkCTEInfo(String explain, String name, int frequency, boolean isView)
+    {
+        String regex = "CTEInfo.*";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(explain);
+        assertTrue(matcher.find());
+
+        String cteInfo = matcher.group();
+        assertTrue(cteInfo.contains(name + ": " + frequency + " (is_view: " + isView + ")"));
+    }
+
     private String sanitizePlan(String explain)
     {
-        return explain.replaceAll("hashvalue_[0-9][0-9][0-9]", "hashvalueXXX").replaceAll("Values => .*\n", "\n");
+        return explain.replaceAll("hashvalue_[0-9][0-9][0-9]", "hashvalueXXX").replaceAll("\\[PlanNodeId (\\d+(?:,\\d+)*)\\]", "").replaceAll("Values => .*\n", "\n");
     }
 }

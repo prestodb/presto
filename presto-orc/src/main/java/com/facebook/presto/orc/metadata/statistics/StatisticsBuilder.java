@@ -26,4 +26,14 @@ public interface StatisticsBuilder
     }
 
     ColumnStatistics buildColumnStatistics();
+
+    /**
+     * Increment the storage (after compression) size for a given column.
+     */
+    void incrementSize(long size);
+
+    /**
+     * Increment the raw data size of a column data before compression.
+     */
+    void incrementRawSize(long rawSize);
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.CostBasedSourceInfo;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.SourceInfo;
@@ -56,6 +57,8 @@ public class PlanNodeStatsEstimate
 
     private final SourceInfo sourceInfo;
 
+    private final JoinNodeStatsEstimate joinNodeStatsEstimate;
+
     public static PlanNodeStatsEstimate unknown()
     {
         return UNKNOWN;
@@ -78,11 +81,18 @@ public class PlanNodeStatsEstimate
 
     public PlanNodeStatsEstimate(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics, SourceInfo sourceInfo)
     {
+        this(outputRowCount, totalSize, variableStatistics, sourceInfo, JoinNodeStatsEstimate.unknown());
+    }
+
+    public PlanNodeStatsEstimate(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics, SourceInfo sourceInfo,
+            JoinNodeStatsEstimate joinNodeStatsEstimate)
+    {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
         this.totalSize = totalSize;
         this.variableStatistics = variableStatistics;
         this.sourceInfo = requireNonNull(sourceInfo, "SourceInfo is null");
+        this.joinNodeStatsEstimate = requireNonNull(joinNodeStatsEstimate, "joinNodeSpecificStatsEstimate is null");
     }
 
     /**
@@ -110,6 +120,11 @@ public class PlanNodeStatsEstimate
     public SourceInfo getSourceInfo()
     {
         return sourceInfo;
+    }
+
+    public JoinNodeStatsEstimate getJoinNodeStatsEstimate()
+    {
+        return joinNodeStatsEstimate;
     }
 
     /**
@@ -225,7 +240,10 @@ public class PlanNodeStatsEstimate
                     planStatistics.getRowCount().getValue(),
                     planStatistics.getOutputSize().getValue(),
                     variableStatistics,
-                    statsSourceInfo);
+                    statsSourceInfo,
+                    new JoinNodeStatsEstimate(
+                            planStatistics.getJoinNodeStatistics().getNullJoinBuildKeyCount().getValue(),
+                            planStatistics.getJoinNodeStatistics().getJoinBuildKeyCount().getValue()));
         }
         return this;
     }
@@ -238,6 +256,7 @@ public class PlanNodeStatsEstimate
                 .add("totalSize", totalSize)
                 .add("variableStatistics", variableStatistics)
                 .add("sourceInfo", sourceInfo)
+                .add("joinNodeSpecificStatsEstimate", joinNodeStatsEstimate)
                 .toString();
     }
 
@@ -254,13 +273,14 @@ public class PlanNodeStatsEstimate
         return Double.compare(outputRowCount, that.outputRowCount) == 0 &&
                 Double.compare(totalSize, that.totalSize) == 0 &&
                 Objects.equals(variableStatistics, that.variableStatistics) &&
-                Objects.equals(sourceInfo, that.sourceInfo);
+                Objects.equals(sourceInfo, that.sourceInfo) &&
+                Objects.equals(joinNodeStatsEstimate, that.joinNodeStatsEstimate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(outputRowCount, totalSize, variableStatistics, sourceInfo);
+        return Objects.hash(outputRowCount, totalSize, variableStatistics, sourceInfo, joinNodeStatsEstimate);
     }
 
     public PlanStatisticsWithSourceInfo toPlanStatisticsWithSourceInfo(PlanNodeId id)
@@ -268,9 +288,12 @@ public class PlanNodeStatsEstimate
         return new PlanStatisticsWithSourceInfo(
                 id,
                 new PlanStatistics(
-                        Double.isNaN(outputRowCount) ? Estimate.unknown() : Estimate.of(outputRowCount),
-                        Double.isNaN(totalSize) ? Estimate.unknown() : Estimate.of(totalSize),
-                        sourceInfo.isConfident() ? 1 : 0),
+                        Estimate.estimateFromDouble(outputRowCount),
+                        Estimate.estimateFromDouble(totalSize),
+                        sourceInfo.isConfident() ? 1 : 0,
+                        new JoinNodeStatistics(
+                                Estimate.estimateFromDouble(joinNodeStatsEstimate.getNullJoinBuildKeyCount()),
+                                Estimate.estimateFromDouble(joinNodeStatsEstimate.getJoinBuildKeyCount()))),
                 sourceInfo);
     }
 

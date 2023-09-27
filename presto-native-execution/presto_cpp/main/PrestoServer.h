@@ -21,6 +21,8 @@
 #include <velox/expression/Expr.h>
 #include "presto_cpp/main/CPUMon.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include "presto_cpp/main/PeriodicHeartbeatManager.h"
+#include "presto_cpp/main/PrestoServerOperations.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
@@ -83,7 +85,7 @@ class PrestoServer {
  protected:
   /// Hook for derived PrestoServer implementations to add additional periodic
   /// tasks.
-  virtual void addAdditionalPeriodicTasks();
+  virtual void addAdditionalPeriodicTasks(){};
 
   virtual void initializeCoordinatorDiscoverer();
 
@@ -97,6 +99,10 @@ class PrestoServer {
 
   virtual std::vector<std::string> registerConnectors(
       const fs::path& configDirectoryPath);
+
+  /// Invoked to register the required dwio data sinks which are used by
+  /// connectors.
+  virtual void registerFileSinks() {}
 
   /// Invoked by presto shutdown procedure to unregister connectors.
   virtual void unregisterConnectors();
@@ -113,12 +119,24 @@ class PrestoServer {
 
   virtual void registerFileSystems();
 
+  virtual void registerMemoryArbitrators();
+
   virtual void registerStatsCounters();
 
   /// Invoked after creating global (singleton) config objects (SystemConfig and
   /// NodeConfig) and before loading their properties from the file.
   /// In the implementation any extra config properties can be registered.
   virtual void registerExtraConfigProperties() {}
+
+  /// Invoked to get the ip address of the process. In certain deployment
+  /// setup, each process has different ip address. Deployment environment
+  /// may provide there own library to get process specific ip address.
+  /// In such cases, getLocalIp can be overriden to pass process specific
+  /// ip address.
+  virtual std::string getLocalIp() const;
+
+  /// Invoked to get the spill directory.
+  virtual std::string getBaseSpillDirectory() const;
 
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
@@ -127,13 +145,20 @@ class PrestoServer {
   void initializeVeloxMemory();
 
  protected:
+  void addServerPeriodicTasks();
+
   void reportMemoryInfo(proxygen::ResponseHandler* downstream);
 
   void reportServerInfo(proxygen::ResponseHandler* downstream);
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
+  protocol::NodeStatus fetchNodeStatus();
+
   void populateMemAndCPUInfo();
+
+  // Periodically yield tasks if there are tasks queued.
+  void yieldTasks();
 
   const std::string configDirectoryPath_;
 
@@ -145,20 +170,19 @@ class PrestoServer {
   // Executor for async IO for connectors.
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
-  // If not null,  the instance of AsyncDataCache used for in-memory file cache.
-  std::shared_ptr<velox::cache::AsyncDataCache> cache_;
+  // Executor for exchange data over http.
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
 
   // Instance of MemoryAllocator used for all query memory allocations.
-  //
-  // NOTE: AsyncDataCache implements MemoryAllocator interface and wraps on top
-  // of a real memory allocator for the actual memory allocation. So if 'cache_'
-  // has been set, 'allocator_' is also set to 'cache_'. It provides memory
-  // allocations for both file cache and query memory.
   std::shared_ptr<velox::memory::MemoryAllocator> allocator_;
+
+  // If not null,  the instance of AsyncDataCache used for in-memory file cache.
+  std::shared_ptr<velox::cache::AsyncDataCache> cache_;
 
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
   std::unique_ptr<Announcer> announcer_;
+  std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
   std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
@@ -166,6 +190,7 @@ class PrestoServer {
   std::atomic_bool shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
+  std::unique_ptr<PrestoServerOperations> prestoServerOperations_;
 
   // We update these members asynchronously and return in http requests w/o
   // delay.

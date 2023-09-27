@@ -145,6 +145,7 @@ public final class HiveSessionProperties
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
     private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
+    public static final String PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED = "parallel_parsing_of_partition_values_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -295,7 +296,7 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED,
                         "ORC: Enable flat map writer",
                         orcFileWriterConfig.isFlatMapWriterEnabled(),
-                        false),
+                        true),
                 integerProperty(
                         ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL,
                         "Experimental: ORC: Compression level, works only for ZSTD and ZLIB compression kinds",
@@ -700,6 +701,11 @@ public final class HiveSessionProperties
                         READ_MASKED_VALUE_ENABLED,
                         "Return null when access is denied for an encrypted parquet column",
                         hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
+                        false),
+                booleanProperty(
+                        PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED,
+                        "Enables parallel parsing of partition values from partition names using thread pool",
+                        hiveClientConfig.isParallelParsingOfPartitionValuesEnabled(),
                         false));
     }
 
@@ -1229,5 +1235,10 @@ public final class HiveSessionProperties
     public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
     {
         return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParallelParsingOfPartitionValuesEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED, Boolean.class);
     }
 }

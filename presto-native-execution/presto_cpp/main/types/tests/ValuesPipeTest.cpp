@@ -65,7 +65,8 @@ TEST_F(TestValues, valuesRowVector) {
   testJsonRoundtrip(j, p);
 
   auto pool = memory::addDefaultLeafMemoryPool();
-  VeloxInteractiveQueryPlanConverter converter(pool.get());
+  auto queryCtx = std::make_shared<core::QueryCtx>();
+  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   auto values = std::dynamic_pointer_cast<const core::ValuesNode>(
       converter.toVeloxQueryPlan(
           std::dynamic_pointer_cast<protocol::PlanNode>(p),
@@ -104,7 +105,8 @@ TEST_F(TestValues, valuesPlan) {
   testJsonRoundtrip(j, p);
 
   auto pool = memory::addDefaultLeafMemoryPool();
-  VeloxInteractiveQueryPlanConverter converter(pool.get());
+  auto queryCtx = std::make_shared<core::QueryCtx>();
+  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   auto values = converter.toVeloxQueryPlan(
       std::dynamic_pointer_cast<protocol::OutputNode>(p->root)->source,
       nullptr,

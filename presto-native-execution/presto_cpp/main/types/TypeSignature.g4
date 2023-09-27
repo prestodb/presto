@@ -75,7 +75,7 @@ TYPE_WITH_SPACES:
     ;
 
 WORD: [A-Za-z_] [A-Za-z0-9_:@]* ;
-QUOTED_ID: '"' [A-Za-z_] [ A-Za-z0-9_:@]* '"' ;
+QUOTED_ID: '"' [A-Za-z0-9_] [ A-Za-z0-9_:@]* '"' ;
 NUMBER: [0-9]+ ;
 
 fragment A:('a'|'A');

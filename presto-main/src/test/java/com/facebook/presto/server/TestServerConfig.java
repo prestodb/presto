@@ -22,7 +22,11 @@ import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.presto.spi.NodePoolType.DEFAULT;
+import static com.facebook.presto.spi.NodePoolType.LEAF;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestServerConfig
 {
@@ -40,7 +44,9 @@ public class TestServerConfig
                 .setResourceManagerEnabled(false)
                 .setResourceManager(false)
                 .setCatalogServer(false)
-                .setCatalogServerEnabled(false));
+                .setCatalogServerEnabled(false)
+                .setPoolType(DEFAULT)
+                .setClusterStatsExpirationDuration(new Duration(0, MILLISECONDS)));
     }
 
     @Test
@@ -58,6 +64,8 @@ public class TestServerConfig
                 .put("resource-manager", "true")
                 .put("catalog-server-enabled", "true")
                 .put("catalog-server", "true")
+                .put("pool-type", "LEAF")
+                .put("cluster-stats-expiration-duration", "10s")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -71,7 +79,9 @@ public class TestServerConfig
                 .setResourceManagerEnabled(true)
                 .setResourceManager(true)
                 .setCatalogServer(true)
-                .setCatalogServerEnabled(true);
+                .setCatalogServerEnabled(true)
+                .setPoolType(LEAF)
+                .setClusterStatsExpirationDuration(new Duration(10, SECONDS));
 
         assertFullMapping(properties, expected);
     }

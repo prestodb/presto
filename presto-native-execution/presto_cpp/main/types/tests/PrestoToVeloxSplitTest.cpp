@@ -93,3 +93,34 @@ TEST(PrestoToVeloxSplitTest, extraFileInfo) {
   ASSERT_TRUE(veloxHiveSplit->extraFileInfo);
   ASSERT_EQ(*veloxHiveSplit->extraFileInfo, "quux");
 }
+
+TEST(PrestoToVeloxSplitTest, serdeParameters) {
+  auto scheduledSplit = makeHiveScheduledSplit();
+  auto& hiveSplit =
+      dynamic_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
+  hiveSplit.storage.serdeParameters[dwio::common::SerDeOptions::kFieldDelim] =
+      "\t";
+  hiveSplit.storage
+      .serdeParameters[dwio::common::SerDeOptions::kCollectionDelim] = ",";
+  hiveSplit.storage.serdeParameters[dwio::common::SerDeOptions::kMapKeyDelim] =
+      "|";
+
+  auto veloxSplit = toVeloxSplit(scheduledSplit);
+  auto* veloxHiveSplit =
+      dynamic_cast<const connector::hive::HiveConnectorSplit*>(
+          veloxSplit.connectorSplit.get());
+  ASSERT_TRUE(veloxHiveSplit);
+  ASSERT_EQ(veloxHiveSplit->serdeParameters.size(), 3);
+  ASSERT_EQ(
+      veloxHiveSplit->serdeParameters.at(
+          dwio::common::SerDeOptions::kFieldDelim),
+      "\t");
+  ASSERT_EQ(
+      veloxHiveSplit->serdeParameters.at(
+          dwio::common::SerDeOptions::kCollectionDelim),
+      ",");
+  ASSERT_EQ(
+      veloxHiveSplit->serdeParameters.at(
+          dwio::common::SerDeOptions::kMapKeyDelim),
+      "|");
+}

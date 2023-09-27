@@ -109,6 +109,10 @@ TEST_F(ServerOperationTest, buildServerOp) {
   EXPECT_EQ(ServerOperation::Target::kSystemConfig, op.target);
   EXPECT_EQ(ServerOperation::Action::kSetProperty, op.action);
 
+  op = buildServerOpFromHttpMsgPath("/v1/operation/debug/task");
+  EXPECT_EQ(ServerOperation::Target::kDebug, op.target);
+  EXPECT_EQ(ServerOperation::Action::kTask, op.action);
+
   EXPECT_THROW(
       op = buildServerOpFromHttpMsgPath("/v1/operation/whatzit/setProperty"),
       velox::VeloxUserError);

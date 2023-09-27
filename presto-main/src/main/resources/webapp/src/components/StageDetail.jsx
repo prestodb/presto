@@ -368,8 +368,7 @@ class StageOperatorGraph extends React.Component {
                 operatorStageSummary = operatorSummaries[i];
             }
         }
-
-        ReactDOM.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.tasks}/>,
+        ReactDOM.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>,
             document.getElementById('operator-detail'));
     }
 

@@ -44,6 +44,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.PluginManager;
+import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlCheckerExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
@@ -54,8 +55,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
-import com.facebook.presto.spark.execution.NativeExecutionModule;
-import com.facebook.presto.spark.execution.PrestoSparkAccessControlCheckerExecution;
+import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -497,23 +497,23 @@ public class PrestoSparkQueryRunner
     public MaterializedResult execute(Session session, String sql)
     {
         try {
-            return execute(session, sql, Optional.empty());
+            return executeWithRetryStrategies(session, sql, ImmutableList.of());
         }
         catch (PrestoSparkFailure failure) {
-            if (failure.getRetryExecutionStrategy().isPresent()) {
-                return execute(session, sql, failure.getRetryExecutionStrategy());
+            if (!failure.getRetryExecutionStrategies().isEmpty()) {
+                return executeWithRetryStrategies(session, sql, failure.getRetryExecutionStrategies());
             }
 
             throw failure;
         }
     }
 
-    private MaterializedResult execute(
+    private MaterializedResult executeWithRetryStrategies(
             Session session,
             String sql,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+            List<RetryExecutionStrategy> retryExecutionStrategies)
     {
-        IPrestoSparkQueryExecution execution = createPrestoSparkQueryExecution(session, sql, retryExecutionStrategy);
+        IPrestoSparkQueryExecution execution = createPrestoSparkQueryExecution(session, sql, retryExecutionStrategies);
         List<List<Object>> results = execution.execute();
 
         List<MaterializedRow> rows = results.stream()
@@ -532,7 +532,7 @@ public class PrestoSparkQueryRunner
                         ImmutableMap.of(),
                         ImmutableSet.of(),
                         p.getUpdateType(),
-                        OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
+                        getOnlyElement(getOnlyElement(rows).getFields()) == null ? OptionalLong.empty() : OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
                         ImmutableList.of());
             }
         }
@@ -561,12 +561,12 @@ public class PrestoSparkQueryRunner
 
     public IPrestoSparkQueryExecution createPrestoSparkQueryExecution(Session session,
             String sql,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+            List<RetryExecutionStrategy> retryExecutionStrategies)
     {
         IPrestoSparkQueryExecutionFactory executionFactory = prestoSparkService.getQueryExecutionFactory();
         IPrestoSparkQueryExecution execution = executionFactory.create(
                 sparkContext,
-                createSessionInfo(session, retryExecutionStrategy),
+                createSessionInfo(session),
                 Optional.of(sql),
                 Optional.empty(),
                 Optional.empty(),
@@ -575,12 +575,12 @@ public class PrestoSparkQueryRunner
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty(),
                 Optional.empty(),
-                retryExecutionStrategy,
+                retryExecutionStrategies,
                 Optional.empty());
         return execution;
     }
 
-    private static PrestoSparkSession createSessionInfo(Session session, Optional<RetryExecutionStrategy> retryExecutionStrategy)
+    private static PrestoSparkSession createSessionInfo(Session session)
     {
         ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
         catalogSessionProperties.putAll(session.getConnectorProperties().entrySet().stream()
@@ -695,7 +695,16 @@ public class PrestoSparkQueryRunner
             throw new RuntimeException(e);
         }
 
-        if (instanceId != null) {
+        if (instanceId != null && instances.get(instanceId) != null) {
+            PrestoSparkService prestoSparkService = instances.get(instanceId).getPrestoSparkService();
+            if (prestoSparkService != null) {
+                if (prestoSparkService.getTaskExecutorFactory() != null) {
+                    prestoSparkService.getTaskExecutorFactory().close();
+                }
+                if (prestoSparkService.getNativeTaskExecutorFactory() != null) {
+                    prestoSparkService.getNativeTaskExecutorFactory().close();
+                }
+            }
             instances.remove(instanceId);
         }
     }
@@ -714,6 +723,12 @@ public class PrestoSparkQueryRunner
         public IPrestoSparkTaskExecutorFactory get()
         {
             return instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory();
+        }
+
+        @Override
+        public IPrestoSparkTaskExecutorFactory getNative()
+        {
+            return instances.get(instanceId).getPrestoSparkService().getNativeTaskExecutorFactory();
         }
     }
 

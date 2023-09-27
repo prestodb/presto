@@ -95,7 +95,7 @@ public class TestTupleDomainOrcPredicate
             booleanStatistics = new BooleanStatistics(trueValueCount);
             return new BooleanColumnStatistics(numberOfValues, null, booleanStatistics);
         }
-        return new ColumnStatistics(numberOfValues, null);
+        return new ColumnStatistics(numberOfValues, null, null, null);
     }
 
     @Test

@@ -26,7 +26,8 @@ public class NativeQueryRunnerUtils
     {
         return ImmutableMap.of("hive.storage-format", storageFormat,
                 "hive.pushdown-filter-enabled", "true",
-                "hive.parquet.pushdown-filter-enabled", "true");
+                "hive.parquet.pushdown-filter-enabled", "true",
+                "hive.orc-compression-codec", "ZSTD");
     }
 
     public static Map<String, String> getNativeWorkerSystemProperties()
@@ -47,6 +48,7 @@ public class NativeQueryRunnerUtils
 
     /**
      * Creates all tables for local testing, except for bench tables.
+     *
      * @param queryRunner
      */
     public static void createAllTables(QueryRunner queryRunner)
@@ -116,6 +118,12 @@ public class NativeQueryRunnerUtils
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
             queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        }
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_json")) {
+            queryRunner.execute("CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
+        }
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_text")) {
+            queryRunner.execute("CREATE TABLE nation_text WITH (FORMAT = 'TEXTFILE') AS SELECT * FROM tpch.tiny.nation");
         }
     }
 

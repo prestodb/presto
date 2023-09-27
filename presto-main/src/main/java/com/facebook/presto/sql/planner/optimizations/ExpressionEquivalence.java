@@ -46,12 +46,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -119,7 +121,7 @@ public class ExpressionEquivalence
                 WarningCollector.NOOP);
 
         // convert to row expression
-        return translate(expression, expressionTypes, variableInput, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session);
+        return translate(expression, expressionTypes, variableInput, metadata.getFunctionAndTypeManager(), session);
     }
 
     private static class CanonicalizationVisitor
@@ -146,7 +148,7 @@ public class ExpressionEquivalence
 
             QualifiedObjectName callName = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle()).getName();
 
-            if (callName.equals(EQUAL.getFunctionName()) || callName.equals(NOT_EQUAL.getFunctionName()) || callName.equals(IS_DISTINCT_FROM.getFunctionName())) {
+            if (callName.equals(EQUAL.getFunctionName()) || callName.equals(NOT_EQUAL.getFunctionName()) || callName.equals(IS_DISTINCT_FROM.getFunctionName()) || callName.equals(ADD.getFunctionName()) || callName.equals(MULTIPLY.getFunctionName())) {
                 // sort arguments
                 return new CallExpression(
                         call.getSourceLocation(),
@@ -381,7 +383,7 @@ public class ExpressionEquivalence
         }
     }
 
-    private static <T> List<T> swapPair(List<T> pair)
+    public static <T> List<T> swapPair(List<T> pair)
     {
         requireNonNull(pair, "pair is null");
         checkArgument(pair.size() == 2, "Expected pair to have two elements");

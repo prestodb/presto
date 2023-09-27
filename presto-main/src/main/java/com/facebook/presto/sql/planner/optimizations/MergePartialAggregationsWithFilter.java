@@ -90,6 +90,7 @@ public class MergePartialAggregationsWithFilter
         implements PlanOptimizer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
+    private boolean isEnabledForTesting;
 
     public MergePartialAggregationsWithFilter(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -97,9 +98,21 @@ public class MergePartialAggregationsWithFilter
     }
 
     @Override
+    public void setEnabledForTesting(boolean isSet)
+    {
+        isEnabledForTesting = isSet;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isEnabledForTesting || isMergeAggregationsWithAndWithoutFilter(session);
+    }
+
+    @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        if (isMergeAggregationsWithAndWithoutFilter(session)) {
+        if (isEnabled(session)) {
             return SimplePlanRewriter.rewriteWith(new Rewriter(session, variableAllocator, idAllocator, functionAndTypeManager), plan, new Context());
         }
 
@@ -225,7 +238,7 @@ public class MergePartialAggregationsWithFilter
             Map<VariableReferenceExpression, AggregationNode.Aggregation> newAggregations = node.getAggregations().entrySet().stream()
                     .filter(x -> !partialResultToMerge.contains(x.getKey())).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(MergePartialAggregationsWithFilter.class.getSimpleName(), true, Optional.empty()));
+            session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(MergePartialAggregationsWithFilter.class.getSimpleName(), true, Optional.empty(), Optional.empty()));
 
             return new AggregationNode(
                     node.getSourceLocation(),

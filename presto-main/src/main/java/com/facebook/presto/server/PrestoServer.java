@@ -19,7 +19,6 @@ import com.facebook.airlift.discovery.client.DiscoveryModule;
 import com.facebook.airlift.discovery.client.ServiceAnnouncement;
 import com.facebook.airlift.event.client.HttpEventModule;
 import com.facebook.airlift.event.client.JsonEventModule;
-import com.facebook.airlift.http.server.HttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
 import com.facebook.airlift.jmx.JmxHttpModule;
 import com.facebook.airlift.jmx.JmxModule;
@@ -176,7 +175,8 @@ public class PrestoServer
             injector.getInstance(NodeTtlFetcherManager.class).loadNodeTtlFetcher();
             injector.getInstance(ClusterTtlProviderManager.class).loadClusterTtlProvider();
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
-
+            injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
+            injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

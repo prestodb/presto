@@ -21,10 +21,13 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
@@ -92,11 +95,13 @@ public class QueryInfo
     private final Set<SqlFunctionId> removedSessionFunctions;
     private final StatsAndCosts planStatsAndCosts;
     private final List<PlanOptimizerInformation> optimizerInformation;
+    private final List<CTEInformation> cteInformationList;
     private final Set<String> scalarFunctions;
     private final Set<String> aggregateFunctions;
     private final Set<String> windowsFunctions;
     // Using a list rather than map, to avoid implementing map key deserializer
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
+    private Map<PlanNodeId, PlanNode> planIdNodeMap;
 
     @JsonCreator
     public QueryInfo(
@@ -136,10 +141,12 @@ public class QueryInfo
             @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions,
             @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts,
             @JsonProperty("optimizerInformation") List<PlanOptimizerInformation> optimizerInformation,
+            @JsonProperty("cteInformation") List<CTEInformation> cteInformationList,
             @JsonProperty("scalarFunctions") Set<String> scalarFunctions,
             @JsonProperty("aggregateFunctions") Set<String> aggregateFunctions,
             @JsonProperty("windowsFunctions") Set<String> windowsFunctions,
-            List<CanonicalPlanWithInfo> planCanonicalInfo)
+            List<CanonicalPlanWithInfo> planCanonicalInfo,
+            Map<PlanNodeId, PlanNode> planIdNodeMap)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -169,6 +176,7 @@ public class QueryInfo
         requireNonNull(removedSessionFunctions, "removedSessionFunctions is null");
         requireNonNull(planStatsAndCosts, "planStatsAndCosts is null");
         requireNonNull(optimizerInformation, "optimizerInformation is null");
+        requireNonNull(cteInformationList, "cteInformationList is null");
         requireNonNull(scalarFunctions, "scalarFunctions is null");
         requireNonNull(aggregateFunctions, "aggregateFunctions is null");
         requireNonNull(windowsFunctions, "windowsFunctions is null");
@@ -214,10 +222,12 @@ public class QueryInfo
         this.removedSessionFunctions = ImmutableSet.copyOf(removedSessionFunctions);
         this.planStatsAndCosts = planStatsAndCosts;
         this.optimizerInformation = optimizerInformation;
+        this.cteInformationList = cteInformationList;
         this.scalarFunctions = scalarFunctions;
         this.aggregateFunctions = aggregateFunctions;
         this.windowsFunctions = windowsFunctions;
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
+        this.planIdNodeMap = planIdNodeMap == null ? ImmutableMap.of() : ImmutableMap.copyOf(planIdNodeMap);
     }
 
     @JsonProperty
@@ -453,6 +463,12 @@ public class QueryInfo
     }
 
     @JsonProperty
+    public List<CTEInformation> getCteInformationList()
+    {
+        return cteInformationList;
+    }
+
+    @JsonProperty
     public Set<String> getScalarFunctions()
     {
         return scalarFunctions;
@@ -474,6 +490,11 @@ public class QueryInfo
     public List<CanonicalPlanWithInfo> getPlanCanonicalInfo()
     {
         return planCanonicalInfo;
+    }
+
+    public Map<PlanNodeId, PlanNode> getPlanIdNodeMap()
+    {
+        return planIdNodeMap;
     }
 
     @Override

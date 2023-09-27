@@ -13,7 +13,6 @@
  */
 
 #include <re2/re2.h>
-#include <unordered_set>
 
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
@@ -111,6 +110,32 @@ uint64_t toCapacity(const std::string& from, CapacityUnit to) {
        toBytesPerCapacityUnit(to));
 }
 
+std::chrono::duration<double> toDuration(const std::string& str) {
+  static const RE2 kPattern(R"(^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*)");
+
+  double value;
+  std::string unit;
+  if (!RE2::FullMatch(str, kPattern, &value, &unit)) {
+    VELOX_USER_FAIL("Invalid duration {}", str);
+  }
+  if (unit == "ns") {
+    return std::chrono::duration<double, std::nano>(value);
+  } else if (unit == "us") {
+    return std::chrono::duration<double, std::micro>(value);
+  } else if (unit == "ms") {
+    return std::chrono::duration<double, std::milli>(value);
+  } else if (unit == "s") {
+    return std::chrono::duration<double>(value);
+  } else if (unit == "m") {
+    return std::chrono::duration<double, std::ratio<60>>(value);
+  } else if (unit == "h") {
+    return std::chrono::duration<double, std::ratio<60 * 60>>(value);
+  } else if (unit == "d") {
+    return std::chrono::duration<double, std::ratio<60 * 60 * 24>>(value);
+  }
+  VELOX_USER_FAIL("Invalid duration {}", str);
+}
+
 } // namespace
 
 ConfigBase::ConfigBase()
@@ -182,13 +207,14 @@ void ConfigBase::checkRegisteredProperties(
   }
   auto str = supported.str();
   if (!str.empty()) {
-    PRESTO_STARTUP_LOG(INFO) << "Registered '" << filePath_ << "' properties:\n"
-                             << str;
+    PRESTO_STARTUP_LOG(INFO)
+        << "Registered properties from '" << filePath_ << "':\n"
+        << str;
   }
   str = unsupported.str();
   if (!str.empty()) {
     PRESTO_STARTUP_LOG(WARNING)
-        << "Unregistered '" << filePath_ << "' properties:\n"
+        << "Unregistered properties from '" << filePath_ << "':\n"
         << str;
   }
 }
@@ -228,18 +254,31 @@ SystemConfig::SystemConfig() {
           STR_PROP(kUseMmapArena, "false"),
           NUM_PROP(kMmapArenaCapacityRatio, 10),
           STR_PROP(kUseMmapAllocator, "true"),
+          STR_PROP(kMemoryArbitratorKind, ""),
+          NUM_PROP(kQueryMemoryGb, 38),
           STR_PROP(kEnableVeloxTaskLogging, "false"),
           STR_PROP(kEnableVeloxExprSetLogging, "false"),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
           STR_PROP(kShuffleName, ""),
+          STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kHttpEnableAccessLog, "false"),
           STR_PROP(kHttpEnableStatsFilter, "false"),
+          STR_PROP(kHttpEnableEndpointLatencyFilter, "false"),
           STR_PROP(kRegisterTestFunctions, "false"),
           NUM_PROP(kHttpMaxAllocateBytes, 65536),
           STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
           STR_PROP(kEnableMemoryLeakCheck, "true"),
           NONE_PROP(kRemoteFunctionServerThriftPort),
           STR_PROP(kSkipRuntimeStatsInRunningTaskInfo, "true"),
+          STR_PROP(kLogZombieTaskInfo, "false"),
+          NUM_PROP(kLogNumZombieTasks, 20),
+          NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
+          NUM_PROP(kHeartbeatFrequencyMs, 0),
+          STR_PROP(kExchangeMaxErrorDuration, "30s"),
+          STR_PROP(kExchangeRequestTimeout, "10s"),
+          NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
+          BOOL_PROP(kIncludeNodeInSpillPath, false),
+          NUM_PROP(kOldTaskCleanUpMs, 60'000),
       };
 }
 
@@ -295,12 +334,42 @@ folly::Optional<std::string> SystemConfig::discoveryUri() const {
 
 folly::Optional<folly::SocketAddress>
 SystemConfig::remoteFunctionServerLocation() const {
+  // First check if there is a UDS path registered. If there's one, use it.
+  auto remoteServerUdsPath =
+      optionalProperty(kRemoteFunctionServerThriftUdsPath);
+  if (remoteServerUdsPath.hasValue()) {
+    return folly::SocketAddress::makeFromPath(remoteServerUdsPath.value());
+  }
+
+  // Otherwise, check for address and port parameters.
+  auto remoteServerAddress =
+      optionalProperty(kRemoteFunctionServerThriftAddress);
   auto remoteServerPort =
       optionalProperty<uint16_t>(kRemoteFunctionServerThriftPort);
+
   if (remoteServerPort.hasValue()) {
-    return folly::SocketAddress{"::1", remoteServerPort.value()};
+    // Fallback to localhost if address is not specified.
+    return remoteServerAddress.hasValue()
+        ? folly::
+              SocketAddress{remoteServerAddress.value(), remoteServerPort.value()}
+        : folly::SocketAddress{"::1", remoteServerPort.value()};
+  } else if (remoteServerAddress.hasValue()) {
+    VELOX_FAIL(
+        "Remote function server port not provided using '{}'.",
+        kRemoteFunctionServerThriftPort);
   }
+
+  // No remote function server configured.
   return folly::none;
+}
+
+folly::Optional<std::string>
+SystemConfig::remoteFunctionServerSignatureFilesDirectoryPath() const {
+  return optionalProperty(kRemoteFunctionServerSignatureFilesDirectoryPath);
+}
+
+std::string SystemConfig::remoteFunctionServerCatalogName() const {
+  return optionalProperty(kRemoteFunctionServerCatalogName).value();
 }
 
 int32_t SystemConfig::maxDriversPerTask() const {
@@ -395,12 +464,41 @@ bool SystemConfig::useMmapAllocator() const {
   return optionalProperty<bool>(kUseMmapAllocator).value();
 }
 
+std::string SystemConfig::memoryArbitratorKind() const {
+  return optionalProperty<std::string>(kMemoryArbitratorKind).value_or("");
+}
+
+int32_t SystemConfig::queryMemoryGb() const {
+  return optionalProperty<int32_t>(kQueryMemoryGb).value();
+}
+
+uint64_t SystemConfig::memoryPoolInitCapacity() const {
+  static constexpr uint64_t kMemoryPoolInitCapacityDefault = 128 << 20;
+  return optionalProperty<uint64_t>(kMemoryPoolInitCapacity)
+      .value_or(kMemoryPoolInitCapacityDefault);
+}
+
+uint64_t SystemConfig::memoryPoolTransferCapacity() const {
+  static constexpr uint64_t kMemoryPoolTransferCapacityDefault = 32 << 20;
+  return optionalProperty<uint64_t>(kMemoryPoolTransferCapacity)
+      .value_or(kMemoryPoolTransferCapacityDefault);
+}
+
+bool SystemConfig::enableSystemMemoryPoolUsageTracking() const {
+  return optionalProperty<bool>(kEnableSystemMemoryPoolUsageTracking)
+      .value_or(true);
+}
+
 bool SystemConfig::enableHttpAccessLog() const {
   return optionalProperty<bool>(kHttpEnableAccessLog).value();
 }
 
 bool SystemConfig::enableHttpStatsFilter() const {
   return optionalProperty<bool>(kHttpEnableStatsFilter).value();
+}
+
+bool SystemConfig::enableHttpEndpointLatencyFilter() const {
+  return optionalProperty<bool>(kHttpEnableEndpointLatencyFilter).value();
 }
 
 bool SystemConfig::registerTestFunctions() const {
@@ -424,12 +522,49 @@ bool SystemConfig::skipRuntimeStatsInRunningTaskInfo() const {
   return optionalProperty<bool>(kSkipRuntimeStatsInRunningTaskInfo).value();
 }
 
+bool SystemConfig::logZombieTaskInfo() const {
+  return optionalProperty<bool>(kLogZombieTaskInfo).value();
+}
+
+uint32_t SystemConfig::logNumZombieTasks() const {
+  return optionalProperty<uint32_t>(kLogNumZombieTasks).value();
+}
+
+uint64_t SystemConfig::announcementMaxFrequencyMs() const {
+  return optionalProperty<uint64_t>(kAnnouncementMaxFrequencyMs).value();
+}
+
+uint64_t SystemConfig::heartbeatFrequencyMs() const {
+  return optionalProperty<uint64_t>(kHeartbeatFrequencyMs).value();
+}
+
+std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
+  return toDuration(optionalProperty(kExchangeMaxErrorDuration).value());
+}
+
+std::chrono::duration<double> SystemConfig::exchangeRequestTimeout() const {
+  return toDuration(optionalProperty(kExchangeRequestTimeout).value());
+}
+
+int32_t SystemConfig::taskRunTimeSliceMicros() const {
+  return optionalProperty<int32_t>(kTaskRunTimeSliceMicros).value();
+}
+
+bool SystemConfig::includeNodeInSpillPath() const {
+  return optionalProperty<bool>(kIncludeNodeInSpillPath).value();
+}
+
+int32_t SystemConfig::oldTaskCleanUpMs() const {
+  return optionalProperty<int32_t>(kOldTaskCleanUpMs).value();
+}
+
 NodeConfig::NodeConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
           NONE_PROP(kNodeEnvironment),
           NONE_PROP(kNodeId),
           NONE_PROP(kNodeIp),
+          NONE_PROP(kNodeInternalAddress),
           NONE_PROP(kNodeLocation),
           NONE_PROP(kNodeMemoryGb),
       };
@@ -452,16 +587,21 @@ std::string NodeConfig::nodeLocation() const {
   return requiredProperty(kNodeLocation);
 }
 
-std::string NodeConfig::nodeIp(
+std::string NodeConfig::nodeInternalAddress(
     const std::function<std::string()>& defaultIp) const {
-  auto resultOpt = optionalProperty(kNodeIp);
+  auto resultOpt = optionalProperty(kNodeInternalAddress);
+  /// node.ip(kNodeIp) is legacy config replaced with node.internal-address, but
+  /// still valid config in Presto, so handling both.
+  if (!resultOpt.hasValue()) {
+    resultOpt = optionalProperty(kNodeIp);
+  }
   if (resultOpt.has_value()) {
     return resultOpt.value();
   } else if (defaultIp != nullptr) {
     return defaultIp();
   } else {
     VELOX_FAIL(
-        "Node IP was not found in NodeConfigs. Default IP was not provided "
+        "Node Internal Address or IP was not found in NodeConfigs. Default IP was not provided "
         "either.");
   }
 }
@@ -561,7 +701,11 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
           NUM_PROP(
               QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
-          NUM_PROP(QueryConfig::kSpillPartitionBits, c.spillPartitionBits()),
+          NUM_PROP(
+              QueryConfig::kJoinSpillPartitionBits, c.joinSpillPartitionBits()),
+          NUM_PROP(
+              QueryConfig::kAggregationSpillPartitionBits,
+              c.aggregationSpillPartitionBits()),
           NUM_PROP(
               QueryConfig::kSpillableReservationGrowthPct,
               c.spillableReservationGrowthPct()),

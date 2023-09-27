@@ -34,6 +34,7 @@ addShuffleReadNode(const velox::RowTypePtr& outputType);
 std::function<
     velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
 addShuffleWriteNode(
+    uint32_t numPartitions,
     const std::string& shuffleName,
     const std::string& serializedWriteInfo);
 
@@ -41,5 +42,10 @@ std::function<velox::core::PlanNodePtr(std::string, velox::core::PlanNodePtr)>
 
 /// Add BroadcastWriteNode for writing broadcast data to files under
 /// specified basePath
-addBroadcastWriteNode(const std::string& basePath);
+/// @param outputLayout Optional ordered list of input column names to use as
+/// serde layout. Input columns may appear in different order, some columns may
+/// be missing and other columns may be duplicated.
+addBroadcastWriteNode(
+    const std::string& basePath,
+    const std::optional<std::vector<std::string>>& outputLayout = std::nullopt);
 } // namespace facebook::presto::operators

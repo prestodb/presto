@@ -184,6 +184,15 @@ class SystemConfig : public ConfigBase {
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
+  /// Specifies the total memory capacity that can be used by query execution in
+  /// GB. The query memory capacity should be configured less than the system
+  /// memory capacity ('system-memory-gb') to reserve memory for system usage
+  /// such as disk spilling and cache prefetch which are not counted in query
+  /// memory usage.
+  ///
+  /// NOTE: the query memory capacity is enforced by memory arbitrator so that
+  /// this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
   static constexpr std::string_view kAsyncDataCacheEnabled{
       "async-data-cache-enabled"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
@@ -202,6 +211,28 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kMmapArenaCapacityRatio{
       "mmap-arena-capacity-ratio"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
+
+  /// Specifies the memory arbitrator kind. If it is empty, then there is no
+  /// memory arbitration.
+  static constexpr std::string_view kMemoryArbitratorKind{
+      "memory-arbitrator-kind"};
+
+  /// The initial memory pool capacity in bytes allocated on creation.
+  ///
+  /// NOTE: this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kMemoryPoolInitCapacity{
+      "memory-pool-init-capacity"};
+
+  /// The minimal memory capacity in bytes transferred between memory pools
+  /// during memory arbitration.
+  ///
+  /// NOTE: this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kMemoryPoolTransferCapacity{
+      "memory-pool-transfer-capacity"};
+  /// Enables the memory usage tracking for the system memory pool used for
+  /// cases such as disk spilling.
+  static constexpr std::string_view kEnableSystemMemoryPoolUsageTracking{
+      "enable_system_memory_pool_usage_tracking"};
   static constexpr std::string_view kEnableVeloxTaskLogging{
       "enable_velox_task_logging"};
   static constexpr std::string_view kEnableVeloxExprSetLogging{
@@ -213,6 +244,8 @@ class SystemConfig : public ConfigBase {
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
       "http-server.enable-stats-filter"};
+  static constexpr std::string_view kHttpEnableEndpointLatencyFilter{
+      "http-server.enable-endpoint-latency-filter"};
   static constexpr std::string_view kRegisterTestFunctions{
       "register-test-functions"};
 
@@ -228,12 +261,64 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kEnableMemoryLeakCheck{
       "enable-memory-leak-check"};
 
+  /// Do not include runtime stats in the returned task info if the task is
+  /// in running state.
+  static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
+      "skip-runtime-stats-in-running-task-info"};
+
+  static constexpr std::string_view kLogZombieTaskInfo{"log-zombie-task-info"};
+  static constexpr std::string_view kLogNumZombieTasks{"log-num-zombie-tasks"};
+
+  /// Time (ms) since the task execution ended, when task is considered old for
+  /// cleanup.
+  static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
+
+  static constexpr std::string_view kAnnouncementMaxFrequencyMs{
+      "announcement-max-frequency-ms"};
+
+  /// Time (ms) after which we periodically send heartbeats to discovery
+  /// endpoint.
+  static constexpr std::string_view kHeartbeatFrequencyMs{
+      "heartbeat-frequency-ms"};
+
+  static constexpr std::string_view kExchangeMaxErrorDuration{
+      "exchange.max-error-duration"};
+
+  static constexpr std::string_view kExchangeRequestTimeout{
+      "exchange.http-client.request-timeout"};
+
+  /// The maximum timeslice for a task on thread if there are threads queued.
+  static constexpr std::string_view kTaskRunTimeSliceMicros{
+      "task-run-timeslice-micros"};
+
+  static constexpr std::string_view kIncludeNodeInSpillPath{
+      "include-node-in-spill-path"};
+
+  /// Remote function server configs.
+
   /// Port used by the remote function thrift server.
   static constexpr std::string_view kRemoteFunctionServerThriftPort{
       "remote-function-server.thrift.port"};
 
-  static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
-      "skip-runtime-stats-in-running-task-info"};
+  /// Address (ip or hostname) used by the remote function thrift server
+  /// (fallback to localhost if not specified).
+  static constexpr std::string_view kRemoteFunctionServerThriftAddress{
+      "remote-function-server.thrift.address"};
+
+  /// UDS (unix domain socket) path used by the remote function thrift server.
+  static constexpr std::string_view kRemoteFunctionServerThriftUdsPath{
+      "remote-function-server.thrift.uds-path"};
+
+  /// Path where json files containing signatures for remote functions can be
+  /// found.
+  static constexpr std::string_view
+      kRemoteFunctionServerSignatureFilesDirectoryPath{
+          "remote-function-server.signature.files.directory.path"};
+
+  /// Optional catalog name to be added as a prefix to the function names
+  /// registered. The patter registered is `catalog.schema.function_name`.
+  static constexpr std::string_view kRemoteFunctionServerCatalogName{
+      "remote-function-server.catalog-name"};
 
   SystemConfig();
 
@@ -277,6 +362,11 @@ class SystemConfig : public ConfigBase {
   folly::Optional<std::string> discoveryUri() const;
 
   folly::Optional<folly::SocketAddress> remoteFunctionServerLocation() const;
+
+  folly::Optional<std::string> remoteFunctionServerSignatureFilesDirectoryPath()
+      const;
+
+  std::string remoteFunctionServerCatalogName() const;
 
   int32_t maxDriversPerTask() const;
 
@@ -326,9 +416,21 @@ class SystemConfig : public ConfigBase {
 
   bool useMmapAllocator() const;
 
+  std::string memoryArbitratorKind() const;
+
+  int32_t queryMemoryGb() const;
+
+  uint64_t memoryPoolInitCapacity() const;
+
+  uint64_t memoryPoolTransferCapacity() const;
+
+  bool enableSystemMemoryPoolUsageTracking() const;
+
   bool enableHttpAccessLog() const;
 
   bool enableHttpStatsFilter() const;
+
+  bool enableHttpEndpointLatencyFilter() const;
 
   bool registerTestFunctions() const;
 
@@ -339,6 +441,24 @@ class SystemConfig : public ConfigBase {
   bool enableMemoryLeakCheck() const;
 
   bool skipRuntimeStatsInRunningTaskInfo() const;
+
+  bool logZombieTaskInfo() const;
+
+  uint32_t logNumZombieTasks() const;
+
+  uint64_t announcementMaxFrequencyMs() const;
+
+  uint64_t heartbeatFrequencyMs() const;
+
+  std::chrono::duration<double> exchangeMaxErrorDuration() const;
+
+  std::chrono::duration<double> exchangeRequestTimeout() const;
+
+  int32_t taskRunTimeSliceMicros() const;
+
+  bool includeNodeInSpillPath() const;
+
+  int32_t oldTaskCleanUpMs() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
@@ -346,7 +466,10 @@ class NodeConfig : public ConfigBase {
  public:
   static constexpr std::string_view kNodeEnvironment{"node.environment"};
   static constexpr std::string_view kNodeId{"node.id"};
+  // "node.ip" is Legacy Config. It is replaced with "node.internal-address"
   static constexpr std::string_view kNodeIp{"node.ip"};
+  static constexpr std::string_view kNodeInternalAddress{
+      "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
   static constexpr std::string_view kNodeMemoryGb{"node.memory_gb"};
 
@@ -358,7 +481,7 @@ class NodeConfig : public ConfigBase {
 
   std::string nodeId() const;
 
-  std::string nodeIp(
+  std::string nodeInternalAddress(
       const std::function<std::string()>& defaultIp = nullptr) const;
 
   std::string nodeLocation() const;

@@ -31,19 +31,30 @@ if("${TREAT_WARNINGS_AS_ERRORS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 endif()
 
-set(KNOWN_WARNINGS "-Wno-nullability-completeness")
+# Known warnings that are benign can be disabled.
+set(DISABLED_WARNINGS
+    "-Wno-nullability-completeness -Wno-deprecated-declarations")
 
-# known warnings for MacOS
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set(KNOWN_WARNINGS "${KNOWN_WARNINGS} -Wno-deprecated-declarations")
-endif()
+# Important warnings that must be explicitly enabled.
+set(ENABLE_WARNINGS "-Wreorder")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${KNOWN_WARNINGS}")
+set(CMAKE_CXX_FLAGS
+    "${CMAKE_CXX_FLAGS} ${DISABLED_WARNINGS} ${ENABLE_WARNINGS}")
 
-# Add all Presto options below
+# Add all Presto options below.
+
+# Forwards user input to VELOX_ENABLE_S3.
 option(PRESTO_ENABLE_S3 "Build S3 connector" OFF)
+
+# Forwards user input to VELOX_ENABLE_HDFS.
 option(PRESTO_ENABLE_HDFS "Build HDFS connector" OFF)
+
+# Forwards user input to VELOX_ENABLE_PARQUET.
 option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
+
+# Forwards user input to VELOX_ENABLE_REMOTE_FUNCTIONS.
+option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
+
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 # Set all Velox options below
@@ -53,21 +64,25 @@ if(PRESTO_ENABLE_S3)
   set(VELOX_ENABLE_S3
       ON
       CACHE BOOL "Build S3 connector")
-  add_definitions(-DPRESTO_ENABLE_S3)
 endif()
 
 if(PRESTO_ENABLE_HDFS)
   set(VELOX_ENABLE_HDFS
       ON
       CACHE BOOL "Build HDFS Connector")
-  add_definitions(-DPRESTO_ENABLE_HDFS)
 endif()
 
 if(PRESTO_ENABLE_PARQUET)
   set(VELOX_ENABLE_PARQUET
       ON
       CACHE BOOL "Enable Parquet support")
-  add_definitions(-DPRESTO_ENABLE_PARQUET)
+endif()
+
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  set(VELOX_ENABLE_REMOTE_FUNCTIONS
+      ON
+      CACHE BOOL "Enable remote function support in Velox")
+  add_compile_definitions(PRESTO_ENABLE_REMOTE_FUNCTIONS)
 endif()
 
 set(VELOX_BUILD_TESTING
@@ -145,9 +160,6 @@ endif()
 include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
 
 # Include third party header files
-
-find_package(Protobuf REQUIRED)
-
 find_path(OPT_OPENSSL_DIR NAMES opt/openssl@1.1)
 set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl@1.1")
 find_package(OpenSSL REQUIRED)
@@ -160,6 +172,7 @@ find_library(WANGLE wangle)
 
 find_library(RE2 re2)
 
+find_package(fizz CONFIG)
 find_package(wangle CONFIG)
 find_package(FBThrift)
 include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})

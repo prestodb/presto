@@ -48,10 +48,6 @@ public class TestPrestoSparkNativeGeneralQueries
 
     @Override
     @Ignore
-    public void testCreateUnpartitionedTableAsSelect() {}
-
-    @Override
-    @Ignore
     public void testInformationSchemaTables() {}
 
     @Override
@@ -70,12 +66,12 @@ public class TestPrestoSparkNativeGeneralQueries
     @Ignore
     public void testTopN() {}
 
-    // This test is flaky: https://github.com/prestodb/presto/issues/19665
     @Override
     @Ignore
-    public void testUnionAll() {}
+    public void testInsertIntoSpecialPartitionName(){}
 
+    // @TODO Refer https://github.com/prestodb/presto/issues/20294
     @Override
     @Ignore
-    public void testDecimalRangeFilters() {}
+    public void testAnalyzeStats() {}
 }
