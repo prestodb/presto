@@ -18,7 +18,6 @@
 #include "gtest/gtest.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/tests/HdfsMiniCluster.h"
-#include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -52,186 +51,62 @@ class InsertIntoHdfsTest : public HiveConnectorTestBase {
     rowType_ = inputType;
   }
 
-  static std::shared_ptr<common::ScanSpec> makeScanSpec(
-      const RowTypePtr& rowType) {
-    auto scanSpec = std::make_shared<common::ScanSpec>("");
-    scanSpec->addAllChildFields(*rowType);
-    return scanSpec;
-  }
-
-  std::unique_ptr<RowReader> createReader(
-      const RowTypePtr& rowType,
-      const std::shared_ptr<ReadFile>& readFile) {
-    dwio::common::ReaderOptions readerOpts{pool_.get()};
-    auto input =
-        std::make_unique<BufferedInput>(readFile, readerOpts.getMemoryPool());
-
-    std::unique_ptr<Reader> reader =
-        std::make_unique<facebook::velox::parquet::ParquetReader>(
-            std::move(input), readerOpts);
-
-    dwio::common::RowReaderOptions rowReaderOpts;
-    rowReaderOpts.select(
-        std::make_shared<facebook::velox::dwio::common::ColumnSelector>(
-            rowType, rowType->names()));
-
-    auto scanSpec = makeScanSpec(rowType);
-    rowReaderOpts.setScanSpec(scanSpec);
-    auto rowReader = reader->createRowReader(rowReaderOpts);
-    return rowReader;
-  }
-
-  template <typename T>
-  VectorPtr rangeVector(size_t size, T start) {
-    std::vector<T> vals(size);
-    for (size_t i = 0; i < size; ++i) {
-      vals[i] = start + static_cast<T>(i);
-    }
-    return vectorMaker_->flatVector(vals);
-  }
-
   static std::shared_ptr<filesystems::test::HdfsMiniCluster> miniCluster;
   RowTypePtr rowType_;
-  std::unique_ptr<VectorMaker> vectorMaker_{
-      std::make_unique<VectorMaker>(pool_.get())};
 };
 
 std::shared_ptr<filesystems::test::HdfsMiniCluster>
     InsertIntoHdfsTest::miniCluster = nullptr;
 
-std::shared_ptr<core::InsertTableHandle> createInsertTableHandle(
-    const RowTypePtr& outputRowType,
-    const connector::hive::LocationHandle::TableType& outputTableType,
-    const std::string& outputDirectoryPath,
-    const std::vector<std::string>& partitionedBy,
-    const std::shared_ptr<HiveBucketProperty>& bucketProperty) {
-  return std::make_shared<core::InsertTableHandle>(
-      kHiveConnectorId,
-      HiveConnectorTestBase::makeHiveInsertTableHandle(
-          outputRowType->names(),
-          outputRowType->children(),
-          partitionedBy,
-          bucketProperty,
-          HiveConnectorTestBase::makeLocationHandle(
-              outputDirectoryPath, std::nullopt, outputTableType),
-          FileFormat::PARQUET));
-}
-
-PlanNodePtr createInsertPlan(
-    PlanBuilder& inputPlan,
-    const RowTypePtr& outputRowType,
-    const std::string& outputDirectoryPath,
-    const std::vector<std::string>& partitionedBy = {},
-    const std::shared_ptr<HiveBucketProperty>& bucketProperty = {},
-    const connector::hive::LocationHandle::TableType& outputTableType =
-        connector::hive::LocationHandle::TableType::kNew,
-    const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit) {
-  auto insertPlan = inputPlan.tableWrite(
-      inputPlan.planNode()->outputType(),
-      outputRowType->names(),
-      nullptr,
-      createInsertTableHandle(
-          outputRowType,
-          outputTableType,
-          outputDirectoryPath,
-          partitionedBy,
-          bucketProperty),
-      bucketProperty != nullptr,
-      outputCommitStrategy);
-  return insertPlan.planNode();
-}
-
-void assertEqualVectorPart(
-    const VectorPtr& expected,
-    const VectorPtr& actual,
-    vector_size_t offset) {
-  ASSERT_GE(expected->size(), actual->size() + offset);
-  ASSERT_EQ(expected->typeKind(), actual->typeKind());
-  for (vector_size_t i = 0; i < actual->size(); i++) {
-    ASSERT_TRUE(expected->equalValueAt(actual.get(), i + offset, i))
-        << "at " << (i + offset) << ": expected "
-        << expected->toString(i + offset) << ", but got "
-        << actual->toString(i);
-  }
-}
-
-void assertReadExpected(
-    const std::shared_ptr<const RowType>& outputType,
-    dwio::common::RowReader& reader,
-    const RowVectorPtr& expected,
-    memory::MemoryPool& memoryPool) {
-  vector_size_t total = 0;
-  VectorPtr result = BaseVector::create(outputType, 0, &memoryPool);
-
-  while (total < expected->size()) {
-    auto part = reader.next(1000, result);
-    if (part > 0) {
-      assertEqualVectorPart(expected, result, total);
-      total += result->size();
-    } else {
-      break;
-    }
-  }
-  EXPECT_EQ(total, expected->size());
-  EXPECT_EQ(reader.next(1000, result), 0);
-}
-
 TEST_F(InsertIntoHdfsTest, insertIntoHdfsTest) {
   folly::SingletonVault::singleton()->registrationComplete();
-  const int64_t expectedRows = 10 * 100;
+  const int64_t expectedRows = 1000;
   setDataTypes(ROW(
       {"c0", "c1", "c2", "c3"}, {BIGINT(), INTEGER(), SMALLINT(), DOUBLE()}));
 
-  auto input = vectorMaker_->rowVector(
-      {rangeVector<int64_t>(expectedRows, 1),
-       rangeVector<int32_t>(expectedRows, 1),
-       rangeVector<int16_t>(expectedRows, 1),
-       rangeVector<double>(expectedRows, 1)});
+  auto input = makeRowVector(
+      {makeFlatVector<int64_t>(expectedRows, [](auto row) { return row; }),
+       makeFlatVector<int32_t>(expectedRows, [](auto row) { return row; }),
+       makeFlatVector<int16_t>(expectedRows, [](auto row) { return row; }),
+       makeFlatVector<double>(expectedRows, [](auto row) { return row; })});
 
   auto outputDirectory = "hdfs://localhost:7878/";
   // INSERT INTO hdfs with one writer
-  auto plan = createInsertPlan(
-      PlanBuilder().values({input}), rowType_, outputDirectory);
+  auto plan = PlanBuilder()
+                  .values({input})
+                  .tableWrite(outputDirectory, dwio::common::FileFormat::DWRF)
+                  .planNode();
 
-  auto result =
-      AssertQueryBuilder(plan, duckDbQueryRunner_).copyResults(pool());
+  auto results = AssertQueryBuilder(plan).copyResults(pool());
 
-  auto fragmentVector = result->childAt(TableWriteTraits::kFragmentChannel)
-                            ->asFlatVector<StringView>();
+  // First column has number of rows written in the first row and nulls in other
+  // rows.
+  auto rowCount = results->childAt(TableWriteTraits::kRowCountChannel)
+                      ->as<FlatVector<int64_t>>();
+  ASSERT_FALSE(rowCount->isNullAt(0));
+  ASSERT_EQ(expectedRows, rowCount->valueAt(0));
+  ASSERT_TRUE(rowCount->isNullAt(1));
 
-  std::vector<std::string> writeFiles;
-  int64_t numRows{0};
-  int64_t fileSize{0};
-  for (int i = 0; i < result->size(); ++i) {
-    if (!fragmentVector->isNullAt(i)) {
-      ASSERT_FALSE(fragmentVector->isNullAt(i));
-      folly::dynamic obj = folly::parseJson(fragmentVector->valueAt(i));
-      ASSERT_EQ(obj["targetPath"], outputDirectory);
-      ASSERT_EQ(obj["writePath"], outputDirectory);
-      numRows += obj["rowCount"].asInt();
+  // Second column contains details about written files.
+  auto details = results->childAt(TableWriteTraits::kFragmentChannel)
+                     ->as<FlatVector<StringView>>();
+  ASSERT_TRUE(details->isNullAt(0));
+  ASSERT_FALSE(details->isNullAt(1));
+  folly::dynamic obj = folly::parseJson(details->valueAt(1));
 
-      folly::dynamic writerInfoObj = obj["fileWriteInfos"][0];
-      const std::string writeFileName =
-          writerInfoObj["writeFileName"].asString();
-      const std::string writeFileFullPath =
-          obj["writePath"].asString() + "/" + writeFileName;
-      writeFiles.push_back(writeFileFullPath);
-      fileSize += writerInfoObj["fileSize"].asInt();
-    }
-  }
+  ASSERT_EQ(expectedRows, obj["rowCount"].asInt());
+  auto fileWriteInfos = obj["fileWriteInfos"];
+  ASSERT_EQ(1, fileWriteInfos.size());
 
-  ASSERT_EQ(numRows, expectedRows);
-  ASSERT_EQ(writeFiles.size(), 1);
+  auto writeFileName = fileWriteInfos[0]["writeFileName"].asString();
 
-  // Verify that the data is written to hdfs
-  auto fileSystem = filesystems::getFileSystem(writeFiles[0], nullptr);
-  auto* hdfsFileSystem =
-      dynamic_cast<filesystems::HdfsFileSystem*>(fileSystem.get());
-  ASSERT_TRUE(hdfsFileSystem != nullptr);
-  auto fileForRead = hdfsFileSystem->openFileForRead(writeFiles[0]);
-  auto hdfsFileSize = fileForRead->size();
-  ASSERT_EQ(fileSize, hdfsFileSize);
+  // Read from 'writeFileName' and verify the data matches the original.
+  plan = PlanBuilder().tableScan(rowType_).planNode();
 
-  auto rowReader = createReader(rowType_, std::move(fileForRead));
-  assertReadExpected(rowType_, *rowReader, input, *pool_);
+  auto splits = HiveConnectorTestBase::makeHiveConnectorSplits(
+      fmt::format("{}/{}", outputDirectory, writeFileName),
+      1,
+      dwio::common::FileFormat::DWRF);
+  auto copy = AssertQueryBuilder(plan).split(splits[0]).copyResults(pool());
+  assertEqualResults({input}, {copy});
 }
