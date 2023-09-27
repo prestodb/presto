@@ -44,6 +44,13 @@ fi
 
 export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
 
+function check_git_checkout()
+{ 
+  [[ -d "${SCRIPT_DIR}/$2" ]] || git clone "$1" "$2"
+  cd "$2" &&
+  git checkout $FB_OS_VERSION
+}
+
 (
   wget --max-redirect 3 https://download.libsodium.org/libsodium/releases/LATEST.tar.gz &&
   tar -xzvf LATEST.tar.gz &&
@@ -64,37 +71,27 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
 )
 
 (
-  git clone https://github.com/facebook/folly &&
-  cd folly &&
-  git checkout $FB_OS_VERSION &&
+  check_git_checkout https://github.com/facebook/folly folly
   cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON -DFOLLY_HAVE_INT128_T=ON
 )
 
 (
-  git clone https://github.com/facebookincubator/fizz &&
-  cd fizz &&
-  git checkout $FB_OS_VERSION &&
+  check_git_checkout https://github.com/facebookincubator/fizz fizz
   cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON fizz
 )
 
 (
-  git clone https://github.com/facebook/wangle &&
-  cd wangle &&
-  git checkout $FB_OS_VERSION &&
+  check_git_checkout https://github.com/facebook/wangle wangle
   cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON wangle
 )
 
 (
-  git clone https://github.com/facebook/proxygen &&
-  cd proxygen &&
-  git checkout $FB_OS_VERSION &&
+  check_git_checkout https://github.com/facebook/proxygen proxygen
   cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
 (
-  git clone https://github.com/google/re2 &&
-  cd re2 &&
-  git checkout 2022-12-01 &&
+  check_git_checkout https://github.com/google/re2 re2
   cmake_install -DBUILD_SHARED_LIBS=ON
 )
 
@@ -108,9 +105,7 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
 )
 
 (
-  git clone https://github.com/facebook/fbthrift &&
-  cd fbthrift &&
-  git checkout $FB_OS_VERSION &&
+  check_git_checkout https://github.com/facebook/fbthrift fbthrift
   cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
