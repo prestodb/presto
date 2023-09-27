@@ -16,6 +16,7 @@
 #include "velox/exec/ContainerRowSerde.h"
 #include <gtest/gtest.h>
 #include "velox/common/memory/HashStringAllocator.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::exec {
@@ -101,6 +102,26 @@ class ContainerRowSerdeTest : public testing::Test,
           expected.at(i),
           ContainerRowSerde::compareWithNulls(
               stream, decodedVector, i, compareFlags));
+    }
+  }
+
+  void testCompare(const VectorPtr& vector) {
+    auto positions = serializeWithPositions(vector);
+
+    CompareFlags compareFlags{
+        true, // nullsFirst
+        true, // ascending
+        true,
+        CompareFlags::NullHandlingMode::NoStop};
+
+    DecodedVector decodedVector(*vector);
+
+    for (auto i = 0; i < positions.size(); ++i) {
+      ByteStream stream;
+      HashStringAllocator::prepareRead(positions.at(i).header, stream);
+      ASSERT_EQ(
+          0, ContainerRowSerde::compare(stream, decodedVector, i, compareFlags))
+          << "at " << i << ": " << vector->toString(i);
     }
   }
 
@@ -297,6 +318,53 @@ TEST_F(ContainerRowSerdeTest, compareNullsInRowVector) {
       CompareFlags::NullHandlingMode::NoStop);
 
   allocator_.clear();
+}
+
+TEST_F(ContainerRowSerdeTest, fuzzCompare) {
+  VectorFuzzer::Options opts;
+  opts.vectorSize = 1'000;
+  opts.nullRatio = 0.5;
+  opts.dictionaryHasNulls = true;
+
+  VectorFuzzer fuzzer(opts, pool_.get());
+
+  std::vector<vector_size_t> offsets(100);
+  for (auto i = 0; i < offsets.size(); ++i) {
+    offsets[i] = i * 10;
+  }
+
+  for (auto i = 0; i < 1'000; ++i) {
+    auto seed = folly::Random::rand32();
+
+    LOG(INFO) << i << ": seed: " << seed;
+
+    fuzzer.reSeed(seed);
+
+    {
+      SCOPED_TRACE(fmt::format("seed: {}, ARRAY", seed));
+      auto elements = fuzzer.fuzz(BIGINT());
+      auto arrayVector = makeArrayVector(offsets, elements);
+      testCompare(arrayVector);
+    }
+
+    {
+      SCOPED_TRACE(fmt::format("seed: {}, MAP", seed));
+      auto keys = fuzzer.fuzz(BIGINT());
+      auto values = fuzzer.fuzz(BIGINT());
+      auto mapVector = makeMapVector(offsets, keys, values);
+      testCompare(mapVector);
+    }
+
+    {
+      SCOPED_TRACE(fmt::format("seed: {}, ROW", seed));
+      std::vector<VectorPtr> children{
+          fuzzer.fuzz(BIGINT()),
+          fuzzer.fuzz(BIGINT()),
+      };
+      auto rowVector = makeRowVector(children);
+      testCompare(rowVector);
+    }
+  }
 }
 
 } // namespace
