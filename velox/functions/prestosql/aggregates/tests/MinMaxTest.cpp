@@ -285,7 +285,7 @@ TEST_F(MinMaxTest, array) {
   auto data = makeRowVector({
       makeNullableArrayVector<int64_t>({
           {1, 2, 3},
-          {std::nullopt, 2},
+          {2, std::nullopt},
           {6, 7, 8},
       }),
   });
@@ -317,7 +317,7 @@ TEST_F(MinMaxTest, map) {
   auto data = makeRowVector({
       makeNullableMapVector<int64_t, int64_t>({
           {{{1, 1}, {2, 2}}},
-          {{{1, 1}, {2, std::nullopt}}},
+          {{{2, std::nullopt}, {2, 3}}},
           {{{4, 50}}},
       }),
   });
@@ -345,17 +345,26 @@ TEST_F(MinMaxTest, map) {
 TEST_F(MinMaxTest, row) {
   auto data = makeRowVector({
       makeRowVector({
+          makeFlatVector<StringView>({
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+          }),
           makeNullableFlatVector<StringView>({
-              "abc"_sv,
               std::nullopt,
               "efg"_sv,
+              "hij"_sv,
           }),
       }),
   });
 
   auto expected = makeRowVector({
-      makeRowVector({makeFlatVector<StringView>({"abc"_sv})}),
-      makeRowVector({makeFlatVector<StringView>({"efg"_sv})}),
+      makeRowVector(
+          {makeFlatVector<StringView>({"a"_sv}),
+           makeFlatVector<StringView>({"abc"_sv})}),
+      makeRowVector(
+          {makeFlatVector<StringView>({"c"_sv}),
+           makeFlatVector<StringView>({"hij"_sv})}),
   });
 
   VELOX_ASSERT_THROW(
@@ -364,15 +373,62 @@ TEST_F(MinMaxTest, row) {
 
   data = makeRowVector({
       makeRowVector({
+          makeFlatVector<StringView>({
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+          }),
           makeNullableFlatVector<StringView>({
               "abc"_sv,
-              "ef"_sv,
               "efg"_sv,
+              "hij"_sv,
+          }),
+      }),
+  });
+  testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected});
+}
+
+TEST_F(MinMaxTest, arrayCheckNulls) {
+  auto data = makeRowVector({
+      makeNullableArrayVector<int64_t>({
+          {1, 2},
+          {2, std::nullopt},
+          {6, 7},
+      }),
+  });
+
+  for (const auto& expr : {"min(c0)", "max(c0)"}) {
+    auto plan =
+        PlanBuilder().values({data}).singleAggregation({}, {expr}).planNode();
+    VELOX_ASSERT_THROW(
+        AssertQueryBuilder(plan).copyResults(pool()),
+        "ARRAY comparison not supported for values that contain nulls");
+  }
+}
+
+TEST_F(MinMaxTest, rowCheckNull) {
+  auto data = makeRowVector({
+      makeRowVector({
+          makeFlatVector<StringView>({
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+          }),
+          makeNullableFlatVector<StringView>({
+              "aa"_sv,
+              std::nullopt,
+              "cc"_sv,
           }),
       }),
   });
 
-  testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected});
+  for (const auto& expr : {"min(c0)", "max(c0)"}) {
+    auto plan =
+        PlanBuilder().values({data}).singleAggregation({}, {expr}).planNode();
+    VELOX_ASSERT_THROW(
+        AssertQueryBuilder(plan).copyResults(pool()),
+        "ROW comparison not supported for values that contain nulls");
+  }
 }
 
 class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
