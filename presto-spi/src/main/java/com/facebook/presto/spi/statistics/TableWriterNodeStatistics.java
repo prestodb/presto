@@ -24,25 +24,21 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
-public class JoinNodeStatistics
+public class TableWriterNodeStatistics
 {
-    private static final JoinNodeStatistics EMPTY = new JoinNodeStatistics(Estimate.unknown(), Estimate.unknown());
-    // Number of input rows from build side of a join which has at least one join column to be NULL
-    private final Estimate nullJoinBuildKeyCount;
-    // Number of input rows from build side of a join
-    private final Estimate joinBuildKeyCount;
+    private static final TableWriterNodeStatistics EMPTY = new TableWriterNodeStatistics(Estimate.unknown());
+    // Number of writer tasks when the writer is scaled writer, otherwise unknown
+    private final Estimate taskCountIfScaledWriter;
 
     @JsonCreator
     @ThriftConstructor
-    public JoinNodeStatistics(
-            @JsonProperty("nullJoinBuildKeyCount") Estimate nullJoinBuildKeyCount,
-            @JsonProperty("joinBuildKeyCount") Estimate joinBuildKeyCount)
+    public TableWriterNodeStatistics(
+            @JsonProperty("taskNumberIfScaledWriter") Estimate taskCountIfScaledWriter)
     {
-        this.nullJoinBuildKeyCount = requireNonNull(nullJoinBuildKeyCount, "nullJoinBuildKeyCount is null");
-        this.joinBuildKeyCount = requireNonNull(joinBuildKeyCount, "joinBuildKeyCount is null");
+        this.taskCountIfScaledWriter = requireNonNull(taskCountIfScaledWriter, "nullJoinBuildKeyCount is null");
     }
 
-    public static JoinNodeStatistics empty()
+    public static TableWriterNodeStatistics empty()
     {
         return EMPTY;
     }
@@ -54,16 +50,9 @@ public class JoinNodeStatistics
 
     @JsonProperty
     @ThriftField(1)
-    public Estimate getNullJoinBuildKeyCount()
+    public Estimate getTaskCountIfScaledWriter()
     {
-        return nullJoinBuildKeyCount;
-    }
-
-    @JsonProperty
-    @ThriftField(2)
-    public Estimate getJoinBuildKeyCount()
-    {
-        return joinBuildKeyCount;
+        return taskCountIfScaledWriter;
     }
 
     @Override
@@ -75,22 +64,21 @@ public class JoinNodeStatistics
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        JoinNodeStatistics that = (JoinNodeStatistics) o;
-        return Objects.equals(nullJoinBuildKeyCount, that.nullJoinBuildKeyCount) && Objects.equals(joinBuildKeyCount, that.joinBuildKeyCount);
+        TableWriterNodeStatistics that = (TableWriterNodeStatistics) o;
+        return Objects.equals(taskCountIfScaledWriter, that.taskCountIfScaledWriter);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nullJoinBuildKeyCount, joinBuildKeyCount);
+        return Objects.hash(taskCountIfScaledWriter);
     }
 
     @Override
     public String toString()
     {
-        return "JoinNodeStatistics{" +
-                "nullJoinBuildKeyCount=" + nullJoinBuildKeyCount +
-                ", joinBuildKeyCount=" + joinBuildKeyCount +
+        return "TableWriterNodeStatistics{" +
+                "taskNumberIfScaledWriter=" + taskCountIfScaledWriter +
                 '}';
     }
 }
