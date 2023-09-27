@@ -33,9 +33,9 @@ public class TableWriterNodeStatistics
     @JsonCreator
     @ThriftConstructor
     public TableWriterNodeStatistics(
-            @JsonProperty("taskNumberIfScaledWriter") Estimate taskCountIfScaledWriter)
+            @JsonProperty("taskCountIfScaledWriter") Estimate taskCountIfScaledWriter)
     {
-        this.taskCountIfScaledWriter = requireNonNull(taskCountIfScaledWriter, "nullJoinBuildKeyCount is null");
+        this.taskCountIfScaledWriter = requireNonNull(taskCountIfScaledWriter, "taskCountIfScaledWriter is null");
     }
 
     public static TableWriterNodeStatistics empty()
@@ -78,7 +78,7 @@ public class TableWriterNodeStatistics
     public String toString()
     {
         return "TableWriterNodeStatistics{" +
-                "taskNumberIfScaledWriter=" + taskCountIfScaledWriter +
+                "taskCountIfScaledWriter=" + taskCountIfScaledWriter +
                 '}';
     }
 }

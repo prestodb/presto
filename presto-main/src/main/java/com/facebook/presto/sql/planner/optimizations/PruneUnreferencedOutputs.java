@@ -705,7 +705,8 @@ public class PruneUnreferencedOutputs
                     node.getNotNullColumnVariables(),
                     node.getTablePartitioningScheme(),
                     node.getPreferredShufflePartitioningScheme(),
-                    node.getStatisticsAggregation());
+                    node.getStatisticsAggregation(),
+                    node.getTaskCountIfScaledWriter());
         }
 
         @Override

@@ -385,7 +385,7 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)%n",
+                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s), %s tasks%n",
                             stageExecutionStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
                             stageExecutionStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageExecutionStats.getProcessedInputPositions()),
@@ -393,7 +393,8 @@ public class PlanPrinter
                             formatDouble(avgPositionsPerTask),
                             formatDouble(sdAmongTasks),
                             formatPositions(stageExecutionStats.getOutputPositions()),
-                            stageExecutionStats.getOutputDataSize()));
+                            stageExecutionStats.getOutputDataSize(),
+                            tasks.size()));
         }
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
