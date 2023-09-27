@@ -277,14 +277,11 @@ void MergeJoin::prepareOutput() {
       // (elements, keys and values) keep growing after each call to
       // 'copyRow'. Call BaseVector::resize(0) on these child vectors to avoid
       // that.
-      // TODO Refactor this logic into a method on BaseVector.
       for (auto& child : filterInput_->children()) {
         if (child->typeKind() == TypeKind::ARRAY) {
-          child->as<ArrayVector>()->elements()->resize(0);
+          child->as<ArrayVector>()->prepareForReuse();
         } else if (child->typeKind() == TypeKind::MAP) {
-          auto* mapChild = child->as<MapVector>();
-          mapChild->mapKeys()->resize(0);
-          mapChild->mapValues()->resize(0);
+          child->as<MapVector>()->prepareForReuse();
         }
       }
     }

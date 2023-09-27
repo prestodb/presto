@@ -539,3 +539,87 @@ TEST_F(MergeJoinTest, nullKeys) {
   AssertQueryBuilder(plan, duckDbQueryRunner_)
       .assertResults("SELECT * FROM t LEFT JOIN u ON t.t0 = u.u0");
 }
+
+TEST_F(MergeJoinTest, complexTypedFilter) {
+  constexpr vector_size_t size{1000};
+
+  auto right = makeRowVector(
+      {"u_c0"},
+      {makeFlatVector<int32_t>(size, [](auto row) { return row * 2; })});
+
+  auto testComplexTypedFilter = [&](const std::vector<RowVectorPtr>& left,
+                                    const std::string& filter,
+                                    const std::string& queryFilter) {
+    createDuckDbTable("t", left);
+    createDuckDbTable("u", {right});
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .values(left)
+            .mergeJoin(
+                {"t_c0"},
+                {"u_c0"},
+                PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+                filter,
+                {"t_c0", "t_c1", "u_c0"},
+                core::JoinType::kLeft)
+            .planNode();
+
+    assertQuery(
+        plan,
+        "SELECT t_c0, t_c1, u_c0 FROM t LEFT JOIN u ON t_c0 = u_c0 AND " +
+            queryFilter);
+  };
+
+  {
+    const std::vector<std::vector<int32_t>> pattern{
+        {1},
+        {1, 2},
+        {1, 2, 4},
+        {1, 2, 4, 8},
+        {1, 2, 4, 8, 16},
+    };
+    std::vector<std::vector<int32_t>> arrayVector;
+    arrayVector.reserve(size);
+    for (auto i = 0; i < size / pattern.size(); ++i) {
+      arrayVector.insert(arrayVector.end(), pattern.begin(), pattern.end());
+    }
+    auto left = {
+        makeRowVector(
+            {"t_c0", "t_c1"},
+            {makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+             makeArrayVector<int32_t>(arrayVector)}),
+        makeRowVector(
+            {"t_c0", "t_c1"},
+            {makeFlatVector<int32_t>(
+                 size, [size](auto row) { return size + row * 2; }),
+             makeArrayVector<int32_t>(arrayVector)})};
+
+    testComplexTypedFilter(left, "array_max(t_c1) >= 8", "list_max(t_c1) >= 8");
+  }
+
+  {
+    auto sizeAt = [](vector_size_t row) { return row % 5; };
+    auto keyAt = [](vector_size_t row) { return row % 11; };
+    auto valueAt = [](vector_size_t row) { return row % 13; };
+    auto keys = makeArrayVector<int64_t>(size, sizeAt, keyAt);
+    auto values = makeArrayVector<int32_t>(size, sizeAt, valueAt);
+
+    auto mapVector =
+        makeMapVector<int64_t, int32_t>(size, sizeAt, keyAt, valueAt);
+
+    auto left = {
+        makeRowVector(
+            {"t_c0", "t_c1"},
+            {makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+             mapVector}),
+        makeRowVector(
+            {"t_c0", "t_c1"},
+            {makeFlatVector<int32_t>(
+                 size, [size](auto row) { return size + row * 2; }),
+             mapVector})};
+
+    testComplexTypedFilter(
+        left, "cardinality(t_c1) > 4", "cardinality(t_c1) > 4");
+  }
+};
