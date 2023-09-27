@@ -140,11 +140,11 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
 
   promise_ = std::move(promise);
   failedAttempts_ = 0;
-  retryState_ =
+  dataRequestRetryState_ =
       RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
                      SystemConfig::instance()->exchangeMaxErrorDuration())
                      .count());
-  doRequest(retryState_.nextDelayMs(), maxBytes, maxWaitSeconds);
+  doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWaitSeconds);
 
   return future;
 }
@@ -325,11 +325,11 @@ void PrestoExchangeSource::processDataError(
     const std::string& error,
     bool retry) {
   ++failedAttempts_;
-  if (retry && !retryState_.isExhausted()) {
+  if (retry && !dataRequestRetryState_.isExhausted()) {
     VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
             << path << " - Retrying: " << error;
 
-    doRequest(retryState_.nextDelayMs(), maxBytes, maxWaitSeconds);
+    doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWaitSeconds);
     return;
   }
 
@@ -383,44 +383,57 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
 }
 
 void PrestoExchangeSource::abortResults() {
+  if (abortResultsIssued_.exchange(true)) {
+    return;
+  }
+
+  abortRetryState_ =
+      RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
+                     SystemConfig::instance()->exchangeMaxErrorDuration())
+                     .count());
   VLOG(1) << "Sending abort results " << basePath_;
+  doAbortResults(abortRetryState_.nextDelayMs());
+}
+
+void PrestoExchangeSource::doAbortResults(int64_t delayMs) {
   auto queue = queue_;
   auto self = getSelfPtr();
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::DELETE)
       .url(basePath_)
-      .send(httpClient_.get())
+      .send(httpClient_.get(), "", delayMs)
       .via(driverExecutor_)
-      .thenValue([queue, self](std::unique_ptr<http::HttpResponse> response) {
-        auto statusCode = response->headers()->getStatusCode();
-        if (statusCode != http::kHttpOk && statusCode != http::kHttpNoContent) {
-          const std::string errMsg = fmt::format(
-              "Abort results failed: {}, path {}", statusCode, self->basePath_);
-          LOG(ERROR) << errMsg;
-          onFinalFailure(errMsg, queue);
+      .thenTry([queue, self](
+                   folly::Try<std::unique_ptr<http::HttpResponse>> response) {
+        std::optional<std::string> error;
+        if (response.hasException()) {
+          error = response.exception().what();
         } else {
-          self->abortResultsSucceeded_.store(true);
+          auto statusCode = response.value()->headers()->getStatusCode();
+          if (statusCode != http::kHttpOk &&
+              statusCode != http::kHttpNoContent) {
+            error = std::to_string(statusCode);
+          }
         }
-      })
-      .thenError(
-          folly::tag_t<std::exception>{},
-          [queue, self](const std::exception& e) {
-            const std::string errMsg = fmt::format(
-                "Abort results failed: {}, path {}", e.what(), self->basePath_);
-            LOG(ERROR) << errMsg;
-            // Captures 'queue' by value to ensure lifetime. Error
-            // detection can be arbitrarily late, for example after cancellation
-            // due to other errors.
-            onFinalFailure(errMsg, queue);
-          });
+        if (!error.has_value()) {
+          return;
+        }
+        if (self->abortRetryState_.isExhausted()) {
+          const std::string errMsg = fmt::format(
+              "Abort results failed: {}, path {}",
+              error.value(),
+              self->basePath_);
+          LOG(ERROR) << errMsg;
+          return onFinalFailure(errMsg, queue);
+        }
+        self->doAbortResults(self->abortRetryState_.nextDelayMs());
+      });
 }
 
 void PrestoExchangeSource::close() {
   closed_.store(true);
   checkSetRequestPromise();
-  if (!abortResultsSucceeded_.load()) {
-    abortResults();
-  }
+  abortResults();
 }
 
 std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::getSelfPtr() {
