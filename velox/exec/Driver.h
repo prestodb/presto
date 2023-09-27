@@ -323,8 +323,14 @@ class Driver : public std::enable_shared_from_this<Driver> {
     return blockingReason_;
   }
 
-  static std::shared_ptr<Driver> testingCreate() {
-    return std::shared_ptr<Driver>(new Driver());
+  static std::shared_ptr<Driver> testingCreate(
+      std::unique_ptr<DriverCtx> ctx = nullptr) {
+    auto driver = new Driver();
+    if (ctx != nullptr) {
+      ctx->driver = driver;
+      driver->ctx_ = std::move(ctx);
+    }
+    return std::shared_ptr<Driver>(driver);
   }
 
  private:

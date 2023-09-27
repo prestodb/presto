@@ -24,6 +24,7 @@
 #include "velox/exec/Exchange.h"
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/LocalPlanner.h"
+#include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/Merge.h"
 #include "velox/exec/NestedLoopJoinBuild.h"
 #include "velox/exec/OperatorUtils.h"
@@ -348,6 +349,14 @@ std::unique_ptr<memory::MemoryReclaimer> Task::createNodeReclaimer(
                         : memory::MemoryReclaimer::create();
 }
 
+std::unique_ptr<memory::MemoryReclaimer> Task::createExchangeClientReclaimer()
+    const {
+  if (pool()->reclaimer() == nullptr) {
+    return nullptr;
+  }
+  return DefaultMemoryReclaimer::create();
+}
+
 std::unique_ptr<memory::MemoryReclaimer> Task::createTaskReclaimer() {
   // We shall only create the task memory reclaimer once on task memory pool
   // creation.
@@ -393,8 +402,11 @@ velox::memory::MemoryPool* Task::addMergeSourcePool(
     uint32_t sourceId) {
   std::lock_guard<std::mutex> l(mutex_);
   auto* nodePool = getOrAddNodePool(planNodeId);
-  childPools_.push_back(nodePool->addLeafChild(fmt::format(
-      "mergeExchangeClient.{}.{}.{}", planNodeId, pipelineId, sourceId)));
+  childPools_.push_back(nodePool->addLeafChild(
+      fmt::format(
+          "mergeExchangeClient.{}.{}.{}", planNodeId, pipelineId, sourceId),
+      true,
+      createExchangeClientReclaimer()));
   return childPools_.back().get();
 }
 
@@ -403,7 +415,9 @@ velox::memory::MemoryPool* Task::addExchangeClientPool(
     uint32_t pipelineId) {
   auto* nodePool = getOrAddNodePool(planNodeId);
   childPools_.push_back(nodePool->addLeafChild(
-      fmt::format("exchangeClient.{}.{}", planNodeId, pipelineId)));
+      fmt::format("exchangeClient.{}.{}", planNodeId, pipelineId),
+      true,
+      createExchangeClientReclaimer()));
   return childPools_.back().get();
 }
 

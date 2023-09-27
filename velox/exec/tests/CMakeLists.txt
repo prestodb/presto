@@ -48,6 +48,7 @@ add_executable(
   LimitTest.cpp
   LocalPartitionTest.cpp
   Main.cpp
+  MemoryReclaimerTest.cpp
   MergeJoinTest.cpp
   MergeTest.cpp
   MultiFragmentTest.cpp

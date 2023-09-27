@@ -622,6 +622,13 @@ class Task : public std::enable_shared_from_this<Task> {
   std::unique_ptr<memory::MemoryReclaimer> createNodeReclaimer(
       bool isHashJoinNode) const;
 
+  // Creates a memory reclaimer instance for an exchange client if the task
+  // memory pool has set memory reclaimer. We don't support to reclaim memory
+  // from an exchange client, and the customized reclaimer is used to handle
+  // memory arbitration request initiated under the driver execution context.
+  std::unique_ptr<memory::MemoryReclaimer> createExchangeClientReclaimer()
+      const;
+
   // Creates a memory reclaimer instance for this task. If the query memory
   // pool doesn't set memory reclaimer, then the function simply returns null.
   // Otherwise, it creates a customized memory reclaimer for this task.
