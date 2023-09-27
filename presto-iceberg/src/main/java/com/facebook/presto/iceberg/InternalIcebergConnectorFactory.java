@@ -42,6 +42,7 @@ import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPag
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableSet;
@@ -89,6 +90,7 @@ public final class InternalIcebergConnectorFactory
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                        binder.bind(FilterStatsCalculatorService.class).toInstance(context.getFilterStatsCalculatorService());
                     });
 
             Injector injector = app

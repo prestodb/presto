@@ -68,6 +68,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
@@ -392,7 +393,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
+        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
     }
 
     @Override
