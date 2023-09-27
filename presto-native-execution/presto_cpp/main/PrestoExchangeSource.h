@@ -69,7 +69,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
       velox::memory::MemoryPool* pool,
-      const std::shared_ptr<folly::IOThreadPoolExecutor>& executor,
+      folly::CPUThreadPoolExecutor* driverExecutor,
+      folly::IOThreadPoolExecutor* httpExecutor,
       const std::string& clientCertAndKeyPath_ = "",
       const std::string& ciphers_ = "");
 
@@ -104,7 +105,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
       velox::memory::MemoryPool* pool,
-      std::shared_ptr<folly::IOThreadPoolExecutor> executor);
+      folly::CPUThreadPoolExecutor* cpuExecutor,
+      folly::IOThreadPoolExecutor* ioExecutor);
 
   /// Completes the future returned by 'request()' if it hasn't completed
   /// already.
@@ -209,7 +211,9 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const uint16_t port_;
   const std::string clientCertAndKeyPath_;
   const std::string ciphers_;
-  const std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
+
+  folly::CPUThreadPoolExecutor* const driverExecutor_;
+  folly::IOThreadPoolExecutor* const httpExecutor_;
 
   std::shared_ptr<http::HttpClient> httpClient_;
   RetryState retryState_;
