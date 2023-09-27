@@ -241,6 +241,7 @@ public class SymbolMapper
         return new TableWriterNode(
                 source.getSourceLocation(),
                 newNodeId,
+                node.getStatsEquivalentPlanNode(),
                 source,
                 node.getTarget(),
                 map(node.getRowCountVariable()),
