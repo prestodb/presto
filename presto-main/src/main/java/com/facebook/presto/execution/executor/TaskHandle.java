@@ -181,6 +181,11 @@ public class TaskHandle
         return priorityTracker.getScheduledNanos();
     }
 
+    public boolean isTaskIdling()
+    {
+        return runningLeafSplits.isEmpty() && runningIntermediateSplits.isEmpty() && queuedLeafSplits.isEmpty();
+    }
+
     public synchronized PrioritizedSplitRunner pollNextSplit()
     {
         if (destroyed) {

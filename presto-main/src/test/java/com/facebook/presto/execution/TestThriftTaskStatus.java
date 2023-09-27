@@ -228,7 +228,8 @@ public class TestThriftTaskStatus
                 TASK_AGE,
                 QUEUED_PARTITIONED_WEIGHT,
                 RUNNING_PARTITIONED_WEIGHT,
-                0L);
+                0L,
+                false);
     }
 
     private List<ExecutionFailureInfo> getExecutionFailureInfos()

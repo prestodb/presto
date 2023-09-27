@@ -81,6 +81,7 @@ public class TaskStatus
     private final long totalCpuTimeInNanos;
     private final long taskAgeInMillis;
     private final long retryableSplitCount;
+    private final boolean isTaskIdling;
 
     @JsonCreator
     @ThriftConstructor
@@ -107,7 +108,8 @@ public class TaskStatus
             @JsonProperty("taskAgeInMillis") long taskAgeInMillis,
             @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
             @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
-            @JsonProperty("retryableSplitCount") long retryableSplitCount)
+            @JsonProperty("retryableSplitCount") long retryableSplitCount,
+            @JsonProperty("isTaskIdling") boolean isTaskIdling)
     {
         this.taskInstanceIdLeastSignificantBits = taskInstanceIdLeastSignificantBits;
         this.taskInstanceIdMostSignificantBits = taskInstanceIdMostSignificantBits;
@@ -144,6 +146,7 @@ public class TaskStatus
         this.totalCpuTimeInNanos = totalCpuTimeInNanos;
         this.taskAgeInMillis = taskAgeInMillis;
         this.retryableSplitCount = retryableSplitCount;
+        this.isTaskIdling = isTaskIdling;
     }
 
     @JsonProperty
@@ -307,6 +310,13 @@ public class TaskStatus
         return retryableSplitCount;
     }
 
+    @JsonProperty
+    @ThriftField(24)
+    public boolean getIsTaskIdling()
+    {
+        return isTaskIdling;
+    }
+
     @Override
     public String toString()
     {
@@ -339,7 +349,8 @@ public class TaskStatus
                 0,
                 0L,
                 0L,
-                0L);
+                0L,
+                false);
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -366,6 +377,7 @@ public class TaskStatus
                 taskStatus.getTaskAgeInMillis(),
                 taskStatus.getQueuedPartitionedSplitsWeight(),
                 taskStatus.getRunningPartitionedSplitsWeight(),
-                taskStatus.getRetryableSplitCount());
+                taskStatus.getRetryableSplitCount(),
+                taskStatus.getIsTaskIdling());
     }
 }

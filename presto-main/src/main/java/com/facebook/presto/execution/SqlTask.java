@@ -288,6 +288,7 @@ public class SqlTask
         long totalCpuTimeInNanos = 0L;
         long retryableSplitCount = 0L;
         LongSet completedSplits = LongArraySet.of();
+        boolean isTaskIdling = false;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
@@ -322,6 +323,7 @@ public class SqlTask
             fullGcTimeInMillis = taskContext.getFullGcTime().toMillis();
             completedSplits = taskContext.getCompletedSplitSequenceIds();
             retryableSplitCount = taskContext.getRetryableSplitCount();
+            isTaskIdling = taskHolder.getTaskExecution().isTaskIdling();
         }
         return new TaskStatus(
                 taskInstanceId.getUuidLeastSignificantBits(),
@@ -346,7 +348,8 @@ public class SqlTask
                 taskStatusAgeInMillis,
                 queuedPartitionedSplitsWeight,
                 runningPartitionedSplitsWeight,
-                retryableSplitCount);
+                retryableSplitCount,
+                isTaskIdling);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

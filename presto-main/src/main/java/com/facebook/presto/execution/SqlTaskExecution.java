@@ -635,6 +635,11 @@ public class SqlTaskExecution
         return noMoreSplits.build();
     }
 
+    public boolean isTaskIdling()
+    {
+        return taskHandle.isTaskIdling();
+    }
+
     private synchronized void checkTaskCompletion()
     {
         if (taskStateMachine.getState().isDone()) {

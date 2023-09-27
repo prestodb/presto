@@ -194,6 +194,7 @@ public final class HttpRemoteTask
     private OptionalLong whenSplitQueueHasSpaceThreshold = OptionalLong.empty();
 
     private final boolean summarizeTaskInfo;
+    private boolean isRetriedOnFailure;
 
     private final HttpClient httpClient;
     private final Executor executor;
@@ -455,9 +456,9 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized boolean isNoMoreSplits(PlanNodeId sourceId)
+    public boolean isTaskIdling()
     {
-        return noMoreSplits.containsKey(sourceId);
+        return getTaskStatus().getIsTaskIdling() && pendingSplits.isEmpty();
     }
 
     @Override
@@ -663,12 +664,16 @@ public final class HttpRemoteTask
         return pendingSourceSplitCount;
     }
 
-    public synchronized boolean isAllSplitsRun()
+    public synchronized void setIsRetried()
     {
-        return unprocessedSplits.values().stream().allMatch(Map::isEmpty);
+        isRetriedOnFailure = true;
     }
 
-    public synchronized boolean isOnlyOneSplitLeft(PlanNodeId planNodeId)
+    public synchronized boolean isRetried()
+    {
+        return isRetriedOnFailure;
+    }
+    public synchronized boolean isTheOnlyPlanNode(PlanNodeId planNodeId)
     {
         return unprocessedSplits.keySet().size() == 1
                 && unprocessedSplits.keySet().iterator().next().equals(planNodeId);
