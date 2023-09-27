@@ -20,6 +20,7 @@
 #include <unordered_set>
 
 #include "velox/exec/tests/AggregationFuzzerRunner.h"
+#include "velox/exec/tests/utils/DuckQueryRunner.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
@@ -49,6 +50,8 @@ int main(int argc, char** argv) {
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
 
+  auto duckQueryRunner =
+      std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();
   return facebook::velox::exec::test::AggregationFuzzerRunner::run(
-      FLAGS_only, initialSeed);
+      FLAGS_only, initialSeed, std::move(duckQueryRunner));
 }

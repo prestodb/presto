@@ -20,6 +20,7 @@ add_library(
   velox_exec_test_lib
   AssertQueryBuilder.cpp
   Cursor.cpp
+  DuckQueryRunner.cpp
   HiveConnectorTestBase.cpp
   LocalExchangeSource.cpp
   OperatorTestBase.cpp

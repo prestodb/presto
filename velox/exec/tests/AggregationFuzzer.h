@@ -16,21 +16,25 @@
 #pragma once
 
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/tests/utils/ReferenceQueryRunner.h"
 
 namespace facebook::velox::exec::test {
 
 static constexpr const std::string_view kPlanNodeFileName = "plan_nodes";
 
 /// Runs the aggregation fuzzer.
-/// \param signatureMap Map of all aggregate function signatures.
-/// \param seed Random seed - Pass the same seed for reproducibility.
-/// \param orderDependentFunctions Map of functions that depend on order of
+/// @param signatureMap Map of all aggregate function signatures.
+/// @param seed Random seed - Pass the same seed for reproducibility.
+/// @param orderDependentFunctions Map of functions that depend on order of
 /// input.
-/// \param planPath Path to persisted plan information. If this is
+/// @param planPath Path to persisted plan information. If this is
 /// supplied, fuzzer will only verify the plans.
+/// @param referenceQueryRunner Reference query runner for results
+/// verification.
 void aggregateFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t seed,
     const std::unordered_map<std::string, std::string>& orderDependentFunctions,
-    const std::optional<std::string>& planPath);
+    const std::optional<std::string>& planPath,
+    std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner);
 } // namespace facebook::velox::exec::test

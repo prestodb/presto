@@ -128,18 +128,25 @@ class AggregationFuzzerRunner {
           {"sum_data_size_for_stats", ""},
   };
 
-  static int run(const std::string& planPath) {
-    return runFuzzer("", 0, {planPath});
+  static int run(
+      const std::string& planPath,
+      std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
+    return runFuzzer("", 0, {planPath}, std::move(referenceQueryRunner));
   }
 
-  static int run(const std::string& onlyFunctions, size_t seed) {
-    return runFuzzer(onlyFunctions, seed, std::nullopt);
+  static int run(
+      const std::string& onlyFunctions,
+      size_t seed,
+      std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
+    return runFuzzer(
+        onlyFunctions, seed, std::nullopt, std::move(referenceQueryRunner));
   }
 
   static int runFuzzer(
       const std::string& onlyFunctions,
       size_t seed,
       const std::optional<std::string>& planPath,
+      std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner,
       const std::unordered_set<std::string>& skipFunctions = skipFunctions_,
       const std::unordered_map<std::string, std::string>&
           customVerificationFunctions = customVerificationFunctions_) {
@@ -163,7 +170,11 @@ class AggregationFuzzerRunner {
     facebook::velox::filesystems::registerLocalFileSystem();
 
     facebook::velox::exec::test::aggregateFuzzer(
-        filteredSignatures, seed, customVerificationFunctions, planPath);
+        filteredSignatures,
+        seed,
+        customVerificationFunctions,
+        planPath,
+        std::move(referenceQueryRunner));
     // Calling gtest here so that it can be recognized as tests in CI systems.
     return RUN_ALL_TESTS();
   }
