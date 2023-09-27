@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -29,7 +28,6 @@ import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
@@ -102,7 +100,6 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -152,7 +149,6 @@ import java.util.stream.Stream;
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -232,6 +228,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnab
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUsePageFileForHiveUnsupportedType;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldCreateEmptyBucketFilesForTemporaryTable;
+import static com.facebook.presto.hive.HiveStatisticsUtil.createPartitionStatistics;
+import static com.facebook.presto.hive.HiveStatisticsUtil.getColumnStatistics;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -320,7 +318,6 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.metastore.Statistics.createComputedStatisticsToPartitionMap;
 import static com.facebook.presto.hive.metastore.Statistics.createEmptyPartitionStatistics;
-import static com.facebook.presto.hive.metastore.Statistics.fromComputedStatistics;
 import static com.facebook.presto.hive.metastore.Statistics.reduce;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
@@ -1497,7 +1494,7 @@ public class HiveMetadata
 
         if (partitionColumns.isEmpty()) {
             // commit analyze to unpartitioned table
-            metastore.setTableStatistics(metastoreContext, table, createPartitionStatistics(session, columnTypes, computedStatisticsMap.get(ImmutableList.<String>of())));
+            metastore.setTableStatistics(metastoreContext, table, createPartitionStatistics(session, columnTypes, computedStatisticsMap.get(ImmutableList.<String>of()), timeZone));
         }
         else {
             List<List<String>> partitionValuesList;
@@ -1527,7 +1524,7 @@ public class HiveMetadata
                 }
                 else {
                     usedComputedStatistics++;
-                    partitionStatistics.put(partitionValues, createPartitionStatistics(session, columnTypes, collectedStatistics));
+                    partitionStatistics.put(partitionValues, createPartitionStatistics(session, columnTypes, collectedStatistics, timeZone));
                 }
             }
             verify(usedComputedStatistics == computedStatistics.size(), "All computed statistics must be used");
@@ -1702,7 +1699,7 @@ public class HiveMetadata
                     .map(PartitionUpdate::getStatistics)
                     .reduce((first, second) -> reduce(first, second, ADD))
                     .orElse(createZeroStatistics());
-            tableStatistics = createPartitionStatistics(session, basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
+            tableStatistics = createPartitionStatistics(session, basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()), timeZone);
         }
         else {
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
@@ -1728,7 +1725,7 @@ public class HiveMetadata
                     session,
                     update.getStatistics(),
                     columnTypes,
-                    getColumnStatistics(partitionComputedStatistics, partition.getValues()));
+                    getColumnStatistics(partitionComputedStatistics, partition.getValues()), timeZone);
             metastore.addPartition(
                     session,
                     handle.getSchemaName(),
@@ -2035,7 +2032,7 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
+                        getColumnStatistics(partitionComputedStatistics, ImmutableList.of()), timeZone);
                 metastore.finishInsertIntoExistingTable(
                         session,
                         handle.getSchemaName(),
@@ -2054,7 +2051,7 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partitionValues));
+                        getColumnStatistics(partitionComputedStatistics, partitionValues), timeZone);
                 metastore.finishInsertIntoExistingPartition(
                         session,
                         handle.getSchemaName(),
@@ -2113,7 +2110,8 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partition.getValues()));
+                        getColumnStatistics(partitionComputedStatistics, partition.getValues()),
+                        timeZone);
 
                 // New partition or overwriting existing partition by staging and moving the new partition
                 if (!isExistingPartition || handle.getLocationHandle().getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -2180,44 +2178,6 @@ public class HiveMetadata
         return fileWriteInfos.stream()
                 .map(FileWriteInfo::getTargetFileName)
                 .collect(toImmutableList());
-    }
-
-    private PartitionStatistics createPartitionStatistics(
-            ConnectorSession session,
-            Map<String, Type> columnTypes,
-            ComputedStatistics computedStatistics)
-    {
-        Map<ColumnStatisticMetadata, Block> computedColumnStatistics = computedStatistics.getColumnStatistics();
-
-        Block rowCountBlock = Optional.ofNullable(computedStatistics.getTableStatistics().get(ROW_COUNT))
-                .orElseThrow(() -> new VerifyException("rowCount not present"));
-        verify(!rowCountBlock.isNull(0), "rowCount must never be null");
-        long rowCount = BIGINT.getLong(rowCountBlock, 0);
-        HiveBasicStatistics rowCountOnlyBasicStatistics = new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(rowCount), OptionalLong.empty(), OptionalLong.empty());
-        return createPartitionStatistics(session, rowCountOnlyBasicStatistics, columnTypes, computedColumnStatistics);
-    }
-
-    private PartitionStatistics createPartitionStatistics(
-            ConnectorSession session,
-            HiveBasicStatistics basicStatistics,
-            Map<String, Type> columnTypes,
-            Map<ColumnStatisticMetadata, Block> computedColumnStatistics)
-    {
-        long rowCount = basicStatistics.getRowCount().orElseThrow(() -> new IllegalArgumentException("rowCount not present"));
-        Map<String, HiveColumnStatistics> columnStatistics = fromComputedStatistics(
-                session,
-                timeZone,
-                computedColumnStatistics,
-                columnTypes,
-                rowCount);
-        return new PartitionStatistics(basicStatistics, columnStatistics);
-    }
-
-    private static Map<ColumnStatisticMetadata, Block> getColumnStatistics(Map<List<String>, ComputedStatistics> statistics, List<String> partitionValues)
-    {
-        return Optional.ofNullable(statistics.get(partitionValues))
-                .map(ComputedStatistics::getColumnStatistics)
-                .orElse(ImmutableMap.of());
     }
 
     private Map<String, Optional<Partition>> getExistingPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionUpdate> partitionUpdates)

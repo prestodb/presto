@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ColumnConverterProvider;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
@@ -63,7 +62,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -75,6 +73,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_USER_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveStatisticsUtil.updatePartitionStatistics;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.metastore.HiveCommitHandle.EMPTY_HIVE_COMMIT_HANDLE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
@@ -396,26 +395,6 @@ public class SemiTransactionalHiveMetastore
                             oldPartitionStats -> updatePartitionStatistics(oldPartitionStats, newPartitionStats)));
             return EMPTY_HIVE_COMMIT_HANDLE;
         });
-    }
-
-    // For HiveBasicStatistics, we only overwrite the original statistics if the new one is not empty.
-    // For HiveColumnStatistics, we always overwrite every statistics.
-    // TODO: Collect file count, on-disk size and in-memory size during ANALYZE
-    private PartitionStatistics updatePartitionStatistics(PartitionStatistics oldPartitionStats, PartitionStatistics newPartitionStats)
-    {
-        HiveBasicStatistics oldBasicStatistics = oldPartitionStats.getBasicStatistics();
-        HiveBasicStatistics newBasicStatistics = newPartitionStats.getBasicStatistics();
-        HiveBasicStatistics updatedBasicStatistics = new HiveBasicStatistics(
-                firstPresent(newBasicStatistics.getFileCount(), oldBasicStatistics.getFileCount()),
-                firstPresent(newBasicStatistics.getRowCount(), oldBasicStatistics.getRowCount()),
-                firstPresent(newBasicStatistics.getInMemoryDataSizeInBytes(), oldBasicStatistics.getInMemoryDataSizeInBytes()),
-                firstPresent(newBasicStatistics.getOnDiskDataSizeInBytes(), oldBasicStatistics.getOnDiskDataSizeInBytes()));
-        return new PartitionStatistics(updatedBasicStatistics, newPartitionStats.getColumnStatistics());
-    }
-
-    private static OptionalLong firstPresent(OptionalLong first, OptionalLong second)
-    {
-        return first.isPresent() ? first : second;
     }
 
     /**
@@ -837,7 +816,7 @@ public class SemiTransactionalHiveMetastore
      * @param partition The new partition object to be added
      * @param currentLocation The path for which the partition is added in the table
      * @param statistics The basic statistics and column statistics for the added partition
-     * @param noNeedToValidatePath check metastore file path. True for no check which is enabled by the sync partition code path only
+     * @param isPathValidationNeeded check metastore file path. True for no check which is enabled by the sync partition code path only
      */
     public synchronized void addPartition(
             ConnectorSession session,
