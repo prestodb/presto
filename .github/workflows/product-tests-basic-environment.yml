@@ -29,7 +29,8 @@ jobs:
           codechange:
             - '!presto-docs/**'
   product-tests-basic-environment:
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: 4core_16gbram_150gbssd
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 60

@@ -29,7 +29,8 @@ jobs:
           codechange:
             - '!presto-docs/**'
   product-tests-specific-environment1:
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: 4core_16gbram_150gbssd
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 60
@@ -71,7 +72,8 @@ jobs:
         run: presto-product-tests/bin/run_on_docker.sh multinode-tls-kerberos -g cli,group-by,join,tls
 
   product-tests-specific-environment2:
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: 4core_16gbram_150gbssd
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 60
