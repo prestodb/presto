@@ -313,6 +313,7 @@ public class PrimitiveColumnWriter
     public void reset()
     {
         pageBuffer.clear();
+        primitiveValueWriter.reset();
         closed = false;
 
         totalCompressedSize = 0;
