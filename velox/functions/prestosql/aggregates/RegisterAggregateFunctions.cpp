@@ -24,6 +24,7 @@ extern void registerArbitraryAggregate(const std::string& prefix);
 extern void registerArrayAggregate(const std::string& prefix);
 extern void registerAverageAggregate(const std::string& prefix);
 extern void registerBitwiseAggregates(const std::string& prefix);
+extern void registerBitwiseXorAggregate(const std::string& prefix);
 extern void registerBoolAggregates(const std::string& prefix);
 extern void registerCentralMomentsAggregates(const std::string& prefix);
 extern void registerChecksumAggregate(const std::string& prefix);
@@ -55,6 +56,7 @@ void registerAllAggregateFunctions(const std::string& prefix) {
   registerArrayAggregate(prefix);
   registerAverageAggregate(prefix);
   registerBitwiseAggregates(prefix);
+  registerBitwiseXorAggregate(prefix);
   registerBoolAggregates(prefix);
   registerCentralMomentsAggregates(prefix);
   registerChecksumAggregate(prefix);

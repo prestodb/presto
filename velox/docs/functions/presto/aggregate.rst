@@ -224,6 +224,12 @@ Bitwise Aggregate Functions
 
     Returns the bitwise OR of all input values in 2's complement representation.
 
+.. function:: bitwise_xor_agg(x) -> [same as input]
+
+    Returns the bitwise XOR of all input values in 2's complement representation.
+
+    Supported types are TINYINT, SMALLINT, INTEGER and BIGINT.
+
 Map Aggregate Functions
 -----------------------
 

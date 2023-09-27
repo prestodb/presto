@@ -27,6 +27,7 @@ const char* const kArrayAgg = "array_agg";
 const char* const kAvg = "avg";
 const char* const kBitwiseAnd = "bitwise_and_agg";
 const char* const kBitwiseOr = "bitwise_or_agg";
+const char* const kBitwiseXor = "bitwise_xor_agg";
 const char* const kBoolAnd = "bool_and";
 const char* const kBoolOr = "bool_or";
 const char* const kChecksum = "checksum";
