@@ -14,16 +14,20 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
+import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.ViewAlreadyExistsException;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -39,8 +43,13 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticType;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
@@ -49,15 +58,23 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.ZoneId;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TimeZone;
 
+import static com.facebook.presto.hive.HiveStatisticsUtil.createPartitionStatistics;
+import static com.facebook.presto.hive.HiveStatisticsUtil.updatePartitionStatistics;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
+import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkIfNullView;
@@ -66,6 +83,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeade
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isPrestoView;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyAndPopulateViews;
+import static com.facebook.presto.hive.metastore.Statistics.createComputedStatisticsToPartitionMap;
 import static com.facebook.presto.iceberg.IcebergSchemaProperties.getSchemaLocation;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
@@ -81,7 +99,10 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
@@ -97,6 +118,7 @@ public class IcebergHiveMetadata
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final String prestoVersion;
+    private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
 
     public IcebergHiveMetadata(
             ExtendedHiveMetastore metastore,
@@ -135,14 +157,13 @@ public class IcebergHiveMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
-        return metastore.getAllDatabases(metastoreContext);
+        return metastore.getAllDatabases(getMetastoreContext(session));
     }
 
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = getMetastoreContext(session);
         // If schema name is not present, list tables from all schemas
         List<String> schemaNames = schemaName
                 .map(ImmutableList::of)
@@ -176,7 +197,7 @@ public class IcebergHiveMetadata
                 .setOwnerName(session.getUser())
                 .build();
 
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = getMetastoreContext(session);
         metastore.createDatabase(metastoreContext, database);
     }
 
@@ -188,14 +209,14 @@ public class IcebergHiveMetadata
                 !listViews(session, Optional.of(schemaName)).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = getMetastoreContext(session);
         metastore.dropDatabase(metastoreContext, schemaName);
     }
 
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = getMetastoreContext(session);
         metastore.renameDatabase(metastoreContext, source, target);
     }
 
@@ -210,7 +231,7 @@ public class IcebergHiveMetadata
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
 
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = getMetastoreContext(session);
         Database database = metastore.getDatabase(metastoreContext, schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
@@ -229,7 +250,7 @@ public class IcebergHiveMetadata
 
         TableOperations operations = new HiveTableOperations(
                 metastore,
-                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER),
+                getMetastoreContext(session),
                 hdfsEnvironment,
                 hdfsContext,
                 schemaName,
@@ -279,23 +300,20 @@ public class IcebergHiveMetadata
                 table.properties().containsKey(WRITE_DATA_LOCATION)) {
             throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
         }
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
-        metastore.dropTable(metastoreContext, handle.getSchemaName(), handle.getTableName(), true);
+        metastore.dropTable(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName(), true);
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
-        metastore.renameTable(metastoreContext, handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
+        metastore.renameTable(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
     }
 
     @Override
     protected ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
-        if (!metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).isPresent()) {
+        if (!metastore.getTable(getMetastoreContext(session), table.getSchemaName(), table.getTableName()).isPresent()) {
             throw new TableNotFoundException(table);
         }
 
@@ -405,5 +423,56 @@ public class IcebergHiveMetadata
             return listSchemaNames(session);
         }
         return ImmutableList.of(schemaNameOrNull);
+    }
+    public IcebergTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
+    {
+        return getTableHandle(session, tableName);
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .flatMap(meta -> metastore.getSupportedColumnStatistics(getMetastoreContext(session), meta.getType())
+                        .stream()
+                        .map(statType -> new ColumnStatisticMetadata(meta.getName(), statType)))
+                .collect(toImmutableSet());
+
+        Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);
+        return new TableStatisticsMetadata(columnStatistics, tableStatistics, Collections.emptyList());
+    }
+
+    @Override
+    public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return tableHandle;
+    }
+
+    @Override
+    public void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        MetastoreContext metastoreContext = getMetastoreContext(session);
+        Table table = metastore.getTable(metastoreContext, icebergTableHandle.getSchemaTableName().getSchemaName(), icebergTableHandle.getSchemaTableName().getTableName())
+                .orElseThrow(() -> new TableNotFoundException(icebergTableHandle.getSchemaTableName()));
+
+        List<Column> partitionColumns = table.getPartitionColumns();
+        List<String> partitionColumnNames = partitionColumns.stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table);
+        Map<String, Type> columnTypes = hiveColumnHandles.stream()
+                .filter(columnHandle -> !columnHandle.isHidden())
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
+
+        Map<List<String>, ComputedStatistics> computedStatisticsMap = createComputedStatisticsToPartitionMap(computedStatistics, partitionColumnNames, columnTypes);
+
+        // commit analyze to unpartitioned table
+        PartitionStatistics tableStatistics = createPartitionStatistics(session, columnTypes, computedStatisticsMap.get(ImmutableList.<String>of()), timeZone);
+        metastore.updateTableStatistics(metastoreContext,
+                table.getDatabaseName(),
+                table.getTableName(),
+                oldStats -> updatePartitionStatistics(oldStats, tableStatistics));
     }
 }
