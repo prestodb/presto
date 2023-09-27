@@ -51,6 +51,11 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
       const std::vector<velox::RowVectorPtr>& input,
       const velox::RowTypePtr& resultType) override;
 
+  std::vector<velox::RowVectorPtr> execute2(
+      const std::string& sql,
+      const std::vector<velox::RowVectorPtr>& input,
+      const velox::RowTypePtr& resultType) override;
+
   /// Executes Presto SQL query and returns the results. Tables referenced by
   /// the query must already exist.
   std::vector<velox::RowVectorPtr> execute(const std::string& sql);

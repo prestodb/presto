@@ -58,7 +58,7 @@ TEST_F(PrestoQueryRunnerTest, basic) {
   velox::exec::test::assertEqualResults({expected}, {results});
 }
 
-TEST_F(PrestoQueryRunnerTest, DISABLED_fuzzer) {
+TEST_F(PrestoQueryRunnerTest, fuzzer) {
   auto data = makeRowVector({
       makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
       makeArrayVectorFromJson<int64_t>({

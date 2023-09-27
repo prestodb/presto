@@ -87,3 +87,20 @@ target_link_libraries(
 
 set_property(TARGET presto_query_runner_test PROPERTY JOB_POOL_LINK
                                                       presto_link_job_pool)
+
+add_executable(presto_velox_aggregation_fuzzer_test VeloxAggregationFuzzerTest.cpp
+        PrestoQueryRunner.cpp)
+
+target_link_libraries(
+        presto_velox_aggregation_fuzzer_test
+        velox_aggregation_fuzzer
+        velox_aggregates
+        velox_window
+        velox_vector_test_lib
+        presto_http
+        velox_presto_serializer
+        presto_type_converter
+        velox_dwio_dwrf_writer
+        ${ANTLR4_RUNTIME}
+        gtest
+        gtest_main)

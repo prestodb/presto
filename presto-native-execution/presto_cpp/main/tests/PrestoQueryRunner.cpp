@@ -273,6 +273,8 @@ std::optional<std::string> PrestoQueryRunner::toSql(
   VELOX_CHECK(aggregationNode->step() == core::AggregationNode::Step::kSingle);
 
   if (!isSupportedDwrfType(aggregationNode->sources()[0]->outputType())) {
+    LOG(ERROR) << "Type not supported in DWRF: "
+               << aggregationNode->sources()[0]->outputType()->toString();
     return std::nullopt;
   }
 
@@ -396,6 +398,14 @@ std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
     const std::string& sql,
     const std::vector<RowVectorPtr>& input,
     const RowTypePtr& resultType) {
+  auto results = execute2(sql, input, resultType);
+  return exec::test::materialize(results);
+}
+
+std::vector<velox::RowVectorPtr> PrestoQueryRunner::execute2(
+    const std::string& sql,
+    const std::vector<RowVectorPtr>& input,
+    const RowTypePtr& resultType) {
   auto inputType = asRowType(input[0]->type());
   if (inputType->size() == 0) {
     // The query doesn't need to read any columns, but it needs to see a
@@ -414,7 +424,7 @@ std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
         nullptr,
         numInput,
         std::vector<VectorPtr>{column});
-    return execute(sql, {rowVector}, resultType);
+    return execute2(sql, {rowVector}, resultType);
   }
 
   // Create tmp table in Presto using DWRF file format and add a single
@@ -453,13 +463,17 @@ std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
   writeToFile(newFilePath, input, writerPool.get());
 
   // Run the query.
-  results = execute(sql);
-
-  return exec::test::materialize(results);
+  return execute(sql);
 }
 
 std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
   auto sessionPool = std::make_unique<proxygen::SessionPool>();
+
+  auto guard = folly::makeGuard([&]() {
+    eventBaseThread_.getEventBase()->runInEventBaseThread(
+        [sessionPool = std::move(sessionPool)] {});
+  });
+
   auto client = std::make_shared<http::HttpClient>(
       eventBaseThread_.getEventBase(),
       sessionPool.get(),
@@ -487,8 +501,6 @@ std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
     response.throwIfFailed();
   }
 
-  eventBaseThread_.getEventBase()->runInEventBaseThread(
-      [sessionPool = std::move(sessionPool)] {});
   return queryResults;
 }
 
