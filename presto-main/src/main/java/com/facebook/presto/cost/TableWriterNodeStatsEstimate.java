@@ -21,43 +21,34 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Double.NaN;
 
-public class JoinNodeStatsEstimate
+public class TableWriterNodeStatsEstimate
 {
-    private static final JoinNodeStatsEstimate UNKNOWN = new JoinNodeStatsEstimate(NaN, NaN);
+    private static final TableWriterNodeStatsEstimate UNKNOWN = new TableWriterNodeStatsEstimate(NaN);
 
-    private final double nullJoinBuildKeyCount;
-    private final double joinBuildKeyCount;
+    private final double taskCountIfScaledWriter;
 
     @JsonCreator
-    public JoinNodeStatsEstimate(@JsonProperty("nullJoinBuildKeyCount") double nullJoinBuildKeyCount, @JsonProperty("joinBuildKeyCount") double joinBuildKeyCount)
+    public TableWriterNodeStatsEstimate(@JsonProperty("taskNumberIfScaledWriter") double taskCountIfScaledWriter)
     {
-        this.nullJoinBuildKeyCount = nullJoinBuildKeyCount;
-        this.joinBuildKeyCount = joinBuildKeyCount;
+        this.taskCountIfScaledWriter = taskCountIfScaledWriter;
     }
 
-    public static JoinNodeStatsEstimate unknown()
+    public static TableWriterNodeStatsEstimate unknown()
     {
         return UNKNOWN;
     }
 
     @JsonProperty
-    public double getNullJoinBuildKeyCount()
+    public double getTaskCountIfScaledWriter()
     {
-        return nullJoinBuildKeyCount;
-    }
-
-    @JsonProperty
-    public double getJoinBuildKeyCount()
-    {
-        return joinBuildKeyCount;
+        return taskCountIfScaledWriter;
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("nullJoinBuildKeyCount", nullJoinBuildKeyCount)
-                .add("joinBuildKeyCount", joinBuildKeyCount)
+                .add("taskNumberIfScaledWriter", taskCountIfScaledWriter)
                 .toString();
     }
 
@@ -70,14 +61,13 @@ public class JoinNodeStatsEstimate
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        JoinNodeStatsEstimate that = (JoinNodeStatsEstimate) o;
-        return Double.compare(nullJoinBuildKeyCount, that.nullJoinBuildKeyCount) == 0 &&
-                Double.compare(joinBuildKeyCount, that.joinBuildKeyCount) == 0;
+        TableWriterNodeStatsEstimate that = (TableWriterNodeStatsEstimate) o;
+        return Double.compare(taskCountIfScaledWriter, that.taskCountIfScaledWriter) == 0;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nullJoinBuildKeyCount, joinBuildKeyCount);
+        return Objects.hash(taskCountIfScaledWriter);
     }
 }

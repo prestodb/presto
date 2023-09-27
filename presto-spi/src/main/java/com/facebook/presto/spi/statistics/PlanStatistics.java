@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 @ThriftStruct
 public class PlanStatistics
 {
-    private static final PlanStatistics EMPTY = new PlanStatistics(Estimate.unknown(), Estimate.unknown(), 0, JoinNodeStatistics.empty());
+    private static final PlanStatistics EMPTY = new PlanStatistics(Estimate.unknown(), Estimate.unknown(), 0, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty());
 
     private final Estimate rowCount;
     private final Estimate outputSize;
@@ -35,6 +35,8 @@ public class PlanStatistics
     private final double confidence;
     // Join node specific statistics
     private final JoinNodeStatistics joinNodeStatistics;
+    // TableWriter node specific statistics
+    private final TableWriterNodeStatistics tableWriterNodeStatistics;
 
     public static PlanStatistics empty()
     {
@@ -46,13 +48,15 @@ public class PlanStatistics
     public PlanStatistics(@JsonProperty("rowCount") Estimate rowCount,
             @JsonProperty("outputSize") Estimate outputSize,
             @JsonProperty("confidence") double confidence,
-            @JsonProperty("joinNodeStatistics") JoinNodeStatistics joinNodeStatistics)
+            @JsonProperty("joinNodeStatistics") JoinNodeStatistics joinNodeStatistics,
+            @JsonProperty("tableWriterNodeStatistics") TableWriterNodeStatistics tableWriterNodeStatistics)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount is null");
         this.outputSize = requireNonNull(outputSize, "outputSize is null");
         checkArgument(confidence >= 0 && confidence <= 1, "confidence should be between 0 and 1");
         this.confidence = confidence;
         this.joinNodeStatistics = requireNonNull(joinNodeStatistics == null ? JoinNodeStatistics.empty() : joinNodeStatistics, "joinNodeStatistics is null");
+        this.tableWriterNodeStatistics = requireNonNull(tableWriterNodeStatistics == null ? TableWriterNodeStatistics.empty() : tableWriterNodeStatistics, "tableWriterNodeStatistics is null");
     }
 
     @JsonProperty
@@ -83,7 +87,23 @@ public class PlanStatistics
         return joinNodeStatistics;
     }
 
-    // Next ThriftField value 7
+    @JsonProperty
+    @ThriftField(value = 7, requiredness = OPTIONAL)
+    public TableWriterNodeStatistics getTableWriterNodeStatistics()
+    {
+        return tableWriterNodeStatistics;
+    }
+
+    // Next ThriftField value 8
+
+    public PlanStatistics update(PlanStatistics planStatistics)
+    {
+        return new PlanStatistics(planStatistics.getRowCount(),
+                planStatistics.getOutputSize(),
+                planStatistics.getConfidence(),
+                planStatistics.getJoinNodeStatistics().isEmpty() ? getJoinNodeStatistics() : planStatistics.getJoinNodeStatistics(),
+                planStatistics.getTableWriterNodeStatistics().isEmpty() ? getTableWriterNodeStatistics() : planStatistics.getTableWriterNodeStatistics());
+    }
 
     private static void checkArgument(boolean condition, String message)
     {
@@ -103,13 +123,13 @@ public class PlanStatistics
         }
         PlanStatistics that = (PlanStatistics) o;
         return Double.compare(that.confidence, confidence) == 0 && Objects.equals(rowCount, that.rowCount) && Objects.equals(outputSize, that.outputSize)
-                && Objects.equals(joinNodeStatistics, that.joinNodeStatistics);
+                && Objects.equals(joinNodeStatistics, that.joinNodeStatistics) && Objects.equals(tableWriterNodeStatistics, that.tableWriterNodeStatistics);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rowCount, outputSize, confidence, joinNodeStatistics);
+        return Objects.hash(rowCount, outputSize, confidence, joinNodeStatistics, tableWriterNodeStatistics);
     }
 
     @Override
@@ -120,6 +140,7 @@ public class PlanStatistics
                 ", outputSize=" + outputSize +
                 ", confidence=" + confidence +
                 ", joinNodeStatistics=" + joinNodeStatistics +
+                ", tableWriterNodeStatistics=" + tableWriterNodeStatistics +
                 '}';
     }
 }
