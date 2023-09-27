@@ -473,7 +473,7 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
       options_,
       getReader().getFooter().stripes(stripeIndex).offset(),
       *this,
-      currentStripe);
+      stripeIndex);
 
   auto scanSpec = options_.getScanSpec().get();
   auto requestedType = getColumnSelector().getSchemaWithId();
