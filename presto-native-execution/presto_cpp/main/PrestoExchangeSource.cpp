@@ -73,7 +73,8 @@ PrestoExchangeSource::PrestoExchangeSource(
     int destination,
     std::shared_ptr<exec::ExchangeQueue> queue,
     memory::MemoryPool* pool,
-    const std::shared_ptr<folly::IOThreadPoolExecutor>& executor,
+    folly::CPUThreadPoolExecutor* driverExecutor,
+    folly::IOThreadPoolExecutor* httpExecutor,
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers)
     : ExchangeSource(extractTaskId(baseUri.path()), destination, queue, pool),
@@ -82,7 +83,8 @@ PrestoExchangeSource::PrestoExchangeSource(
       port_(baseUri.port()),
       clientCertAndKeyPath_(clientCertAndKeyPath),
       ciphers_(ciphers),
-      exchangeExecutor_(executor) {
+      driverExecutor_(driverExecutor),
+      httpExecutor_(httpExecutor) {
   folly::SocketAddress address;
   if (folly::IPAddress::validate(host_)) {
     address = folly::SocketAddress(folly::IPAddress(host_), port_);
@@ -91,10 +93,11 @@ PrestoExchangeSource::PrestoExchangeSource(
   }
   auto timeoutMs = std::chrono::duration_cast<std::chrono::milliseconds>(
       SystemConfig::instance()->exchangeRequestTimeout());
-  VELOX_CHECK_NOT_NULL(exchangeExecutor_.get());
-  auto* eventBase = exchangeExecutor_->getEventBase();
+  VELOX_CHECK_NOT_NULL(driverExecutor_);
+  VELOX_CHECK_NOT_NULL(httpExecutor_);
+  auto* ioEventBase = httpExecutor_->getEventBase();
   httpClient_ = std::make_shared<http::HttpClient>(
-      eventBase,
+      ioEventBase,
       address,
       timeoutMs,
       pool_,
@@ -169,7 +172,7 @@ void PrestoExchangeSource::doRequest(
           protocol::Duration(maxWaitSeconds, protocol::TimeUnit::SECONDS)
               .toString())
       .send(httpClient_.get(), "", delayMs)
-      .via(exchangeExecutor_.get())
+      .via(driverExecutor_)
       .thenValue([path, maxBytes, maxWaitSeconds, self](
                      std::unique_ptr<http::HttpResponse> response) {
         velox::common::testutil::TestValue::adjust(
@@ -368,7 +371,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
       .method(proxygen::HTTPMethod::GET)
       .url(ackPath)
       .send(httpClient_.get())
-      .via(exchangeExecutor_.get())
+      .via(driverExecutor_)
       .thenValue([self](std::unique_ptr<http::HttpResponse> response) {
         VLOG(1) << "Ack " << response->headers()->getStatusCode();
       })
@@ -387,7 +390,7 @@ void PrestoExchangeSource::abortResults() {
       .method(proxygen::HTTPMethod::DELETE)
       .url(basePath_)
       .send(httpClient_.get())
-      .via(exchangeExecutor_.get())
+      .via(driverExecutor_)
       .thenValue([queue, self](std::unique_ptr<http::HttpResponse> response) {
         auto statusCode = response->headers()->getStatusCode();
         if (statusCode != http::kHttpOk && statusCode != http::kHttpNoContent) {
@@ -430,10 +433,16 @@ std::unique_ptr<exec::ExchangeSource> PrestoExchangeSource::create(
     int destination,
     std::shared_ptr<exec::ExchangeQueue> queue,
     memory::MemoryPool* pool,
-    std::shared_ptr<folly::IOThreadPoolExecutor> executor) {
+    folly::CPUThreadPoolExecutor* driverExecutor,
+    folly::IOThreadPoolExecutor* httpExecutor) {
   if (strncmp(url.c_str(), "http://", 7) == 0) {
     return std::make_unique<PrestoExchangeSource>(
-        folly::Uri(url), destination, queue, pool, executor);
+        folly::Uri(url),
+        destination,
+        queue,
+        pool,
+        driverExecutor,
+        httpExecutor);
   } else if (strncmp(url.c_str(), "https://", 8) == 0) {
     const auto systemConfig = SystemConfig::instance();
     const auto clientCertAndKeyPath =
@@ -444,7 +453,8 @@ std::unique_ptr<exec::ExchangeSource> PrestoExchangeSource::create(
         destination,
         queue,
         pool,
-        executor,
+        driverExecutor,
+        httpExecutor,
         clientCertAndKeyPath,
         ciphers);
   }

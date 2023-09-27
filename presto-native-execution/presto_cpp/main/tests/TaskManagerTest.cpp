@@ -144,13 +144,18 @@ class TaskManagerTest : public testing::Test {
     aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();
     exec::ExchangeSource::registerFactory(
-        [executor = exchangeExecutor_](
+        [cpuExecutor = exchangeCpuExecutor_, ioExecutor = exchangeIoExecutor_](
             const std::string& taskId,
             int destination,
             std::shared_ptr<exec::ExchangeQueue> queue,
             memory::MemoryPool* pool) {
           return PrestoExchangeSource::create(
-              taskId, destination, queue, pool, executor);
+              taskId,
+              destination,
+              queue,
+              pool,
+              cpuExecutor.get(),
+              ioExecutor.get());
         });
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();
@@ -569,7 +574,9 @@ class TaskManagerTest : public testing::Test {
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::unique_ptr<facebook::presto::test::HttpServerWrapper> httpServerWrapper_;
-  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_ =
+  std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_ =
+      std::make_shared<folly::CPUThreadPoolExecutor>(1);
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_ =
       std::make_shared<folly::IOThreadPoolExecutor>(10);
   long splitSequenceId_{0};
 };

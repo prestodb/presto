@@ -297,12 +297,13 @@ void PrestoServer::run() {
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
-  exchangeExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+  exchangeHttpExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
       systemConfig->numIoThreads(),
       std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
 
-  PRESTO_STARTUP_LOG(INFO) << "Exchange executor has "
-                           << exchangeExecutor_->numThreads() << " threads.";
+  PRESTO_STARTUP_LOG(INFO) << "Exchange Http executor has "
+                           << exchangeHttpExecutor_->numThreads()
+                           << " threads.";
 
   facebook::velox::exec::ExchangeSource::registerFactory(
       [this](
@@ -311,7 +312,12 @@ void PrestoServer::run() {
           std::shared_ptr<velox::exec::ExchangeQueue> queue,
           memory::MemoryPool* pool) {
         return PrestoExchangeSource::create(
-            taskId, destination, queue, pool, exchangeExecutor_);
+            taskId,
+            destination,
+            queue,
+            pool,
+            driverCPUExecutor(),
+            exchangeHttpExecutor_.get());
       });
 
   facebook::velox::exec::ExchangeSource::registerFactory(
@@ -450,10 +456,10 @@ void PrestoServer::run() {
   }
 
   PRESTO_SHUTDOWN_LOG(INFO)
-      << "Joining exchange Executor '" << exchangeExecutor_->getName()
-      << "': threads: " << exchangeExecutor_->numActiveThreads() << "/"
-      << exchangeExecutor_->numThreads();
-  exchangeExecutor_->join();
+      << "Joining exchange Http executor '" << exchangeHttpExecutor_->getName()
+      << "': threads: " << exchangeHttpExecutor_->numActiveThreads() << "/"
+      << exchangeHttpExecutor_->numThreads();
+  exchangeHttpExecutor_->join();
 
   PRESTO_SHUTDOWN_LOG(INFO) << "Done joining our executors.";
 
