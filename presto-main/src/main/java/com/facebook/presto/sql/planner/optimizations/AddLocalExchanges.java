@@ -575,7 +575,8 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getNotNullColumnVariables(),
                                     originalTableWriterNode.getTablePartitioningScheme(),
                                     originalTableWriterNode.getPreferredShufflePartitioningScheme(),
-                                    statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation)),
+                                    statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
+                                    originalTableWriterNode.getTaskCountIfScaledWriter()),
                             fixedParallelism(),
                             fixedParallelism());
                 }
@@ -599,7 +600,8 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getNotNullColumnVariables(),
                                     originalTableWriterNode.getTablePartitioningScheme(),
                                     originalTableWriterNode.getPreferredShufflePartitioningScheme(),
-                                    statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation)),
+                                    statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
+                                    originalTableWriterNode.getTaskCountIfScaledWriter()),
                             exchange.getProperties());
                 }
             }
@@ -627,7 +629,8 @@ public class AddLocalExchanges
                                 originalTableWriterNode.getNotNullColumnVariables(),
                                 originalTableWriterNode.getTablePartitioningScheme(),
                                 originalTableWriterNode.getPreferredShufflePartitioningScheme(),
-                                statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation)),
+                                statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
+                                originalTableWriterNode.getTaskCountIfScaledWriter()),
                         exchange.getProperties());
             }
 

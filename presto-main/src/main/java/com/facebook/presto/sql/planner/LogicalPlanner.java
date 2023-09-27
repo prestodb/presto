@@ -421,7 +421,8 @@ public class LogicalPlanner
                             preferredShufflePartitioningScheme,
                             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
                             // the data consumed by the TableWriteOperator
-                            Optional.of(aggregations.getPartialAggregation())),
+                            Optional.of(aggregations.getPartialAggregation()),
+                            Optional.empty()),
                     Optional.of(target),
                     variableAllocator.newVariable("rows", BIGINT),
                     // final aggregation is run within the TableFinishOperator to summarize collected statistics
@@ -448,6 +449,7 @@ public class LogicalPlanner
                         notNullColumnVariables,
                         tablePartitioningScheme,
                         preferredShufflePartitioningScheme,
+                        Optional.empty(),
                         Optional.empty()),
                 Optional.of(target),
                 variableAllocator.newVariable("rows", BIGINT),

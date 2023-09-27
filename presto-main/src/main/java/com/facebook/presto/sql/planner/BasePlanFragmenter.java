@@ -579,7 +579,8 @@ public abstract class BasePlanFragmenter
                                     outputNotNullColumnVariables,
                                     Optional.of(partitioningScheme),
                                     Optional.empty(),
-                                    enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty())),
+                                    enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty(),
+                                    Optional.empty())),
                     variableAllocator.newVariable("intermediaterows", BIGINT),
                     variableAllocator.newVariable("intermediatefragments", VARBINARY),
                     variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
@@ -599,7 +600,8 @@ public abstract class BasePlanFragmenter
                     outputNotNullColumnVariables,
                     Optional.of(partitioningScheme),
                     Optional.empty(),
-                    enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty());
+                    enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty(),
+                    Optional.empty());
         }
 
         return new TableFinishNode(

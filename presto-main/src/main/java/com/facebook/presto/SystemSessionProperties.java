@@ -292,6 +292,7 @@ public final class SystemSessionProperties
     public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
+    public static final String ENABLE_HISTORY_BASED_SCALED_WRITER = "enable_history_based_scaled_writer";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -1751,6 +1752,11 @@ public final class SystemSessionProperties
                         INFER_INEQUALITY_PREDICATES,
                         "Infer nonequality predicates for joins",
                         featuresConfig.getInferInequalityPredicates(),
+                        false),
+                booleanProperty(
+                        ENABLE_HISTORY_BASED_SCALED_WRITER,
+                        "Enable setting the initial number of tasks for scaled writers with HBO",
+                        featuresConfig.isUseHBOForScaledWriters(),
                         false));
     }
 
@@ -2919,5 +2925,10 @@ public final class SystemSessionProperties
     public static boolean shouldInferInequalityPredicates(Session session)
     {
         return session.getSystemProperty(INFER_INEQUALITY_PREDICATES, Boolean.class);
+    }
+
+    public static boolean useHBOForScaledWriters(Session session)
+    {
+        return session.getSystemProperty(ENABLE_HISTORY_BASED_SCALED_WRITER, Boolean.class);
     }
 }
