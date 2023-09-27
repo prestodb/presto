@@ -79,12 +79,16 @@ struct BitwiseXorFunction {
 
 template <typename T>
 struct BitwiseArithmeticShiftRightFunction {
-  // Only support bigint inputs.
-  FOLLY_ALWAYS_INLINE void
-  call(int64_t& result, int64_t number, int64_t shift) {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE
+#if defined(__clang__)
+      __attribute__((no_sanitize("integer")))
+#endif
+      bool
+      call(int64_t& result, TInput number, TInput shift) {
     VELOX_USER_CHECK_GE(shift, 0, "Shift must be positive")
-    shift = shift % 64;
     result = number >> shift;
+    return true;
   }
 };
 
