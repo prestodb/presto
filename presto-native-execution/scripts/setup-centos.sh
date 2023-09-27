@@ -50,7 +50,7 @@ function check_git_checkout()
   [[ -d "${GIT_CLONE_PATH}" ]] && rm -rf "${GIT_CLONE_PATH}"
   git clone "$1" "${GIT_CLONE_PATH}" && 
   cd "${GIT_CLONE_PATH}" &&
-  git checkout $FB_OS_VERSION
+  git checkout "${3:-$FB_OS_VERSION}"
 }
 
 (
@@ -93,7 +93,7 @@ function check_git_checkout()
 )
 
 (
-  check_git_checkout https://github.com/google/re2 re2
+  check_git_checkout https://github.com/google/re2 re2 2022-12-01
   cmake_install -DBUILD_SHARED_LIBS=ON
 )
 
