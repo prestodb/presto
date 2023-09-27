@@ -239,6 +239,7 @@ public class PruneUnreferencedOutputs
             return new JoinNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     node.getType(),
                     left,
                     right,
@@ -274,6 +275,7 @@ public class PruneUnreferencedOutputs
             return new SemiJoinNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     source,
                     filteringSource,
                     node.getSourceJoinVariable(),
@@ -308,7 +310,7 @@ public class PruneUnreferencedOutputs
                     .distinct()
                     .collect(toImmutableList());
 
-            return new SpatialJoinNode(node.getSourceLocation(), node.getId(), node.getType(), left, right, outputVariables, node.getFilter(), node.getLeftPartitionVariable(), node.getRightPartitionVariable(), node.getKdbTree());
+            return new SpatialJoinNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getType(), left, right, outputVariables, node.getFilter(), node.getLeftPartitionVariable(), node.getRightPartitionVariable(), node.getKdbTree());
         }
 
         @Override
@@ -333,7 +335,7 @@ public class PruneUnreferencedOutputs
             PlanNode probeSource = context.rewrite(node.getProbeSource(), probeInputs);
             PlanNode indexSource = context.rewrite(node.getIndexSource(), indexInputs);
 
-            return new IndexJoinNode(node.getSourceLocation(), node.getId(), node.getType(), probeSource, indexSource, node.getCriteria(), node.getProbeHashVariable(), node.getIndexHashVariable());
+            return new IndexJoinNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getType(), probeSource, indexSource, node.getCriteria(), node.getProbeHashVariable(), node.getIndexHashVariable());
         }
 
         @Override
@@ -350,7 +352,7 @@ public class PruneUnreferencedOutputs
             Map<VariableReferenceExpression, ColumnHandle> newAssignments = newOutputVariables.stream()
                     .collect(toImmutableMap(identity(), node.getAssignments()::get));
 
-            return new IndexSourceNode(node.getSourceLocation(), node.getId(), node.getIndexHandle(), node.getTableHandle(), newLookupVariables, newOutputVariables, newAssignments, node.getCurrentConstraint());
+            return new IndexSourceNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getIndexHandle(), node.getTableHandle(), newLookupVariables, newOutputVariables, newAssignments, node.getCurrentConstraint());
         }
 
         @Override
@@ -379,6 +381,7 @@ public class PruneUnreferencedOutputs
             return new AggregationNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     source,
                     aggregations.build(),
                     node.getGroupingSets(),
@@ -438,6 +441,7 @@ public class PruneUnreferencedOutputs
             return new WindowNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     source,
                     node.getSpecification(),
                     functions,
@@ -459,6 +463,7 @@ public class PruneUnreferencedOutputs
             return new TableScanNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     node.getTable(),
                     newOutputs,
                     newAssignments,
@@ -477,7 +482,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
-            return new FilterNode(node.getSourceLocation(), node.getId(), source, node.getPredicate());
+            return new FilterNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getPredicate());
         }
 
         @Override
@@ -507,7 +512,7 @@ public class PruneUnreferencedOutputs
             }
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new GroupIdNode(node.getSourceLocation(), node.getId(), source, newGroupingSets.build(), newGroupingMapping, newAggregationArguments, node.getGroupIdVariable());
+            return new GroupIdNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, newGroupingSets.build(), newGroupingMapping, newAggregationArguments, node.getGroupIdVariable());
         }
 
         @Override
@@ -528,7 +533,7 @@ public class PruneUnreferencedOutputs
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new MarkDistinctNode(node.getSourceLocation(), node.getId(), source, node.getMarkerVariable(), node.getDistinctVariables(), node.getHashVariable());
+            return new MarkDistinctNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getMarkerVariable(), node.getDistinctVariables(), node.getHashVariable());
         }
 
         @Override
@@ -548,7 +553,7 @@ public class PruneUnreferencedOutputs
                     .addAll(unnestVariables.keySet());
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new UnnestNode(node.getSourceLocation(), node.getId(), source, replicateVariables, unnestVariables, ordinalityVariable);
+            return new UnnestNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, replicateVariables, unnestVariables, ordinalityVariable);
         }
 
         @Override
@@ -566,7 +571,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new ProjectNode(node.getSourceLocation(), node.getId(), source, builder.build(), node.getLocality());
+            return new ProjectNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, builder.build(), node.getLocality());
         }
 
         @Override
@@ -574,7 +579,7 @@ public class PruneUnreferencedOutputs
         {
             Set<VariableReferenceExpression> expectedInputs = ImmutableSet.copyOf(node.getOutputVariables());
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
-            return new OutputNode(node.getSourceLocation(), node.getId(), source, node.getColumnNames(), node.getOutputVariables());
+            return new OutputNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getColumnNames(), node.getOutputVariables());
         }
 
         @Override
@@ -583,7 +588,7 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(context.get());
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new LimitNode(node.getSourceLocation(), node.getId(), source, node.getCount(), node.getStep());
+            return new LimitNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getCount(), node.getStep());
         }
 
         @Override
@@ -597,7 +602,7 @@ public class PruneUnreferencedOutputs
                 expectedInputs = ImmutableSet.copyOf(node.getDistinctVariables());
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
-            return new DistinctLimitNode(node.getSourceLocation(), node.getId(), source, node.getLimit(), node.isPartial(), node.getDistinctVariables(), node.getHashVariable(), node.getTimeoutMillis());
+            return new DistinctLimitNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getLimit(), node.isPartial(), node.getDistinctVariables(), node.getHashVariable(), node.getTimeoutMillis());
         }
 
         @Override
@@ -609,7 +614,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TopNNode(node.getSourceLocation(), node.getId(), source, node.getCount(), node.getOrderingScheme(), node.getStep());
+            return new TopNNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getCount(), node.getOrderingScheme(), node.getStep());
         }
 
         @Override
@@ -625,7 +630,7 @@ public class PruneUnreferencedOutputs
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new RowNumberNode(node.getSourceLocation(), node.getId(), source, node.getPartitionBy(), node.getRowNumberVariable(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashVariable());
+            return new RowNumberNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getPartitionBy(), node.getRowNumberVariable(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashVariable());
         }
 
         @Override
@@ -644,6 +649,7 @@ public class PruneUnreferencedOutputs
             return new TopNRowNumberNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     source,
                     node.getSpecification(),
                     node.getRowNumberVariable(),
@@ -659,7 +665,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
-            return new SortNode(node.getSourceLocation(), node.getId(), source, node.getOrderingScheme(), node.isPartial());
+            return new SortNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getOrderingScheme(), node.isPartial());
         }
 
         @Override
@@ -688,6 +694,7 @@ public class PruneUnreferencedOutputs
             return new TableWriterNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     source,
                     node.getTarget(),
                     node.getRowCountVariable(),
@@ -708,6 +715,7 @@ public class PruneUnreferencedOutputs
             return new TableWriterMergeNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     source,
                     node.getRowCountVariable(),
                     node.getFragmentVariable(),
@@ -722,6 +730,7 @@ public class PruneUnreferencedOutputs
             return new StatisticsWriterNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     source,
                     node.getTableHandle(),
                     node.getRowCountVariable(),
@@ -736,6 +745,7 @@ public class PruneUnreferencedOutputs
             return new TableFinishNode(
                     node.getSourceLocation(),
                     node.getId(),
+                    node.getStatsEquivalentPlanNode(),
                     source,
                     node.getTarget(),
                     node.getRowCountVariable(),
@@ -747,7 +757,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             PlanNode source = context.rewrite(node.getSource(), ImmutableSet.of(node.getRowId()));
-            return new DeleteNode(node.getSourceLocation(), node.getId(), source, node.getRowId(), node.getOutputVariables());
+            return new DeleteNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getRowId(), node.getOutputVariables());
         }
 
         @Override
@@ -755,7 +765,7 @@ public class PruneUnreferencedOutputs
         {
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
-            return new UnionNode(node.getSourceLocation(), node.getId(), rewrittenSubPlans, ImmutableList.copyOf(rewrittenVariableMapping.keySet()), fromListMultimap(rewrittenVariableMapping));
+            return new UnionNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenSubPlans, ImmutableList.copyOf(rewrittenVariableMapping.keySet()), fromListMultimap(rewrittenVariableMapping));
         }
 
         @Override
@@ -763,7 +773,7 @@ public class PruneUnreferencedOutputs
         {
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
-            return new IntersectNode(node.getSourceLocation(), node.getId(), rewrittenSubPlans, ImmutableList.copyOf(rewrittenVariableMapping.keySet()), fromListMultimap(rewrittenVariableMapping));
+            return new IntersectNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenSubPlans, ImmutableList.copyOf(rewrittenVariableMapping.keySet()), fromListMultimap(rewrittenVariableMapping));
         }
 
         @Override
@@ -771,7 +781,7 @@ public class PruneUnreferencedOutputs
         {
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
-            return new ExceptNode(node.getSourceLocation(), node.getId(), rewrittenSubPlans, ImmutableList.copyOf(rewrittenVariableMapping.keySet()), fromListMultimap(rewrittenVariableMapping));
+            return new ExceptNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenSubPlans, ImmutableList.copyOf(rewrittenVariableMapping.keySet()), fromListMultimap(rewrittenVariableMapping));
         }
 
         private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewriteSetOperationVariableMapping(SetOperationNode node, RewriteContext<Set<VariableReferenceExpression>> context)
@@ -826,7 +836,7 @@ public class PruneUnreferencedOutputs
             List<List<RowExpression>> rewrittenRows = rowBuilders.stream()
                     .map(ImmutableList.Builder::build)
                     .collect(toImmutableList());
-            return new ValuesNode(node.getSourceLocation(), node.getId(), rewrittenOutputVariablesBuilder.build(), rewrittenRows, node.getValuesNodeLabel());
+            return new ValuesNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenOutputVariablesBuilder.build(), rewrittenRows, node.getValuesNodeLabel());
         }
 
         @Override
@@ -866,7 +876,7 @@ public class PruneUnreferencedOutputs
             PlanNode input = context.rewrite(node.getInput(), inputContext);
             Assignments assignments = subqueryAssignments.build();
             verifySubquerySupported(assignments);
-            return new ApplyNode(node.getSourceLocation(), node.getId(), input, subquery, assignments, newCorrelation, node.getOriginSubqueryError(), node.getMayParticipateInAntiJoin());
+            return new ApplyNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), input, subquery, assignments, newCorrelation, node.getOriginSubqueryError(), node.getMayParticipateInAntiJoin());
         }
 
         @Override
@@ -905,7 +915,7 @@ public class PruneUnreferencedOutputs
                 return subquery;
             }
 
-            return new LateralJoinNode(node.getSourceLocation(), node.getId(), input, subquery, newCorrelation, node.getType(), node.getOriginSubqueryError());
+            return new LateralJoinNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), input, subquery, newCorrelation, node.getType(), node.getOriginSubqueryError());
         }
     }
 }
