@@ -34,7 +34,7 @@ import static com.facebook.presto.hive.metastore.Statistics.fromComputedStatisti
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
 
-public class HiveStatisticsUtil
+public final class HiveStatisticsUtil
 {
     private HiveStatisticsUtil()
     {
