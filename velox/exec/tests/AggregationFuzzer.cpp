@@ -584,13 +584,24 @@ std::vector<std::string> AggregationFuzzer::generateKeys(
     const std::string& prefix,
     std::vector<std::string>& names,
     std::vector<TypePtr>& types) {
+  static const std::vector<TypePtr> kNonFloatingPointTypes{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      VARCHAR(),
+      VARBINARY(),
+      TIMESTAMP(),
+  };
+
   auto numKeys = boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
   std::vector<std::string> keys;
   for (auto i = 0; i < numKeys; ++i) {
     keys.push_back(fmt::format("{}{}", prefix, i));
 
-    // Pick random scalar type.
-    types.push_back(vectorFuzzer_.randScalarNonFloatingPointType());
+    // Pick random, possibly complex, type.
+    types.push_back(vectorFuzzer_.randType(kNonFloatingPointTypes, 2));
     names.push_back(keys.back());
   }
   return keys;

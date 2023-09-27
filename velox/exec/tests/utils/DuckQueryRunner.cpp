@@ -113,6 +113,22 @@ std::optional<std::string> DuckQueryRunner::toSql(
   VELOX_NYI();
 }
 
+namespace {
+bool containsMap(const TypePtr& type) {
+  if (type->isMap()) {
+    return true;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (containsMap(type->childAt(i))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+} // namespace
+
 std::optional<std::string> DuckQueryRunner::toSql(
     const std::shared_ptr<const core::AggregationNode>& aggregationNode) {
   // Assume plan is Aggregation over Values.
@@ -126,6 +142,10 @@ std::optional<std::string> DuckQueryRunner::toSql(
 
   std::vector<std::string> groupingKeys;
   for (const auto& key : aggregationNode->groupingKeys()) {
+    // Aggregations with group by keys that contain maps are buggy.
+    if (containsMap(key->type())) {
+      return std::nullopt;
+    }
     groupingKeys.push_back(key->name());
   }
 

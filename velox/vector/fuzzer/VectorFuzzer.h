@@ -245,7 +245,11 @@ class VectorFuzzer {
   // There are no options to control type generation yet; these may be added in
   // the future.
   TypePtr randType(int maxDepth = 5);
+  TypePtr randType(const std::vector<TypePtr>& scalarTypes, int maxDepth = 5);
   RowTypePtr randRowType(int maxDepth = 5);
+  RowTypePtr randRowType(
+      const std::vector<TypePtr>& scalarTypes,
+      int maxDepth = 5);
 
   // Generates short decimal TypePtr with random precision and scale.
   inline TypePtr randShortDecimalType() {
@@ -260,10 +264,6 @@ class VectorFuzzer {
         randPrecisionScale(LongDecimalType::kMaxPrecision);
     return DECIMAL(precision, scale);
   }
-
-  // Generate a random non-floating-point primitive type to be used as join keys
-  // or group-by key for aggregations, etc.
-  TypePtr randScalarNonFloatingPointType();
 
   void reSeed(size_t seed) {
     rng_.seed(seed);
@@ -347,7 +347,17 @@ class VectorFuzzer {
 /// no complex types are allowed.
 TypePtr randType(FuzzerGenerator& rng, int maxDepth = 5);
 
+TypePtr randType(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth = 5);
+
 /// Generates a random ROW type.
 RowTypePtr randRowType(FuzzerGenerator& rng, int maxDepth = 5);
+
+RowTypePtr randRowType(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth = 5);
 
 } // namespace facebook::velox

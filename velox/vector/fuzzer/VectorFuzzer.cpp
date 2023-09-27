@@ -771,28 +771,24 @@ std::pair<int8_t, int8_t> VectorFuzzer::randPrecisionScale(
   return {precision, scale};
 }
 
-TypePtr VectorFuzzer::randScalarNonFloatingPointType() {
-  static TypePtr kNonFloatingPointTypes[]{
-      BOOLEAN(),
-      TINYINT(),
-      SMALLINT(),
-      INTEGER(),
-      BIGINT(),
-      VARCHAR(),
-      VARBINARY(),
-      TIMESTAMP(),
-  };
-  static constexpr int kNumTypes =
-      sizeof(kNonFloatingPointTypes) / sizeof(kNonFloatingPointTypes[0]);
-  return kNonFloatingPointTypes[rand<uint32_t>(rng_) % kNumTypes];
-}
-
 TypePtr VectorFuzzer::randType(int maxDepth) {
   return velox::randType(rng_, maxDepth);
 }
 
+TypePtr VectorFuzzer::randType(
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth) {
+  return velox::randType(rng_, scalarTypes, maxDepth);
+}
+
 RowTypePtr VectorFuzzer::randRowType(int maxDepth) {
   return velox::randRowType(rng_, maxDepth);
+}
+
+RowTypePtr VectorFuzzer::randRowType(
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth) {
+  return velox::randRowType(rng_, scalarTypes, maxDepth);
 }
 
 VectorPtr VectorFuzzer::wrapInLazyVector(VectorPtr baseVector) {
@@ -968,10 +964,12 @@ VectorPtr VectorLoaderWrap::makeEncodingPreservedCopy(SelectivityVector& rows) {
       std::move(nulls), std::move(indices), rows.end(), result);
 }
 
-TypePtr randType(FuzzerGenerator& rng, int maxDepth) {
+namespace {
+
+const std::vector<TypePtr> defaultScalarTypes() {
   // @TODO Add decimal TypeKinds to randType.
   // Refer https://github.com/facebookincubator/velox/issues/3942
-  static TypePtr kScalarTypes[]{
+  static std::vector<TypePtr> kScalarTypes{
       BOOLEAN(),
       TINYINT(),
       SMALLINT(),
@@ -985,29 +983,49 @@ TypePtr randType(FuzzerGenerator& rng, int maxDepth) {
       DATE(),
       INTERVAL_DAY_TIME(),
   };
-  static constexpr int kNumScalarTypes =
-      sizeof(kScalarTypes) / sizeof(kScalarTypes[0]);
+  return kScalarTypes;
+}
+} // namespace
+
+TypePtr randType(FuzzerGenerator& rng, int maxDepth) {
+  return randType(rng, defaultScalarTypes(), maxDepth);
+}
+
+TypePtr randType(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth) {
+  const int numScalarTypes = scalarTypes.size();
   // Should we generate a scalar type?
   if (maxDepth <= 1 || rand<bool>(rng)) {
-    return kScalarTypes[rand<uint32_t>(rng) % kNumScalarTypes];
+    return scalarTypes[rand<uint32_t>(rng) % numScalarTypes];
   }
   switch (rand<uint32_t>(rng) % 3) {
     case 0:
-      return MAP(randType(rng, 0), randType(rng, maxDepth - 1));
+      return MAP(
+          randType(rng, scalarTypes, 0),
+          randType(rng, scalarTypes, maxDepth - 1));
     case 1:
-      return ARRAY(randType(rng, maxDepth - 1));
+      return ARRAY(randType(rng, scalarTypes, maxDepth - 1));
     default:
-      return randRowType(rng, maxDepth - 1);
+      return randRowType(rng, scalarTypes, maxDepth - 1);
   }
 }
 
 RowTypePtr randRowType(FuzzerGenerator& rng, int maxDepth) {
+  return randRowType(rng, defaultScalarTypes(), maxDepth);
+}
+
+RowTypePtr randRowType(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth) {
   int numFields = 1 + rand<uint32_t>(rng) % 7;
   std::vector<std::string> names;
   std::vector<TypePtr> fields;
   for (int i = 0; i < numFields; ++i) {
     names.push_back(fmt::format("f{}", i));
-    fields.push_back(randType(rng, maxDepth));
+    fields.push_back(randType(rng, scalarTypes, maxDepth));
   }
   return ROW(std::move(names), std::move(fields));
 }
