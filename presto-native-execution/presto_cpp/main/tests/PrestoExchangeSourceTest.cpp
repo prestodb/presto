@@ -376,7 +376,8 @@ static std::string getClientCa(bool useHttps) {
 
 struct Params {
   bool useHttps;
-  int exchangeThreadPoolSize;
+  int exchangeCpuThreadPoolSize;
+  int exchangeIoThreadPoolSize;
 };
 
 } // namespace
@@ -389,8 +390,10 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
     memory::MmapAllocator::Options options;
     options.capacity = 1L << 30;
     allocator_ = std::make_unique<memory::MmapAllocator>(options);
-    exchangeExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
-        GetParam().exchangeThreadPoolSize);
+    exchangeCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+        GetParam().exchangeCpuThreadPoolSize);
+    exchangeIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+        GetParam().exchangeIoThreadPoolSize);
     memory::MemoryAllocator::setDefaultInstance(allocator_.get());
     TestValue::enable();
 
@@ -421,7 +424,8 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         destination,
         queue,
         pool != nullptr ? pool : pool_.get(),
-        exchangeExecutor_,
+        exchangeCpuExecutor_.get(),
+        exchangeIoExecutor_.get(),
         getClientCa(useHttps),
         getCiphers(useHttps));
   }
@@ -438,7 +442,8 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
 
   std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<memory::MemoryAllocator> allocator_;
-  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
+  std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_;
 };
 
 int64_t totalBytes(const std::vector<std::string>& pages) {
@@ -874,7 +879,7 @@ INSTANTIATE_TEST_CASE_P(
     PrestoExchangeSourceTest,
     PrestoExchangeSourceTest,
     ::testing::Values(
-        Params{true, 1},
-        Params{false, 1},
-        Params{true, 10},
-        Params{false, 10}));
+        Params{true, 1, 1},
+        Params{false, 1, 1},
+        Params{true, 2, 10},
+        Params{false, 2, 10}));
