@@ -46,7 +46,7 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
 
 function check_git_checkout()
 { 
-  [[ -d "${SCRIPT_DIR}/$2" ]] || git clone "$1" "$2"
+  [[ -d "$(pwd)/$2" ]] || git clone "$1" "$2"
   cd "$2" &&
   git checkout $FB_OS_VERSION
 }
