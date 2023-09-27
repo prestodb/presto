@@ -564,6 +564,7 @@ public class AddLocalExchanges
                             new TableWriterNode(
                                     originalTableWriterNode.getSourceLocation(),
                                     originalTableWriterNode.getId(),
+                                    originalTableWriterNode.getStatsEquivalentPlanNode(),
                                     originalTableWriterNode.getSource(),
                                     originalTableWriterNode.getTarget(),
                                     variableAllocator.newVariable("partialrowcount", BIGINT),
@@ -587,6 +588,7 @@ public class AddLocalExchanges
                             new TableWriterNode(
                                     originalTableWriterNode.getSourceLocation(),
                                     originalTableWriterNode.getId(),
+                                    originalTableWriterNode.getStatsEquivalentPlanNode(),
                                     exchange.getNode(),
                                     originalTableWriterNode.getTarget(),
                                     variableAllocator.newVariable("partialrowcount", BIGINT),
@@ -614,6 +616,7 @@ public class AddLocalExchanges
                         new TableWriterNode(
                                 originalTableWriterNode.getSourceLocation(),
                                 originalTableWriterNode.getId(),
+                                originalTableWriterNode.getStatsEquivalentPlanNode(),
                                 exchange.getNode(),
                                 originalTableWriterNode.getTarget(),
                                 variableAllocator.newVariable("partialrowcount", BIGINT),
@@ -923,8 +926,10 @@ public class AddLocalExchanges
         private PlanWithProperties accept(PlanNode node, StreamPreferredProperties context)
         {
             PlanWithProperties result = node.accept(this, context);
+            // TableWriter and TableWriterMergeNode has different output
+            boolean passStatsEquivalentPlanNode = !(node instanceof TableWriterNode && result.getNode() instanceof TableWriterMergeNode);
             return new PlanWithProperties(
-                    result.getNode().assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode()),
+                    passStatsEquivalentPlanNode ? result.getNode().assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode()) : result.getNode(),
                     result.getProperties());
         }
     }
