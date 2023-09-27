@@ -28,7 +28,7 @@ public class TableWriterNodeStatsEstimate
     private final double taskCountIfScaledWriter;
 
     @JsonCreator
-    public TableWriterNodeStatsEstimate(@JsonProperty("taskNumberIfScaledWriter") double taskCountIfScaledWriter)
+    public TableWriterNodeStatsEstimate(@JsonProperty("taskCountIfScaledWriter") double taskCountIfScaledWriter)
     {
         this.taskCountIfScaledWriter = taskCountIfScaledWriter;
     }
@@ -48,7 +48,7 @@ public class TableWriterNodeStatsEstimate
     public String toString()
     {
         return toStringHelper(this)
-                .add("taskNumberIfScaledWriter", taskCountIfScaledWriter)
+                .add("taskCountIfScaledWriter", taskCountIfScaledWriter)
                 .toString();
     }
 

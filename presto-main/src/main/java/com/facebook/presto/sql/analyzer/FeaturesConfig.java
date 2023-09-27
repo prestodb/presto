@@ -281,6 +281,7 @@ public class FeaturesConfig
     private boolean rewriteConstantArrayContainsToIn;
 
     private boolean preProcessMetadataCalls;
+    private boolean useHBOForScaledWriters;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2800,6 +2801,19 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteConstantArrayContainsToInEnabled(boolean rewriteConstantArrayContainsToIn)
     {
         this.rewriteConstantArrayContainsToIn = rewriteConstantArrayContainsToIn;
+        return this;
+    }
+
+    public boolean isUseHBOForScaledWriters()
+    {
+        return this.useHBOForScaledWriters;
+    }
+
+    @Config("optimizer.use-hbo-for-scaled-writers")
+    @ConfigDescription("Enable HBO for setting initial number of tasks for scaled writers")
+    public FeaturesConfig setUseHBOForScaledWriters(boolean useHBOForScaledWriters)
+    {
+        this.useHBOForScaledWriters = useHBOForScaledWriters;
         return this;
     }
 }

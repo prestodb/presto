@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
@@ -242,6 +243,16 @@ public class PlanFragmenterUtils
                 .filter(node -> node instanceof TableWriterNode)
                 .map(PlanNode::getId)
                 .collect(toImmutableSet());
+    }
+
+    public static Optional<Integer> getTableWriterTasks(PlanNode plan)
+    {
+        return stream(forTree(PlanNode::getSources).depthFirstPreOrder(plan))
+                .filter(node -> node instanceof TableWriterNode)
+                .map(x -> ((TableWriterNode) x).getTaskCountIfScaledWriter())
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .max(Integer::compareTo);
     }
 
     private static final class PartitioningHandleReassigner
