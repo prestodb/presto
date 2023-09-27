@@ -13,19 +13,24 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.BlobMetadata;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
@@ -36,26 +41,38 @@ import org.apache.iceberg.types.Types;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Streams.stream;
+import static java.lang.Long.parseLong;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.iceberg.puffin.StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1;
 
 public class TableStatisticsMaker
 {
+    private static final Logger log = Logger.get(TableStatisticsMaker.class);
+
+    private static final String ICEBERG_APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
     private final TypeManager typeManager;
     private final Table icebergTable;
 
@@ -65,12 +82,12 @@ public class TableStatisticsMaker
         this.icebergTable = icebergTable;
     }
 
-    public static TableStatistics getTableStatistics(TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable)
+    public static TableStatistics getTableStatistics(TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
     {
-        return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(tableHandle, constraint);
+        return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(tableHandle, constraint, columns);
     }
 
-    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint)
+    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
     {
         if (!tableHandle.getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
             return TableStatistics.builder()
@@ -123,6 +140,7 @@ public class TableStatisticsMaker
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(intersection))
+                .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
                 .useSnapshot(tableHandle.getSnapshotId().get())
                 .includeColumnStats();
 
@@ -172,11 +190,46 @@ public class TableStatisticsMaker
                     .build();
         }
 
+        // get NDVs from statistics file(s)
+        ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
+        Set<Integer> remainingColumnIds = new HashSet<>(idToColumnHandle.keySet());
+
+        getLatestStatisticsFile(icebergTable, tableHandle.getSnapshotId()).ifPresent(statisticsFile -> {
+            Map<Integer, BlobMetadata> thetaBlobsByFieldId = statisticsFile.blobMetadata().stream()
+                    .filter(blobMetadata -> blobMetadata.type().equals(APACHE_DATASKETCHES_THETA_V1))
+                    .filter(blobMetadata -> {
+                        try {
+                            return remainingColumnIds.contains(getOnlyElement(blobMetadata.fields()));
+                        }
+                        catch (IllegalArgumentException e) {
+                            throw new PrestoException(ICEBERG_INVALID_METADATA,
+                                    format("blob metadata for blob type %s in statistics file %s must contain only one field. Found %d fields",
+                                            APACHE_DATASKETCHES_THETA_V1, statisticsFile.path(), blobMetadata.fields().size()));
+                        }
+                    })
+                    .collect(toImmutableMap(blobMetadata -> getOnlyElement(blobMetadata.fields()), identity()));
+
+            for (Map.Entry<Integer, BlobMetadata> entry : thetaBlobsByFieldId.entrySet()) {
+                int fieldId = entry.getKey();
+                BlobMetadata blobMetadata = entry.getValue();
+                String ndv = blobMetadata.properties().get(ICEBERG_APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY);
+                if (ndv == null) {
+                    log.debug("Blob %s is missing %s property", blobMetadata.type(), ICEBERG_APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY);
+                    remainingColumnIds.remove(fieldId);
+                }
+                else {
+                    remainingColumnIds.remove(fieldId);
+                    ndvByColumnId.put(fieldId, parseLong(ndv));
+                }
+            }
+        });
+        Map<Integer, Long> ndvById = ndvByColumnId.build();
+
         double recordCount = summary.getRecordCount();
         TableStatistics.Builder result = TableStatistics.builder();
         result.setRowCount(Estimate.of(recordCount));
         result.setTotalSize(Estimate.of(summary.getSize()));
-        for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
+        for (IcebergColumnHandle columnHandle : selectedColumns) {
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
             Long nullCount = summary.getNullCounts().get(fieldId);
@@ -194,6 +247,7 @@ public class TableStatisticsMaker
             if (min instanceof Number && max instanceof Number) {
                 columnBuilder.setRange(Optional.of(new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue())));
             }
+            Optional.ofNullable(ndvById.get(fieldId)).ifPresent(ndv -> columnBuilder.setDistinctValuesCount(Estimate.of(ndv)));
             result.setColumnStatistics(columnHandle, columnBuilder.build());
         }
         return result.build();
@@ -207,6 +261,51 @@ public class TableStatisticsMaker
             Map<Integer, ColumnFieldDetails> fieldDetails)
     {
         return true;
+    }
+
+    private static Optional<StatisticsFile> getLatestStatisticsFile(Table table, Optional<Long> snapshotId)
+    {
+        if (table.statisticsFiles().isEmpty()) {
+            return Optional.empty();
+        }
+
+        Map<Long, StatisticsFile> statsFileBySnapshot = table.statisticsFiles().stream()
+                .collect(toImmutableMap(
+                        StatisticsFile::snapshotId,
+                        identity(),
+                        (file1, file2) -> {
+                            throw new PrestoException(
+                                    ICEBERG_INVALID_METADATA,
+                                    format("Table '%s' has duplicate statistics files '%s' and '%s' for snapshot ID %s",
+                                            table, file1.path(), file2.path(), file1.snapshotId()));
+                        }));
+
+        return stream(snapshotWalk(table, snapshotId.orElse(table.currentSnapshot().snapshotId())))
+                .map(statsFileBySnapshot::get)
+                .filter(Objects::nonNull)
+                .findFirst();
+    }
+
+    public static Iterator<Long> snapshotWalk(Table table, Long startSnapshot)
+    {
+        return new Iterator<Long>()
+        {
+            private Long currentSnapshot = startSnapshot;
+
+            @Override
+            public boolean hasNext()
+            {
+                return currentSnapshot != null && table.snapshot(currentSnapshot) != null;
+            }
+
+            @Override
+            public Long next()
+            {
+                Snapshot snapshot = table.snapshot(currentSnapshot);
+                currentSnapshot = snapshot.parentId();
+                return snapshot.snapshotId();
+            }
+        };
     }
 
     private NullableValue makeNullableValue(com.facebook.presto.common.type.Type type, Object value)

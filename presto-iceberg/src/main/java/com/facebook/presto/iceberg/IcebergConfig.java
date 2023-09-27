@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.HiveCompressionCodec;
+import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.FileFormat;
@@ -43,6 +44,8 @@ public class IcebergConfig
     private double minimumAssignedSplitWeight = 0.05;
     private boolean parquetDereferencePushdownEnabled = true;
     private boolean mergeOnReadModeEnabled;
+
+    private HiveStatisticsMergeStrategy hiveStatisticsMergeStrategy = HiveStatisticsMergeStrategy.NONE;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -179,5 +182,18 @@ public class IcebergConfig
     public boolean isMergeOnReadModeEnabled()
     {
         return mergeOnReadModeEnabled;
+    }
+
+    @Config("iceberg.hive-statistics-merge-strategy")
+    @ConfigDescription("determines how to merge statistics that are stored in the Hive Metastore")
+    public IcebergConfig setHiveStatisticsMergeStrategy(HiveStatisticsMergeStrategy mergeStrategy)
+    {
+        this.hiveStatisticsMergeStrategy = mergeStrategy;
+        return this;
+    }
+
+    public HiveStatisticsMergeStrategy getHiveStatisticsMergeStrategy()
+    {
+        return hiveStatisticsMergeStrategy;
     }
 }
