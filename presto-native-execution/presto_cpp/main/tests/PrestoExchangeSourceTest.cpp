@@ -67,7 +67,8 @@ std::string getCertsPath(const std::string& fileName) {
 
 class Producer {
  public:
-  explicit Producer(std::function<bool()> shouldFail = []() { return false; })
+  explicit Producer(
+      std::function<bool(bool)> shouldFail = [](bool) { return false; })
       : shouldFail_(std::move(shouldFail)) {}
 
   void registerEndpoints(http::HttpServer* server) {
@@ -105,7 +106,7 @@ class Producer {
             proxygen::HTTPMessage* message,
             const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
             proxygen::ResponseHandler* downstream) {
-          if (shouldFail_()) {
+          if (shouldFail_(false)) {
             return sendErrorResponse(
                 downstream, "ERR\nConnection reset by peer", 500);
           }
@@ -175,6 +176,10 @@ class Producer {
             proxygen::HTTPMessage* /*message*/,
             const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
             proxygen::ResponseHandler* downstream) {
+          if (shouldFail_(true)) {
+            return sendErrorResponse(
+                downstream, "ERR\nConnection reset by peer", 500);
+          }
           auto deleteResultsPromise = folly::Promise<bool>::makeEmpty();
           {
             std::lock_guard<std::mutex> l(mutex_);
@@ -227,7 +232,7 @@ class Producer {
       future = std::move(f);
     }
 
-    std::move(future).get(std::chrono::microseconds(120'000));
+    std::move(future).get();
   }
 
   folly::Promise<bool>& promise() {
@@ -301,7 +306,7 @@ class Producer {
   folly::Promise<bool> deleteResultsPromise_ =
       folly::Promise<bool>::makeEmpty();
   bool receivedDeleteResults_ = false;
-  std::function<bool()> shouldFail_;
+  std::function<bool(bool)> shouldFail_;
 };
 
 std::string toString(exec::SerializedPage* page) {
@@ -517,17 +522,19 @@ TEST_P(PrestoExchangeSourceTest, retries) {
       std::string(SystemConfig::kExchangeRequestTimeout), "1s");
   SystemConfig::instance()->setValue(
       std::string(SystemConfig::kExchangeMaxErrorDuration), "3s");
-
-  std::vector<std::string> pages = {"page1 - xx", "page2 - xxxx"};
+  std::vector<std::string> pages = {"page1 - xx"};
   const auto useHttps = GetParam().useHttps;
-  std::atomic<int> numTries(0);
+  std::atomic<int> numRequestTries(0);
+  std::atomic<int> numAbortTries(0);
 
-  auto shouldFail = [&]() {
+  auto shouldFail = [&](bool abort) {
+    auto& numTries = abort ? numAbortTries : numRequestTries;
     ++numTries;
     // On the third try, simulate network delay by sleeping for longer than the
     // request timeout
     if (numTries == 3) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1'100));
+      return true;
     }
     // Fail for the first two times
     return numTries <= 2;
@@ -555,8 +562,37 @@ TEST_P(PrestoExchangeSourceTest, retries) {
     ASSERT_EQ(exchangeSource->testingFailedAttempts(), 3);
     requestNextPage(queue, exchangeSource);
   }
-  // Simulate always failing producer
-  numTries = -1000000;
+
+  waitForEndMarker(queue);
+  producer->waitForDeleteResults();
+  serverWrapper.stop();
+}
+
+TEST_P(PrestoExchangeSourceTest, alwaysFail) {
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeRequestTimeout), "1s");
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaxErrorDuration), "3s");
+  std::vector<std::string> pages = {"page1 - xx"};
+  const auto useHttps = GetParam().useHttps;
+
+  auto producer = std::make_unique<Producer>([&](bool) { return true; });
+  for (const auto& page : pages) {
+    producer->enqueue(page);
+  }
+  producer->noMoreData();
+
+  auto producerServer = createHttpServer(useHttps);
+  producer->registerEndpoints(producerServer.get());
+
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+
+  auto queue = makeSingleSourceQueue();
+
+  auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
+
+  requestNextPage(queue, exchangeSource);
   EXPECT_THAT(
       [&]() { waitForNextPage(queue); },
       ThrowsMessage<std::exception>(HasSubstr("Connection reset by peer")));
@@ -858,6 +894,7 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
 
     requestNextPage(queue, exchangeSource);
     waitForEndMarker(queue);
+    producer->waitForDeleteResults();
     serverWrapper.stop();
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(0, currMemoryBytes);

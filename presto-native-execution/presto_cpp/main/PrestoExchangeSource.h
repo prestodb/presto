@@ -130,7 +130,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     obj["numPages"] = numPages_;
     obj["totalBytes"] = totalBytes_;
     obj["closed"] = std::to_string(closed_);
-    obj["abortResultsSucceeded"] = std::to_string(abortResultsSucceeded_);
+    obj["abortResultsIssued"] = std::to_string(abortResultsIssued_);
     obj["atEnd"] = atEnd_;
     return folly::toPrettyJson(obj);
   }
@@ -186,6 +186,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void abortResults();
 
+  /// Send abort results after specified delay. This function is called
+  /// multiple times by abortResults for retries.
+  void doAbortResults(int64_t delayMs);
+
   /// Completes the future returned from 'request()' if it hasn't completed
   /// already.
   bool checkSetRequestPromise();
@@ -216,15 +220,15 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   folly::IOThreadPoolExecutor* const httpExecutor_;
 
   std::shared_ptr<http::HttpClient> httpClient_;
-  RetryState retryState_;
+  RetryState dataRequestRetryState_;
+  RetryState abortRetryState_;
   int failedAttempts_;
   // The number of pages received from this presto exchange source.
   uint64_t numPages_{0};
   uint64_t totalBytes_{0};
   std::atomic_bool closed_{false};
-  // A boolean indicating whether abortResults() call was issued and was
-  // successfully processed by the remote server.
-  std::atomic_bool abortResultsSucceeded_{false};
+  // A boolean indicating whether abortResults() call was issued
+  std::atomic_bool abortResultsIssued_{false};
   velox::VeloxPromise<Response> promise_{
       velox::VeloxPromise<Response>::makeEmpty()};
 };
