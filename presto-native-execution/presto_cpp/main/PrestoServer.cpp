@@ -501,14 +501,7 @@ void PrestoServer::yieldTasks() {
 void PrestoServer::initializeVeloxMemory() {
   auto* systemConfig = SystemConfig::instance();
   const uint64_t memoryGb = systemConfig->systemMemoryGb();
-  const uint64_t queryMemoryGb = systemConfig->queryMemoryGb();
-  const uint64_t perQueryMemoryBytes = systemConfig->queryMaxMemoryPerNode();
-  // NOTE: we might reserve some portion of memory from node memory capacity for
-  // cache and other system memory operations such as disk spilling.
-  PRESTO_STARTUP_LOG(INFO) << "Starting with node memory: " << memoryGb
-                           << "GB, total query memory: " << queryMemoryGb
-                           << "GB, per-query memory: "
-                           << succinctBytes(perQueryMemoryBytes);
+  PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
 
   const int64_t memoryBytes = memoryGb << 30;
   if (systemConfig->useMmapAllocator()) {
@@ -565,6 +558,7 @@ void PrestoServer::initializeVeloxMemory() {
       systemConfig->enableSystemMemoryPoolUsageTracking();
   if (!systemConfig->memoryArbitratorKind().empty()) {
     options.arbitratorKind = systemConfig->memoryArbitratorKind();
+    const uint64_t queryMemoryGb = systemConfig->queryMemoryGb();
     VELOX_USER_CHECK_LE(
         queryMemoryGb,
         memoryGb,
@@ -573,6 +567,7 @@ void PrestoServer::initializeVeloxMemory() {
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
+    options.arbitrationStateCheckCb = velox::exec::driverArbitrationStateCheck;
   }
   const auto& manager = memory::MemoryManager::getInstance(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
