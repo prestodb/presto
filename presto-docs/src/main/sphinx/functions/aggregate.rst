@@ -145,11 +145,16 @@ General Aggregate Functions
 
 .. function:: set_agg(x) -> array<[same as input]>
 
-        Returns an array created from the distinct input ``x`` elements.
+    Returns an array created from the distinct input ``x`` elements.
+
+    If the input includes ``NULL``, ``NULL`` will be included in the returned array.
 
 .. function:: set_union(array(T)) -> array(T)
 
-    Returns an array of all the distinct values contained in each array of the input
+    Returns an array of all the distinct values contained in each array of the input.
+
+    When all inputs are ``NULL``, this function returns an empty array. If ``NULL`` is
+    an element of one of the input arrays, ``NULL`` will be included in the returned array.
 
     Example::
 
