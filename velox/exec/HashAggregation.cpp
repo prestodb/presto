@@ -446,13 +446,17 @@ RowVectorPtr HashAggregation::getOutput() {
     return output;
   }
 
-  const auto batchSize =
-      isGlobal_ ? 1 : outputBatchRows(groupingSet_->estimateRowSize());
-
+  const auto& queryConfig = operatorCtx_->driverCtx()->queryConfig();
+  const auto maxOutputRows =
+      isGlobal_ ? 1 : queryConfig.preferredOutputBatchRows();
   // Reuse output vectors if possible.
-  prepareOutput(batchSize);
+  prepareOutput(maxOutputRows);
 
-  bool hasData = groupingSet_->getOutput(batchSize, resultIterator_, output_);
+  bool hasData = groupingSet_->getOutput(
+      maxOutputRows,
+      queryConfig.preferredOutputBatchBytes(),
+      resultIterator_,
+      output_);
   if (!hasData) {
     resultIterator_.reset();
     if (noMoreInput_) {

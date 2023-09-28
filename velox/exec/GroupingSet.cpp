@@ -645,22 +645,26 @@ const SelectivityVector& GroupingSet::getSelectivityVector(
 }
 
 bool GroupingSet::getOutput(
-    int32_t batchSize,
+    int32_t maxOutputRows,
+    int32_t maxOutputBytes,
     RowContainerIterator& iterator,
     RowVectorPtr& result) {
   if (isGlobal_) {
-    return getGlobalAggregationOutput(batchSize, isPartial_, iterator, result);
+    return getGlobalAggregationOutput(
+        maxOutputRows, isPartial_, iterator, result);
   }
   if (hasSpilled()) {
-    return getOutputWithSpill(batchSize, result);
+    return getOutputWithSpill(maxOutputRows, maxOutputBytes, result);
   }
 
   // @lint-ignore CLANGTIDY
-  char* groups[batchSize];
-  int32_t numGroups =
-      table_ ? table_->rows()->listRows(&iterator, batchSize, groups) : 0;
-  if (!numGroups) {
-    if (table_) {
+  char* groups[maxOutputRows];
+  const int32_t numGroups = table_
+      ? table_->rows()->listRows(
+            &iterator, maxOutputRows, maxOutputBytes, groups)
+      : 0;
+  if (numGroups == 0) {
+    if (table_ != nullptr) {
       table_->clear();
     }
     return false;
@@ -676,7 +680,7 @@ void GroupingSet::extractGroups(
   if (groups.empty()) {
     return;
   }
-  RowContainer& rows = table_ ? *table_->rows() : *rowsWhileReadingSpill_;
+  RowContainer& rows = table_ ? *table_->rows() : *nonSpilledRowContainer_;
   auto totalKeys = rows.keyTypes().size();
   for (int32_t i = 0; i < totalKeys; ++i) {
     auto keyVector = result->childAt(i);
@@ -881,7 +885,8 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
 }
 
 bool GroupingSet::getOutputWithSpill(
-    int32_t batchSize,
+    int32_t maxOutputRows,
+    int32_t maxOutputBytes,
     const RowVectorPtr& result) {
   if (outputPartition_ == -1) {
     mergeArgs_.resize(1);
@@ -906,28 +911,30 @@ bool GroupingSet::getOutputWithSpill(
 
     // Take ownership of the rows and free the hash table. The table will not be
     // needed for producing spill output.
-    rowsWhileReadingSpill_ = table_->moveRows();
+    nonSpilledRowContainer_ = table_->moveRows();
     table_.reset();
     outputPartition_ = 0;
     nonSpilledRows_ = spiller_->finishSpill();
   }
 
-  if (nonSpilledIndex_ < nonSpilledRows_.value().size()) {
-    const size_t numGroups = std::min<vector_size_t>(
-        batchSize, nonSpilledRows_.value().size() - nonSpilledIndex_);
+  if (nonSpilledRowIndex_ < nonSpilledRows_.value().size()) {
+    const int32_t numGroups =
+        numNonSpilledGroupsToExtract(maxOutputRows, maxOutputBytes);
     extractGroups(
         folly::Range<char**>(
-            nonSpilledRows_.value().data() + nonSpilledIndex_, numGroups),
+            nonSpilledRows_.value().data() + nonSpilledRowIndex_, numGroups),
         result);
-    nonSpilledIndex_ += numGroups;
+    nonSpilledRowIndex_ += numGroups;
     return true;
   }
+
   while (outputPartition_ < spiller_->state().maxPartitions()) {
     if (!merge_) {
       merge_ = spiller_->startMerge(outputPartition_);
     }
     // NOTE: 'merge_' might be nullptr if 'outputPartition_' is empty.
-    if (merge_ == nullptr || !mergeNext(batchSize, result)) {
+    if (merge_ == nullptr ||
+        !mergeNext(maxOutputRows, maxOutputBytes, result)) {
       ++outputPartition_;
       merge_ = nullptr;
       continue;
@@ -937,7 +944,29 @@ bool GroupingSet::getOutputWithSpill(
   return false;
 }
 
-bool GroupingSet::mergeNext(int32_t batchSize, const RowVectorPtr& result) {
+size_t GroupingSet::numNonSpilledGroupsToExtract(
+    int32_t maxOutputRows,
+    int32_t maxOutputBytes) const {
+  const size_t maxNumGroups = std::min<vector_size_t>(
+      maxOutputRows, nonSpilledRows_.value().size() - nonSpilledRowIndex_);
+  size_t totalBytes{0};
+  size_t nextRow = nonSpilledRowIndex_;
+  size_t numGroups{0};
+  for (; numGroups < maxNumGroups; ++numGroups, ++nextRow) {
+    const auto rowSize =
+        nonSpilledRowContainer_->rowSize(nonSpilledRows_.value()[nextRow]);
+    if (numGroups > 0 && (totalBytes + rowSize) < maxOutputBytes) {
+      break;
+    }
+    totalBytes += rowSize;
+  }
+  return numGroups;
+}
+
+bool GroupingSet::mergeNext(
+    int32_t maxOutputRows,
+    int32_t maxOutputBytes,
+    const RowVectorPtr& result) {
   for (;;) {
     auto next = merge_->nextWithEquals();
     if (!next.first) {
@@ -951,7 +980,9 @@ bool GroupingSet::mergeNext(int32_t batchSize, const RowVectorPtr& result) {
     updateRow(*next.first, mergeState_);
     nextKeyIsEqual_ = next.second;
     next.first->pop();
-    if (!nextKeyIsEqual_ && mergeRows_->numRows() >= batchSize) {
+    if (!nextKeyIsEqual_ &&
+        ((mergeRows_->numRows() >= maxOutputRows) ||
+         (mergeRows_->allocatedBytes() >= maxOutputBytes))) {
       extractSpillResult(result);
       return true;
     }
@@ -1110,7 +1141,7 @@ void GroupingSet::toIntermediate(
 
 std::optional<int64_t> GroupingSet::estimateRowSize() const {
   const RowContainer* rows =
-      table_ ? table_->rows() : rowsWhileReadingSpill_.get();
+      table_ ? table_->rows() : nonSpilledRowContainer_.get();
   return rows && rows->estimateRowSize() >= 0
       ? std::optional<int64_t>(rows->estimateRowSize())
       : std::nullopt;

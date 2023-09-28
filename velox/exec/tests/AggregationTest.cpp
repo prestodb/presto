@@ -1591,65 +1591,163 @@ TEST_F(AggregationTest, groupingSetsOutput) {
 }
 
 TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
-  rowType_ = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer::Options options;
-  options.vectorSize = 10;
-  VectorFuzzer fuzzer(options, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType_));
-  }
+  const int vectorSize = 100;
+  const std::string strValue(1L << 20, 'a');
 
-  auto plan = PlanBuilder()
-                  .values(batches)
-                  .singleAggregation({"c0", "c1"}, {"sum(c2)"})
-                  .planNode();
-  auto results = AssertQueryBuilder(plan).copyResults(pool_.get());
+  RowVectorPtr largeVector = makeRowVector(
+      {makeFlatVector<int32_t>(vectorSize, [&](auto row) { return row; }),
+       makeFlatVector<StringView>(
+           vectorSize, [&](auto /*unused*/) { return StringView(strValue); })});
+  auto largeRowType = asRowType(largeVector->type());
 
-  {
+  RowVectorPtr smallVector = makeRowVector(
+      {makeFlatVector<int32_t>(vectorSize, [&](auto row) { return row; }),
+       makeFlatVector<int32_t>(vectorSize, [&](auto row) { return row; })});
+  auto smallRowType = asRowType(smallVector->type());
+
+  struct {
+    bool smallInput;
+    uint32_t maxOutputRows;
+    uint32_t maxOutputBytes;
+    uint32_t expectedNumOutputVectors;
+
+    std::string debugString() const {
+      return fmt::format(
+          "smallInput: {} maxOutputRows: {}, maxOutputBytes: {}, expectedNumOutputVectors: {}",
+          smallInput,
+          maxOutputRows,
+          succinctBytes(maxOutputBytes),
+          expectedNumOutputVectors);
+    }
+  } testSettings[] = {
+      {true, 1000, 1000'000, 1},
+      {true, 10, 1000'000, 10},
+      {true, 1, 1000'000, 100},
+      {true, 1, 1, 100},
+      {true, 10, 1, 100},
+      {true, 100, 1, 100},
+      {true, 1000, 1, 100},
+      {false, 1000, 1, 100},
+      {false, 1000, 1000'000'000, 1},
+      {false, 100, 1000'000'000, 1},
+      {false, 10, 1000'000'000, 10},
+      {false, 1, 1000'000'000, 100},
+      {false, 1, 1, 100}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    std::vector<RowVectorPtr> inputs;
+    if (testData.smallInput) {
+      inputs.push_back(smallVector);
+    } else {
+      inputs.push_back(largeVector);
+    }
+    createDuckDbTable(inputs);
     auto tempDirectory = exec::test::TempDirectoryPath::create();
-    uint64_t outputBufferSize = 10UL << 20;
-    SCOPED_TRACE(fmt::format("outputBufferSize: {}", outputBufferSize));
+    core::PlanNodeId aggrNodeId;
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .config(QueryConfig::kSpillEnabled, "true")
+            .config(QueryConfig::kAggregationSpillEnabled, "true")
+            // Set one spill partition to avoid the test flakiness.
+            .config(QueryConfig::kAggregationSpillPartitionBits, "0")
+            // Set the memory trigger limit to be a very small value.
+            .config(QueryConfig::kAggregationSpillMemoryThreshold, "1")
+            .config(QueryConfig::kAggregationSpillAll, "true")
+            .config(
+                QueryConfig::kPreferredOutputBatchBytes,
+                std::to_string(testData.maxOutputBytes))
+            .config(
+                QueryConfig::kPreferredOutputBatchRows,
+                std::to_string(testData.maxOutputRows))
+            .plan(PlanBuilder()
+                      .values(inputs)
+                      .singleAggregation({"c0"}, {"array_agg(c1)"})
+                      .capturePlanNodeId(aggrNodeId)
+                      .planNode())
+            .assertResults("SELECT c0, array_agg(c1) FROM tmp GROUP BY 1");
 
-    auto task = AssertQueryBuilder(plan)
-                    .spillDirectory(tempDirectory->path)
-                    .config(
-                        QueryConfig::kPreferredOutputBatchBytes,
-                        std::to_string(outputBufferSize))
-                    .config(QueryConfig::kSpillEnabled, "true")
-                    .config(QueryConfig::kAggregationSpillEnabled, "true")
-                    // Set one spill partition to avoid the test flakiness.
-                    .config(QueryConfig::kAggregationSpillPartitionBits, "0")
-                    // Set the memory trigger limit to be a very small value.
-                    .config(QueryConfig::kAggregationSpillMemoryThreshold, "1")
-                    .assertResults(results);
-
-    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[1];
-    ASSERT_EQ(opStats.outputVectors, 1);
+    ASSERT_EQ(
+        toPlanStats(task->taskStats()).at(aggrNodeId).outputVectors,
+        testData.expectedNumOutputVectors);
     OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   }
-  {
-    auto tempDirectory = exec::test::TempDirectoryPath::create();
-    uint64_t outputBufferSize = 1;
-    SCOPED_TRACE(fmt::format("outputBufferSize: {}", outputBufferSize));
+}
 
-    auto task = AssertQueryBuilder(plan)
-                    .spillDirectory(tempDirectory->path)
-                    .config(
-                        QueryConfig::kPreferredOutputBatchBytes,
-                        std::to_string(outputBufferSize))
-                    .config(QueryConfig::kSpillEnabled, "true")
-                    .config(QueryConfig::kAggregationSpillEnabled, "true")
-                    // Set one spill partition to avoid the test flakiness.
-                    .config(QueryConfig::kAggregationSpillPartitionBits, "0")
-                    // Set the memory trigger limit to be a very small value.
-                    .config(QueryConfig::kAggregationSpillMemoryThreshold, "1")
-                    .assertResults(results);
+TEST_F(AggregationTest, outputBatchSizeCheckWithoutSpill) {
+  const int vectorSize = 100;
+  const std::string strValue(1L << 20, 'a');
 
-    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[1];
-    ASSERT_EQ(opStats.outputVectors, opStats.outputPositions);
-    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+  RowVectorPtr largeVector = makeRowVector(
+      {makeFlatVector<int32_t>(vectorSize, [&](auto row) { return row; }),
+       makeFlatVector<StringView>(
+           vectorSize, [&](auto /*unused*/) { return StringView(strValue); })});
+  auto largeRowType = asRowType(largeVector->type());
+
+  RowVectorPtr smallVector = makeRowVector(
+      {makeFlatVector<int32_t>(vectorSize, [&](auto row) { return row; }),
+       makeFlatVector<int32_t>(vectorSize, [&](auto row) { return row; })});
+  auto smallRowType = asRowType(smallVector->type());
+
+  struct {
+    bool smallInput;
+    uint32_t maxOutputRows;
+    uint32_t maxOutputBytes;
+    uint32_t expectedNumOutputVectors;
+
+    std::string debugString() const {
+      return fmt::format(
+          "smallInput: {} maxOutputRows: {}, maxOutputBytes: {}, expectedNumOutputVectors: {}",
+          smallInput,
+          maxOutputRows,
+          succinctBytes(maxOutputBytes),
+          expectedNumOutputVectors);
+    }
+  } testSettings[] = {
+      {true, 1000, 1000'000, 1},
+      {true, 10, 1000'000, 10},
+      {true, 1, 1000'000, 100},
+      {true, 1, 1, 100},
+      {true, 10, 1, 100},
+      {true, 100, 1, 100},
+      {true, 1000, 1, 100},
+      {false, 1000, 1, 100},
+      {false, 1000, 1000'000'000, 1},
+      {false, 100, 1000'000'000, 1},
+      {false, 10, 1000'000'000, 10},
+      {false, 1, 1000'000'000, 100},
+      {false, 1, 1, 100}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    std::vector<RowVectorPtr> inputs;
+    if (testData.smallInput) {
+      inputs.push_back(smallVector);
+    } else {
+      inputs.push_back(largeVector);
+    }
+    createDuckDbTable(inputs);
+    core::PlanNodeId aggrNodeId;
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .config(
+                QueryConfig::kPreferredOutputBatchBytes,
+                std::to_string(testData.maxOutputBytes))
+            .config(
+                QueryConfig::kPreferredOutputBatchRows,
+                std::to_string(testData.maxOutputRows))
+            .plan(PlanBuilder()
+                      .values(inputs)
+                      .singleAggregation({"c0"}, {"array_agg(c1)"})
+                      .capturePlanNodeId(aggrNodeId)
+                      .planNode())
+            .assertResults("SELECT c0, array_agg(c1) FROM tmp GROUP BY 1");
+
+    ASSERT_EQ(
+        toPlanStats(task->taskStats()).at(aggrNodeId).outputVectors,
+        testData.expectedNumOutputVectors);
   }
 }
 

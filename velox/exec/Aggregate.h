@@ -207,7 +207,7 @@ class Aggregate {
   //
   // 'result' and its parts are expected to be singly referenced. If
   // other threads or operators hold references that they would use
-  // after 'result' has been updated by this, effects will b unpredictable.
+  // after 'result' has been updated by this, effects will be unpredictable.
   virtual void
   extractValues(char** groups, int32_t numGroups, VectorPtr* result) = 0;
 
