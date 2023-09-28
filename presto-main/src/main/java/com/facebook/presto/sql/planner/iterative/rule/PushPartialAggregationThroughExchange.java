@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Capture;
@@ -68,6 +69,7 @@ public class PushPartialAggregationThroughExchange
         implements Rule<AggregationNode>
 {
     private final FunctionAndTypeManager functionAndTypeManager;
+    private String statsSource;
 
     public PushPartialAggregationThroughExchange(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -86,6 +88,18 @@ public class PushPartialAggregationThroughExchange
     public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isCostBased(Session session)
+    {
+        return getPartialAggregationStrategy(session) == AUTOMATIC;
+    }
+
+    @Override
+    public String getStatsSource()
+    {
+        return statsSource;
     }
 
     @Override
@@ -145,15 +159,27 @@ public class PushPartialAggregationThroughExchange
             return Result.empty();
         }
 
+        PlanNode resultNode = null;
         switch (aggregationNode.getStep()) {
             case SINGLE:
                 // Split it into a FINAL on top of a PARTIAL and
-                return Result.ofPlanNode(split(aggregationNode, context));
+                resultNode = split(aggregationNode, context);
+                storeStatsSourceInfo(context, partialAggregationStrategy, aggregationNode);
+                return Result.ofPlanNode(resultNode);
             case PARTIAL:
                 // Push it underneath each branch of the exchange
-                return Result.ofPlanNode(pushPartial(aggregationNode, exchangeNode, context));
+                resultNode = pushPartial(aggregationNode, exchangeNode, context);
+                storeStatsSourceInfo(context, partialAggregationStrategy, aggregationNode);
+                return Result.ofPlanNode(resultNode);
             default:
                 return Result.empty();
+        }
+    }
+
+    private void storeStatsSourceInfo(Context context, PartialAggregationStrategy partialAggregationStrategy, PlanNode resultNode)
+    {
+        if (partialAggregationStrategy == AUTOMATIC) {
+            statsSource = context.getStatsProvider().getStats(resultNode).getSourceInfo().getSourceInfoName();
         }
     }
 
@@ -299,6 +325,7 @@ public class PushPartialAggregationThroughExchange
         double outputBytes = aggregationStats.getOutputSizeInBytes(aggregationNode);
         double byteReductionThreshold = getPartialAggregationByteReductionThreshold(context.getSession());
 
+        // calling this function means we are using a cost-based strategy for this optimization
         return exchangeStats.isConfident() && outputBytes > inputBytes * byteReductionThreshold;
     }
 

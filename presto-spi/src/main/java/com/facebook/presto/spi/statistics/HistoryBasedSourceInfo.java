@@ -68,4 +68,10 @@ public class HistoryBasedSourceInfo
     {
         return true;
     }
+
+    @Override
+    public String getSourceInfoName()
+    {
+        return "HBO";
+    }
 }
