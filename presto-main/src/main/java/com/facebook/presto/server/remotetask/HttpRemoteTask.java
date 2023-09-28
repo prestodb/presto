@@ -115,6 +115,7 @@ import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSp
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
+import static com.facebook.presto.execution.TaskState.GRACEFUL_FAILED;
 import static com.facebook.presto.execution.TaskStatus.failWith;
 import static com.facebook.presto.server.RequestErrorTracker.isExpectedError;
 import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
@@ -1012,18 +1013,26 @@ public final class HttpRemoteTask
 
         taskStatusFetcher.stop();
 
-        // The remote task is likely to get a delete from the PageBufferClient first.
-        // We send an additional delete anyway to get the final TaskInfo
-        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-        Request.Builder requestBuilder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
-        if (taskInfoThriftTransportEnabled) {
-            requestBuilder = ThriftRequestUtils.prepareThriftDelete(Protocol.BINARY);
+        if (getTaskStatus().getState() == GRACEFUL_FAILED) {
+            // Transition task to graceful_failed state without waiting for the final task info returned by the abort request.
+            // updateTaskInfo would stop the taskInfoFetcher from further fetching to avoid exceeding the backoff threshold
+            // and throw the TOO_MANY_REQUESTS_FAILED
+            taskInfoFetcher.updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
         }
-        Request request = requestBuilder
-                .setUri(uriBuilder.build())
-                .build();
+        else {
+            // The remote task is likely to get a delete from the PageBufferClient first.
+            // We send an additional delete anyway to get the final TaskInfo
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
+            Request.Builder requestBuilder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
+            if (taskInfoThriftTransportEnabled) {
+                requestBuilder = ThriftRequestUtils.prepareThriftDelete(Protocol.BINARY);
+            }
+            Request request = requestBuilder
+                    .setUri(uriBuilder.build())
+                    .build();
 
-        scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cleanup");
+            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cleanup");
+        }
     }
 
     @Override
