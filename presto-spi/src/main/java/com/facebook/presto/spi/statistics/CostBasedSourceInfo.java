@@ -51,6 +51,12 @@ public class CostBasedSourceInfo
     }
 
     @Override
+    public String getSourceInfoName()
+    {
+        return "CBO";
+    }
+
+    @Override
     public boolean estimateSizeUsingVariables()
     {
         return true;

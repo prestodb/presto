@@ -46,6 +46,12 @@ public class RuntimeSourceInfo
     }
 
     @Override
+    public String getSourceInfoName()
+    {
+        return "Runtime";
+    }
+
+    @Override
     public boolean estimateSizeUsingVariables()
     {
         return false;

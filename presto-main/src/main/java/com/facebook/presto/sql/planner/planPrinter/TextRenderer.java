@@ -300,18 +300,21 @@ public class TextRenderer
 
     private String optimizerInfoToText(List<PlanOptimizerInformation> planOptimizerInfo)
     {
-        List<String> applicableOptimizers = planOptimizerInfo.stream()
+        List<String> applicableOptimizerNames = planOptimizerInfo.stream()
                 .filter(x -> !x.getOptimizerTriggered() && x.getOptimizerApplicable().isPresent() && x.getOptimizerApplicable().get())
-                .map(x -> x.getOptimizerName()).collect(toList());
-        List<String> triggeredOptimizers = planOptimizerInfo.stream()
-                .filter(x -> x.getOptimizerTriggered())
-                .map(x -> x.getOptimizerName()).collect(toList());
+                .map(x -> x.getOptimizerName()).distinct().sorted().collect(toList());
+
+        List<String> triggeredOptimizerNames = planOptimizerInfo.stream().filter(x -> x.getOptimizerTriggered()).map(x -> x.getOptimizerName()).distinct().sorted().collect(toList());
+        List<String> costBasedOptimizerNames = planOptimizerInfo.stream().filter(x -> x.getIsCostBased().isPresent() && x.getIsCostBased().get()).map(x -> x.getOptimizerName() + "(" + x.getStatsSource().get() + ")").distinct().sorted().collect(toList());
 
         String triggered = "Triggered optimizers: [" +
-                String.join(", ", triggeredOptimizers) + "]\n";
+                String.join(", ", triggeredOptimizerNames) + "]\n";
         String applicable = "Applicable optimizers: [" +
-                String.join(", ", applicableOptimizers) + "]\n";
-        return triggered + applicable;
+                String.join(", ", applicableOptimizerNames) + "]\n";
+        String costBased = "Cost-based optimizers: [" +
+                String.join(", ", costBasedOptimizerNames) + "]\n";
+
+        return triggered + applicable + costBased;
     }
 
     private String cteInformationToText(List<CTEInformation> cteInformationList)
