@@ -1037,8 +1037,48 @@ void FloatingPointColumnReader<DataT, ReqT>::next(
 }
 
 class StringDictionaryColumnReader : public ColumnReader {
+ public:
+  StringDictionaryColumnReader(
+      std::shared_ptr<const dwio::common::TypeWithId> nodeType,
+      StripeStreams& stripe,
+      const StreamLabels& streamLabels,
+      FlatMapContext flatMapContext = {});
+  ~StringDictionaryColumnReader() override = default;
+
+  uint64_t skip(uint64_t numValues) override;
+
+  void next(uint64_t numValues, VectorPtr& result, const uint64_t* nulls)
+      override;
+
  private:
   void loadStrideDictionary();
+
+  BufferPtr loadDictionary(
+      uint64_t count,
+      dwio::common::SeekableInputStream& data,
+      IntDecoder</*isSigned*/ false>& lengthDecoder,
+      BufferPtr& offsets);
+
+  bool FOLLY_ALWAYS_INLINE setOutput(
+      uint64_t index,
+      int64_t dictIndex,
+      const char* dict,
+      const int64_t* dictOffsets,
+      const char* strideDict,
+      const int64_t* strideDictOffsets,
+      const char* inDict,
+      const char*& outputStarts,
+      int64_t& outputLengths) const;
+
+  void readDictionaryVector(
+      uint64_t numValues,
+      VectorPtr& result,
+      const uint64_t* nulls);
+
+  void
+  readFlatVector(uint64_t numValues, VectorPtr& result, const uint64_t* nulls);
+
+  void ensureInitialized();
 
   BufferPtr dictionaryBlob_;
   BufferPtr dictionaryOffset_;
@@ -1070,46 +1110,6 @@ class StringDictionaryColumnReader : public ColumnReader {
   std::unique_ptr<dwio::common::SeekableInputStream> blobStream_;
   const bool returnFlatVector_;
   bool initialized_{false};
-
-  BufferPtr loadDictionary(
-      uint64_t count,
-      dwio::common::SeekableInputStream& data,
-      IntDecoder</*isSigned*/ false>& lengthDecoder,
-      BufferPtr& offsets);
-
-  bool FOLLY_ALWAYS_INLINE setOutput(
-      uint64_t index,
-      int64_t dictIndex,
-      const char* dict,
-      const int64_t* dictOffsets,
-      const char* strideDict,
-      const int64_t* strideDictOffsets,
-      const char* inDict,
-      const char*& outputStarts,
-      int64_t& outputLengths) const;
-
-  void readDictionaryVector(
-      uint64_t numValues,
-      VectorPtr& result,
-      const uint64_t* nulls);
-
-  void
-  readFlatVector(uint64_t numValues, VectorPtr& result, const uint64_t* nulls);
-
-  void ensureInitialized();
-
- public:
-  StringDictionaryColumnReader(
-      std::shared_ptr<const dwio::common::TypeWithId> nodeType,
-      StripeStreams& stripe,
-      const StreamLabels& streamLabels,
-      FlatMapContext flatMapContext = {});
-  ~StringDictionaryColumnReader() override = default;
-
-  uint64_t skip(uint64_t numValues) override;
-
-  void next(uint64_t numValues, VectorPtr& result, const uint64_t* nulls)
-      override;
 };
 
 StringDictionaryColumnReader::StringDictionaryColumnReader(
