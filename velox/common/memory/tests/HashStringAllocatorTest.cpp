@@ -474,5 +474,37 @@ TEST_F(HashStringAllocatorTest, externalLeak) {
   EXPECT_EQ(initialBytes, pool->currentBytes());
 }
 
+TEST_F(HashStringAllocatorTest, freeLists) {
+  auto sizes = HashStringAllocator::freeListSizeClasses();
+  std::vector<HashStringAllocator::Header*> allocations;
+  // We make alternating allocations of different free list size
+  // classes. We free the small ones. We allocate a larger size from
+  // the same size class, This reads the free list and moves to a
+  // larger list. On the second time around, this remembers that the
+  // smaller fre list dies not have entries of that size.
+  auto small = sizes[1] + 2;
+  auto larger = sizes[2] + 2;
+  for (auto i = 0; i < 100; ++i) {
+    allocations.push_back(allocator_->allocate(i == 0 ? small + 10 : small));
+    allocations.push_back(allocator_->allocate(larger));
+  }
+  for (auto i = 0; i < allocations.size(); i += 2) {
+    allocator_->free(allocations[i]);
+  }
+  allocations[0] = allocator_->allocate(small);
+  // This comes from head of free list.
+  EXPECT_EQ(0, allocator_->numFreeListNoFit());
+  allocations[2] = allocator_->allocate(small + 10);
+  // Last in free llist fits.
+  EXPECT_EQ(98, allocator_->numFreeListNoFit());
+  allocations[4] = allocator_->allocate(small + 10);
+  // Traverse the free list again but no fit.
+  EXPECT_EQ(2 * 98, allocator_->numFreeListNoFit());
+  allocations[6] = allocator_->allocate(small + 10);
+  // Now we know there is no fit in the list for small, so it is not
+  // retraversed.
+  EXPECT_EQ(2 * 98, allocator_->numFreeListNoFit());
+}
+
 } // namespace
 } // namespace facebook::velox
