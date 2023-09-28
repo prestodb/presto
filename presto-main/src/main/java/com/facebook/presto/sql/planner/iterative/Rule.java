@@ -39,6 +39,15 @@ public interface Rule<T>
     {
         return true;
     }
+    default boolean isCostBased(Session session)
+    {
+        return false;
+    }
+
+    default String getStatsSource()
+    {
+        return null;
+    }
 
     Result apply(T node, Captures captures, Context context);
 

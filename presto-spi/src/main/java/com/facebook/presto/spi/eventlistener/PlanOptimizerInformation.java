@@ -31,18 +31,24 @@ public class PlanOptimizerInformation
     private final Optional<Boolean> optimizerApplicable;
     // True if optimizer encounter failures (for example timeout etc.), false if no failures, empty if information not available.
     private final Optional<Boolean> optimizerFailure;
+    private final Optional<Boolean> isCostBased;
+    private final Optional<String> statsSource;
 
     @JsonCreator
     public PlanOptimizerInformation(
             @JsonProperty("optimizerName") String optimizerName,
             @JsonProperty("optimizerTriggered") boolean optimizerTriggered,
             @JsonProperty("optimizerApplicable") Optional<Boolean> optimizerApplicable,
-            @JsonProperty("optimizerFailure") Optional<Boolean> optimizerFailure)
+            @JsonProperty("optimizerFailure") Optional<Boolean> optimizerFailure,
+            @JsonProperty("isCostBased") Optional<Boolean> isCostBased,
+            @JsonProperty("statsSource") Optional<String> statsSource)
     {
         this.optimizerName = requireNonNull(optimizerName, "optimizerName is null");
         this.optimizerTriggered = requireNonNull(optimizerTriggered, "optimizerTriggered is null");
         this.optimizerApplicable = requireNonNull(optimizerApplicable, "optimizerApplicable is null");
         this.optimizerFailure = requireNonNull(optimizerFailure, "optimizerFailure is null");
+        this.isCostBased = requireNonNull(isCostBased, "isCostBased is null");
+        this.statsSource = requireNonNull(statsSource, "statsSource is null");
     }
 
     @JsonProperty
@@ -67,5 +73,17 @@ public class PlanOptimizerInformation
     public Optional<Boolean> getOptimizerFailure()
     {
         return optimizerFailure;
+    }
+
+    @JsonProperty
+    public Optional<Boolean> getIsCostBased()
+    {
+        return isCostBased;
+    }
+
+    @JsonProperty
+    public Optional<String> getStatsSource()
+    {
+        return statsSource;
     }
 }

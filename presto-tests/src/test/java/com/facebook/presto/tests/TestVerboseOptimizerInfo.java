@@ -25,11 +25,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
+import static com.facebook.presto.SystemSessionProperties.PARTIAL_AGGREGATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_RESULTS;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -83,14 +85,14 @@ public class TestVerboseOptimizerInfo
         MaterializedResult materializedResult = computeActual(session, "explain " + query);
         String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
 
-        checkOptimizerInfo(explain, true, ImmutableList.of("PruneCrossJoinColumns"));
-        checkOptimizerInfo(explain, false, ImmutableList.of("AddNotNullFiltersToJoinNode"));
+        checkOptimizerInfo(explain, "Triggered", ImmutableList.of("PruneCrossJoinColumns"));
+        checkOptimizerInfo(explain, "Applicable", ImmutableList.of("AddNotNullFiltersToJoinNode"));
 
         String payloadJoinQuery = "SELECT l.* FROM (select *, map(ARRAY[1,3], ARRAY[2,4]) as m1 from lineitem) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)";
         materializedResult = computeActual(session, "explain " + payloadJoinQuery);
         String explainPayloadJoinQuery = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
 
-        checkOptimizerInfo(explainPayloadJoinQuery, false, ImmutableList.of("PayloadJoinOptimizer"));
+        checkOptimizerInfo(explainPayloadJoinQuery, "Applicable", ImmutableList.of("PayloadJoinOptimizer"));
 
         Session sessionWithPayload = Session.builder(session)
                 .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
@@ -98,7 +100,32 @@ public class TestVerboseOptimizerInfo
         materializedResult = computeActual(sessionWithPayload, "explain " + payloadJoinQuery);
         explainPayloadJoinQuery = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
 
-        checkOptimizerInfo(explainPayloadJoinQuery, true, ImmutableList.of("PayloadJoinOptimizer"));
+        checkOptimizerInfo(explainPayloadJoinQuery, "Triggered", ImmutableList.of("PayloadJoinOptimizer"));
+    }
+    @Test
+    public void testCostBasedOptimizers()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(VERBOSE_OPTIMIZER_INFO_ENABLED, "true")
+                .build();
+        String query = "select lineitem.linenumber,count(*) from orders join lineitem on (lineitem.orderkey=orders.orderkey) group by linenumber";
+        MaterializedResult materializedResult = computeActual(session, "explain " + query);
+        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+
+        checkOptimizerInfo(explain, "Triggered", ImmutableList.of("PushPartialAggregationThroughExchange", "ReorderJoins"));
+        // PushPartialAggregationThroughExchange is not a cost based optimizer with this session
+        checkOptimizerInfo(explain, "Cost-based", ImmutableList.of("ReorderJoins"), ImmutableList.of("PushPartialAggregationThroughExchange"));
+
+        Session sessionWithCostBasedPartialAgg = Session.builder(session)
+                .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
+                .build();
+
+        materializedResult = computeActual(sessionWithCostBasedPartialAgg, "explain " + query);
+        explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+
+        checkOptimizerInfo(explain, "Triggered", ImmutableList.of("PushPartialAggregationThroughExchange", "ReorderJoins"));
+        // PushPartialAggregationThroughExchange is now a cost based optimizer
+        checkOptimizerInfo(explain, "Cost-based", ImmutableList.of("PushPartialAggregationThroughExchange", "ReorderJoins"));
     }
 
     @Test
@@ -124,9 +151,14 @@ public class TestVerboseOptimizerInfo
         checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections"), ImmutableList.of("PruneUnreferencedOutputs"));
     }
 
-    private void checkOptimizerInfo(String explain, boolean checkTriggered, List<String> optimizers)
+    private void checkOptimizerInfo(String explain, String optimizerType, List<String> optimizers)
     {
-        String regex = checkTriggered ? "Triggered optimizers.*" : "Applicable optimizers.*";
+        checkOptimizerInfo(explain, optimizerType, optimizers, new ArrayList<>());
+    }
+
+    private void checkOptimizerInfo(String explain, String optimizerType, List<String> optimizers, List<String> missingOptimizers)
+    {
+        String regex = optimizerType + " optimizers.*";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(explain);
         assertTrue(matcher.find());
@@ -134,6 +166,10 @@ public class TestVerboseOptimizerInfo
         String optimizerInfo = matcher.group();
         for (String opt : optimizers) {
             assertTrue(optimizerInfo.contains(opt));
+        }
+
+        for (String opt : missingOptimizers) {
+            assertFalse(optimizerInfo.contains(opt));
         }
     }
 

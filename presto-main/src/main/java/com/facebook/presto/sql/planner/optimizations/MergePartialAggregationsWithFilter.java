@@ -238,7 +238,8 @@ public class MergePartialAggregationsWithFilter
             Map<VariableReferenceExpression, AggregationNode.Aggregation> newAggregations = node.getAggregations().entrySet().stream()
                     .filter(x -> !partialResultToMerge.contains(x.getKey())).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(MergePartialAggregationsWithFilter.class.getSimpleName(), true, Optional.empty(), Optional.empty()));
+            session.getOptimizerInformationCollector().addInformation(
+                    new PlanOptimizerInformation(MergePartialAggregationsWithFilter.class.getSimpleName(), true, Optional.empty(), Optional.empty(), Optional.of(false), Optional.empty()));
 
             return new AggregationNode(
                     node.getSourceLocation(),
