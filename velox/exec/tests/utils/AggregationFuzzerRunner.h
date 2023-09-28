@@ -67,89 +67,37 @@ namespace facebook::velox::exec::test {
 
 class AggregationFuzzerRunner {
  public:
-  // List of functions that have known bugs that cause crashes or failures.
-  static inline const std::unordered_set<std::string> skipFunctions_ = {
-      // https://github.com/facebookincubator/velox/issues/3493
-      "stddev_pop",
-      // https://github.com/facebookincubator/velox/issues/6344
-      "avg_merge",
-      "avg_merge_extract_double",
-      "avg_merge_extract_real",
-      // Lambda functions are not supported yet.
-      "reduce_agg",
-  };
-
-  // Functions whose results verification should be skipped. These can be
-  // order-dependent functions whose results depend on the order of input rows,
-  // or functions that return complex-typed results containing floating-point
-  // fields. For some functions, the result can be transformed to a value that
-  // can be verified. If such transformation exists, it can be specified to be
-  // used for results verification. If no transformation is specified, results
-  // are not verified.
-  static inline const std::unordered_map<std::string, std::string>
-      customVerificationFunctions_ = {
-          // Order-dependent functions.
-          {"approx_distinct", ""},
-          {"approx_distinct_partial", ""},
-          {"approx_distinct_merge", ""},
-          {"approx_set", ""},
-          {"approx_set_partial", ""},
-          {"approx_set_merge", ""},
-          {"approx_percentile_partial", ""},
-          {"approx_percentile_merge", ""},
-          {"arbitrary", ""},
-          {"array_agg", "array_sort({})"},
-          {"array_agg_partial", "array_sort({})"},
-          {"array_agg_merge", "array_sort({})"},
-          {"array_agg_merge_extract", "array_sort({})"},
-          {"set_agg", "array_sort({})"},
-          {"set_union", "array_sort({})"},
-          {"map_agg", "array_sort(map_keys({}))"},
-          {"map_union", "array_sort(map_keys({}))"},
-          {"map_union_sum", "array_sort(map_keys({}))"},
-          {"max_by", ""},
-          {"min_by", ""},
-          {"map_union_sum", "array_sort(map_keys({}))"},
-          {"multimap_agg", "transform_values({}, (k, v) -> array_sort(v))"},
-          // TODO: Skip result verification of companion functions that return
-          // complex types that contain floating-point fields for now, until we
-          // fix
-          // test utilities in QueryAssertions to tolerate floating-point
-          // imprecision in complex types.
-          // https://github.com/facebookincubator/velox/issues/4481
-          {"avg_partial", ""},
-          {"avg_merge", ""},
-          // Semantically inconsistent functions
-          {"skewness", ""},
-          {"kurtosis", ""},
-          {"entropy", ""},
-          // https://github.com/facebookincubator/velox/issues/6330
-          {"max_data_size_for_stats", ""},
-          {"sum_data_size_for_stats", ""},
-  };
-
-  static int run(
-      const std::string& planPath,
-      std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
-    return runFuzzer("", 0, {planPath}, std::move(referenceQueryRunner));
-  }
-
   static int run(
       const std::string& onlyFunctions,
       size_t seed,
-      std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
+      std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner,
+      const std::unordered_set<std::string>& skipFunctions,
+      const std::unordered_map<std::string, std::string>&
+          customVerificationFunctions) {
     return runFuzzer(
-        onlyFunctions, seed, std::nullopt, std::move(referenceQueryRunner));
+        onlyFunctions,
+        seed,
+        std::nullopt,
+        std::move(referenceQueryRunner),
+        skipFunctions,
+        customVerificationFunctions);
   }
 
+  static int runRepro(
+      const std::optional<std::string>& planPath,
+      std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
+    return runFuzzer("", 0, planPath, std::move(referenceQueryRunner), {}, {});
+  }
+
+ private:
   static int runFuzzer(
       const std::string& onlyFunctions,
       size_t seed,
       const std::optional<std::string>& planPath,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner,
-      const std::unordered_set<std::string>& skipFunctions = skipFunctions_,
+      const std::unordered_set<std::string>& skipFunctions,
       const std::unordered_map<std::string, std::string>&
-          customVerificationFunctions = customVerificationFunctions_) {
+          customVerificationFunctions) {
     auto signatures = facebook::velox::exec::getAggregateFunctionSignatures();
     if (signatures.empty()) {
       LOG(ERROR) << "No aggregate functions registered.";
@@ -179,7 +127,6 @@ class AggregationFuzzerRunner {
     return RUN_ALL_TESTS();
   }
 
- private:
   static std::unordered_set<std::string> splitNames(const std::string& names) {
     // Parse, lower case and trim it.
     std::vector<folly::StringPiece> nameList;

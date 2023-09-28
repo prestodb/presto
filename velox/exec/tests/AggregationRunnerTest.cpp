@@ -77,6 +77,6 @@ int main(int argc, char** argv) {
 
   auto duckQueryRunner =
       std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();
-  return exec::test::AggregationFuzzerRunner::run(
+  return exec::test::AggregationFuzzerRunner::runRepro(
       FLAGS_plan_nodes_path, std::move(duckQueryRunner));
 }

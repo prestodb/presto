@@ -52,6 +52,72 @@ int main(int argc, char** argv) {
 
   auto duckQueryRunner =
       std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();
+
+  // List of functions that have known bugs that cause crashes or failures.
+  static const std::unordered_set<std::string> skipFunctions = {
+      // https://github.com/facebookincubator/velox/issues/3493
+      "stddev_pop",
+      // https://github.com/facebookincubator/velox/issues/6344
+      "avg_merge",
+      "avg_merge_extract_double",
+      "avg_merge_extract_real",
+      // Lambda functions are not supported yet.
+      "reduce_agg",
+  };
+
+  // Functions whose results verification should be skipped. These can be
+  // order-dependent functions whose results depend on the order of input rows,
+  // or functions that return complex-typed results containing floating-point
+  // fields. For some functions, the result can be transformed to a value that
+  // can be verified. If such transformation exists, it can be specified to be
+  // used for results verification. If no transformation is specified, results
+  // are not verified.
+  static const std::unordered_map<std::string, std::string>
+      customVerificationFunctions = {
+          // Order-dependent functions.
+          {"approx_distinct", ""},
+          {"approx_distinct_partial", ""},
+          {"approx_distinct_merge", ""},
+          {"approx_set", ""},
+          {"approx_set_partial", ""},
+          {"approx_set_merge", ""},
+          {"approx_percentile_partial", ""},
+          {"approx_percentile_merge", ""},
+          {"arbitrary", ""},
+          {"array_agg", "array_sort({})"},
+          {"array_agg_partial", "array_sort({})"},
+          {"array_agg_merge", "array_sort({})"},
+          {"array_agg_merge_extract", "array_sort({})"},
+          {"set_agg", "array_sort({})"},
+          {"set_union", "array_sort({})"},
+          {"map_agg", "array_sort(map_keys({}))"},
+          {"map_union", "array_sort(map_keys({}))"},
+          {"map_union_sum", "array_sort(map_keys({}))"},
+          {"max_by", ""},
+          {"min_by", ""},
+          {"map_union_sum", "array_sort(map_keys({}))"},
+          {"multimap_agg", "transform_values({}, (k, v) -> array_sort(v))"},
+          // TODO: Skip result verification of companion functions that return
+          // complex types that contain floating-point fields for now, until we
+          // fix
+          // test utilities in QueryAssertions to tolerate floating-point
+          // imprecision in complex types.
+          // https://github.com/facebookincubator/velox/issues/4481
+          {"avg_partial", ""},
+          {"avg_merge", ""},
+          // Semantically inconsistent functions
+          {"skewness", ""},
+          {"kurtosis", ""},
+          {"entropy", ""},
+          // https://github.com/facebookincubator/velox/issues/6330
+          {"max_data_size_for_stats", ""},
+          {"sum_data_size_for_stats", ""},
+      };
+
   return facebook::velox::exec::test::AggregationFuzzerRunner::run(
-      FLAGS_only, initialSeed, std::move(duckQueryRunner));
+      FLAGS_only,
+      initialSeed,
+      std::move(duckQueryRunner),
+      skipFunctions,
+      customVerificationFunctions);
 }
