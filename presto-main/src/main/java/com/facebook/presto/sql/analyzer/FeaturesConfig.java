@@ -156,6 +156,8 @@ public class FeaturesConfig
     private boolean enableStatsCollectionForTemporaryTable;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean printStatsForNonJoinQuery;
+
+    private boolean printStatsWhenHBOEnabled = true;
     private boolean defaultFilterFactorEnabled;
     // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
     // which could result in syntactic join order. Set it to 0 to disable this feature
@@ -1378,6 +1380,18 @@ public class FeaturesConfig
     public FeaturesConfig setPrintStatsForNonJoinQuery(boolean printStatsForNonJoinQuery)
     {
         this.printStatsForNonJoinQuery = printStatsForNonJoinQuery;
+        return this;
+    }
+
+    public boolean isPrintStatsWhenHBOEnabled()
+    {
+        return printStatsWhenHBOEnabled;
+    }
+
+    @Config("print-stats-when-hbo-enabled")
+    public FeaturesConfig setPrintStatsWhenHBOEnabled(boolean printStatsWhenHBOEnabled)
+    {
+        this.printStatsWhenHBOEnabled = printStatsWhenHBOEnabled;
         return this;
     }
 

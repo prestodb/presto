@@ -180,6 +180,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE = "enable_stats_collection_for_temporary_table";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String PRINT_STATS_FOR_NON_JOIN_QUERY = "print_stats_for_non_join_query";
+    public static final String PRINT_STATS_WHEN_HBO_ENABLED = "print_stats_when_hbo_enabled";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
@@ -1002,6 +1003,11 @@ public final class SystemSessionProperties
                         PRINT_STATS_FOR_NON_JOIN_QUERY,
                         "Print stats and cost for non-join-query in plan",
                         featuresConfig.isPrintStatsForNonJoinQuery(),
+                        false),
+                booleanProperty(
+                        PRINT_STATS_WHEN_HBO_ENABLED,
+                        "Print stats and cost for non-join-query in plan",
+                        featuresConfig.isPrintStatsWhenHBOEnabled(),
                         false),
                 booleanProperty(
                         DEFAULT_FILTER_FACTOR_ENABLED,
@@ -2323,6 +2329,11 @@ public final class SystemSessionProperties
     public static boolean isPrintStatsForNonJoinQuery(Session session)
     {
         return session.getSystemProperty(PRINT_STATS_FOR_NON_JOIN_QUERY, Boolean.class);
+    }
+
+    public static boolean isPrintStatsWhenHBOEnabled(Session session)
+    {
+        return session.getSystemProperty(PRINT_STATS_WHEN_HBO_ENABLED, Boolean.class);
     }
 
     public static boolean isDefaultFilterFactorEnabled(Session session)

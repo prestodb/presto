@@ -48,8 +48,10 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getOptimizersToEnableVerboseRuntimeStats;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
+import static com.facebook.presto.SystemSessionProperties.isPrintStatsWhenHBOEnabled;
 import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerResults;
+import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_PLANNING_TIMEOUT;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
@@ -154,7 +156,7 @@ public class Optimizer
 
     private StatsAndCosts computeStats(PlanNode root, TypeProvider types)
     {
-        if (explain || isPrintStatsForNonJoinQuery(session) ||
+        if (explain || isPrintStatsForNonJoinQuery(session) || (isPrintStatsWhenHBOEnabled(session) && useHistoryBasedPlanStatisticsEnabled(session)) ||
                 PlanNodeSearcher.searchFrom(root).where(node ->
                         (node instanceof JoinNode) || (node instanceof SemiJoinNode)).matches()) {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
