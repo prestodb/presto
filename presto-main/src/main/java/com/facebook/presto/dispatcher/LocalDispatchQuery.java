@@ -316,6 +316,11 @@ public class LocalDispatchQuery
                 .orElse(new DataSize(0, BYTE));
     }
 
+    public int getRunningTaskCount()
+    {
+        return stateMachine.getCurrentRunningTaskCount();
+    }
+
     @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
