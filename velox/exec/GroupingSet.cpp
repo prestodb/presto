@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 #include "velox/exec/GroupingSet.h"
-#include "velox/exec/Aggregate.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Task.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 
@@ -243,6 +245,9 @@ void GroupingSet::addInputForActiveRows(
     createHashTable();
   }
   ensureInputFits(input);
+
+  TestValue::adjust(
+      "facebook::velox::exec::GroupingSet::addInputForActiveRows", this);
 
   // Prevents the memory arbitrator to reclaim memory from this grouping set
   // during the execution below.
@@ -757,22 +762,18 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   if (isPartial_ || spillConfig_ == nullptr) {
     return;
   }
-  auto numDistinct = table_->numDistinct();
-  if (!numDistinct) {
+  const auto numDistinct = table_->numDistinct();
+  if (numDistinct == 0) {
     // Table is empty. Nothing to spill.
     return;
   }
 
-  auto tableIncrement = table_->hashTableSizeIncrease(input->size());
-
-  auto rows = table_->rows();
-
+  auto* rows = table_->rows();
   auto [freeRows, outOfLineFreeBytes] = rows->freeSpace();
-  auto outOfLineBytes =
+  const auto outOfLineBytes =
       rows->stringAllocator().retainedSize() - outOfLineFreeBytes;
-  auto outOfLineBytesPerRow = outOfLineBytes / numDistinct;
-
-  int64_t flatBytes = input->estimateFlatSize();
+  const auto outOfLineBytesPerRow = outOfLineBytes / numDistinct;
+  const int64_t flatBytes = input->estimateFlatSize();
 
   // Test-only spill path.
   if (spillConfig_->testSpillPct > 0 &&
@@ -798,42 +799,51 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
     return;
   }
 
-  if (!tableIncrement && freeRows > input->size() &&
-      (outOfLineBytes == 0 || outOfLineFreeBytes >= flatBytes * 2)) {
-    // Enough free rows for input rows and enough variable length free
-    // space for double the flat size of the whole vector. If
-    // outOfLineBytes is 0 there is no need for variable length
-    // space. Double the flat size is a stopgap because the real
-    // increase can be higher, specially with aggregates that have stl
-    // or folly containers. Make a way to raise the reservation in the
-    // spill protected section instead.
-    return;
-  }
-  // If there is variable length data we take double the flat size of
-  // the input as a cap on the new variable length data needed. Same
-  // condition as in first check. Completely arbitrary. Allow growth
-  // in spill protected area instead.
-  auto increment =
+  const auto minReservationBytes =
+      currentUsage * spillConfig_->minSpillableReservationPct / 100;
+  const auto availableReservationBytes = pool_.availableReservation();
+  const auto tableIncrementBytes = table_->hashTableSizeIncrease(input->size());
+  const auto incrementBytes =
       rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes * 2 : 0) +
-      tableIncrement;
-  // There must be at least 2x the increment in reservation.
-  if (pool_.availableReservation() > 2 * increment) {
-    return;
+      tableIncrementBytes;
+
+  // First to check if we have sufficient minimal memory reservation.
+  if (availableReservationBytes >= minReservationBytes) {
+    if ((tableIncrementBytes == 0) && (freeRows > input->size()) &&
+        (outOfLineBytes == 0 || outOfLineFreeBytes >= flatBytes * 2)) {
+      // Enough free rows for input rows and enough variable length free space
+      // for double the flat size of the whole vector. If outOfLineBytes is 0
+      // there is no need for variable length space. Double the flat size is a
+      // stopgap because the real increase can be higher, specially with
+      // aggregates that have stl or folly containers. Make a way to raise the
+      // reservation in the spill protected section instead.
+      return;
+    }
+
+    // If there is variable length data we take double the flat size of the
+    // input as a cap on the new variable length data needed. Same condition as
+    // in first check. Completely arbitrary. Allow growth in spill protected
+    // area instead.
+    // There must be at least 2x the increment in reservation.
+    if (availableReservationBytes > 2 * incrementBytes) {
+      return;
+    }
   }
-  // Check if can increase reservation. The increment is the larger of
-  // twice the maximum increment from this input and
-  // 'spillableReservationGrowthPct_' of the current reservation.
-  auto targetIncrement = std::max<int64_t>(
-      increment * 2,
+
+  // Check if we can increase reservation. The increment is the larger of twice
+  // the maximum increment from this input and 'spillableReservationGrowthPct_'
+  // of the current memory usage.
+  const auto targetIncrementBytes = std::max<int64_t>(
+      incrementBytes * 2,
       currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
-  if (pool_.maybeReserve(targetIncrement)) {
+  if (pool_.maybeReserve(targetIncrementBytes)) {
     return;
   }
 
   // NOTE: disk spilling use the system disk spilling memory pool instead of
   // the operator memory pool.
-  auto rowsToSpill = std::max<int64_t>(
-      1, targetIncrement / (rows->fixedRowSize() + outOfLineBytesPerRow));
+  const auto rowsToSpill = std::max<int64_t>(
+      1, targetIncrementBytes / (rows->fixedRowSize() + outOfLineBytesPerRow));
   spill(
       std::max<int64_t>(0, numDistinct - rowsToSpill),
       std::max<int64_t>(

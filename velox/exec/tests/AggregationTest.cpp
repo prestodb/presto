@@ -23,6 +23,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/GroupingSet.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/RowContainer.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -1748,6 +1749,62 @@ TEST_F(AggregationTest, outputBatchSizeCheckWithoutSpill) {
     ASSERT_EQ(
         toPlanStats(task->taskStats()).at(aggrNodeId).outputVectors,
         testData.expectedNumOutputVectors);
+  }
+}
+
+DEBUG_ONLY_TEST_F(AggregationTest, minSpillableMemoryReservation) {
+  rowType_ = ROW(
+      {"c0", "c1", "c2", "c3"}, {INTEGER(), INTEGER(), VARCHAR(), VARCHAR()});
+  VectorFuzzer::Options options;
+  options.vectorSize = 100;
+  options.stringVariableLength = false;
+  options.stringLength = 1024;
+  VectorFuzzer fuzzer(options, pool());
+  const int32_t numBatches = 50;
+  std::vector<RowVectorPtr> batches;
+  for (int32_t i = 0; i < numBatches; ++i) {
+    batches.push_back(fuzzer.fuzzRow(rowType_));
+  }
+  createDuckDbTable(batches);
+
+  for (int32_t minSpillableReservationPct : {5, 50, 100}) {
+    SCOPED_TRACE(fmt::format(
+        "minSpillableReservationPct: {}", minSpillableReservationPct));
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::GroupingSet::addInputForActiveRows",
+        std::function<void(exec::GroupingSet*)>(
+            ([&](exec::GroupingSet* groupingSet) {
+              memory::MemoryPool& pool = groupingSet->testingPool();
+              const auto availableReservationBytes =
+                  pool.availableReservation();
+              const auto currentUsedBytes = pool.currentBytes();
+              // Verifies we always have min reservation after ensuring the
+              // input.
+              ASSERT_GE(
+                  availableReservationBytes,
+                  currentUsedBytes * minSpillableReservationPct / 100);
+            })));
+
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .spillDirectory(spillDirectory->path)
+            .config(QueryConfig::kSpillEnabled, "true")
+            .config(QueryConfig::kAggregationSpillEnabled, "true")
+            .config(
+                QueryConfig::kMinSpillableReservationPct,
+                std::to_string(minSpillableReservationPct))
+            .config(
+                QueryConfig::kSpillableReservationGrowthPct,
+                std::to_string(minSpillableReservationPct + 1))
+            .plan(PlanBuilder()
+                      .values(batches)
+                      .singleAggregation({"c0"}, {"array_agg(c2)", "max(c3)"})
+                      .planNode())
+            .assertResults(
+                "SELECT c0, array_agg(c2), max(c3) FROM tmp GROUP BY 1");
+    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   }
 }
 

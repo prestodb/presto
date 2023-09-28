@@ -16,7 +16,7 @@
 
 #include "velox/common/config/SpillConfig.h"
 #include <gtest/gtest.h>
-#include "velox/common/testutil/TestValue.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/HashBitRange.h"
 
 using namespace facebook::velox::common;
@@ -31,6 +31,7 @@ TEST(SpillConfig, spillLevel) {
       0,
       0,
       nullptr,
+      0,
       0,
       kInitialBitOffset,
       kNumPartitionsBits,
@@ -116,6 +117,7 @@ TEST(SpillConfig, spillLevelLimit) {
         0,
         nullptr,
         0,
+        0,
         testData.startBitOffset,
         testData.numBits,
         0,
@@ -127,5 +129,56 @@ TEST(SpillConfig, spillLevelLimit) {
     ASSERT_EQ(
         testData.expectedExceeds,
         config.exceedJoinSpillLevelLimit(testData.bitOffset));
+  }
+}
+
+TEST(SpillConfig, spillableReservationPercentages) {
+  struct {
+    uint32_t growthPct;
+    int32_t minPct;
+    bool expectedError;
+
+    std::string debugString() const {
+      return fmt::format(
+          "growthPct:{}, minPct:{}, expectedError:{}",
+          growthPct,
+          minPct,
+          expectedError);
+    }
+  } testSettings[] = {
+      {100, 50, false},
+      {50, 50, false},
+      {50, 100, true},
+      {1, 50, true},
+      {1, 1, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    auto createConfigFn = [&]() {
+      const SpillConfig config(
+          "spillableReservationPercentages",
+          0,
+          0,
+          0,
+          nullptr,
+          testData.minPct,
+          testData.growthPct,
+          0,
+          0,
+          0,
+          false,
+          0,
+          0,
+          "none");
+    };
+
+    if (testData.expectedError) {
+      VELOX_ASSERT_THROW(
+          createConfigFn(),
+          "Spillable memory reservation growth pct should not be lower than minimum available pct");
+    } else {
+      createConfigFn();
+    }
   }
 }

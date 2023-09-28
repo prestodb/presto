@@ -17,6 +17,43 @@
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::common {
+SpillConfig::SpillConfig(
+    const std::string& _filePath,
+    uint64_t _maxFileSize,
+    uint64_t _writeBufferSize,
+    uint64_t _minSpillRunSize,
+    folly::Executor* _executor,
+    int32_t _minSpillableReservationPct,
+    int32_t _spillableReservationGrowthPct,
+    uint8_t _startPartitionBit,
+    uint8_t _joinPartitionBits,
+    uint8_t _aggregationPartitionBits,
+    bool _aggregationSpillAll,
+    int32_t _maxSpillLevel,
+    int32_t _testSpillPct,
+    const std::string& _compressionKind)
+    : filePath(_filePath),
+      maxFileSize(
+          _maxFileSize == 0 ? std::numeric_limits<int64_t>::max()
+                            : _maxFileSize),
+      writeBufferSize(_writeBufferSize),
+      minSpillRunSize(_minSpillRunSize),
+      executor(_executor),
+      minSpillableReservationPct(_minSpillableReservationPct),
+      spillableReservationGrowthPct(_spillableReservationGrowthPct),
+      startPartitionBit(_startPartitionBit),
+      joinPartitionBits(_joinPartitionBits),
+      aggregationPartitionBits(_aggregationPartitionBits),
+      aggregationSpillAll(_aggregationSpillAll),
+      maxSpillLevel(_maxSpillLevel),
+      testSpillPct(_testSpillPct),
+      compressionKind(common::stringToCompressionKind(_compressionKind)) {
+  VELOX_USER_CHECK_GE(
+      spillableReservationGrowthPct,
+      minSpillableReservationPct,
+      "Spillable memory reservation growth pct should not be lower than minimum available pct");
+}
+
 int32_t SpillConfig::joinSpillLevel(uint8_t startBitOffset) const {
   const auto numPartitionBits = joinPartitionBits;
   VELOX_CHECK_LE(

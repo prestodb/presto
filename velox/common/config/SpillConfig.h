@@ -29,6 +29,7 @@ struct SpillConfig {
       uint64_t _writeBufferSize,
       uint64_t _minSpillRunSize,
       folly::Executor* _executor,
+      int32_t _minSpillableReservationPct,
       int32_t _spillableReservationGrowthPct,
       uint8_t _startPartitionBit,
       uint8_t _joinPartitionBits,
@@ -36,22 +37,7 @@ struct SpillConfig {
       bool _aggregationSpillAll,
       int32_t _maxSpillLevel,
       int32_t _testSpillPct,
-      const std::string& _compressionKind)
-      : filePath(_filePath),
-        maxFileSize(
-            _maxFileSize == 0 ? std::numeric_limits<int64_t>::max()
-                              : _maxFileSize),
-        writeBufferSize(_writeBufferSize),
-        minSpillRunSize(_minSpillRunSize),
-        executor(_executor),
-        spillableReservationGrowthPct(_spillableReservationGrowthPct),
-        startPartitionBit(_startPartitionBit),
-        joinPartitionBits(_joinPartitionBits),
-        aggregationPartitionBits(_aggregationPartitionBits),
-        aggregationSpillAll(_aggregationSpillAll),
-        maxSpillLevel(_maxSpillLevel),
-        testSpillPct(_testSpillPct),
-        compressionKind(common::stringToCompressionKind(_compressionKind)) {}
+      const std::string& _compressionKind);
 
   /// Returns the hash join spilling level with given 'startBitOffset'.
   ///
@@ -86,8 +72,12 @@ struct SpillConfig {
   /// Executor for spilling. If nullptr spilling writes on the Driver's thread.
   folly::Executor* executor; // Not owned.
 
-  /// The spillable memory reservation growth percentage of the current
-  /// reservation size.
+  /// The minimal spillable memory reservation in percentage of the current
+  /// memory usage.
+  int32_t minSpillableReservationPct;
+
+  /// The spillable memory reservation growth in percentage of the current
+  /// memory usage.
   int32_t spillableReservationGrowthPct;
 
   /// Used to calculate spill partition number.

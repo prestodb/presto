@@ -225,6 +225,9 @@ class QueryConfig {
   /// output processing stage.
   static constexpr const char* kAggregationSpillAll = "aggregation_spill_all";
 
+  static constexpr const char* kMinSpillableReservationPct =
+      "min_spillable_reservation_pct";
+
   static constexpr const char* kSpillableReservationGrowthPct =
       "spillable_reservation_growth_pct";
 
@@ -474,13 +477,25 @@ class QueryConfig {
     return get<uint64_t>(kSpillWriteBufferSize, 1L << 20);
   }
 
+  /// Returns the minimal available spillable memory reservation in percentage
+  /// of the current memory usage. Suppose the current memory usage size of M,
+  /// available memory reservation size of N and min reservation percentage of
+  /// P, if M * P / 100 > N, then spiller operator needs to grow the memory
+  /// reservation with percentage of spillableReservationGrowthPct(). This
+  /// ensures we have sufficient amount of memory reservation to process the
+  /// large input outlier.
+  int32_t minSpillableReservationPct() const {
+    constexpr int32_t kDefaultPct = 5;
+    return get<int32_t>(kMinSpillableReservationPct, kDefaultPct);
+  }
+
   /// Returns the spillable memory reservation growth percentage of the previous
-  /// memory reservation size. 25 means exponential growth along a series of
-  /// integer powers of 5/4. The reservation grows by this much until it no
+  /// memory reservation size. 10 means exponential growth along a series of
+  /// integer powers of 11/10. The reservation grows by this much until it no
   /// longer can, after which it starts spilling.
   int32_t spillableReservationGrowthPct() const {
-    constexpr int32_t kDefaultPct = 25;
-    return get<double>(kSpillableReservationGrowthPct, kDefaultPct);
+    constexpr int32_t kDefaultPct = 10;
+    return get<int32_t>(kSpillableReservationGrowthPct, kDefaultPct);
   }
 
   bool sparkLegacySizeOfNull() const {

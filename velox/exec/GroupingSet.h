@@ -132,6 +132,10 @@ class GroupingSet {
   /// Returns an estimate of the average row size.
   std::optional<int64_t> estimateRowSize() const;
 
+  memory::MemoryPool& testingPool() const {
+    return pool_;
+  }
+
  private:
   void addInputForActiveRows(const RowVectorPtr& input, bool mayPushdown);
 
