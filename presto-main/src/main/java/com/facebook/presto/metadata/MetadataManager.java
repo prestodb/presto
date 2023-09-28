@@ -20,6 +20,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
@@ -324,6 +325,12 @@ public class MetadataManager
             }
         }
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<Block> tableVersionBlock)
+    {
+        return getOptionalTableHandle(session, transactionManager, tableName, tableVersionBlock);
     }
 
     @Override
@@ -1010,7 +1017,7 @@ public class MetadataManager
 
     private MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
-        Optional<TableHandle> materializedViewHandle = getOptionalTableHandle(session, transactionManager, materializedViewName);
+        Optional<TableHandle> materializedViewHandle = getOptionalTableHandle(session, transactionManager, materializedViewName, Optional.empty());
 
         ConnectorId connectorId = materializedViewHandle.get().getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
@@ -1322,13 +1329,13 @@ public class MetadataManager
             @Override
             public boolean tableExists(QualifiedObjectName tableName)
             {
-                return getOptionalTableHandle(session, transactionManager, tableName).isPresent();
+                return getOptionalTableHandle(session, transactionManager, tableName, Optional.empty()).isPresent();
             }
 
             @Override
             public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
             {
-                return getOptionalTableHandle(session, transactionManager, tableName);
+                return getOptionalTableHandle(session, transactionManager, tableName, Optional.empty());
             }
 
             @Override

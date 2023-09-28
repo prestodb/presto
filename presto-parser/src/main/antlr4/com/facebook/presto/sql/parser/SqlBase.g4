@@ -324,7 +324,7 @@ columnAliases
     ;
 
 relationPrimary
-    : qualifiedName                                                   #tableName
+    : qualifiedName tableVersionExpression?                             #tableName
     | '(' query ')'                                                   #subqueryRelation
     | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
     | LATERAL '(' query ')'                                           #lateral
@@ -531,6 +531,10 @@ qualifiedName
     : identifier ('.' identifier)*
     ;
 
+tableVersionExpression
+    : FOR tableVersionType=(SYSTEM_TIME | SYSTEM_VERSION | TIMESTAMP | VERSION) AS OF valueExpression          #tableVersion
+    ;
+
 grantor
     : CURRENT_USER          #currentUserGrantor
     | CURRENT_ROLE          #currentRoleGrantor
@@ -576,14 +580,14 @@ nonReserved
     | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
     | MAP | MATERIALIZED | MINUTE | MONTH
     | NAME | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
-    | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
+    | OF | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
     | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES
     | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
-    | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
+    | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION
     | TABLES | TABLESAMPLE | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | USE | USER
-    | VALIDATE | VERBOSE | VIEW
+    | VALIDATE | VERBOSE | VERSION | VIEW
     | WORK | WRITE
     | YEAR
     | ZONE
@@ -709,6 +713,7 @@ NOT: 'NOT';
 NULL: 'NULL';
 NULLIF: 'NULLIF';
 NULLS: 'NULLS';
+OF: 'OF';
 OFFSET: 'OFFSET';
 ON: 'ON';
 ONLY: 'ONLY';
@@ -762,6 +767,8 @@ START: 'START';
 STATS: 'STATS';
 SUBSTRING: 'SUBSTRING';
 SYSTEM: 'SYSTEM';
+SYSTEM_TIME: 'SYSTEM_TIME';
+SYSTEM_VERSION: 'SYSTEM_VERSION';
 TABLE: 'TABLE';
 TABLES: 'TABLES';
 TABLESAMPLE: 'TABLESAMPLE';
@@ -787,6 +794,7 @@ USING: 'USING';
 VALIDATE: 'VALIDATE';
 VALUES: 'VALUES';
 VERBOSE: 'VERBOSE';
+VERSION: 'VERSION';
 VIEW: 'VIEW';
 WHEN: 'WHEN';
 WHERE: 'WHERE';
