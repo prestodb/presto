@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
 #include "velox/expression/VectorFunction.h"
 
 namespace facebook::velox::functions::sparksql {
@@ -58,5 +60,102 @@ struct Equal {
     return a == b;
   }
 };
+
+template <typename T>
+struct LessOrEqual {
+  constexpr bool operator()(const T& a, const T& b) const {
+    Less<T> less;
+    Equal<T> equal;
+    return less(a, b) || equal(a, b);
+  }
+};
+
+template <typename T>
+struct GreaterOrEqual : private Less<T> {
+  constexpr bool operator()(const T& a, const T& b) const {
+    Less<T> less;
+    Equal<T> equal;
+    return less(b, a) || equal(a, b);
+  }
+};
+
+/// Supported Types:
+/// TINYINT
+/// SMALLINT
+/// INTEGER
+/// BIGINT
+/// HUGEINT
+/// REAL
+/// DOUBLE
+/// BOOLEAN
+/// VARCHAR
+/// TIMESTAMP
+/// VARBINARY
+
+/// Special cases:
+/// NaN in Spark is handled differently from standard floating point semantics.
+/// It is considered larger than any other numeric values.
+
+std::shared_ptr<exec::VectorFunction> makeEqualTo(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig&);
+
+std::shared_ptr<exec::VectorFunction> makeLessThan(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig&);
+
+std::shared_ptr<exec::VectorFunction> makeGreaterThan(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig&);
+
+std::shared_ptr<exec::VectorFunction> makeLessThanOrEqual(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig&);
+
+std::shared_ptr<exec::VectorFunction> makeGreaterThanOrEqual(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig&);
+
+inline std::vector<std::shared_ptr<exec::FunctionSignature>>
+comparisonSignatures() {
+  return {exec::FunctionSignatureBuilder()
+              .typeVariable("T")
+              .returnType("boolean")
+              .argumentType("T")
+              .argumentType("T")
+              .build()};
+}
+
+template <typename T>
+struct BetweenFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(
+      bool& result,
+      const TInput& value,
+      const TInput& low,
+      const TInput& high) {
+    result = value >= low && value <= high;
+  }
+};
+
+inline std::vector<std::shared_ptr<exec::FunctionSignature>>
+equalNullSafeSignatures() {
+  return {exec::FunctionSignatureBuilder()
+              .typeVariable("T")
+              .returnType("boolean")
+              .argumentType("T")
+              .argumentType("T")
+              .build()};
+}
+
+std::shared_ptr<exec::VectorFunction> makeEqualToNullSafe(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 } // namespace facebook::velox::functions::sparksql
