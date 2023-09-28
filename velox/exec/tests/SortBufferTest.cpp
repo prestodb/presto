@@ -283,6 +283,7 @@ TEST_F(SortBufferTest, batchOutput) {
         0,
         0,
         0,
+        false,
         0,
         100, //  testSpillPct
         "none");
@@ -376,6 +377,7 @@ TEST_F(SortBufferTest, spill) {
         0,
         0,
         0,
+        false,
         0,
         0,
         "none");

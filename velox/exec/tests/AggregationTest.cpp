@@ -1340,7 +1340,56 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
 
-/// Verify number of memory allocations in the HashAggregation operator.
+TEST_F(AggregationTest, spillAll) {
+  VectorFuzzer::Options options;
+  options.vectorSize = 100;
+  VectorFuzzer fuzzer(options, pool());
+  const int numVectors = 10;
+  std::vector<RowVectorPtr> inputs;
+  for (int i = 0; i < numVectors; ++i) {
+    inputs.push_back(fuzzer.fuzzRow(rowType_));
+  }
+
+  const auto numDistincts =
+      AssertQueryBuilder(PlanBuilder()
+                             .values(inputs)
+                             .singleAggregation({"c0"}, {}, {})
+                             .planNode())
+          .copyResults(pool_.get())
+          ->size();
+
+  auto plan = PlanBuilder()
+                  .values(inputs)
+                  .singleAggregation({"c0"}, {"array_agg(c1)"})
+                  .planNode();
+
+  auto results = AssertQueryBuilder(plan).copyResults(pool_.get());
+
+  auto tempDirectory = exec::test::TempDirectoryPath::create();
+  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  auto task = AssertQueryBuilder(plan)
+                  .spillDirectory(tempDirectory->path)
+                  .config(QueryConfig::kSpillEnabled, "true")
+                  .config(QueryConfig::kAggregationSpillEnabled, "true")
+                  // Set one spill partition to avoid the test flakiness.
+                  .config(QueryConfig::kAggregationSpillPartitionBits, "0")
+                  // Set the memory trigger limit to be a very small value.
+                  .config(QueryConfig::kAggregationSpillMemoryThreshold, "1024")
+                  .config(QueryConfig::kAggregationSpillAll, "true")
+                  .assertResults(results);
+
+  auto stats = task->taskStats().pipelineStats;
+  ASSERT_LT(0, stats[0].operatorStats[1].runtimeStats["spillRuns"].count);
+  // Check spilled bytes.
+  ASSERT_LT(0, stats[0].operatorStats[1].spilledInputBytes);
+  ASSERT_LT(0, stats[0].operatorStats[1].spilledBytes);
+  ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 1);
+  // Verifies all the rows have been spilled.
+  ASSERT_EQ(stats[0].operatorStats[1].spilledRows, numDistincts);
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+}
+
+// Verify number of memory allocations in the HashAggregation operator.
 TEST_F(AggregationTest, memoryAllocations) {
   vector_size_t size = 1'024;
   std::vector<RowVectorPtr> data;

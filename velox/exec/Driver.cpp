@@ -121,6 +121,7 @@ std::optional<common::SpillConfig> DriverCtx::makeSpillConfig(
       queryConfig.spillStartPartitionBit(),
       queryConfig.joinSpillPartitionBits(),
       queryConfig.aggregationSpillPartitionBits(),
+      queryConfig.aggregationSpillAll(),
       queryConfig.maxSpillLevel(),
       queryConfig.testingSpillPct(),
       queryConfig.spillCompressionKind());

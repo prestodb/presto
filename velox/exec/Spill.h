@@ -145,7 +145,7 @@ class SpillFile {
 struct SpillStats {
   /// The number of times that spilling runs on an operator.
   uint64_t spillRuns{0};
-  // The number of bytes in memory to spill
+  /// The number of bytes in memory to spill
   uint64_t spilledInputBytes{0};
   /// The number of bytes spilled to disks.
   ///

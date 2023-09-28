@@ -188,6 +188,12 @@ Spilling
      - integer
      - 0
      - Maximum amount of memory in bytes that a final aggregation can use before spilling. 0 means unlimited.
+   * - aggregation_spill_all
+     - boolean
+     - false
+     - If true and spilling has been triggered during the input processing, the spiller will spill all the remaining
+     - in-memory state to disk before output processing. This is to simplify the aggregation query OOM prevention in
+     - output processing stage.
    * - join_spill_memory_threshold
      - integer
      - 0

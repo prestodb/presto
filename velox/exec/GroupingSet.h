@@ -105,6 +105,9 @@ class GroupingSet {
     return spiller_->stats();
   }
 
+  /// Returns true if spilling has triggered on this grouping set.
+  bool hasSpilled() const;
+
   /// Returns the hashtable stats.
   HashTableStats hashTableStats() const {
     return table_ ? table_->stats() : HashTableStats{};

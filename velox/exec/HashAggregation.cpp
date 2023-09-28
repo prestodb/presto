@@ -309,10 +309,12 @@ void HashAggregation::updateRuntimeStats() {
 }
 
 void HashAggregation::recordSpillStats() {
-  const auto spillStatsOr = groupingSet_->spilledStats();
+  auto spillStatsOr = groupingSet_->spilledStats();
   if (!spillStatsOr.has_value()) {
     return;
   }
+  VELOX_CHECK_EQ(spillStatsOr.value().spillRuns, 0);
+  spillStatsOr.value().spillRuns = numSpillRuns_;
   Operator::recordSpillStats(spillStatsOr.value());
 }
 

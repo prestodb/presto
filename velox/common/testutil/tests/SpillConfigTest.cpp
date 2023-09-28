@@ -35,6 +35,7 @@ TEST(SpillConfig, spillLevel) {
       kInitialBitOffset,
       kNumPartitionsBits,
       0,
+      false,
       0,
       0,
       "none");
@@ -118,6 +119,7 @@ TEST(SpillConfig, spillLevelLimit) {
         testData.startBitOffset,
         testData.numBits,
         0,
+        false,
         testData.maxSpillLevel,
         0,
         "none");

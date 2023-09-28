@@ -219,6 +219,12 @@ class QueryConfig {
   static constexpr const char* kAggregationSpillPartitionBits =
       "aggregation_spiller_partition_bits";
 
+  /// If true and spilling has been triggered during the input processing, the
+  /// spiller will spill all the remaining in-memory state to disk before output
+  /// processing. This is to simplify the aggregation query OOM prevention in
+  /// output processing stage.
+  static constexpr const char* kAggregationSpillAll = "aggregation_spill_all";
+
   static constexpr const char* kSpillableReservationGrowthPct =
       "spillable_reservation_growth_pct";
 
@@ -443,6 +449,10 @@ class QueryConfig {
     constexpr uint8_t kMaxBits = 3;
     return std::min(
         kMaxBits, get<uint8_t>(kAggregationSpillPartitionBits, kDefaultBits));
+  }
+
+  bool aggregationSpillAll() const {
+    return get<bool>(kAggregationSpillAll, false);
   }
 
   uint64_t maxSpillFileSize() const {

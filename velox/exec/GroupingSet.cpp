@@ -213,9 +213,22 @@ void GroupingSet::noMoreInput() {
     addRemainingInput();
   }
 
+  // Spill the remaining in-memory state to disk if spilling has been triggered
+  // on this grouping set. This is to simplify query OOM prevention when
+  // producing output as we don't support to spill during that stage as for now.
+  // We will remove this limitation after we support spilling during the middle
+  // of output processing later.
+  if (hasSpilled() && spillConfig_->aggregationSpillAll) {
+    spill(0, 0);
+  }
+
   if (sortedAggregations_) {
     sortedAggregations_->noMoreInput();
   }
+}
+
+bool GroupingSet::hasSpilled() const {
+  return spiller_ != nullptr;
 }
 
 bool GroupingSet::hasOutput() {
@@ -638,7 +651,7 @@ bool GroupingSet::getOutput(
   if (isGlobal_) {
     return getGlobalAggregationOutput(batchSize, isPartial_, iterator, result);
   }
-  if (spiller_) {
+  if (hasSpilled()) {
     return getOutputWithSpill(batchSize, result);
   }
 
@@ -830,7 +843,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
   if (table_ == nullptr) {
     return;
   }
-  if (spiller_ == nullptr) {
+  if (!hasSpilled()) {
     auto rows = table_->rows();
     auto types = rows->keyTypes();
     for (const auto& aggregate : aggregates_) {
