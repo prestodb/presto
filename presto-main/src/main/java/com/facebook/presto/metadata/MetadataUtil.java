@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -167,7 +168,7 @@ public final class MetadataUtil
         return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
     }
 
-    public static Optional<TableHandle> getOptionalTableHandle(Session session, TransactionManager transactionManager, QualifiedObjectName table)
+    public static Optional<TableHandle> getOptionalTableHandle(Session session, TransactionManager transactionManager, QualifiedObjectName table, Optional<Block> tableVersionBlock)
     {
         requireNonNull(table, "table is null");
 
@@ -177,7 +178,10 @@ public final class MetadataUtil
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
-            ConnectorTableHandle tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table));
+            ConnectorTableHandle tableHandle;
+            tableHandle = tableVersionBlock
+                    .map(expression -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table), Optional.of(expression)))
+                    .orElseGet(() -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table)));
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
                         connectorId,

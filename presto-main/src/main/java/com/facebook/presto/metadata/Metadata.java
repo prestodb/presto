@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -72,6 +73,11 @@ public interface Metadata
     List<String> listSchemaNames(Session session, String catalogName);
 
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
+
+    /**
+     * Returns a table handle for time travel expression
+     */
+    Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<Block> tableVersionBlock);
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
 

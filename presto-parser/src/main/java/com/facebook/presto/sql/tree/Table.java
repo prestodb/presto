@@ -25,21 +25,28 @@ public class Table
         extends QueryBody
 {
     private final QualifiedName name;
+    private final Optional<TableVersionExpression> tableVersionExpression;
 
     public Table(QualifiedName name)
     {
-        this(Optional.empty(), name);
+        this(Optional.empty(), name, Optional.empty());
     }
 
     public Table(NodeLocation location, QualifiedName name)
     {
-        this(Optional.of(location), name);
+        this(Optional.of(location), name, Optional.empty());
     }
 
-    private Table(Optional<NodeLocation> location, QualifiedName name)
+    public Table(NodeLocation location, QualifiedName name, TableVersionExpression tableVersionExpression)
+    {
+        this(Optional.of(location), name, Optional.of(tableVersionExpression));
+    }
+
+    private Table(Optional<NodeLocation> location, QualifiedName name, Optional<TableVersionExpression> tableVersionExpression)
     {
         super(location);
         this.name = name;
+        this.tableVersionExpression = tableVersionExpression;
     }
 
     public QualifiedName getName()
@@ -56,6 +63,9 @@ public class Table
     @Override
     public List<Node> getChildren()
     {
+        if (tableVersionExpression.isPresent()) {
+            return ImmutableList.of(tableVersionExpression.get());
+        }
         return ImmutableList.of();
     }
 
@@ -64,6 +74,7 @@ public class Table
     {
         return toStringHelper(this)
                 .addValue(name)
+                .addValue(tableVersionExpression)
                 .toString();
     }
 
@@ -78,12 +89,17 @@ public class Table
         }
 
         Table table = (Table) o;
-        return Objects.equals(name, table.name);
+        return Objects.equals(name, table.name) && Objects.equals(tableVersionExpression, table.getTableVersionExpression());
     }
 
     @Override
     public int hashCode()
     {
         return name.hashCode();
+    }
+
+    public Optional<TableVersionExpression> getTableVersionExpression()
+    {
+        return tableVersionExpression;
     }
 }
