@@ -145,11 +145,7 @@ class QueryCtx {
 class ExecCtx {
  public:
   ExecCtx(memory::MemoryPool* pool, QueryCtx* queryCtx)
-      : pool_(pool),
-        queryCtx_(queryCtx),
-        vectorPool_{
-            pool,
-            queryCtx ? queryCtx->queryConfig().vectorPoolEnabled() : true} {}
+      : pool_(pool), queryCtx_(queryCtx), vectorPool_{pool} {}
 
   velox::memory::MemoryPool* pool() const {
     return pool_;

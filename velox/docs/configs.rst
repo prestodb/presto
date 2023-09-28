@@ -81,10 +81,6 @@ Generic Configuration
      - integer
      - 1000
      - The minimum number of table rows that can trigger the parallel hash join table build.
-   * - vector_pool_enabled
-     - bool
-     - true
-     - Whether to allow VectorPool to cache vectors for possible reuse during a query execution.
 
 .. _expression-evaluation-conf:
 

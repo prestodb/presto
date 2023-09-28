@@ -260,9 +260,6 @@ class QueryConfig {
   static constexpr const char* kMinTableRowsForParallelJoinBuild =
       "min_table_rows_for_parallel_join_build";
 
-  /// If true, allow VectorPool to cache vectors for possible reuse.
-  static constexpr const char* kVectorPoolEnabled = "vector_pool_enabled";
-
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
@@ -531,10 +528,6 @@ class QueryConfig {
 
   uint32_t minTableRowsForParallelJoinBuild() const {
     return get<uint32_t>(kMinTableRowsForParallelJoinBuild, 1'000);
-  }
-
-  bool vectorPoolEnabled() const {
-    return get<bool>(kVectorPoolEnabled, true);
   }
 
   template <typename T>
