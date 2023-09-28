@@ -182,26 +182,32 @@ struct SIMDJsonExtractScalarFunction {
         // We should just get a single value, if we see multiple, it's an error
         // and we should return null.
         resultStr = std::nullopt;
-        return;
+        return true;
       }
 
       resultPopulated = true;
 
-      switch (v.type()) {
-        case simdjson::ondemand::json_type::boolean:
-          resultStr = v.get_bool().value() ? "true" : "false";
+      SIMDJSON_ASSIGN_OR_RAISE(auto vtype, v.type());
+      switch (vtype) {
+        case simdjson::ondemand::json_type::boolean: {
+          SIMDJSON_ASSIGN_OR_RAISE(bool vbool, v.get_bool());
+          resultStr = vbool ? "true" : "false";
           break;
-        case simdjson::ondemand::json_type::string:
-          resultStr = v.get_string().value();
+        }
+        case simdjson::ondemand::json_type::string: {
+          SIMDJSON_ASSIGN_OR_RAISE(resultStr, v.get_string());
           break;
+        }
         case simdjson::ondemand::json_type::object:
         case simdjson::ondemand::json_type::array:
         case simdjson::ondemand::json_type::null:
           // Do nothing.
           break;
-        default:
-          resultStr = simdjson::to_json_string(v).value();
+        default: {
+          SIMDJSON_ASSIGN_OR_RAISE(resultStr, simdjson::to_json_string(v));
+        }
       }
+      return true;
     };
 
     if (!simdJsonExtract(json, jsonPath, consumer)) {
@@ -237,22 +243,32 @@ struct SIMDJsonExtractFunction {
       // We could just convert v to a string using to_json_string directly, but
       // in that case the JSON wouldn't be parsed (it would just return the
       // contents directly) and we might miss invalid JSON.
-      switch (v.type()) {
-        case simdjson::ondemand::json_type::object:
-          results += simdjson::to_json_string(v.get_object()).value();
+      SIMDJSON_ASSIGN_OR_RAISE(auto vtype, v.type());
+      switch (vtype) {
+        case simdjson::ondemand::json_type::object: {
+          SIMDJSON_ASSIGN_OR_RAISE(
+              auto jsonStr, simdjson::to_json_string(v.get_object()));
+          results += jsonStr;
           break;
-        case simdjson::ondemand::json_type::array:
-          results += simdjson::to_json_string(v.get_array()).value();
+        }
+        case simdjson::ondemand::json_type::array: {
+          SIMDJSON_ASSIGN_OR_RAISE(
+              auto jsonStr, simdjson::to_json_string(v.get_array()));
+          results += jsonStr;
           break;
+        }
         case simdjson::ondemand::json_type::string:
         case simdjson::ondemand::json_type::number:
-        case simdjson::ondemand::json_type::boolean:
-          results += simdjson::to_json_string(v).value();
+        case simdjson::ondemand::json_type::boolean: {
+          SIMDJSON_ASSIGN_OR_RAISE(auto jsonStr, simdjson::to_json_string(v));
+          results += jsonStr;
           break;
+        }
         case simdjson::ondemand::json_type::null:
           results += kNullString;
           break;
       }
+      return true;
     };
 
     if (!simdJsonExtract(json, jsonPath, consumer)) {
@@ -294,13 +310,16 @@ struct SIMDJsonSizeFunction {
         // We only need the size of the actual object if there's only one
         // returned, if multiple are returned we use the number of objects
         // returned instead.
-        switch (v.type()) {
-          case simdjson::ondemand::json_type::object:
-            singleResultSize = v.count_fields().value();
+        SIMDJSON_ASSIGN_OR_RAISE(auto vtype, v.type());
+        switch (vtype) {
+          case simdjson::ondemand::json_type::object: {
+            SIMDJSON_ASSIGN_OR_RAISE(singleResultSize, v.count_fields());
             break;
-          case simdjson::ondemand::json_type::array:
-            singleResultSize = v.count_elements().value();
+          }
+          case simdjson::ondemand::json_type::array: {
+            SIMDJSON_ASSIGN_OR_RAISE(singleResultSize, v.count_elements());
             break;
+          }
           case simdjson::ondemand::json_type::string:
           case simdjson::ondemand::json_type::number:
           case simdjson::ondemand::json_type::boolean:
@@ -309,6 +328,7 @@ struct SIMDJsonSizeFunction {
             break;
         }
       }
+      return true;
     };
 
     if (!simdJsonExtract(json, jsonPath, consumer)) {

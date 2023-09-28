@@ -47,7 +47,9 @@ class SIMDJsonExtractorTest : public testing::Test {
       const std::optional<std::vector<std::string>>& expected) {
     std::vector<std::string> res;
     auto consumer = [&res](auto& v) {
-      res.push_back(std::string(simdjson::to_json_string(v).value()));
+      SIMDJSON_ASSIGN_OR_RAISE(auto jsonStr, simdjson::to_json_string(v));
+      res.emplace_back(jsonStr);
+      return true;
     };
 
     EXPECT_TRUE(simdJsonExtract(json, path, consumer))
@@ -78,26 +80,32 @@ class SIMDJsonExtractorTest : public testing::Test {
         // We expect a single value, if consumer gets called multiple times,
         // e.g. the path contains [*], return null.
         actual = std::nullopt;
-        return;
+        return true;
       }
 
       resultPopulated = true;
 
-      switch (v.type()) {
-        case simdjson::ondemand::json_type::boolean:
-          actual = v.get_bool().value() ? "true" : "false";
+      SIMDJSON_ASSIGN_OR_RAISE(auto vtype, v.type());
+      switch (vtype) {
+        case simdjson::ondemand::json_type::boolean: {
+          SIMDJSON_ASSIGN_OR_RAISE(bool vbool, v.get_bool());
+          actual = vbool ? "true" : "false";
           break;
-        case simdjson::ondemand::json_type::string:
-          actual = v.get_string().value();
+        }
+        case simdjson::ondemand::json_type::string: {
+          SIMDJSON_ASSIGN_OR_RAISE(actual, v.get_string());
           break;
+        }
         case simdjson::ondemand::json_type::object:
         case simdjson::ondemand::json_type::array:
         case simdjson::ondemand::json_type::null:
           // Do nothing.
           break;
-        default:
-          actual = simdjson::to_json_string(v).value();
+        default: {
+          SIMDJSON_ASSIGN_OR_RAISE(actual, simdjson::to_json_string(v));
+        }
       }
+      return true;
     };
 
     EXPECT_TRUE(simdJsonExtract(json, path, consumer))
@@ -455,7 +463,8 @@ TEST_F(SIMDJsonExtractorTest, reextractJsonTest) {
   std::string extract;
   std::string ret;
   auto consumer = [&ret](auto& v) {
-    ret = simdjson::to_json_string(v).value();
+    SIMDJSON_ASSIGN_OR_RAISE(ret, simdjson::to_json_string(v));
+    return true;
   };
 
   simdJsonExtract(json, "$", consumer);
@@ -500,7 +509,8 @@ TEST_F(SIMDJsonExtractorTest, jsonMultipleExtractsTest) {
   std::string extract2;
   std::string ret;
   auto consumer = [&ret](auto& v) {
-    ret = simdjson::to_json_string(v).value();
+    SIMDJSON_ASSIGN_OR_RAISE(ret, simdjson::to_json_string(v));
+    return true;
   };
 
   simdJsonExtract(json, "$.store", consumer);
@@ -513,7 +523,7 @@ TEST_F(SIMDJsonExtractorTest, jsonMultipleExtractsTest) {
 
 TEST_F(SIMDJsonExtractorTest, invalidJson) {
   // No-op consumer.
-  auto consumer = [](auto& /* unused */) {};
+  auto consumer = [](auto& /* unused */) { return true; };
 
   // Object key is invalid.
   std::string json = "{\"foo: \"bar\"}";

@@ -20,6 +20,7 @@
 #include <unordered_map>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Macros.h"
 
 namespace facebook::velox::common::testutil {
 
@@ -109,11 +110,8 @@ inline void TestValue::adjust(
     void* testData) {}
 #endif
 
-#define VELOX_CONCAT(x, y) __##x##y
-#define VELOX_VARNAME(x) VELOX_CONCAT(x, Obj)
-
 #define SCOPED_TESTVALUE_SET(point, ...)                              \
   ::facebook::velox::common::testutil::ScopedTestValue VELOX_VARNAME( \
-      __LINE__)(point, ##__VA_ARGS__)
+      _scopedTestValue)(point, ##__VA_ARGS__)
 
 } // namespace facebook::velox::common::testutil

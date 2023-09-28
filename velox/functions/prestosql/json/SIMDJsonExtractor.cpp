@@ -42,8 +42,8 @@ namespace facebook::velox::functions::detail {
   return *it.first->second;
 }
 
-simdjson::ondemand::document SIMDJsonExtractor::parse(
-    const simdjson::padded_string& json) {
+simdjson::simdjson_result<simdjson::ondemand::document>
+SIMDJsonExtractor::parse(const simdjson::padded_string& json) {
   thread_local static simdjson::ondemand::parser parser;
   return parser.iterate(json);
 }
@@ -71,23 +71,26 @@ bool SIMDJsonExtractor::tokenize(const std::string& path) {
   return true;
 }
 
-void extractObject(
-    simdjson::ondemand::value& jsonObj,
+bool extractObject(
+    simdjson::ondemand::value& jsonValue,
     const std::string& key,
     std::optional<simdjson::ondemand::value>& ret) {
-  for (auto field : jsonObj.get_object()) {
-    if (field.unescaped_key().value() == key) {
+  SIMDJSON_ASSIGN_OR_RAISE(auto jsonObj, jsonValue.get_object());
+  for (auto field : jsonObj) {
+    SIMDJSON_ASSIGN_OR_RAISE(auto currentKey, field.unescaped_key());
+    if (currentKey == key) {
       ret.emplace(field.value());
-      return;
+      return true;
     }
   }
+  return true;
 }
 
-void extractArray(
+bool extractArray(
     simdjson::ondemand::value& jsonValue,
     const std::string& index,
     std::optional<simdjson::ondemand::value>& ret) {
-  auto jsonArray = jsonValue.get_array();
+  SIMDJSON_ASSIGN_OR_RAISE(auto jsonArray, jsonValue.get_array());
   auto rv = folly::tryTo<int32_t>(index);
   if (rv.hasValue()) {
     auto val = jsonArray.at(rv.value());
@@ -95,5 +98,6 @@ void extractArray(
       ret.emplace(std::move(val));
     }
   }
+  return true;
 }
 } // namespace facebook::velox::functions::detail

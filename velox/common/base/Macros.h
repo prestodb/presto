@@ -33,3 +33,8 @@
 #define VELOX_UNSUPPRESS_RETURN_LOCAL_ADDR_WARNING \
   _Pragma("GCC diagnostic pop");
 #endif
+
+#define VELOX_CONCAT(x, y) x##y
+// Need this extra layer to expand __COUNTER__.
+#define VELOX_VARNAME_IMPL(x, y) VELOX_CONCAT(x, y)
+#define VELOX_VARNAME(x) VELOX_VARNAME_IMPL(x, __COUNTER__)
