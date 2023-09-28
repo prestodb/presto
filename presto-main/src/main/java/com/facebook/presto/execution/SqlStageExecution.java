@@ -588,7 +588,7 @@ public final class SqlStageExecution
         }
 
         TaskState taskState = taskStatus.getState();
-        if (taskState == TaskState.FAILED) {
+        if (taskState == TaskState.GRACEFUL_FAILED) {
             // no matter if it is possible to recover - the task is failed
             failedTasks.add(taskId);
             if (taskStatus.getRetryableSplitCount() > 0) {
@@ -607,7 +607,8 @@ public final class SqlStageExecution
                     .map(this::rewriteTransportFailure)
                     .map(ExecutionFailureInfo::toException)
                     .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-            if (isRecoverable(taskStatus.getFailures())) {
+
+            if (isFailedTasksBelowThreshold()) {
                 try {
                     stageTaskRecoveryCallback.get().recover(taskId);
 
@@ -616,6 +617,32 @@ public final class SqlStageExecution
                             .collect(onlyElement());
                     failedTask.setIsRetried();
 
+                    finishedTasks.add(taskId);
+                }
+                catch (Throwable t) {
+                    // In an ideal world, this exception is not supposed to happen.
+                    // However, it could happen, for example, if connector throws exception.
+                    // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
+                    failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
+                    stateMachine.transitionToFailed(failure);
+                }
+            }
+            else {
+                stateMachine.transitionToFailed(failure);
+            }
+        }
+        else if (taskState == TaskState.FAILED) {
+            // no matter if it is possible to recover - the task is failed
+            failedTasks.add(taskId);
+
+            RuntimeException failure = taskStatus.getFailures().stream()
+                    .findFirst()
+                    .map(this::rewriteTransportFailure)
+                    .map(ExecutionFailureInfo::toException)
+                    .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+            if (isRecoverable(taskStatus.getFailures())) {
+                try {
+                    stageTaskRecoveryCallback.get().recover(taskId);
                     finishedTasks.add(taskId);
                 }
                 catch (Throwable t) {
@@ -714,16 +741,7 @@ public final class SqlStageExecution
 
     public Set<ErrorCode> getRecoverableErrorCodes()
     {
-        if (recoveryErrorCodes.isPresent()) {
-            return recoveryErrorCodes.get();
-        }
         return DEFAULT_RECOVERABLE_ERROR_CODES;
-    }
-
-    private synchronized boolean isFailedTasksExceedThreshold()
-    {
-        // Even though failedTasks and allTasks are marked as Guard, the whole expression need to be evaluated synchronously to avoid failedTasks and allTasks are updated from the callback thread in the middle of the expression evaluation.
-        return failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)

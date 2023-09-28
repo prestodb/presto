@@ -34,7 +34,7 @@ public class TaskShutdownManager
     public void handleShutdown(TaskId taskId)
     {
         String errorMessage = String.format("killing pending task %s due to host being shutting down", taskId);
-        taskStateMachine.failed(new HostShuttingDownException(errorMessage, System.nanoTime()));
+        taskStateMachine.graceful_failed(new HostShuttingDownException(errorMessage, System.nanoTime()));
     }
 
     @Override

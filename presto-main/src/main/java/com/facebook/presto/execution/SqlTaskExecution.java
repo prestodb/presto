@@ -26,6 +26,7 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.operator.HostShuttingDownException;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -669,8 +670,14 @@ public class SqlTaskExecution
             return;
         }
 
-        // Cool! All done!
-        taskStateMachine.finished();
+        if (taskHandle.isShutdownInProgress()) {
+            String errorMessage = String.format("killing pending task %s due to host being shutting down", taskId);
+            taskStateMachine.graceful_failed(new HostShuttingDownException(errorMessage, System.nanoTime()));
+        }
+        else {
+            // Cool! All done!
+            taskStateMachine.finished();
+        }
     }
 
     @Override

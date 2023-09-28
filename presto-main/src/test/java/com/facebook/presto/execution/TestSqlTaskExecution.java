@@ -1550,7 +1550,7 @@ public class TestSqlTaskExecution
             waitUntilEquals(taskExecutor::getIsGracefulShutdownFinished, true, ASSERT_WAIT_TIMEOUT);
 
             TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
-            assertEquals(taskState, TaskState.FAILED);
+            assertEquals(taskState, TaskState.GRACEFUL_FAILED);
         }
         finally {
             taskExecutor.stop();
@@ -1742,7 +1742,7 @@ public class TestSqlTaskExecution
             waitUntilEquals(taskExecutor::getIsGracefulShutdownFinished, true, ASSERT_WAIT_TIMEOUT);
 
             TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
-            assertEquals(taskState, TaskState.FAILED);
+            assertEquals(taskState, TaskState.GRACEFUL_FAILED);
         }
         finally {
             taskExecutor.stop();

@@ -111,6 +111,12 @@ public class TaskStateMachine
         transitionToDoneState(TaskState.CANCELED);
     }
 
+    public void graceful_failed(Throwable cause)
+    {
+        failureCauses.add(cause);
+        transitionToDoneState(TaskState.GRACEFUL_FAILED);
+    }
+
     public void abort()
     {
         log.info("Task %s is transitioning into abort state", taskId);

@@ -63,6 +63,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
+import static com.facebook.presto.execution.TaskState.GRACEFUL_FAILED;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -197,6 +198,9 @@ public class SqlTask
                     // don't close buffers for a failed query
                     // closed buffers signal to upstream tasks that everything finished cleanly
                     outputBuffer.fail();
+                }
+                else if (newState == GRACEFUL_FAILED) {
+                    outputBuffer.destroy();
                 }
                 else {
                     outputBuffer.destroy();

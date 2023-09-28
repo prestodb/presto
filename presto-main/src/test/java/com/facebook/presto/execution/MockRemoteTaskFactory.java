@@ -28,6 +28,7 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.HostShuttingDownException;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
@@ -522,6 +523,11 @@ public class MockRemoteTaskFactory
         public void cancel()
         {
             taskStateMachine.cancel();
+        }
+
+        public void graceful_failed()
+        {
+            taskStateMachine.graceful_failed(new HostShuttingDownException("Simulate retriable error", 30000000));
         }
 
         @Override
