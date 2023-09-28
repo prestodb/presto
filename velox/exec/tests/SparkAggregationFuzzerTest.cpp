@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <unordered_set>
 
-#include "velox/exec/tests/AggregationFuzzerRunner.h"
+#include "velox/exec/tests/utils/AggregationFuzzerRunner.h"
 #include "velox/exec/tests/utils/DuckQueryRunner.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
 

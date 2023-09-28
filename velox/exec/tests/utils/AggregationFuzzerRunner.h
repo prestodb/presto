@@ -24,7 +24,7 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/Aggregate.h"
-#include "velox/exec/tests/AggregationFuzzer.h"
+#include "velox/exec/tests/utils/AggregationFuzzer.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/serializers/PrestoSerializer.h"
 

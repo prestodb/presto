@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/AggregationFuzzer.h"
+#include "velox/exec/tests/utils/AggregationFuzzer.h"
 #include <boost/random/uniform_int_distribution.hpp>
 #include "velox/common/base/Fs.h"
 
@@ -31,7 +31,6 @@
 
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/ReferenceQueryRunner.h"
 #include "velox/expression/tests/FuzzerToolkit.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
