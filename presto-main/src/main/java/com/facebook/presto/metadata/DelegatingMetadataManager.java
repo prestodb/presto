@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -96,6 +97,12 @@ public abstract class DelegatingMetadataManager
     public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName)
     {
         return delegate.getSystemTable(session, tableName);
+    }
+
+    @Override
+    public Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<Block> tableVersionBlock)
+    {
+        return delegate.getHandleVersion(session, tableName, tableVersionBlock);
     }
 
     @Override

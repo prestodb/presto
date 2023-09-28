@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -139,6 +140,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<Block> tableVersionBlock)
     {
         throw new UnsupportedOperationException();
     }

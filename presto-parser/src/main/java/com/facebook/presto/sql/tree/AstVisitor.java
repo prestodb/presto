@@ -352,6 +352,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitTableVersion(TableVersionExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitNotExpression(NotExpression node, C context)
     {
         return visitExpression(node, context);
