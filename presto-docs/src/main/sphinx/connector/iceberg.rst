@@ -482,10 +482,12 @@ Alter table operations are supported in the connector::
 DROP TABLE
 ^^^^^^^^^^^
 
-Drop the table ``page_views``. This only drops the metadata
-& data for the table::
+Drop the table ``page_views`` ::
 
     DROP TABLE iceberg.web.page_views
+
+* Dropping an Iceberg table with Hive Metastore and Glue catalogs only removes metadata from metastore.
+* Dropping an Iceberg table with Hadoop and Nessie catalogs removes all the data and metadata in the table.
 
 DROP SCHEMA
 ^^^^^^^^^^^^
