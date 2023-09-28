@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
@@ -90,16 +91,29 @@ public class TestQueryTaskLimit
     public void testQueuingWhenTaskLimitExceeds()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(defaultSession, ImmutableMap.of())) {
-            QueryId firstQuery = createQuery(queryRunner, newSession("test", ImmutableSet.of(), null), LONG_LASTING_QUERY);
+        ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
+                .put("experimental.spill-enabled", "false")
+                .put("experimental.max-total-running-task-count-to-not-execute-new-query", "2")
+                .build();
+
+        try (DistributedQueryRunner queryRunner = createQueryRunner(defaultSession, extraProperties)) {
+            QueryId firstQuery = createQuery(queryRunner, newSession("test", ImmutableSet.of(), null),
+                    LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, firstQuery, RUNNING);
 
-            queryRunner.getCoordinator().getResourceGroupManager().get().setTaskLimitExceeded(true);
+            // wait for the first query to schedule more than 2 tasks, so exceed resource group manager's total task limit
+            confirmQueryScheduledTasksGreaterThan(queryRunner, firstQuery, 2);
 
             QueryId secondQuery = createQuery(queryRunner, newSession("test", ImmutableSet.of(), null), LONG_LASTING_QUERY);
+
+            // When current running tasks exceeded limit, the following query would be queued
             waitForQueryState(queryRunner, secondQuery, QUEUED);
 
-            queryRunner.getCoordinator().getResourceGroupManager().get().setTaskLimitExceeded(false);
+            // Cancel the first query
+            queryRunner.getCoordinator().getDispatchManager().cancelQuery(firstQuery);
+            waitForQueryState(queryRunner, firstQuery, FAILED);
+
+            // When first query is cancelled, the second query would be pass to run
             waitForQueryState(queryRunner, secondQuery, RUNNING);
         }
     }
@@ -133,6 +147,20 @@ public class TestQueryTaskLimit
                 }
             }
             MILLISECONDS.sleep(10);
+        }
+    }
+
+    private void confirmQueryScheduledTasksGreaterThan(DistributedQueryRunner queryRunner, QueryId queryId, int minTaskCount)
+            throws InterruptedException
+    {
+        while (true) {
+            BasicQueryInfo info = queryRunner.getCoordinator().getDispatchManager().getQueryInfo(queryId);
+            if (info.getQueryStats().getRunningTasks() > minTaskCount) {
+                // still wait for a while to ensure resource group manager to refresh
+                MILLISECONDS.sleep(10);
+                break;
+            }
+            MILLISECONDS.sleep(100);
         }
     }
 }
