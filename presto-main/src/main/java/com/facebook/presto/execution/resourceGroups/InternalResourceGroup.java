@@ -15,7 +15,6 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.execution.ManagedQueryExecution;
-import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.QueryStateInfo;
@@ -687,8 +686,7 @@ public class InternalResourceGroup
     {
         if (subGroups().isEmpty()) {
             return runningQueries.stream()
-                    .filter(SqlQueryExecution.class::isInstance)
-                    .mapToInt(query -> ((SqlQueryExecution) query).getRunningTaskCount())
+                    .mapToInt(query -> query.getRunningTaskCount())
                     .sum();
         }
 
