@@ -65,6 +65,10 @@ TEST(TypeTest, integer) {
   testTypeSerde(int0);
 }
 
+TEST(TypeTest, hugeint) {
+  EXPECT_EQ(getType("HUGEINT", {}), HUGEINT());
+}
+
 TEST(TypeTest, timestamp) {
   auto t0 = TIMESTAMP();
   EXPECT_EQ(t0->toString(), "TIMESTAMP");

@@ -287,6 +287,8 @@ void fuzzFlatPrimitiveImpl(
     } else if constexpr (std::is_same_v<TCpp, int128_t>) {
       if (vector->type()->isLongDecimal()) {
         flatVector->set(i, randLongDecimal(vector->type(), rng));
+      } else if (vector->type()->isHugeint()) {
+        flatVector->set(i, rand<int128_t>(rng));
       } else {
         VELOX_NYI();
       }

@@ -15,6 +15,7 @@
  */
 #include "velox/expression/SignatureBinder.h"
 #include <gtest/gtest.h>
+#include <velox/type/HugeInt.h>
 #include <vector>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
@@ -429,6 +430,16 @@ TEST(SignatureBinderTest, generics) {
 
     testSignatureBinder(signature, {MAP(BIGINT(), DOUBLE())}, ARRAY(DOUBLE()));
   }
+
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .typeVariable("T")
+                         .returnType("T")
+                         .argumentType("T")
+                         .build();
+
+    testSignatureBinder(signature, {HUGEINT()}, HUGEINT());
+  }
 }
 
 TEST(SignatureBinderTest, variableArity) {
@@ -687,4 +698,15 @@ TEST(SignatureBinderTest, customType) {
           .argumentType("fancy_type")
           .build(),
       "Type doesn't exist: FANCY_TYPE");
+}
+
+TEST(SignatureBinderTest, hugeIntType) {
+  // Logical type as an argument type.
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .returnType("hugeint")
+                         .argumentType("hugeint")
+                         .build();
+    testSignatureBinder(signature, {HUGEINT()}, HUGEINT());
+  }
 }
