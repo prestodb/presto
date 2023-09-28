@@ -27,6 +27,7 @@
 #include "velox/exec/tests/utils/AggregationFuzzer.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::exec::test {
 
@@ -67,45 +68,67 @@ namespace facebook::velox::exec::test {
 
 class AggregationFuzzerRunner {
  public:
+  struct Options {
+    /// Comma-separated list of functions to test. By default, all functions
+    /// are tested.
+    std::string onlyFunctions;
+
+    /// Set of functions to not test.
+    std::unordered_set<std::string> skipFunctions;
+
+    /// Set of functions whose results are non-deterministic. These can be
+    /// order-dependent functions whose results depend on the order of input
+    /// rows, or functions that return complex-typed results containing
+    /// floating-point fields.
+    ///
+    /// For some functions, the result can be transformed to a deterministic
+    /// value. If such transformation exists, it can be specified to be used for
+    /// results verification. If no transformation is specified, results are not
+    /// verified.
+    ///
+    /// Keys are function names. Values are optional transformations. "{}"
+    /// should be used to indicate the original value, i.e. "f({})"
+    /// transformation applies function 'f' to aggregation result.
+    std::unordered_map<std::string, std::string> customVerificationFunctions;
+
+    /// Timestamp precision to use when generating inputs of type TIMESTAMP.
+    VectorFuzzer::Options::TimestampPrecision timestampPrecision{
+        VectorFuzzer::Options::TimestampPrecision::kNanoSeconds};
+
+    /// A set of configuration properties to use when running query plans.
+    /// Could be used to specify timezone or enable/disable settings that
+    /// affect semantics of individual aggregate functions.
+    std::unordered_map<std::string, std::string> queryConfigs;
+  };
+
   static int run(
-      const std::string& onlyFunctions,
       size_t seed,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner,
-      const std::unordered_set<std::string>& skipFunctions,
-      const std::unordered_map<std::string, std::string>&
-          customVerificationFunctions) {
+      const Options& options) {
     return runFuzzer(
-        onlyFunctions,
-        seed,
-        std::nullopt,
-        std::move(referenceQueryRunner),
-        skipFunctions,
-        customVerificationFunctions);
+        seed, std::nullopt, std::move(referenceQueryRunner), options);
   }
 
   static int runRepro(
       const std::optional<std::string>& planPath,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
-    return runFuzzer("", 0, planPath, std::move(referenceQueryRunner), {}, {});
+    return runFuzzer(0, planPath, std::move(referenceQueryRunner), {});
   }
 
  private:
   static int runFuzzer(
-      const std::string& onlyFunctions,
       size_t seed,
       const std::optional<std::string>& planPath,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner,
-      const std::unordered_set<std::string>& skipFunctions,
-      const std::unordered_map<std::string, std::string>&
-          customVerificationFunctions) {
+      const Options& options) {
     auto signatures = facebook::velox::exec::getAggregateFunctionSignatures();
     if (signatures.empty()) {
       LOG(ERROR) << "No aggregate functions registered.";
       exit(1);
     }
 
-    auto filteredSignatures =
-        filterSignatures(signatures, onlyFunctions, skipFunctions);
+    auto filteredSignatures = filterSignatures(
+        signatures, options.onlyFunctions, options.skipFunctions);
     if (filteredSignatures.empty()) {
       LOG(ERROR)
           << "No aggregate functions left after filtering using 'only' and 'skip' lists.";
@@ -120,7 +143,9 @@ class AggregationFuzzerRunner {
     facebook::velox::exec::test::aggregateFuzzer(
         filteredSignatures,
         seed,
-        customVerificationFunctions,
+        options.customVerificationFunctions,
+        options.timestampPrecision,
+        options.queryConfigs,
         planPath,
         std::move(referenceQueryRunner));
     // Calling gtest here so that it can be recognized as tests in CI systems.

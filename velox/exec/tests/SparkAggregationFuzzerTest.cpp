@@ -75,10 +75,12 @@ int main(int argc, char** argv) {
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   auto duckQueryRunner =
       std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();
-  return facebook::velox::exec::test::AggregationFuzzerRunner::run(
-      FLAGS_only,
-      initialSeed,
-      std::move(duckQueryRunner),
-      skipFunctions,
-      customVerificationFunctions);
+
+  using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
+
+  Runner::Options options;
+  options.onlyFunctions = FLAGS_only;
+  options.skipFunctions = skipFunctions;
+  options.customVerificationFunctions = customVerificationFunctions;
+  return Runner::run(initialSeed, std::move(duckQueryRunner), options);
 }

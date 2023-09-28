@@ -17,6 +17,7 @@
 
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/tests/utils/ReferenceQueryRunner.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::exec::test {
 
@@ -35,6 +36,8 @@ void aggregateFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t seed,
     const std::unordered_map<std::string, std::string>& orderDependentFunctions,
+    VectorFuzzer::Options::TimestampPrecision timestampPrecision,
+    const std::unordered_map<std::string, std::string>& queryConfigs,
     const std::optional<std::string>& planPath,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner);
 } // namespace facebook::velox::exec::test

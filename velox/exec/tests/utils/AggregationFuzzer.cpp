@@ -96,6 +96,8 @@ class AggregationFuzzer {
       size_t seed,
       const std::unordered_map<std::string, std::string>&
           customVerificationFunctions,
+      VectorFuzzer::Options::TimestampPrecision timestampPrecision,
+      const std::unordered_map<std::string, std::string>& queryConfigs,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner);
 
   struct PlanWithSplits {
@@ -153,12 +155,14 @@ class AggregationFuzzer {
     void print(size_t numIterations) const;
   };
 
-  static VectorFuzzer::Options getFuzzerOptions() {
+  static VectorFuzzer::Options getFuzzerOptions(
+      VectorFuzzer::Options::TimestampPrecision timestampPrecision) {
     VectorFuzzer::Options opts;
     opts.vectorSize = FLAGS_batch_size;
     opts.stringVariableLength = true;
     opts.stringLength = 100;
     opts.nullRatio = FLAGS_null_ratio;
+    opts.timestampPrecision = timestampPrecision;
     return opts;
   }
 
@@ -283,6 +287,7 @@ class AggregationFuzzer {
 
   const std::unordered_map<std::string, std::string>
       customVerificationFunctions_;
+  const std::unordered_map<std::string, std::string> queryConfigs_;
   const bool persistAndRunOnce_;
   const std::string reproPersistPath_;
 
@@ -308,12 +313,16 @@ void aggregateFuzzer(
     size_t seed,
     const std::unordered_map<std::string, std::string>&
         customVerificationFunctions,
+    VectorFuzzer::Options::TimestampPrecision timestampPrecision,
+    const std::unordered_map<std::string, std::string>& queryConfigs,
     const std::optional<std::string>& planPath,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
   auto aggregationFuzzer = AggregationFuzzer(
       std::move(signatureMap),
       seed,
       customVerificationFunctions,
+      timestampPrecision,
+      queryConfigs,
       std::move(referenceQueryRunner));
   planPath.has_value() ? aggregationFuzzer.go(planPath.value())
                        : aggregationFuzzer.go();
@@ -351,12 +360,15 @@ AggregationFuzzer::AggregationFuzzer(
     size_t initialSeed,
     const std::unordered_map<std::string, std::string>&
         customVerificationFunctions,
+    VectorFuzzer::Options::TimestampPrecision timestampPrecision,
+    const std::unordered_map<std::string, std::string>& queryConfigs,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner)
     : customVerificationFunctions_{customVerificationFunctions},
+      queryConfigs_{queryConfigs},
       persistAndRunOnce_{FLAGS_persist_and_run_once},
       reproPersistPath_{FLAGS_repro_persist_path},
       referenceQueryRunner_{std::move(referenceQueryRunner)},
-      vectorFuzzer_{getFuzzerOptions(), pool_.get()} {
+      vectorFuzzer_{getFuzzerOptions(timestampPrecision), pool_.get()} {
   filesystems::registerLocalFileSystem();
   auto hiveConnector =
       connector::getConnectorFactory(
@@ -806,6 +818,8 @@ velox::test::ResultOrError AggregationFuzzer::execute(
   try {
     std::shared_ptr<TempDirectoryPath> spillDirectory;
     AssertQueryBuilder builder(plan);
+
+    builder.configs(queryConfigs_);
 
     if (injectSpill) {
       spillDirectory = exec::test::TempDirectoryPath::create();

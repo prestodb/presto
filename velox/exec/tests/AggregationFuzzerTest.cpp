@@ -114,10 +114,13 @@ int main(int argc, char** argv) {
           {"sum_data_size_for_stats", ""},
       };
 
-  return facebook::velox::exec::test::AggregationFuzzerRunner::run(
-      FLAGS_only,
-      initialSeed,
-      std::move(duckQueryRunner),
-      skipFunctions,
-      customVerificationFunctions);
+  using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
+
+  Runner::Options options;
+  options.onlyFunctions = FLAGS_only;
+  options.skipFunctions = skipFunctions;
+  options.customVerificationFunctions = customVerificationFunctions;
+  options.timestampPrecision =
+      facebook::velox::VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
+  return Runner::run(initialSeed, std::move(duckQueryRunner), options);
 }
