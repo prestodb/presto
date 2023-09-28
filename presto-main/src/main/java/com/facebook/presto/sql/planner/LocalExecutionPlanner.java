@@ -110,6 +110,7 @@ import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
+import com.facebook.presto.operator.aggregation.partial.PartialAggregationController;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -246,6 +247,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static com.facebook.presto.SystemSessionProperties.getAdaptivePartialAggregationRowsReductionRatioThreshold;
 import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
@@ -257,6 +259,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTopNOperatorUnspillMemoryLimit;
+import static com.facebook.presto.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistinctAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
@@ -3364,6 +3367,7 @@ public class LocalExecutionPlanner
                         expectedGroups,
                         maxPartialAggregationMemorySize,
                         useSpill,
+                        createPartialAggregationController(maxPartialAggregationMemorySize, step, session),
                         unspillMemoryLimit,
                         spillerFactory,
                         joinCompiler,
@@ -3380,6 +3384,17 @@ public class LocalExecutionPlanner
         {
             return aggregations.values().stream().anyMatch(aggregation -> aggregation.getOrderBy().isPresent());
         }
+    }
+
+    private static Optional<PartialAggregationController> createPartialAggregationController(
+            Optional<DataSize> maxPartialAggregationMemorySize,
+            AggregationNode.Step step,
+            Session session)
+    {
+        if (maxPartialAggregationMemorySize.isPresent() && step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session)) {
+            return Optional.of(new PartialAggregationController(maxPartialAggregationMemorySize.get(), getAdaptivePartialAggregationRowsReductionRatioThreshold(session)));
+        }
+        return Optional.empty();
     }
 
     private static TableFinisher createTableFinisher(Session session, Metadata metadata, ExecutionWriterTarget target)
