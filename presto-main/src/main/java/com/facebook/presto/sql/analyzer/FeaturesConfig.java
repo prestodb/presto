@@ -169,6 +169,8 @@ public class FeaturesConfig
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
     private double partialAggregationByteReductionThreshold = 0.5;
+    private boolean adaptivePartialAggregationEnabled;
+    private double adaptivePartialAggregationRowsReductionRatioThreshold = 0.8;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
     private boolean optimizeConstantGroupingKeys = true;
@@ -1057,6 +1059,30 @@ public class FeaturesConfig
     public FeaturesConfig setPartialAggregationByteReductionThreshold(double partialAggregationByteReductionThreshold)
     {
         this.partialAggregationByteReductionThreshold = partialAggregationByteReductionThreshold;
+        return this;
+    }
+
+    public boolean isAdaptivePartialAggregationEnabled()
+    {
+        return adaptivePartialAggregationEnabled;
+    }
+
+    @Config("experimental.adaptive-partial-aggregation")
+    public FeaturesConfig setAdaptivePartialAggregationEnabled(boolean adaptivePartialAggregationEnabled)
+    {
+        this.adaptivePartialAggregationEnabled = adaptivePartialAggregationEnabled;
+        return this;
+    }
+
+    public double getAdaptivePartialAggregationRowsReductionRatioThreshold()
+    {
+        return adaptivePartialAggregationRowsReductionRatioThreshold;
+    }
+
+    @Config("experimental.adaptive-partial-aggregation-rows-reduction-ratio-threshold")
+    public FeaturesConfig setAdaptivePartialAggregationRowsReductionRatioThreshold(double adaptivePartialAggregationRowsReductionRatioThreshold)
+    {
+        this.adaptivePartialAggregationRowsReductionRatioThreshold = adaptivePartialAggregationRowsReductionRatioThreshold;
         return this;
     }
 
