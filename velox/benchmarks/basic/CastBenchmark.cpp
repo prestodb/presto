@@ -46,6 +46,10 @@ int main(int argc, char** argv) {
       },
       nullptr,
       DECIMAL(38, 16));
+  auto timestampInput =
+      vectorMaker.flatVector<Timestamp>(vectorSize, [&](auto j) {
+        return Timestamp(1695859694 + j / 1000, j % 1000 * 1'000'000);
+      });
 
   invalidInput->resize(vectorSize);
   validInput->resize(vectorSize);
@@ -66,13 +70,15 @@ int main(int argc, char** argv) {
                "nan",
                "decimal",
                "short_decimal",
-               "long_decimal"},
+               "long_decimal",
+               "timestamp"},
               {validInput,
                invalidInput,
                nanInput,
                decimalInput,
                shortDecimalInput,
-               longDecimalInput}))
+               longDecimalInput,
+               timestampInput}))
       .addExpression("try_cast_invalid_empty_input", "try_cast (empty as int) ")
       .addExpression(
           "tryexpr_cast_invalid_empty_input", "try (cast (empty as int))")
@@ -85,6 +91,7 @@ int main(int argc, char** argv) {
           "cast_decimal_to_inline_string", "cast (decimal as varchar)")
       .addExpression("cast_short_decimal", "cast (short_decimal as varchar)")
       .addExpression("cast_long_decimal", "cast (long_decimal as varchar)")
+      .addExpression("cast_timestamp", "cast (timestamp as varchar)")
       .withIterations(100)
       .disableTesting();
 

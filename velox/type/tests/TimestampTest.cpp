@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <random>
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/external/date/tz.h"
@@ -188,6 +189,49 @@ TEST(TimestampTest, toString) {
   auto kMax = Timestamp(Timestamp::kMaxSeconds, Timestamp::kMaxNanos);
   EXPECT_EQ("-292275055-05-16T16:47:04.000000000", kMin.toString());
   EXPECT_EQ("292278994-08-17T07:12:55.999999999", kMax.toString());
+  EXPECT_EQ(
+      "0001-01-01T05:17:32.000000000", Timestamp(-62135577748, 0).toString());
+  EXPECT_EQ(
+      "-224876953-12-19T16:58:03.000000000",
+      Timestamp(-7096493348463717, 0).toString());
+  EXPECT_EQ(
+      "-1-11-29T19:33:20.000000000", Timestamp(-62170000000, 0).toString());
+}
+
+namespace {
+std::string toStringAlt(
+    const Timestamp& t,
+    const Timestamp::Precision& precision) {
+  auto seconds = t.getSeconds();
+  std::tm tmValue;
+  VELOX_CHECK_NOT_NULL(gmtime_r((const time_t*)&seconds, &tmValue));
+  auto width = static_cast<int>(precision);
+  auto value = precision == Timestamp::Precision::kMilliseconds
+      ? t.getNanos() / 1'000'000
+      : t.getNanos();
+  std::ostringstream oss;
+  oss << std::put_time(&tmValue, "%FT%T");
+  oss << '.' << std::setfill('0') << std::setw(width) << value;
+  return oss.str();
+}
+} // namespace
+
+TEST(TimestampTest, compareWithToStringAlt) {
+  uint64_t seed = 42;
+  // seed = std::random_device{}();
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int64_t> distSec(
+      Timestamp::kMinSeconds, Timestamp::kMaxSeconds);
+  std::uniform_int_distribution<uint64_t> distNano(0, Timestamp::kMaxNanos);
+  for (int i = 0; i < 1000; ++i) {
+    Timestamp t(distSec(gen), distNano(gen));
+    for (auto precision :
+         {Timestamp::Precision::kMilliseconds,
+          Timestamp::Precision::kNanoseconds}) {
+      ASSERT_EQ(t.toString(precision), toStringAlt(t, precision))
+          << t.getSeconds() << ' ' << t.getNanos();
+    }
+  }
 }
 
 TEST(TimestampTest, increaseOperator) {

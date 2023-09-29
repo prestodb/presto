@@ -265,31 +265,7 @@ struct Timestamp {
   };
 
   std::string toString(
-      const Precision& precision = Precision::kNanoseconds) const {
-    // gmtime is not thread-safe. Make sure to use gmtime_r.
-    std::tm tmValue;
-    VELOX_USER_CHECK_NOT_NULL(
-        gmtime_r((const time_t*)&seconds_, &tmValue),
-        "Can't convert seconds to time: {}",
-        folly::to<std::string>(seconds_));
-
-    // return ISO 8601 time format.
-    // %F - equivalent to "%Y-%m-%d" (the ISO 8601 date format)
-    // T - literal T
-    // %T - equivalent to "%H:%M:%S" (the ISO 8601 time format)
-    // so this return time in the format
-    // %Y-%m-%dT%H:%M:%S.nnnnnnnnn for nanoseconds precision, or
-    // %Y-%m-%dT%H:%M:%S.nnn for milliseconds precision
-    // Note there is no Z suffix, which denotes UTC timestamp.
-    auto width = static_cast<int>(precision);
-    auto value =
-        precision == Precision::kMilliseconds ? nanos_ / 1'000'000 : nanos_;
-    std::ostringstream oss;
-    oss << std::put_time(&tmValue, "%FT%T");
-    oss << '.' << std::setfill('0') << std::setw(width) << value;
-
-    return oss.str();
-  }
+      const Precision& precision = Precision::kNanoseconds) const;
 
   operator std::string() const {
     return toString();
