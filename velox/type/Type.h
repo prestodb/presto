@@ -455,6 +455,18 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
 
   virtual bool isPrimitiveType() const = 0;
 
+  /// Returns true if equality relationship is defined for the values of this
+  /// type, i.e. a == b is defined and returns true, false or null. For example,
+  /// scalar types are usually comparable and complex types are comparable if
+  /// their nested types are.
+  virtual bool isComparable() const = 0;
+
+  /// Returns true if less than relationship is defined for the values of this
+  /// type, i.e. a <= b returns true or false. For example, scalar types are
+  /// usually orderable, arrays and structs are orderable if their nested types
+  /// are, while map types are not orderable.
+  virtual bool isOrderable() const = 0;
+
   /// Returns unique logical type name. It can be
   /// different from the physical type name returned by 'kindName()'.
   virtual const char* name() const = 0;
@@ -571,6 +583,14 @@ class TypeBase : public Type {
     return TypeTraits<KIND>::isFixedWidth;
   }
 
+  bool isOrderable() const override {
+    return false;
+  }
+
+  bool isComparable() const override {
+    return false;
+  }
+
   const char* kindName() const override {
     return TypeTraits<KIND>::name;
   }
@@ -598,6 +618,14 @@ class ScalarType : public TypeBase<KIND> {
 
   std::string toString() const override {
     return TypeTraits<KIND>::name;
+  }
+
+  bool isOrderable() const override {
+    return true;
+  }
+
+  bool isComparable() const override {
+    return true;
   }
 
   size_t cppSizeInBytes() const override {
@@ -798,6 +826,14 @@ class ArrayType : public TypeBase<TypeKind::ARRAY> {
     return {"element"};
   }
 
+  bool isOrderable() const override {
+    return child_->isOrderable();
+  }
+
+  bool isComparable() const override {
+    return child_->isComparable();
+  }
+
   const std::shared_ptr<const Type>& childAt(uint32_t idx) const override;
 
   const char* nameOf(uint32_t idx) const {
@@ -849,6 +885,10 @@ class MapType : public TypeBase<TypeKind::MAP> {
     return {"key", "value"};
   }
 
+  bool isComparable() const override {
+    return keyType_->isComparable() && valueType_->isComparable();
+  }
+
   std::string toString() const override;
 
   const TypePtr& childAt(uint32_t idx) const override;
@@ -882,6 +922,10 @@ class RowType : public TypeBase<TypeKind::ROW> {
   const std::vector<std::shared_ptr<const Type>>& children() const {
     return children_;
   }
+
+  bool isOrderable() const override;
+
+  bool isComparable() const override;
 
   const std::shared_ptr<const Type>& findChild(folly::StringPiece name) const;
 
@@ -952,6 +996,14 @@ class FunctionType : public TypeBase<TypeKind::FUNCTION> {
 
   const std::vector<std::shared_ptr<const Type>>& children() const {
     return children_;
+  }
+
+  bool isOrderable() const override {
+    return false;
+  }
+
+  bool isComparable() const override {
+    return false;
   }
 
   bool equivalent(const Type& other) const override;
