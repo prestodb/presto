@@ -797,6 +797,8 @@ int32_t ContainerRowSerde::compare(
     const DecodedVector& right,
     vector_size_t index,
     CompareFlags flags) {
+  VELOX_DCHECK(
+      !right.isNullAt(index), "Null top-level values are not supported");
   VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
   return compareSwitch(left, *right.base(), right.index(index), flags).value();
 }
@@ -817,6 +819,8 @@ std::optional<int32_t> ContainerRowSerde::compareWithNulls(
     const DecodedVector& right,
     vector_size_t index,
     CompareFlags flags) {
+  VELOX_DCHECK(
+      !right.isNullAt(index), "Null top-level values are not supported");
   return compareSwitch(left, *right.base(), right.index(index), flags);
 }
 

@@ -35,6 +35,7 @@ class ContainerRowSerde {
   /// Returns < 0 if 'left' is less than 'right' at 'index', 0 if
   /// equal and > 0 otherwise. flags.nullHandlingMode can be only NoStop and
   /// support null-safe equal.
+  /// Top level rows in right are not allowed to be null.
   static int32_t compare(
       ByteStream& left,
       const DecodedVector& right,
@@ -55,6 +56,7 @@ class ContainerRowSerde {
   /// returns std::nullopt if either 'left' or 'right' value is null or contains
   /// a null. If flags.nullHandlingMode is NoStop then NULL is considered equal
   /// to NULL.
+  /// Top level rows in right are not allowed to be null.
   static std::optional<int32_t> compareWithNulls(
       ByteStream& left,
       const DecodedVector& right,
