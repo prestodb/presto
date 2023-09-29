@@ -40,6 +40,10 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "levenshtein_distance"});
   registerFunction<LengthFunction, int64_t, Varchar>({prefix + "length"});
 
+  // Length for varbinary have different semantics.
+  registerFunction<LengthVarbinaryFunction, int64_t, Varbinary>(
+      {prefix + "length"});
+
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t>(
       {prefix + "substr"});
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t, int64_t>(

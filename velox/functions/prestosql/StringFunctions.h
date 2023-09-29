@@ -212,6 +212,16 @@ struct LengthFunction {
   }
 };
 
+/// Returns number of bytes in the specified varbinary.
+template <typename T>
+struct LengthVarbinaryFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, const StringView& input) {
+    result = input.size();
+  }
+};
+
 /// Pad functions
 /// lpad(string, size, padString) → varchar
 ///     Left pads string to size characters with padString.  If size is

@@ -1797,3 +1797,11 @@ TEST_F(StringFunctionsTest, concatInSwitchExpr) {
       {"This is a long sentence-zzz"_sv, "aaa-This is some other sentence"_sv});
   test::assertEqualVectors(expected, result);
 }
+
+TEST_F(StringFunctionsTest, varbinaryLength) {
+  auto vector = makeFlatVector<std::string>(
+      {"hi", "", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B"}, VARBINARY());
+  auto expected = makeFlatVector<int64_t>({2, 0, 22});
+  auto result = evaluate("length(c0)", makeRowVector({vector}));
+  test::assertEqualVectors(expected, result);
+}
