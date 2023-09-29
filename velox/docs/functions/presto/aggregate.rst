@@ -198,6 +198,8 @@ General Aggregate Functions
 
     Returns an array of all the distinct values contained in each array of the input.
 
+    Returns an empty array if all input arrays are NULL.
+
     Example::
 
         SELECT set_union(elements)

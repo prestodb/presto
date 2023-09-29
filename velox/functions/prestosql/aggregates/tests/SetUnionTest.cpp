@@ -79,7 +79,8 @@ TEST_F(SetUnionTest, global) {
   });
 
   expected = makeRowVector({
-      makeAllNullArrayVector(1, INTEGER()),
+      // Empty array: [].
+      makeArrayVector<int32_t>({{}}),
   });
 
   testAggregations(
@@ -186,29 +187,42 @@ TEST_F(SetUnionTest, groupBy) {
       {expected});
 
   // All null arrays for one group.
-  data = makeRowVector({
-      makeFlatVector<int16_t>({1, 1, 2, 2, 2, 1, 2}),
-      makeNullableArrayVector<int32_t>({
-          std::nullopt,
-          std::nullopt,
-          {{}},
-          {{1, 2}},
-          {{1, 2, 3}},
-          std::nullopt,
-          std::nullopt,
+  std::vector<RowVectorPtr> multiBatchData = {
+      makeRowVector({
+          makeFlatVector<int16_t>({1, 1, 2, 2, 2, 1, 2}),
+          makeNullableArrayVector<int32_t>({
+              std::nullopt,
+              std::nullopt,
+              {{}},
+              {{1, 2}},
+              {{1, 2, 3}},
+              std::nullopt,
+              std::nullopt,
+          }),
       }),
-  });
+      makeRowVector({
+          makeFlatVector<int16_t>({3, 3, 3, 2, 3}),
+          makeNullableArrayVector<int32_t>({
+              std::nullopt,
+              std::nullopt,
+              std::nullopt,
+              {{2, 4, 5}},
+              std::nullopt,
+          }),
+      }),
+  };
 
   expected = makeRowVector({
-      makeFlatVector<int16_t>({1, 2}),
-      makeNullableArrayVector<int32_t>({
-          std::nullopt,
-          {{1, 2, 3}},
+      makeFlatVector<int16_t>({1, 2, 3}),
+      makeArrayVector<int32_t>({
+          {}, // Empty array: [].
+          {1, 2, 3, 4, 5},
+          {}, // Empty array: [].
       }),
   });
 
   testAggregations(
-      {data, data, data},
+      multiBatchData,
       {"c0"},
       {"set_union(c1)"},
       {"c0", "array_sort(a0)"},

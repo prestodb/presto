@@ -66,6 +66,7 @@ TEST_F(SetAggTest, global) {
   });
 
   expected = makeRowVector({
+      // An Array with a single NULL element: [null].
       makeNullableArrayVector(
           std::vector<std::vector<std::optional<int32_t>>>{{std::nullopt}}),
   });

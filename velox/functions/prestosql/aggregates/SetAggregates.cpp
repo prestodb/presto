@@ -109,6 +109,35 @@ class SetBaseAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
+    addIntermediateResultsInt(groups, rows, args, false);
+  }
+
+  void addSingleGroupIntermediateResults(
+      char* group,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool /*mayPushdown*/) override {
+    addSingleGroupIntermediateResultsInt(group, rows, args, false);
+  }
+
+  void destroy(folly::Range<char**> groups) override {
+    for (auto* group : groups) {
+      if (!isNull(group)) {
+        value(group)->free(*allocator_);
+      }
+    }
+  }
+
+ protected:
+  inline AccumulatorType* value(char* group) {
+    return reinterpret_cast<AccumulatorType*>(group + Aggregate::offset_);
+  }
+
+  void addIntermediateResultsInt(
+      char** groups,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool clearNullForAllInputs) {
     decoded_.decode(*args[0], rows);
 
     auto baseArray = decoded_.base()->template as<ArrayVector>();
@@ -116,6 +145,9 @@ class SetBaseAggregate : public exec::Aggregate {
 
     rows.applyToSelected([&](vector_size_t i) {
       if (decoded_.isNullAt(i)) {
+        if (clearNullForAllInputs) {
+          clearNull(groups[i]);
+        }
         return;
       }
 
@@ -130,11 +162,11 @@ class SetBaseAggregate : public exec::Aggregate {
     });
   }
 
-  void addSingleGroupIntermediateResults(
+  void addSingleGroupIntermediateResultsInt(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
-      bool /*mayPushdown*/) override {
+      bool clearNullForAllInputs) {
     decoded_.decode(*args[0], rows);
 
     auto baseArray = decoded_.base()->template as<ArrayVector>();
@@ -146,6 +178,9 @@ class SetBaseAggregate : public exec::Aggregate {
     auto tracker = trackRowSize(group);
     rows.applyToSelected([&](vector_size_t i) {
       if (decoded_.isNullAt(i)) {
+        if (clearNullForAllInputs) {
+          clearNull(group);
+        }
         return;
       }
 
@@ -155,19 +190,6 @@ class SetBaseAggregate : public exec::Aggregate {
       accumulator->addValues(
           *baseArray, decodedIndex, decodedElements_, allocator_);
     });
-  }
-
-  void destroy(folly::Range<char**> groups) override {
-    for (auto* group : groups) {
-      if (!isNull(group)) {
-        value(group)->free(*allocator_);
-      }
-    }
-  }
-
- protected:
-  inline AccumulatorType* value(char* group) {
-    return reinterpret_cast<AccumulatorType*>(group + Aggregate::offset_);
   }
 
   DecodedVector decoded_;
@@ -273,8 +295,28 @@ class SetUnionAggregate : public SetBaseAggregate<T> {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       VectorPtr& result) const override {
+    auto arrayInput = args[0];
+
+    if (arrayInput->mayHaveNulls()) {
+      // Convert null arrays into empty arrays. set_union(<all null>) returns
+      // empty array, not null.
+
+      auto copy = BaseVector::create<ArrayVector>(
+          arrayInput->type(), rows.size(), arrayInput->pool());
+      copy->copy(arrayInput.get(), rows, nullptr);
+
+      rows.applyToSelected([&](auto row) {
+        if (copy->isNullAt(row)) {
+          copy->setOffsetAndSize(row, 0, 0);
+          copy->setNull(row, false);
+        }
+      });
+
+      arrayInput = copy;
+    }
+
     if (rows.isAllSelected()) {
-      result = args[0];
+      result = arrayInput;
     } else {
       auto* pool = SetBaseAggregate<T>::allocator_->pool();
       const auto numRows = rows.size();
@@ -290,7 +332,7 @@ class SetUnionAggregate : public SetBaseAggregate<T> {
       auto* rawIndices = indices->asMutable<vector_size_t>();
       std::iota(rawIndices, rawIndices + numRows, 0);
       result =
-          BaseVector::wrapInDictionary(nulls, indices, rows.size(), args[0]);
+          BaseVector::wrapInDictionary(nulls, indices, rows.size(), arrayInput);
     }
   }
 
@@ -298,16 +340,20 @@ class SetUnionAggregate : public SetBaseAggregate<T> {
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
-      bool mayPushdown) override {
-    Base::addIntermediateResults(groups, rows, args, mayPushdown);
+      bool /*mayPushdown*/) override {
+    // Make sure to clear null flag for the accumulators even if all inputs are
+    // null. set_union(<all nulls>) returns empty array, not null.
+    Base::addIntermediateResultsInt(groups, rows, args, true);
   }
 
   void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
-      bool mayPushdown) override {
-    Base::addSingleGroupIntermediateResults(group, rows, args, mayPushdown);
+      bool /*mayPushdown*/) override {
+    // Make sure to clear null flag for the accumulators even if all inputs are
+    // null. set_union(<all nulls>) returns empty array, not null.
+    Base::addSingleGroupIntermediateResultsInt(group, rows, args, true);
   }
 };
 
