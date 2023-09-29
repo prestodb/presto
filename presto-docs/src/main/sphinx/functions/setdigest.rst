@@ -56,7 +56,7 @@ Serializing these data structures allows them to be efficiently stored and, if n
 systems or sessions.
 Once stored, they can then be deserialized back into to their original state when they need to be used again.
 In the context of Presto, you might normally do this using functions that convert these data sketches to and from binary.
-An example might include using to_utf8() or from_utf8().
+An example might include using ``to_utf8()`` or ``from_utf8()``.
 
 Functions
 ---------
@@ -75,17 +75,12 @@ Composes all input values of ``x`` into a ``setdigest``.
         Create a ``setdigest`` corresponding to a ``varchar`` array::
 
         SELECT make_set_digest(value)
-        FROM (VALUES 'Trino', 'SQL', 'on', 'everything') T(value);
-
-
-        Error : Unexpected parameters (varchar(10)) for function make_set_digest.
-        Expected: make_set_digest(bigint)
+        FROM (VALUES 'Presto', 'SQL', 'on', 'everything') T(value);
 
 
 .. function:: merge_set_digest(setdigest) -> setdigest
 
-Returns the ``setdigest`` of the aggregate union of the individual ``setdigest``
-Set Digest structures.
+Returns the ``setdigest`` of the aggregate union of the individual ``setdigest`` structures.
 
      Examples::
 
