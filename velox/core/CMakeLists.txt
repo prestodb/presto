@@ -16,18 +16,22 @@ if(${VELOX_BUILD_TESTING})
 endif()
 
 add_library(velox_config Config.cpp)
-target_link_libraries(velox_config velox_exception Folly::folly)
+target_link_libraries(velox_config PUBLIC velox_exception Folly::folly)
 
 add_library(velox_core Expressions.cpp PlanFragment.cpp PlanNode.cpp
                        QueryConfig.cpp QueryCtx.cpp SimpleFunctionMetadata.cpp)
 
 target_link_libraries(
   velox_core
-  velox_caching
-  velox_config
-  velox_expression_functions
-  velox_type
-  velox_connector
-  velox_serialization
-  velox_vector
-  Folly::folly)
+  PUBLIC velox_arrow_bridge
+         velox_caching
+         velox_config
+         velox_connector
+         velox_exception
+         velox_expression_functions
+         velox_memory
+         velox_type
+         velox_vector
+         Boost::headers
+         Folly::folly
+  PRIVATE velox_encode)

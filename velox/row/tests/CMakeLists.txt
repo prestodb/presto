@@ -18,19 +18,11 @@ add_test(velox_row_test velox_row_test)
 
 target_link_libraries(
   velox_row_test
-  velox_row_fast
-  velox_exec
-  velox_exec_test_lib
-  velox_functions_lib
-  velox_functions_prestosql
-  velox_aggregates
-  velox_presto_serializer
-  velox_type
-  velox_vector
-  velox_vector_fuzzer
-  velox_vector_test_lib
-  Folly::folly
-  gtest
-  gtest_main
-  gflags::gflags
-  glog::glog)
+  PRIVATE velox_exception
+          velox_row_fast
+          velox_vector
+          velox_vector_fuzzer
+          velox_vector_test_lib
+          Folly::folly
+          gtest
+          gtest_main)

@@ -24,5 +24,13 @@ add_executable(
 
 add_test(velox_core_test velox_core_test)
 
-target_link_libraries(velox_core_test velox_core velox_vector_test_lib gtest
-                      gtest_main)
+target_link_libraries(
+  velox_core_test
+  PRIVATE velox_core
+          velox_exception
+          velox_exec_test_lib
+          velox_presto_types
+          velox_type
+          velox_vector_test_lib
+          gtest
+          gtest_main)
