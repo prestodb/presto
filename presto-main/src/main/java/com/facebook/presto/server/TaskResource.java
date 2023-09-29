@@ -39,6 +39,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.booleans.BooleanIntImmutablePair;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -153,6 +154,11 @@ public class TaskResource
     public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
+
+        BooleanIntImmutablePair p = taskManager.shouldBackPressure(taskUpdateRequest);
+        if (p.leftBoolean()) {
+            return Response.status(Status.TOO_MANY_REQUESTS).header("Retry-After", String.valueOf(p.rightInt())).build();
+        }
 
         Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
         TaskInfo taskInfo = taskManager.updateTask(session,

@@ -82,6 +82,7 @@ public class HttpRemoteTaskFactory
     private final Duration maxErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoRefreshMaxWait;
+    private final boolean isTaskCreationBackpressureEnabled;
     private final HandleResolver handleResolver;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
@@ -132,6 +133,7 @@ public class HttpRemoteTaskFactory
         this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
         this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
+        this.isTaskCreationBackpressureEnabled = taskConfig.getTaskCreationBackpressureEnabled();
         this.handleResolver = handleResolver;
         this.connectorTypeSerdeManager = connectorTypeSerdeManager;
 
@@ -254,6 +256,7 @@ public class HttpRemoteTaskFactory
                 queryManager,
                 taskUpdateRequestSize,
                 handleResolver,
-                connectorTypeSerdeManager);
+                connectorTypeSerdeManager,
+                isTaskCreationBackpressureEnabled);
     }
 }

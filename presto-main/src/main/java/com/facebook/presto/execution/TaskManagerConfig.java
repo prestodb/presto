@@ -75,9 +75,12 @@ public class TaskManagerConfig
     private Integer partitionedWriterCount;
     private int taskConcurrency = 16;
     private int httpResponseThreads = 100;
+    private int taskCreationTaskCountBackpressureThreshold = httpResponseThreads;
+    private DataSize taskCreationFreeMemoryLowBackpressureThreshold = new DataSize(32, Unit.MEGABYTE);
+    private int taskCreationBackpressureRetryAfter = 60;
+    private boolean taskCreationBackpressureEnabled;
     private int httpTimeoutConcurrency = 3;
     private int httpTimeoutThreads = 3;
-
     private int taskNotificationThreads = 5;
     private int taskYieldThreads = 3;
 
@@ -470,6 +473,57 @@ public class TaskManagerConfig
     public TaskManagerConfig setHttpResponseThreads(int httpResponseThreads)
     {
         this.httpResponseThreads = httpResponseThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskCreationTaskCountBackpressureThreshold()
+    {
+        return taskCreationTaskCountBackpressureThreshold;
+    }
+
+    @Config("task.task-creation-task-count-backpressure-threshold")
+    public TaskManagerConfig setTaskCreationTaskCountBackpressureThreshold(int taskCreationTaskCountBackpressureThreshold)
+    {
+        this.taskCreationTaskCountBackpressureThreshold = taskCreationTaskCountBackpressureThreshold;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTaskCreationFreeMemoryLowBackpressureThreshold()
+    {
+        return taskCreationFreeMemoryLowBackpressureThreshold;
+    }
+
+    @Config("task.task-creation-free-memory-low-backpressure-threshold")
+    public TaskManagerConfig setTaskCreationFreeMemoryLowBackpressureThreshold(DataSize taskCreationFreeMemoryLowBackpressureThreshold)
+    {
+        this.taskCreationFreeMemoryLowBackpressureThreshold = taskCreationFreeMemoryLowBackpressureThreshold;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskCreationBackpressureRetryAfter()
+    {
+        return taskCreationBackpressureRetryAfter;
+    }
+
+    @Config("task.task-creation-backpressure-retry-after")
+    public TaskManagerConfig setTaskCreationBackpressureRetryAfter(int taskCreationBackpressureRetryAfter)
+    {
+        this.taskCreationBackpressureRetryAfter = taskCreationBackpressureRetryAfter;
+        return this;
+    }
+
+    public boolean getTaskCreationBackpressureEnabled()
+    {
+        return taskCreationBackpressureEnabled;
+    }
+
+    @Config("task.task-creation-backpressure-enabled")
+    public TaskManagerConfig setTaskCreationBackpressureEnabled(boolean taskCreationBackpressureEnabled)
+    {
+        this.taskCreationBackpressureEnabled = taskCreationBackpressureEnabled;
         return this;
     }
 

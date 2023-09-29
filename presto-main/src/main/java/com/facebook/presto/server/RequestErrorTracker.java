@@ -115,6 +115,10 @@ public class RequestErrorTracker
             return;
         }
 
+        if (reason instanceof TaskCreationBackPressureException) {
+            return;
+        }
+
         if (reason instanceof RejectedExecutionException) {
             if (reason.getMessage() == null) {
                 throw new PrestoException(errorCode, reason);

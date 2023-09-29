@@ -21,9 +21,11 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.metadata.MetadataUpdates;
+import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.booleans.BooleanIntImmutablePair;
 
 import java.util.List;
 import java.util.Optional;
@@ -148,4 +150,6 @@ public interface TaskManager
      * Update the results of metadata requests sent
      */
     void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates);
+
+    BooleanIntImmutablePair shouldBackPressure(TaskUpdateRequest taskUpdateRequest);
 }
