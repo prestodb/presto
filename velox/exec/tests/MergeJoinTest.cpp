@@ -547,29 +547,45 @@ TEST_F(MergeJoinTest, complexTypedFilter) {
       {"u_c0"},
       {makeFlatVector<int32_t>(size, [](auto row) { return row * 2; })});
 
-  auto testComplexTypedFilter = [&](const std::vector<RowVectorPtr>& left,
-                                    const std::string& filter,
-                                    const std::string& queryFilter) {
-    createDuckDbTable("t", left);
-    createDuckDbTable("u", {right});
-    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    auto plan =
-        PlanBuilder(planNodeIdGenerator)
-            .values(left)
-            .mergeJoin(
-                {"t_c0"},
-                {"u_c0"},
-                PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
-                filter,
-                {"t_c0", "t_c1", "u_c0"},
-                core::JoinType::kLeft)
-            .planNode();
+  auto testComplexTypedFilter =
+      [&](const std::vector<RowVectorPtr>& left,
+          const std::string& filter,
+          const std::string& queryFilter,
+          const std::vector<std::string>& outputLayout) {
+        createDuckDbTable("t", left);
+        createDuckDbTable("u", {right});
+        auto planNodeIdGenerator =
+            std::make_shared<core::PlanNodeIdGenerator>();
+        auto plan =
+            PlanBuilder(planNodeIdGenerator)
+                .values(left)
+                .mergeJoin(
+                    {"t_c0"},
+                    {"u_c0"},
+                    PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+                    filter,
+                    outputLayout,
+                    core::JoinType::kLeft)
+                .planNode();
 
-    assertQuery(
-        plan,
-        "SELECT t_c0, t_c1, u_c0 FROM t LEFT JOIN u ON t_c0 = u_c0 AND " +
-            queryFilter);
-  };
+        std::string outputs;
+        for (auto i = 0; i < outputLayout.size(); ++i) {
+          outputs += std::move(outputLayout[i]);
+          if (i + 1 < outputLayout.size()) {
+            outputs += ", ";
+          }
+        }
+
+        assertQuery(
+            plan,
+            fmt::format(
+                "SELECT {} FROM t LEFT JOIN u ON t_c0 = u_c0 AND {}",
+                outputs,
+                queryFilter));
+      };
+
+  std::vector<std::vector<std::string>> outputLayouts{
+      {"t_c0", "u_c0"}, {"t_c0", "u_c0", "t_c1"}};
 
   {
     const std::vector<std::vector<int32_t>> pattern{
@@ -595,7 +611,10 @@ TEST_F(MergeJoinTest, complexTypedFilter) {
                  size, [size](auto row) { return size + row * 2; }),
              makeArrayVector<int32_t>(arrayVector)})};
 
-    testComplexTypedFilter(left, "array_max(t_c1) >= 8", "list_max(t_c1) >= 8");
+    for (const auto& outputLayout : outputLayouts) {
+      testComplexTypedFilter(
+          left, "array_max(t_c1) >= 8", "list_max(t_c1) >= 8", outputLayout);
+    }
   }
 
   {
@@ -619,7 +638,9 @@ TEST_F(MergeJoinTest, complexTypedFilter) {
                  size, [size](auto row) { return size + row * 2; }),
              mapVector})};
 
-    testComplexTypedFilter(
-        left, "cardinality(t_c1) > 4", "cardinality(t_c1) > 4");
+    for (const auto& outputLayout : outputLayouts) {
+      testComplexTypedFilter(
+          left, "cardinality(t_c1) > 4", "cardinality(t_c1) > 4", outputLayout);
+    }
   }
 };

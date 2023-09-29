@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #pragma once
+#include <folly/container/F14Map.h>
+
 #include "velox/exec/MergeSource.h"
 #include "velox/exec/Operator.h"
 
@@ -360,10 +362,16 @@ class MergeJoin : public Operator {
   // Join filter input type.
   RowTypePtr filterInputType_;
 
-  // Maps left-side input channels to channels in 'filterInputType_'.
+  // Maps 'filterInputType_' channels to the corresponding channels in output_,
+  // if any.
+  folly::F14FastMap<column_index_t, column_index_t> filterInputToOutputChannel_;
+
+  // Maps left-side input channels to channels in 'filterInputType_', excluding
+  // those in 'filterInputToOutputChannel_'.
   std::vector<IdentityProjection> filterLeftInputs_;
 
-  // Maps right-side input channels to channels in 'filterInputType_'.
+  // Maps right-side input channels to channels in 'filterInputType_', excluding
+  // those in 'filterInputToOutputChannel_'.
   std::vector<IdentityProjection> filterRightInputs_;
 
   // Reusable memory for filter evaluation.
