@@ -225,4 +225,7 @@ RowVectorPtr genTpchRegion(
     size_t offset = 0,
     double scaleFactor = 1);
 
+/// Gets the specified TPC-H query number as a string.
+std::string getQuery(int query);
+
 } // namespace facebook::velox::tpch

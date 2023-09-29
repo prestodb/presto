@@ -27,6 +27,7 @@
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/tpch/gen/TpchGen.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -69,7 +70,7 @@ class ParquetTpchTestBase : public testing::Test {
       int queryId,
       std::optional<std::vector<uint32_t>> sortingKeys = {}) const {
     auto tpchPlan = tpchBuilder_.getQueryPlan(queryId);
-    auto duckDbSql = duckDb_->getTpchQuery(queryId);
+    auto duckDbSql = tpch::getQuery(queryId);
     auto task = assertQuery(tpchPlan, duckDbSql, sortingKeys);
   }
 

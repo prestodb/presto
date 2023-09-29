@@ -38,4 +38,5 @@ target_link_libraries(
   velox_exec
   velox_hive_connector
   velox_aggregates
+  velox_tpch_gen
   ${TEST_LINK_LIBS})

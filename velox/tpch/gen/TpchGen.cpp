@@ -15,7 +15,7 @@
  */
 
 #include "velox/tpch/gen/TpchGen.h"
-#include "velox/external/duckdb/tpch/dbgen/include/dbgen/dbgen_gunk.hpp"
+#include "velox/external/duckdb/tpch/dbgen/include/dbgen/dbgen.hpp"
 #include "velox/external/duckdb/tpch/dbgen/include/dbgen/dss.h"
 #include "velox/external/duckdb/tpch/dbgen/include/dbgen/dsstypes.h"
 #include "velox/tpch/gen/DBGenIterator.h"
@@ -749,6 +749,15 @@ RowVectorPtr genTpchRegion(
   }
   return std::make_shared<RowVector>(
       pool, regionRowType, BufferPtr(nullptr), vectorSize, std::move(children));
+}
+
+std::string getQuery(int query) {
+  auto queryString = ::tpch::DBGenWrapper::GetQuery(query);
+  // Output of GetQuery() has a new line and a semi-colon. These need to be
+  // removed in order to use the query string in a subquery
+  queryString.pop_back(); // remove new line
+  queryString.pop_back(); // remove semi-colon
+  return queryString;
 }
 
 } // namespace facebook::velox::tpch
