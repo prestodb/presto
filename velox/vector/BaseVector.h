@@ -425,7 +425,8 @@ class BaseVector {
   // indices for Dictionary, etc). Any immutable buffers that need to be resized
   // are copied. 'setNotNull' indicates if nulls in range [oldSize, newSize]
   // should be set to not null.
-  // Note: caller must ensure that the vector is singly referenced.
+  // Note: caller must ensure that the vector is writable; for instance have
+  // recursively single referenced buffers and vectors.
   virtual void resize(vector_size_t newSize, bool setNotNull = true);
 
   // Sets the rows of 'this' given by 'rows' to
