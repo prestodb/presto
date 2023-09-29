@@ -1343,7 +1343,7 @@ inline bool RowContainer::equals(
     return isNullAt(row, column.nullByte(), column.nullMask());
   }
 
-  if (!mayHaveNulls) {
+  if constexpr (!mayHaveNulls) {
     return VELOX_DYNAMIC_TYPE_DISPATCH(
         equalsNoNulls, typeKind, row, column.offset(), decoded, index);
   } else {
