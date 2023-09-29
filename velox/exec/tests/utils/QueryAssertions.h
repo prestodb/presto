@@ -26,8 +26,14 @@ namespace facebook::velox::exec::test {
 using MaterializedRow = std::vector<velox::variant>;
 using DuckDBQueryResult = std::unique_ptr<::duckdb::MaterializedQueryResult>;
 
-// Multiset that compares floating-point values directly.
+/// Multiset that compares floating-point values directly.
 using MaterializedRowMultiset = std::multiset<MaterializedRow>;
+
+/// Converts input 'RowVector' into a list of 'MaterializedRow's.
+std::vector<MaterializedRow> materialize(const RowVectorPtr& vector);
+
+/// Converts a list of 'RowVector's into 'MaterializedRowMultiset'.
+MaterializedRowMultiset materialize(const std::vector<RowVectorPtr>& vectors);
 
 class DuckDbQueryRunner {
  public:
