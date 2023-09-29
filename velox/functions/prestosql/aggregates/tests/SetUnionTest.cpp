@@ -54,20 +54,18 @@ TEST_F(SetUnionTest, global) {
 
   // Null inputs.
   data = makeRowVector({
-      makeNullableArrayVector<int32_t>({
-          {{}},
-          {{1, 2, std::nullopt, 3}},
-          {{1, 2}},
-          std::nullopt,
-          {{2, 3, 4, std::nullopt, 5}},
-          {{6, 7}},
+      makeArrayVectorFromJson<int32_t>({
+          "[]",
+          "[1, 2, null, 3]",
+          "[1, 2]",
+          "null",
+          "[2, 3, 4, null, 5]",
+          "[6, 7]",
       }),
   });
 
   expected = makeRowVector({
-      makeNullableArrayVector<int32_t>({
-          {1, 2, 3, 4, 5, 6, 7, std::nullopt},
-      }),
+      makeArrayVectorFromJson<int32_t>({"[1, 2, 3, 4, 5, 6, 7, null]"}),
   });
 
   testAggregations(
@@ -88,17 +86,15 @@ TEST_F(SetUnionTest, global) {
 
   // All nulls elements.
   data = makeRowVector({
-      makeNullableArrayVector<int32_t>({
-          {},
-          {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
-          {std::nullopt, std::nullopt, std::nullopt},
+      makeArrayVectorFromJson<int32_t>({
+          "[]",
+          "[null, null, null, null]",
+          "[null, null, null]",
       }),
   });
 
   expected = makeRowVector({
-      makeNullableArrayVector(std::vector<std::vector<std::optional<int32_t>>>{
-          {std::nullopt},
-      }),
+      makeArrayVectorFromJson<int32_t>({"[null]"}),
   });
 
   testAggregations(
@@ -157,25 +153,25 @@ TEST_F(SetUnionTest, groupBy) {
   // Null inputs.
   data = makeRowVector({
       makeFlatVector<int16_t>({1, 1, 2, 2, 2, 1, 2, 1, 2, 1}),
-      makeNullableArrayVector<int32_t>({
-          {{}},
-          {{1, 2, 3}},
-          {{10, std::nullopt, 20}},
-          {{20, 30, 40, std::nullopt, 50}},
-          std::nullopt,
-          {{4, 2, 1, 5}},
-          {{60, std::nullopt, 20}},
-          {{std::nullopt, 5, 6}},
-          {{}},
-          std::nullopt,
+      makeArrayVectorFromJson<int32_t>({
+          "[]",
+          "[1, 2, 3]",
+          "[10, null, 20]",
+          "[20, 30, 40, null, 50]",
+          "null",
+          "[4, 2, 1, 5]",
+          "[60, null, 20]",
+          "[null, 5, 6]",
+          "[]",
+          "null",
       }),
   });
 
   expected = makeRowVector({
       makeFlatVector<int16_t>({1, 2}),
-      makeNullableArrayVector<int32_t>({
-          {1, 2, 3, 4, 5, 6, std::nullopt},
-          {10, 20, 30, 40, 50, 60, std::nullopt},
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2, 3, 4, 5, 6, null]",
+          "[10, 20, 30, 40, 50, 60, null]",
       }),
   });
 
@@ -190,24 +186,24 @@ TEST_F(SetUnionTest, groupBy) {
   std::vector<RowVectorPtr> multiBatchData = {
       makeRowVector({
           makeFlatVector<int16_t>({1, 1, 2, 2, 2, 1, 2}),
-          makeNullableArrayVector<int32_t>({
-              std::nullopt,
-              std::nullopt,
-              {{}},
-              {{1, 2}},
-              {{1, 2, 3}},
-              std::nullopt,
-              std::nullopt,
+          makeArrayVectorFromJson<int32_t>({
+              "null",
+              "null",
+              "[]",
+              "[1, 2]",
+              "[1, 2, 3]",
+              "null",
+              "null",
           }),
       }),
       makeRowVector({
           makeFlatVector<int16_t>({3, 3, 3, 2, 3}),
-          makeNullableArrayVector<int32_t>({
-              std::nullopt,
-              std::nullopt,
-              std::nullopt,
-              {{2, 4, 5}},
-              std::nullopt,
+          makeArrayVectorFromJson<int32_t>({
+              "null",
+              "null",
+              "null",
+              "[2, 4, 5]",
+              "null",
           }),
       }),
   };

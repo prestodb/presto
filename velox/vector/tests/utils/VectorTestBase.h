@@ -432,6 +432,29 @@ class VectorTestBase {
     return vectorMaker_.arrayVectorNullable<T>(data, arrayType);
   }
 
+  /// Creates an ArrayVector from a list of JSON arrays.
+  ///
+  /// JSON arrays can represent a null array, an empty array or array with null
+  /// elements.
+  ///
+  /// Examples:
+  ///  [1, 2, 3]
+  ///  [1, 2, null, 4]
+  ///  [null, null]
+  ///  [] - empty array
+  ///  null - null array
+  ///
+  /// @tparam T Type of array elements. Must be an integer: int8_t, int16_t,
+  /// int32_t, int64_t.
+  /// @param jsonArrays A list of JSON arrays. JSON array cannot be an empty
+  /// string.
+  template <typename T>
+  ArrayVectorPtr makeArrayVectorFromJson(
+      const std::vector<std::string>& jsonArrays,
+      const TypePtr& arrayType = ARRAY(CppToType<T>::create())) {
+    return vectorMaker_.arrayVectorFromJson<T>(jsonArrays, arrayType);
+  }
+
   template <typename T>
   ArrayVectorPtr makeArrayVector(
       vector_size_t size,

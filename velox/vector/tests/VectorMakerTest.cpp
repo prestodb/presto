@@ -231,7 +231,7 @@ TEST_F(VectorMakerTest, arrayVector) {
   EXPECT_EQ(9, arrayVector->offsetAt(4));
 
   // Validate actual vector elements.
-  auto elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
+  auto* elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
 
   EXPECT_FALSE(elementsVector->mayHaveNulls());
 
@@ -261,7 +261,7 @@ TEST_F(VectorMakerTest, arrayVectorString) {
   EXPECT_EQ(4, arrayVector->offsetAt(1));
 
   // Validate actual vector elements.
-  auto elementsVector = arrayVector->elements()->asFlatVector<StringView>();
+  auto* elementsVector = arrayVector->elements()->asFlatVector<StringView>();
 
   EXPECT_FALSE(elementsVector->mayHaveNulls());
 
@@ -305,7 +305,7 @@ TEST_F(VectorMakerTest, nullableArrayVector) {
   EXPECT_EQ(8, arrayVector->offsetAt(4));
 
   // Validate actual vector elements.
-  auto elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
+  auto* elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
 
   EXPECT_TRUE(elementsVector->mayHaveNulls());
 
@@ -370,7 +370,7 @@ TEST_F(VectorMakerTest, arrayVectorWithNulls) {
   }
 
   // Validate actual vector elements.
-  auto elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
+  auto* elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
   EXPECT_FALSE(elementsVector->mayHaveNulls());
 
   vector_size_t idx = 0;
@@ -378,6 +378,83 @@ TEST_F(VectorMakerTest, arrayVectorWithNulls) {
     for (auto i : item) {
       EXPECT_EQ(i, elementsVector->valueAt(idx++));
     }
+  }
+}
+
+TEST_F(VectorMakerTest, arrayVectorFromJson) {
+  auto arrayVector = maker_.arrayVectorFromJson<int32_t>({
+      "null",
+      "[]",
+      "[1, 2, 3]",
+      "[1, 2, null, 4]",
+      "[null, null]",
+  });
+
+  EXPECT_EQ(*arrayVector->type(), *ARRAY(INTEGER()));
+  EXPECT_TRUE(arrayVector->mayHaveNulls());
+
+  EXPECT_EQ(5, arrayVector->size());
+
+  auto* elements = arrayVector->elements()->as<FlatVector<int32_t>>();
+  EXPECT_TRUE(elements->mayHaveNulls());
+
+  // Null array.
+  EXPECT_TRUE(arrayVector->isNullAt(0));
+
+  // Empty array.
+  EXPECT_FALSE(arrayVector->isNullAt(1));
+  EXPECT_EQ(0, arrayVector->sizeAt(1));
+
+  // [1, 2, 3].
+  EXPECT_FALSE(arrayVector->isNullAt(2));
+  EXPECT_EQ(3, arrayVector->sizeAt(2));
+  EXPECT_EQ(0, arrayVector->offsetAt(2));
+
+  for (auto i = 0; i < 3; ++i) {
+    EXPECT_FALSE(elements->isNullAt(i));
+    EXPECT_EQ(i + 1, elements->valueAt(i));
+  }
+
+  // [1, 2, null, 4].
+  EXPECT_FALSE(arrayVector->isNullAt(3));
+  EXPECT_EQ(4, arrayVector->sizeAt(3));
+  EXPECT_EQ(3, arrayVector->offsetAt(3));
+
+  for (auto i = 0; i < 4; ++i) {
+    auto index = 3 + i;
+    if (i == 2) {
+      EXPECT_TRUE(elements->isNullAt(index));
+    } else {
+      EXPECT_FALSE(elements->isNullAt(index));
+      EXPECT_EQ(i + 1, elements->valueAt(index));
+    }
+  }
+
+  // [null, null].
+  EXPECT_FALSE(arrayVector->isNullAt(4));
+  EXPECT_EQ(2, arrayVector->sizeAt(4));
+  EXPECT_EQ(7, arrayVector->offsetAt(4));
+
+  for (auto i = 0; i < 2; ++i) {
+    EXPECT_TRUE(elements->isNullAt(7 + i));
+  }
+
+  auto dates = maker_.arrayVectorFromJson<int32_t>(
+      {
+          "null",
+          "[]",
+          "[1, 2, 3]",
+          "[1, 2, null, 4]",
+          "[null, null]",
+      },
+      ARRAY(DATE()));
+
+  EXPECT_EQ(*dates->type(), *ARRAY(DATE()));
+  EXPECT_TRUE(dates->mayHaveNulls());
+  EXPECT_EQ(5, dates->size());
+
+  for (auto i = 0; i < 5; ++i) {
+    EXPECT_TRUE(dates->equalValueAt(arrayVector.get(), i, i));
   }
 }
 
@@ -412,7 +489,7 @@ TEST_F(VectorMakerTest, arrayOfRowVector) {
   EXPECT_EQ(3, arrayVector->offsetAt(2));
 
   // Validate actual vector elements.
-  auto elementsVector = arrayVector->elements()->as<RowVector>();
+  auto* elementsVector = arrayVector->elements()->as<RowVector>();
 
   EXPECT_FALSE(elementsVector->mayHaveNulls());
   EXPECT_EQ(5, elementsVector->size());

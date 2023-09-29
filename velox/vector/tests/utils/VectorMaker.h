@@ -472,6 +472,53 @@ class VectorMaker {
     return arrayVectorNullableImpl(type, data);
   }
 
+  /// Creates an ArrayVector from a list of JSON arrays.
+  ///
+  /// JSON arrays can represent a null array, an empty array or array with null
+  /// elements.
+  ///
+  /// Examples:
+  ///  [1, 2, 3]
+  ///  [1, 2, null, 4]
+  ///  [null, null]
+  ///  [] - empty array
+  ///  null - null array
+  ///
+  /// @tparam T Type of array elements. Must be an integer: int8_t, int16_t,
+  /// int32_t, int64_t.
+  /// @param jsonArrays A list of JSON arrays. JSON array cannot be an empty
+  /// string.
+  template <typename T>
+  ArrayVectorPtr arrayVectorFromJson(
+      const std::vector<std::string>& jsonArrays,
+      const TypePtr& arrayType = ARRAY(CppToType<T>::create())) {
+    std::vector<std::optional<std::vector<std::optional<T>>>> arrays;
+    for (const auto& jsonArray : jsonArrays) {
+      VELOX_CHECK(!jsonArray.empty());
+
+      const folly::dynamic arrayObject = folly::parseJson(jsonArray);
+      if (arrayObject.isNull()) {
+        // Null array.
+        arrays.push_back(std::nullopt);
+        continue;
+      }
+
+      std::vector<std::optional<T>> elements;
+      for (const auto& element : arrayObject) {
+        if (element.isNull()) {
+          // Null element.
+          elements.push_back(std::nullopt);
+        } else {
+          elements.push_back(element.asInt());
+        }
+      }
+
+      arrays.push_back(elements);
+    }
+
+    return arrayVectorNullable<T>(arrays, arrayType);
+  }
+
   ArrayVectorPtr allNullArrayVector(
       vector_size_t size,
       const TypePtr& elementType);
