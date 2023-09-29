@@ -358,37 +358,6 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     return queryCtx;
   }
 
-  // Generates the simple table writer plan.
-  core::PlanNodePtr createInsertPlan(
-      PlanBuilder& inputPlan,
-      const RowTypePtr& rowType,
-      const std::string& outputDirectoryPath) {
-    auto insertPlan = inputPlan.tableWrite(
-        rowType,
-        rowType->names(),
-        nullptr,
-        std::make_shared<core::InsertTableHandle>(
-            kHiveConnectorId,
-            makeHiveInsertTableHandle(
-                rowType->names(),
-                rowType->children(),
-                {},
-                nullptr,
-                makeLocationHandle(
-                    outputDirectoryPath,
-                    std::nullopt,
-                    connector::hive::LocationHandle::TableType::kNew),
-                dwio::common::FileFormat::DWRF,
-                common::CompressionKind::CompressionKind_NONE)),
-        false,
-        velox::connector::CommitStrategy::kNoCommit);
-    insertPlan.project({TableWriteTraits::rowCountColumnName()})
-        .singleAggregation(
-            {},
-            {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())});
-    return insertPlan.planNode();
-  }
-
   static inline FakeMemoryOperatorFactory* fakeOperatorFactory_;
   std::shared_ptr<MemoryAllocator> allocator_;
   std::unique_ptr<MemoryManager> memoryManager_;
@@ -2355,8 +2324,15 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrationFromTableWriter) {
       }));
 
   auto outputDirectory = TempDirectoryPath::create();
-  auto writerPlan = createInsertPlan(
-      PlanBuilder().values(vectors), rowType_, outputDirectory->path);
+  auto writerPlan =
+      PlanBuilder()
+          .values(vectors)
+          .tableWrite(outputDirectory->path)
+          .project({TableWriteTraits::rowCountColumnName()})
+          .singleAggregation(
+              {},
+              {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())})
+          .planNode();
 
   AssertQueryBuilder(duckDbQueryRunner_)
       .queryCtx(queryCtx)

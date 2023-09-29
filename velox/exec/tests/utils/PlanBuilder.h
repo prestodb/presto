@@ -249,54 +249,22 @@ class PlanBuilder {
   PlanBuilder& optionalFilter(const std::string& optionalFilter);
 
   /// Adds a TableWriteNode to write all input columns into an un-partitioned
-  /// un-bucketed Hive table without collecting statistics without compression.
+  /// un-bucketed Hive table without compression.
   ///
   /// @param outputDirectoryPath Path to a directory to write data to.
   /// @param fileFormat File format to use for the written data.
+  /// @param aggregates Aggregations for column statistics collection during
+  /// write, supported aggregation types vary for different column types.
+  /// For example:
+  /// Boolean: count, countIf.
+  /// NumericType/Date/Timestamp: min, max, approx_distinct, count.
+  /// Varchar: count, approx_distinct, sum_data_size_for_stats,
+  /// max_data_size_for_stats.
   PlanBuilder& tableWrite(
       const std::string& outputDirectoryPath,
-      dwio::common::FileFormat fileFormat = dwio::common::FileFormat::DWRF);
-
-  /// Adds a TableWriteNode.
-  ///
-  /// @param inputColumns A subset of input columns to write.
-  /// @param tableColumnNames Column names in the target table corresponding to
-  /// inputColumns. The names may or may not match. tableColumnNames[i]
-  /// corresponds to inputColumns[i].
-  /// @param aggregationNode Optional aggregation node for collecting column
-  /// statistics.
-  /// @param insertHandle Connector-specific table handle.
-  /// @param hasPartitioningScheme indicates if table partitioning scheme is
-  /// required for this table write which is only true for bucketed hive table
-  /// for now.
-  PlanBuilder& tableWrite(
-      const RowTypePtr& inputColumns,
-      const std::vector<std::string>& tableColumnNames,
-      const std::shared_ptr<core::AggregationNode>& aggregationNode,
-      const std::shared_ptr<core::InsertTableHandle>& insertHandle,
-      bool hasPartitioningScheme,
-      connector::CommitStrategy commitStrategy =
-          connector::CommitStrategy::kNoCommit);
-
-  /// Add a TableWriteNode assuming that input columns match the source node
-  /// columns in order.
-  ///
-  /// @param tableColumnNames Column names in the target table corresponding to
-  /// inputColumns. The names may or may not match. tableColumnNames[i]
-  /// corresponds to inputColumns[i].
-  /// @param aggregationNode Optional aggregation node for collecting column
-  /// statistics.
-  /// @param insertHandle Connector-specific table handle.
-  /// @param hasPartitioningScheme indicates if table partitioning scheme is
-  /// required for this table write which is only true for bucketed hive table
-  /// for now.
-  PlanBuilder& tableWrite(
-      const std::vector<std::string>& tableColumnNames,
-      const std::shared_ptr<core::AggregationNode>& aggregationNode,
-      const std::shared_ptr<core::InsertTableHandle>& insertHandle,
-      bool hasPartitioningScheme,
-      connector::CommitStrategy commitStrategy =
-          connector::CommitStrategy::kNoCommit);
+      const dwio::common::FileFormat fileFormat =
+          dwio::common::FileFormat::DWRF,
+      const std::vector<std::string>& aggregates = {});
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(

@@ -23,6 +23,7 @@
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/WindowFunction.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/SignatureBinder.h"
@@ -303,7 +304,8 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
 
 PlanBuilder& PlanBuilder::tableWrite(
     const std::string& outputDirectoryPath,
-    dwio::common::FileFormat fileFormat) {
+    const dwio::common::FileFormat fileFormat,
+    const std::vector<std::string>& aggregates) {
   auto rowType = planNode_->outputType();
 
   std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
@@ -330,46 +332,30 @@ PlanBuilder& PlanBuilder::tableWrite(
   auto insertHandle =
       std::make_shared<core::InsertTableHandle>(kHiveConnectorId, hiveHandle);
 
-  return tableWrite(
-      rowType,
-      rowType->names(),
-      nullptr, // aggregationNode
-      insertHandle,
-      false, // hasPartitioningScheme,
-      connector::CommitStrategy::kNoCommit);
-}
+  std::shared_ptr<core::AggregationNode> aggregationNode;
+  if (!aggregates.empty()) {
+    auto aggregatesAndNames = createAggregateExpressionsAndNames(
+        aggregates, {}, core::AggregationNode::Step::kPartial, {});
+    aggregationNode = std::make_shared<core::AggregationNode>(
+        nextPlanNodeId(),
+        core::AggregationNode::Step::kPartial,
+        std::vector<core::FieldAccessTypedExprPtr>{}, // groupingKeys
+        std::vector<core::FieldAccessTypedExprPtr>{}, // preGroupedKeys
+        aggregatesAndNames.names, // ignoreNullKeys
+        aggregatesAndNames.aggregates,
+        false,
+        planNode_);
+  }
 
-PlanBuilder& PlanBuilder::tableWrite(
-    const std::vector<std::string>& tableColumnNames,
-    const std::shared_ptr<core::AggregationNode>& aggregationNode,
-    const std::shared_ptr<core::InsertTableHandle>& insertHandle,
-    bool hasPartitioningScheme,
-    CommitStrategy commitStrategy) {
-  return tableWrite(
-      planNode_->outputType(),
-      tableColumnNames,
-      aggregationNode,
-      insertHandle,
-      hasPartitioningScheme,
-      commitStrategy);
-}
-
-PlanBuilder& PlanBuilder::tableWrite(
-    const RowTypePtr& inputColumns,
-    const std::vector<std::string>& tableColumnNames,
-    const std::shared_ptr<core::AggregationNode>& aggregationNode,
-    const std::shared_ptr<core::InsertTableHandle>& insertHandle,
-    bool hasPartitioningScheme,
-    CommitStrategy commitStrategy) {
   planNode_ = std::make_shared<core::TableWriteNode>(
       nextPlanNodeId(),
-      inputColumns,
-      tableColumnNames,
+      rowType,
+      rowType->names(),
       aggregationNode,
       insertHandle,
-      hasPartitioningScheme,
+      false,
       TableWriteTraits::outputType(aggregationNode),
-      commitStrategy,
+      connector::CommitStrategy::kNoCommit,
       planNode_);
   return *this;
 }
