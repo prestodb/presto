@@ -253,7 +253,8 @@ public class SectionExecutionFactory
                 executor,
                 failureDetector,
                 schedulerStats,
-                tableWriteInfo);
+                tableWriteInfo,
+                isRetryOfFailedSplitsEnabled);
 
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
         List<RemoteSourceNode> remoteSourceNodes = plan.getFragment().getRemoteSourceNodes();
@@ -400,7 +401,7 @@ public class SectionExecutionFactory
             }
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize);
+            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, isRetryOfFailedSplitsEnabled);
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             log.info("partitioningHandle is SCALED_WRITER_DISTRIBUTION for the query %s and plan %s", session.getQueryId(), plan.getFragment());

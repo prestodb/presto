@@ -142,6 +142,9 @@ public final class SqlStageExecution
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
+    private final ListenerManager<Integer> splitsRetryFinishedListeners = new ListenerManager<>();
+
+    private boolean isRetryOfFailedSplitsEnabled;
 
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
@@ -156,7 +159,8 @@ public final class SqlStageExecution
             ExecutorService executor,
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            boolean isRetryOfFailedSplitsEnabled)
     {
         requireNonNull(stageExecutionId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
@@ -178,7 +182,8 @@ public final class SqlStageExecution
                 executor,
                 failureDetector,
                 getMaxFailedTaskPercentage(session),
-                tableWriteInfo);
+                tableWriteInfo,
+                isRetryOfFailedSplitsEnabled);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
@@ -193,7 +198,8 @@ public final class SqlStageExecution
             Executor executor,
             FailureDetector failureDetector,
             double maxFailedTaskPercentage,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            boolean isRetryOfFailedSplitsEnabled)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -214,6 +220,7 @@ public final class SqlStageExecution
         }
         this.exchangeSources = fragmentToExchangeSource.build();
         this.totalLifespans = planFragment.getStageExecutionDescriptor().getTotalLifespans();
+        this.isRetryOfFailedSplitsEnabled = isRetryOfFailedSplitsEnabled;
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -266,6 +273,11 @@ public final class SqlStageExecution
     {
         checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
         this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
+    }
+
+    public void addSplitsRetryFinishedListener(Consumer<Integer> splitsFinishedConsumer)
+    {
+        splitsRetryFinishedListeners.addListener(splitsFinishedConsumer);
     }
 
     public synchronized void registerStageTaskRecoveryCallback(StageTaskRecoveryCallback stageTaskRecoveryCallback, Set<ErrorCode> recoveryErrorCodes)
@@ -671,8 +683,21 @@ public final class SqlStageExecution
             if (taskState == TaskState.RUNNING) {
                 stateMachine.transitionToRunning();
             }
-            if (finishedTasks.size() == allTasks.size()) {
-                stateMachine.transitionToFinished();
+
+            if (isRetryOfFailedSplitsEnabled && planFragment.isLeaf()) {
+                if (!isFailedTasksBelowThreshold()) {
+                    stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "exceeding failTask percentage"));
+                }
+
+                if (noMoreRetry()) {
+                    splitsRetryFinishedListeners.invoke(0, executor);
+                    stateMachine.transitionToFinished();
+                }
+            }
+            else {
+                if (finishedTasks.size() == allTasks.size()) {
+                    stateMachine.transitionToFinished();
+                }
             }
         }
     }
