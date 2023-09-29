@@ -649,6 +649,78 @@ TEST_F(VectorMakerTest, mapVectorStringString) {
   EXPECT_EQ("test", values->valueAt(4));
 }
 
+TEST_F(VectorMakerTest, mapVectorFromJson) {
+  auto mapVector = maker_.mapVectorFromJson<int32_t, double>({
+      "null",
+      "{}",
+      "{1: 10.1, 2: 20.2, 3: 30.3}",
+      "{1: 10.1, 2: 20.2, 3: null, 4: 40.4}",
+      "{1: null, 2: null}",
+  });
+
+  MapVector::canonicalize(mapVector);
+
+  EXPECT_EQ(5, mapVector->size());
+  EXPECT_EQ(*MAP(INTEGER(), DOUBLE()), *mapVector->type());
+  EXPECT_TRUE(mapVector->mayHaveNulls());
+
+  auto* keys = mapVector->mapKeys()->as<SimpleVector<int32_t>>();
+  auto* values = mapVector->mapValues()->as<SimpleVector<double>>();
+
+  // Null map.
+  EXPECT_TRUE(mapVector->isNullAt(0));
+
+  // Empty map.
+  EXPECT_FALSE(mapVector->isNullAt(1));
+  EXPECT_EQ(0, mapVector->sizeAt(1));
+
+  // {1: 10.1, 2: 20.2, 3: 30.3}.
+  EXPECT_FALSE(mapVector->isNullAt(2));
+  EXPECT_EQ(3, mapVector->sizeAt(2));
+  EXPECT_EQ(0, mapVector->offsetAt(2));
+
+  for (auto i = 0; i < 3; ++i) {
+    EXPECT_FALSE(keys->isNullAt(i));
+    EXPECT_EQ(i + 1, keys->valueAt(i));
+
+    EXPECT_FALSE(values->isNullAt(i));
+    EXPECT_DOUBLE_EQ((i + 1) * 10.1, values->valueAt(i));
+  }
+
+  // {1: 10.1, 2: 20.2, 3: null, 4: 40.4}.
+  EXPECT_FALSE(mapVector->isNullAt(3));
+  EXPECT_EQ(4, mapVector->sizeAt(3));
+  EXPECT_EQ(3, mapVector->offsetAt(3));
+
+  for (auto i = 0; i < 4; ++i) {
+    auto index = i + 3;
+
+    EXPECT_FALSE(keys->isNullAt(index));
+    EXPECT_EQ(i + 1, keys->valueAt(index));
+
+    if (i == 2) {
+      EXPECT_TRUE(values->isNullAt(index));
+    } else {
+      EXPECT_FALSE(values->isNullAt(index));
+      EXPECT_DOUBLE_EQ((i + 1) * 10.1, values->valueAt(index));
+    }
+  }
+
+  // {1: null, 2: null}.
+  EXPECT_FALSE(mapVector->isNullAt(4));
+  EXPECT_EQ(2, mapVector->sizeAt(4));
+  EXPECT_EQ(7, mapVector->offsetAt(4));
+
+  for (auto i = 0; i < 2; ++i) {
+    auto index = i + 7;
+
+    EXPECT_FALSE(keys->isNullAt(index));
+    EXPECT_EQ(i + 1, keys->valueAt(index));
+
+    EXPECT_TRUE(values->isNullAt(index));
+  }
+}
+
 TEST_F(VectorMakerTest, biasVector) {
   std::vector<std::optional<int64_t>> data = {10, 13, std::nullopt, 15, 12, 11};
   auto biasVector = maker_.biasVector(data);

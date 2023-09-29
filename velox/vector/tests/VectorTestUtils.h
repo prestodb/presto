@@ -342,7 +342,7 @@ VectorPtr makeDictionaryVectorWithFlags(
     vector_size_t size,
     memory::MemoryPool* pool) {
   using T = typename TypeTraits<kind>::NativeType;
-  using TVariant = typename detail::VariantTypeTraits<kind>::native_type;
+  using TVariant = typename velox::detail::VariantTypeTraits<kind>::native_type;
   T value;
   TVariant variant{value};
 

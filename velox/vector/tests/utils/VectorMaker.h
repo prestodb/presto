@@ -25,6 +25,33 @@
 
 namespace facebook::velox::test {
 
+namespace detail {
+
+template <typename T>
+T jsonValue(const folly::dynamic& jsonValue) {
+  if constexpr (
+      std::is_same_v<int8_t, T> || std::is_same_v<int16_t, T> ||
+      std::is_same_v<int32_t, T> || std::is_same_v<int64_t, T>) {
+    return jsonValue.asInt();
+  }
+
+  if constexpr (std::is_same_v<float, T> || std::is_same_v<double, T>) {
+    return jsonValue.asDouble();
+  }
+
+  if constexpr (std::is_same_v<std::string, T>) {
+    return jsonValue.asString();
+  }
+
+  if constexpr (std::is_same_v<bool, T>) {
+    return jsonValue.asBool();
+  }
+
+  VELOX_UNSUPPORTED();
+}
+
+} // namespace detail
+
 class SimpleVectorLoader : public VectorLoader {
  public:
   explicit SimpleVectorLoader(std::function<VectorPtr(RowSet)> loader)
@@ -484,8 +511,7 @@ class VectorMaker {
   ///  [] - empty array
   ///  null - null array
   ///
-  /// @tparam T Type of array elements. Must be an integer: int8_t, int16_t,
-  /// int32_t, int64_t.
+  /// @tparam T Type of array elements.
   /// @param jsonArrays A list of JSON arrays. JSON array cannot be an empty
   /// string.
   template <typename T>
@@ -509,7 +535,7 @@ class VectorMaker {
           // Null element.
           elements.push_back(std::nullopt);
         } else {
-          elements.push_back(element.asInt());
+          elements.push_back(detail::jsonValue<T>(element));
         }
       }
 
@@ -604,31 +630,116 @@ class VectorMaker {
   MapVectorPtr mapVector(
       const std::vector<std::vector<std::pair<TKey, std::optional<TValue>>>>&
           maps,
-      const TypePtr& type =
+      const TypePtr& mapType =
           MAP(CppToType<TKey>::create(), CppToType<TValue>::create())) {
-    std::vector<vector_size_t> lengths;
+    std::vector<
+        std::optional<std::vector<std::pair<TKey, std::optional<TValue>>>>>
+        nullableMaps;
+    nullableMaps.reserve(maps.size());
+    for (const auto& m : maps) {
+      nullableMaps.push_back(m);
+    }
+
+    return mapVector<TKey, TValue>(nullableMaps, mapType, false);
+  }
+
+  template <typename TKey, typename TValue>
+  MapVectorPtr mapVector(
+      const std::vector<std::optional<
+          std::vector<std::pair<TKey, std::optional<TValue>>>>>& maps,
+      const TypePtr& mapType =
+          MAP(CppToType<TKey>::create(), CppToType<TValue>::create()),
+      bool hasNulls = true) {
     std::vector<TKey> keys;
     std::vector<TValue> values;
     std::vector<bool> nullValues;
-    auto undefined = TValue();
 
     for (const auto& map : maps) {
-      lengths.push_back(map.size());
-      for (const auto& [key, value] : map) {
-        keys.push_back(key);
-        values.push_back(value.value_or(undefined));
-        nullValues.push_back(!value.has_value());
+      if (map.has_value()) {
+        for (const auto& [key, value] : map.value()) {
+          keys.push_back(key);
+          values.push_back(value.value_or(TValue()));
+          nullValues.push_back(!value.has_value());
+        }
       }
+    }
+
+    std::function<bool(vector_size_t)> isNullAt = nullptr;
+    if (hasNulls) {
+      isNullAt = [&](vector_size_t row) { return !maps[row].has_value(); };
     }
 
     return mapVector<TKey, TValue>(
         maps.size(),
-        [&](vector_size_t row) { return lengths[row]; },
+        [&](vector_size_t row) {
+          return maps[row].has_value() ? maps[row]->size() : 0;
+        },
         [&](vector_size_t idx) { return keys[idx]; },
         [&](vector_size_t idx) { return values[idx]; },
-        nullptr,
+        isNullAt,
         [&](vector_size_t idx) { return nullValues[idx]; },
-        type);
+        mapType);
+  }
+
+  /// Creates a MapVector from a list of JSON maps.
+  ///
+  /// JSON maps can represent a null map, an empty map or a map with null
+  /// values. Null keys are not allowed.
+  ///
+  /// Note that order of map keys in the MapVector is not guaranteed to match
+  /// the order of map keys in the JSON.
+  ///
+  /// Examples:
+  ///  {1: 10, 2: 20, 3: 30}
+  ///  {1: 10, 2: 20, 3: null, 4: 40}
+  ///  {1: null, 2: null}
+  ///  {} - empty map
+  ///  null - null map
+  ///
+  /// @tparam K Type of map keys. Must be an integer: int8_t, int16_t,
+  /// int32_t, int64_t.
+  /// @tparam V Type of map value. Can be an integer or a floating point number.
+  /// @param jsonMaps A list of JSON maps. JSON map cannot be an empty
+  /// string.
+  template <typename K, typename V>
+  MapVectorPtr mapVectorFromJson(
+      const std::vector<std::string>& jsonMaps,
+      const TypePtr& mapType =
+          MAP(CppToType<K>::create(), CppToType<V>::create())) {
+    static_assert(
+        std::is_same_v<K, int8_t> || std::is_same_v<K, int16_t> ||
+        std::is_same_v<K, int32_t> || std::is_same_v<K, int64_t>);
+
+    std::vector<std::optional<std::vector<std::pair<K, std::optional<V>>>>>
+        maps;
+    for (const auto& jsonMap : jsonMaps) {
+      VELOX_CHECK(!jsonMap.empty());
+
+      folly::json::serialization_opts options;
+      options.convert_int_keys = true;
+      folly::dynamic mapObject = folly::parseJson(jsonMap, options);
+      if (mapObject.isNull()) {
+        // Null map.
+        maps.push_back(std::nullopt);
+        continue;
+      }
+
+      std::vector<std::pair<K, std::optional<V>>> pairs;
+      for (const auto& item : mapObject.items()) {
+        auto key = detail::jsonValue<K>(item.first);
+
+        if (item.second.isNull()) {
+          // Null value.
+          pairs.push_back({key, std::nullopt});
+        } else {
+          pairs.push_back({key, detail::jsonValue<V>(item.second)});
+        }
+      }
+
+      maps.push_back(pairs);
+    }
+
+    return mapVector<K, V>(maps, mapType);
   }
 
   MapVectorPtr allNullMapVector(

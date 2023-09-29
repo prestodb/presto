@@ -60,11 +60,11 @@ TEST_F(MapAggTest, groupBy) {
 
   expectedResult = makeRowVector({
       makeFlatVector<int32_t>({0, 1, 2, 3}),
-      makeNullableMapVector<int32_t, double>({
-          {{{0, 0.05}, {2, 2.05}}},
-          {{{4, 4.05}}},
-          {{{6, 6.05}, {8, 8.05}}},
-          std::nullopt,
+      makeMapVectorFromJson<int32_t, double>({
+          "{0: 0.05, 2: 2.05}",
+          "{4: 4.05}",
+          "{6: 6.05, 8: 8.05}",
+          "null",
       }),
   });
 
@@ -88,11 +88,11 @@ TEST_F(MapAggTest, groupByNullKeys) {
 
   auto expectedResult = makeRowVector({
       makeFlatVector<int32_t>({0, 1, 2, 3}),
-      makeNullableMapVector<int32_t, double>({
-          {{{1, 1.05}, {2, 2.05}}},
-          {{{3, 3.05}, {5, 5.05}}},
-          {{{6, 6.05}, {7, 7.05}, {8, 8.05}}},
-          std::nullopt,
+      makeMapVectorFromJson<int32_t, double>({
+          "{1: 1.05, 2: 2.05}",
+          "{3: 3.05, 5: 5.05}",
+          "{6: 6.05, 7: 7.05, 8: 8.05}",
+          "null",
       }),
   });
 
@@ -196,14 +196,14 @@ TEST_F(MapAggTest, global) {
   testAggregations(vectors, {}, {"map_agg(c0, c1)"}, {expectedResult});
 
   expectedResult = makeRowVector({
-      makeNullableMapVector<int32_t, double>({
-          {{
+      makeMapVector<int32_t, double>({
+          {
               {0, 0.05},
               {2, 2.05},
               {4, 4.05},
               {6, 6.05},
               {8, 8.05},
-          }},
+          },
       }),
   });
 
@@ -233,8 +233,8 @@ TEST_F(MapAggTest, globalWithNullKeys) {
   auto vectors = {data, data, data};
 
   auto expectedResult = makeRowVector({
-      makeNullableMapVector<int32_t, double>({
-          {{{0, 0.05}, {1, 1.05}, {3, 3.05}, {5, 5.05}, {6, 6.05}, {7, 7.05}}},
+      makeMapVector<int32_t, double>({
+          {{0, 0.05}, {1, 1.05}, {3, 3.05}, {5, 5.05}, {6, 6.05}, {7, 7.05}},
       }),
   });
 
@@ -260,19 +260,8 @@ TEST_F(MapAggTest, globalWithNullValues) {
   auto vectors = {data, data, data};
 
   auto expectedResult = makeRowVector({
-      makeNullableMapVector<int32_t, double>({
-          {{
-              {0, std::nullopt},
-              {1, 1.05},
-              {2, 2.05},
-              {3, 3.05},
-              {4, 4.05},
-              {5, 5.05},
-              {6, 6.05},
-              {7, std::nullopt},
-              {8, 8.05},
-              {9, 9.05},
-          }},
+      makeMapVectorFromJson<int32_t, double>({
+          "{0: null, 1: 1.05, 2: 2.05, 3: 3.05, 4: 4.05, 5: 5.05, 6: 6.05, 7: null, 8: 8.05, 9: 9.05}",
       }),
   });
 
@@ -306,8 +295,8 @@ TEST_F(MapAggTest, globalDuplicateKeys) {
   auto vectors = {data, data, data};
 
   auto expectedResult = makeRowVector({
-      makeNullableMapVector<int32_t, double>({
-          {{{0, std::nullopt}, {1, 2.05}, {2, 4.05}, {3, 6.05}, {4, 8.05}}},
+      makeMapVectorFromJson<int32_t, double>({
+          "{0: null, 1: 2.05, 2: 4.05, 3: 6.05, 4: 8.05}",
       }),
   });
 
