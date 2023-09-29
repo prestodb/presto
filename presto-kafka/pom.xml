@@ -15,7 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <scala.version>2.12.2</scala.version>
-        <dep.avro.version>1.9.0</dep.avro.version>
+        <dep.avro.version>1.11.3</dep.avro.version>
     </properties>
 
     <dependencies>
