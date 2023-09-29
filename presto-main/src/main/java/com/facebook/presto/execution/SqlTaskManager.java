@@ -112,7 +112,6 @@ public class SqlTaskManager
 
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
-
     private final LocalMemoryManager localMemoryManager;
     private final JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec;
     private final LoadingCache<QueryId, QueryContext> queryContexts;
@@ -439,6 +438,14 @@ public class SqlTaskManager
         for (ConnectorMetadataUpdater metadataUpdater : metadataContext.getMetadataUpdaters()) {
             metadataUpdater.setMetadataUpdateResults(metadataUpdates.getMetadataUpdates());
         }
+    }
+
+    @Override
+    public long getTaskCount()
+    {
+        return tasks.asMap().values().stream()
+                .filter(task -> !task.getTaskState().isDone())
+                .count();
     }
 
     @Override

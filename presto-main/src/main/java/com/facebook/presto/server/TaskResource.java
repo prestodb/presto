@@ -112,6 +112,7 @@ public class TaskResource
     private final Codec<PlanFragment> planFragmentCodec;
     private final HandleResolver handleResolver;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
+    private final TaskBackpressureCircuitBreaker taskBackpressureCircuitBreaker;
 
     @Inject
     public TaskResource(
@@ -123,7 +124,8 @@ public class TaskResource
             SmileCodec<PlanFragment> planFragmentSmileCodec,
             InternalCommunicationConfig communicationConfig,
             HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager)
+            ConnectorTypeSerdeManager connectorTypeSerdeManager,
+            TaskBackpressureCircuitBreaker taskBackpressureCircuitBreaker)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -132,6 +134,7 @@ public class TaskResource
         this.planFragmentCodec = planFragmentJsonCodec;
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
+        this.taskBackpressureCircuitBreaker = requireNonNull(taskBackpressureCircuitBreaker, "taskBackpressureCircuitBreaker is null");
     }
 
     @GET
@@ -153,6 +156,11 @@ public class TaskResource
     public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
+
+        Boolean shouldBackPressure = taskBackpressureCircuitBreaker.shouldBackPressure(taskUpdateRequest.getFirstTaskUpdate());
+        if (shouldBackPressure) {
+            return Response.status(Status.TOO_MANY_REQUESTS).header("Retry-After", String.valueOf(taskBackpressureCircuitBreaker.retryAfter())).build();
+        }
 
         Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
         TaskInfo taskInfo = taskManager.updateTask(session,

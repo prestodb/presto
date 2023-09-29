@@ -87,6 +87,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
@@ -169,6 +170,13 @@ public class TestHttpRemoteTask
         runTest(FailureScenario.REJECTED_EXECUTION, useThriftEncoding);
     }
 
+    @Test(timeOut = 40000, dataProvider = "thriftEncodingToggle")
+    public void testTaskCreationBackpressure(boolean useThriftEncoding)
+            throws Exception
+    {
+        runTest(FailureScenario.TASK_CREATEION_BACKPRESSURE, useThriftEncoding);
+    }
+
     @Test(timeOut = 60000, dataProvider = "thriftEncodingToggle")
     public void testRegular(boolean useThriftEncoding)
             throws Exception
@@ -248,6 +256,8 @@ public class TestHttpRemoteTask
             case REJECTED_EXECUTION:
                 // for a rejection to occur, the http client must be shutdown, which means we will not be able to ge the final task info
                 assertEquals(actualErrorCode, REMOTE_TASK_ERROR.toErrorCode());
+                break;
+            case TASK_CREATEION_BACKPRESSURE:
                 break;
             default:
                 throw new UnsupportedOperationException();
@@ -401,6 +411,7 @@ public class TestHttpRemoteTask
         TASK_MISMATCH,
         TASK_MISMATCH_WHEN_VERSION_IS_HIGH,
         REJECTED_EXECUTION,
+        TASK_CREATEION_BACKPRESSURE,
     }
 
     @Path("/task/{nodeId}")
@@ -422,6 +433,8 @@ public class TestHttpRemoteTask
         private long taskInstanceIdMostSignificantBits = INITIAL_TASK_INSTANCE_ID.getMostSignificantBits();
 
         private long statusFetchCounter;
+
+        private int taskCreationBackpressureCountdown = 1;
 
         public TestingTaskResource(AtomicLong lastActivityNanos, FailureScenario failureScenario)
         {
@@ -453,16 +466,21 @@ public class TestHttpRemoteTask
         @Path("{taskId}")
         @Consumes(MediaType.APPLICATION_JSON)
         @Produces(MediaType.APPLICATION_JSON)
-        public synchronized TaskInfo createOrUpdateTask(
+        public synchronized Response createOrUpdateTask(
                 @PathParam("taskId") TaskId taskId,
                 TaskUpdateRequest taskUpdateRequest,
                 @Context UriInfo uriInfo)
         {
+            if (failureScenario == FailureScenario.TASK_CREATEION_BACKPRESSURE && taskUpdateRequest.getFirstTaskUpdate().isPresent() && taskUpdateRequest.getFirstTaskUpdate().get() && taskCreationBackpressureCountdown > 0) {
+                taskCreationBackpressureCountdown -= 1;
+                return Response.status(Response.Status.TOO_MANY_REQUESTS).build();
+            }
+
             for (TaskSource source : taskUpdateRequest.getSources()) {
                 taskSourceMap.compute(source.getPlanNodeId(), (planNodeId, taskSource) -> taskSource == null ? source : taskSource.update(source));
             }
             lastActivityNanos.set(System.nanoTime());
-            return buildTaskInfo();
+            return Response.ok().entity(buildTaskInfo()).build();
         }
 
         public synchronized TaskSource getTaskSource(PlanNodeId planNodeId)
@@ -518,6 +536,7 @@ public class TestHttpRemoteTask
                     break;
                 case TASK_MISMATCH:
                 case REJECTED_EXECUTION:
+                case TASK_CREATEION_BACKPRESSURE:
                 case NO_FAILURE:
                     break; // do nothing
                 default:
@@ -558,6 +577,7 @@ public class TestHttpRemoteTask
                         throw new RejectedExecutionException();
                     }
                     break;
+                case TASK_CREATEION_BACKPRESSURE:
                 case NO_FAILURE:
                     break;
                 default:
