@@ -13,4 +13,5 @@
 # limitations under the License.
 
 add_library(velox_spill_config SpillConfig.cpp)
-target_link_libraries(velox_spill_config Folly::folly velox_exception)
+target_link_libraries(velox_spill_config Folly::folly velox_exception
+                      velox_common_compression)
