@@ -66,7 +66,7 @@ functions, the amount to shift is given by the bottom bits of the ``shift`` para
         SELECT bitwise_left_shift(TINYINT '7', 2); -- 28
         SELECT bitwise_left_shift(TINYINT '-7', 2); -- -28
 
-.. function:: bitwise_right_shift(value, shift, digits) -> [same as value]
+.. function:: bitwise_right_shift(value, shift) -> [same as value]
 
     Returns the logical right shifted value of ``value``::
 
