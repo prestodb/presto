@@ -522,7 +522,7 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>3.14.0</version>
+                <version>3.21.7</version>
             </dependency>
 
             <dependency>
@@ -1119,7 +1119,7 @@
             <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
-                <version>1.4.199</version>
+                <version>2.1.210</version>
             </dependency>
 
             <dependency>
@@ -1870,7 +1870,7 @@
             <dependency>
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
-                <version>1.1.7.1</version>
+                <version>1.1.10.1</version>
             </dependency>
 
             <dependency>
