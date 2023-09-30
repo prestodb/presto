@@ -329,7 +329,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     options.memoryPoolInitCapacity = memoryPoolInitCapacity;
     options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
     options.checkUsageLeak = true;
-    options.arbitrationStateCheckCb = driverArbitrationStateCheck;
+    options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
     memoryManager_ = std::make_unique<MemoryManager>(options);
     ASSERT_EQ(memoryManager_->arbitrator()->kind(), "SHARED");
     arbitrator_ = static_cast<SharedArbitrator*>(memoryManager_->arbitrator());

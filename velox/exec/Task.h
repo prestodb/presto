@@ -18,6 +18,7 @@
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/LocalPartition.h"
+#include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/MergeSource.h"
 #include "velox/exec/Split.h"
 #include "velox/exec/TaskStats.h"
@@ -645,7 +646,7 @@ class Task : public std::enable_shared_from_this<Task> {
   /// occurred. This should only be called inside mutex_ protection.
   std::string errorMessageLocked() const;
 
-  class MemoryReclaimer : public memory::MemoryReclaimer {
+  class MemoryReclaimer : public exec::MemoryReclaimer {
    public:
     static std::unique_ptr<memory::MemoryReclaimer> create(
         const std::shared_ptr<Task>& task);

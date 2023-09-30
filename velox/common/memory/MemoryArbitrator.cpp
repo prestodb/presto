@@ -187,20 +187,41 @@ uint64_t MemoryReclaimer::reclaim(MemoryPool* pool, uint64_t targetBytes) {
   if (pool->kind() == MemoryPool::Kind::kLeaf) {
     return 0;
   }
-  // TODO: add to sort the child memory pools based on the reclaimable bytes
-  // before memory reclamation.
+
+  // Sort the child pools based on their reserved memory and reclaim from the
+  // child pool with most reservation first.
+  struct Candidate {
+    std::shared_ptr<memory::MemoryPool> pool;
+    int64_t reservedBytes;
+  };
+  std::vector<Candidate> candidates;
+  candidates.reserve(pool->children_.size());
+  for (auto& entry : pool->children_) {
+    auto child = entry.second.lock();
+    if (child != nullptr) {
+      const int64_t reservedBytes = child->reservedBytes();
+      candidates.push_back(Candidate{std::move(child), reservedBytes});
+    }
+  }
+
+  std::sort(
+      candidates.begin(),
+      candidates.end(),
+      [](const auto& lhs, const auto& rhs) {
+        return lhs.reservedBytes > rhs.reservedBytes;
+      });
+
   uint64_t reclaimedBytes{0};
-  pool->visitChildren([&targetBytes, &reclaimedBytes](MemoryPool* child) {
-    const auto bytes = child->reclaim(targetBytes);
+  for (const auto& candidate : candidates) {
+    const auto bytes = candidate.pool->reclaim(targetBytes);
     reclaimedBytes += bytes;
     if (targetBytes != 0) {
       if (bytes >= targetBytes) {
-        return false;
+        break;
       }
       targetBytes -= bytes;
     }
-    return true;
-  });
+  }
   return reclaimedBytes;
 }
 

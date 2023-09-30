@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <deque>
@@ -377,8 +376,8 @@ class MockLeafMemoryReclaimer : public MemoryReclaimer {
   }
 
   uint64_t reclaimableBytes() const {
-    std::lock_guard<std::mutex> l(mu_);
     uint64_t sumBytes{0};
+    std::lock_guard<std::mutex> l(mu_);
     for (const auto& allocation : allocations_) {
       sumBytes += allocation.size;
     }
@@ -475,6 +474,134 @@ TEST_F(MemoryReclaimerTest, mockReclaimMoreThanAvailable) {
   ASSERT_EQ(totalUsedBytes, 0);
   ASSERT_TRUE(root->reclaimableBytes(reclaimableBytes));
   ASSERT_EQ(reclaimableBytes, 0);
+}
+
+TEST_F(MemoryReclaimerTest, orderedReclaim) {
+  // Set 1MB unit to avoid memory pool quantized reservation effect.
+  const int allocUnitBytes = 1L << 20;
+  const int numChildren = 5;
+  // The initial allocation units per each child pool.
+  const std::vector<int> initAllocUnitsVec = {10, 10, 8, 16, 5};
+  ASSERT_EQ(initAllocUnitsVec.size(), numChildren);
+  std::atomic<uint64_t> totalUsedBytes{0};
+  auto root = defaultMemoryManager().addRootPool(
+      "orderedReclaim", kMaxMemory, MemoryReclaimer::create());
+  int totalAllocUnits{0};
+  std::vector<std::shared_ptr<MemoryPool>> childPools;
+  for (int i = 0; i < numChildren; ++i) {
+    auto childPool = root->addLeafChild(
+        std::to_string(i),
+        true,
+        std::make_unique<MockLeafMemoryReclaimer>(totalUsedBytes));
+    childPools.push_back(childPool);
+    auto* reclaimer =
+        static_cast<MockLeafMemoryReclaimer*>(childPool->reclaimer());
+    reclaimer->setPool(childPool.get());
+
+    const auto initAllocUnit = initAllocUnitsVec[i];
+    totalAllocUnits += initAllocUnit;
+    for (int j = 0; j < initAllocUnit; ++j) {
+      void* buffer = childPool->allocate(allocUnitBytes);
+      reclaimer->addAllocation(buffer, allocUnitBytes);
+    }
+  }
+
+  uint64_t reclaimableBytes{0};
+  // 'expectedReclaimableUnits' is the expected allocation unit per each child
+  // pool after each round of memory reclaim. And we expect the memory reclaimer
+  // always reclaim from the child with most meomry usage.
+  auto verify = [&](const std::vector<int>& expectedReclaimableUnits) {
+    root->reclaimer()->reclaimableBytes(*root, reclaimableBytes);
+    ASSERT_EQ(reclaimableBytes, totalAllocUnits * allocUnitBytes) << "total";
+    for (int i = 0; i < numChildren; ++i) {
+      auto* reclaimer =
+          static_cast<MockLeafMemoryReclaimer*>(childPools[i]->reclaimer());
+      reclaimer->reclaimableBytes(*childPools[i], reclaimableBytes);
+      EXPECT_EQ(reclaimableBytes, expectedReclaimableUnits[i] * allocUnitBytes)
+          << " " << i;
+    }
+  };
+  // No reclaim so far so just expect the initial allocation unit distribution.
+  verify(initAllocUnitsVec);
+
+  // Reclaim two units from {10, 10, 8, 16, 5}, and expect to reclaim from 3th
+  // child.
+  // So expected reclaimable allocation units are {10, 10, 8, *14*, 5}
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), 2 * allocUnitBytes),
+      2 * allocUnitBytes);
+  totalAllocUnits -= 2;
+  verify({10, 10, 8, 14, 5});
+
+  // Reclaim two units from {10, 10, 8, 14, 5}, and expect to reclaim from 3th
+  // child.
+  // So expected reclaimable allocation units are {10, 10, 8, *12*, 5}
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), 2 * allocUnitBytes),
+      2 * allocUnitBytes);
+  totalAllocUnits -= 2;
+  verify({10, 10, 8, 12, 5});
+
+  // Reclaim eight units from {10, 10, 8, 12, 5}, and expect to reclaim from 3th
+  // child.
+  // So expected reclaimable allocation units are {10, 10, 8, *4*, 5}
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), 8 * allocUnitBytes),
+      8 * allocUnitBytes);
+  totalAllocUnits -= 8;
+  verify({10, 10, 8, 4, 5});
+
+  // Reclaim one unit from {10, 10, 8, 4, 5}, and expect to reclaim from 1th
+  // child.
+  // So expected reclaimable allocation units are {10, *9*, 8, 4, 5}
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), allocUnitBytes), allocUnitBytes);
+  totalAllocUnits -= 1;
+  verify({10, 9, 8, 4, 5});
+
+  // Reclaim three unit from {10, 9, 8, 4, 5}, and expect to reclaim from 0th
+  // child.
+  // So expected reclaimable allocation units are {*7*, 9, 8, 4, 5}
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), 3 * allocUnitBytes),
+      3 * allocUnitBytes);
+  totalAllocUnits -= 3;
+  verify({7, 9, 8, 4, 5});
+
+  // Reclaim ten unit from {7, 9, 8, 4, 5}, and expect to reclaim 9 from 1th
+  // child and 1 from 2nd child.
+  // So expected reclaimable allocation units are {7, *0*, *7*, 4, 5}
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), 10 * allocUnitBytes),
+      10 * allocUnitBytes);
+  totalAllocUnits -= 10;
+  verify({7, 0, 7, 4, 5});
+
+  // Reclaim eight unit from {7, 0, 7, 4, 5}, and expect to reclaim 7 from 2nd
+  // child and 1 from 0th child.
+  // So expected reclaimable allocation units are {*6*, 0, *0*, 4, 5}
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), 8 * allocUnitBytes),
+      8 * allocUnitBytes);
+  totalAllocUnits -= 8;
+  verify({6, 0, 0, 4, 5});
+
+  // Reclaim ten unit from {6, 0, 0, 4, 5}, and expect to reclaim 6 from 0th
+  // child and 4 from 4th child.
+  // So expected reclaimable allocation units are {*0*, 0, 0, 4, *1*}
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), 10 * allocUnitBytes),
+      10 * allocUnitBytes);
+  totalAllocUnits -= 10;
+  verify({0, 0, 0, 4, 1});
+
+  // Reclaim all the remaining units and expect all reclaimable bytes got
+  // cleared.
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), totalAllocUnits * allocUnitBytes),
+      totalAllocUnits * allocUnitBytes);
+  totalAllocUnits = 0;
+  verify({0, 0, 0, 0, 0});
 }
 
 TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {

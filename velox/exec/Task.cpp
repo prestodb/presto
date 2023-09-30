@@ -346,7 +346,7 @@ std::unique_ptr<memory::MemoryReclaimer> Task::createNodeReclaimer(
   // Sets memory reclaimer for the parent node memory pool on the first child
   // operator construction which has set memory reclaimer.
   return isHashJoinNode ? HashJoinMemoryReclaimer::create()
-                        : memory::MemoryReclaimer::create();
+                        : exec::MemoryReclaimer::create();
 }
 
 std::unique_ptr<memory::MemoryReclaimer> Task::createExchangeClientReclaimer()
@@ -354,7 +354,7 @@ std::unique_ptr<memory::MemoryReclaimer> Task::createExchangeClientReclaimer()
   if (pool()->reclaimer() == nullptr) {
     return nullptr;
   }
-  return DefaultMemoryReclaimer::create();
+  return exec::MemoryReclaimer::create();
 }
 
 std::unique_ptr<memory::MemoryReclaimer> Task::createTaskReclaimer() {

@@ -20,11 +20,11 @@
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
-std::unique_ptr<memory::MemoryReclaimer> DefaultMemoryReclaimer::create() {
-  return std::unique_ptr<MemoryReclaimer>(new DefaultMemoryReclaimer());
+std::unique_ptr<memory::MemoryReclaimer> MemoryReclaimer::create() {
+  return std::unique_ptr<memory::MemoryReclaimer>(new MemoryReclaimer());
 }
 
-void DefaultMemoryReclaimer::enterArbitration() {
+void MemoryReclaimer::enterArbitration() {
   DriverThreadContext* driverThreadCtx = driverThreadContext();
   if (FOLLY_UNLIKELY(driverThreadCtx == nullptr)) {
     // Skips the driver suspension handling if this memory arbitration
@@ -40,7 +40,7 @@ void DefaultMemoryReclaimer::enterArbitration() {
   }
 }
 
-void DefaultMemoryReclaimer::leaveArbitration() noexcept {
+void MemoryReclaimer::leaveArbitration() noexcept {
   DriverThreadContext* driverThreadCtx = driverThreadContext();
   if (FOLLY_UNLIKELY(driverThreadCtx == nullptr)) {
     // Skips the driver suspension handling if this memory arbitration
@@ -49,5 +49,18 @@ void DefaultMemoryReclaimer::leaveArbitration() noexcept {
   }
   Driver* const driver = driverThreadCtx->driverCtx.driver;
   driver->task()->leaveSuspended(driver->state());
+}
+
+void memoryArbitrationStateCheck(memory::MemoryPool& pool) {
+  const auto* driverThreadCtx = driverThreadContext();
+  if (driverThreadCtx != nullptr) {
+    Driver* driver = driverThreadCtx->driverCtx.driver;
+    if (!driver->state().isSuspended) {
+      VELOX_FAIL(
+          "Driver thread is not suspended under memory arbitration processing: {}, request memory pool: {}",
+          driver->toString(),
+          pool.name());
+    }
+  }
 }
 } // namespace facebook::velox::exec

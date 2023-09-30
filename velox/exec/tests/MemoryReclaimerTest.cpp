@@ -61,7 +61,7 @@ TEST_F(MemoryReclaimerTest, enterArbitrationTest) {
   for (const auto& underDriverContext : {false, true}) {
     SCOPED_TRACE(fmt::format("underDriverContext: {}", underDriverContext));
 
-    auto reclaimer = DefaultMemoryReclaimer::create();
+    auto reclaimer = exec::MemoryReclaimer::create();
     auto driver = Driver::testingCreate(
         std::make_unique<DriverCtx>(fakeTask_, 0, 0, 0, 0));
     if (underDriverContext) {

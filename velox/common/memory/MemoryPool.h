@@ -537,6 +537,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   std::unordered_map<std::string, std::weak_ptr<MemoryPool>> children_;
 
   friend class TestMemoryReclaimer;
+  friend class MemoryReclaimer;
 };
 
 std::ostream& operator<<(std::ostream& out, MemoryPool::Kind kind);
