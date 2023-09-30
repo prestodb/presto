@@ -17,6 +17,7 @@ import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
@@ -55,11 +56,12 @@ import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.FunctionCallSubstitute;
-import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.constructFunctionCallSubstituteMap;
+import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.validateAndConstructFunctionCallSubstituteMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertEqualsDeep;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -304,18 +306,22 @@ public class TestQueryRewriter
     @Test
     public void testConstructMakeFunctionCallSubstituteMap()
     {
-        assertEqualsDeep(constructFunctionCallSubstituteMap("/max_by(a,b)/max(b)/"),
-                ImmutableMap.of(QualifiedName.of("max_by"), new FunctionCallSubstitute(QualifiedName.of("max"), ImmutableList.of(1))));
-        assertEqualsDeep(constructFunctionCallSubstituteMap("/func1(,,1c)/func2(1c)/"),
-                ImmutableMap.of(QualifiedName.of("func1"), new FunctionCallSubstitute(QualifiedName.of("func2"), ImmutableList.of(2))));
-        assertEqualsDeep(constructFunctionCallSubstituteMap("/func1(a,_,b)/func2(_)/"),
-                ImmutableMap.of(QualifiedName.of("func1"), new FunctionCallSubstitute(QualifiedName.of("func2"), ImmutableList.of(1))));
-        assertEqualsDeep(constructFunctionCallSubstituteMap("/func1(a,b)/func2(b)/,/func3(a,)/func4(a)/"),
-                ImmutableMap.of(QualifiedName.of("func1"), new FunctionCallSubstitute(QualifiedName.of("func2"), ImmutableList.of(1)),
-                        QualifiedName.of("func3"), new FunctionCallSubstitute(QualifiedName.of("func4"), ImmutableList.of(0))));
+        SqlParser sqlParser = new SqlParser();
 
-        assertTrue(constructFunctionCallSubstituteMap("").isEmpty());
-        assertTrue(constructFunctionCallSubstituteMap("/func1(a,b)//").isEmpty());
+        assertEqualsDeep(validateAndConstructFunctionCallSubstituteMap("/max_by(a,b)/max(b)/"),
+                ImmutableMap.of("max_by", new FunctionCallSubstitute(sqlParser.createExpression("max(b)"),
+                        ImmutableList.of(new Identifier("a"), new Identifier("b")))));
+        assertEqualsDeep(validateAndConstructFunctionCallSubstituteMap("/approx_percentile(a,b)/avg(a)/,/array_agg(a)/array_sort(array_agg(a))/"),
+                ImmutableMap.of("approx_percentile", new FunctionCallSubstitute(sqlParser.createExpression("avg(a)"),
+                                ImmutableList.of(new Identifier("a"), new Identifier("b"))),
+                        "array_agg", new FunctionCallSubstitute(sqlParser.createExpression("array_sort(array_agg(a))"),
+                                ImmutableList.of(new Identifier("a")))));
+        
+        assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap(""));
+        assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/func1(a,b)//"));
+        assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/func1(,,c1)/func2(c1)/"));
+        assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/func1(c0)/c0/"));
+        assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/func1(c0,1.0)/c0/"));
     }
 
     @Test
@@ -325,27 +331,18 @@ public class TestQueryRewriter
                 "/approx_distinct(x)/count(x)/," +
                         "/approx_percentile(x,_)/avg(x)/," +
                         "/arbitrary(x)/min(x)/," +
-                        "/first_value(x)/min(x)/," +
+                        "/array_agg(x)/if(typeof(arbitrary(x))='integer', array_sort(array_agg(x)), array_agg(x))/," +
+                        "/current_timestamp/timestamp '2023-01-01 00:00:00 UTC'/," +
+                        "/first_value(x)/if(min(x) is not null, min(x), max(x))/," +
                         "/max_by(x,_)/max(x)/," +
-                        "/min_by(x,_)/min(x)/");
+                        "/map_agg(x,y)/transform_values(multimap_agg(x,y),(k,v)->array_max(v))/," +
+                        "/min_by(x,_)/min(x)/," +
+                        "/now()/date_trunc('day',now())/," +
+                        "/rand()/1/," +
+                        "/row_number() over (partition by x order by y)/row_number() over (partition by y)/");
         QueryRewriter queryRewriter = getQueryRewriter(new QueryRewriteConfig(), verifierConfig);
 
-        // Test rewriting window functions
-        assertCreateTableAs(
-                queryRewriter.rewriteQuery(
-                        "SELECT\n" +
-                                "    FIRST_VALUE(a) OVER (\n" +
-                                "        PARTITION BY b\n" +
-                                "    )\n" +
-                                "FROM test_table",
-                        CONTROL).getQuery(),
-                "SELECT\n" +
-                        "    MIN(a) OVER (\n" +
-                        "        PARTITION BY b\n" +
-                        "    )\n" +
-                        "FROM test_table");
-
-        // Test rewriting columns with nested function calls
+        // Test rewriting nested function calls.
         assertCreateTableAs(
                 queryRewriter.rewriteQuery(
                         "SELECT\n" +
@@ -356,7 +353,58 @@ public class TestQueryRewriter
                         "    TRIM(MIN(b))\n" +
                         "FROM test_table");
 
-        // Test rewriting columns in Join
+        // Test rewriting with nested function calls.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    MAP_AGG(a,b)\n" +
+                                "FROM test_table",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    TRANSFORM_VALUES(MULTIMAP_AGG(a,b),(k,v)->ARRAY_MAX(v))\n" +
+                        "FROM test_table");
+
+        // Test rewriting with literal.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT RAND()",
+                        CONTROL).getQuery(),
+                "SELECT 1");
+
+        // Test rewriting with if expression.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    ARRAY_AGG(DISTINCT a)\n" +
+                                "FROM test_table",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    IF(TYPEOF(ARBITRARY(a))='integer', ARRAY_SORT(ARRAY_AGG(DISTINCT a)), ARRAY_AGG(DISTINCT a))\n" +
+                        "FROM test_table");
+
+        // Test rewriting CurrentTime function.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    TO_UNIXTIME(CURRENT_TIMESTAMP)\n" +
+                                "FROM test_table",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    TO_UNIXTIME(TIMESTAMP '2023-01-01 00:00:00 UTC')\n" +
+                        "FROM test_table");
+
+        // Test rewriting NOW function.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    TO_UNIXTIME(NOW())\n" +
+                                "FROM test_table",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    TO_UNIXTIME(DATE_TRUNC('day',NOW()))\n" +
+                        "FROM test_table");
+
+        // Test rewriting columns in Join.
         assertCreateTableAs(
                 queryRewriter.rewriteQuery(
                         "SELECT *\n" +
@@ -383,7 +431,7 @@ public class TestQueryRewriter
                         ") y\n" +
                         "    ON (x.b = y.b)");
 
-        // Test rewriting columns in SubqueryExpression
+        // Test rewriting columns in SubqueryExpression.
         assertCreateTableAs(
                 queryRewriter.rewriteQuery(
                         "SELECT a, b\n" +
@@ -402,7 +450,7 @@ public class TestQueryRewriter
                         "    FROM test_table\n" +
                         ")");
 
-        // Test rewriting columns in TableSubquery
+        // Test rewriting columns in TableSubquery.
         assertCreateTableAs(
                 queryRewriter.rewriteQuery(
                         "SELECT num\n" +
@@ -419,7 +467,7 @@ public class TestQueryRewriter
                         "    FROM test_table\n" +
                         ") x");
 
-        // Test rewriting columns in With
+        // Test rewriting columns in With.
         assertCreateTableAs(
                 queryRewriter.rewriteQuery(
                         "WITH x AS (\n" +
@@ -439,7 +487,7 @@ public class TestQueryRewriter
                         "    a\n" +
                         "FROM x");
 
-        // Test rewriting columns in Union
+        // Test rewriting columns in Union.
         assertCreateTableAs(
                 queryRewriter.rewriteQuery(
                         "SELECT\n" +
@@ -469,6 +517,49 @@ public class TestQueryRewriter
                         "       MIN(a) AS a\n" +
                         "    FROM test_table\n" +
                         ") x");
+
+        // Test rewriting window functions with partition and order derived from the original.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    FIRST_VALUE(a) OVER (\n" +
+                                "        PARTITION BY b\n" +
+                                "    )\n" +
+                                "FROM test_table",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    IF(\n" +
+                        "        MIN(a) OVER (\n" +
+                        "            PARTITION BY\n" +
+                        "                b\n" +
+                        "        ) IS NOT NULL,\n" +
+                        "        MIN(a) OVER (\n" +
+                        "            PARTITION BY\n" +
+                        "                b\n" +
+                        "        ),\n" +
+                        "        MAX(a) OVER (\n" +
+                        "            PARTITION BY\n" +
+                        "                b\n" +
+                        "        )\n" +
+                        "    )\n" +
+                        "FROM test_table");
+
+        // Test rewriting window functions with partition and order resolving.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    ROW_NUMBER() OVER (\n" +
+                                "        PARTITION BY a\n" +
+                                "        ORDER BY b DESC\n" +
+                                "    )\n" +
+                                "FROM test_table",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    ROW_NUMBER() OVER (\n" +
+                        "        PARTITION BY b\n" +
+                        "        ORDER BY b DESC\n" +
+                        "    )\n" +
+                        "FROM test_table");
     }
 
     private void assertShadowed(

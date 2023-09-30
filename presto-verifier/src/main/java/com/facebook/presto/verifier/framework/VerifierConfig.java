@@ -394,7 +394,7 @@ public class VerifierConfig
     public VerifierConfig setNonDeterministicFunctionSubstitutes(String nonDeterministicFunctionSubstitutes)
     {
         this.nonDeterministicFunctionSubstitutes = Optional.ofNullable(nonDeterministicFunctionSubstitutes);
-        this.nonDeterministicFunctionSubstitutes.ifPresent(FunctionCallRewriter::validateFunctionCallSubstitutes);
+        this.nonDeterministicFunctionSubstitutes.ifPresent(FunctionCallRewriter::validateAndConstructFunctionCallSubstituteMap);
         return this;
     }
 }

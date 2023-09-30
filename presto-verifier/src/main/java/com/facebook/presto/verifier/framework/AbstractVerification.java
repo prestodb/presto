@@ -98,8 +98,6 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
     protected final boolean saveSnapshot;
     protected final boolean isExplain;
     private final boolean concurrentControlAndTest;
-
-    private final boolean rewriteNonDeterministicFunctions;
     protected final SnapshotQueryConsumer snapshotQueryConsumer;
     protected final Map<String, SnapshotQuery> snapshotQueries;
 
@@ -134,7 +132,6 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         this.runningMode = verifierConfig.getRunningMode();
         this.saveSnapshot = verifierConfig.isSaveSnapshot();
         this.isExplain = verifierConfig.isExplain();
-        this.rewriteNonDeterministicFunctions = verifierConfig.getNonDeterministicFunctionSubstitutes().isPresent();
     }
 
     protected abstract B getQueryRewrite(ClusterType clusterType, QueryContext queryContext);
@@ -379,7 +376,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<Throwable> throwable)
     {
-        Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext.getState(), determinismAnalysisDetails.map(DeterminismAnalysisDetails::getDeterminismAnalysis));
+        Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext, determinismAnalysisDetails.map(DeterminismAnalysisDetails::getDeterminismAnalysis));
         Optional<String> resolveMessage = resolveFailure(control, test, controlQueryContext, matchResult, throwable);
         EventStatus status = getEventStatus(skippedReason, resolveMessage, matchResult, controlQueryContext, testQueryContext);
         return new PartialVerificationResult(skippedReason, resolveMessage, status);
@@ -478,7 +475,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 .collect(toImmutableList());
     }
 
-    private Optional<SkippedReason> getSkippedReason(Optional<Throwable> throwable, QueryState controlState, Optional<DeterminismAnalysis> determinismAnalysis)
+    private Optional<SkippedReason> getSkippedReason(Optional<Throwable> throwable, QueryContext controlQueryContext, Optional<DeterminismAnalysis> determinismAnalysis)
     {
         if (throwable.isPresent() && !(throwable.get() instanceof QueryException)) {
             return Optional.of(VERIFIER_INTERNAL_ERROR);
@@ -486,7 +483,9 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         if (skipControl && !QUERY_BANK_MODE.equals(runningMode)) {
             return Optional.empty();
         }
-        if (rewriteNonDeterministicFunctions && Arrays.asList(NOT_RUN, FAILED_TO_SETUP, QueryState.FAILED).contains(controlState) && throwable
+
+        QueryState controlState = controlQueryContext.getState();
+        if (controlQueryContext.getRewrittenFunctionCalls().isPresent() && Arrays.asList(NOT_RUN, FAILED_TO_SETUP, QueryState.FAILED).contains(controlState) && throwable
                 .filter(PrestoQueryException.class::isInstance)
                 .map(PrestoQueryException.class::cast)
                 .flatMap(PrestoQueryException::getErrorCode)
