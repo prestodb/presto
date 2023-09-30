@@ -202,7 +202,16 @@ jobs:
             brew link --overwrite --force openssl@1.1
             export PATH="/Users/distiller/deps/opt/openssl@1.1/bin:$PATH"
             export OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1)
-            cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=~/deps -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DFLEX_INCLUDE_DIR=~/deps/opt/flex/include
+            cmake \
+                -B _build/debug \
+                -GNinja \
+                -DTREAT_WARNINGS_AS_ERRORS=1 \
+                -DENABLE_ALL_WARNINGS=1 \
+                -DVELOX_ENABLE_PARQUET=ON \
+                -DCMAKE_BUILD_TYPE=Debug \
+                -DCMAKE_PREFIX_PATH=~/deps \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                -DFLEX_INCLUDE_DIR=~/deps/opt/flex/include
             ninja -C _build/debug
             ccache -s
           no_output_timeout: 1h
