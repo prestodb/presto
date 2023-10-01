@@ -201,11 +201,13 @@ void appendSmallInt(int n, std::string& out) {
 
 } // namespace
 
-std::string Timestamp::toString(const Precision& precision) const {
+std::string Timestamp::toString(const TimestampToStringOptions& options) const {
   auto tmValue = toUtc(seconds_);
-  auto width = static_cast<int>(precision);
-  auto value =
-      precision == Precision::kMilliseconds ? nanos_ / 1'000'000 : nanos_;
+  int width = options.precision;
+  auto value = nanos_;
+  if (options.precision == TimestampToStringOptions::kMilliseconds) {
+    value /= 1'000'000;
+  }
   std::string out;
   out.reserve(26 + width);
   int n = kTmYearBase + tmValue.tm_year;
@@ -218,8 +220,8 @@ std::string Timestamp::toString(const Precision& precision) const {
     out += '0' + n % 10;
     n /= 10;
   }
-  if (!negative && out.size() < 4) {
-    while (out.size() < 4) {
+  if (options.zeroPaddingYear && out.size() < negative + 4) {
+    while (out.size() < negative + 4) {
       out += '0';
     }
   }
@@ -228,7 +230,7 @@ std::string Timestamp::toString(const Precision& precision) const {
   appendSmallInt(1 + tmValue.tm_mon, out);
   out += '-';
   appendSmallInt(tmValue.tm_mday, out);
-  out += 'T';
+  out += options.dateTimeSeparator;
   appendSmallInt(tmValue.tm_hour, out);
   out += ':';
   appendSmallInt(tmValue.tm_min, out);

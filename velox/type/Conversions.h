@@ -399,7 +399,17 @@ struct Converter<TypeKind::VARCHAR, void, TRUNCATE> {
   }
 
   static std::string cast(const Timestamp& val) {
-    return val.toString(Timestamp::Precision::kMilliseconds);
+    if (FLAGS_experimental_enable_legacy_cast) {
+      TimestampToStringOptions options;
+      options.precision = TimestampToStringOptions::kMilliseconds;
+      return val.toString(options);
+    } else {
+      return val.toString({
+          .precision = TimestampToStringOptions::kMilliseconds,
+          .zeroPaddingYear = true,
+          .dateTimeSeparator = ' ',
+      });
+    }
   }
 
   static std::string cast(const bool& val) {

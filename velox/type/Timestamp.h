@@ -30,9 +30,18 @@ class time_zone;
 
 namespace facebook::velox {
 
+struct TimestampToStringOptions {
+  enum Precision : int {
+    kMilliseconds = 3,
+    kNanoseconds = 9,
+  } precision = kNanoseconds;
+
+  bool zeroPaddingYear = false;
+  char dateTimeSeparator = 'T';
+};
+
 struct Timestamp {
  public:
-  enum class Precision : int { kMilliseconds = 3, kNanoseconds = 9 };
   static constexpr int64_t kMillisecondsInSecond = 1'000;
   static constexpr int64_t kMicrosecondsInMillisecond = 1'000;
   static constexpr int64_t kNanosecondsInMicrosecond = 1'000;
@@ -264,8 +273,7 @@ struct Timestamp {
     return StringView("TODO: Implement");
   };
 
-  std::string toString(
-      const Precision& precision = Precision::kNanoseconds) const;
+  std::string toString(const TimestampToStringOptions& = {}) const;
 
   operator std::string() const {
     return toString();

@@ -190,7 +190,7 @@ TEST(TimestampTest, toString) {
   EXPECT_EQ("-292275055-05-16T16:47:04.000000000", kMin.toString());
   EXPECT_EQ("292278994-08-17T07:12:55.999999999", kMax.toString());
   EXPECT_EQ(
-      "0001-01-01T05:17:32.000000000", Timestamp(-62135577748, 0).toString());
+      "1-01-01T05:17:32.000000000", Timestamp(-62135577748, 0).toString());
   EXPECT_EQ(
       "-224876953-12-19T16:58:03.000000000",
       Timestamp(-7096493348463717, 0).toString());
@@ -198,15 +198,36 @@ TEST(TimestampTest, toString) {
       "-1-11-29T19:33:20.000000000", Timestamp(-62170000000, 0).toString());
 }
 
+TEST(TimestampTest, toStringPrestoCastBehavior) {
+  auto kMin = Timestamp(Timestamp::kMinSeconds, 0);
+  auto kMax = Timestamp(Timestamp::kMaxSeconds, Timestamp::kMaxNanos);
+  TimestampToStringOptions options = {
+      .precision = TimestampToStringOptions::kMilliseconds,
+      .zeroPaddingYear = true,
+      .dateTimeSeparator = ' ',
+  };
+  EXPECT_EQ("-292275055-05-16 16:47:04.000", kMin.toString(options));
+  EXPECT_EQ("292278994-08-17 07:12:55.999", kMax.toString(options));
+  EXPECT_EQ(
+      "0001-01-01 05:17:32.000", Timestamp(-62135577748, 0).toString(options));
+  EXPECT_EQ(
+      "0000-03-24 13:20:00.000", Timestamp(-62160000000, 0).toString(options));
+  EXPECT_EQ(
+      "-224876953-12-19 16:58:03.000",
+      Timestamp(-7096493348463717, 0).toString(options));
+  EXPECT_EQ(
+      "-0001-11-29 19:33:20.000", Timestamp(-62170000000, 0).toString(options));
+}
+
 namespace {
 std::string toStringAlt(
     const Timestamp& t,
-    const Timestamp::Precision& precision) {
+    TimestampToStringOptions::Precision precision) {
   auto seconds = t.getSeconds();
   std::tm tmValue;
   VELOX_CHECK_NOT_NULL(gmtime_r((const time_t*)&seconds, &tmValue));
   auto width = static_cast<int>(precision);
-  auto value = precision == Timestamp::Precision::kMilliseconds
+  auto value = precision == TimestampToStringOptions::kMilliseconds
       ? t.getNanos() / 1'000'000
       : t.getNanos();
   std::ostringstream oss;
@@ -223,12 +244,14 @@ TEST(TimestampTest, compareWithToStringAlt) {
   std::uniform_int_distribution<int64_t> distSec(
       Timestamp::kMinSeconds, Timestamp::kMaxSeconds);
   std::uniform_int_distribution<uint64_t> distNano(0, Timestamp::kMaxNanos);
-  for (int i = 0; i < 1000; ++i) {
+  for (int i = 0; i < 10000; ++i) {
     Timestamp t(distSec(gen), distNano(gen));
     for (auto precision :
-         {Timestamp::Precision::kMilliseconds,
-          Timestamp::Precision::kNanoseconds}) {
-      ASSERT_EQ(t.toString(precision), toStringAlt(t, precision))
+         {TimestampToStringOptions::kMilliseconds,
+          TimestampToStringOptions::kNanoseconds}) {
+      TimestampToStringOptions options{};
+      options.precision = precision;
+      ASSERT_EQ(t.toString(options), toStringAlt(t, precision))
           << t.getSeconds() << ' ' << t.getNanos();
     }
   }
