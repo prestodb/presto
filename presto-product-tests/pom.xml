@@ -148,6 +148,10 @@
             <artifactId>kafka-clients</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.presto.hive</groupId>
+            <artifactId>hive-apache</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

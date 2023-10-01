@@ -102,6 +102,7 @@ public class ParquetWriter
         ParquetProperties parquetProperties = ParquetProperties.builder()
                 .withWriterVersion(PARQUET_2_0)
                 .withPageSize(writerOption.getMaxPageSize())
+                .withDictionaryPageSize(writerOption.getMaxDictionaryPageSize())
                 .build();
         CompressionCodecName compressionCodecName = getCompressionCodecName(compressionCodecClass);
         this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName);

@@ -15,10 +15,13 @@ package com.facebook.presto.tests.hive;
 
 import com.facebook.presto.tests.utils.JdbcDriverUtils;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.assertions.QueryAssert.Row;
 import io.prestodb.tempto.query.QueryResult;
+import org.apache.parquet.hadoop.ParquetWriter;
 import org.testng.annotations.DataProvider;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -26,12 +29,16 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
+import static com.facebook.presto.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Maps.immutableEntry;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
@@ -235,6 +242,52 @@ public class TestHiveStorageFormats
                 .containsExactly(expectedRows);
     }
 
+    // These are regression tests for issue: https://github.com/trinodb/trino/issues/5518
+    // The Parquet session properties are set to ensure that the correct situations in the Parquet writer are met to replicate the bug.
+    // Not included in the STORAGE_FORMATS group since they require a large insert, which takes some time.
+    @Test
+    @Ignore
+    public void testLargeParquetInsert()
+    {
+        DataSize reducedRowGroupSize = DataSize.succinctBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
+        runLargeInsert(storageFormat(
+                "PARQUET",
+                ImmutableMap.of(
+                        "hive.parquet_writer_page_size", reducedRowGroupSize.toString(),
+                        "task_writer_count", "1")));
+    }
+
+    @Test
+    @Ignore
+    public void testLargeParquetInsertWithNativeWriter()
+    {
+        DataSize reducedRowGroupSize = DataSize.succinctBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
+        runLargeInsert(storageFormat(
+                "PARQUET",
+                ImmutableMap.of(
+                        "hive.experimental_parquet_optimized_writer_enabled", "true",
+                        "hive.parquet_writer_page_size", reducedRowGroupSize.toString(),
+                        "task_writer_count", "1")));
+    }
+
+    @Test
+    @Ignore
+    public void testLargeOrcInsert()
+    {
+        runLargeInsert(storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")));
+    }
+
+    private void runLargeInsert(StorageFormat storageFormat)
+    {
+        String tableName = "test_large_insert_" + storageFormat.getName() + randomTableSuffix();
+        setSessionProperties(storageFormat);
+        query("CREATE TABLE " + tableName + " WITH (" + storageFormat.getStoragePropertiesAsSql() + ") AS SELECT * FROM tpch.sf1.lineitem WHERE false");
+        query("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.lineitem");
+
+        assertThat(query("SELECT count(*) FROM " + tableName)).containsOnly(row(6001215L));
+        onHive().executeQuery("DROP TABLE " + tableName);
+    }
+
     private static void setRole(String role)
     {
         Connection connection = defaultQueryExecutor().getConnection();
@@ -274,18 +327,20 @@ public class TestHiveStorageFormats
 
     private static StorageFormat storageFormat(String name, Map<String, String> sessionProperties)
     {
-        return new StorageFormat(name, sessionProperties);
+        return new StorageFormat(name, sessionProperties, ImmutableMap.of());
     }
 
     private static class StorageFormat
     {
         private final String name;
+        private final Map<String, String> properties;
         private final Map<String, String> sessionProperties;
 
-        private StorageFormat(String name, Map<String, String> sessionProperties)
+        private StorageFormat(String name, Map<String, String> sessionProperties, Map<String, String> properties)
         {
             this.name = requireNonNull(name, "name is null");
             this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
+            this.properties = requireNonNull(properties, "properties is null");
         }
 
         public String getName()
@@ -296,6 +351,20 @@ public class TestHiveStorageFormats
         public Map<String, String> getSessionProperties()
         {
             return sessionProperties;
+        }
+
+        public Map<String, String> getProperties()
+        {
+            return sessionProperties;
+        }
+
+        public String getStoragePropertiesAsSql()
+        {
+            return Stream.concat(
+                            Stream.of(immutableEntry("format", name)),
+                            properties.entrySet().stream())
+                    .map(entry -> format("%s = '%s'", entry.getKey(), entry.getValue()))
+                    .collect(Collectors.joining(", "));
         }
 
         @Override
