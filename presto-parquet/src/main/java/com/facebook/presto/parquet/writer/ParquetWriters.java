@@ -32,6 +32,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ParquetProperties;
+import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.GroupType;
@@ -130,6 +131,15 @@ class ParquetWriters
             int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
             Type prestoType = requireNonNull(prestoTypes.get(ImmutableList.copyOf(path)), " presto type is null");
+            if (this.parquetProperties.getWriterVersion().equals(WriterVersion.PARQUET_1_0)) {
+                return new PrimitiveColumnWriterV1(prestoType,
+                    columnDescriptor,
+                    getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
+                    parquetProperties.newDefinitionLevelEncoder(columnDescriptor),
+                    parquetProperties.newRepetitionLevelEncoder(columnDescriptor),
+                    compressionCodecName,
+                    parquetProperties.getPageSizeThreshold());
+            }
             return new PrimitiveColumnWriter(prestoType,
                     columnDescriptor,
                     getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),

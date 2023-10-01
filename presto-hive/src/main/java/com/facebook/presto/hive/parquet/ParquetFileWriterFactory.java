@@ -32,6 +32,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.joda.time.DateTimeZone;
@@ -45,6 +46,7 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterVersion;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetOptimizedWriterEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static java.util.Objects.requireNonNull;
@@ -101,6 +103,7 @@ public class ParquetFileWriterFactory
         }
 
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
+                .setWriterVersion((ParquetProperties.WriterVersion) getParquetWriterVersion(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
                 .build();

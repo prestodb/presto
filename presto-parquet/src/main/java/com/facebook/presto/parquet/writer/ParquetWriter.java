@@ -48,7 +48,6 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.BROTLI;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.LZ4;
@@ -100,9 +99,10 @@ public class ParquetWriter
         this.messageType = requireNonNull(messageType, "messageType is null");
 
         ParquetProperties parquetProperties = ParquetProperties.builder()
-                .withWriterVersion(PARQUET_2_0)
+                .withWriterVersion(writerOption.getWriterVersion())
                 .withPageSize(writerOption.getMaxPageSize())
                 .build();
+
         CompressionCodecName compressionCodecName = getCompressionCodecName(compressionCodecClass);
         this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName);
 
@@ -253,6 +253,7 @@ public class ParquetWriter
         long totalRows = rowGroups.stream().mapToLong(RowGroup::getNum_rows).sum();
         fileMetaData.setNum_rows(totalRows);
         fileMetaData.setRow_groups(ImmutableList.copyOf(rowGroups));
+        fileMetaData.setCreated_by("Presto");
 
         DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(40);
         Util.writeFileMetaData(fileMetaData, dynamicSliceOutput);

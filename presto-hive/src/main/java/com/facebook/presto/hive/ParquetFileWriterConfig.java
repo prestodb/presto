@@ -15,16 +15,24 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
 import io.airlift.units.DataSize;
+import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.hadoop.ParquetWriter;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
 
 public class ParquetFileWriterConfig
 {
     private boolean parquetOptimizedWriterEnabled;
 
+    private WriterVersion formatVersion = PARQUET_2_0;
     private DataSize blockSize = new DataSize(ParquetWriter.DEFAULT_BLOCK_SIZE, BYTE);
     private DataSize pageSize = new DataSize(ParquetWriter.DEFAULT_PAGE_SIZE, BYTE);
+
+    public WriterVersion getFormatVersion()
+    {
+        return formatVersion;
+    }
 
     public DataSize getBlockSize()
     {
@@ -41,6 +49,13 @@ public class ParquetFileWriterConfig
     public DataSize getPageSize()
     {
         return pageSize;
+    }
+
+    @Config("hive.parquet.writer.format-version")
+    public ParquetFileWriterConfig setFormatVersion(WriterVersion formatVersion)
+    {
+        this.formatVersion = formatVersion;
+        return this;
     }
 
     @Config("hive.parquet.writer.page-size")
