@@ -465,6 +465,113 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromOrderBy) {
   }
 }
 
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromEmptyOrderBy) {
+  const int numVectors = 32;
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(newVector());
+  }
+  createDuckDbTable(vectors);
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  std::shared_ptr<core::QueryCtx> orderByQueryCtx =
+      newQueryCtx(kMemoryCapacity);
+
+  folly::EventCount fakeAllocationWait;
+  auto fakeAllocationWaitKey = fakeAllocationWait.prepareWait();
+  folly::EventCount taskPauseWait;
+  auto taskPauseWaitKey = taskPauseWait.prepareWait();
+
+  const auto fakeAllocationSize = kMemoryCapacity;
+
+  std::atomic<int> injectAllocations{0};
+  fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
+    const auto injectionCount = ++injectAllocations;
+    if (injectionCount > 2) {
+      return TestAllocation{};
+    }
+    if (injectionCount == 1) {
+      return TestAllocation{
+          op->pool(),
+          op->pool()->allocate(kMemoryCapacity / 2),
+          kMemoryCapacity / 2};
+    }
+    fakeAllocationWait.wait(fakeAllocationWaitKey);
+    EXPECT_ANY_THROW(op->pool()->allocate(kMemoryCapacity));
+    return TestAllocation{};
+  });
+  fakeOperatorFactory_->setCanReclaim(false);
+
+  core::PlanNodeId orderByPlanNodeId;
+  auto orderByPlan =
+      PlanBuilder()
+          .values(vectors)
+          .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
+          .capturePlanNodeId(orderByPlanNodeId)
+          .planNode();
+
+  std::atomic<bool> injectDriverBlockOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal",
+      std::function<void(Driver*)>(([&](Driver* driver) {
+        Operator* op = driver->findOperator(orderByPlanNodeId);
+        if (op == nullptr) {
+          return;
+        }
+        if (op->operatorType() != "OrderBy") {
+          return;
+        }
+        if (!injectDriverBlockOnce.exchange(false)) {
+          return;
+        }
+        fakeAllocationWait.notify();
+        // Wait for pause to be triggered.
+        taskPauseWait.wait(taskPauseWaitKey);
+      })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>(
+          ([&](Task* /*unused*/) { taskPauseWait.notify(); })));
+
+  std::thread orderByThread([&]() {
+    std::shared_ptr<Task> task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .spillDirectory(spillDirectory->path)
+            .maxDrivers(1)
+            .config(core::QueryConfig::kSpillEnabled, "true")
+            .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+            .queryCtx(orderByQueryCtx)
+            .plan(PlanBuilder()
+                      .values(vectors)
+                      .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
+                      .planNode())
+            .assertResults("SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST");
+    // Verify no spill has been triggered.
+    const auto stats = task->taskStats().pipelineStats;
+    ASSERT_EQ(stats[0].operatorStats[1].spilledBytes, 0);
+    ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
+  });
+
+  std::thread memThread([&]() {
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .queryCtx(orderByQueryCtx)
+            .maxDrivers(1)
+            .plan(PlanBuilder()
+                      .values(vectors)
+                      .addNode([&](std::string id, core::PlanNodePtr input) {
+                        return std::make_shared<FakeMemoryNode>(id, input);
+                      })
+                      .planNode())
+            .assertResults("SELECT * FROM tmp");
+  });
+
+  orderByThread.join();
+  memThread.join();
+  waitForAllTasksToBeDeleted();
+}
+
 class TestMemoryReclaimer : public MemoryReclaimer {
  public:
   TestMemoryReclaimer(std::function<void(MemoryPool*)> reclaimCb)

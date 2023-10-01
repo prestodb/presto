@@ -173,6 +173,11 @@ void SortBuffer::spill(int64_t targetRows, int64_t targetBytes) {
   VELOX_CHECK_GE(targetRows, 0);
   VELOX_CHECK_GE(targetBytes, 0);
 
+  // Check if sort buffer is empty or not, and skip spill if it is empty.
+  if (data_->numRows() == 0) {
+    return;
+  }
+
   ++(*numSpillRuns_);
   if (spiller_ == nullptr) {
     spiller_ = std::make_unique<Spiller>(

@@ -42,6 +42,24 @@ class SortBufferTest : public OperatorTestBase {
     rng_.seed(123);
   }
 
+  common::SpillConfig getSpillConfig(const std::string& spillFilePath) const {
+    return common::SpillConfig(
+        spillFilePath,
+        0,
+        0,
+        0,
+        executor_.get(),
+        5,
+        10,
+        0,
+        0,
+        0,
+        false,
+        0,
+        0,
+        "none");
+  }
+
   const RowTypePtr inputType_ = ROW(
       {{"c0", BIGINT()},
        {"c1", INTEGER()},
@@ -395,7 +413,7 @@ TEST_F(SortBufferTest, spill) {
         testData.spillMemoryThreshold);
 
     const std::shared_ptr<memory::MemoryPool> fuzzerPool =
-        memory::addDefaultLeafMemoryPool("VectorFuzzer");
+        memory::addDefaultLeafMemoryPool("spillSource");
     VectorFuzzer fuzzer({.vectorSize = 1024}, fuzzerPool.get());
     uint64_t totalNumInput = 0;
 
@@ -428,6 +446,36 @@ TEST_F(SortBufferTest, spill) {
         ASSERT_GE(Spiller::pool()->stats().peakBytes, peakSpillMemoryUsage);
       }
     }
+  }
+}
+
+TEST_F(SortBufferTest, emptySpill) {
+  const std::shared_ptr<memory::MemoryPool> fuzzerPool =
+      memory::addDefaultLeafMemoryPool("emptySpillSource");
+
+  for (bool hasPostSpillData : {false, true}) {
+    SCOPED_TRACE(fmt::format("hasPostSpillData {}", hasPostSpillData));
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto filePath = makeOperatorSpillPath(spillDirectory->path, 0, 0, 0);
+    auto spillConfig = getSpillConfig(filePath);
+    auto sortBuffer = std::make_unique<SortBuffer>(
+        inputType_,
+        sortColumnIndices_,
+        sortCompareFlags_,
+        1000,
+        pool_.get(),
+        &nonReclaimableSection_,
+        &numSpillRuns_,
+        &spillConfig,
+        0);
+
+    sortBuffer->spill(0, 0);
+    if (hasPostSpillData) {
+      VectorFuzzer fuzzer({.vectorSize = 1024}, fuzzerPool.get());
+      sortBuffer->addInput(fuzzer.fuzzRow(inputType_));
+    }
+    sortBuffer->noMoreInput();
+    ASSERT_FALSE(sortBuffer->spilledStats());
   }
 }
 } // namespace facebook::velox::functions::test
