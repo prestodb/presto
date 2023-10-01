@@ -30,11 +30,13 @@ public class ParquetWriterOptions
 
     private final int maxRowGroupSize;
     private final int maxPageSize;
+    private final int maxDictionaryPageSize;
 
-    private ParquetWriterOptions(DataSize maxRowGroupSize, DataSize maxPageSize)
+    private ParquetWriterOptions(DataSize maxRowGroupSize, DataSize maxPageSize, DataSize maxDictionaryPageSize)
     {
         this.maxRowGroupSize = toIntExact(requireNonNull(maxRowGroupSize, "maxRowGroupSize is null").toBytes());
         this.maxPageSize = toIntExact(requireNonNull(maxPageSize, "maxPageSize is null").toBytes());
+        this.maxDictionaryPageSize = toIntExact(requireNonNull(maxDictionaryPageSize, "maxDictionaryPageSize is null").toBytes());
     }
 
     public int getMaxRowGroupSize()
@@ -47,10 +49,17 @@ public class ParquetWriterOptions
         return maxPageSize;
     }
 
+    public int getMaxDictionaryPageSize()
+    {
+        return maxDictionaryPageSize;
+    }
+
     public static class Builder
     {
         private DataSize maxBlockSize = DEFAULT_MAX_ROW_GROUP_SIZE;
         private DataSize maxPageSize = DEFAULT_MAX_PAGE_SIZE;
+        // By default, we set maxDictionaryPageSize to the same default value as maxPageSize, to keep consistent with parquet-mr.
+        private DataSize maxDictionaryPageSize = DEFAULT_MAX_PAGE_SIZE;
 
         public Builder setMaxBlockSize(DataSize maxBlockSize)
         {
@@ -64,9 +73,15 @@ public class ParquetWriterOptions
             return this;
         }
 
+        public Builder setMaxDictionaryPageSize(DataSize maxDictionaryPageSize)
+        {
+            this.maxDictionaryPageSize = maxDictionaryPageSize;
+            return this;
+        }
+
         public ParquetWriterOptions build()
         {
-            return new ParquetWriterOptions(maxBlockSize, maxPageSize);
+            return new ParquetWriterOptions(maxBlockSize, maxPageSize, maxDictionaryPageSize);
         }
     }
 }
