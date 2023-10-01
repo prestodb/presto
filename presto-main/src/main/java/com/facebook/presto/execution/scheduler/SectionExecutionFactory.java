@@ -87,6 +87,7 @@ import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedScaleWriterProducerBuffer;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
+import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerWithSplitRetryAsStageScheduler;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.NodePoolType.INTERMEDIATE;
@@ -401,7 +402,12 @@ public class SectionExecutionFactory
             }
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, isRetryOfFailedSplitsEnabled);
+            if (isRetryOfFailedSplitsEnabled) {
+                return newSourcePartitionedSchedulerWithSplitRetryAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize);
+            }
+            else {
+                return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize);
+            }
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             log.info("partitioningHandle is SCALED_WRITER_DISTRIBUTION for the query %s and plan %s", session.getQueryId(), plan.getFragment());

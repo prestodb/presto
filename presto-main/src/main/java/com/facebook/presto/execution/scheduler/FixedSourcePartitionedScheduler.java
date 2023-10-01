@@ -127,8 +127,7 @@ public class FixedSourcePartitionedScheduler
                     splitSource,
                     splitPlacementPolicy,
                     Math.max(splitBatchSize / concurrentLifespans, 1),
-                    groupedExecutionForScanNode,
-                    false);
+                    groupedExecutionForScanNode);
 
             if (stageExecutionDescriptor.isStageGroupedExecution() && !groupedExecutionForScanNode) {
                 sourceScheduler = new AsGroupedSourceScheduler(sourceScheduler);

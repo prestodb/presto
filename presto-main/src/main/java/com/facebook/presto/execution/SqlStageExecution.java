@@ -38,6 +38,8 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -142,9 +144,10 @@ public final class SqlStageExecution
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
-    private final ListenerManager<Integer> splitsRetryFinishedListeners = new ListenerManager<>();
 
     private boolean isRetryOfFailedSplitsEnabled;
+
+    private SettableFuture<?> whenNoMoreRetry = SettableFuture.create();
 
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
@@ -275,11 +278,6 @@ public final class SqlStageExecution
         this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
     }
 
-    public void addSplitsRetryFinishedListener(Consumer<Integer> splitsFinishedConsumer)
-    {
-        splitsRetryFinishedListeners.addListener(splitsFinishedConsumer);
-    }
-
     public synchronized void registerStageTaskRecoveryCallback(StageTaskRecoveryCallback stageTaskRecoveryCallback, Set<ErrorCode> recoveryErrorCodes)
     {
         checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
@@ -311,6 +309,11 @@ public final class SqlStageExecution
     public synchronized void transitionToSchedulingSplits()
     {
         stateMachine.transitionToSchedulingSplits();
+    }
+
+    public synchronized void transitionToSchedulingRetriedSplits()
+    {
+        stateMachine.transitionToSchedulingRetriedSplits();
     }
 
     public synchronized void schedulingComplete()
@@ -679,46 +682,43 @@ public final class SqlStageExecution
 
         // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
         stageExecutionState = getState();
+        if (isRetryOfFailedSplitsEnabled && planFragment.isLeaf() && stageExecutionState == StageExecutionState.SCHEDULING_RETRIED_SPLITS) {
+            if (!isFailedTasksBelowThreshold() || noMoreRetry()) {
+                whenNoMoreRetry.set(null);
+                return;
+            }
+        }
+
         if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
             if (taskState == TaskState.RUNNING) {
                 stateMachine.transitionToRunning();
             }
 
-            if (isRetryOfFailedSplitsEnabled && planFragment.isLeaf()) {
-                if (!isFailedTasksBelowThreshold()) {
-                    stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "exceeding failTask percentage"));
-                }
-
-                if (noMoreRetry()) {
-                    splitsRetryFinishedListeners.invoke(0, executor);
-                    stateMachine.transitionToFinished();
-                }
-            }
-            else {
-                if (finishedTasks.size() == allTasks.size()) {
-                    stateMachine.transitionToFinished();
-                }
+            if (finishedTasks.size() == allTasks.size()) {
+                stateMachine.transitionToFinished();
             }
         }
     }
 
+    public ListenableFuture<?> getBlocked()
+    {
+        return whenNoMoreRetry;
+    }
+
     public synchronized boolean noMoreRetry()
     {
-        if (planFragment.isLeaf()) {
-            if (failedTasks.isEmpty()) {
-                checkState(finishedTasks.isEmpty());
-                List<RemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
-                        .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
-                        .filter(task -> task.isTaskIdling())
-                        .collect(toList());
-                return idleRunningHttpRemoteTasks.size() == allTasks.size();
-            }
+        checkState(planFragment.isLeaf());
 
-            return noMoreRetryWithFailedTasks();
+        if (failedTasks.isEmpty()) {
+            checkState(finishedTasks.isEmpty());
+            List<RemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
+                    .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                    .filter(task -> task.isTaskIdling())
+                    .collect(toList());
+            return idleRunningHttpRemoteTasks.size() == allTasks.size();
         }
-        else {
-            return finishedTasks.size() == allTasks.size();
-        }
+
+        return noMoreRetryWithFailedTasks();
     }
 
     private boolean noMoreRetryWithFailedTasks()
@@ -735,7 +735,7 @@ public final class SqlStageExecution
                 .collect(toList());
 
         long retriedFailedTaskCount = getAllTasks().stream()
-                .filter(task -> task.getTaskStatus().getState() == TaskState.FAILED)
+                .filter(task -> task.getTaskStatus().getState() == TaskState.GRACEFUL_FAILED)
                 .filter(RemoteTask::isRetried)
                 .count();
 

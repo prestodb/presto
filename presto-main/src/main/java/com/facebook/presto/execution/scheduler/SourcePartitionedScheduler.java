@@ -91,7 +91,6 @@ public class SourcePartitionedScheduler
     private final int splitBatchSize;
     private final PlanNodeId partitionedNode;
     private final boolean groupedExecution;
-    private final boolean splitRetryForScanNode;
 
     // TODO: Add LIFESPAN_ADDED into SourcePartitionedScheduler#State and remove this boolean
     private boolean lifespanAdded;
@@ -107,8 +106,7 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            boolean groupedExecution,
-            boolean splitRetryForScanNode)
+            boolean groupedExecution)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.partitionedNode = requireNonNull(partitionedNode, "partitionedNode is null");
@@ -118,11 +116,6 @@ public class SourcePartitionedScheduler
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
         this.splitBatchSize = splitBatchSize;
         this.groupedExecution = groupedExecution;
-        this.splitRetryForScanNode = splitRetryForScanNode;
-
-        if (splitRetryForScanNode) {
-            stage.addSplitsRetryFinishedListener(x -> notifyAllSplitRetryFinishedExecution());
-        }
     }
 
     public PlanNodeId getPlanNodeId()
@@ -142,10 +135,9 @@ public class SourcePartitionedScheduler
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
-            int splitBatchSize,
-            boolean splitRetryForScanNode)
+            int splitBatchSize)
     {
-        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false, splitRetryForScanNode);
+        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
 
         return new StageScheduler() {
@@ -163,6 +155,17 @@ public class SourcePartitionedScheduler
                 sourcePartitionedScheduler.close();
             }
         };
+    }
+    public static StageScheduler newSourcePartitionedSchedulerWithSplitRetryAsStageScheduler(
+            SqlStageExecution stage,
+            PlanNodeId partitionedNode,
+            SplitSource splitSource,
+            SplitPlacementPolicy splitPlacementPolicy,
+            int splitBatchSize)
+    {
+        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
+        sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
+        return new SplitRetrySourcePartitionedScheduler(sourcePartitionedScheduler, stage);
     }
 
     /**
@@ -182,10 +185,9 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            boolean groupedExecution,
-            boolean splitRetryForScanNode)
+            boolean groupedExecution)
     {
-        return new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, groupedExecution, splitRetryForScanNode);
+        return new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, groupedExecution);
     }
 
     @Override
@@ -331,7 +333,7 @@ public class SourcePartitionedScheduler
         // we can no longer claim schedule is complete after all splits are scheduled.
         // Splits schedule can only be considered as finished when all lifespan executions are done
         // (by calling `notifyAllLifespansFinishedExecution`)
-        if ((state == State.NO_MORE_SPLITS || state == State.FINISHED) || (!groupedExecution && !splitRetryForScanNode && lifespanAdded && scheduleGroups.isEmpty() && splitSource.isFinished())) {
+        if ((state == State.NO_MORE_SPLITS || state == State.FINISHED) || (!groupedExecution && lifespanAdded && scheduleGroups.isEmpty() && splitSource.isFinished())) {
             switch (state) {
                 case INITIALIZED:
                     // We have not scheduled a single split so far.
@@ -450,14 +452,6 @@ public class SourcePartitionedScheduler
     public synchronized void notifyAllLifespansFinishedExecution()
     {
         checkState(groupedExecution);
-        state = State.FINISHED;
-        splitSource.close();
-        whenFinishedOrNewLifespanAdded.set(null);
-    }
-
-    public synchronized void notifyAllSplitRetryFinishedExecution()
-    {
-        checkState(splitRetryForScanNode);
         state = State.FINISHED;
         splitSource.close();
         whenFinishedOrNewLifespanAdded.set(null);

@@ -57,6 +57,7 @@ public class ScheduleResult
          * grouped execution where there are multiple lifespans per task).
          */
         MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE,
+        WAITING_FOR_SPLIT_RETRY,
         /**/;
 
         public BlockedReason combineWith(BlockedReason other)
@@ -72,6 +73,8 @@ public class ScheduleResult
                     return other == WAITING_FOR_SOURCE || other == NO_ACTIVE_DRIVER_GROUP ? WAITING_FOR_SOURCE : MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
                 case MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE:
                     return MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
+                case WAITING_FOR_SPLIT_RETRY:
+                    return WAITING_FOR_SPLIT_RETRY;
                 default:
                     throw new IllegalArgumentException("Unknown blocked reason: " + other);
             }

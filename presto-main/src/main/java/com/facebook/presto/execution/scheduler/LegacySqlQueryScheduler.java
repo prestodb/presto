@@ -469,6 +469,9 @@ public class LegacySqlQueryScheduler
                                 case NO_ACTIVE_DRIVER_GROUP:
                                     schedulerStats.getNoActiveDriverGroup().update(1);
                                     break;
+                                case WAITING_FOR_SPLIT_RETRY:
+                                    schedulerStats.getWaitingForSplitRetry().update(1);
+                                    break;
                                 default:
                                     throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
                             }
