@@ -316,6 +316,25 @@ public final class SqlStageExecution
         stateMachine.transitionToSchedulingRetriedSplits();
     }
 
+    public synchronized void schedulingCompleteIfRetryingSplits()
+    {
+        if (isRetryOfFailedSplitsEnabled && planFragment.isLeaf()) {
+            if (!stateMachine.transitionToScheduledIfRetryingSplits()) {
+                return;
+            }
+
+            if (noMoreRetry()) {
+                stateMachine.transitionToFinished();
+                for (PlanNodeId tableScanPlanNodeId : planFragment.getTableScanSchedulingOrder()) {
+                    schedulingComplete(tableScanPlanNodeId);
+                }
+            }
+        }
+        else {
+            schedulingComplete();
+        }
+    }
+
     public synchronized void schedulingComplete()
     {
         if (!stateMachine.transitionToScheduled()) {

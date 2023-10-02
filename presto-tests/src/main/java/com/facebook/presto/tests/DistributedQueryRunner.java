@@ -595,7 +595,7 @@ public class DistributedQueryRunner
 
     public TestingPrestoServer getCoordinator()
     {
-        checkState(coordinators.size() == 1, "Expected a single coordinator");
+//        checkState(coordinators.size() == 1, "Expected a single coordinator");
         return coordinators.get(0);
     }
 

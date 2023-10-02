@@ -135,6 +135,12 @@ public class StageExecutionStateMachine
         return state.setIf(SCHEDULING_RETRIED_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING || currentState == SCHEDULING_SPLITS);
     }
 
+    public synchronized boolean transitionToScheduledIfRetryingSplits()
+    {
+        schedulingComplete.compareAndSet(null, DateTime.now());
+        return state.setIf(SCHEDULED, currentState -> currentState == SCHEDULING_RETRIED_SPLITS);
+    }
+
     public synchronized boolean transitionToScheduled()
     {
         schedulingComplete.compareAndSet(null, DateTime.now());

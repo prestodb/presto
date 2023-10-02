@@ -457,9 +457,9 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public boolean isTaskIdling()
+    public synchronized boolean isTaskIdling()
     {
-        return getTaskStatus().getIsTaskIdling() && pendingSplits.isEmpty();
+        return getTaskStatus().getIsTaskIdling() && pendingSplits.isEmpty() && !needsUpdate.get();
     }
 
     @Override
