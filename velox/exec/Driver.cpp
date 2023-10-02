@@ -75,6 +75,18 @@ std::optional<column_index_t> getIdentityProjection(
   return std::nullopt;
 }
 
+void validateOperatorResult(RowVectorPtr& result, Operator& op) {
+  try {
+    result->validate({});
+  } catch (const std::exception& e) {
+    VELOX_FAIL(
+        "Output validation failed for [operator: {}, plan node ID: {}]: {}",
+        op.operatorType(),
+        op.planNodeId(),
+        e.what());
+  }
+}
+
 thread_local DriverThreadContext* driverThreadCtx{nullptr};
 } // namespace
 
@@ -479,7 +491,7 @@ StopReason Driver::runInternal(
               needsInput = nextOp->needsInput(), nextOp, "needsInput");
           if (needsInput) {
             uint64_t resultBytes = 0;
-            RowVectorPtr result;
+            RowVectorPtr intermediateResult;
             {
               auto timer = createDeltaCpuWallTimer(
                   [op, this](const CpuWallTiming& deltaTiming) {
@@ -487,22 +499,27 @@ StopReason Driver::runInternal(
                     op->stats().wlock()->getOutputTiming.add(deltaTiming);
                   });
               RuntimeStatWriterScopeGuard statsWriterGuard(op);
-              CALL_OPERATOR(result = op->getOutput(), op, "getOutput");
-              if (result) {
+              CALL_OPERATOR(
+                  intermediateResult = op->getOutput(), op, "getOutput");
+              if (intermediateResult) {
                 VELOX_CHECK(
-                    result->size() > 0,
+                    intermediateResult->size() > 0,
                     "Operator::getOutput() must return nullptr or "
                     "a non-empty vector: {}",
                     op->operatorType());
-                resultBytes = result->estimateFlatSize();
+                if (ctx_->queryConfig().validateOutputFromOperators()) {
+                  validateOperatorResult(intermediateResult, *op);
+                }
+                resultBytes = intermediateResult->estimateFlatSize();
                 {
                   auto lockedStats = op->stats().wlock();
-                  lockedStats->addOutputVector(resultBytes, result->size());
+                  lockedStats->addOutputVector(
+                      resultBytes, intermediateResult->size());
                 }
               }
             }
             pushdownFilters(i);
-            if (result) {
+            if (intermediateResult) {
               auto timer = createDeltaCpuWallTimer(
                   [nextOp, this](const CpuWallTiming& timing) {
                     auto selfDelta = processLazyTiming(*nextOp, timing);
@@ -510,14 +527,16 @@ StopReason Driver::runInternal(
                   });
               {
                 auto lockedStats = nextOp->stats().wlock();
-                lockedStats->addInputVector(resultBytes, result->size());
+                lockedStats->addInputVector(
+                    resultBytes, intermediateResult->size());
               }
               RuntimeStatWriterScopeGuard statsWriterGuard(nextOp);
               TestValue::adjust(
                   "facebook::velox::exec::Driver::runInternal::addInput",
                   nextOp);
 
-              CALL_OPERATOR(nextOp->addInput(result), nextOp, "addInput");
+              CALL_OPERATOR(
+                  nextOp->addInput(intermediateResult), nextOp, "addInput");
 
               // The next iteration will see if operators_[i + 1] has
               // output now that it got input.
@@ -577,6 +596,9 @@ StopReason Driver::runInternal(
                   "Operator::getOutput() must return nullptr or "
                   "a non-empty vector: {}",
                   op->operatorType());
+              if (ctx_->queryConfig().validateOutputFromOperators()) {
+                validateOperatorResult(result, *op);
+              }
               {
                 auto lockedStats = op->stats().wlock();
                 lockedStats->addOutputVector(

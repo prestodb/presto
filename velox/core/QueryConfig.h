@@ -269,6 +269,14 @@ class QueryConfig {
   static constexpr const char* kMinTableRowsForParallelJoinBuild =
       "min_table_rows_for_parallel_join_build";
 
+  /// If set to true, then during execution of tasks, the output vectors of
+  /// every operator are validated for consistency. This is an expensive check
+  /// so should only be used for debugging. It can help debug issues where
+  /// malformed vector cause failures or crashes by helping identify which
+  /// operator is generating them.
+  static constexpr const char* kValidateOutputFromOperators =
+      "debug.validate_output_from_operators";
+
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
@@ -553,6 +561,10 @@ class QueryConfig {
 
   uint32_t minTableRowsForParallelJoinBuild() const {
     return get<uint32_t>(kMinTableRowsForParallelJoinBuild, 1'000);
+  }
+
+  bool validateOutputFromOperators() const {
+    return get<bool>(kValidateOutputFromOperators, false);
   }
 
   template <typename T>

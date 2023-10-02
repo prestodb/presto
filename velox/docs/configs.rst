@@ -81,6 +81,12 @@ Generic Configuration
      - integer
      - 1000
      - The minimum number of table rows that can trigger the parallel hash join table build.
+   * - debug.validate_output_from_operators
+     - bool
+     - false
+     - If set to true, then during execution of tasks, the output vectors of every operator are validated for consistency.
+       This is an expensive check so should only be used for debugging. It can help debug issues where malformed vector
+       cause failures or crashes by helping identify which operator is generating them.
 
 .. _expression-evaluation-conf:
 
