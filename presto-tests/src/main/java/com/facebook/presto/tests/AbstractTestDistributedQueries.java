@@ -43,6 +43,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATE
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -1227,10 +1228,13 @@ public abstract class AbstractTestDistributedQueries
     {
         Session sessionNoOpt = Session.builder(getSession())
                 .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                // TODO: fix payload join optimizer so that it will not fail when REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN is set to true
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
                 .build();
 
         Session session = Session.builder(getSession())
                 .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
                 .build();
 
         assertUpdate("create table lineitem_map as select *, map(ARRAY[1,3], ARRAY[2,4]) as m1, map(ARRAY[1,3], ARRAY[2,4]) as m2 from lineitem", 60175);
@@ -1253,7 +1257,7 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT l.* FROM (select orderkey+1 as ok1, * from lineitem_map) l left join orders o on (l.ok1 = o.orderkey+1) left join part p on (l.partkey=p.partkey)",
                 "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem_map) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
                 "with lm as (select quantity + 1 as q1, * from lineitem_map) SELECT l.* FROM (select * from lm) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
-
+                // This is the query which fail when REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN set to true
                 "SELECT l.* FROM lineitem_map l left join orders o on (cast(l.orderkey as varchar) = cast(o.orderkey as varchar)) left join part p on (l.partkey=p.partkey)",
                 "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem_map) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)"
         };
@@ -1288,6 +1292,20 @@ public abstract class AbstractTestDistributedQueries
 
         MaterializedResult countStarQuery = computeActual(session, "select count(t.m1) from (SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)) t");
         assertEquals((Long) countStarQuery.getOnlyValue(), Long.valueOf(60175L));
+    }
+
+    @Test
+    public void testRemoveRedundantCastToVarcharInJoinClause()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "true")
+                .build();
+
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+        assertUpdate("create table lineitem_map_cast as select *, map(ARRAY[1,3], ARRAY[2,4]) as m1, map(ARRAY[1,3], ARRAY[2,4]) as m2 from lineitem", 60175);
+        assertQueryWithSameQueryRunner(session, "SELECT l.* FROM lineitem_map_cast l left join orders o on (cast(l.orderkey as varchar) = cast(o.orderkey as varchar)) left join part p on (l.partkey=p.partkey)", disabled);
     }
 
     @Test
