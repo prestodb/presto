@@ -118,7 +118,6 @@ class RowReaderOptions {
   // 'ioExecutor' enables parallelism when performing file system read
   // operations.
   std::shared_ptr<folly::Executor> decodingExecutor_;
-  std::shared_ptr<folly::Executor> ioExecutor_;
   bool appendRowNumberColumn_ = false;
   // Function to populate metrics related to feature projection stats
   // in Koski. This gets fired in FlatMapColumnReader.
@@ -304,10 +303,6 @@ class RowReaderOptions {
     decodingExecutor_ = executor;
   }
 
-  void setIOExecutor(std::shared_ptr<folly::Executor> executor) {
-    ioExecutor_ = executor;
-  }
-
   /*
    * Set to true, if you want to add a new column to the results containing the
    * row numbers.  These row numbers are relative to the beginning of file (0 as
@@ -345,10 +340,6 @@ class RowReaderOptions {
 
   const std::shared_ptr<folly::Executor>& getDecodingExecutor() const {
     return decodingExecutor_;
-  }
-
-  const std::shared_ptr<folly::Executor>& getIOExecutor() const {
-    return ioExecutor_;
   }
 };
 
@@ -405,6 +396,7 @@ class ReaderOptions {
   uint64_t filePreloadThreshold{kDefaultFilePreloadThreshold};
   bool fileColumnNamesReadAsLowerCase{false};
   bool useColumnNamesForColumnMapping_{false};
+  std::shared_ptr<folly::Executor> ioExecutor_;
 
  public:
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
@@ -556,6 +548,11 @@ class ReaderOptions {
     return *this;
   }
 
+  ReaderOptions& setIOExecutor(std::shared_ptr<folly::Executor> executor) {
+    ioExecutor_ = std::move(executor);
+    return *this;
+  }
+
   /**
    * Get the desired tail location.
    * @return if not set, return the maximum long.
@@ -624,6 +621,10 @@ class ReaderOptions {
 
   uint64_t getFilePreloadThreshold() const {
     return filePreloadThreshold;
+  }
+
+  const std::shared_ptr<folly::Executor>& getIOExecutor() const {
+    return ioExecutor_;
   }
 
   bool isFileColumnNamesReadAsLowerCase() const {
