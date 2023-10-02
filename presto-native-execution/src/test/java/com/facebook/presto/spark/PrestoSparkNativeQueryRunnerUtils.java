@@ -41,9 +41,9 @@ import java.util.Set;
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static java.nio.file.Files.createTempDirectory;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -94,10 +94,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 .put("spark.partition-count-auto-tune-enabled", "false");
 
         if (System.getProperty("NATIVE_PORT") == null) {
-            String path = requireNonNull(System.getProperty("PRESTO_SERVER"),
-                    "Native worker binary path is missing. " +
-                            "Add -DPRESTO_SERVER=/path/to/native/process/bin to your JVM arguments.");
-            builder.put("native-execution-executable-path", path);
+            builder.put("native-execution-executable-path", getNativeQueryRunnerParameters().serverBinary.toString());
         }
 
         try {
@@ -211,7 +208,7 @@ public class PrestoSparkNativeQueryRunnerUtils
             return dataDirectory.get();
         }
         String dataDirectoryStr = System.getProperty("DATA_DIR");
-        if (dataDirectoryStr.isEmpty()) {
+        if (dataDirectoryStr == null || dataDirectoryStr.isEmpty()) {
             try {
                 dataDirectory = Optional.of(createTempDirectory("PrestoTest").toAbsolutePath());
             }
@@ -220,7 +217,7 @@ public class PrestoSparkNativeQueryRunnerUtils
             }
         }
         else {
-            dataDirectory = Optional.of(Paths.get(dataDirectoryStr));
+            dataDirectory = Optional.of(getNativeQueryRunnerParameters().dataDirectory);
         }
         return dataDirectory.get();
     }
