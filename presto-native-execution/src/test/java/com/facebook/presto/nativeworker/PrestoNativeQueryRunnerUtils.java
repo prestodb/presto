@@ -33,9 +33,9 @@ import java.util.UUID;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
-import static org.testng.Assert.assertNotNull;
+import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertTrue;
 
 public class PrestoNativeQueryRunnerUtils
 {
@@ -53,18 +53,12 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createQueryRunner()
             throws Exception
     {
-        String prestoServerPath = System.getenv("PRESTO_SERVER");
-        String dataDirectory = System.getenv("DATA_DIR");
-        String workerCount = System.getenv("WORKER_COUNT");
         int cacheMaxSize = 4096; // 4GB size cache
-
-        checkArgument(prestoServerPath != null, "Native worker binary path is missing. Add PRESTO_SERVER environment variable.");
-        checkArgument(dataDirectory != null, "Data directory path is missing.. Add DATA_DIR environment variable.");
-
+        NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
         return createQueryRunner(
-                Optional.ofNullable(prestoServerPath),
-                Optional.ofNullable(dataDirectory).map(Paths::get),
-                Optional.ofNullable(workerCount).map(Integer::parseInt),
+                Optional.of(nativeQueryRunnerParameters.serverBinary.toString()),
+                Optional.of(nativeQueryRunnerParameters.dataDirectory),
+                nativeQueryRunnerParameters.workerCount,
                 cacheMaxSize,
                 DEFAULT_STORAGE_FORMAT);
     }
@@ -77,10 +71,6 @@ public class PrestoNativeQueryRunnerUtils
             String storageFormat)
             throws Exception
     {
-        if (prestoServerPath.isPresent()) {
-            checkArgument(dataDirectory.isPresent(), "Path to data files must be specified when testing external workers");
-        }
-
         QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory, storageFormat);
 
         if (!prestoServerPath.isPresent()) {
@@ -92,15 +82,16 @@ public class PrestoNativeQueryRunnerUtils
         return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat);
     }
 
-    public static QueryRunner createJavaQueryRunner() throws Exception
+    public static QueryRunner createJavaQueryRunner()
+            throws Exception
     {
         return createJavaQueryRunner(DEFAULT_STORAGE_FORMAT);
     }
 
-    public static QueryRunner createJavaQueryRunner(String storageFormat) throws Exception
+    public static QueryRunner createJavaQueryRunner(String storageFormat)
+            throws Exception
     {
-        String dataDirectory = System.getProperty("DATA_DIR");
-        return createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)), storageFormat);
+        return createJavaQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat);
     }
 
     public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory, String storageFormat)
@@ -193,8 +184,8 @@ public class PrestoNativeQueryRunnerUtils
                         if (cacheMaxSize > 0) {
                             Files.write(catalogDirectoryPath.resolve("hive.properties"),
                                     format("connector.name=hive%n" +
-                                           "cache.enabled=true%n" +
-                                           "cache.max-cache-size=%s", cacheMaxSize).getBytes());
+                                            "cache.enabled=true%n" +
+                                            "cache.max-cache-size=%s", cacheMaxSize).getBytes());
                         }
                         else {
                             Files.write(catalogDirectoryPath.resolve("hive.properties"),
@@ -245,15 +236,9 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat, Optional<String> remoteFunctionServerUds)
             throws Exception
     {
-        String prestoServerPath = System.getProperty("PRESTO_SERVER");
-        String dataDirectory = System.getProperty("DATA_DIR");
-        String workerCount = System.getProperty("WORKER_COUNT");
         int cacheMaxSize = 0;
-
-        assertNotNull(prestoServerPath, "Native worker binary path is missing. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.");
-        assertNotNull(dataDirectory, "Data directory path is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments.");
-
-        return createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift, remoteFunctionServerUds, storageFormat);
+        NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
+        return createNativeQueryRunner(nativeQueryRunnerParameters.dataDirectory.toString(), nativeQueryRunnerParameters.serverBinary.toString(), nativeQueryRunnerParameters.workerCount, cacheMaxSize, useThrift, remoteFunctionServerUds, storageFormat);
     }
 
     // Start the remote function server. Return the UDS path used to communicate with it.
@@ -274,6 +259,43 @@ public class PrestoNativeQueryRunnerUtils
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    public static NativeQueryRunnerParameters getNativeQueryRunnerParameters()
+    {
+        Path prestoServerPath = Paths.get(Optional.ofNullable(System.getProperty("PRESTO_SERVER"))
+                        .orElse("_build/debug/presto_cpp/main/presto_server"))
+                .toAbsolutePath();
+        Path dataDirectory = Paths.get(Optional.ofNullable(System.getProperty("DATA_DIR"))
+                        .orElse("target/velox_data"))
+                .toAbsolutePath();
+        Optional<Integer> workerCount = Optional.ofNullable(System.getProperty("WORKER_COUNT")).map(Integer::parseInt);
+
+        assertTrue(Files.exists(prestoServerPath), format("Native worker binary at %s not found. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.", prestoServerPath));
+        log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);
+
+        if (!Files.exists(dataDirectory)) {
+            assertTrue(dataDirectory.toFile().mkdirs());
+        }
+
+        assertTrue(Files.exists(dataDirectory), format("Data directory at %s is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments to specify the path", dataDirectory));
+        log.info("using DATA_DIR at %s", dataDirectory);
+
+        return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount);
+    }
+
+    public static class NativeQueryRunnerParameters
+    {
+        public final Path serverBinary;
+        public final Path dataDirectory;
+        public final Optional<Integer> workerCount;
+
+        public NativeQueryRunnerParameters(Path serverBinary, Path dataDirectory, Optional<Integer> workerCount)
+        {
+            this.serverBinary = requireNonNull(serverBinary, "serverBinary is null");
+            this.dataDirectory = requireNonNull(dataDirectory, "dataDirectory is null");
+            this.workerCount = requireNonNull(workerCount, "workerCount is null");
         }
     }
 
