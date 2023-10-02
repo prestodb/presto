@@ -20,13 +20,10 @@
 ARG BASE_IMAGE=quay.io/centos/centos:stream8
 FROM ${BASE_IMAGE} AS build-stage
 
-ARG CPU_TARGET=avx
 ARG PRESTODB_REPOSITORY=https://github.com/prestodb/presto
 ARG PRESTODB_CHECKOUT=origin/master
 
 USER root:root
-
-ENV CPU_TARGET=${CPU_TARGET}
 
 ENV CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-9/root/bin/g++
@@ -70,8 +67,7 @@ RUN --mount=type=ssh \
 WORKDIR ${DEPENDENCY_DIR}
 RUN --mount=type=ssh \
     set -exu && \
-    sed -i 's/\(.*folly.*\)/# \1/g' "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
-    bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
+    bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-centos8.sh" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/scripts/setup-centos.sh" && \
     python3 -m pip install six && \
     set +exu && \
@@ -131,8 +127,6 @@ ARG PRESTO_UID=186
 SHELL ["/bin/bash", "-c"]
 
 ENV PRESTO_HOME="/opt/presto/"
-ENV CPU_TARGET=${CPU_TARGET}
-ENV TZ=Europe/Warsaw
 
 WORKDIR /opt/presto/
 

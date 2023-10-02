@@ -20,16 +20,10 @@ source $SCRIPT_DIR/release-centos-dockerfile/opt/common.sh
 set -eE -o pipefail
 trap 'error "Stage failed, exiting"; exit 5' SIGSTOP SIGINT SIGTERM SIGQUIT ERR
 
-if [ "$(uname)" == "Darwin" ]; then
-    export CPU_TARGET=${CPU_TARGET:-'arm64'}
-else
-    export CPU_TARGET=${CPU_TARGET:-'avx'}
-fi
-
 export IMAGE_CACHE_REGISTRY=${IMAGE_CACHE_REGISTRY:-'quay.io/centos/'}
 export IMAGE_BASE_NAME=${IMAGE_BASE_NAME:-'centos:stream8'}
 export BASE_IMAGE=${BASE_IMAGE:-"${IMAGE_CACHE_REGISTRY}${IMAGE_BASE_NAME}"}
-export IMAGE_NAME=${IMAGE_NAME:-"presto/prestissimo-${CPU_TARGET}-centos"}
+export IMAGE_NAME=${IMAGE_NAME:-"presto/prestissimo-$(uname -p)-centos"}
 export IMAGE_TAG=${IMAGE_TAG:-"latest"}
 export IMAGE_REGISTRY=${IMAGE_REGISTRY:-''}
 export IMAGE_PUSH=${IMAGE_PUSH:-'0'}
@@ -39,12 +33,11 @@ export PRESTODB_REPOSITORY=${PRESTODB_REPOSITORY:-"$(git -C "${REPOSITORY_ROOT}"
 export PRESTODB_CHECKOUT=${PRESTODB_CHECKOUT:-"$(git -C "${REPOSITORY_ROOT}" show -s --format="%H" HEAD)"}
 
 export DOCKER_BUILDKIT=1
-BUILD_LOGS_FILEPATH="${SCRIPT_DIR}/$(date +%Y%m%d%H%M%S)-${USER}-${CPU_TARGET}-build-centos.log"
+BUILD_LOGS_FILEPATH="${SCRIPT_DIR}/$(date +%Y%m%d%H%M%S)-${USER}-$(uname -p)-build-centos.log"
 
 (
     prompt "Using build time variables:"
     prompt "------------"
-    prompt "\tCPU_TARGET=${CPU_TARGET}"
     prompt "\tUSER_FLAGS=${USER_FLAGS}"
     prompt "------------"
     prompt "\tIMAGE_CACHE_REGISTRY=${IMAGE_CACHE_REGISTRY}"
@@ -111,7 +104,6 @@ BUILD_LOGS_FILEPATH="${SCRIPT_DIR}/$(date +%Y%m%d%H%M%S)-${USER}-${CPU_TARGET}-b
         --build-arg ftp_proxy   \
         --build-arg all_proxy   \
         --build-arg no_proxy    \
-        --build-arg CPU_TARGET  \
         --build-arg BASE_IMAGE  \
         --build-arg PRESTODB_REPOSITORY \
         --build-arg PRESTODB_CHECKOUT \
