@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -85,6 +86,7 @@ public class TestMemoryPools
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .setSystemProperty("task_default_concurrency", "1")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
                 .build();
 
         localQueryRunner = queryRunnerWithInitialTransaction(session);
