@@ -294,6 +294,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
     public static final String ENABLE_HISTORY_BASED_SCALED_WRITER = "enable_history_based_scaled_writer";
+    public static final String REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN = "remove_redundant_cast_to_varchar_in_join";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -1769,6 +1770,11 @@ public final class SystemSessionProperties
                         ENABLE_HISTORY_BASED_SCALED_WRITER,
                         "Enable setting the initial number of tasks for scaled writers with HBO",
                         featuresConfig.isUseHBOForScaledWriters(),
+                        false),
+                booleanProperty(
+                        REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN,
+                        "If both left and right side of join clause are varchar cast from int/bigint, remove the cast here",
+                        featuresConfig.isRemoveRedundantCastToVarcharInJoin(),
                         false));
     }
 
@@ -2947,5 +2953,10 @@ public final class SystemSessionProperties
     public static boolean useHBOForScaledWriters(Session session)
     {
         return session.getSystemProperty(ENABLE_HISTORY_BASED_SCALED_WRITER, Boolean.class);
+    }
+
+    public static boolean isRemoveRedundantCastToVarcharInJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, Boolean.class);
     }
 }
