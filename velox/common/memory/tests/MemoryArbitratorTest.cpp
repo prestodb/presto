@@ -481,7 +481,7 @@ TEST_F(MemoryReclaimerTest, orderedReclaim) {
   const int allocUnitBytes = 1L << 20;
   const int numChildren = 5;
   // The initial allocation units per each child pool.
-  const std::vector<int> initAllocUnitsVec = {10, 10, 8, 16, 5};
+  const std::vector<int> initAllocUnitsVec = {10, 11, 8, 16, 5};
   ASSERT_EQ(initAllocUnitsVec.size(), numChildren);
   std::atomic<uint64_t> totalUsedBytes{0};
   auto root = defaultMemoryManager().addRootPool(
@@ -517,46 +517,47 @@ TEST_F(MemoryReclaimerTest, orderedReclaim) {
       auto* reclaimer =
           static_cast<MockLeafMemoryReclaimer*>(childPools[i]->reclaimer());
       reclaimer->reclaimableBytes(*childPools[i], reclaimableBytes);
-      EXPECT_EQ(reclaimableBytes, expectedReclaimableUnits[i] * allocUnitBytes)
+      ASSERT_EQ(reclaimableBytes, expectedReclaimableUnits[i] * allocUnitBytes)
           << " " << i;
     }
   };
   // No reclaim so far so just expect the initial allocation unit distribution.
   verify(initAllocUnitsVec);
 
-  // Reclaim two units from {10, 10, 8, 16, 5}, and expect to reclaim from 3th
+  // Reclaim two units from {10, 11, 8, 16, 5}, and expect to reclaim from 3th
   // child.
-  // So expected reclaimable allocation units are {10, 10, 8, *14*, 5}
+  // So expected reclaimable allocation units are {10, 11, 8, *14*, 5}
   ASSERT_EQ(
       root->reclaimer()->reclaim(root.get(), 2 * allocUnitBytes),
       2 * allocUnitBytes);
   totalAllocUnits -= 2;
-  verify({10, 10, 8, 14, 5});
+  verify({10, 11, 8, 14, 5});
 
-  // Reclaim two units from {10, 10, 8, 14, 5}, and expect to reclaim from 3th
+  // Reclaim two units from {10, 11, 8, 14, 5}, and expect to reclaim from 3th
   // child.
-  // So expected reclaimable allocation units are {10, 10, 8, *12*, 5}
+  // So expected reclaimable allocation units are {10, 11, 8, *12*, 5}
   ASSERT_EQ(
       root->reclaimer()->reclaim(root.get(), 2 * allocUnitBytes),
       2 * allocUnitBytes);
   totalAllocUnits -= 2;
-  verify({10, 10, 8, 12, 5});
+  verify({10, 11, 8, 12, 5});
 
-  // Reclaim eight units from {10, 10, 8, 12, 5}, and expect to reclaim from 3th
+  // Reclaim eight units from {10, 11, 8, 12, 5}, and expect to reclaim from 3th
   // child.
-  // So expected reclaimable allocation units are {10, 10, 8, *4*, 5}
+  // So expected reclaimable allocation units are {10, 11, 8, *4*, 5}
   ASSERT_EQ(
       root->reclaimer()->reclaim(root.get(), 8 * allocUnitBytes),
       8 * allocUnitBytes);
   totalAllocUnits -= 8;
-  verify({10, 10, 8, 4, 5});
+  verify({10, 11, 8, 4, 5});
 
-  // Reclaim one unit from {10, 10, 8, 4, 5}, and expect to reclaim from 1th
+  // Reclaim two unit from {10, 11, 8, 4, 5}, and expect to reclaim from 1th
   // child.
-  // So expected reclaimable allocation units are {10, *9*, 8, 4, 5}
+  // So expected reclaimable allocation gunits are {10, *9*, 8, 4, 5}
   ASSERT_EQ(
-      root->reclaimer()->reclaim(root.get(), allocUnitBytes), allocUnitBytes);
-  totalAllocUnits -= 1;
+      root->reclaimer()->reclaim(root.get(), 2 * allocUnitBytes),
+      2 * allocUnitBytes);
+  totalAllocUnits -= 2;
   verify({10, 9, 8, 4, 5});
 
   // Reclaim three unit from {10, 9, 8, 4, 5}, and expect to reclaim from 0th
@@ -568,32 +569,32 @@ TEST_F(MemoryReclaimerTest, orderedReclaim) {
   totalAllocUnits -= 3;
   verify({7, 9, 8, 4, 5});
 
-  // Reclaim ten unit from {7, 9, 8, 4, 5}, and expect to reclaim 9 from 1th
-  // child and 1 from 2nd child.
-  // So expected reclaimable allocation units are {7, *0*, *7*, 4, 5}
+  // Reclaim eleven unit from {7, 9, 8, 4, 5}, and expect to reclaim 9 from 1th
+  // child and two from 2nd child.
+  // So expected reclaimable allocation units are {7, *0*, *6*, 4, 5}
+  ASSERT_EQ(
+      root->reclaimer()->reclaim(root.get(), 11 * allocUnitBytes),
+      11 * allocUnitBytes);
+  totalAllocUnits -= 11;
+  verify({7, 0, 6, 4, 5});
+
+  // Reclaim ten unit from {7, 0, 6, 4, 5}, and expect to reclaim 7 from 0th
+  // child and three from 2nd child.
+  // So expected reclaimable allocation units are {*0*, 0, *3*, 4, 5}
   ASSERT_EQ(
       root->reclaimer()->reclaim(root.get(), 10 * allocUnitBytes),
       10 * allocUnitBytes);
   totalAllocUnits -= 10;
-  verify({7, 0, 7, 4, 5});
+  verify({0, 0, 3, 4, 5});
 
-  // Reclaim eight unit from {7, 0, 7, 4, 5}, and expect to reclaim 7 from 2nd
-  // child and 1 from 0th child.
-  // So expected reclaimable allocation units are {*6*, 0, *0*, 4, 5}
-  ASSERT_EQ(
-      root->reclaimer()->reclaim(root.get(), 8 * allocUnitBytes),
-      8 * allocUnitBytes);
-  totalAllocUnits -= 8;
-  verify({6, 0, 0, 4, 5});
-
-  // Reclaim ten unit from {6, 0, 0, 4, 5}, and expect to reclaim 6 from 0th
-  // child and 4 from 4th child.
-  // So expected reclaimable allocation units are {*0*, 0, 0, 4, *1*}
+  // Reclaim ten unit from {0, 0, 3, 4, 5}, and expect to reclaim 5 from 4th
+  // child and 4 from 4th child and 1 from 2nd.
+  // So expected reclaimable allocation units are {0, 0, 2, *0*, *0*}
   ASSERT_EQ(
       root->reclaimer()->reclaim(root.get(), 10 * allocUnitBytes),
       10 * allocUnitBytes);
   totalAllocUnits -= 10;
-  verify({0, 0, 0, 4, 1});
+  verify({0, 0, 2, 0, 0});
 
   // Reclaim all the remaining units and expect all reclaimable bytes got
   // cleared.
