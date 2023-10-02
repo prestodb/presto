@@ -19,6 +19,7 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/io/Options.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/dwio/dwrf/common/Common.h"
@@ -237,7 +238,7 @@ class CacheTest : public testing::Test {
         groupId,
         ioStats,
         executor_.get(),
-        ReaderOptions(pool_.get()));
+        io::ReaderOptions(pool_.get()));
     data->file = readFile.get();
     for (auto i = 0; i < numColumns; ++i) {
       int32_t streamIndex = i * (kMaxStreams / numColumns);
@@ -348,7 +349,7 @@ class CacheTest : public testing::Test {
     auto tracker = std::make_shared<ScanTracker>(
         "testTracker",
         nullptr,
-        dwio::common::ReaderOptions::kDefaultLoadQuantum,
+        io::ReaderOptions::kDefaultLoadQuantum,
         groupStats_);
     std::vector<std::unique_ptr<StripeData>> stripes;
     uint64_t fileId;
@@ -452,7 +453,7 @@ TEST_F(CacheTest, window) {
   auto tracker = std::make_shared<ScanTracker>(
       "testTracker",
       nullptr,
-      dwio::common::ReaderOptions::kDefaultLoadQuantum,
+      io::ReaderOptions::kDefaultLoadQuantum,
       groupStats_);
   uint64_t fileId;
   uint64_t groupId;
@@ -466,7 +467,7 @@ TEST_F(CacheTest, window) {
       groupId,
       ioStats_,
       executor_.get(),
-      ReaderOptions(pool_.get()));
+      io::ReaderOptions(pool_.get()));
   auto begin = 4 * kMB;
   auto end = 17 * kMB;
   auto stream = input->read(begin, end - begin, LogType::TEST);
@@ -678,7 +679,7 @@ class FileWithReadAhead {
   std::unique_ptr<CachedBufferedInput> bufferedInput_;
   std::unique_ptr<SeekableInputStream> stream_;
   std::shared_ptr<TestReadFile> file_;
-  ReaderOptions options_;
+  io::ReaderOptions options_;
 };
 
 TEST_F(CacheTest, readAhead) {

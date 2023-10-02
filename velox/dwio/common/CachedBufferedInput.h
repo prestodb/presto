@@ -21,11 +21,11 @@
 #include "velox/common/caching/FileGroupStats.h"
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/common/io/Options.h"
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/CacheInputStream.h"
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/IoStatistics.h"
-#include "velox/dwio/common/Options.h"
 
 DECLARE_int32(cache_load_quantum);
 
@@ -65,7 +65,7 @@ class CachedBufferedInput : public BufferedInput {
       uint64_t groupId,
       std::shared_ptr<IoStatistics> ioStats,
       folly::Executor* FOLLY_NULLABLE executor,
-      const ReaderOptions& readerOptions)
+      const io::ReaderOptions& readerOptions)
       : BufferedInput(
             std::move(readFile),
             readerOptions.getMemoryPool(),
@@ -87,7 +87,7 @@ class CachedBufferedInput : public BufferedInput {
       uint64_t groupId,
       std::shared_ptr<IoStatistics> ioStats,
       folly::Executor* FOLLY_NULLABLE executor,
-      const ReaderOptions& readerOptions)
+      const io::ReaderOptions& readerOptions)
       : BufferedInput(std::move(input), readerOptions.getMemoryPool()),
         cache_(cache),
         fileNum_(fileNum),
@@ -196,7 +196,7 @@ class CachedBufferedInput : public BufferedInput {
 
   const uint64_t fileSize_;
   int64_t prefetchSize_{0};
-  ReaderOptions options_;
+  io::ReaderOptions options_;
 };
 
 } // namespace facebook::velox::dwio::common

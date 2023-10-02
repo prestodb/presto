@@ -21,6 +21,7 @@
 
 #include <folly/Executor.h>
 #include "velox/common/compression/Compression.h"
+#include "velox/common/io/Options.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/ErrorTolerance.h"
@@ -344,52 +345,13 @@ class RowReaderOptions {
 };
 
 /**
- * Mode for prefetching data.
- *
- * This mode may be ignored for a reader, such as DWRF, where it does not
- * make sense.
- *
- * To enable single-buffered reading, using the default autoPreloadLength:
- *         ReaderOptions readerOpts;
- *         readerOpts.setPrefetchMode(PrefetchMode::PRELOAD);
- * To enable double-buffered reading, using the default autoPreloadLength:
- *         ReaderOptions readerOpts;
- *         readerOpts.setPrefetchMode(PrefetchMode::PREFETCH);
- * To select unbuffered reading:
- *         ReaderOptions readerOpts;
- *         readerOpts.setPrefetchMode(PrefetchMode::NOT_SET);
- *
- * Single-buffered reading (as in dwio::PreloadableInputStream)
- * reads ahead into a buffer.   Double-buffered reading additionally reads
- * asynchronously into a second buffer, swaps the buffers when the
- * first is fully consumed and the second has been filled, and then starts
- * a new parallel read.  For clients with a slow network connection to
- * Warm Storage, enabling PREFETCH reduces elapsed time by 10% or more,
- * at the cost of a second buffer.   The relative improvment would be greater
- * for cases where the network throughput is higher.
- */
-enum class PrefetchMode {
-  NOT_SET = 0,
-  PRELOAD = 1, // read a buffer of autoPreloadLength bytes on a read beyond the
-               // current buffer, if any.
-  PREFETCH = 2, // read a second buffer of autoPreloadLength bytes ahead of
-                // actual reads.
-};
-
-/**
  * Options for creating a Reader.
  */
-class ReaderOptions {
+class ReaderOptions : public io::ReaderOptions {
  private:
   uint64_t tailLocation;
-  velox::memory::MemoryPool* memoryPool;
   FileFormat fileFormat;
   RowTypePtr fileSchema;
-  uint64_t autoPreloadLength;
-  PrefetchMode prefetchMode;
-  int32_t loadQuantum_{kDefaultLoadQuantum};
-  int32_t maxCoalesceDistance_{kDefaultCoalesceDistance};
-  int64_t maxCoalesceBytes_{kDefaultCoalesceBytes};
   SerDeOptions serDeOptions;
   std::shared_ptr<encryption::DecrypterFactory> decrypterFactory_;
   uint64_t directorySizeGuess{kDefaultDirectorySizeGuess};
@@ -399,53 +361,45 @@ class ReaderOptions {
   std::shared_ptr<folly::Executor> ioExecutor_;
 
  public:
-  static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
-  static constexpr int32_t kDefaultCoalesceDistance = 512 << 10; // 512K
-  static constexpr int32_t kDefaultCoalesceBytes = 128 << 20; // 128M
   static constexpr uint64_t kDefaultDirectorySizeGuess = 1024 * 1024; // 1MB
   static constexpr uint64_t kDefaultFilePreloadThreshold =
       1024 * 1024 * 8; // 8MB
 
   explicit ReaderOptions(velox::memory::MemoryPool* pool)
-      : tailLocation(std::numeric_limits<uint64_t>::max()),
-        memoryPool(pool),
+      : io::ReaderOptions(pool),
+        tailLocation(std::numeric_limits<uint64_t>::max()),
         fileFormat(FileFormat::UNKNOWN),
-        fileSchema(nullptr),
-        autoPreloadLength(DEFAULT_AUTO_PRELOAD_SIZE),
-        prefetchMode(PrefetchMode::PREFETCH) {}
+        fileSchema(nullptr) {}
 
   ReaderOptions& operator=(const ReaderOptions& other) {
+    io::ReaderOptions::operator=(other);
     tailLocation = other.tailLocation;
-    memoryPool = other.memoryPool;
     fileFormat = other.fileFormat;
     if (other.fileSchema != nullptr) {
       fileSchema = other.getFileSchema();
     } else {
       fileSchema = nullptr;
     }
-    autoPreloadLength = other.autoPreloadLength;
-    prefetchMode = other.prefetchMode;
     serDeOptions = other.serDeOptions;
     decrypterFactory_ = other.decrypterFactory_;
     directorySizeGuess = other.directorySizeGuess;
     filePreloadThreshold = other.filePreloadThreshold;
     fileColumnNamesReadAsLowerCase = other.fileColumnNamesReadAsLowerCase;
     useColumnNamesForColumnMapping_ = other.useColumnNamesForColumnMapping_;
-    maxCoalesceDistance_ = other.maxCoalesceDistance_;
-    maxCoalesceBytes_ = other.maxCoalesceBytes_;
     return *this;
   }
 
-  ReaderOptions(const ReaderOptions& other) {
-    *this = other;
-  }
-
-  /**
-   * Set the memory allocator.
-   */
-  ReaderOptions& setMemoryPool(velox::memory::MemoryPool& pool) {
-    memoryPool = &pool;
-    return *this;
+  ReaderOptions(const ReaderOptions& other)
+      : io::ReaderOptions(other),
+        tailLocation(other.tailLocation),
+        fileFormat(other.fileFormat),
+        fileSchema(other.fileSchema),
+        serDeOptions(other.serDeOptions),
+        decrypterFactory_(other.decrypterFactory_),
+        directorySizeGuess(other.directorySizeGuess),
+        filePreloadThreshold(other.filePreloadThreshold),
+        fileColumnNamesReadAsLowerCase(other.fileColumnNamesReadAsLowerCase),
+        useColumnNamesForColumnMapping_(other.useColumnNamesForColumnMapping_) {
   }
 
   /**
@@ -473,44 +427,6 @@ class ReaderOptions {
    */
   ReaderOptions& setTailLocation(uint64_t offset) {
     tailLocation = offset;
-    return *this;
-  }
-
-  /**
-   * Modify the autoPreloadLength
-   */
-  ReaderOptions& setAutoPreloadLength(uint64_t len) {
-    autoPreloadLength = len;
-    return *this;
-  }
-
-  /**
-   * Modify the prefetch mode.
-   */
-  ReaderOptions& setPrefetchMode(PrefetchMode mode) {
-    prefetchMode = mode;
-    return *this;
-  }
-
-  /**
-   * Modify the load quantum.
-   */
-  ReaderOptions& setLoadQuantum(int32_t quantum) {
-    loadQuantum_ = quantum;
-    return *this;
-  }
-  /**
-   * Modify the maximum load coalesce distance.
-   */
-  ReaderOptions& setMaxCoalesceDistance(int32_t distance) {
-    maxCoalesceDistance_ = distance;
-    return *this;
-  }
-  /**
-   * Modify the maximum load coalesce bytes.
-   */
-  ReaderOptions& setMaxCoalesceBytes(int64_t bytes) {
-    maxCoalesceBytes_ = bytes;
     return *this;
   }
 
@@ -562,13 +478,6 @@ class ReaderOptions {
   }
 
   /**
-   * Get the memory allocator.
-   */
-  velox::memory::MemoryPool& getMemoryPool() const {
-    return *memoryPool;
-  }
-
-  /**
    * Get the file format.
    */
   FileFormat getFileFormat() const {
@@ -580,26 +489,6 @@ class ReaderOptions {
    */
   const std::shared_ptr<const velox::RowType>& getFileSchema() const {
     return fileSchema;
-  }
-
-  uint64_t getAutoPreloadLength() const {
-    return autoPreloadLength;
-  }
-
-  PrefetchMode getPrefetchMode() const {
-    return prefetchMode;
-  }
-
-  int32_t loadQuantum() const {
-    return loadQuantum_;
-  }
-
-  int32_t maxCoalesceDistance() const {
-    return maxCoalesceDistance_;
-  }
-
-  int64_t maxCoalesceBytes() const {
-    return maxCoalesceBytes_;
   }
 
   SerDeOptions& getSerDeOptions() {

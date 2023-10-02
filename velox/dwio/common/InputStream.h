@@ -37,9 +37,6 @@
 
 namespace facebook::velox::dwio::common {
 
-constexpr uint64_t DEFAULT_AUTO_PRELOAD_SIZE =
-    (static_cast<const uint64_t>((1ul << 20) * 72));
-
 /**
  * An abstract interface for providing readers a stream of bytes.
  */
