@@ -683,6 +683,18 @@ RowVectorPtr VectorFuzzer::fuzzInputRow(const RowTypePtr& rowType) {
   return fuzzRow(rowType, opts_.vectorSize, false);
 }
 
+RowVectorPtr VectorFuzzer::fuzzInputFlatRow(const RowTypePtr& rowType) {
+  std::vector<VectorPtr> children;
+  auto size = static_cast<vector_size_t>(opts_.vectorSize);
+  children.reserve(rowType->size());
+  for (auto i = 0; i < rowType->size(); ++i) {
+    children.emplace_back(fuzzFlat(rowType->childAt(i), size));
+  }
+
+  return std::make_shared<RowVector>(
+      pool_, rowType, nullptr, size, std::move(children));
+}
+
 RowVectorPtr VectorFuzzer::fuzzRow(
     std::vector<VectorPtr>&& children,
     std::vector<std::string> childrenNames,
