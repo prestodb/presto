@@ -688,6 +688,7 @@ TEST_F(DateTimeFunctionsTest, hour) {
   EXPECT_EQ(std::nullopt, hour(std::nullopt));
   EXPECT_EQ(0, hour(Timestamp(0, 0)));
   EXPECT_EQ(23, hour(Timestamp(-1, 9000)));
+  EXPECT_EQ(23, hour(Timestamp(-1, Timestamp::kMaxNanos)));
   EXPECT_EQ(7, hour(Timestamp(4000000000, 0)));
   EXPECT_EQ(7, hour(Timestamp(4000000000, 123000000)));
   EXPECT_EQ(10, hour(Timestamp(998474645, 321000000)));
@@ -697,7 +698,7 @@ TEST_F(DateTimeFunctionsTest, hour) {
 
   EXPECT_EQ(std::nullopt, hour(std::nullopt));
   EXPECT_EQ(13, hour(Timestamp(0, 0)));
-  EXPECT_EQ(13, hour(Timestamp(-1, Timestamp::kMaxNanos)));
+  EXPECT_EQ(12, hour(Timestamp(-1, Timestamp::kMaxNanos)));
   // Disabled for now because the TZ for Pacific/Apia in 2096 varies between
   // systems.
   // EXPECT_EQ(21, hour(Timestamp(4000000000, 0)));
@@ -3061,7 +3062,7 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
           fromTimestampString("2000-02-29 00:00:00.987"),
           "%Y-%m-%d %H:%i:%s.%f"));
   EXPECT_EQ(
-      "-2000-02-29 05:53:29.987000",
+      "-2000-02-29 05:53:28.987000",
       dateFormat(
           fromTimestampString("-2000-02-29 00:00:00.987"),
           "%Y-%m-%d %H:%i:%s.%f"));
@@ -3082,7 +3083,7 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
           fromTimestampString("2000-02-29 00:00:00.987"),
           "%Y-%m-%d %H:%i:%s.%f"));
   EXPECT_EQ(
-      "-2000-02-28 16:07:03.987000",
+      "-2000-02-28 16:07:02.987000",
       dateFormat(
           fromTimestampString("-2000-02-29 00:00:00.987"),
           "%Y-%m-%d %H:%i:%s.%f"));

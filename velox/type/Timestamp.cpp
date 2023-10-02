@@ -94,9 +94,8 @@ void validateTimePoint(const std::chrono::time_point<
 
 std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
 Timestamp::toTimePoint() const {
-  auto tp = std::chrono::
-      time_point<std::chrono::system_clock, std::chrono::milliseconds>(
-          std::chrono::milliseconds(toMillis()));
+  using namespace std::chrono;
+  auto tp = time_point<system_clock, milliseconds>(milliseconds(toMillis()));
   validateTimePoint(tp);
   return tp;
 }
@@ -104,7 +103,8 @@ Timestamp::toTimePoint() const {
 void Timestamp::toTimezone(const date::time_zone& zone) {
   auto tp = toTimePoint();
   auto epoch = zone.to_local(tp).time_since_epoch();
-  seconds_ = std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
+  // NOTE: Round down to get the seconds of the current time point.
+  seconds_ = std::chrono::floor<std::chrono::seconds>(epoch).count();
 }
 
 void Timestamp::toTimezone(int16_t tzID) {
