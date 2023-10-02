@@ -237,6 +237,13 @@ class VectorTestBase {
     return vectorMaker_.arrayOfRowVector(rowType, data);
   }
 
+  template <typename TupleT>
+  ArrayVectorPtr makeArrayOfRowVector(
+      const std::vector<std::vector<std::optional<TupleT>>>& data,
+      const RowTypePtr& rowType) {
+    return vectorMaker_.arrayOfRowVector(data, rowType);
+  }
+
   // Create an ArrayVector<ArrayVector<T>> from nested std::vectors of values.
   // Example:
   //   using innerArrayType = std::vector<std::optional<int64_t>>;

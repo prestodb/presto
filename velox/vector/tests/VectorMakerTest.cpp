@@ -513,6 +513,33 @@ TEST_F(VectorMakerTest, arrayOfRowVector) {
   EXPECT_EQ("purple", colorVector->valueAt(4).str());
 }
 
+TEST_F(VectorMakerTest, arrayOfRowVectorFromTuples) {
+  std::vector<std::vector<std::optional<std::tuple<int32_t, std::string>>>>
+      data = {
+          {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+          {},
+          {std::nullopt},
+          {{{4, "green"}}, {{-5, "purple"}}},
+      };
+
+  auto arrayVector = maker_.arrayOfRowVector(data, ROW({INTEGER(), VARCHAR()}));
+
+  std::vector<vector_size_t> offsets{0, 3, 3, 4};
+  auto elements = maker_.rowVector({
+      maker_.flatVector<int32_t>({1, 2, 3, 0, 4, -5}),
+      maker_.flatVector<std::string>(
+          {"red", "blue", "green", "n/a", "green", "purple"}),
+  });
+  elements->setNull(3, true);
+  auto expected = maker_.arrayVector(offsets, elements);
+
+  ASSERT_EQ(expected->size(), arrayVector->size());
+  ASSERT_EQ(*expected->type(), *arrayVector->type());
+  for (auto i = 0; i < expected->size(); i++) {
+    ASSERT_TRUE(expected->equalValueAt(arrayVector.get(), i, i));
+  }
+}
+
 TEST_F(VectorMakerTest, arrayVectorUsingBaseVector) {
   auto elementsVector = maker_.flatVector<int64_t>({1, 2, 3, 4, 5, 6});
 

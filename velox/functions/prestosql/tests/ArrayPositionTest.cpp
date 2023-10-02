@@ -353,31 +353,17 @@ TEST_F(ArrayPositionTest, boolean) {
 }
 
 TEST_F(ArrayPositionTest, row) {
-  std::vector<std::vector<variant>> data{
-      {
-          variant::row({1, "red"}),
-          variant::row({2, "blue"}),
-          variant::row({3, "green"}),
-      },
-      {
-          variant::row({2, "blue"}),
-          variant(TypeKind::ROW), // null
-          variant::row({5, "green"}),
-      },
-      {},
-      {
-          variant(TypeKind::ROW), // null
-      },
-      {
-          variant::row({1, "yellow"}),
-          variant::row({2, "blue"}),
-          variant::row({4, "green"}),
-          variant::row({5, "purple"}),
-      },
-  };
+  std::vector<std::vector<std::optional<std::tuple<int32_t, std::string>>>>
+      data = {
+          {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+          {{{2, "blue"}}, std::nullopt, {{5, "green"}}},
+          {},
+          {std::nullopt},
+          {{{1, "yellow"}}, {{2, "blue"}}, {{4, "green"}}, {{5, "purple"}}},
+      };
 
   auto rowType = ROW({INTEGER(), VARCHAR()});
-  auto arrayVector = makeArrayOfRowVector(rowType, data);
+  auto arrayVector = makeArrayOfRowVector(data, rowType);
   auto size = arrayVector->size();
 
   auto testPositionOfRow =
@@ -669,31 +655,24 @@ TEST_F(ArrayPositionTest, primitiveWithInstanceFastPath) {
 }
 
 TEST_F(ArrayPositionTest, rowWithInstance) {
-  std::vector<std::vector<variant>> data{
-      {variant::row({1, "red"}),
-       variant::row({2, "blue"}),
-       variant::row({3, "green"}),
-       variant::row({1, "red"})},
-      {variant::row({2, "blue"}),
-       variant(TypeKind::ROW), // null
-       variant::row({5, "green"}),
-       variant::row({2, "blue"})},
-      {},
-      {
-          variant(TypeKind::ROW), // null
-      },
-      {
-          variant::row({1, "yellow"}),
-          variant::row({2, "blue"}),
-          variant::row({4, "green"}),
-          variant::row({2, "blue"}),
-          variant::row({2, "blue"}),
-          variant::row({5, "purple"}),
-      },
-  };
+  std::vector<std::vector<std::optional<std::tuple<int32_t, std::string>>>>
+      data = {
+          {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}, {{1, "red"}}},
+          {{{2, "blue"}}, std::nullopt, {{5, "green"}}, {{2, "blue"}}},
+          {},
+          {std::nullopt},
+          {
+              {{1, "yellow"}},
+              {{2, "blue"}},
+              {{4, "green"}},
+              {{2, "blue"}},
+              {{2, "blue"}},
+              {{5, "purple"}},
+          },
+      };
 
   auto rowType = ROW({INTEGER(), VARCHAR()});
-  auto arrayVector = makeArrayOfRowVector(rowType, data);
+  auto arrayVector = makeArrayOfRowVector(data, rowType);
   auto size = arrayVector->size();
 
   auto testPositionOfRow =

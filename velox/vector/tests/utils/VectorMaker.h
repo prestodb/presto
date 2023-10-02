@@ -50,6 +50,23 @@ T jsonValue(const folly::dynamic& jsonValue) {
   VELOX_UNSUPPORTED();
 }
 
+template <typename T>
+void appendVariant(std::vector<variant>& values, const T& x) {
+  values.push_back(x);
+};
+
+template <typename TupleT, std::size_t... Is>
+variant toVariantRow(const TupleT& tp, std::index_sequence<Is...>) {
+  std::vector<variant> values;
+  (appendVariant(values, std::get<Is>(tp)), ...);
+  return variant::row(values);
+}
+
+template <typename TupleT, std::size_t TupleSize = std::tuple_size_v<TupleT>>
+variant toVariantRow(const TupleT& tp) {
+  return toVariantRow(tp, std::make_index_sequence<TupleSize>{});
+}
+
 } // namespace detail
 
 class SimpleVectorLoader : public VectorLoader {
@@ -432,6 +449,43 @@ class VectorMaker {
   ArrayVectorPtr arrayOfRowVector(
       const RowTypePtr& rowType,
       const std::vector<std::vector<variant>>& data);
+
+  /// Creates an ARRAY(ROW(...)) vector from a list of lists of optional tuples.
+  ///
+  /// Allows to create arrays with null elements, but arrays themselves cannot
+  /// be null. Members of the structs cannot be null either.
+  ///
+  /// Example:
+  ///
+  ///  std::vector<std::vector<std::optional<std::tuple<int32_t, std::string>>>>
+  ///      data = {
+  ///          {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+  ///          {},
+  ///          {std::nullopt},
+  ///          {{{4, "green"}}, {{5, "purple"}}},
+  ///  };
+  ///
+  ///  auto arrayVector = maker_.arrayOfRowVector(data, ROW({INTEGER(),
+  ///  VARCHAR()}));
+  template <typename TupleT>
+  ArrayVectorPtr arrayOfRowVector(
+      const std::vector<std::vector<std::optional<TupleT>>>& data,
+      const RowTypePtr& rowType) {
+    std::vector<std::vector<variant>> arrays;
+    for (const auto& tuples : data) {
+      std::vector<variant> elements;
+      for (const auto& t : tuples) {
+        if (t.has_value()) {
+          elements.push_back(detail::toVariantRow(t.value()));
+        } else {
+          elements.push_back(variant::null(TypeKind::ROW));
+        }
+      }
+      arrays.push_back(elements);
+    }
+
+    return arrayOfRowVector(rowType, arrays);
+  }
 
   template <typename T>
   ArrayVectorPtr arrayVectorNullableImpl(

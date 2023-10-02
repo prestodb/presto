@@ -76,11 +76,11 @@ class MapFromEntriesTest : public FunctionBaseTest {
 
 TEST_F(MapFromEntriesTest, intKeyAndVarcharValue) {
   auto rowType = ROW({INTEGER(), VARCHAR()});
-  std::vector<std::vector<variant>> data = {
-      {variant::row({1, "red"}),
-       variant::row({2, "blue"}),
-       variant::row({3, "green"})}};
-  auto input = makeArrayOfRowVector(rowType, data);
+  std::vector<std::vector<std::optional<std::tuple<int32_t, std::string>>>>
+      data = {
+          {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+      };
+  auto input = makeArrayOfRowVector(data, rowType);
   auto expected = makeMapVector<int32_t, StringView>(
       {{{1, "red"_sv}, {2, "blue"_sv}, {3, "green"_sv}}});
   verifyMapFromEntries({input}, expected);
@@ -89,9 +89,12 @@ TEST_F(MapFromEntriesTest, intKeyAndVarcharValue) {
 TEST_F(MapFromEntriesTest, nullMapEntries) {
   auto rowType = ROW({INTEGER(), INTEGER()});
   {
-    std::vector<std::vector<variant>> data = {
-        {variant(TypeKind::ROW) /*null*/}, {variant::row({1, 11})}};
-    auto input = makeArrayOfRowVector(rowType, data);
+    std::vector<std::vector<std::optional<std::tuple<int32_t, int32_t>>>> data =
+        {
+            {std::nullopt},
+            {{{1, 11}}},
+        };
+    auto input = makeArrayOfRowVector(data, rowType);
     VELOX_ASSERT_THROW(
         evaluateExpr("map_from_entries(C0)", {input}),
         "map entry cannot be null");
@@ -102,12 +105,12 @@ TEST_F(MapFromEntriesTest, nullMapEntries) {
   {
     // Create array(row(a,b)) where a, b sizes are 0 because all row(a, b)
     // values are null.
-    std::vector<std::vector<variant>> data = {
-        {variant(TypeKind::ROW),
-         variant(TypeKind::ROW),
-         variant(TypeKind::ROW) /*nulls*/},
-        {variant(TypeKind::ROW) /*null*/}};
-    auto input = makeArrayOfRowVector(rowType, data);
+    std::vector<std::vector<std::optional<std::tuple<int32_t, int32_t>>>> data =
+        {
+            {std::nullopt, std::nullopt, std::nullopt},
+            {std::nullopt},
+        };
+    auto input = makeArrayOfRowVector(data, rowType);
     auto rowInput = input->as<ArrayVector>();
     rowInput->elements()->as<RowVector>()->childAt(0)->resize(0);
     rowInput->elements()->as<RowVector>()->childAt(1)->resize(0);
@@ -136,14 +139,19 @@ TEST_F(MapFromEntriesTest, nullKeys) {
 
 TEST_F(MapFromEntriesTest, duplicateKeys) {
   auto rowType = ROW({INTEGER(), INTEGER()});
-  std::vector<std::vector<variant>> data = {
-      {variant::row({1, 10}), variant::row({1, 11})}, {variant::row({2, 22})}};
-  auto input = makeArrayOfRowVector(rowType, data);
+  std::vector<std::vector<std::optional<std::tuple<int32_t, int32_t>>>> data = {
+      {{{1, 10}}, {{1, 11}}},
+      {{{2, 22}}},
+  };
+  auto input = makeArrayOfRowVector(data, rowType);
   VELOX_ASSERT_THROW(
       evaluateExpr("map_from_entries(C0)", {input}),
       "Duplicate map keys (1) are not allowed");
-  auto expected =
-      makeNullableMapVector<int32_t, int32_t>({std::nullopt, O({{2, 22}})});
+
+  auto expected = makeMapVectorFromJson<int32_t, int32_t>({
+      "null",
+      "{2: 22}",
+  });
   verifyMapFromEntries({input}, expected, "C0", true);
 }
 
@@ -162,16 +170,13 @@ TEST_F(MapFromEntriesTest, nullValues) {
 TEST_F(MapFromEntriesTest, constant) {
   const vector_size_t kConstantSize = 1'000;
   auto rowType = ROW({VARCHAR(), INTEGER()});
-  std::vector<std::vector<variant>> data = {
-      {variant::row({"red", 1}),
-       variant::row({"blue", 2}),
-       variant::row({"green", 3})},
-      {variant::row({"red shiny car ahead", 4}),
-       variant::row({"blue clear sky above", 5})},
-      {variant::row({"r", 11}),
-       variant::row({"g", 22}),
-       variant::row({"b", 33})}};
-  auto input = makeArrayOfRowVector(rowType, data);
+  std::vector<std::vector<std::optional<std::tuple<std::string, int32_t>>>>
+      data = {
+          {{{"red", 1}}, {{"blue", 2}}, {{"green", 3}}},
+          {{{"red shiny car ahead", 4}}, {{"blue clear sky above", 5}}},
+          {{{"r", 11}}, {{"g", 22}}, {{"b", 33}}},
+      };
+  auto input = makeArrayOfRowVector(data, rowType);
 
   auto evaluateConstant = [&](vector_size_t row, const VectorPtr& vector) {
     return evaluate(
@@ -216,11 +221,11 @@ TEST_F(MapFromEntriesTest, dictionaryEncodedElementsInFlat) {
       std::make_unique<test::TestingDictionaryArrayElementsFunction>());
 
   auto rowType = ROW({INTEGER(), VARCHAR()});
-  std::vector<std::vector<variant>> data = {
-      {variant::row({1, "red"}),
-       variant::row({2, "blue"}),
-       variant::row({3, "green"})}};
-  auto input = makeArrayOfRowVector(rowType, data);
+  std::vector<std::vector<std::optional<std::tuple<int32_t, std::string>>>>
+      data = {
+          {{{1, "red"}}, {{2, "blue"}}, {{3, "green"}}},
+      };
+  auto input = makeArrayOfRowVector(data, rowType);
   auto expected = makeMapVector<int32_t, StringView>(
       {{{1, "red"_sv}, {2, "blue"_sv}, {3, "green"_sv}}});
   verifyMapFromEntries(
@@ -236,11 +241,12 @@ TEST_F(MapFromEntriesTest, outputSizeIsBoundBySelectedRows) {
   auto function =
       exec::getVectorFunction("map_from_entries", {ARRAY(rowType)}, {}, config);
 
-  std::vector<std::vector<variant>> data = {
-      {variant::row({1, 11}), variant::row({2, 22}), variant::row({3, 33})},
-      {variant::row({4, 44}), variant::row({5, 55})},
-      {variant::row({6, 66})}};
-  auto array = makeArrayOfRowVector(rowType, data);
+  std::vector<std::vector<std::optional<std::tuple<int32_t, int32_t>>>> data = {
+      {{{1, 11}}, {{2, 22}}, {{3, 33}}},
+      {{{4, 44}}, {{5, 55}}},
+      {{{6, 66}}},
+  };
+  auto array = makeArrayOfRowVector(data, rowType);
 
   auto rowVector = makeRowVector({array});
 
