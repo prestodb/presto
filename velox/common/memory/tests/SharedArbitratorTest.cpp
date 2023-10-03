@@ -482,8 +482,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromEmptyOrderBy) {
   folly::EventCount taskPauseWait;
   auto taskPauseWaitKey = taskPauseWait.prepareWait();
 
-  const auto fakeAllocationSize = kMemoryCapacity;
-
   std::atomic<int> injectAllocations{0};
   fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
     const auto injectionCount = ++injectAllocations;

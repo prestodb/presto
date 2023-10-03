@@ -646,11 +646,6 @@ class AsyncDataCache : public memory::Cache {
 
   static void setInstance(AsyncDataCache* asyncDataCache);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  /// Release any resources that consume memory from 'allocator_' for a graceful
-  /// shutdown. The cache will no longer be valid after this call.
-  void prepareShutdown();
-#endif
   /// Release any resources that consume memory from 'allocator_' for a graceful
   /// shutdown. The cache will no longer be valid after this call.
   void shutdown();
