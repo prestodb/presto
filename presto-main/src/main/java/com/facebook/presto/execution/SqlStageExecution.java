@@ -320,18 +320,21 @@ public final class SqlStageExecution
     {
         if (isRetryOfFailedSplitsEnabled && planFragment.isLeaf()) {
             if (!stateMachine.transitionToScheduledIfRetryingSplits()) {
+                log.info("QueryId = %s, schedulingCompleteIfRetryingSplits is called but fail to transition", getStageExecutionId().getStageId().getQueryId());
                 return;
             }
 
+            log.info("QueryId = %s, schedulingCompleteIfRetryingSplits is called and transition to SCHEDULED", getStageExecutionId().getStageId().getQueryId());
             if (noMoreRetry()) {
-                stateMachine.transitionToFinished();
                 for (PlanNodeId tableScanPlanNodeId : planFragment.getTableScanSchedulingOrder()) {
                     schedulingComplete(tableScanPlanNodeId);
                 }
+
+                log.info("QueryId = %s, schedulingCompleteIfRetryingSplits NO_MORE_SPLIT is sent.", getStageExecutionId().getStageId().getQueryId());
             }
         }
         else {
-            schedulingComplete();
+            throw new RuntimeException("shouldn't reach this code path for schedulingCompleteIfRetryingSplits");
         }
     }
 
@@ -668,28 +671,13 @@ public final class SqlStageExecution
         else if (taskState == TaskState.FAILED) {
             // no matter if it is possible to recover - the task is failed
             failedTasks.add(taskId);
-
             RuntimeException failure = taskStatus.getFailures().stream()
                     .findFirst()
                     .map(this::rewriteTransportFailure)
                     .map(ExecutionFailureInfo::toException)
                     .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-            if (isRecoverable(taskStatus.getFailures())) {
-                try {
-                    stageTaskRecoveryCallback.get().recover(taskId);
-                    finishedTasks.add(taskId);
-                }
-                catch (Throwable t) {
-                    // In an ideal world, this exception is not supposed to happen.
-                    // However, it could happen, for example, if connector throws exception.
-                    // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
-                    failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
-                    stateMachine.transitionToFailed(failure);
-                }
-            }
-            else {
-                stateMachine.transitionToFailed(failure);
-            }
+            finishedTasks.add(taskId);
+            stateMachine.transitionToFailed(failure);
         }
         else if (taskState == TaskState.ABORTED) {
             // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
@@ -703,6 +691,7 @@ public final class SqlStageExecution
         stageExecutionState = getState();
         if (isRetryOfFailedSplitsEnabled && planFragment.isLeaf() && stageExecutionState == StageExecutionState.SCHEDULING_RETRIED_SPLITS) {
             if (!isFailedTasksBelowThreshold() || noMoreRetry()) {
+                log.info("QueryId = %s, whenNoMoreRetry is triggered.", taskId.getQueryId());
                 whenNoMoreRetry.set(null);
                 return;
             }
@@ -734,7 +723,12 @@ public final class SqlStageExecution
                     .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
                     .filter(task -> task.isTaskIdling())
                     .collect(toList());
-            return idleRunningHttpRemoteTasks.size() == allTasks.size();
+            boolean result = idleRunningHttpRemoteTasks.size() == allTasks.size();
+
+            if (result) {
+                log.info("QueryId = %s, noMoreRetry in failedTasks empty branch. idleRunningHttpRemoteTasks = %s, allTasks = %s", getStageExecutionId().getStageId().getQueryId(), idleRunningHttpRemoteTasks.size(), allTasks.size());
+            }
+            return result;
         }
 
         return noMoreRetryWithFailedTasks();
@@ -745,6 +739,7 @@ public final class SqlStageExecution
         checkState(finishedTasks.size() != allTasks.size());
 
         if (!isFailedTasksBelowThreshold()) {
+            log.info("QueryId = %s, noMoreRetry in noMoreRetryWithFailedTasks. isFailedTasksBelowThreshold exceeds the threshold: failedTasks = %s, allTasks = %s", getStageExecutionId().getStageId().getQueryId(), failedTasks.size(), allTasks.size());
             return true;
         }
 
@@ -763,6 +758,10 @@ public final class SqlStageExecution
             isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks = (idleRunningHttpRemoteTasks.size() == allTasks.size() - failedTasks.size() && retriedFailedTaskCount == failedTasks.size());
         }
 
+        if (isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks) {
+            log.info("QueryId = %s, noMoreRetry in isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks. idleRunningHttpRemoteTasks = %s, allTasks = %s, failedTask = %s, retriedFailedTaskCount = %s", getStageExecutionId().getStageId().getQueryId(), idleRunningHttpRemoteTasks.size(), allTasks.size(), failedTasks.size(), retriedFailedTaskCount);
+        }
+
         return isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks;
     }
 
@@ -771,17 +770,17 @@ public final class SqlStageExecution
         // Even though failedTasks and allTasks are marked as Guard, the whole expression need to be evaluated synchronously to avoid failedTasks and allTasks are updated from the callback thread in the middle of the expression evaluation.
         return failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
-    private boolean isRecoverable(List<ExecutionFailureInfo> failures)
-    {
-        for (ExecutionFailureInfo failure : failures) {
-            if (!getRecoverableErrorCodes().contains(failure.getErrorCode())) {
-                return false;
-            }
-        }
-        boolean isRecoverable = stageTaskRecoveryCallback.isPresent() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
-        log.info("Failure recovery error check , isRecoverable = %s, failure error codes = %s", isRecoverable, failures.stream().map(failure -> failure.getErrorCode()).collect(toImmutableList()));
-        return isRecoverable;
-    }
+//    private boolean isRecoverable(List<ExecutionFailureInfo> failures)
+//    {
+//        for (ExecutionFailureInfo failure : failures) {
+//            if (!getRecoverableErrorCodes().contains(failure.getErrorCode())) {
+//                return false;
+//            }
+//        }
+//        boolean isRecoverable = stageTaskRecoveryCallback.isPresent() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+//        log.info("Failure recovery error check , isRecoverable = %s, failure error codes = %s", isRecoverable, failures.stream().map(failure -> failure.getErrorCode()).collect(toImmutableList()));
+//        return isRecoverable;
+//    }
 
     public Set<ErrorCode> getRecoverableErrorCodes()
     {
