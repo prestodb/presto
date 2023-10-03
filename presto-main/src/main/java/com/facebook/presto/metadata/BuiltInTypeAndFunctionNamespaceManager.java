@@ -183,6 +183,7 @@ import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
+import com.facebook.presto.operator.scalar.queryplan.JsonPrestoQueryPlanFunctions;
 import com.facebook.presto.operator.scalar.sql.ArraySqlFunctions;
 import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
 import com.facebook.presto.operator.scalar.sql.MapSqlFunctions;
@@ -729,6 +730,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(BitwiseFunctions.class)
                 .scalars(DateTimeFunctions.class)
                 .scalars(JsonFunctions.class)
+                .scalars(JsonPrestoQueryPlanFunctions.class)
                 .scalars(ColorFunctions.class)
                 .scalars(ColorOperators.class)
                 .scalars(GeoFunctions.class)
