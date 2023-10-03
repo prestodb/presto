@@ -17,9 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -56,10 +54,8 @@ import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIc
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
@@ -133,27 +129,6 @@ public class IcebergNativeMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getNativeIcebergTable(resourceFactory, session, table.getSchemaTableName());
-        return getColumns(icebergTable.schema(), typeManager).stream()
-                .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
-    }
-
-    @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
-        return ColumnMetadata.builder()
-                .setName(column.getName())
-                .setType(column.getType())
-                .setComment(column.getComment())
-                .setHidden(false)
-                .build();
-    }
-
-    @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
         resourceFactory.getNamespaces(session).createNamespace(toIcebergNamespace(Optional.of(schemaName)),
@@ -218,15 +193,6 @@ public class IcebergNativeMetadata
                 icebergTable.location(),
                 fileFormat,
                 icebergTable.properties());
-    }
-
-    @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getNativeIcebergTable(resourceFactory, session, table.getSchemaTableName());
-
-        return beginIcebergTableInsert(table, icebergTable);
     }
 
     @Override
