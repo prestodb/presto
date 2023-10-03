@@ -42,8 +42,11 @@ void registerBitwiseFunctions(const std::string& prefix) {
   registerBitwiseBinaryIntegral<BitwiseOrFunction>({prefix + "bitwise_or"});
   registerBitwiseBinaryIntegral<BitwiseXorFunction>({prefix + "bitwise_xor"});
   registerBitwiseBinaryIntegral<BitCountFunction>({prefix + "bit_count"});
-  registerBitwiseBinaryIntegral<BitwiseArithmeticShiftRightFunction>(
-      {prefix + "bitwise_arithmetic_shift_right"});
+  registerFunction<
+      BitwiseArithmeticShiftRightFunction,
+      int64_t,
+      int64_t,
+      int64_t>({prefix + "bitwise_arithmetic_shift_right"});
   registerBitwiseBinaryIntegral<BitwiseLeftShiftFunction>(
       {prefix + "bitwise_left_shift"});
   registerBitwiseBinaryIntegral<BitwiseRightShiftFunction>(

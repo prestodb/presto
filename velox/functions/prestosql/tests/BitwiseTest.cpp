@@ -61,10 +61,9 @@ class BitwiseTest : public functions::test::FunctionBaseTest {
     return evaluateOnce<int64_t>("bit_count(c0, c1)", num, bits);
   }
 
-  template <typename T>
   std::optional<int64_t> bitwiseArithmeticShiftRight(
-      std::optional<T> a,
-      std::optional<T> b) {
+      std::optional<int64_t> a,
+      std::optional<int64_t> b) {
     return evaluateOnce<int64_t>(
         "bitwise_arithmetic_shift_right(c0, c1)", a, b);
   }
@@ -250,33 +249,34 @@ TEST_F(BitwiseTest, bitwiseXor) {
 }
 
 TEST_F(BitwiseTest, arithmeticShiftRight) {
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(1, 1), 0);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(3, 1), 1);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-3, 1), -2);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(3, 0), 3);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(3, 3), 0);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-1, 2), -1);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-1, 2), -1);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-100, 65), -50);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-100, 66), -25);
-
+  EXPECT_EQ(bitwiseArithmeticShiftRight(1, 1), 0);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(3, 1), 1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(-3, 1), -2);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(3, 0), 3);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(3, 3), 0);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(-1, 2), -1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(-1, 2), -1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(-100, 65), -1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(-100, 66), -1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(100, 65), 0);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(100, 66), 0);
   VELOX_ASSERT_THROW(
-      bitwiseArithmeticShiftRight<int32_t>(3, -1), "Shift must be positive");
+      bitwiseArithmeticShiftRight(3, -1), "Shift must be positive");
 
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int16_t>(kMin16, kMax16), -1);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int16_t>(kMax16, kMax16), 0);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int16_t>(kMax16, 1), kMax16 >> 1);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int16_t>(kMin16, 1), kMin16 >> 1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMin16, kMax16), -1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMax16, kMax16), 0);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMax16, 1), kMax16 >> 1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMin16, 1), kMin16 >> 1);
 
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(kMin32, kMax32), -1);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(kMax32, kMax32), 0);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(kMax32, 1), kMax32 >> 1);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(kMin32, 1), kMin32 >> 1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMin32, kMax32), -1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMax32, kMax32), 0);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMax32, 1), kMax32 >> 1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMin32, 1), kMin32 >> 1);
 
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int64_t>(kMin64, kMax64), -1);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int64_t>(kMax64, kMax64), 0);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int64_t>(kMax64, 1), kMax64 >> 1);
-  EXPECT_EQ(bitwiseArithmeticShiftRight<int64_t>(kMin64, 1), kMin64 >> 1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMin64, kMax64), -1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMax64, kMax64), 0);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMax64, 1), kMax64 >> 1);
+  EXPECT_EQ(bitwiseArithmeticShiftRight(kMin64, 1), kMin64 >> 1);
 }
 
 TEST_F(BitwiseTest, rightShiftArithmetic) {
