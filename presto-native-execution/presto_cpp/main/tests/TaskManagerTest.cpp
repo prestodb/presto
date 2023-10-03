@@ -134,6 +134,12 @@ class Cursor {
   uint64_t sequence_ = 0;
 };
 
+void setAggregationSpillConfig(
+    std::map<std::string, std::string>& queryConfigs) {
+  queryConfigs.emplace(core::QueryConfig::kSpillEnabled, "true");
+  queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
+}
+
 static const uint64_t kGB = 1024 * 1024 * 1024ULL;
 
 class TaskManagerTest : public testing::Test {
@@ -1130,6 +1136,64 @@ TEST_F(TaskManagerTest, checkBatchSplits) {
       taskId, batchRequest, planFragment, queryCtx, 0));
   auto resultOrFailure = fetchAllResults(taskId, ROW({BIGINT()}), {});
   ASSERT_EQ(resultOrFailure.status, nullptr);
+}
+
+TEST_F(TaskManagerTest, buildSpillDirectoryFailure) {
+  // Cleanup old tasks between test iterations.
+  taskManager_->setOldTaskCleanUpMs(0);
+  for (bool buildSpillDirectoryFailure : {false}) {
+    SCOPED_TRACE(fmt::format(
+        "buildSpillDirectoryFailure: {}", buildSpillDirectoryFailure));
+    auto spillDir = setupSpillPath();
+
+    std::vector<RowVectorPtr> batches = makeVectors(1, 1'000);
+
+    if (buildSpillDirectoryFailure) {
+      // Set bad formatted spill path.
+      taskManager_->setBaseSpillDirectory(
+          fmt::format("/etc/{}", spillDir->path));
+    } else {
+      taskManager_->setBaseSpillDirectory(spillDir->path);
+    }
+
+    std::map<std::string, std::string> queryConfigs;
+    setAggregationSpillConfig(queryConfigs);
+
+    auto planFragment = exec::test::PlanBuilder()
+                            //.tableScan(rowType_)
+                            .values(batches)
+                            .singleAggregation({"c0"}, {"count(c1)"}, {})
+                            .planFragment();
+    const protocol::TaskId taskId = "test.0.0.0.0";
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.session.systemProperties = queryConfigs;
+    // Create task will fail if the spilling directory setup fails.
+    if (buildSpillDirectoryFailure) {
+      VELOX_ASSERT_THROW(
+          createOrUpdateTask(taskId, updateRequest, planFragment), "Mkdir");
+    } else {
+      createOrUpdateTask(taskId, updateRequest, planFragment);
+      auto taskMap = taskManager_->tasks();
+      ASSERT_EQ(taskMap.size(), 1);
+      auto* veloxTask = taskMap.begin()->second->task.get();
+      ASSERT_TRUE(veloxTask != nullptr);
+      ASSERT_FALSE(veloxTask->spillDirectory().empty());
+    }
+
+    taskManager_->deleteTask(taskId, true);
+    if (!buildSpillDirectoryFailure) {
+      auto taskMap = taskManager_->tasks();
+      ASSERT_EQ(taskMap.size(), 1);
+      auto* veloxTask = taskMap.begin()->second->task.get();
+      ASSERT_TRUE(veloxTask != nullptr);
+      while (veloxTask->numFinishedDrivers() != veloxTask->numTotalDrivers()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+    }
+    taskManager_->cleanOldTasks();
+    velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
+    ASSERT_TRUE(taskManager_->tasks().empty());
+  }
 }
 
 // TODO: add disk spilling test for order by and hash join later.
