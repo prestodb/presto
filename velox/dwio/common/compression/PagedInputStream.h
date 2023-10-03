@@ -52,14 +52,10 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
 
   bool Next(const void** data, int32_t* size) override;
   void BackUp(int32_t count) override;
-
-  // NOTE: This always returns true.
   bool Skip(int32_t count) override;
-
   google::protobuf::int64 ByteCount() const override {
-    return bytesReturned_ + pendingSkip_;
+    return bytesReturned_;
   }
-
   void seekToPosition(dwio::common::PositionProvider& position) override;
   std::string getName() const override {
     return folly::to<std::string>(
@@ -119,8 +115,6 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
   // make sure input is contiguous for decompression/decryption
   const char* ensureInput(size_t availableInputBytes);
 
-  virtual bool readOrSkip(const void** data, int32_t* size);
-
   // input stream where to read compressed/encrypted data
   std::unique_ptr<SeekableInputStream> input_;
   memory::MemoryPool& pool_;
@@ -163,7 +157,7 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
   // The first byte after the last range returned by 'input_->Next()'.
   const char* inputBufferPtrEnd_{nullptr};
 
-  // Bytes returned or skipped by this stream, not including pendingSkip_.
+  // bytes returned by this stream
   uint64_t bytesReturned_{0};
 
   // Size returned by the previous call to Next().
@@ -175,11 +169,7 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
   // decrypter
   const dwio::common::encryption::Decrypter* decrypter_;
 
-  int64_t pendingSkip_{0};
-
  private:
-  bool skipAllPending();
-
   // Stream Debug Info
   const std::string streamDebugInfo_;
 };

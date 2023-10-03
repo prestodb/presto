@@ -46,14 +46,14 @@ class Compressor {
 class Decompressor {
  public:
   explicit Decompressor(uint64_t blockSize, const std::string& streamDebugInfo)
-      : blockSize_{static_cast<int64_t>(blockSize)},
-        streamDebugInfo_{streamDebugInfo} {}
+      : blockSize_{blockSize}, streamDebugInfo_{streamDebugInfo} {}
 
   virtual ~Decompressor() = default;
 
-  virtual std::pair<int64_t, bool /* Is the size exact? */>
-  getDecompressedLength(const char* /* src */, uint64_t /* srcLength */) const {
-    return {blockSize_, false};
+  virtual uint64_t getUncompressedLength(
+      const char* /* unused */,
+      uint64_t /* unused */) const {
+    return blockSize_;
   }
 
   virtual uint64_t decompress(
@@ -63,7 +63,7 @@ class Decompressor {
       uint64_t destLength) = 0;
 
  protected:
-  int64_t blockSize_;
+  uint64_t blockSize_;
   const std::string streamDebugInfo_;
 };
 
