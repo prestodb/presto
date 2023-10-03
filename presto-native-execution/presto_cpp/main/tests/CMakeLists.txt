@@ -19,7 +19,8 @@ add_executable(
   PrestoTaskTest.cpp
   QueryContextCacheTest.cpp
   ServerOperationTest.cpp
-  TaskManagerTest.cpp)
+  TaskManagerTest.cpp
+  QueryContextManagerTest.cpp)
 
 add_test(
   NAME presto_server_test

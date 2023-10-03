@@ -293,10 +293,14 @@ public final class SystemSessionProperties
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
-    public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
-    public static final String NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD = "aggregation_spill_memory_threshold";
-    public static final String NATIVE_JOIN_SPILL_MEMORY_THRESHOLD = "join_spill_memory_threshold";
-    public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "order_by_spill_memory_threshold";
+    public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
+    public static final String NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD = "native_aggregation_spill_memory_threshold";
+    public static final String NATIVE_JOIN_SPILL_MEMORY_THRESHOLD = "native_join_spill_memory_threshold";
+    public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "native_order_by_spill_memory_threshold";
+    public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
+    public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
+    public static final String NATIVE_SPILL_WRITE_BUFFER_SIZE = "native_spill_write_buffer_size";
+    public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
@@ -1498,6 +1502,29 @@ public final class SystemSessionProperties
                         "Native Execution only. The max memory that order by can use before spilling. If it is 0, then there is no limit",
                         0,
                         false),
+                integerProperty(
+                        NATIVE_MAX_SPILL_LEVEL,
+                        "Native Execution only. The maximum allowed spilling level for hash join build.\n" +
+                                "0 is the initial spilling level, -1 means unlimited.",
+                        4,
+                        false),
+                stringProperty(
+                        NATIVE_SPILL_COMPRESSION_CODEC,
+                        "Native Execution only. The compression algorithm type to compress the spilled data.\n " +
+                                "Supported compression codecs are: ZLIB, SNAPPY, LZO, ZSTD, LZ4 and GZIP. NONE means no compression.",
+                        "none",
+                        false),
+                longProperty(
+                        NATIVE_SPILL_WRITE_BUFFER_SIZE,
+                        "Native Execution only. The maximum size in bytes to buffer the serialized spill data before writing to disk for IO efficiency.\n" +
+                                "If set to zero, buffering is disabled.",
+                        1024L * 1024L,
+                        false),
+                booleanProperty(
+                        NATIVE_JOIN_SPILL_ENABLED,
+                        "Native Execution only. Enable join spilling on native engine",
+                        false,
+                        false),
                 booleanProperty(
                         NATIVE_EXECUTION_ENABLED,
                         "Enable execution on native engine",
@@ -2305,6 +2332,7 @@ public final class SystemSessionProperties
         }
         return intValue;
     }
+
     private static Double validateDoubleValueWithinSelectivityRange(Object value, String property)
     {
         Double number = (Double) value;
@@ -2742,6 +2770,7 @@ public final class SystemSessionProperties
     {
         return session.getSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD, Double.class);
     }
+
     public static ShardedJoinStrategy getShardedJoinStrategy(Session session)
     {
         return session.getSystemProperty(SHARDED_JOINS_STRATEGY, ShardedJoinStrategy.class);
@@ -2751,6 +2780,7 @@ public final class SystemSessionProperties
     {
         return session.getSystemProperty(JOIN_SHARD_COUNT, Integer.class);
     }
+
     public static boolean isOptimizeConditionalAggregationEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED, Boolean.class);
