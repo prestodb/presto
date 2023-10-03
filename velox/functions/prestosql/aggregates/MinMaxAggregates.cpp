@@ -307,6 +307,12 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
       std::vector<VectorPtr>& args,
       VectorPtr& result) const override {
     const auto& input = args[0];
+
+    if (throwOnNestedNulls_) {
+      DecodedVector decoded(*input, rows, true);
+      rows.applyToSelected([&](vector_size_t i) { checkNulls(decoded, i); });
+    }
+
     if (rows.isAllSelected()) {
       result = input;
       return;
@@ -427,7 +433,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     });
   }
 
-  bool checkNulls(const DecodedVector& decoded, vector_size_t index) {
+  bool checkNulls(const DecodedVector& decoded, vector_size_t index) const {
     if (decoded.isNullAt(index)) {
       return true;
     }

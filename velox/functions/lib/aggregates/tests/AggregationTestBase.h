@@ -206,6 +206,17 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
         });
   }
 
+  /// Generates a variety of logically equivalent plans to compute aggregations
+  /// using combinations of partial, final, single, and intermediate
+  /// aggregations with and without local exchanges. Runs all these plans and
+  /// verifies they all fail with the specified error message.
+  void testFailingAggregations(
+      const std::vector<RowVectorPtr>& data,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::string& expectedMessage,
+      const std::unordered_map<std::string, std::string>& config = {});
+
   /// Specifies that aggregate functions used in this test are not sensitive
   /// to the order of inputs.
   void allowInputShuffle() {

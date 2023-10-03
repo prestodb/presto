@@ -389,25 +389,64 @@ TEST_F(MinMaxTest, row) {
 }
 
 TEST_F(MinMaxTest, arrayCheckNulls) {
-  auto data = makeRowVector({
-      makeNullableArrayVector<int64_t>({
-          {1, 2},
-          {2, std::nullopt},
-          {6, 7},
+  auto batch = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2]",
+          "[6, 7]",
+          "[2, 3]",
+      }),
+      makeFlatVector<int32_t>({
+          1,
+          2,
+          3,
+      }),
+  });
+
+  auto batchWithNull = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2]",
+          "[6, 7]",
+          "[3, null]",
+      }),
+      makeFlatVector<int32_t>({
+          1,
+          2,
+          3,
       }),
   });
 
   for (const auto& expr : {"min(c0)", "max(c0)"}) {
-    auto plan =
-        PlanBuilder().values({data}).singleAggregation({}, {expr}).planNode();
-    VELOX_ASSERT_THROW(
-        AssertQueryBuilder(plan).copyResults(pool()),
+    testFailingAggregations(
+        {batch, batchWithNull},
+        {},
+        {expr},
+        "ARRAY comparison not supported for values that contain nulls");
+    testFailingAggregations(
+        {batch, batchWithNull},
+        {"c1"},
+        {expr},
         "ARRAY comparison not supported for values that contain nulls");
   }
 }
 
 TEST_F(MinMaxTest, rowCheckNull) {
-  auto data = makeRowVector({
+  auto batch = makeRowVector({
+      makeRowVector({
+          makeFlatVector<StringView>({
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+          }),
+          makeNullableFlatVector<StringView>({
+              "aa"_sv,
+              "bb"_sv,
+              "cc"_sv,
+          }),
+      }),
+      makeFlatVector<int8_t>({1, 2, 3}),
+  });
+
+  auto batchWithNull = makeRowVector({
       makeRowVector({
           makeFlatVector<StringView>({
               "a"_sv,
@@ -420,13 +459,19 @@ TEST_F(MinMaxTest, rowCheckNull) {
               "cc"_sv,
           }),
       }),
+      makeFlatVector<int8_t>({1, 2, 3}),
   });
 
   for (const auto& expr : {"min(c0)", "max(c0)"}) {
-    auto plan =
-        PlanBuilder().values({data}).singleAggregation({}, {expr}).planNode();
-    VELOX_ASSERT_THROW(
-        AssertQueryBuilder(plan).copyResults(pool()),
+    testFailingAggregations(
+        {batch, batchWithNull},
+        {},
+        {expr},
+        "ROW comparison not supported for values that contain nulls");
+    testFailingAggregations(
+        {batch, batchWithNull},
+        {"c1"},
+        {expr},
         "ROW comparison not supported for values that contain nulls");
   }
 }

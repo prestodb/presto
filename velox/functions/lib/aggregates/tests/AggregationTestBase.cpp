@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
+#include "velox/common/base/tests/GTestUtils.h"
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
@@ -43,7 +44,16 @@ namespace facebook::velox::functions::aggregate::test {
 
 namespace {
 constexpr const char* kHiveConnectorId = "test-hive";
+
+void enableAbandonPartialAggregation(AssertQueryBuilder& queryBuilder) {
+  queryBuilder.config(core::QueryConfig::kAbandonPartialAggregationMinRows, "1")
+      .config(core::QueryConfig::kAbandonPartialAggregationMinPct, "0")
+      .config(core::QueryConfig::kMaxPartialAggregationMemory, "0")
+      .config(core::QueryConfig::kMaxExtendedPartialAggregationMemory, "0")
+      .maxDrivers(1);
 }
+
+} // namespace
 
 std::vector<RowVectorPtr> AggregationTestBase::makeVectors(
     const RowTypePtr& rowType,
@@ -741,12 +751,8 @@ void AggregationTestBase::testAggregations(
     }
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
-    queryBuilder.configs(config)
-        .config(core::QueryConfig::kAbandonPartialAggregationMinRows, "1")
-        .config(core::QueryConfig::kAbandonPartialAggregationMinPct, "0")
-        .config(core::QueryConfig::kMaxPartialAggregationMemory, "0")
-        .config(core::QueryConfig::kMaxExtendedPartialAggregationMemory, "0")
-        .maxDrivers(1);
+    queryBuilder.configs(config);
+    enableAbandonPartialAggregation(queryBuilder);
 
     auto task = assertResults(queryBuilder);
 
@@ -999,4 +1005,91 @@ VectorPtr AggregationTestBase::testStreaming(
   return result;
 }
 
+void AggregationTestBase::testFailingAggregations(
+    const std::vector<RowVectorPtr>& data,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::string& expectedMessage,
+    const std::unordered_map<std::string, std::string>& config) {
+  {
+    SCOPED_TRACE("Run single");
+    auto builder = PlanBuilder().values(data);
+    builder.singleAggregation(groupingKeys, aggregates);
+    AssertQueryBuilder queryBuilder(builder.planNode());
+    queryBuilder.configs(config);
+    VELOX_ASSERT_THROW(queryBuilder.copyResults(pool()), expectedMessage);
+  }
+
+  {
+    SCOPED_TRACE("Run partial + final");
+    auto builder = PlanBuilder().values(data);
+    builder.partialAggregation(groupingKeys, aggregates).finalAggregation();
+    AssertQueryBuilder queryBuilder(builder.planNode());
+    queryBuilder.configs(config);
+    VELOX_ASSERT_THROW(queryBuilder.copyResults(pool()), expectedMessage);
+  }
+
+  {
+    SCOPED_TRACE("Run partial + final with abandon partial agg");
+    auto builder = PlanBuilder().values(data);
+    builder.partialAggregation(groupingKeys, aggregates)
+        .intermediateAggregation()
+        .finalAggregation();
+    AssertQueryBuilder queryBuilder(builder.planNode());
+    queryBuilder.configs(config);
+    enableAbandonPartialAggregation(queryBuilder);
+    VELOX_ASSERT_THROW(queryBuilder.copyResults(pool()), expectedMessage);
+  }
+
+  {
+    SCOPED_TRACE("Run partial + intermediate + final");
+    auto builder = PlanBuilder().values(data);
+    builder.partialAggregation(groupingKeys, aggregates)
+        .intermediateAggregation()
+        .finalAggregation();
+    AssertQueryBuilder queryBuilder(builder.planNode());
+    queryBuilder.configs(config);
+    VELOX_ASSERT_THROW(queryBuilder.copyResults(pool()), expectedMessage);
+  }
+
+  if (!groupingKeys.empty()) {
+    SCOPED_TRACE("Run partial + local exchange + final");
+    auto builder = PlanBuilder().values(data);
+    builder.partialAggregation(groupingKeys, aggregates)
+        .localPartition(groupingKeys)
+        .finalAggregation();
+    AssertQueryBuilder queryBuilder(builder.planNode());
+    queryBuilder.configs(config);
+    VELOX_ASSERT_THROW(queryBuilder.copyResults(pool()), expectedMessage);
+  }
+
+  {
+    SCOPED_TRACE(
+        "Run partial + local exchange + intermediate + local exchange + final");
+    auto builder = PlanBuilder().values(data);
+    builder.partialAggregation(groupingKeys, aggregates);
+
+    if (groupingKeys.empty()) {
+      builder.localPartitionRoundRobinRow();
+    } else {
+      builder.localPartition(groupingKeys);
+    }
+
+    builder.intermediateAggregation()
+        .localPartition(groupingKeys)
+        .finalAggregation();
+
+    AssertQueryBuilder queryBuilder(builder.planNode());
+    queryBuilder.configs(config);
+    VELOX_ASSERT_THROW(queryBuilder.copyResults(pool()), expectedMessage);
+  }
+
+  if (testStreaming_ && groupingKeys.empty()) {
+    SCOPED_TRACE("Streaming");
+    auto makeSource = [&](PlanBuilder& builder) { builder.values(data); };
+    VELOX_ASSERT_THROW(
+        validateStreamingInTestAggregations(makeSource, aggregates, config),
+        expectedMessage);
+  }
+}
 } // namespace facebook::velox::functions::aggregate::test
