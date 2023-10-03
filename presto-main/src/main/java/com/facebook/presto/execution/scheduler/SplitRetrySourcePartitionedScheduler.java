@@ -36,6 +36,7 @@ public class SplitRetrySourcePartitionedScheduler
     public ScheduleResult schedule()
     {
         if (isSourcePartitionedSchedulerFinished) {
+            stage.transitionToSchedulingRetriedSplits();
             if (stage.getBlocked().isDone()) {
                 return ScheduleResult.nonBlocked(true, ImmutableList.of(), 0);
             }
@@ -52,13 +53,8 @@ public class SplitRetrySourcePartitionedScheduler
             ScheduleResult scheduleResult = sourcePartitionedScheduler.schedule();
             sourcePartitionedScheduler.drainCompletelyScheduledLifespans();
 
-            if (scheduleResult.getSplitsScheduled() > 0) {
-                stage.transitionToSchedulingSplits();
-            }
-
             if (scheduleResult.isFinished()) {
                 isSourcePartitionedSchedulerFinished = true;
-                stage.transitionToSchedulingRetriedSplits();
                 return ScheduleResult.blocked(
                         false,
                         scheduleResult.getNewTasks(),
