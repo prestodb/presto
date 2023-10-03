@@ -102,7 +102,7 @@ jobs:
           DD_CIVISIBILITY_AGENTLESS_ENABLED: true
           DD_ENV: github-ci
           DD_SERVICE: presto-flaky-tests
-          DD_SITE: datadoghq.com
+          DD_SITE: us5.datadoghq.com
         run: |
           echo "DD_API_KEY: $DD_API_KEY"
           wget -O dd-java-agent.jar https://dtdg.co/latest-java-tracer
