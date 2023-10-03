@@ -495,6 +495,7 @@ TEST_F(CacheTest, window) {
   auto clone = cacheInput->clone();
   clone->Skip(100);
   clone->setRemainingBytes(kMB);
+  auto previousRead = ioStats_->rawBytesRead();
   EXPECT_TRUE(clone->Next(&buffer, &size));
   // Half MB minus the 100 bytes skipped above should be left in the first load
   // quantum of 8MB.
@@ -503,6 +504,7 @@ TEST_F(CacheTest, window) {
   EXPECT_EQ(kMB / 2 + 100, size);
   // There should be no more data in the window.
   EXPECT_FALSE(clone->Next(&buffer, &size));
+  EXPECT_EQ(kMB, ioStats_->rawBytesRead() - previousRead);
 }
 
 TEST_F(CacheTest, bufferedInput) {
