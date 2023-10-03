@@ -286,7 +286,7 @@ public class PinotPushdownUtils
             return decodeDecimal(decodeUnscaledValue(value), decimalType).toString();
         }
         if (type instanceof VarcharType || type instanceof CharType) {
-            return "'" + ((Slice) node.getValue()).toStringUtf8() + "'";
+            return "'" + ((Slice) node.getValue()).toStringUtf8().replace("'", "''") + "'";
         }
         if (type instanceof TimestampType || type instanceof DateType) {
             return node.getValue().toString();
