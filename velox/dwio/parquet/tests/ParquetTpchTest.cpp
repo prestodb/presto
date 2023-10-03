@@ -14,12 +14,138 @@
  * limitations under the License.
  */
 
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/dwio/parquet/tests/ParquetTpchTestBase.h"
+#include <folly/init/Init.h>
+#include <vector>
 
-class ParquetTpchTest : public ParquetTpchTestBase {
- public:
-  ParquetTpchTest() : ParquetTpchTestBase() {}
+#include "velox/common/base/Fs.h"
+#include "velox/common/file/FileSystems.h"
+#include "velox/connectors/tpch/TpchConnector.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#include "velox/dwio/parquet/RegisterParquetWriter.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/exec/tests/utils/TpchQueryBuilder.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/parse/TypeResolver.h"
+
+using namespace facebook::velox;
+using namespace facebook::velox::exec;
+using namespace facebook::velox::exec::test;
+
+class ParquetTpchTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    duckDb_ = std::make_shared<DuckDbQueryRunner>();
+    tempDirectory_ = TempDirectoryPath::create();
+
+    functions::prestosql::registerAllScalarFunctions();
+    aggregate::prestosql::registerAllAggregateFunctions();
+
+    parse::registerTypeResolver();
+    filesystems::registerLocalFileSystem();
+
+    parquet::registerParquetReaderFactory();
+    parquet::registerParquetWriterFactory();
+
+    auto hiveConnector =
+        connector::getConnectorFactory(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName)
+            ->newConnector(kHiveConnectorId, nullptr);
+    connector::registerConnector(hiveConnector);
+
+    auto tpchConnector =
+        connector::getConnectorFactory(
+            connector::tpch::TpchConnectorFactory::kTpchConnectorName)
+            ->newConnector(kTpchConnectorId, nullptr);
+    connector::registerConnector(tpchConnector);
+
+    saveTpchTablesAsParquet();
+    tpchBuilder_.initialize(tempDirectory_->path);
+  }
+
+  void TearDown() override {
+    connector::unregisterConnector(kHiveConnectorId);
+    connector::unregisterConnector(kTpchConnectorId);
+    parquet::unregisterParquetReaderFactory();
+    parquet::unregisterParquetWriterFactory();
+  }
+
+  void saveTpchTablesAsParquet() {
+    std::shared_ptr<memory::MemoryPool> rootPool{
+        memory::defaultMemoryManager().addRootPool()};
+    std::shared_ptr<memory::MemoryPool> pool{rootPool->addLeafChild("leaf")};
+
+    for (const auto& table : tpch::tables) {
+      auto tableName = toTableName(table);
+      auto tableDirectory =
+          fmt::format("{}/{}", tempDirectory_->path, tableName);
+      auto tableSchema = tpch::getTableSchema(table);
+      auto columnNames = tableSchema->names();
+      auto plan = PlanBuilder()
+                      .tableScan(table, std::move(columnNames), 0.01)
+                      .planNode();
+      auto split =
+          exec::Split(std::make_shared<connector::tpch::TpchConnectorSplit>(
+              kTpchConnectorId, 1, 0));
+
+      auto rows =
+          AssertQueryBuilder(plan).splits({split}).copyResults(pool.get());
+      duckDb_->createTable(tableName.data(), {rows});
+
+      plan = PlanBuilder()
+                 .values({rows})
+                 .tableWrite(tableDirectory, dwio::common::FileFormat::PARQUET)
+                 .planNode();
+
+      AssertQueryBuilder(plan).copyResults(pool.get());
+    }
+  }
+
+  void assertQuery(
+      int queryId,
+      const std::optional<std::vector<uint32_t>>& sortingKeys = {}) {
+    auto tpchPlan = tpchBuilder_.getQueryPlan(queryId);
+    auto duckDbSql = tpch::getQuery(queryId);
+    assertQuery(tpchPlan, duckDbSql, sortingKeys);
+  }
+
+  std::shared_ptr<Task> assertQuery(
+      const TpchPlan& tpchPlan,
+      const std::string& duckQuery,
+      const std::optional<std::vector<uint32_t>>& sortingKeys) const {
+    bool noMoreSplits = false;
+    constexpr int kNumSplits = 10;
+    constexpr int kNumDrivers = 4;
+    auto addSplits = [&](Task* task) {
+      if (!noMoreSplits) {
+        for (const auto& entry : tpchPlan.dataFiles) {
+          for (const auto& path : entry.second) {
+            auto const splits = HiveConnectorTestBase::makeHiveConnectorSplits(
+                path, kNumSplits, tpchPlan.dataFileFormat);
+            for (const auto& split : splits) {
+              task->addSplit(entry.first, Split(split));
+            }
+          }
+          task->noMoreSplits(entry.first);
+        }
+      }
+      noMoreSplits = true;
+    };
+    CursorParameters params;
+    params.maxDrivers = kNumDrivers;
+    params.planNode = tpchPlan.plan;
+    return exec::test::assertQuery(
+        params, addSplits, duckQuery, *duckDb_, sortingKeys);
+  }
+
+  std::shared_ptr<DuckDbQueryRunner> duckDb_;
+  std::shared_ptr<TempDirectoryPath> tempDirectory_;
+  TpchQueryBuilder tpchBuilder_{dwio::common::FileFormat::PARQUET};
+
+  static constexpr char const* kTpchConnectorId{"test-tpch"};
 };
 
 TEST_F(ParquetTpchTest, Q1) {
