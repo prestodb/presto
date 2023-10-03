@@ -120,4 +120,5 @@ Name                              Description
                                   ``testHeaderKey:testHeaderValue`` will inject the header ``testHeaderKey``
                                   with value ``testHeaderValue``. Values should be percent encoded.
 ``validateNextUriSource``         Validates that host and port in next URI does not change during query execution.
+``followRedirects``               Disable Presto client to follow a redirect as a security measure.
 ================================= =======================================================================
