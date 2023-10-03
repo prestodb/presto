@@ -1042,6 +1042,8 @@ class StringDictionaryColumnReader : public ColumnReader {
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
+      const EncodingKey& encodingKey,
+      const RleVersion& rleVersion,
       FlatMapContext flatMapContext = {});
   ~StringDictionaryColumnReader() override = default;
 
@@ -1095,7 +1097,7 @@ class StringDictionaryColumnReader : public ColumnReader {
   FlatVectorPtr<StringView> combinedDictionaryValues_;
   FlatVectorPtr<StringView> dictionaryValues_;
 
-  uint64_t dictionaryCount_;
+  const uint64_t dictionaryCount_;
   uint64_t strideDictCount_;
   int64_t lastStrideIndex_;
   size_t positionOffset_;
@@ -1116,20 +1118,18 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> nodeType,
     StripeStreams& stripe,
     const StreamLabels& streamLabels,
+    const EncodingKey& encodingKey,
+    const RleVersion& rleVersion,
     FlatMapContext flatMapContext)
     : ColumnReader(
           std::move(nodeType),
           stripe,
           streamLabels,
           std::move(flatMapContext)),
+      dictionaryCount_(stripe.getEncoding(encodingKey).dictionarysize()),
       lastStrideIndex_(-1),
       provider_(stripe.getStrideIndexProvider()),
       returnFlatVector_(stripe.getRowReaderOptions().getReturnFlatVector()) {
-  EncodingKey encodingKey{nodeType_->id(), flatMapContext_.sequence};
-  RleVersion rleVersion =
-      convertRleVersion(stripe.getEncoding(encodingKey).kind());
-  dictionaryCount_ = stripe.getEncoding(encodingKey).dictionarysize();
-
   const auto dataId = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dictVInts = stripe.getUseVInts(dataId);
   dictIndex_ = createRleDecoder</*isSigned*/ false>(
@@ -2438,9 +2438,19 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
     case TypeKind::VARCHAR:
       switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
         case proto::ColumnEncoding_Kind_DICTIONARY:
-        case proto::ColumnEncoding_Kind_DICTIONARY_V2:
+        case proto::ColumnEncoding_Kind_DICTIONARY_V2: {
+          const EncodingKey encodingKey(
+              dataType->id(), flatMapContext.sequence);
+          RleVersion rleVersion =
+              convertRleVersion(stripe.getEncoding(encodingKey).kind());
           return std::make_unique<StringDictionaryColumnReader>(
-              dataType, stripe, streamLabels, std::move(flatMapContext));
+              dataType,
+              stripe,
+              streamLabels,
+              encodingKey,
+              rleVersion,
+              std::move(flatMapContext));
+        }
         case proto::ColumnEncoding_Kind_DIRECT:
         case proto::ColumnEncoding_Kind_DIRECT_V2:
           return std::make_unique<StringDirectColumnReader>(
