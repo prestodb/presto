@@ -251,6 +251,12 @@ std::shared_ptr<MemoryPool> addDefaultLeafMemoryPool(
 /// lifecycle of the allocated memory pools properly.
 MemoryPool& deprecatedSharedLeafPool();
 
+/// Returns the system-wide memory pool for spilling memory usage.
+memory::MemoryPool* spillMemoryPool();
+
+/// Returns true if the provided 'pool' is the spilling memory pool.
+bool isSpillMemoryPool(memory::MemoryPool* pool);
+
 FOLLY_ALWAYS_INLINE int32_t alignmentPadding(void* address, int32_t alignment) {
   auto extra = reinterpret_cast<uintptr_t>(address) % alignment;
   return extra == 0 ? 0 : alignment - extra;

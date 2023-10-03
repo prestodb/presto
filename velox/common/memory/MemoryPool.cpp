@@ -654,6 +654,13 @@ bool MemoryPoolImpl::maybeReserve(uint64_t increment) {
 }
 
 void MemoryPoolImpl::reserve(uint64_t size, bool reserveOnly) {
+  if (FOLLY_UNLIKELY(underMemoryArbitration() && !isSpillMemoryPool(this))) {
+    VELOX_FAIL(
+        "Unexpected non-spilling memory reservation from memory pool: {}, arbitration request pool: {}",
+        name(),
+        memoryArbitrationContext()->requestor.name());
+  }
+
   if (FOLLY_LIKELY(trackUsage_)) {
     if (FOLLY_LIKELY(threadSafe_)) {
       reserveThreadSafe(size, reserveOnly);

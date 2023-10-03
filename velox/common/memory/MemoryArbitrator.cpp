@@ -131,6 +131,7 @@ class NoopArbitrator : public MemoryArbitrator {
   }
 };
 
+thread_local MemoryArbitrationContext* arbitrationCtx{nullptr};
 } // namespace
 
 std::unique_ptr<MemoryArbitrator> MemoryArbitrator::create(
@@ -373,5 +374,24 @@ bool MemoryArbitrator::Stats::operator>=(const Stats& other) const {
 
 bool MemoryArbitrator::Stats::operator<=(const Stats& other) const {
   return !(*this > other);
+}
+
+ScopedMemoryArbitrationContext::ScopedMemoryArbitrationContext(
+    const MemoryPool& requestor)
+    : savedArbitrationCtx_(arbitrationCtx),
+      currentArbitrationCtx_({.requestor = requestor}) {
+  arbitrationCtx = &currentArbitrationCtx_;
+}
+
+ScopedMemoryArbitrationContext::~ScopedMemoryArbitrationContext() {
+  arbitrationCtx = savedArbitrationCtx_;
+}
+
+MemoryArbitrationContext* memoryArbitrationContext() {
+  return arbitrationCtx;
+}
+
+bool underMemoryArbitration() {
+  return memoryArbitrationContext() != nullptr;
 }
 } // namespace facebook::velox::memory

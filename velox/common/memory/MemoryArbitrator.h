@@ -300,4 +300,32 @@ class MemoryReclaimer {
  protected:
   MemoryReclaimer() = default;
 };
+
+/// The memory arbitration context which is set on per-thread local variable by
+/// memory arbitrator. It is used to indicate a running thread is under memory
+/// arbitration processing or not. This helps to enable sanity check such as all
+/// the memory reservations during memory arbitration should come from the
+/// spilling memory pool.
+struct MemoryArbitrationContext {
+  const MemoryPool& requestor;
+};
+
+/// Object used to set/restore the memory arbitration context when a thread is
+/// under memory arbitration processing.
+class ScopedMemoryArbitrationContext {
+ public:
+  explicit ScopedMemoryArbitrationContext(const MemoryPool& requestor);
+  ~ScopedMemoryArbitrationContext();
+
+ private:
+  MemoryArbitrationContext* const savedArbitrationCtx_{nullptr};
+  MemoryArbitrationContext currentArbitrationCtx_;
+};
+
+/// Returns the memory arbitration context set by a per-thread local variable if
+/// the running thread is under memory arbitration processing.
+MemoryArbitrationContext* memoryArbitrationContext();
+
+/// Returns true if the running thread is under memory arbitration or not.
+bool underMemoryArbitration();
 } // namespace facebook::velox::memory

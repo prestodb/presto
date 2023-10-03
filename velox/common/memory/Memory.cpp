@@ -241,4 +241,13 @@ std::shared_ptr<MemoryPool> addDefaultLeafMemoryPool(
 MemoryPool& deprecatedSharedLeafPool() {
   return defaultMemoryManager().deprecatedSharedLeafPool();
 }
+
+memory::MemoryPool* spillMemoryPool() {
+  static auto pool = memory::addDefaultLeafMemoryPool("_sys.spilling");
+  return pool.get();
+}
+
+bool isSpillMemoryPool(memory::MemoryPool* pool) {
+  return pool == spillMemoryPool();
+}
 } // namespace facebook::velox::memory

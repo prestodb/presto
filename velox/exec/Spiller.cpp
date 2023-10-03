@@ -670,7 +670,6 @@ SpillStats Spiller::stats() const {
 
 // static
 memory::MemoryPool* Spiller::pool() {
-  static auto pool = memory::addDefaultLeafMemoryPool("_sys.spilling");
-  return pool.get();
+  return memory::spillMemoryPool();
 }
 } // namespace facebook::velox::exec

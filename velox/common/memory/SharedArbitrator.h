@@ -86,6 +86,7 @@ class SharedArbitrator : public MemoryArbitrator {
     MemoryPool* const requestor_;
     SharedArbitrator* const arbitrator_;
     const std::chrono::steady_clock::time_point startTime_;
+    const ScopedMemoryArbitrationContext arbitrationCtx_;
   };
 
   // Invoked to check if the memory growth will exceed the memory pool's max

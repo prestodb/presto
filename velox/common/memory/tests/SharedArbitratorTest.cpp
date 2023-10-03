@@ -2384,6 +2384,67 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
   waitForAllTasksToBeDeleted();
 }
 
+DEBUG_ONLY_TEST_F(
+    SharedArbitrationTest,
+    allocationMemoryFromNonSpillMemoryPoolUnderArbitration) {
+  setupMemory(kMemoryCapacity, 0);
+  const int numVectors = 10;
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(newVector());
+  }
+  createDuckDbTable(vectors);
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(kMemoryCapacity);
+  ASSERT_EQ(queryCtx->pool()->capacity(), 0);
+
+  std::atomic<bool> aggregationMaybeReserveInjectionOnce{true};
+  std::atomic<MemoryPool*> injectPool{nullptr};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
+      std::function<void(MemoryPool*)>(([&](MemoryPool* pool) {
+        if (!aggregationMaybeReserveInjectionOnce.exchange(false)) {
+          return;
+        }
+        if (pool->currentBytes() == 0) {
+          return;
+        }
+        injectPool = pool;
+        VELOX_ASSERT_THROW(
+            pool->allocate(kMemoryCapacity - pool->reservedBytes() / 2),
+            "Exceeded memory pool cap");
+      })));
+
+  std::atomic<bool> nonSpillMemoryPoolChecked{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>(([&](Task* /*unused*/) {
+        VELOX_ASSERT_THROW(
+            injectPool.load()->allocate(20L << 20),
+            "Unexpected non-spilling memory reservation");
+        nonSpillMemoryPoolChecked = true;
+      })));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .queryCtx(queryCtx)
+      .spillDirectory(spillDirectory->path)
+      .config(core::QueryConfig::kSpillEnabled, "true")
+      .config(core::QueryConfig::kJoinSpillEnabled, "true")
+      .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
+      .plan(PlanBuilder()
+                .values(vectors)
+                .localPartition({"c0", "c1"})
+                .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                .localPartition(std::vector<std::string>{})
+                .planNode())
+      .assertResults("SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
+
+  waitForAllTasksToBeDeleted();
+
+  ASSERT_TRUE(injectPool != nullptr);
+  ASSERT_TRUE(nonSpillMemoryPoolChecked);
+}
+
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrationFromTableWriter) {
   setupMemory(kMemoryCapacity, 0);
 

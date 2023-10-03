@@ -605,6 +605,47 @@ TEST_F(MemoryReclaimerTest, orderedReclaim) {
   verify({0, 0, 0, 0, 0});
 }
 
+TEST_F(MemoryReclaimerTest, arbitrationContext) {
+  auto root = defaultMemoryManager().addRootPool(
+      "arbitrationContext", kMaxMemory, MemoryReclaimer::create());
+  ASSERT_FALSE(isSpillMemoryPool(root.get()));
+  ASSERT_TRUE(isSpillMemoryPool(spillMemoryPool()));
+  auto leafChild1 = root->addLeafChild(spillMemoryPool()->name());
+  ASSERT_FALSE(isSpillMemoryPool(leafChild1.get()));
+  auto leafChild2 = root->addLeafChild("arbitrationContext");
+  ASSERT_FALSE(isSpillMemoryPool(leafChild2.get()));
+  ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+  {
+    ScopedMemoryArbitrationContext arbitrationContext(*leafChild1);
+    ASSERT_TRUE(memoryArbitrationContext() != nullptr);
+    ASSERT_EQ(&memoryArbitrationContext()->requestor, leafChild1.get());
+  }
+  ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+  {
+    ScopedMemoryArbitrationContext arbitrationContext(*leafChild2);
+    ASSERT_TRUE(memoryArbitrationContext() != nullptr);
+    ASSERT_EQ(&memoryArbitrationContext()->requestor, leafChild2.get());
+  }
+  ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+  std::thread nonAbitrationThread([&]() {
+    ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+    {
+      ScopedMemoryArbitrationContext arbitrationContext(*leafChild1);
+      ASSERT_TRUE(memoryArbitrationContext() != nullptr);
+      ASSERT_EQ(&memoryArbitrationContext()->requestor, leafChild1.get());
+    }
+    ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+    {
+      ScopedMemoryArbitrationContext arbitrationContext(*leafChild2);
+      ASSERT_TRUE(memoryArbitrationContext() != nullptr);
+      ASSERT_EQ(&memoryArbitrationContext()->requestor, leafChild2.get());
+    }
+    ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+  });
+  nonAbitrationThread.join();
+  ASSERT_TRUE(memoryArbitrationContext() == nullptr);
+}
+
 TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
   auto root = defaultMemoryManager().addRootPool(
       "concurrentRandomMockReclaims", kMaxMemory, MemoryReclaimer::create());

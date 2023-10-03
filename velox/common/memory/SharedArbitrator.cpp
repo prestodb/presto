@@ -513,8 +513,8 @@ SharedArbitrator::ScopedArbitration::ScopedArbitration(
     SharedArbitrator* arbitrator)
     : requestor_(requestor),
       arbitrator_(arbitrator),
-      startTime_(std::chrono::steady_clock::now()) {
-  VELOX_CHECK_NOT_NULL(requestor_);
+      startTime_(std::chrono::steady_clock::now()),
+      arbitrationCtx_(*requestor_) {
   VELOX_CHECK_NOT_NULL(arbitrator_);
   arbitrator_->startArbitration(requestor);
   if (arbitrator_->arbitrationStateCheckCb_ != nullptr) {
