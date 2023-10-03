@@ -109,9 +109,17 @@ TEST_F(ServerOperationTest, buildServerOp) {
   EXPECT_EQ(ServerOperation::Target::kSystemConfig, op.target);
   EXPECT_EQ(ServerOperation::Action::kSetProperty, op.action);
 
-  op = buildServerOpFromHttpMsgPath("/v1/operation/debug/task");
-  EXPECT_EQ(ServerOperation::Target::kDebug, op.target);
-  EXPECT_EQ(ServerOperation::Action::kTask, op.action);
+  op = buildServerOpFromHttpMsgPath("/v1/operation/task/getDetail");
+  EXPECT_EQ(ServerOperation::Target::kTask, op.target);
+  EXPECT_EQ(ServerOperation::Action::kGetDetail, op.action);
+
+  op = buildServerOpFromHttpMsgPath("/v1/operation/task/listAll");
+  EXPECT_EQ(ServerOperation::Target::kTask, op.target);
+  EXPECT_EQ(ServerOperation::Action::kListAll, op.action);
+
+  op = buildServerOpFromHttpMsgPath("/v1/operation/server/trace");
+  EXPECT_EQ(ServerOperation::Target::kServer, op.target);
+  EXPECT_EQ(ServerOperation::Action::kTrace, op.action);
 
   EXPECT_THROW(
       op = buildServerOpFromHttpMsgPath("/v1/operation/whatzit/setProperty"),
