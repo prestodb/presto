@@ -52,7 +52,6 @@ static void maybeSetupTaskSpillDirectory(
   const auto includeNodeInSpillPath =
       SystemConfig::instance()->includeNodeInSpillPath();
   auto nodeConfig = NodeConfig::instance();
-
   const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
       baseSpillDirectory,
       nodeConfig->nodeInternalAddress(),
@@ -60,12 +59,12 @@ static void maybeSetupTaskSpillDirectory(
       execTask.queryCtx()->queryId(),
       execTask.taskId(),
       includeNodeInSpillPath);
-  execTask.setSpillDirectory(taskSpillDirPath);
   // Create folder for the task spilling.
   auto fileSystem =
       velox::filesystems::getFileSystem(taskSpillDirPath, nullptr);
   VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
   fileSystem->mkdir(taskSpillDirPath);
+  execTask.setSpillDirectory(taskSpillDirPath);
 }
 
 // Keep outstanding Promises in RequestHandler's state itself.
@@ -436,20 +435,28 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
         return std::make_unique<TaskInfo>(prestoTask->updateInfoLocked());
       }
 
-      execTask = exec::Task::create(
+      // Uses a temp variable to store the created velox task to destroy it
+      // under presto task lock if spill directory setup fails. Otherwise, the
+      // concurrent task creation retry from the coordinator might see the
+      // unexpected state in presto task left by the previously failed velox
+      // task which hasn't been destroyed yet, such as the task pool in query's
+      // root memory pool.
+      auto newExecTask = exec::Task::create(
           taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
-      auto baseSpillDir = *(baseSpillDir_.rlock());
-      maybeSetupTaskSpillDirectory(planFragment, *execTask, baseSpillDir);
+      // TODO: move spill directory creation inside velox task execution
+      // whenever spilling is triggered. It will reduce the unnecessary file
+      // operations on remote storage.
+      const auto baseSpillDir = *(baseSpillDir_.rlock());
+      maybeSetupTaskSpillDirectory(planFragment, *newExecTask, baseSpillDir);
 
-      prestoTask->task = execTask;
+      prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
       startTask = true;
-    } else {
-      execTask = prestoTask->task;
     }
+    execTask = prestoTask->task;
   }
   // Outside of prestoTask->mutex.
-  VELOX_CHECK(
+  VELOX_CHECK_NOT_NULL(
       execTask,
       "Task update received before setting a plan. The splits in "
       "this update could not be delivered for {}",
