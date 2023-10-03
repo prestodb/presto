@@ -51,13 +51,23 @@ folly::IOThreadPoolExecutor* spillExecutorPtr() {
 }
 
 namespace {
+std::string maybeRemoveNativePrefix(const std::string& name) {
+  static const std::string kNativePrefix = "native_";
+  const auto result =
+      ::strncmp(name.c_str(), kNativePrefix.c_str(), kNativePrefix.size());
+  if (result == 0) {
+    return name.substr(kNativePrefix.length());
+  }
+  return name;
+}
+
 std::unordered_map<std::string, std::string> toConfigs(
     const protocol::SessionRepresentation& session) {
   // Use base velox query config as the starting point and add Presto session
   // properties on top of it.
   auto configs = BaseVeloxQueryConfig::instance()->values();
   for (const auto& it : session.systemProperties) {
-    configs[it.first] = it.second;
+    configs[maybeRemoveNativePrefix(it.first)] = it.second;
   }
 
   // If there's a timeZoneKey, convert to timezone name and add to the
