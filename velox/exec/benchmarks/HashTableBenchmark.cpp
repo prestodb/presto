@@ -619,6 +619,10 @@ int main(int argc, char** argv) {
 
   auto allocator = std::make_shared<memory::MmapAllocator>(options);
   memory::MemoryAllocator::setDefaultInstance(allocator.get());
+  memory::MemoryManager::getInstance(memory::MemoryManagerOptions{
+      .capacity = static_cast<int64_t>(options.capacity),
+      .allocator = allocator.get()});
+
   auto bm = std::make_unique<HashTableBenchmark>();
   std::vector<HashTableBenchmarkRun> results;
 
