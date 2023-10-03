@@ -52,6 +52,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static com.facebook.presto.jdbc.ConnectionProperties.CUSTOM_HEADERS;
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
+import static com.facebook.presto.jdbc.ConnectionProperties.FOLLOW_REDIRECTS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROTOCOLS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -215,6 +216,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return VALIDATE_NEXTURI_SOURCE.getValue(properties).orElse(false);
+    }
+
+    public boolean followRedirects()
+            throws SQLException
+    {
+        return FOLLOW_REDIRECTS.getValue(properties).orElse(true);
     }
 
     public void setupClient(OkHttpClient.Builder builder)

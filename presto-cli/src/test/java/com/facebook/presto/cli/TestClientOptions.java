@@ -134,6 +134,13 @@ public class TestClientOptions
         assertTrue(console.clientOptions.toClientSession().isCompressionDisabled());
     }
 
+    @Test
+    public void testDisableFollowingRedirects()
+    {
+        Console console = singleCommand(Console.class).parse("--disable-redirects");
+        assertTrue(console.clientOptions.disableRedirects);
+    }
+
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testThreePartPropertyName()
     {
