@@ -84,8 +84,12 @@ void PrestoServerOperations::runOperation(
       case ServerOperation::Target::kVeloxQueryConfig:
         http::sendOkResponse(
             downstream, veloxQueryConfigOperation(op, message));
-      case ServerOperation::Target::kDebug:
-        http::sendOkResponse(downstream, debugOperation(op, message));
+        break;
+      case ServerOperation::Target::kTask:
+        http::sendOkResponse(downstream, taskOperation(op, message));
+        break;
+      case ServerOperation::Target::kServer:
+        http::sendOkResponse(downstream, serverOperation(op, message));
         break;
     }
   } catch (const velox::VeloxUserError& ex) {
@@ -185,22 +189,59 @@ std::string PrestoServerOperations::veloxQueryConfigOperation(
   return unsupportedAction(op);
 }
 
-std::string PrestoServerOperations::debugOperation(
+std::string PrestoServerOperations::taskOperation(
     const ServerOperation& op,
     proxygen::HTTPMessage* message) {
+  if (taskManager_ == nullptr) {
+    return "Task Manager not found";
+  }
+  const auto taskMap = taskManager_->tasks();
   switch (op.action) {
-    case ServerOperation::Action::kTask: {
+    case ServerOperation::Action::kGetDetail: {
       const auto id = message->getQueryParam("id");
-      if (!taskManager_) {
-        return "Task Manager not found";
-      }
-      const auto& map = taskManager_->tasks();
-      const auto& task = map.find(id);
-      if (task == map.end()) {
+      const auto& task = taskMap.find(id);
+      if (task == taskMap.end()) {
         return fmt::format("No task found with id {}", id);
       }
       return task->second->toJsonString();
     }
+    case ServerOperation::Action::kListAll: {
+      uint32_t limit;
+      try {
+        const auto& limitStr = message->getQueryParam("limit");
+        limit = limitStr == proxygen::empty_string
+            ? std::numeric_limits<uint32_t>::max()
+            : stoi(limitStr);
+      } catch (std::exception& ex) {
+        VELOX_USER_FAIL(ex.what());
+      }
+      std::stringstream oss;
+      oss << "[";
+      uint32_t count = 0;
+      for (const auto& task : taskMap) {
+        const auto& veloxTask = task.second->task;
+        if (++count > limit) {
+          oss << "... " << (taskMap.size() - limit) << " more tasks ...\n";
+          break;
+        }
+        oss << task.first << "("
+            << (veloxTask == nullptr ? "null"
+                                     : taskStateString(veloxTask->state()))
+            << "),\n";
+      }
+      oss << "]";
+      return oss.str();
+    }
+    default:
+      break;
+  }
+  return unsupportedAction(op);
+}
+
+std::string PrestoServerOperations::serverOperation(
+    const ServerOperation& op,
+    proxygen::HTTPMessage* /* unused */) {
+  switch (op.action) {
     case ServerOperation::Action::kTrace: {
       return velox::process::TraceContext::statusLine();
     }
