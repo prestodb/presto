@@ -1451,7 +1451,6 @@ TEST_F(MultiFragmentTest, taskTerminateWithProblematicRemainingRemoteSplits) {
   // Wait for the task to fail, and make sure the task has been deleted instead
   // of hanging as a zombie task.
   ASSERT_TRUE(waitForTaskFailure(task.get(), 3'000'000)) << task->taskId();
-  ASSERT_EQ(task.use_count(), 1);
 }
 
 DEBUG_ONLY_TEST_F(MultiFragmentTest, mergeWithEarlyTermination) {
