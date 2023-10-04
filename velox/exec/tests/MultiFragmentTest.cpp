@@ -49,6 +49,10 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     return fmt::format("local://{}-{}", prefix, num);
   }
 
+  static std::string makeBadTaskId(const std::string& prefix, int num) {
+    return fmt::format("bad://{}-{}", prefix, num);
+  }
+
   static exec::Consumer noopConsumer() {
     return [](RowVectorPtr, ContinueFuture*) {
       return BlockingReason::kNotBlocked;
@@ -1398,6 +1402,56 @@ TEST_F(MultiFragmentTest, taskTerminateWithPendingOutputBuffers) {
   receivedIobufs.clear();
   ASSERT_EQ(task.use_count(), 1);
   task.reset();
+}
+
+TEST_F(MultiFragmentTest, taskTerminateWithProblematicRemainingRemoteSplits) {
+  // Start the task with 2 drivers.
+  auto probeData =
+      makeRowVector({"p_c0"}, {makeFlatVector<int64_t>({1, 2, 3})});
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId exchangeNodeId;
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values({probeData}, true)
+                  .hashJoin(
+                      {"p_c0"},
+                      {"c0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .exchange(rowType_)
+                          .capturePlanNodeId(exchangeNodeId)
+                          .planNode(),
+                      "",
+                      {"c0"})
+                  .partitionedOutput({}, 1)
+                  .planNode();
+  auto taskId = makeTaskId("final", 0);
+  auto task = makeTask(taskId, plan, 0);
+  Task::start(task, 2);
+
+  // Wait for all drivers to be blocked, so that the promises will be made.
+  bool allDriversBlocked = false;
+  while (!allDriversBlocked) {
+    allDriversBlocked = true;
+    task->testingVisitDrivers([&](Driver* driver) {
+      if (driver->isOnThread() ||
+          (driver->blockingReason() != BlockingReason::kWaitForSplit &&
+           driver->blockingReason() != BlockingReason::kWaitForProducer &&
+           driver->blockingReason() != BlockingReason::kWaitForJoinBuild)) {
+        allDriversBlocked = false;
+      }
+    });
+  }
+
+  // Add one bad remote split and trigger Task::terminate.
+  task->addSplit(exchangeNodeId, remoteSplit(makeBadTaskId("leaf", 0)));
+
+  // Add one more bad split, making sure `remainingRemoteSplits` is not empty
+  // and processing it would cause an exception.
+  task->addSplit(exchangeNodeId, remoteSplit(makeBadTaskId("leaf", 1)));
+
+  // Wait for the task to fail, and make sure the task has been deleted instead
+  // of hanging as a zombie task.
+  ASSERT_TRUE(waitForTaskFailure(task.get(), 3'000'000)) << task->taskId();
+  ASSERT_EQ(task.use_count(), 1);
 }
 
 DEBUG_ONLY_TEST_F(MultiFragmentTest, mergeWithEarlyTermination) {

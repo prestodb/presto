@@ -194,6 +194,8 @@ std::unique_ptr<ExchangeSource> createLocalExchangeSource(
   if (strncmp(taskId.c_str(), "local://", 8) == 0) {
     return std::make_unique<LocalExchangeSource>(
         taskId, destination, std::move(queue), pool);
+  } else if (strncmp(taskId.c_str(), "bad://", 6) == 0) {
+    throw std::runtime_error("Testing error");
   }
   return nullptr;
 }

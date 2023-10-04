@@ -1775,7 +1775,13 @@ ContinueFuture Task::terminate(TaskState terminalState) {
   for (auto& [planNodeId, splits] : remainingRemoteSplits) {
     auto client = getExchangeClient(planNodeId);
     for (auto& split : splits.first) {
-      addRemoteSplit(planNodeId, split);
+      try {
+        addRemoteSplit(planNodeId, split);
+      } catch (VeloxRuntimeError& ex) {
+        LOG(WARNING)
+            << "Failed to add remaining remote splits during task termination: "
+            << ex.what();
+      }
     }
     if (splits.second) {
       client->noMoreRemoteTasks();
