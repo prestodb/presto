@@ -271,76 +271,86 @@ struct {
   string_column_2 string
 }
 */
-void verifyCachedIndexStreamReads(DwrfRowReader* rowReader) {
+void verifyCachedIndexStreamReads(
+    DwrfRowReader* rowReader,
+    uint32_t firstStripe,
+    uint32_t pastLastStripe) {
   VectorPtr batch;
-  // Stripe 1
-  ASSERT_TRUE(rowReader->next(100, batch));
-  auto root = batch->as<RowVector>();
-  EXPECT_EQ(root->childrenSize(), 4);
-  auto stringCol1 = root->childAt(1)->as<SimpleVector<StringView>>();
-  auto stringCol2 = root->childAt(2)->as<SimpleVector<StringView>>();
 
-  for (int i = 0; i < 50; i++) {
-    ASSERT_EQ(stringCol1->valueAt(i), "baz");
-    ASSERT_EQ(stringCol2->valueAt(i), "abcdefghijklmnop");
+  if (firstStripe == 0 && pastLastStripe > 0) {
+    // Stripe 1
+    ASSERT_TRUE(rowReader->next(100, batch));
+    auto root = batch->as<RowVector>();
+    EXPECT_EQ(root->childrenSize(), 4);
+    auto stringCol1 = root->childAt(1)->as<SimpleVector<StringView>>();
+    auto stringCol2 = root->childAt(2)->as<SimpleVector<StringView>>();
+
+    for (int i = 0; i < 50; i++) {
+      ASSERT_EQ(stringCol1->valueAt(i), "baz");
+      ASSERT_EQ(stringCol2->valueAt(i), "abcdefghijklmnop");
+    }
+
+    ASSERT_EQ(stringCol1->valueAt(50), "zax");
+    ASSERT_EQ(stringCol2->valueAt(50), "unique");
+
+    ASSERT_EQ(stringCol1->valueAt(51), "zax");
+    ASSERT_EQ(stringCol2->valueAt(51), "different");
+
+    ASSERT_EQ(stringCol1->valueAt(52), "zax");
+    ASSERT_EQ(stringCol2->valueAt(52), "special");
+
+    for (int i = 53; i < 100; i++) {
+      ASSERT_EQ(stringCol1->valueAt(i), "baz");
+      ASSERT_EQ(stringCol2->valueAt(i), "abcdefghijklmnop");
+    }
   }
 
-  ASSERT_EQ(stringCol1->valueAt(50), "zax");
-  ASSERT_EQ(stringCol2->valueAt(50), "unique");
+  if (firstStripe <= 1 && pastLastStripe > 1) {
+    // // Stripe 2
+    ASSERT_TRUE(rowReader->next(100, batch));
+    auto root = batch->as<RowVector>();
+    EXPECT_EQ(root->childrenSize(), 4);
+    auto stringCol1 = root->childAt(1)->as<SimpleVector<StringView>>();
+    auto stringCol2 = root->childAt(2)->as<SimpleVector<StringView>>();
 
-  ASSERT_EQ(stringCol1->valueAt(51), "zax");
-  ASSERT_EQ(stringCol2->valueAt(51), "different");
+    for (int i = 0; i < 50; i++) {
+      ASSERT_EQ(stringCol1->valueAt(i), "ee");
+      ASSERT_EQ(stringCol2->valueAt(i), "pomelo");
+    }
 
-  ASSERT_EQ(stringCol1->valueAt(52), "zax");
-  ASSERT_EQ(stringCol2->valueAt(52), "special");
+    ASSERT_EQ(stringCol1->valueAt(50), "craz");
+    ASSERT_EQ(stringCol2->valueAt(50), "unique");
 
-  for (int i = 53; i < 100; i++) {
-    ASSERT_EQ(stringCol1->valueAt(i), "baz");
-    ASSERT_EQ(stringCol2->valueAt(i), "abcdefghijklmnop");
+    ASSERT_EQ(stringCol1->valueAt(51), "doop");
+    ASSERT_EQ(stringCol2->valueAt(51), "different");
+
+    ASSERT_EQ(stringCol1->valueAt(52), "hello");
+    ASSERT_EQ(stringCol2->valueAt(52), "special");
+
+    for (int i = 53; i < 100; i++) {
+      ASSERT_EQ(stringCol1->valueAt(i), "baz");
+      ASSERT_EQ(stringCol2->valueAt(i), "pomelo");
+    }
   }
 
-  // // Stripe 2
-  ASSERT_TRUE(rowReader->next(100, batch));
-  root = batch->as<RowVector>();
-  EXPECT_EQ(root->childrenSize(), 4);
-  stringCol1 = root->childAt(1)->as<SimpleVector<StringView>>();
-  stringCol2 = root->childAt(2)->as<SimpleVector<StringView>>();
+  if (firstStripe <= 2 && pastLastStripe > 2) {
+    // Stripe 3
+    ASSERT_TRUE(rowReader->next(100, batch));
+    auto root = batch->as<RowVector>();
+    ASSERT_EQ(root->size(), 3);
+    EXPECT_EQ(root->childrenSize(), 4);
+    auto stringCol1 = root->childAt(1)->as<SimpleVector<StringView>>();
+    auto stringCol2 = root->childAt(2)->as<SimpleVector<StringView>>();
 
-  for (int i = 0; i < 50; i++) {
-    ASSERT_EQ(stringCol1->valueAt(i), "ee");
-    ASSERT_EQ(stringCol2->valueAt(i), "pomelo");
+    ASSERT_EQ(stringCol1->valueAt(0), "craz");
+    ASSERT_EQ(stringCol2->valueAt(0), "dog");
+
+    ASSERT_EQ(stringCol1->valueAt(1), "doop");
+    ASSERT_EQ(stringCol2->valueAt(1), "cat");
+
+    ASSERT_EQ(stringCol1->valueAt(2), "hello");
+    ASSERT_EQ(stringCol2->valueAt(2), "chicken");
   }
-
-  ASSERT_EQ(stringCol1->valueAt(50), "craz");
-  ASSERT_EQ(stringCol2->valueAt(50), "unique");
-
-  ASSERT_EQ(stringCol1->valueAt(51), "doop");
-  ASSERT_EQ(stringCol2->valueAt(51), "different");
-
-  ASSERT_EQ(stringCol1->valueAt(52), "hello");
-  ASSERT_EQ(stringCol2->valueAt(52), "special");
-
-  for (int i = 53; i < 100; i++) {
-    ASSERT_EQ(stringCol1->valueAt(i), "baz");
-    ASSERT_EQ(stringCol2->valueAt(i), "pomelo");
-  }
-
-  // Stripe 3
-  ASSERT_TRUE(rowReader->next(100, batch));
-  root = batch->as<RowVector>();
-  ASSERT_EQ(root->size(), 3);
-  EXPECT_EQ(root->childrenSize(), 4);
-  stringCol1 = root->childAt(1)->as<SimpleVector<StringView>>();
-  stringCol2 = root->childAt(2)->as<SimpleVector<StringView>>();
-
-  ASSERT_EQ(stringCol1->valueAt(0), "craz");
-  ASSERT_EQ(stringCol2->valueAt(0), "dog");
-
-  ASSERT_EQ(stringCol1->valueAt(1), "doop");
-  ASSERT_EQ(stringCol2->valueAt(1), "cat");
-
-  ASSERT_EQ(stringCol1->valueAt(2), "hello");
-  ASSERT_EQ(stringCol2->valueAt(2), "chicken");
 }
 
 class TestFlatMapReader : public TestWithParam<bool> {};
@@ -704,8 +714,87 @@ TEST(TestRowReaderPrefetch, prefetchWithCachedIndexStream) {
   for (auto& fetchResult : prefetches) {
     ASSERT_EQ(DwrfRowReader::FetchResult::kFetched, fetchResult);
   }
-  verifyCachedIndexStreamReads(rowReader);
+  verifyCachedIndexStreamReads(rowReader, 0, 3);
 }
+
+struct ByStripeInfo {
+  uint64_t offset;
+  uint64_t length;
+  uint32_t firstStripe;
+  uint32_t pastLastStripe;
+
+  ByStripeInfo(
+      uint64_t offset,
+      uint64_t length,
+      uint32_t firstStripe,
+      uint32_t pastLastStripe)
+      : offset(offset),
+        length(length),
+        firstStripe(firstStripe),
+        pastLastStripe(pastLastStripe) {}
+};
+
+class TestRowReaderPrefetchByStripe : public TestWithParam<ByStripeInfo> {};
+
+// This test ensures that we only return the prefetch units for the stripes that
+// we'll actually use, according to the range passed to the row reader. We
+// don't need to be able to prefetch stripes that we won't use. That would
+// confuse us, since we'd have to calculate, outside of the reader, which
+// stripes we need to prefetch.
+TEST_P(TestRowReaderPrefetchByStripe, prefetchWithCachedIndexStream) {
+  auto opt = GetParam();
+  ReaderOptions readerOpts{getDefaultPool().get()};
+  readerOpts.setFilePreloadThreshold(0);
+  readerOpts.setDirectorySizeGuess(4);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.range(opt.offset, opt.length);
+
+  std::shared_ptr<const RowType> requestedType = std::dynamic_pointer_cast<
+      const RowType>(HiveTypeParser().parse(
+      "struct<int_column:int,string_column:string,string_column_2:string,ds:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.setEagerFirstStripeLoad(false);
+
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(
+          getExampleFilePath("dict_encoded_strings.orc"),
+          readerOpts.getMemoryPool()),
+      readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+
+  auto units = rowReader->prefetchUnits().value();
+  EXPECT_EQ(units.size(), (opt.pastLastStripe - opt.firstStripe));
+  std::vector<DwrfRowReader::FetchResult> prefetches;
+  prefetches.reserve(opt.pastLastStripe - opt.firstStripe);
+
+  for (auto& unit : units) {
+    prefetches.emplace_back(unit.prefetch());
+  }
+
+  ASSERT_EQ(prefetches.size(), opt.pastLastStripe - opt.firstStripe);
+
+  for (auto& fetchResult : prefetches) {
+    ASSERT_EQ(DwrfRowReader::FetchResult::kFetched, fetchResult);
+  }
+  verifyCachedIndexStreamReads(rowReader, opt.firstStripe, opt.pastLastStripe);
+}
+
+// Stripe | offset | length | rows
+//      0 |      3 |    583 |    3
+//      1 |    586 |    508 |  100
+//      2 |   1094 | ? (1+) |  100
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TestRowReaderPrefetchByStripeSuite,
+    TestRowReaderPrefetchByStripe,
+    ValuesIn({
+        ByStripeInfo(3, 1, 0, 1), // Stripes: 0
+        ByStripeInfo(586, 1, 1, 2), // Stripes: 1
+        ByStripeInfo(1094, 1, 2, 3), // Stripes: 2
+        ByStripeInfo(3, 584, 0, 2), // Stripes: 0, 1
+        ByStripeInfo(586, 509, 1, 3), // Stripes: 1, 2
+        ByStripeInfo(3, 1092, 0, 3) // Stripes: 0, 1, 2
+    }));
 
 // This test just verifies read correctness with the eager first stripe load
 // config off for regression purposes. It does not ensure the first stripe is
@@ -718,8 +807,8 @@ TEST(TestRowReaderPrefetch, testNoEagerFirstStripeLoad) {
   ReaderOptions readerOpts{getDefaultPool().get()};
   RowReaderOptions rowReaderOpts;
 
-  // If we ever change default to false, let us fail this test so we can change
-  // tests in this file accordingly.
+  // If we ever change default to false, let us fail this test so we can
+  // change tests in this file accordingly.
   ASSERT_TRUE(rowReaderOpts.getEagerFirstStripeLoad());
   rowReaderOpts.setEagerFirstStripeLoad(false);
   rowReaderOpts.select(std::make_shared<ColumnSelector>(getFlatmapSchema()));
@@ -737,9 +826,9 @@ TEST(TestRowReaderPrefetch, testNoEagerFirstStripeLoad) {
       expectedBatchSize.size());
 }
 
-// Other tests use default of eager loading, and test first stripe is preloaded
-// after DwrfRowReader::create. This tests the case where eager loading is set
-// to false.
+// Other tests use default of eager loading, and test first stripe is
+// preloaded after DwrfRowReader::create. This tests the case where eager
+// loading is set to false.
 TEST(TestRowReaderPrefetch, testFirstStripeNotLoadedWithEagerLoadingOff) {
   // batch size is set as 1000 in reading
   std::array<int32_t, 5> seeks;
@@ -2511,8 +2600,8 @@ TEST(TestReader, readFlatMapsWithNullMaps) {
 }
 
 TEST(TestReader, readStructWithWholeBatchFiltered) {
-  // Test reading a struct with a pushdown filter that filters out all rows for
-  // a certain batch.
+  // Test reading a struct with a pushdown filter that filters out all rows
+  // for a certain batch.
   auto* pool = getDefaultPool().get();
   VectorMaker maker(pool);
 

@@ -408,14 +408,17 @@ void DwrfRowReader::resetFilterCaches() {
 std::optional<std::vector<velox::dwio::common::RowReader::PrefetchUnit>>
 DwrfRowReader::prefetchUnits() {
   auto rowsInStripe = getReader().getRowsPerStripe();
-  DWIO_ENSURE(rowsInStripe.size() == lastStripe);
-  std::vector<PrefetchUnit> res;
-  res.reserve(lastStripe);
+  DWIO_ENSURE(firstStripe <= rowsInStripe.size());
+  DWIO_ENSURE(lastStripe <= rowsInStripe.size());
+  DWIO_ENSURE(firstStripe <= lastStripe);
 
-  for (int i = 0; i < rowsInStripe.size(); i++) {
+  std::vector<PrefetchUnit> res;
+  res.reserve(lastStripe - firstStripe);
+
+  for (auto stripe = firstStripe; stripe < lastStripe; ++stripe) {
     res.push_back(
-        {.rowCount = rowsInStripe[i],
-         .prefetch = std::bind(&DwrfRowReader::prefetch, this, i)});
+        {.rowCount = rowsInStripe[stripe],
+         .prefetch = std::bind(&DwrfRowReader::prefetch, this, stripe)});
   }
   return res;
 }
