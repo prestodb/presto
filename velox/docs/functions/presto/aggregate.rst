@@ -107,7 +107,7 @@ General Aggregate Functions
 .. function:: max(x) -> [same as input]
 
     Returns the maximum value of all input values.
-    ``x`` must not contains nulls when it is complex type.
+    ``x`` must not contain nulls when it is complex type.
 
 .. function:: max(x, n) -> array<[same as x]>
 
@@ -117,7 +117,7 @@ General Aggregate Functions
 .. function:: min(x) -> [same as input]
 
     Returns the minimum value of all input values.
-    ``x`` must not contains nulls when it is complex type.
+    ``x`` must not contain nulls when it is complex type.
 
 .. function:: min(x, n) -> array<[same as x]>
 
@@ -193,6 +193,7 @@ General Aggregate Functions
 .. function:: set_agg(x) -> array<[same as input]>
 
     Returns an array created from the distinct input ``x`` elements.
+    ``x`` must not contain nulls when it is complex type.
 
 .. function:: set_union(array(T)) -> array(T)
 

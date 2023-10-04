@@ -310,7 +310,9 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
 
     if (throwOnNestedNulls_) {
       DecodedVector decoded(*input, rows, true);
-      rows.applyToSelected([&](vector_size_t i) { checkNulls(decoded, i); });
+      auto indices = decoded.indices();
+      rows.applyToSelected(
+          [&](vector_size_t i) { checkNulls(decoded, indices, i); });
     }
 
     if (rows.isAllSelected()) {
@@ -385,7 +387,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     }
 
     rows.applyToSelected([&](vector_size_t i) {
-      if (checkNulls(decoded, i)) {
+      if (checkNulls(decoded, indices, i)) {
         return;
       }
 
@@ -408,7 +410,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     auto baseVector = decoded.base();
 
     if (decoded.isConstantMapping()) {
-      if (checkNulls(decoded, 0)) {
+      if (checkNulls(decoded, indices, 0)) {
         return;
       }
 
@@ -422,7 +424,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
 
     auto accumulator = value<SingleValueAccumulator>(group);
     rows.applyToSelected([&](vector_size_t i) {
-      if (checkNulls(decoded, i)) {
+      if (checkNulls(decoded, indices, i)) {
         return;
       }
 
@@ -433,17 +435,19 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     });
   }
 
-  bool checkNulls(const DecodedVector& decoded, vector_size_t index) const {
+  bool checkNulls(
+      const DecodedVector& decoded,
+      const vector_size_t* indices,
+      vector_size_t index) const {
     if (decoded.isNullAt(index)) {
       return true;
     }
 
     if (throwOnNestedNulls_) {
       VELOX_USER_CHECK(
-          !decoded.base()->containsNullAt(index),
-          fmt::format(
-              "{} comparison not supported for values that contain nulls",
-              mapTypeKindToName(decoded.base()->typeKind())));
+          !decoded.base()->containsNullAt(indices[index]),
+          "{} comparison not supported for values that contain nulls",
+          mapTypeKindToName(decoded.base()->typeKind()));
     }
 
     return false;

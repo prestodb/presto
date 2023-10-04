@@ -20,6 +20,7 @@
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox::functions::aggregate::test;
+using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::aggregate::test {
 
@@ -327,5 +328,90 @@ TEST_F(SetAggTest, groupByArray) {
       {"c0", "array_sort(a0)"},
       {expected});
 }
+
+TEST_F(SetAggTest, arrayCheckNulls) {
+  auto batch = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2]",
+          "[6, 7]",
+          "[2, 3]",
+      }),
+      makeFlatVector<int32_t>({
+          1,
+          2,
+          3,
+      }),
+  });
+
+  auto batchWithNull = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2]",
+          "[6, 7]",
+          "[3, null]",
+      }),
+      makeFlatVector<int32_t>({
+          1,
+          2,
+          3,
+      }),
+  });
+
+  testFailingAggregations(
+      {batch, batchWithNull},
+      {},
+      {"set_agg(c0)"},
+      "ARRAY comparison not supported for values that contain nulls");
+  testFailingAggregations(
+      {batch, batchWithNull},
+      {"c1"},
+      {"set_agg(c0)"},
+      "ARRAY comparison not supported for values that contain nulls");
+}
+
+TEST_F(SetAggTest, rowCheckNull) {
+  auto batch = makeRowVector({
+      makeRowVector({
+          makeFlatVector<StringView>({
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+          }),
+          makeNullableFlatVector<StringView>({
+              "aa"_sv,
+              "bb"_sv,
+              "cc"_sv,
+          }),
+      }),
+      makeFlatVector<int8_t>({1, 2, 3}),
+  });
+
+  auto batchWithNull = makeRowVector({
+      makeRowVector({
+          makeFlatVector<StringView>({
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+          }),
+          makeNullableFlatVector<StringView>({
+              "aa"_sv,
+              std::nullopt,
+              "cc"_sv,
+          }),
+      }),
+      makeFlatVector<int8_t>({1, 2, 3}),
+  });
+
+  testFailingAggregations(
+      {batch, batchWithNull},
+      {},
+      {"set_agg(c0)"},
+      "ROW comparison not supported for values that contain nulls");
+  testFailingAggregations(
+      {batch, batchWithNull},
+      {"c1"},
+      {"set_agg(c0)"},
+      "ROW comparison not supported for values that contain nulls");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

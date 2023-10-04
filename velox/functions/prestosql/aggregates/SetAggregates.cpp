@@ -199,8 +199,11 @@ class SetBaseAggregate : public exec::Aggregate {
 template <typename T>
 class SetAggAggregate : public SetBaseAggregate<T> {
  public:
-  explicit SetAggAggregate(const TypePtr& resultType)
-      : SetBaseAggregate<T>(resultType) {}
+  explicit SetAggAggregate(
+      const TypePtr& resultType,
+      const bool throwOnNestedNulls = false)
+      : SetBaseAggregate<T>(resultType),
+        throwOnNestedNulls_(throwOnNestedNulls) {}
 
   using Base = SetBaseAggregate<T>;
 
@@ -213,6 +216,13 @@ class SetAggAggregate : public SetBaseAggregate<T> {
       std::vector<VectorPtr>& args,
       VectorPtr& result) const override {
     const auto& elements = args[0];
+
+    if (throwOnNestedNulls_) {
+      DecodedVector decodedElements(*elements, rows);
+      auto indices = decodedElements.indices();
+      rows.applyToSelected(
+          [&](vector_size_t i) { checkNulls(decodedElements, indices, i); });
+    }
 
     const auto numRows = rows.size();
 
@@ -252,10 +262,14 @@ class SetAggAggregate : public SetBaseAggregate<T> {
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     Base::decoded_.decode(*args[0], rows);
-
+    auto indices = Base::decoded_.indices();
     rows.applyToSelected([&](vector_size_t i) {
       auto* group = groups[i];
       Base::clearNull(group);
+
+      if (throwOnNestedNulls_) {
+        checkNulls(Base::decoded_, indices, i);
+      }
 
       auto tracker = Base::trackRowSize(group);
       Base::value(group)->addValue(Base::decoded_, i, Base::allocator_);
@@ -273,10 +287,34 @@ class SetAggAggregate : public SetBaseAggregate<T> {
     auto* accumulator = Base::value(group);
 
     auto tracker = Base::trackRowSize(group);
+    auto indices = Base::decoded_.indices();
     rows.applyToSelected([&](vector_size_t i) {
+      if (throwOnNestedNulls_) {
+        checkNulls(Base::decoded_, indices, i);
+      }
+
       accumulator->addValue(Base::decoded_, i, Base::allocator_);
     });
   }
+
+ private:
+  void checkNulls(
+      const DecodedVector& decoded,
+      const vector_size_t* indices,
+      vector_size_t index) const {
+    if (decoded.isNullAt(index)) {
+      return;
+    }
+
+    if (throwOnNestedNulls_) {
+      VELOX_USER_CHECK(
+          !decoded.base()->containsNullAt(indices[index]),
+          "{} comparison not supported for values that contain nulls",
+          mapTypeKindToName(decoded.base()->typeKind()));
+    }
+  }
+
+  const bool throwOnNestedNulls_;
 };
 
 template <typename T>
@@ -413,11 +451,43 @@ exec::AggregateRegistrationResult registerSetAgg(const std::string& name) {
           -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_EQ(argTypes.size(), 1);
 
-        const TypeKind typeKind = exec::isRawInput(step)
-            ? argTypes[0]->kind()
-            : argTypes[0]->childAt(0)->kind();
+        const bool isRawInput = exec::isRawInput(step);
+        const TypeKind typeKind =
+            isRawInput ? argTypes[0]->kind() : argTypes[0]->childAt(0)->kind();
+        const bool throwOnNestedNulls = isRawInput;
 
-        return create<SetAggAggregate>(typeKind, resultType);
+        switch (typeKind) {
+          case TypeKind::BOOLEAN:
+            return std::make_unique<SetAggAggregate<bool>>(resultType);
+          case TypeKind::TINYINT:
+            return std::make_unique<SetAggAggregate<int8_t>>(resultType);
+          case TypeKind::SMALLINT:
+            return std::make_unique<SetAggAggregate<int16_t>>(resultType);
+          case TypeKind::INTEGER:
+            return std::make_unique<SetAggAggregate<int32_t>>(resultType);
+          case TypeKind::BIGINT:
+            return std::make_unique<SetAggAggregate<int64_t>>(resultType);
+          case TypeKind::REAL:
+            return std::make_unique<SetAggAggregate<float>>(resultType);
+          case TypeKind::DOUBLE:
+            return std::make_unique<SetAggAggregate<double>>(resultType);
+          case TypeKind::TIMESTAMP:
+            return std::make_unique<SetAggAggregate<Timestamp>>(resultType);
+          case TypeKind::VARBINARY:
+            [[fallthrough]];
+          case TypeKind::VARCHAR:
+            return std::make_unique<SetAggAggregate<StringView>>(resultType);
+          case TypeKind::ARRAY:
+            [[fallthrough]];
+          case TypeKind::MAP:
+            [[fallthrough]];
+          case TypeKind::ROW:
+            return std::make_unique<SetAggAggregate<ComplexType>>(
+                resultType, throwOnNestedNulls);
+          default:
+            VELOX_UNREACHABLE(
+                "Unexpected type {}", mapTypeKindToName(typeKind));
+        }
       });
 }
 
