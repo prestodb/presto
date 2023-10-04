@@ -44,6 +44,9 @@ void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<LengthVarbinaryFunction, int64_t, Varbinary>(
       {prefix + "length"});
 
+  registerFunction<StartsWithFunction, bool, Varchar, Varchar>(
+      {prefix + "starts_with"});
+
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t>(
       {prefix + "substr"});
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t, int64_t>(

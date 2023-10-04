@@ -146,6 +146,10 @@ String Functions
 
     Raises an error if there are duplicate keys.
 
+.. function:: starts_with(string, substring) -> boolean
+
+    Returns whether ``string`` starts with ``substring``.
+
 .. function:: strpos(string, substring) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in

@@ -222,6 +222,23 @@ struct LengthVarbinaryFunction {
   }
 };
 
+template <typename T>
+struct StartsWithFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<bool>& result,
+      const arg_type<Varchar>& x,
+      const arg_type<Varchar>& y) {
+    if (x.size() < y.size()) {
+      result = false;
+      return;
+    }
+
+    result = (memcmp(x.data(), y.data(), y.size()) == 0);
+  }
+};
+
 /// Pad functions
 /// lpad(string, size, padString) → varchar
 ///     Left pads string to size characters with padString.  If size is
