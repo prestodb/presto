@@ -11,8 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifdef PRESTO_ENABLE_JWT
+#include <folly/ssl/OpenSSLHash.h> // @manual
+#include <jwt-cpp/jwt.h> // @manual
+#include <jwt-cpp/traits/nlohmann-json/traits.h> //@manual
+#endif // PRESTO_ENABLE_JWT
 #include <velox/common/base/Exceptions.h>
-
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
 
@@ -344,6 +348,34 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
   }
 
   return future;
+}
+
+void RequestBuilder::addJwtIfConfigured() {
+#ifdef PRESTO_ENABLE_JWT
+  if (SystemConfig::instance()->internalCommunicationJwtEnabled()) {
+    // If JWT was enabled the secret cannot be empty.
+    auto secretHash = std::vector<uint8_t>(SHA256_DIGEST_LENGTH);
+    folly::ssl::OpenSSLHash::sha256(
+        folly::range(secretHash),
+        folly::ByteRange(folly::StringPiece(
+            SystemConfig::instance()->internalCommunicationSharedSecret())));
+
+    const auto time = std::chrono::system_clock::now();
+    const auto token =
+        jwt::create<jwt::traits::nlohmann_json>()
+            .set_subject(NodeConfig::instance()->nodeId())
+            .set_issued_at(time)
+            .set_expires_at(
+                time +
+                std::chrono::seconds{
+                    SystemConfig::instance()
+                        ->internalCommunicationJwtExpirationSeconds()})
+            .sign(jwt::algorithm::hs256{std::string(
+                reinterpret_cast<char*>(secretHash.data()),
+                secretHash.size())});
+    header(kPrestoInternalBearer, token);
+  }
+#endif // PRESTO_ENABLE_JWT
 }
 
 } // namespace facebook::presto::http
