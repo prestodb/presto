@@ -13,24 +13,20 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
-import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
-import com.facebook.presto.spark.execution.property.WorkerProperty;
+import com.facebook.presto.spark.execution.property.NativeWorkerConfiguration;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTranslator;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTranslator;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.units.Duration;
-import org.jheaps.annotations.VisibleForTesting;
 
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -39,20 +35,22 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class NativeExecutionModule
         implements Module
 {
-    private Optional<NativeExecutionConnectorConfig> connectorConfig;
+    private Map<String, Map<String, String>> connectorConfigs;
+    private Map<String, String> configProperties;
+    private Map<String, String> nodeConfigs;
 
     // For use by production system where the configurations can only be tuned via configurations.
     public NativeExecutionModule()
     {
-        this.connectorConfig = Optional.empty();
+        this.connectorConfigs = ImmutableMap.of();
     }
 
     // In the future, we would make more bindings injected into NativeExecutionModule
     // to be able to test various configuration parameters
-    @VisibleForTesting
-    public NativeExecutionModule(Optional<NativeExecutionConnectorConfig> connectorConfig)
+    public NativeExecutionModule(Map<String, Map<String, String>> connectorConfigs, Map<String, String> configProperties)
     {
-        this.connectorConfig = connectorConfig;
+        this.connectorConfigs = connectorConfigs;
+        this.configProperties = configProperties;
     }
 
     @Override
@@ -73,13 +71,24 @@ public class NativeExecutionModule
 
     protected void bindWorkerProperties(Binder binder)
     {
-        newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
-        if (connectorConfig.isPresent()) {
-            binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(connectorConfig.get(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(), new NativeExecutionVeloxConfig()));
+        if (!connectorConfigs.isEmpty()) {
+            binder.bind(NativeWorkerConfiguration.class).toInstance(createNativeWorkerConfiguration(connectorConfigs, configProperties));
         }
         else {
-            binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
+            binder.bind(NativeWorkerConfiguration.class).in(Scopes.SINGLETON);
         }
+    }
+
+    private NativeWorkerConfiguration createNativeWorkerConfiguration(Map<String, Map<String, String>> connectorConfigs, Map<String, String> configProperties)
+    {
+        // create node configs
+        Map<String, String> nodeProperties = new HashMap<>();
+        nodeProperties.put("node.environment", configProperties.getOrDefault("node.environment", "presto_cpp"));
+
+        // set defaults for config.properties
+        // create connector configs
+        // Done
+        return new NativeWorkerConfiguration(new HashMap<>(connectorConfigs), new HashMap<>(configProperties), new HashMap<>(nodeProperties));
     }
 
     protected void bindHttpClient(Binder binder)

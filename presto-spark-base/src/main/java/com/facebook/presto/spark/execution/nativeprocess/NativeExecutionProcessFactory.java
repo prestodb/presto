@@ -18,7 +18,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.spark.execution.property.WorkerProperty;
+import com.facebook.presto.spark.execution.property.NativeWorkerConfiguration;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.Duration;
@@ -46,7 +46,7 @@ public class NativeExecutionProcessFactory
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final TaskManagerConfig taskManagerConfig;
-    private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final NativeWorkerConfiguration nativeWorkerConfiguration;
 
     private static NativeExecutionProcess process;
 
@@ -57,7 +57,7 @@ public class NativeExecutionProcessFactory
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?, ?> workerProperty)
+            NativeWorkerConfiguration nativeWorkerConfiguration)
 
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -65,7 +65,7 @@ public class NativeExecutionProcessFactory
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
         this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
-        this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        this.nativeWorkerConfiguration = requireNonNull(nativeWorkerConfiguration, "workerProperty is null");
     }
 
     public synchronized NativeExecutionProcess getNativeExecutionProcess(
@@ -92,7 +92,7 @@ public class NativeExecutionProcessFactory
                     serverInfoCodec,
                     maxErrorDuration,
                     taskManagerConfig,
-                    workerProperty);
+                    nativeWorkerConfiguration);
         }
         catch (IOException e) {
             throw new PrestoException(NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR, format("Cannot start native process: %s", e.getMessage()), e);

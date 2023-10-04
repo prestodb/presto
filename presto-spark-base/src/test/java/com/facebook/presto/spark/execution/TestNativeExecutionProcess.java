@@ -22,11 +22,8 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException
 import com.facebook.presto.spark.execution.http.TestPrestoSparkHttpClient;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcess;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
-import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
+import com.facebook.presto.spark.execution.property.NativeWorkerConfiguration;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -95,11 +92,10 @@ public class TestNativeExecutionProcess
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
         ScheduledExecutorService errorScheduler = newScheduledThreadPool(4);
-        PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
-                new NativeExecutionConnectorConfig(),
-                new NativeExecutionNodeConfig(),
-                new NativeExecutionSystemConfig(),
-                new NativeExecutionVeloxConfig());
+        NativeWorkerConfiguration workerProperty = new NativeWorkerConfiguration(
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of());
         NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(
                 new TestPrestoSparkHttpClient.TestingHttpClient(
                         new TestPrestoSparkHttpClient.TestingResponseManager(taskId.toString(), new TestPrestoSparkHttpClient.FailureRetryResponseManager(5))),

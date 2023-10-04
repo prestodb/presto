@@ -39,11 +39,7 @@ import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTask
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcess;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
-import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
+import com.facebook.presto.spark.execution.property.NativeWorkerConfiguration;
 import com.facebook.presto.spark.execution.task.NativeExecutionTask;
 import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
 import com.facebook.presto.spi.ErrorCodeSupplier;
@@ -57,6 +53,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.net.MediaType;
@@ -776,11 +773,10 @@ public class TestPrestoSparkHttpClient
             TaskManagerConfig config)
     {
         ScheduledExecutorService errorScheduler = newScheduledThreadPool(4);
-        PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
-                new NativeExecutionConnectorConfig(),
-                new NativeExecutionNodeConfig(),
-                new NativeExecutionSystemConfig(),
-                new NativeExecutionVeloxConfig());
+        NativeWorkerConfiguration workerProperty = new NativeWorkerConfiguration(
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of());
         NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(
                 new TestingHttpClient(responseManager),
                 newSingleThreadExecutor(),
