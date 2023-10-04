@@ -212,5 +212,9 @@
             <directory>${project.build.directory}/dependency/presto-clickhouse-${project.version}</directory>
             <outputDirectory>plugin/clickhouse</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-vault-${project.version}</directory>
+            <outputDirectory>plugin/vault</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>
