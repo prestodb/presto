@@ -320,6 +320,14 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRemoteFunctionServerCatalogName{
       "remote-function-server.catalog-name"};
 
+  /// Options to configure the internal (in-cluster) JWT authentication.
+  static constexpr std::string_view kInternalCommunicationJwtEnabled{
+      "internal-communication.jwt.enabled"};
+  static constexpr std::string_view kInternalCommunicationSharedSecret{
+      "internal-communication.shared-secret"};
+  static constexpr std::string_view kInternalCommunicationJwtExpirationSeconds{
+      "internal-communication.jwt.expiration-seconds"};
+
   SystemConfig();
 
   static SystemConfig* instance();
@@ -459,6 +467,12 @@ class SystemConfig : public ConfigBase {
   bool includeNodeInSpillPath() const;
 
   int32_t oldTaskCleanUpMs() const;
+
+  bool internalCommunicationJwtEnabled() const;
+
+  std::string internalCommunicationSharedSecret() const;
+
+  int32_t internalCommunicationJwtExpirationSeconds() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

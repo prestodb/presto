@@ -17,9 +17,11 @@ namespace facebook::presto::http {
 const uint16_t kHttpOk = 200;
 const uint16_t kHttpAccepted = 202;
 const uint16_t kHttpNoContent = 204;
+const uint16_t kHttpUnauthorized = 401;
 const uint16_t kHttpNotFound = 404;
 const uint16_t kHttpInternalServerError = 500;
 
 const char kMimeTypeApplicationJson[] = "application/json";
 const char kMimeTypeApplicationThrift[] = "application/x-thrift+binary";
+static const char kPrestoInternalBearer[] = "X-Presto-Internal-Bearer";
 } // namespace facebook::presto::http

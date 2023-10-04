@@ -80,6 +80,14 @@ jobs:
             cd presto-native-execution
             make velox-submodule
       - run:
+          name: "Install JWT adapter dependency"
+          command: |
+            mkdir -p ${HOME}/adapter-deps/install
+            source /opt/rh/gcc-toolset-9/enable
+            set -xu
+            cd presto-native-execution
+            DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
+      - run:
           name: "Calculate merge-base date for CCache"
           command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/master HEAD) | tee merge-base-date
       - restore_cache:
@@ -102,6 +110,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=Debug \
               -DPRESTO_ENABLE_PARQUET=ON \
               -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+              -DPRESTO_ENABLE_JWT=ON \
               -DCMAKE_PREFIX_PATH=/usr/local \
               -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
             ninja -C _build/debug -j 8
@@ -210,13 +219,14 @@ jobs:
             cd presto-native-execution
             make velox-submodule
       - run:
-          name: "Install S3 adapter dependencies"
+          name: "Install all adapter dependencies"
           command: |
             mkdir -p ${HOME}/adapter-deps/install
             source /opt/rh/gcc-toolset-9/enable
             set -xu
             cd presto-native-execution
             DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./velox/scripts/setup-adapters.sh
+            DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
       - run:
           name: "Build All"
           command: |
@@ -232,6 +242,7 @@ jobs:
               -DPRESTO_ENABLE_PARQUET=ON \
               -DPRESTO_ENABLE_S3=ON \
               -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+              -DPRESTO_ENABLE_JWT=ON \
               -DCMAKE_PREFIX_PATH=/usr/local \
               -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
             ninja -C _build/release -j 8
