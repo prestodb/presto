@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.rule;
 
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.hive.HivePartialAggregationPushdown;
 import com.facebook.presto.hive.HivePartitionManager;
 import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.TransactionalMetadata;

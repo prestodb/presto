@@ -11,9 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.rule;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveStorageFormat;
+import com.facebook.presto.hive.HiveTableHandle;
+import com.facebook.presto.hive.HiveTableLayoutHandle;
+import com.facebook.presto.hive.HiveTableProperties;
+import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.HiveTypeTranslator;
+import com.facebook.presto.hive.TransactionalMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
