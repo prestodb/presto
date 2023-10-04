@@ -31,16 +31,31 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
       .systemProperties = {
           {"native_max_spill_level", "1"},
           {"native_spill_compression_codec", "NONE"},
-          {"native_join_spill_enabled", "true"},
+          {"native_join_spill_enabled", "false"},
           {"native_spill_write_buffer_size", "1024"},
+          {"native_debug.validate_output_from_operators", "true"},
           {"aggregation_spill_all", "true"}}};
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
       taskId, session);
   EXPECT_EQ(queryCtx->queryConfig().maxSpillLevel(), 1);
   EXPECT_EQ(queryCtx->queryConfig().spillCompressionKind(), "NONE");
-  EXPECT_TRUE(queryCtx->queryConfig().joinSpillEnabled());
+  EXPECT_FALSE(queryCtx->queryConfig().joinSpillEnabled());
+  EXPECT_TRUE(queryCtx->queryConfig().validateOutputFromOperators());
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1024);
   EXPECT_TRUE(queryCtx->queryConfig().aggregationSpillAll());
+}
+
+TEST_F(QueryContextManagerTest, defaultSessionProperties) {
+  protocol::TaskId taskId = "scan.0.0.1.0";
+  protocol::SessionRepresentation session{.systemProperties = {}};
+  auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
+      taskId, session);
+  EXPECT_EQ(queryCtx->queryConfig().maxSpillLevel(), 4);
+  EXPECT_EQ(queryCtx->queryConfig().spillCompressionKind(), "none");
+  EXPECT_TRUE(queryCtx->queryConfig().joinSpillEnabled());
+  EXPECT_FALSE(queryCtx->queryConfig().validateOutputFromOperators());
+  EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1L << 20);
+  EXPECT_FALSE(queryCtx->queryConfig().aggregationSpillAll());
 }
 
 } // namespace facebook::presto
