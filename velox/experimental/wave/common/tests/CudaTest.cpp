@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <iostream>
+#include "velox/experimental/wave/common/tests/CudaTest.h"
 
+#include <cuda_runtime.h> // @manual
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
@@ -31,7 +32,8 @@
 #include "velox/common/time/Timer.h"
 #include "velox/experimental/wave/common/GpuArena.h"
 #include "velox/experimental/wave/common/tests/BlockTest.h"
-#include "velox/experimental/wave/common/tests/CudaTest.h"
+
+#include <iostream>
 
 DEFINE_int32(num_streams, 0, "Number of paralll streams");
 DEFINE_int32(op_size, 0, "Size of invoke kernel (ints read and written)");
@@ -900,5 +902,9 @@ TEST_F(CudaTest, reduceMatrix) {
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::init(&argc, &argv);
+  if (int device; cudaGetDevice(&device) != cudaSuccess) {
+    LOG(WARNING) << "No CUDA detected, skipping all tests";
+    return 0;
+  }
   return RUN_ALL_TESTS();
 }

@@ -173,5 +173,9 @@ TEST(IdMapTest, overflowNoEmptyMarker) {
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init follyInit(&argc, &argv);
+  if (int device; cudaGetDevice(&device) != cudaSuccess) {
+    LOG(WARNING) << "No CUDA detected, skipping all tests";
+    return 0;
+  }
   return RUN_ALL_TESTS();
 }

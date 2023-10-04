@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cuda_runtime.h> // @manual
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -29,6 +30,9 @@ using facebook::velox::test::BatchMaker;
 class FilterProjectTest : public OperatorTestBase {
  protected:
   void SetUp() override {
+    if (int device; cudaGetDevice(&device) != cudaSuccess) {
+      GTEST_SKIP() << "No CUDA detected, skipping all tests";
+    }
     wave::registerWave();
   }
 

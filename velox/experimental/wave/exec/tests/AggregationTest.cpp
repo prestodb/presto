@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuda_runtime.h> // @manual
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
 #include <random>
@@ -45,6 +46,12 @@ class AggregationTest : public OperatorTestBase {
   static void SetUpTestCase() {
     OperatorTestBase::SetUpTestCase();
     wave::registerWave();
+  }
+
+  void SetUp() override {
+    if (int device; cudaGetDevice(&device) != cudaSuccess) {
+      GTEST_SKIP() << "No CUDA detected, skipping all tests";
+    }
   }
 };
 
