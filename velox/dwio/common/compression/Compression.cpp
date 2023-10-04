@@ -241,6 +241,9 @@ uint64_t Lz4Decompressor::decompress(
   return static_cast<uint64_t>(result);
 }
 
+// NOTE: We do not keep `ZSTD_DCtx' around on purpose, because if we keep it
+// around, in flat map column reader we have hundreds of thousands of
+// decompressors at same time and causing OOM.
 class ZstdDecompressor : public Decompressor {
  public:
   explicit ZstdDecompressor(
@@ -254,8 +257,9 @@ class ZstdDecompressor : public Decompressor {
       char* dest,
       uint64_t destLength) override;
 
-  uint64_t getUncompressedLength(const char* src, uint64_t srcLength)
-      const override;
+  std::pair<int64_t, bool> getDecompressedLength(
+      const char* src,
+      uint64_t srcLength) const override;
 };
 
 uint64_t ZstdDecompressor::decompress(
@@ -273,7 +277,7 @@ uint64_t ZstdDecompressor::decompress(
   return ret;
 }
 
-uint64_t ZstdDecompressor::getUncompressedLength(
+std::pair<int64_t, bool> ZstdDecompressor::getDecompressedLength(
     const char* src,
     uint64_t srcLength) const {
   auto uncompressedLength = ZSTD_getFrameContentSize(src, srcLength);
@@ -281,14 +285,14 @@ uint64_t ZstdDecompressor::getUncompressedLength(
   // bound
   if (uncompressedLength == ZSTD_CONTENTSIZE_UNKNOWN ||
       uncompressedLength == ZSTD_CONTENTSIZE_ERROR) {
-    return blockSize_;
+    return {blockSize_, false};
   }
   DWIO_ENSURE_LE(
       uncompressedLength,
       blockSize_,
       "Insufficient buffer size. Info: ",
       streamDebugInfo_);
-  return uncompressedLength;
+  return {uncompressedLength, true};
 }
 
 class SnappyDecompressor : public Decompressor {
@@ -304,8 +308,9 @@ class SnappyDecompressor : public Decompressor {
       char* dest,
       uint64_t destLength) override;
 
-  uint64_t getUncompressedLength(const char* src, uint64_t srcLength)
-      const override;
+  std::pair<int64_t, bool> getDecompressedLength(
+      const char* src,
+      uint64_t srcLength) const override;
 };
 
 uint64_t SnappyDecompressor::decompress(
@@ -313,7 +318,7 @@ uint64_t SnappyDecompressor::decompress(
     uint64_t srcLength,
     char* dest,
     uint64_t destLength) {
-  auto length = getUncompressedLength(src, srcLength);
+  auto [length, _] = getDecompressedLength(src, srcLength);
   DWIO_ENSURE_GE(destLength, length);
   DWIO_ENSURE(
       snappy::RawUncompress(src, srcLength, dest),
@@ -322,23 +327,24 @@ uint64_t SnappyDecompressor::decompress(
   return length;
 }
 
-uint64_t SnappyDecompressor::getUncompressedLength(
+std::pair<int64_t, bool> SnappyDecompressor::getDecompressedLength(
     const char* src,
     uint64_t srcLength) const {
   size_t uncompressedLength;
   // in the case when decompression size is not available, return the upper
   // bound
   if (!snappy::GetUncompressedLength(src, srcLength, &uncompressedLength)) {
-    return blockSize_;
+    return {blockSize_, false};
   }
   DWIO_ENSURE_LE(
       uncompressedLength,
       blockSize_,
       "Insufficient buffer size. Info: ",
       streamDebugInfo_);
-  return uncompressedLength;
+  return {uncompressedLength, true};
 }
 
+// TODO: Is this really needed?
 class ZlibDecompressionStream : public PagedInputStream,
                                 private ZlibDecompressor {
  public:
@@ -355,13 +361,18 @@ class ZlibDecompressionStream : public PagedInputStream,
         ZlibDecompressor{blockSize, windowBits, streamDebugInfo, isGzip} {}
   ~ZlibDecompressionStream() override = default;
 
-  bool Next(const void** data, int32_t* size) override;
+  bool readOrSkip(const void** data, int32_t* size) override;
 };
 
-bool ZlibDecompressionStream::Next(const void** data, int32_t* size) {
+bool ZlibDecompressionStream::readOrSkip(const void** data, int32_t* size) {
+  if (data) {
+    VELOX_CHECK_EQ(pendingSkip_, 0);
+  }
   // if the user pushed back, return them the partial buffer
   if (outputBufferLength_) {
-    *data = outputBufferPtr_;
+    if (data) {
+      *data = outputBufferPtr_;
+    }
     *size = static_cast<int32_t>(outputBufferLength_);
     outputBufferPtr_ += outputBufferLength_;
     bytesReturned_ += outputBufferLength_;
@@ -381,7 +392,9 @@ bool ZlibDecompressionStream::Next(const void** data, int32_t* size) {
       static_cast<size_t>(inputBufferPtrEnd_ - inputBufferPtr_),
       remainingLength_);
   if (state_ == State::ORIGINAL) {
-    *data = inputBufferPtr_;
+    if (data) {
+      *data = inputBufferPtr_;
+    }
     *size = static_cast<int32_t>(availSize);
     outputBufferPtr_ = inputBufferPtr_ + availSize;
     outputBufferLength_ = 0;
@@ -393,7 +406,8 @@ bool ZlibDecompressionStream::Next(const void** data, int32_t* size) {
         getName(),
         " Info: ",
         ZlibDecompressor::streamDebugInfo_);
-    prepareOutputBuffer(getUncompressedLength(inputBufferPtr_, availSize));
+    prepareOutputBuffer(
+        getDecompressedLength(inputBufferPtr_, availSize).first);
 
     reset();
     zstream_.next_in =
@@ -432,7 +446,9 @@ bool ZlibDecompressionStream::Next(const void** data, int32_t* size) {
       }
     } while (result != Z_STREAM_END);
     *size = static_cast<int32_t>(blockSize_ - zstream_.avail_out);
-    *data = outputBufferPtr_;
+    if (data) {
+      *data = outputBufferPtr_;
+    }
     outputBufferLength_ = 0;
     outputBufferPtr_ += *size;
   }
