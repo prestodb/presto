@@ -31,7 +31,11 @@ class ColumnLoader : public velox::VectorLoader {
         version_(version) {}
 
  protected:
-  void loadInternal(RowSet rows, ValueHook* hook, VectorPtr* result) override;
+  void loadInternal(
+      RowSet rows,
+      ValueHook* hook,
+      vector_size_t resultSize,
+      VectorPtr* result) override;
 
  private:
   SelectiveStructColumnReaderBase* structReader_;

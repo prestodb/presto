@@ -74,9 +74,17 @@ class SimpleVectorLoader : public VectorLoader {
   explicit SimpleVectorLoader(std::function<VectorPtr(RowSet)> loader)
       : loader_(loader) {}
 
-  void loadInternal(RowSet rows, ValueHook* hook, VectorPtr* result) override {
+  void loadInternal(
+      RowSet rows,
+      ValueHook* hook,
+      vector_size_t resultSize,
+      VectorPtr* result) override {
     VELOX_CHECK(!hook, "SimpleVectorLoader doesn't support ValueHook");
-    *result = loader_(rows);
+    auto& resultRef = *result;
+    resultRef = loader_(rows);
+    if (resultRef->size() < resultSize) {
+      resultRef->resize(resultSize);
+    }
   }
 
  private:

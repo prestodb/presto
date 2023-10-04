@@ -459,7 +459,8 @@ BaseVector* RowVector::loadedVector() {
     if (!children_[i]) {
       continue;
     }
-    auto newChild = BaseVector::loadedVectorShared(children_[i]);
+    auto& newChild = BaseVector::loadedVectorShared(children_[i]);
+    // This is not needed but can potentially optimize decoding speed later.
     if (children_[i].get() != newChild.get()) {
       children_[i] = newChild;
     }

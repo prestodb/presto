@@ -725,7 +725,7 @@ VectorPtr BaseVector::createNullConstant(
 }
 
 // static
-VectorPtr BaseVector::loadedVectorShared(VectorPtr vector) {
+const VectorPtr& BaseVector::loadedVectorShared(const VectorPtr& vector) {
   if (vector->encoding() != VectorEncoding::Simple::LAZY) {
     // If 'vector' is a wrapper, we load any wrapped LazyVector.
     vector->loadedVector();

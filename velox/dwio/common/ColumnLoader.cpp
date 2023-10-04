@@ -22,12 +22,13 @@ namespace facebook::velox::dwio::common {
 // appear at the indices i 'rows'. Used when loading a LazyVector for
 // a sparse set of rows in conditional exprs.
 namespace {
-static void scatter(RowSet rows, VectorPtr* result) {
-  auto end = rows.back() + 1;
+static void scatter(RowSet rows, vector_size_t resultSize, VectorPtr* result) {
+  VELOX_CHECK_GE(resultSize, rows.back() + 1);
+
   // Initialize the indices to 0 to make the dictionary safely
   // readable also for uninitialized positions.
   auto indices =
-      AlignedBuffer::allocate<vector_size_t>(end, (*result)->pool(), 0);
+      AlignedBuffer::allocate<vector_size_t>(resultSize, (*result)->pool(), 0);
   auto rawIndices = indices->asMutable<vector_size_t>();
   for (int32_t i = 0; i < rows.size(); ++i) {
     rawIndices[rows[i]] = i;
@@ -35,13 +36,14 @@ static void scatter(RowSet rows, VectorPtr* result) {
   // Disable dictionary values caching in expression eval so that we don't need
   // to reallocate the result for every batch.
   result->get()->disableMemo();
-  *result = BaseVector::wrapInDictionary(nullptr, indices, end, *result);
+  *result = BaseVector::wrapInDictionary(nullptr, indices, resultSize, *result);
 }
 } // namespace
 
 void ColumnLoader::loadInternal(
     RowSet rows,
     ValueHook* hook,
+    vector_size_t resultSize,
     VectorPtr* result) {
   VELOX_CHECK_EQ(
       version_,
@@ -84,11 +86,11 @@ void ColumnLoader::loadInternal(
   }
   if (!hook) {
     fieldReader_->getValues(effectiveRows, result);
-    if (rows.size() != outputRows.size()) {
+    if (((rows.back() + 1) < resultSize) || rows.size() != outputRows.size()) {
       // We read sparsely. The values that were read should appear
       // at the indices in the result vector that were given by
       // 'rows'.
-      scatter(rows, result);
+      scatter(rows, resultSize, result);
     }
   }
 }

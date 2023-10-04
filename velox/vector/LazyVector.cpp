@@ -35,10 +35,14 @@ void writeIOTiming(const CpuWallTiming& delta) {
 }
 } // namespace
 
-void VectorLoader::load(RowSet rows, ValueHook* hook, VectorPtr* result) {
+void VectorLoader::load(
+    RowSet rows,
+    ValueHook* hook,
+    vector_size_t resultSize,
+    VectorPtr* result) {
   {
     DeltaCpuWallTimer timer([&](auto& delta) { writeIOTiming(delta); });
-    loadInternal(rows, hook, result);
+    loadInternal(rows, hook, resultSize, result);
   }
   if (hook) {
     // Record number of rows loaded directly into ValueHook bypassing
@@ -51,10 +55,11 @@ void VectorLoader::load(RowSet rows, ValueHook* hook, VectorPtr* result) {
 void VectorLoader::load(
     const SelectivityVector& rows,
     ValueHook* hook,
+    vector_size_t resultSize,
     VectorPtr* result) {
   {
     DeltaCpuWallTimer timer([&](auto& delta) { writeIOTiming(delta); });
-    loadInternal(rows, hook, result);
+    loadInternal(rows, hook, resultSize, result);
   }
 
   if (hook) {
@@ -68,6 +73,7 @@ void VectorLoader::load(
 void VectorLoader::loadInternal(
     const SelectivityVector& rows,
     ValueHook* hook,
+    vector_size_t resultSize,
     VectorPtr* result) {
   if (rows.isAllSelected()) {
     const auto& indices = DecodedVector::consecutiveIndices();
@@ -76,6 +82,7 @@ void VectorLoader::loadInternal(
       load(
           RowSet(&indices[rows.begin()], rows.end() - rows.begin()),
           hook,
+          resultSize,
           result);
       return;
     }
@@ -83,7 +90,7 @@ void VectorLoader::loadInternal(
   std::vector<vector_size_t> positions(rows.countSelected());
   int index = 0;
   rows.applyToSelected([&](vector_size_t row) { positions[index++] = row; });
-  load(positions, hook, result);
+  load(positions, hook, resultSize, result);
 }
 
 VectorPtr LazyVector::slice(vector_size_t offset, vector_size_t length) const {
@@ -93,8 +100,11 @@ VectorPtr LazyVector::slice(vector_size_t offset, vector_size_t length) const {
 }
 
 //   static
+// This gurantee that vectors are loaded but it does not gurantee that vector
+// will be free of any nested lazy vector i.e, references to Loaded lazy vectors
+// are not replaced with their underlying loaded vector.
 void LazyVector::ensureLoadedRows(
-    VectorPtr& vector,
+    const VectorPtr& vector,
     const SelectivityVector& rows) {
   if (isLazyNotLoaded(*vector)) {
     DecodedVector decoded;
@@ -109,7 +119,7 @@ void LazyVector::ensureLoadedRows(
 
 // static
 void LazyVector::ensureLoadedRowsImpl(
-    VectorPtr& vector,
+    const VectorPtr& vector,
     DecodedVector& decoded,
     const SelectivityVector& rows,
     SelectivityVector& baseRows) {
@@ -129,88 +139,45 @@ void LazyVector::ensureLoadedRowsImpl(
     }
     return;
   }
-  auto lazyVector = decoded.base()->asUnchecked<LazyVector>();
-  if (lazyVector->isLoaded()) {
-    if (isLazyNotLoaded(*lazyVector)) {
-      decoded.unwrapRows(baseRows, rows);
-      decoded.decode(*lazyVector->vector_, baseRows, false);
-      SelectivityVector nestedRows;
-      ensureLoadedRowsImpl(lazyVector->vector_, decoded, baseRows, nestedRows);
-    }
+  // Base vector is lazy.
+  auto baseLazyVector = decoded.base()->asUnchecked<LazyVector>();
 
-    vector->loadedVector();
-    return;
-  }
-  raw_vector<vector_size_t> rowNumbers;
-  RowSet rowSet;
-  if (decoded.isConstantMapping()) {
-    rowNumbers.push_back(decoded.index(rows.begin()));
-    rowSet = RowSet(rowNumbers);
-  } else if (decoded.isIdentityMapping()) {
-    if (rows.isAllSelected()) {
-      auto iota = velox::iota(rows.end(), rowNumbers);
-      rowSet = RowSet(iota, rows.end());
+  if (!baseLazyVector->isLoaded()) {
+    // Create rowSet.
+    raw_vector<vector_size_t> rowNumbers;
+    RowSet rowSet;
+    if (decoded.isConstantMapping()) {
+      rowNumbers.push_back(decoded.index(rows.begin()));
+      rowSet = RowSet(rowNumbers);
+    } else if (decoded.isIdentityMapping()) {
+      if (rows.isAllSelected()) {
+        auto iota = velox::iota(rows.end(), rowNumbers);
+        rowSet = RowSet(iota, rows.end());
+      } else {
+        rowNumbers.resize(rows.end());
+        rowNumbers.resize(simd::indicesOfSetBits(
+            rows.asRange().bits(), 0, rows.end(), rowNumbers.data()));
+        rowSet = RowSet(rowNumbers);
+      }
     } else {
-      rowNumbers.resize(rows.end());
+      decoded.unwrapRows(baseRows, rows);
+      rowNumbers.resize(baseRows.end());
       rowNumbers.resize(simd::indicesOfSetBits(
-          rows.asRange().bits(), 0, rows.end(), rowNumbers.data()));
+          baseRows.asRange().bits(), 0, baseRows.end(), rowNumbers.data()));
+
       rowSet = RowSet(rowNumbers);
     }
-  } else {
-    decoded.unwrapRows(baseRows, rows);
 
-    rowNumbers.resize(baseRows.end());
-    rowNumbers.resize(simd::indicesOfSetBits(
-        baseRows.asRange().bits(), 0, baseRows.end(), rowNumbers.data()));
-
-    rowSet = RowSet(rowNumbers);
-
-    lazyVector->load(rowSet, nullptr);
-    VectorPtr loadedVector = lazyVector->loadedVectorShared();
-    if (isLazyNotLoaded(*loadedVector)) {
-      decoded.unwrapRows(baseRows, rows);
-      DecodedVector nestedDecoded;
-      nestedDecoded.decode(*lazyVector, baseRows, false);
-      SelectivityVector nestedRows;
-      ensureLoadedRowsImpl(loadedVector, nestedDecoded, baseRows, nestedRows);
-    }
-
-    // The loaded base vector may have fewer rows than the original. Make sure
-    // there are no indices referring to rows past the end of the base vector.
-
-    BufferPtr indices = allocateIndices(rows.end(), vector->pool());
-    auto rawIndices = indices->asMutable<vector_size_t>();
-    auto decodedIndices = decoded.indices();
-    rows.applyToSelected(
-        [&](auto row) { rawIndices[row] = decodedIndices[row]; });
-
-    BufferPtr nulls = nullptr;
-    if (decoded.nulls()) {
-      if (!baseRows.hasSelections()) {
-        // All valid values in 'rows' are nulls. Set the nulls buffer to all
-        // nulls to avoid hitting DCHECK when creating a dictionary with a zero
-        // sized base vector.
-        nulls = allocateNulls(rows.end(), vector->pool(), bits::kNull);
-      } else {
-        nulls = allocateNulls(rows.end(), vector->pool());
-        std::memcpy(
-            nulls->asMutable<uint64_t>(),
-            decoded.nulls(),
-            bits::nbytes(rows.end()));
-      }
-    }
-
-    vector = BaseVector::wrapInDictionary(
-        std::move(nulls), std::move(indices), rows.end(), loadedVector);
-    return;
+    baseLazyVector->load(rowSet, nullptr);
   }
-  lazyVector->load(rowSet, nullptr);
 
-  if (isLazyNotLoaded(*lazyVector)) {
+  // The loaded vector can itself also be lazy, so we load recursively.
+  if (isLazyNotLoaded(*baseLazyVector->vector_)) {
     decoded.unwrapRows(baseRows, rows);
-    decoded.decode(*lazyVector->vector_, baseRows, false);
+    decoded.decode(*baseLazyVector->vector_, baseRows, false);
     SelectivityVector nestedRows;
-    ensureLoadedRowsImpl(lazyVector->vector_, decoded, baseRows, nestedRows);
+    ensureLoadedRowsImpl(
+        baseLazyVector->vector_, decoded, baseRows, nestedRows);
   }
 
   // An explicit call to loadedVector() is necessary to allow for proper
@@ -221,7 +188,7 @@ void LazyVector::ensureLoadedRowsImpl(
 
 // static
 void LazyVector::ensureLoadedRows(
-    VectorPtr& vector,
+    const VectorPtr& vector,
     const SelectivityVector& rows,
     DecodedVector& decoded,
     SelectivityVector& baseRows) {
@@ -234,6 +201,28 @@ void LazyVector::validate(const VectorValidateOptions& options) const {
     auto loadedVector = this->loadedVector();
     VELOX_CHECK_NOT_NULL(loadedVector);
     loadedVector->validate(options);
+  }
+}
+
+void LazyVector::load(RowSet rows, ValueHook* hook) const {
+  VELOX_CHECK(!allLoaded_, "A LazyVector can be loaded at most once");
+
+  allLoaded_ = true;
+  if (rows.empty()) {
+    vector_ = BaseVector::createNullConstant(type_, size(), pool_);
+    return;
+  }
+
+  // The loader expect structs to be pre-allocated.
+  if (!vector_ && type_->kind() == TypeKind::ROW) {
+    vector_ = BaseVector::create(type_, rows.back() + 1, pool_);
+  }
+
+  // We do not call prepareForReuse on vector_ in purpose, the loader handles
+  // that.
+  loader_->load(rows, hook, size(), &vector_);
+  if (!hook) {
+    VELOX_CHECK_GE(vector_->size(), size());
   }
 }
 

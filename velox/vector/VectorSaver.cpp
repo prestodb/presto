@@ -539,11 +539,15 @@ class LoadedVectorShim : public VectorLoader {
  public:
   explicit LoadedVectorShim(VectorPtr vector) : vector_(vector) {}
 
-  void loadInternal(RowSet /*rowSet*/, ValueHook* /*hook*/, VectorPtr* result)
-      override {
+  void loadInternal(
+      RowSet /*rowSet*/,
+      ValueHook* /*hook*/,
+      vector_size_t resultSize,
+      VectorPtr* result) override {
     VELOX_CHECK(
         vector_ != nullptr, "This lazy vector should not have been loaded.");
     *result = vector_;
+    VELOX_CHECK_EQ((*result)->size(), resultSize);
   }
 
  private:

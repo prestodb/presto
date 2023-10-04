@@ -22,7 +22,6 @@
 #include <folly/hash/Hash.h>
 #include <glog/logging.h>
 
-#include <velox/vector/BaseVector.h>
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/LazyVector.h"

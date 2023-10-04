@@ -40,13 +40,18 @@ class TestingLoader : public VectorLoader {
  public:
   explicit TestingLoader(VectorPtr data) : data_(data), rowCounter_(0) {}
 
-  void loadInternal(RowSet rows, ValueHook* hook, VectorPtr* result) override {
+  void loadInternal(
+      RowSet rows,
+      ValueHook* hook,
+      vector_size_t resultSize,
+      VectorPtr* result) override {
     if (hook) {
       VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
           applyHook, data_->typeKind(), rows, hook);
       return;
     }
     *result = data_;
+    VELOX_CHECK_GE(data_->size(), resultSize);
     rowCounter_ += rows.size();
   }
 
@@ -2038,6 +2043,7 @@ TEST_F(VectorTest, multipleDictionariesOverLazy) {
       indices,
       size,
       BaseVector::wrapInDictionary(nullptr, indices, size, lazy));
+
   dict->loadedVector();
   for (auto i = 0; i < size; i++) {
     ASSERT_EQ(i, dict->as<SimpleVector<int32_t>>()->valueAt(i));

@@ -582,7 +582,7 @@ class BaseVector {
     return this;
   }
 
-  static VectorPtr loadedVectorShared(VectorPtr vector);
+  static const VectorPtr& loadedVectorShared(const VectorPtr& vector);
 
   virtual const BufferPtr& values() const {
     VELOX_UNSUPPORTED("Only flat vectors have a values buffer");
