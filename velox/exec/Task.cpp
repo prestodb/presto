@@ -264,6 +264,8 @@ Task::Task(
       bufferManager_(PartitionedOutputBufferManager::getInstance()) {}
 
 Task::~Task() {
+  TestValue::adjust("facebook::velox::exec::Task::~Task", this);
+
   try {
     if (hasPartitionedOutput()) {
       if (auto bufferManager = bufferManager_.lock()) {

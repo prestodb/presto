@@ -19,12 +19,8 @@
 #include <gtest/gtest.h>
 #include <string>
 #include "velox/common/base/Fs.h"
-#include "velox/dwio/common/FileSink.h"
-#include "velox/dwio/common/tests/utils/BatchMaker.h"
-#include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/dwio/parquet/writer/Writer.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::parquet {
 
@@ -38,36 +34,16 @@ class ParquetWriterTestBase : public testing::Test {
   }
 
   std::vector<RowVectorPtr> createBatches(
-      const std::shared_ptr<const Type>& rowType,
-      uint64_t batchNum,
-      uint64_t capacity) {
-    std::vector<RowVectorPtr> batches;
-    for (auto i = 0; i < batchNum; ++i) {
-      batches.push_back(
-          std::static_pointer_cast<RowVector>(test::BatchMaker::createBatch(
-              rowType, capacity, *leafPool_, nullptr, 0)));
-    }
-    return batches;
-  }
+      const RowTypePtr& rowType,
+      uint64_t numBatches,
+      uint64_t vectorSize);
 
   std::unique_ptr<dwio::common::FileSink> createSink(
-      const std::string& filePath) {
-    auto sink = dwio::common::FileSink::create(
-        fmt::format("file:{}", filePath), {.pool = rootPool_.get()});
-    EXPECT_TRUE(sink->isBuffered());
-    EXPECT_TRUE(fs::exists(filePath));
-    EXPECT_FALSE(sink->isClosed());
-    return sink;
-  }
+      const std::string& filePath);
 
   std::unique_ptr<Writer> createWriter(
       std::unique_ptr<dwio::common::FileSink> sink,
-      std::function<std::unique_ptr<DefaultFlushPolicy>()> flushPolicy) {
-    facebook::velox::parquet::WriterOptions options;
-    options.memoryPool = rootPool_.get();
-    options.flushPolicyFactory = flushPolicy;
-    return std::make_unique<Writer>(std::move(sink), options);
-  }
+      std::function<std::unique_ptr<DefaultFlushPolicy>()> flushPolicy);
 
   std::shared_ptr<memory::MemoryPool> rootPool_;
   std::shared_ptr<memory::MemoryPool> leafPool_;

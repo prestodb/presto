@@ -16,9 +16,7 @@
 
 #include <utility>
 
-#include "velox/common/base/Fs.h"
-#include "velox/dwio/parquet/tests/ParquetWriterTestBase.h"
-#include "velox/dwio/parquet/writer/Writer.h"
+#include "velox/dwio/parquet/tests/writer/ParquetWriterTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::dwio::common;
