@@ -58,6 +58,8 @@ option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
 
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
+option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
+
 # Set all Velox options below
 add_compile_definitions(FOLLY_HAVE_INT128_T=1)
 
@@ -199,6 +201,10 @@ if(PRESTO_ENABLE_TESTING)
   include_directories(${VELOX_GTEST_INCUDE_DIR})
 else()
   add_definitions(-DVELOX_DISABLE_GOOGLETEST)
+endif()
+
+if(PRESTO_ENABLE_JWT)
+  add_compile_definitions(PRESTO_ENABLE_JWT)
 endif()
 
 add_subdirectory(presto_cpp)

@@ -21,7 +21,7 @@ HTTP endpoints related to tasks are registered to Proxygen in
 
 * POST: v1/task: This processes a `TaskUpdateRequest`
 * GET: v1/task: This returns a serialized `TaskInfo` (used for comprehensive
-  metrics, may be reported less frequently) 
+  metrics, may be reported less frequently)
 * GET: v1/task/status: This returns
   a serialized `TaskStatus` (used for query progress tracking, must be reported
   frequently)
@@ -104,5 +104,26 @@ The following properties allow the configuration of remote function execution:
 
     The UDS (unix domain socket) path to communicate with a local remote
     function server. If specified, takes precedence over
-    ``remote-function-server.thrift.address`` and 
+    ``remote-function-server.thrift.address`` and
     ``remote-function-server.thrift.port``.
+
+JWT authentication support
+--------------------------
+
+Prestissimo supports JWT authentication for internal communication.
+For details on the generally supported parameters visit `JWT <../security/internal-communication.html#jwt>`_.
+
+There is also an additional parameter:
+
+``internal-communication.jwt.expiration-seconds``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``integer``
+    * **Default value:** ``300``
+
+    There is a time period between creating the JWT on the client
+    and verification by the server.
+    If the time period is less than or equal to the parameter value, the request
+    is valid.
+    If the time period exceeds the parameter value, the request is rejected as
+    authentication failure (HTTP 401).

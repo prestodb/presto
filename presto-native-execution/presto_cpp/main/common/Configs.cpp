@@ -279,6 +279,9 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
           NUM_PROP(kOldTaskCleanUpMs, 60'000),
+          STR_PROP(kInternalCommunicationJwtEnabled, "false"),
+          STR_PROP(kInternalCommunicationSharedSecret, ""),
+          NUM_PROP(kInternalCommunicationJwtExpirationSeconds, 300),
       };
 }
 
@@ -556,6 +559,21 @@ bool SystemConfig::includeNodeInSpillPath() const {
 
 int32_t SystemConfig::oldTaskCleanUpMs() const {
   return optionalProperty<int32_t>(kOldTaskCleanUpMs).value();
+}
+
+// The next three toggles govern the use of JWT for authentication
+// for communication between the cluster nodes.
+bool SystemConfig::internalCommunicationJwtEnabled() const {
+  return optionalProperty<bool>(kInternalCommunicationJwtEnabled).value();
+}
+
+std::string SystemConfig::internalCommunicationSharedSecret() const {
+  return optionalProperty(kInternalCommunicationSharedSecret).value();
+}
+
+int32_t SystemConfig::internalCommunicationJwtExpirationSeconds() const {
+  return optionalProperty<int32_t>(kInternalCommunicationJwtExpirationSeconds)
+      .value();
 }
 
 NodeConfig::NodeConfig() {

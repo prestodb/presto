@@ -169,12 +169,15 @@ class RequestBuilder {
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>>
   send(HttpClient* client, const std::string& body = "", int64_t delayMs = 0) {
+    addJwtIfConfigured();
     header(proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(body.size()));
     headers_.ensureHostHeader();
     return client->sendRequest(headers_, body, delayMs);
   }
 
  private:
+  void addJwtIfConfigured();
+
   proxygen::HTTPMessage headers_;
 };
 

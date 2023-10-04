@@ -55,6 +55,15 @@ This dependency can be installed by running the script below from the
 
 `./velox/scripts/setup-adapters.sh aws`
 
+To enable JWT authentication support, set `PRESTO_ENABLE_JWT = "ON"` in
+the environment.
+
+JWT authentication support needs the [JWT CPP](https://github.com/Thalhammer/jwt-cpp) library.
+This dependency can be installed by running the script below from the
+`presto/presto-native-execution` directory.
+
+`./scripts/setup-adapters.sh jwt`
+
 * After installing the above dependencies, from the
 `presto/presto-native-execution` directory, run `make`
 * For development, use

@@ -11,7 +11,12 @@
 # limitations under the License.
 
 add_library(http_filters AccessLogFilter.cpp HttpEndpointLatencyFilter.cpp
-                         StatsFilter.cpp)
+                         InternalAuthenticationFilter.cpp StatsFilter.cpp)
+
+if(PRESTO_ENABLE_JWT)
+  target_include_directories(
+    http_filters PRIVATE ${CMAKE_SOURCE_DIR}/presto_cpp/external/json)
+endif()
 
 target_link_libraries(http_filters presto_common ${PROXYGEN_LIBRARIES})
 

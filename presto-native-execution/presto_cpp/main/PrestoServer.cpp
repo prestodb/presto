@@ -30,6 +30,7 @@
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
+#include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
@@ -161,6 +162,15 @@ void PrestoServer::run() {
             "Https Client Certificates are not configured correctly");
       }
       clientCertAndKeyPath = optionalClientCertPath.value();
+    }
+
+    if (systemConfig->internalCommunicationJwtEnabled()) {
+#ifndef PRESTO_ENABLE_JWT
+      VELOX_USER_FAIL("Internal JWT is enabled but not supported");
+#endif
+      VELOX_USER_CHECK(
+          !(systemConfig->internalCommunicationSharedSecret().empty()),
+          "Internal JWT is enabled without a corresponding shared secret");
     }
 
     nodeVersion_ = systemConfig->prestoVersion();
@@ -658,6 +668,11 @@ PrestoServer::getHttpServerFilters() {
             httpServer_.get()));
   }
 
+  // Always add the authentication filter to make sure the worker configuration
+  // is in line with the overall cluster configuration e.g. cannot have a worker
+  // without JWT enabled.
+  filters.push_back(
+      std::make_unique<http::filters::InternalAuthenticationFilterFactory>());
   return filters;
 }
 
