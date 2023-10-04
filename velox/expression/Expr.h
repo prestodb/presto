@@ -349,17 +349,6 @@ class Expr {
     return stats_;
   }
 
-  // Adds nulls from 'rawNulls' to positions of 'result' given by
-  // 'rows'. Ensures that '*result' is writable, of sufficient size
-  // and that it can take nulls. Makes a new '*result' when
-  // appropriate.
-  static void addNulls(
-      const SelectivityVector& rows,
-      const uint64_t* FOLLY_NULLABLE rawNulls,
-      EvalCtx& context,
-      const TypePtr& type,
-      VectorPtr& result);
-
   void addNulls(
       const SelectivityVector& rows,
       const uint64_t* FOLLY_NULLABLE rawNulls,

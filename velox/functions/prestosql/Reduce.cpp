@@ -67,7 +67,7 @@ class ReduceFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      const TypePtr& /* outputType */,
+      const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 4);
@@ -173,7 +173,8 @@ class ReduceFunction : public exec::VectorFunction {
           &localResult);
     }
     if (flatArray->rawNulls()) {
-      localResult->addNulls(flatArray->rawNulls(), rows);
+      exec::EvalCtx::addNulls(
+          rows, flatArray->rawNulls(), context, outputType, localResult);
     }
     context.moveOrCopyResult(localResult, rows, result);
   }

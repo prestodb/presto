@@ -662,7 +662,7 @@ void CastExpr::apply(
   // If there are nulls in input, add nulls to the result at the same rows.
   VELOX_CHECK_NOT_NULL(result);
   if (rawNulls) {
-    Expr::addNulls(
+    EvalCtx::addNulls(
         rows, nonNullRows->asRange().bits(), context, toType, result);
   }
 }

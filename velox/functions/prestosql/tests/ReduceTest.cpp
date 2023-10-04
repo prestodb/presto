@@ -210,12 +210,35 @@ TEST_F(ReduceTest, finalSelectionLargerThanInput) {
 
 TEST_F(ReduceTest, nullArray) {
   // Verify that NULL array is not passed on to lambda as it should be handled
-  // differently from array with null element
-  auto arrayVector = makeNullableArrayVector<int64_t>(
-      {std::nullopt, {{1, std::nullopt}}, {{std::nullopt, 2}}, {{1, 2, 3}}});
+  // differently from array with null element.
+  // Case 1:  covers leading, middle and trailing nulls (intermediate result can
+  // be smaller than input vector)
+  auto arrayVector = makeArrayVectorFromJson<int64_t>(
+      {"null", "[1, null]", "null", "[null, 2]", "[1, 2, 3]", "null"});
   auto data = makeRowVector({arrayVector});
   auto result = evaluate(
       "reduce(c0, 0, (s, x) -> s + x, s -> coalesce(s, 0) * 10)", data);
   assertEqualVectors(
-      makeNullableFlatVector<int64_t>({std::nullopt, 0, 0, 60}), result);
+      makeNullableFlatVector<int64_t>(
+          {std::nullopt, 0, std::nullopt, 0, 60, std::nullopt}),
+      result);
+
+  // Case 2: Where intermediate result is a constant vector by making the final
+  // reduce step output a constant.
+  auto singleValueArrayVector =
+      makeArrayVectorFromJson<int64_t>({"null", "[1, 2, 3]", "null"});
+  result = evaluate(
+      "reduce(c0, 0, (s, x) -> s + x, s -> 10)",
+      makeRowVector({singleValueArrayVector}));
+  assertEqualVectors(
+      makeNullableFlatVector<int64_t>({std::nullopt, 10, std::nullopt}),
+      result);
+
+  // Case 3: Where intermediate result is null
+  auto allNullsArrayVector = makeArrayVectorFromJson<int64_t>({"null", "null"});
+  result = evaluate(
+      "reduce(c0, 0, (s, x) -> s + x, s -> coalesce(s, 0) * 10)",
+      makeRowVector({allNullsArrayVector}));
+  assertEqualVectors(
+      makeNullableFlatVector<int64_t>({std::nullopt, std::nullopt}), result);
 }

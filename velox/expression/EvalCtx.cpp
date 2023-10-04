@@ -273,6 +273,47 @@ VectorPtr EvalCtx::ensureFieldLoaded(
   return field;
 }
 
+// static
+void EvalCtx::addNulls(
+    const SelectivityVector& rows,
+    const uint64_t* rawNulls,
+    EvalCtx& context,
+    const TypePtr& type,
+    VectorPtr& result) {
+  // If there's no `result` yet, return a NULL ContantVector.
+  if (!result) {
+    result = BaseVector::createNullConstant(type, rows.end(), context.pool());
+    return;
+  }
+
+  // If result is already a NULL ConstantVector, resize the vector if necessary,
+  // or do nothing otherwise.
+  if (result->isConstantEncoding() && result->isNullAt(0)) {
+    if (result->size() < rows.end()) {
+      if (result.unique()) {
+        result->resize(rows.end());
+      } else {
+        result =
+            BaseVector::createNullConstant(type, rows.end(), context.pool());
+      }
+    }
+    return;
+  }
+
+  if (!result.unique() || !result->isNullsWritable()) {
+    BaseVector::ensureWritable(
+        SelectivityVector::empty(), type, context.pool(), result);
+  }
+
+  if (result->size() < rows.end()) {
+    BaseVector::ensureWritable(
+        SelectivityVector::empty(), type, context.pool(), result);
+    result->resize(rows.end());
+  }
+
+  result->addNulls(rawNulls, rows);
+}
+
 ScopedFinalSelectionSetter::ScopedFinalSelectionSetter(
     EvalCtx& evalCtx,
     const SelectivityVector* finalSelection,
