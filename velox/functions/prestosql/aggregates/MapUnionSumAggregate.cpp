@@ -54,12 +54,16 @@ struct Accumulator {
       // Ignore null map keys.
       if (!mapKeys->isNullAt(offset + i)) {
         auto key = mapKeys->valueAt(offset + i);
-        addValue(key, mapValues, offset + i);
+        addValue(key, mapValues, offset + i, mapValues->typeKind());
       }
     }
   }
 
-  void addValue(K key, const SimpleVector<S>* mapValues, vector_size_t row) {
+  void addValue(
+      K key,
+      const SimpleVector<S>* mapValues,
+      vector_size_t row,
+      TypeKind valueKind) {
     if (mapValues->isNullAt(row)) {
       sums[key] += 0;
     } else {
@@ -68,7 +72,25 @@ struct Accumulator {
       if constexpr (std::is_same_v<S, double> || std::is_same_v<S, float>) {
         sums[key] += value;
       } else {
-        sums[key] = functions::checkedPlus<S>(sums[key], value);
+        S checkedSum;
+        auto overflow = __builtin_add_overflow(sums[key], value, &checkedSum);
+
+        if (UNLIKELY(overflow)) {
+          auto errorValue = (int128_t(sums[key]) + int128_t(value));
+
+          if (errorValue < 0) {
+            VELOX_ARITHMETIC_ERROR(
+                "Value {} is less than {}",
+                errorValue,
+                std::numeric_limits<S>::min());
+          } else {
+            VELOX_ARITHMETIC_ERROR(
+                "Value {} exceeds {}",
+                errorValue,
+                std::numeric_limits<S>::max());
+          }
+        }
+        sums[key] = checkedSum;
       }
     }
   }
@@ -125,7 +147,7 @@ struct StringViewAccumulator {
           }
         }
 
-        base.addValue(key, mapValues, offset + i);
+        base.addValue(key, mapValues, offset + i, mapValues->typeKind());
       }
     }
   }

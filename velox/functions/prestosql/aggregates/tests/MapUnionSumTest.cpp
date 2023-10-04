@@ -144,12 +144,29 @@ TEST_F(MapUnionSumTest, tinyintOverflow) {
                   .planNode();
 
   VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()), "Value 140 exceeds 127");
+
+  data = makeRowVector({
+      makeNullableMapVector<int64_t, int8_t>({
+          {{{1, -10}, {2, -20}}},
+          {{{1, -100}, {3, -30}, {4, -40}}},
+          {{{3, -30}, {5, -50}, {1, -30}}},
+      }),
+  });
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({}, {"map_union_sum(c0)"})
+             .planNode();
+
+  VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan).copyResults(pool()),
-      "integer overflow: 110 + 30");
+      "Value -140 is less than -128");
 }
 
 TEST_F(MapUnionSumTest, smallintOverflow) {
   const int16_t largeValue = std::numeric_limits<int16_t>::max() - 20;
+  const int16_t smallValue = std::numeric_limits<int16_t>::min() + 20;
   auto data = makeRowVector({
       makeNullableMapVector<int64_t, int16_t>({
           {{{1, 10}, {2, 20}}},
@@ -165,11 +182,29 @@ TEST_F(MapUnionSumTest, smallintOverflow) {
 
   VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan).copyResults(pool()),
-      "integer overflow: 32757 + 30");
+      "Value 32787 exceeds 32767");
+
+  data = makeRowVector({
+      makeNullableMapVector<int64_t, int16_t>({
+          {{{1, -10}, {2, -20}}},
+          {{{1, smallValue}, {3, -30}, {4, -40}}},
+          {{{3, -30}, {5, -50}, {1, -30}}},
+      }),
+  });
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({}, {"map_union_sum(c0)"})
+             .planNode();
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "Value -32788 is less than -32768");
 }
 
 TEST_F(MapUnionSumTest, integerOverflow) {
   const int32_t largeValue = std::numeric_limits<int32_t>::max() - 20;
+  const int32_t smallValue = std::numeric_limits<int32_t>::min() + 20;
   auto data = makeRowVector({
       makeNullableMapVector<int64_t, int32_t>({
           {{{1, 10}, {2, 20}}},
@@ -185,11 +220,29 @@ TEST_F(MapUnionSumTest, integerOverflow) {
 
   VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan).copyResults(pool()),
-      "integer overflow: 2147483637 + 30");
+      "Value 2147483667 exceeds 2147483647");
+
+  data = makeRowVector({
+      makeNullableMapVector<int64_t, int32_t>({
+          {{{1, -10}, {2, -20}}},
+          {{{1, smallValue}, {3, -30}, {4, -40}}},
+          {{{3, -30}, {5, -50}, {1, -30}}},
+      }),
+  });
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({}, {"map_union_sum(c0)"})
+             .planNode();
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "Value -2147483668 is less than -2147483648");
 }
 
 TEST_F(MapUnionSumTest, bigintOverflow) {
   const int64_t largeValue = std::numeric_limits<int64_t>::max() - 20;
+  const int64_t smallValue = std::numeric_limits<int64_t>::min() + 20;
   auto data = makeRowVector({
       makeNullableMapVector<int64_t, int64_t>({
           {{{1, 10}, {2, 20}}},
@@ -205,7 +258,24 @@ TEST_F(MapUnionSumTest, bigintOverflow) {
 
   VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan).copyResults(pool()),
-      "integer overflow: 9223372036854775797 + 30");
+      "Value 9223372036854775827 exceeds 9223372036854775807");
+
+  data = makeRowVector({
+      makeNullableMapVector<int64_t, int64_t>({
+          {{{1, -10}, {2, -20}}},
+          {{{1, smallValue}, {3, -30}, {4, -40}}},
+          {{{3, -30}, {5, -50}, {1, -30}}},
+      }),
+  });
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({}, {"map_union_sum(c0)"})
+             .planNode();
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "Value -9223372036854775828 is less than -9223372036854775808");
 }
 
 TEST_F(MapUnionSumTest, floatNan) {
