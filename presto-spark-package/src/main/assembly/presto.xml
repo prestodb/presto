@@ -33,6 +33,10 @@
             <outputDirectory>plugin/teradata-functions</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-hana-${project.version}</directory>
+            <outputDirectory>plugin/hana</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-hive-hadoop2-${project.version}</directory>
             <outputDirectory>plugin/hive-hadoop2</outputDirectory>
         </fileSet>
