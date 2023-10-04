@@ -306,6 +306,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
+    public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug.validate_output_from_operators";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1561,6 +1562,15 @@ public final class SystemSessionProperties
                         "Enable reuse the native process within the same JVM",
                         true,
                         false),
+                booleanProperty(
+                        NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS,
+                        "If set to true, then during execution of tasks, the output vectors of " +
+                                "every operator are validated for consistency. This is an expensive check " +
+                                "so should only be used for debugging. It can help debug issues where " +
+                                "malformed vector cause failures or crashes by helping identify which " +
+                                "operator is generating them.",
+                        false,
+                        true),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "(Deprecated) Randomize null join key for outer join",
