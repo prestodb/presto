@@ -109,7 +109,7 @@ class DataBuffer {
       buf_ = reinterpret_cast<T*>(pool_->allocate(newSize));
     } else {
       buf_ = reinterpret_cast<T*>(
-          pool_->reallocate(buf_, sizeInBytes(capacity_), newSize));
+          pool_->reallocate(buf_, capacityInBytes(), newSize));
     }
     VELOX_CHECK(buf_ != nullptr || newSize == 0);
     capacity_ = capacity;
@@ -145,11 +145,11 @@ class DataBuffer {
     unsafeAppend(offset, src, items);
   }
 
-  /// Sets a value to the specified offset - if offset overflows current
-  /// capacity It safely allocate more space to meet the request.
+  /// Sets a value to the specified offset. If offset overflows current
+  /// capacity, it safely allocates more space to meet the request.
   void safeSet(uint64_t offset, T value) {
     if (offset >= capacity_) {
-      // 50% increasing capacity or offset;
+      // Increase capacity by 50% or by offset value.
       const auto size =
           std::max(offset + 1, capacity_ + ((capacity_ + 1) / 2) + 1);
       reserve(size);
@@ -190,6 +190,7 @@ class DataBuffer {
 
   void append(T value) {
     if (size_ >= capacity_) {
+      // Increase capacity by 50%.
       reserve(capacity_ + ((capacity_ + 1) / 2) + 1);
     }
     unsafeAppend(value);
@@ -225,11 +226,11 @@ class DataBuffer {
   // The referenced velox buffer. 'buf_' owns the memory when 'veloxRef_' is
   // nullptr.
   const velox::BufferPtr veloxRef_{nullptr};
-
+  // Buffer storing the items.
   T* buf_;
-  // current size
+  // Current number of items of type T.
   uint64_t size_;
-  // maximal capacity (actual allocated memory)
+  // Maximum capacity of items of type T.
   uint64_t capacity_;
 };
 } // namespace common
