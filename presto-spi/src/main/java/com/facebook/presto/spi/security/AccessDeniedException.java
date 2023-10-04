@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.security;
 
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 
 import java.security.Principal;
@@ -29,6 +30,16 @@ public class AccessDeniedException
     public AccessDeniedException(String message)
     {
         super(PERMISSION_DENIED, "Access Denied: " + message);
+    }
+    
+    /**
+     * @param errorCode
+     * @param message
+     * added for AMS use
+     */
+    public AccessDeniedException(ErrorCodeSupplier errorCode, String message)
+    {
+        super(errorCode, message);
     }
 
     public static void denySetUser(Optional<Principal> principal, String userName)

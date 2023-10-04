@@ -61,7 +61,7 @@ import static com.facebook.presto.spi.StandardErrorCode.AMS_VIEW_OWNER_CANNOT_CR
 import static java.lang.String.format;
 
 public class AMSAccessDeniedException
-        extends PrestoException
+        extends AccessDeniedException
 {
     public AMSAccessDeniedException(ErrorCodeSupplier errorCode, String message)
     {
