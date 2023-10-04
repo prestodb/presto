@@ -13,16 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/Spill.h"
+
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <memory>
+
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/OperatorUtils.h"
+#include "velox/exec/Spill.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/type/Timestamp.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -424,7 +427,9 @@ TEST_P(SpillTest, spillTimestamp) {
       Timestamp{12, 0},
       Timestamp{0, 17'123'456},
       Timestamp{1, 17'123'456},
-      Timestamp{-1, 17'123'456}};
+      Timestamp{-1, 17'123'456},
+      Timestamp{Timestamp::kMaxSeconds, Timestamp::kMaxNanos},
+      Timestamp{Timestamp::kMinSeconds, 0}};
 
   SpillState state(
       spillPath,
