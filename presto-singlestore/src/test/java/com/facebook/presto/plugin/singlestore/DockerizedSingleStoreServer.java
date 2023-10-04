@@ -66,6 +66,15 @@ public class DockerizedSingleStoreServer
         }
     }
 
+    public void setGlobalVariable(String name, String value)
+            throws SQLException
+    {
+        try (Connection conn = DriverManager.getConnection(getJdbcUrl());
+                Statement stmt = conn.createStatement()) {
+            stmt.execute(format("SET GLOBAL %s = %s", name, value));
+        }
+    }
+
     public String getJdbcUrl()
     {
         return getJdbcUrl(dockerContainer::getHostPort, SINGLESTORE_USER, ROOT_PASSWORD);
