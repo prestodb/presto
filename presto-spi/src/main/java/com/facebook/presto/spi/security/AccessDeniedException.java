@@ -31,12 +31,7 @@ public class AccessDeniedException
     {
         super(PERMISSION_DENIED, "Access Denied: " + message);
     }
-    
-    /**
-     * @param errorCode
-     * @param message
-     * added for AMS use
-     */
+
     public AccessDeniedException(ErrorCodeSupplier errorCode, String message)
     {
         super(errorCode, message);

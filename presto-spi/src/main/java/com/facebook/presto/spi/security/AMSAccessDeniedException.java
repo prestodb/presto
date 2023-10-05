@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.security;
 
 import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
 
 import java.security.Principal;
 import java.util.Collection;
