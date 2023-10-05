@@ -310,16 +310,25 @@ TEST_F(PrestoHasherTest, maps) {
 }
 
 TEST_F(PrestoHasherTest, rows) {
-  auto row = makeRowVector(
-      {makeFlatVector<int64_t>({1, 3}), makeFlatVector<int64_t>({2, 4})});
+  auto row = makeRowVector({
+      makeFlatVector<int64_t>({1, 3}),
+      makeFlatVector<int64_t>({2, 4}),
+  });
 
   assertHash(row, {4329740752828761434, 655643799837772474});
 
-  row = makeRowVector(
-      {makeNullableFlatVector<int64_t>({1, std::nullopt}),
-       makeNullableFlatVector<int64_t>({std::nullopt, 4})});
+  row = makeRowVector({
+      makeNullableFlatVector<int64_t>({1, std::nullopt}),
+      makeNullableFlatVector<int64_t>({std::nullopt, 4}),
+  });
 
   assertHash(row, {7113531408683827503, -1169223928725763049});
+
+  row->setNull(0, true);
+  assertHash(row, {0, -1169223928725763049});
+
+  row->setNull(1, true);
+  assertHash(row, {0, 0});
 }
 
 TEST_F(PrestoHasherTest, wrongVectorType) {

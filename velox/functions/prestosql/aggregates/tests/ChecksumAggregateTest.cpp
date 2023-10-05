@@ -205,16 +205,45 @@ TEST_F(ChecksumAggregateTest, maps) {
 }
 
 TEST_F(ChecksumAggregateTest, rows) {
-  auto row = makeRowVector(
-      {makeFlatVector<int64_t>({1, 3}), makeFlatVector<int64_t>({2, 4})});
+  auto row = makeRowVector({
+      makeFlatVector<int64_t>({1, 3}),
+      makeFlatVector<int64_t>({2, 4}),
+  });
 
   assertChecksum(row, "jMIvLQ5YEVg=");
 
-  row = makeRowVector(
-      {makeNullableFlatVector<int64_t>({1, std::nullopt}),
-       makeNullableFlatVector<int64_t>({std::nullopt, 4})});
+  row->setNull(0, true);
+  assertChecksum(row, "nbYF0I9UTeU=");
+
+  row->setNull(1, true);
+  assertChecksum(row, "DpXXC2Pzbjw=");
+
+  row = makeRowVector({
+      makeNullableFlatVector<int64_t>({1, std::nullopt}),
+      makeNullableFlatVector<int64_t>({std::nullopt, 4}),
+  });
 
   assertChecksum(row, "6jtxEIUj7Hg=");
+
+  row = makeRowVector({
+      makeRowVector({
+          makeNullableFlatVector<std::string>({"Hello", "world!"}),
+          makeNullableFlatVector<bool>({true, false}),
+      }),
+      makeNullableFlatVector<int64_t>({17, 4}),
+  });
+
+  assertChecksum(row, "21pwcVg31Kc=");
+
+  row = makeRowVector({
+      makeRowVector({
+          makeNullableFlatVector<std::string>({"Hello", std::nullopt}),
+          makeNullableFlatVector<bool>({std::nullopt, false}),
+      }),
+      makeNullableFlatVector<int64_t>({std::nullopt, 4}),
+  });
+
+  assertChecksum(row, "Aw9tzUPOiUc=");
 }
 
 TEST_F(ChecksumAggregateTest, globalAggregationNoData) {

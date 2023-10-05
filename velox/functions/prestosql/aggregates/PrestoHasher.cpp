@@ -231,14 +231,17 @@ void PrestoHasher::hash<TypeKind::ROW>(
     BufferPtr& hashes) {
   auto baseRow = vector_->base()->as<RowVector>();
   auto indices = vector_->indices();
-  SelectivityVector elementRows;
 
-  if (vector_->isIdentityMapping()) {
+  SelectivityVector elementRows;
+  if (vector_->isIdentityMapping() && !vector_->mayHaveNulls()) {
     elementRows = rows;
   } else {
     elementRows = SelectivityVector(baseRow->size(), false);
-    rows.applyToSelected(
-        [&](auto row) { elementRows.setValid(indices[row], true); });
+    rows.applyToSelected([&](auto row) {
+      if (!vector_->isNullAt(row)) {
+        elementRows.setValid(indices[row], true);
+      }
+    });
     elementRows.updateBounds();
   }
 
@@ -246,14 +249,14 @@ void PrestoHasher::hash<TypeKind::ROW>(
       AlignedBuffer::allocate<int64_t>(elementRows.end(), baseRow->pool());
 
   auto rawHashes = hashes->asMutable<int64_t>();
-  auto rowChildHashes = childHashes->as<int64_t>();
 
   if (isTimestampWithTimeZoneType(vector_->base()->type())) {
     // Hash only timestamp value.
     children_[0]->hash(baseRow->childAt(0), elementRows, childHashes);
+    auto rawChildHashes = childHashes->as<int64_t>();
     rows.applyToSelected([&](auto row) {
       if (!baseRow->isNullAt(indices[row])) {
-        rawHashes[row] = rowChildHashes[indices[row]];
+        rawHashes[row] = rawChildHashes[indices[row]];
       } else {
         rawHashes[row] = 0;
       }
@@ -261,15 +264,30 @@ void PrestoHasher::hash<TypeKind::ROW>(
     return;
   }
 
+  BufferPtr combinedChildHashes =
+      AlignedBuffer::allocate<int64_t>(elementRows.end(), baseRow->pool());
+  auto* rawCombinedChildHashes = combinedChildHashes->asMutable<int64_t>();
+  std::fill_n(rawCombinedChildHashes, rows.end(), 1);
+
   std::fill_n(rawHashes, rows.end(), 1);
 
   for (int i = 0; i < baseRow->childrenSize(); i++) {
     children_[i]->hash(baseRow->childAt(i), elementRows, childHashes);
 
-    rows.applyToSelected([&](auto row) {
-      rawHashes[row] = safeHash(rawHashes[row], rowChildHashes[indices[row]]);
+    auto rawChildHashes = childHashes->as<int64_t>();
+    elementRows.applyToSelected([&](auto row) {
+      rawCombinedChildHashes[row] =
+          safeHash(rawCombinedChildHashes[row], rawChildHashes[row]);
     });
   }
+
+  rows.applyToSelected([&](auto row) {
+    if (!vector_->isNullAt(row)) {
+      rawHashes[row] = rawCombinedChildHashes[indices[row]];
+    } else {
+      rawHashes[row] = 0;
+    }
+  });
 }
 
 void PrestoHasher::hash(
