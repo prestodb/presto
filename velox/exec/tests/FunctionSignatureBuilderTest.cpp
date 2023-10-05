@@ -252,3 +252,89 @@ TEST_F(FunctionSignatureBuilderTest, toString) {
 
   ASSERT_EQ("foo(BIGINT, VARCHAR)", toString("foo", {BIGINT(), VARCHAR()}));
 }
+
+TEST_F(FunctionSignatureBuilderTest, orderableComparable) {
+  {
+    auto signature = FunctionSignatureBuilder()
+                         .typeVariable("T")
+                         .returnType("array(T)")
+                         .argumentType("array(T)")
+                         .build();
+    ASSERT_FALSE(signature->variables().at("T").orderableTypesOnly());
+    ASSERT_FALSE(signature->variables().at("T").comparableTypesOnly());
+  }
+
+  {
+    auto signature = FunctionSignatureBuilder()
+                         .orderableTypeVariable("T")
+                         .returnType("array(T)")
+                         .argumentType("array(T)")
+                         .build();
+    ASSERT_TRUE(signature->variables().at("T").orderableTypesOnly());
+    ASSERT_TRUE(signature->variables().at("T").comparableTypesOnly());
+  }
+
+  {
+    auto signature = FunctionSignatureBuilder()
+                         .comparableTypeVariable("T")
+                         .returnType("array(T)")
+                         .argumentType("array(T)")
+                         .build();
+    ASSERT_FALSE(signature->variables().at("T").orderableTypesOnly());
+    ASSERT_TRUE(signature->variables().at("T").comparableTypesOnly());
+  }
+
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .orderableTypeVariable("T")
+          .returnType("array(T)")
+          .argumentType("array(T)")
+          .build(),
+      "Variable T declared twice");
+}
+
+TEST_F(FunctionSignatureBuilderTest, orderableComparableAggregate) {
+  {
+    auto signature = exec::AggregateFunctionSignatureBuilder()
+                         .typeVariable("T")
+                         .returnType("T")
+                         .intermediateType("T")
+                         .argumentType("T")
+                         .build();
+    ASSERT_FALSE(signature->variables().at("T").orderableTypesOnly());
+    ASSERT_FALSE(signature->variables().at("T").comparableTypesOnly());
+  }
+
+  {
+    auto signature = exec::AggregateFunctionSignatureBuilder()
+                         .orderableTypeVariable("T")
+                         .returnType("T")
+                         .intermediateType("T")
+                         .argumentType("T")
+                         .build();
+    ASSERT_TRUE(signature->variables().at("T").orderableTypesOnly());
+    ASSERT_TRUE(signature->variables().at("T").comparableTypesOnly());
+  }
+
+  {
+    auto signature = exec::AggregateFunctionSignatureBuilder()
+                         .comparableTypeVariable("T")
+                         .returnType("T")
+                         .intermediateType("T")
+                         .argumentType("T")
+                         .build();
+    ASSERT_FALSE(signature->variables().at("T").orderableTypesOnly());
+    ASSERT_TRUE(signature->variables().at("T").comparableTypesOnly());
+  }
+
+  VELOX_ASSERT_THROW(
+      exec::AggregateFunctionSignatureBuilder()
+          .typeVariable("T")
+          .comparableTypeVariable("T")
+          .returnType("T")
+          .intermediateType("T")
+          .argumentType("T")
+          .build(),
+      "Variable T declared twice");
+}

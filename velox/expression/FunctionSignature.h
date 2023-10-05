@@ -43,7 +43,9 @@ class SignatureVariable {
       std::string name,
       std::optional<std::string> constraint,
       ParameterType type,
-      bool knownTypesOnly = false);
+      bool knownTypesOnly = false,
+      bool orderableTypesOnly = false,
+      bool comparableTypesOnly = false);
 
   const std::string& name() const {
     return name_;
@@ -58,6 +60,16 @@ class SignatureVariable {
     return knownTypesOnly_;
   }
 
+  bool orderableTypesOnly() const {
+    VELOX_USER_CHECK(isTypeParameter());
+    return orderableTypesOnly_;
+  }
+
+  bool comparableTypesOnly() const {
+    VELOX_USER_CHECK(isTypeParameter());
+    return comparableTypesOnly_;
+  }
+
   bool isTypeParameter() const {
     return type_ == ParameterType::kTypeParameter;
   }
@@ -69,16 +81,20 @@ class SignatureVariable {
   bool operator==(const SignatureVariable& rhs) const {
     return type_ == rhs.type_ && name_ == rhs.name_ &&
         constraint_ == rhs.constraint_ &&
-        knownTypesOnly_ == rhs.knownTypesOnly_;
+        knownTypesOnly_ == rhs.knownTypesOnly_ &&
+        orderableTypesOnly_ == rhs.orderableTypesOnly_ &&
+        comparableTypesOnly_ == rhs.comparableTypesOnly_;
   }
 
  private:
   const std::string name_;
   const std::string constraint_;
   const ParameterType type_;
-  // This property only applies to type variables and indicates if the type
-  // can bind to unknown or not.
+  // The following properties apply only to type variables and indicate whether
+  // the type can bind only to known, orderable or comparable types.
   bool knownTypesOnly_ = false;
+  bool orderableTypesOnly_ = false;
+  bool comparableTypesOnly_ = false;
 };
 
 // Base type (e.g. map) and optional parameters (e.g. K, V).
@@ -258,12 +274,13 @@ class FunctionSignatureBuilder {
     return *this;
   }
 
-  FunctionSignatureBuilder& knownTypeVariable(const std::string& name) {
-    addVariable(
-        variables_,
-        SignatureVariable(name, "", ParameterType::kTypeParameter, true));
-    return *this;
-  }
+  FunctionSignatureBuilder& knownTypeVariable(const std::string& name);
+
+  /// Orderable implies comparable, this method would enable
+  /// comparableTypesOnly_ too.
+  FunctionSignatureBuilder& orderableTypeVariable(const std::string& name);
+
+  FunctionSignatureBuilder& comparableTypeVariable(const std::string& name);
 
   FunctionSignatureBuilder& integerVariable(
       const std::string& name,
@@ -326,13 +343,15 @@ class AggregateFunctionSignatureBuilder {
     return *this;
   }
 
-  AggregateFunctionSignatureBuilder& knownTypeVariable(
-      const std::string& name) {
-    addVariable(
-        variables_,
-        SignatureVariable(name, "", ParameterType::kTypeParameter, true));
-    return *this;
-  }
+  AggregateFunctionSignatureBuilder& knownTypeVariable(const std::string& name);
+
+  /// Orderable implies comparable, this method would enable
+  /// comparableTypesOnly_ too.
+  AggregateFunctionSignatureBuilder& orderableTypeVariable(
+      const std::string& name);
+
+  AggregateFunctionSignatureBuilder& comparableTypeVariable(
+      const std::string& name);
 
   AggregateFunctionSignatureBuilder& integerVariable(
       const std::string& name,

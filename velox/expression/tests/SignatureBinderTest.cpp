@@ -378,6 +378,119 @@ TEST(SignatureBinderTest, knownOnly) {
   }
 }
 
+TEST(SignatureBinderTest, orderableComparable) {
+  auto signature = exec::FunctionSignatureBuilder()
+                       .orderableTypeVariable("T")
+                       .returnType("array(T)")
+                       .argumentType("array(T)")
+                       .build();
+  {
+    auto actualTypes = std::vector<TypePtr>{ARRAY(BIGINT())};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_TRUE(binder.tryBind());
+  }
+
+  {
+    auto actualTypes = std::vector<TypePtr>{ARRAY(MAP(BIGINT(), BIGINT()))};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_FALSE(binder.tryBind());
+  }
+
+  signature = exec::FunctionSignatureBuilder()
+                  .typeVariable("V")
+                  .orderableTypeVariable("T")
+                  .returnType("row(V)")
+                  .argumentType("row(V, T)")
+                  .build();
+  {
+    auto actualTypes = std::vector<TypePtr>{ROW({BIGINT(), ARRAY(DOUBLE())})};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_TRUE(binder.tryBind());
+  }
+
+  {
+    auto actualTypes =
+        std::vector<TypePtr>{ROW({MAP(VARCHAR(), BIGINT()), ARRAY(DOUBLE())})};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_TRUE(binder.tryBind());
+  }
+
+  {
+    auto actualTypes =
+        std::vector<TypePtr>{ROW({BIGINT(), MAP(VARCHAR(), BIGINT())})};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_FALSE(binder.tryBind());
+  }
+}
+
+TEST(SignatureBinderTest, orderableComparableAggregate) {
+  auto signature = exec::AggregateFunctionSignatureBuilder()
+                       .typeVariable("T")
+                       .returnType("T")
+                       .intermediateType("T")
+                       .argumentType("T")
+                       .build();
+  {
+    auto actualTypes = std::vector<TypePtr>{ARRAY(MAP(BIGINT(), BIGINT()))};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_TRUE(binder.tryBind());
+  }
+
+  signature = exec::AggregateFunctionSignatureBuilder()
+                  .comparableTypeVariable("T")
+                  .returnType("T")
+                  .intermediateType("T")
+                  .argumentType("T")
+                  .build();
+  {
+    auto actualTypes =
+        std::vector<TypePtr>{ROW({MAP(VARCHAR(), BIGINT()), ARRAY(DOUBLE())})};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_TRUE(binder.tryBind());
+  }
+
+  signature = exec::AggregateFunctionSignatureBuilder()
+                  .orderableTypeVariable("T")
+                  .returnType("T")
+                  .intermediateType("T")
+                  .argumentType("T")
+                  .build();
+  {
+    auto actualTypes =
+        std::vector<TypePtr>{ROW({MAP(VARCHAR(), BIGINT()), ARRAY(DOUBLE())})};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_FALSE(binder.tryBind());
+  }
+
+  {
+    auto actualTypes = std::vector<TypePtr>{ROW({BIGINT(), ARRAY(DOUBLE())})};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_TRUE(binder.tryBind());
+  }
+
+  signature = exec::AggregateFunctionSignatureBuilder()
+                  .typeVariable("T")
+                  .orderableTypeVariable("M")
+                  .returnType("T")
+                  .intermediateType("M")
+                  .argumentType("T")
+                  .argumentType("M")
+                  .build();
+  {
+    auto actualTypes =
+        std::vector<TypePtr>{MAP(VARCHAR(), BIGINT()), ARRAY(DOUBLE())};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_TRUE(binder.tryBind());
+  }
+
+  {
+    auto actualTypes =
+        std::vector<TypePtr>{ARRAY(DOUBLE()), MAP(VARCHAR(), BIGINT())};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_FALSE(binder.tryBind());
+  }
+}
+
 TEST(SignatureBinderTest, generics) {
   // array(T), T -> boolean
   {

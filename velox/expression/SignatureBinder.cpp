@@ -165,6 +165,14 @@ bool SignatureBinderBase::tryBind(
       return false;
     }
 
+    if (variable.orderableTypesOnly() && !actualType->isOrderable()) {
+      return false;
+    }
+
+    if (variable.comparableTypesOnly() && !actualType->isComparable()) {
+      return false;
+    }
+
     typeVariablesBindings_[baseName] = actualType;
     return true;
   }

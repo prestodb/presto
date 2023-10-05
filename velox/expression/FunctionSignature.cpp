@@ -229,14 +229,19 @@ SignatureVariable::SignatureVariable(
     std::string name,
     std::optional<std::string> constraint,
     ParameterType type,
-    bool knownTypesOnly)
+    bool knownTypesOnly,
+    bool orderableTypesOnly,
+    bool comaprableTypesOnly)
     : name_{std::move(name)},
       constraint_(constraint.has_value() ? std::move(constraint.value()) : ""),
       type_{type},
-      knownTypesOnly_(knownTypesOnly) {
+      knownTypesOnly_(knownTypesOnly),
+      orderableTypesOnly_(orderableTypesOnly),
+      comparableTypesOnly_(comaprableTypesOnly) {
   VELOX_CHECK(
-      !knownTypesOnly_ || isTypeParameter(),
-      "Non-Type variables cannot have the knownTypesOnly constraint");
+      !(knownTypesOnly_ || orderableTypesOnly_ || comparableTypesOnly_) ||
+          isTypeParameter(),
+      "Non-Type variables cannot have the knownTypesOnly/orderableTypesOnly/comparableTypesOnly constraint");
 
   VELOX_CHECK(
       isIntegerParameter() || (isTypeParameter() && constraint_.empty()),
@@ -274,6 +279,48 @@ FunctionSignaturePtr FunctionSignatureBuilder::build() {
       variableArity_);
 }
 
+FunctionSignatureBuilder& FunctionSignatureBuilder::knownTypeVariable(
+    const std::string& name) {
+  addVariable(
+      variables_,
+      SignatureVariable(
+          name,
+          "",
+          ParameterType::kTypeParameter,
+          /*knownTypesOnly*/ true,
+          /*orderableTypesOnly*/ false,
+          /*comaprableTypesOnly*/ false));
+  return *this;
+}
+
+FunctionSignatureBuilder& FunctionSignatureBuilder::orderableTypeVariable(
+    const std::string& name) {
+  addVariable(
+      variables_,
+      SignatureVariable(
+          name,
+          "",
+          ParameterType::kTypeParameter,
+          /*knownTypesOnly*/ false,
+          /*orderableTypesOnly*/ true,
+          /*comaprableTypesOnly*/ true));
+  return *this;
+}
+
+FunctionSignatureBuilder& FunctionSignatureBuilder::comparableTypeVariable(
+    const std::string& name) {
+  addVariable(
+      variables_,
+      SignatureVariable(
+          name,
+          "",
+          ParameterType::kTypeParameter,
+          /*knownTypesOnly*/ false,
+          /*orderableTypesOnly*/ false,
+          /*comaprableTypesOnly*/ true));
+  return *this;
+}
+
 std::shared_ptr<AggregateFunctionSignature>
 AggregateFunctionSignatureBuilder::build() {
   VELOX_CHECK(returnType_.has_value());
@@ -285,6 +332,50 @@ AggregateFunctionSignatureBuilder::build() {
       std::move(argumentTypes_),
       std::move(constantArguments_),
       variableArity_);
+}
+
+AggregateFunctionSignatureBuilder&
+AggregateFunctionSignatureBuilder::knownTypeVariable(const std::string& name) {
+  addVariable(
+      variables_,
+      SignatureVariable(
+          name,
+          "",
+          ParameterType::kTypeParameter,
+          /*knownTypesOnly*/ true,
+          /*orderableTypesOnly*/ false,
+          /*comaprableTypesOnly*/ false));
+  return *this;
+}
+
+AggregateFunctionSignatureBuilder&
+AggregateFunctionSignatureBuilder::orderableTypeVariable(
+    const std::string& name) {
+  addVariable(
+      variables_,
+      SignatureVariable(
+          name,
+          "",
+          ParameterType::kTypeParameter,
+          /*knownTypesOnly*/ false,
+          /*orderableTypesOnly*/ true,
+          /*comaprableTypesOnly*/ true));
+  return *this;
+}
+
+AggregateFunctionSignatureBuilder&
+AggregateFunctionSignatureBuilder::comparableTypeVariable(
+    const std::string& name) {
+  addVariable(
+      variables_,
+      SignatureVariable(
+          name,
+          "",
+          ParameterType::kTypeParameter,
+          /*knownTypesOnly*/ false,
+          /*orderableTypesOnly*/ false,
+          /*comaprableTypesOnly*/ true));
+  return *this;
 }
 
 std::string toString(
