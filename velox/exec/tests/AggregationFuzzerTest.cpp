@@ -57,10 +57,6 @@ int main(int argc, char** argv) {
   static const std::unordered_set<std::string> skipFunctions = {
       // https://github.com/facebookincubator/velox/issues/3493
       "stddev_pop",
-      // https://github.com/facebookincubator/velox/issues/6344
-      "avg_merge",
-      "avg_merge_extract_double",
-      "avg_merge_extract_real",
       // Lambda functions are not supported yet.
       "reduce_agg",
   };
