@@ -927,7 +927,7 @@ static bool compareMaterializedRows(
   }
 
   for (auto& it : left) {
-    if (right.count(it) == 0) {
+    if (right.count(it) != left.count(it)) {
       return false;
     }
   }
@@ -936,7 +936,7 @@ static bool compareMaterializedRows(
   // left, check the other way around. E.g., left = {1, 1, 2}, right = {1, 2,
   // 3}.
   for (auto& it : right) {
-    if (left.count(it) == 0) {
+    if (left.count(it) != right.count(it)) {
       return false;
     }
   }
