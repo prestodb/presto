@@ -1037,20 +1037,25 @@ void FloatingPointColumnReader<DataT, ReqT>::next(
 }
 
 namespace {
+
+struct MakeRleDecoderParams {
+  const EncodingKey& encodingKey;
+  const StripeStreams& stripe;
+  const RleVersion& rleVersion;
+  MemoryPool& memoryPool;
+};
+
 std::unique_ptr<dwio::common::IntDecoder<false>> makeRleDecoder(
-    const EncodingKey& encodingKey,
-    const StripeStreams& stripe,
-    const RleVersion& rleVersion,
+    MakeRleDecoderParams& params,
     std::string_view streamLabel,
     bool throwIfNotFound,
-    const proto::Stream_Kind& streamKind,
-    MemoryPool& memoryPool) {
-  const auto dataId = encodingKey.forKind(streamKind);
-  bool useVInts = stripe.getUseVInts(dataId);
+    const proto::Stream_Kind& streamKind) {
+  const auto dataId = params.encodingKey.forKind(streamKind);
+  bool useVInts = params.stripe.getUseVInts(dataId);
   return createRleDecoder<false>(
-      stripe.getStream(dataId, streamLabel, throwIfNotFound),
-      rleVersion,
-      memoryPool,
+      params.stripe.getStream(dataId, streamLabel, throwIfNotFound),
+      params.rleVersion,
+      params.memoryPool,
       useVInts,
       dwio::common::INT_BYTE_SIZE);
 }
@@ -1154,23 +1159,16 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
           streamLabels.label(),
           false)),
       returnFlatVector_(stripe.getRowReaderOptions().getReturnFlatVector()) {
+  MakeRleDecoderParams params{
+      .encodingKey = encodingKey,
+      .stripe = stripe,
+      .rleVersion = rleVersion,
+      .memoryPool = memoryPool_};
   dictIndex_ = makeRleDecoder(
-      encodingKey,
-      stripe,
-      rleVersion,
-      streamLabels.label(),
-      true,
-      proto::Stream_Kind_DATA,
-      memoryPool_);
+      params, streamLabels.label(), true, proto::Stream_Kind_DATA);
 
   lengthDecoder_ = makeRleDecoder(
-      encodingKey,
-      stripe,
-      rleVersion,
-      streamLabels.label(),
-      false,
-      proto::Stream_Kind_LENGTH,
-      memoryPool_);
+      params, streamLabels.label(), false, proto::Stream_Kind_LENGTH);
 
   // handle in dictionary stream
   std::unique_ptr<dwio::common::SeekableInputStream> inDictStream =
@@ -1196,13 +1194,10 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
     DWIO_ENSURE_NOT_NULL(indexStream_, "String index is missing");
 
     strideDictLengthDecoder_ = makeRleDecoder(
-        encodingKey,
-        stripe,
-        rleVersion,
+        params,
         streamLabels.label(),
         true,
-        proto::Stream_Kind_STRIDE_DICTIONARY_LENGTH,
-        memoryPool_);
+        proto::Stream_Kind_STRIDE_DICTIONARY_LENGTH);
   }
 }
 
