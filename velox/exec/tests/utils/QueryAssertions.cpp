@@ -1279,18 +1279,6 @@ bool waitForTaskStateChange(
   return task->state() == state;
 }
 
-bool waitForTaskDriversToFinish(exec::Task* task, uint64_t maxWaitMicros) {
-  VELOX_USER_CHECK(!task->isRunning());
-  uint64_t waitMicros = 0;
-  while ((task->numFinishedDrivers() != task->numTotalDrivers()) &&
-         (waitMicros < maxWaitMicros)) {
-    const uint64_t kWaitMicros = 1000;
-    std::this_thread::sleep_for(std::chrono::microseconds(kWaitMicros));
-    waitMicros += kWaitMicros;
-  }
-  return task->numFinishedDrivers() == task->numTotalDrivers();
-}
-
 void waitForAllTasksToBeDeleted(uint64_t maxWaitUs) {
   const uint64_t numCreatedTasks = Task::numCreatedTasks();
   uint64_t numDeletedTasks = Task::numDeletedTasks();

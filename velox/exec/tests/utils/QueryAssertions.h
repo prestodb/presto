@@ -118,14 +118,6 @@ bool waitForTaskStateChange(
     TaskState state,
     uint64_t maxWaitMicros = 1'000'000);
 
-/// Wait up to maxWaitMicros for all the task drivers to finish. The function
-/// returns true if all the drivers have finished, otherwise false.
-///
-/// NOTE: user must call this on a finished or failed task.
-bool waitForTaskDriversToFinish(
-    exec::Task* task,
-    uint64_t maxWaitMicros = 1'000'000);
-
 /// Invoked to wait for all the tasks created by the test to be deleted.
 ///
 /// NOTE: it is assumed that there is no more task to be created after or

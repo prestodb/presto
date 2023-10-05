@@ -20,6 +20,14 @@
 
 namespace facebook::velox::exec::test {
 
+/// Wait up to maxWaitMicros for all the task drivers to finish. The function
+/// returns true if all the drivers have finished, otherwise false.
+///
+/// NOTE: user must call this on a finished or failed task.
+bool waitForTaskDriversToFinish(
+    exec::Task* task,
+    uint64_t maxWaitMicros = 1'000'000);
+
 // Parameters for initializing a TaskCursor or RowCursor.
 struct CursorParameters {
   // Root node of the plan tree

@@ -21,6 +21,26 @@
 
 namespace facebook::velox::exec::test {
 
+bool waitForTaskDriversToFinish(exec::Task* task, uint64_t maxWaitMicros) {
+  VELOX_USER_CHECK(!task->isRunning());
+  uint64_t waitMicros = 0;
+  while ((task->numFinishedDrivers() != task->numTotalDrivers()) &&
+         (waitMicros < maxWaitMicros)) {
+    const uint64_t kWaitMicros = 1000;
+    std::this_thread::sleep_for(std::chrono::microseconds(kWaitMicros));
+    waitMicros += kWaitMicros;
+  }
+
+  if (task->numFinishedDrivers() != task->numTotalDrivers()) {
+    LOG(ERROR)
+        << "Timed out waiting for all task drivers to finish. Finished drivers: "
+        << task->numFinishedDrivers()
+        << ". Total drivers: " << task->numTotalDrivers();
+  }
+
+  return task->numFinishedDrivers() == task->numTotalDrivers();
+}
+
 exec::BlockingReason TaskQueue::enqueue(
     RowVectorPtr vector,
     velox::ContinueFuture* future) {
@@ -195,6 +215,9 @@ bool TaskCursor::moveNext() {
   start();
   current_ = queue_->dequeue();
   if (task_->error()) {
+    // Wait for all task drivers to finish to avoid destroying the executor_
+    // before task_ finished using it and causing a crash.
+    waitForTaskDriversToFinish(task_.get());
     std::rethrow_exception(task_->error());
   }
   if (!current_) {
