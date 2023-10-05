@@ -334,61 +334,66 @@ TEST_F(AverageAggregationTest, avg) {
 }
 
 TEST_F(AverageAggregationTest, overflow) {
-  auto testFunction = [this](
-                          const std::string& functionName, bool singleGroup) {
+  auto makeSingleAggregationPlan = [this](
+                                       const std::string& functionName,
+                                       bool singleGroup,
+                                       const VectorPtr& vector) {
+    return PlanBuilder()
+        .values({makeRowVector({makeFlatVector<bool>({true, true}), vector})})
+        .singleAggregation(
+            singleGroup ? std::vector<std::string>{}
+                        : std::vector<std::string>{"c0"},
+            {fmt::format("{}(c1)", functionName)})
+        .planNode();
+  };
+
+  auto makePlan = [this](
+                      const std::string& functionName,
+                      bool singleGroup,
+                      const VectorPtr& vector) {
+    return PlanBuilder()
+        .values({makeRowVector({makeFlatVector<bool>({true, true}), vector})})
+        .partialAggregation(
+            singleGroup ? std::vector<std::string>{}
+                        : std::vector<std::string>{"c0"},
+            {fmt::format("{}(c1)", functionName)})
+        .intermediateAggregation()
+        .finalAggregation()
+        .planNode();
+  };
+
+  auto testFunction = [&](const std::string& functionName, bool singleGroup) {
     auto vector = makeRowVector(
         {makeFlatVector<double>({100.0, 200.0}),
          makeFlatVector<int64_t>({8490071280492378624, 8490071280492378624})});
-
-    auto plan =
-        PlanBuilder()
-            .values(
-                {makeRowVector({makeFlatVector<bool>({true, true}), vector})})
-            .singleAggregation(
-                singleGroup ? std::vector<std::string>{}
-                            : std::vector<std::string>{"c0"},
-                {fmt::format("{}(c1)", functionName)})
-            .planNode();
-
+    auto constantVector = BaseVector::wrapInConstant(100, 0, vector);
     auto expected = makeRowVector(
         {makeNullableFlatVector<double>({std::nullopt, std::nullopt})});
-    assertQuery(plan, expected);
 
-    plan = PlanBuilder()
-               .values({makeRowVector({vector})})
-               .partialAggregation(
-                   singleGroup ? std::vector<std::string>{}
-                               : std::vector<std::string>{"c0"},
-                   {fmt::format("{}(c1)", functionName)})
-               .intermediateAggregation()
-               .finalAggregation()
-               .planNode();
-    assertQuery(plan, expected);
+    auto plan = makeSingleAggregationPlan(functionName, singleGroup, vector);
+    VELOX_ASSERT_THROW(assertQuery(plan, expected), "integer overflow");
+
+    plan = makeSingleAggregationPlan(functionName, singleGroup, constantVector);
+    VELOX_ASSERT_THROW(assertQuery(plan, expected), "integer overflow");
+
+    plan = makePlan(functionName, singleGroup, vector);
+    VELOX_ASSERT_THROW(assertQuery(plan, expected), "integer overflow");
+
+    plan = makePlan(functionName, singleGroup, constantVector);
+    VELOX_ASSERT_THROW(assertQuery(plan, expected), "integer overflow");
   };
-  VELOX_ASSERT_THROW(testFunction("avg_merge", true), "integer overflow");
-  VELOX_ASSERT_THROW(testFunction("avg_merge", false), "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("avg_merge_extract_real", true), "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("avg_merge_extract_real", false), "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("avg_merge_extract_double", true), "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("avg_merge_extract_double", false), "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("simple_avg_merge", true), "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("simple_avg_merge", false), "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("simple_avg_merge_extract_real", true), "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("simple_avg_merge_extract_real", false), "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("simple_avg_merge_extract_double", true),
-      "integer overflow");
-  VELOX_ASSERT_THROW(
-      testFunction("simple_avg_merge_extract_double", false),
-      "integer overflow");
+  testFunction("avg_merge", true);
+  testFunction("avg_merge", false);
+  testFunction("avg_merge_extract_real", true);
+  testFunction("avg_merge_extract_real", false);
+  testFunction("avg_merge_extract_double", true);
+  testFunction("avg_merge_extract_double", false);
+  testFunction("simple_avg_merge", true);
+  testFunction("simple_avg_merge", false);
+  testFunction("simple_avg_merge_extract_real", true);
+  testFunction("simple_avg_merge_extract_real", false);
+  testFunction("simple_avg_merge_extract_double", true);
+  testFunction("simple_avg_merge_extract_double", false);
 }
 
 TEST_F(AverageAggregationTest, partialResults) {

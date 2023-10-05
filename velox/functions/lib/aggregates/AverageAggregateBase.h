@@ -344,8 +344,8 @@ class AverageAggregateBase : public exec::Aggregate {
               !baseCountDecoded.isNullAt(decodedIndex));
         }
         const auto numRows = rows.countSelected();
-        auto totalCount =
-            baseCountDecoded.template valueAt<int64_t>(decodedIndex) * numRows;
+        auto totalCount = checkedMultiply<int64_t>(
+            baseCountDecoded.template valueAt<int64_t>(decodedIndex), numRows);
         auto totalSum =
             baseSumDecoded.template valueAt<TAccumulator>(decodedIndex) *
             numRows;
