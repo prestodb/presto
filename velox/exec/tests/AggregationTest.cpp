@@ -1449,12 +1449,8 @@ TEST_F(AggregationTest, groupingSets) {
           makeFlatVector<int64_t>(size, [](auto row) { return row % 11; }),
           makeFlatVector<int64_t>(size, [](auto row) { return row % 17; }),
           makeFlatVector<int64_t>(size, [](auto row) { return row; }),
-          makeFlatVector<StringView>(
-              size,
-              [](auto row) {
-                auto str = std::string(row % 12, 'x');
-                return StringView(str);
-              }),
+          makeFlatVector<std::string>(
+              size, [](auto row) { return std::string(row % 12, 'x'); }),
       });
 
   createDuckDbTable({data});
@@ -1536,12 +1532,8 @@ TEST_F(AggregationTest, groupingSetsOutput) {
           makeFlatVector<int64_t>(size, [](auto row) { return row % 11; }),
           makeFlatVector<int64_t>(size, [](auto row) { return row % 17; }),
           makeFlatVector<int64_t>(size, [](auto row) { return row; }),
-          makeFlatVector<StringView>(
-              size,
-              [](auto row) {
-                auto str = std::string(row % 12, 'x');
-                return StringView(str);
-              }),
+          makeFlatVector<std::string>(
+              size, [](auto row) { return std::string(row % 12, 'x'); }),
       });
 
   createDuckDbTable({data});
