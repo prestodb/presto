@@ -225,8 +225,7 @@ std::string PrestoServerOperations::taskOperation(
           break;
         }
         oss << task.first << "("
-            << (veloxTask == nullptr ? "null"
-                                     : taskStateString(veloxTask->state()))
+            << (veloxTask == nullptr ? "null" : veloxTask->toShortJsonString())
             << "),\n";
       }
       oss << "]";
