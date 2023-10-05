@@ -52,6 +52,7 @@ add_executable(
   DateTimeFunctionsTest.cpp
   DecimalArithmeticTest.cpp
   ElementAtTest.cpp
+  FindFirstTest.cpp
   FromUtf8Test.cpp
   HyperLogLogCastTest.cpp
   HyperLogLogFunctionsTest.cpp

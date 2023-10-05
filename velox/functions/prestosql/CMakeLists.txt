@@ -31,6 +31,7 @@ add_library(
   DecimalVectorFunctions.cpp
   ElementAt.cpp
   FilterFunctions.cpp
+  FindFirst.cpp
   FromUnixTime.cpp
   FromUtf8.cpp
   GreatestLeast.cpp
