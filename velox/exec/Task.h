@@ -77,6 +77,8 @@ class Task : public std::enable_shared_from_this<Task> {
 
   std::string toJsonString() const;
 
+  std::string toShortJsonString() const;
+
   /// Returns universally unique identifier of the task.
   const std::string& uuid() const {
     return uuid_;
