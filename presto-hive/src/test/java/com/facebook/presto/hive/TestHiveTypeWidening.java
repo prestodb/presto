@@ -27,7 +27,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 import org.testng.log4testng.Logger;
@@ -45,6 +44,8 @@ import java.util.Map;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
+import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -122,7 +123,8 @@ public class TestHiveTypeWidening
                 Collections.singletonList("field"),
                 new Iterable[] {Collections.singletonList(getExpectedValueForType(baseType))},
                 1,
-                CompressionCodecName.GZIP);
+                GZIP,
+                PARQUET_2_0);
         logger.info("First file written");
         File secondParquetFile = new File(temporaryDirectory, randomUUID().toString());
         ParquetTester.writeParquetFileFromPresto(secondParquetFile,
@@ -130,7 +132,8 @@ public class TestHiveTypeWidening
                 Collections.singletonList("field"),
                 new Iterable[] {Collections.singletonList(getExpectedValueForType(widenedType))},
                 1,
-                CompressionCodecName.GZIP);
+                GZIP,
+                PARQUET_2_0);
         logger.info("Second file written");
         return temporaryDirectory;
     }
