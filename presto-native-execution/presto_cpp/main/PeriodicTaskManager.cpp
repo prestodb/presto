@@ -582,7 +582,7 @@ void PeriodicTaskManager::updateSpillStatsTask() {
     LOG(INFO) << "Spill stats change:" << deltaSpillStats.toString();
   }
 
-  const auto spillMemoryStats = velox::exec::Spiller::pool()->stats();
+  const auto spillMemoryStats = velox::memory::spillMemoryPool()->stats();
   LOG(INFO) << "Spill memory usage: current["
             << velox::succinctBytes(spillMemoryStats.currentBytes) << "] peak["
             << velox::succinctBytes(spillMemoryStats.peakBytes) << "]";
