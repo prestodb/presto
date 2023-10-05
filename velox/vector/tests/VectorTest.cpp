@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <functional>
 #include <optional>
+
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -3039,5 +3040,26 @@ TEST_F(VectorTest, mutableValues) {
   }
 }
 
+TEST_F(VectorTest, appendNulls) {
+  auto rowVector = makeRowVector({makeFlatVector<int32_t>({0, 1, 2})});
+  ASSERT_EQ(rowVector->size(), 3);
+
+  // Append 0 rows.
+  rowVector->appendNulls(0);
+  ASSERT_EQ(rowVector->size(), 3);
+  test::assertEqualVectors(
+      rowVector, makeRowVector({makeFlatVector<int32_t>({0, 1, 2})}));
+
+  // Append 2 nulls
+  rowVector->appendNulls(2);
+  ASSERT_EQ(rowVector->size(), 5);
+  ASSERT_TRUE(rowVector->isNullAt(3));
+  ASSERT_TRUE(rowVector->isNullAt(4));
+  test::assertEqualVectors(
+      rowVector->childAt(0), makeFlatVector<int32_t>({0, 1, 2}));
+
+  // Append negative.
+  EXPECT_ANY_THROW(rowVector->appendNulls(-1));
+}
 } // namespace
 } // namespace facebook::velox

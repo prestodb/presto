@@ -1236,5 +1236,16 @@ void MapVector::copyRanges(
   copyRangesImpl(source, ranges, &values_, &keys_);
 }
 
+void RowVector::appendNulls(vector_size_t numberOfRows) {
+  VELOX_CHECK_GE(numberOfRows, 0);
+  if (numberOfRows == 0) {
+    return;
+  }
+  auto newSize = numberOfRows + BaseVector::length_;
+  auto oldSize = BaseVector::length_;
+  BaseVector::resize(newSize, false);
+  bits::fillBits(mutableRawNulls(), oldSize, newSize, bits::kNull);
+}
+
 } // namespace velox
 } // namespace facebook
