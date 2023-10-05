@@ -96,4 +96,15 @@ jobs:
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+        env:
+          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+          DD_CIVISIBILITY_ENABLED: true
+          DD_CIVISIBILITY_AGENTLESS_ENABLED: true
+          DD_ENV: github-ci
+          DD_SERVICE: presto-flaky-tests
+          DD_SITE: datadoghq.com
+        run: |
+          echo "DD_API_KEY: $DD_API_KEY"
+          wget -O dd-java-agent.jar https://dtdg.co/latest-java-tracer
+          export MAVEN_OPTS="${MAVEN_OPTS} -javaagent:dd-java-agent.jar"
+          ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
