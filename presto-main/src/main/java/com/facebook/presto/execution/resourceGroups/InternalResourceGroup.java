@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -143,7 +142,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private TieredQueue<ManagedQueryExecution> queuedQueries = new TieredQueue<>(FifoQueue::new);
     @GuardedBy("root")
-    private final Set<ManagedQueryExecution> runningQueries = ConcurrentHashMap.newKeySet();
+    private final Set<ManagedQueryExecution> runningQueries = new HashSet<>();
     // Memory usage is cached because it changes very rapidly while queries are running, and would be expensive to track continuously
     @GuardedBy("root")
     private long cachedMemoryUsageBytes;
@@ -162,7 +161,9 @@ public class InternalResourceGroup
     // Modifying the following values need to be guarded by "root", but reading the values does not need.
     // These stats are updated periodically in between query scheduling cycle.
     private AtomicInteger descendantRunningQueries = new AtomicInteger();
+    private AtomicInteger totalRunningQueries = new AtomicInteger();
     private AtomicInteger descendantQueuedQueries = new AtomicInteger();
+    private AtomicInteger totalQueuedQueries = new AtomicInteger();
     /**
      * About AdjustedQueueSize
      *
@@ -346,7 +347,7 @@ public class InternalResourceGroup
     @Managed
     public int getRunningQueries()
     {
-        return runningQueries.size() + descendantRunningQueries.get();
+        return totalRunningQueries.get();
     }
 
     private int getAggregatedRunningQueries()
@@ -392,7 +393,7 @@ public class InternalResourceGroup
     @Managed
     public int getQueuedQueries()
     {
-        return queuedQueries.size() + descendantQueuedQueries.get();
+        return totalQueuedQueries.get();
     }
 
     @Deprecated
@@ -948,10 +949,17 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to refresh stats");
         synchronized (root) {
+            updateQueriesStats();
             updateMemoryUsageInfo();
             updateQueriesQueuedOnInternal();
             updateWaitingQueuedQueries();
         }
+    }
+
+    private void updateQueriesStats()
+    {
+        totalRunningQueries.set(runningQueries.size() + descendantRunningQueries.get());
+        totalQueuedQueries.set(queuedQueries.size() + descendantQueuedQueries.get());
     }
 
     protected void internalGenerateCpuQuota(long elapsedSeconds)
