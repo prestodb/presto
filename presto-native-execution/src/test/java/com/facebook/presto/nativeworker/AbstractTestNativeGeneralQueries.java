@@ -443,6 +443,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
         assertQuery(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
                 "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
+        assertQuery("SELECT cast('a' as bigint)");
     }
 
     @Test
@@ -450,6 +451,7 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         assertQuery("SELECT try(orderkey / (linenumber - 2)) FROM lineitem");
         assertQuery("SELECT try(cast(if(linenumber % 3 = 0, '123', comment) as integer)) FROM lineitem");
+        assertQuery("SELECT try(cast('a' as bigint))");
     }
 
     @Test
