@@ -15,6 +15,10 @@
 add_subdirectory(util)
 add_subdirectory(generated)
 
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
+
 add_library(
   velox_dwio_arrow_parquet_writer_lib
   ArrowSchema.cpp

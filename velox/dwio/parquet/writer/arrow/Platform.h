@@ -87,7 +87,6 @@
 namespace facebook::velox::parquet::arrow {
 
 using Buffer = ::arrow::Buffer;
-using Codec = ::arrow::util::Codec;
 using MemoryPool = ::arrow::MemoryPool;
 using MutableBuffer = ::arrow::MutableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;

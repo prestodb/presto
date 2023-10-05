@@ -117,8 +117,9 @@ class PARQUET_EXPORT PageWriter {
       OffsetIndexBuilder* offset_index_builder = NULLPTR,
       const util::CodecOptions& codec_options = util::CodecOptions{});
 
-  ARROW_DEPRECATED(
-      "Deprecated in 13.0.0. Use CodecOptions-taking overload instead.")
+  // TODO: remove this and port to new signature.
+  // ARROW_DEPRECATED(
+  //    "Deprecated in 13.0.0. Use CodecOptions-taking overload instead.")
   static std::unique_ptr<PageWriter> Open(
       std::shared_ptr<ArrowOutputStream> sink,
       Compression::type codec,
