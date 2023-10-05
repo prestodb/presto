@@ -52,19 +52,7 @@ public class TestPrestoSparkNativeGeneralQueries
 
     @Override
     @Ignore
-    public void testOrderBy() {}
-
-    @Override
-    @Ignore
     public void testShowAndDescribe() {}
-
-    @Override
-    @Ignore
-    public void testSubqueries() {}
-
-    @Override
-    @Ignore
-    public void testTopN() {}
 
     @Override
     @Ignore
