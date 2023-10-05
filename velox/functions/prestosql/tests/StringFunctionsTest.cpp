@@ -870,6 +870,24 @@ TEST_F(StringFunctionsTest, startsWith) {
   ASSERT_FALSE(startsWith("", " "));
 }
 
+TEST_F(StringFunctionsTest, endsWith) {
+  auto endsWith = [&](const std::string& x, const std::string& y) {
+    return evaluateOnce<bool>(
+               "ends_with(c0, c1)", std::optional(x), std::optional(y))
+        .value();
+  };
+
+  ASSERT_TRUE(endsWith("", ""));
+  ASSERT_TRUE(endsWith("Hello world!", ""));
+  ASSERT_TRUE(endsWith("Hello world!", "world!"));
+  ASSERT_TRUE(endsWith("Hello world!", "lo world!"));
+  ASSERT_TRUE(endsWith("Hello world!", "Hello world!"));
+
+  ASSERT_FALSE(endsWith("Hello world!", " Hello world!"));
+  ASSERT_FALSE(endsWith("Hello world!", "hello"));
+  ASSERT_FALSE(endsWith("", " "));
+}
+
 // Test strpos function
 template <typename TInstance>
 void StringFunctionsTest::testStringPositionAllFlatVector(

@@ -33,6 +33,10 @@ String Functions
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
+.. function:: ends_with(string, substring) -> boolean
+
+    Returns whether ``string`` ends_with with ``substring``.
+
 .. function:: from_utf8(binary) -> varchar
 
     Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences
