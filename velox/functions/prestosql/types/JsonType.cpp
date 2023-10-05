@@ -499,7 +499,10 @@ FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::VARCHAR>(
     const folly::dynamic& object,
     exec::GenericWriter& writer) {
   if (isJsonType(writer.type())) {
-    writer.castTo<Varchar>().append(toJson(object));
+    // Sort keys to match Presto's behavior.
+    folly::json::serialization_opts opts;
+    opts.sort_keys = true;
+    writer.castTo<Varchar>().append(folly::json::serialize(object, opts));
   } else if (object.isBool()) {
     writer.castTo<Varchar>().append(object.asBool() ? "true" : "false");
   } else {

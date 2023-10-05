@@ -937,6 +937,24 @@ TEST_F(JsonCastTest, toMap) {
       "Not a JSON input");
 }
 
+TEST_F(JsonCastTest, orderOfKeys) {
+  auto data = makeFlatVector<JsonNativeType>(
+      {
+          R"({"k1": {"a": 1, "b": 2}})"_sv,
+          R"({"k2": {"a": 10, "b": 20}})"_sv,
+      },
+      JSON());
+
+  auto map = makeMapVector<std::string, JsonNativeType>(
+      {
+          {{"k1", R"({"a":1,"b":2})"}},
+          {{"k2", R"({"a":10,"b":20})"}},
+      },
+      MAP(VARCHAR(), JSON()));
+
+  testCast(JSON(), MAP(VARCHAR(), JSON()), data, map);
+}
+
 TEST_F(JsonCastTest, toRow) {
   // Test casting to ROW from JSON arrays.
   auto array = makeNullableFlatVector<JsonNativeType>(
