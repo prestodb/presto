@@ -1149,6 +1149,10 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
       dictionaryCount_(stripe.getEncoding(encodingKey).dictionarysize()),
       lastStrideIndex_(-1),
       provider_(stripe.getStrideIndexProvider()),
+      blobStream_(stripe.getStream(
+          encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA),
+          streamLabels.label(),
+          false)),
       returnFlatVector_(stripe.getRowReaderOptions().getReturnFlatVector()) {
   dictIndex_ = makeRleDecoder(
       encodingKey,
@@ -1167,11 +1171,6 @@ StringDictionaryColumnReader::StringDictionaryColumnReader(
       false,
       proto::Stream_Kind_LENGTH,
       memoryPool_);
-
-  blobStream_ = stripe.getStream(
-      encodingKey.forKind(proto::Stream_Kind_DICTIONARY_DATA),
-      streamLabels.label(),
-      false);
 
   // handle in dictionary stream
   std::unique_ptr<dwio::common::SeekableInputStream> inDictStream =
