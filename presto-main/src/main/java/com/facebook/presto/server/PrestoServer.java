@@ -41,6 +41,8 @@ import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
+import com.facebook.presto.secretsManager.SecretsManagerHandler;
+import com.facebook.presto.secretsManager.SecretsManagerModule;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
@@ -133,7 +135,8 @@ public class PrestoServer
                 new TempStorageModule(),
                 new QueryPrerequisitesManagerModule(),
                 new NodeTtlFetcherManagerModule(),
-                new ClusterTtlProviderManagerModule());
+                new ClusterTtlProviderManagerModule(),
+                new SecretsManagerModule());
 
         modules.addAll(getAdditionalModules());
 
@@ -146,6 +149,7 @@ public class PrestoServer
 
             ServerConfig serverConfig = injector.getInstance(ServerConfig.class);
 
+            injector.getInstance(SecretsManagerHandler.class).loadConfiguredSecretsManager();
             if (!serverConfig.isResourceManager()) {
                 injector.getInstance(StaticCatalogStore.class).loadCatalogs();
             }
