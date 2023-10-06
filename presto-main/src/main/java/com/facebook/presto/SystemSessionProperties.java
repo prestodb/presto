@@ -254,6 +254,7 @@ public final class SystemSessionProperties
     public static final String HISTORY_CANONICAL_PLAN_NODE_LIMIT = "history_canonical_plan_node_limit";
     public static final String HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT = "history_based_optimizer_timeout_limit";
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
+    public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
@@ -1467,6 +1468,11 @@ public final class SystemSessionProperties
                         "Enable history based optimization only for complex queries, i.e. queries with join and aggregation",
                         true,
                         false),
+                doubleProperty(
+                        HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD,
+                        "When the size difference between current table and history table exceed this threshold, do not match history statistics",
+                        0.0,
+                        true),
                 new PropertyMetadata<>(
                         MAX_LEAF_NODES_IN_PLAN,
                         "Maximum number of leaf nodes in the logical plan of SQL statement",
@@ -2766,6 +2772,11 @@ public final class SystemSessionProperties
     public static boolean restrictHistoryBasedOptimizationToComplexQuery(Session session)
     {
         return session.getSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, Boolean.class);
+    }
+
+    public static double getHistoryInputTableStatisticsMatchingThreshold(Session session)
+    {
+        return session.getSystemProperty(HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD, Double.class);
     }
 
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
