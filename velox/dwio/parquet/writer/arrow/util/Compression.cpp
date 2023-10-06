@@ -207,9 +207,7 @@ Result<std::unique_ptr<Codec>> Codec::Create(
 #endif
       break;
     case Compression::ZSTD:
-#ifdef ARROW_WITH_ZSTD
       codec = internal::MakeZSTDCodec(compression_level);
-#endif
       break;
     case Compression::BZ2:
 #ifdef ARROW_WITH_BZ2
@@ -264,11 +262,7 @@ bool Codec::IsAvailable(Compression::type codec_type) {
       return false;
 #endif
     case Compression::ZSTD:
-#ifdef ARROW_WITH_ZSTD
       return true;
-#else
-      return false;
-#endif
     case Compression::BZ2:
 #ifdef ARROW_WITH_BZ2
       return true;

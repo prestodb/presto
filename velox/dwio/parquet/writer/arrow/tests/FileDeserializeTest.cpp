@@ -102,9 +102,7 @@ static std::vector<Compression::type> GetSupportedCodecTypes() {
   codec_types.push_back(Compression::LZ4_HADOOP);
 #endif
 
-#ifdef ARROW_WITH_ZSTD
   codec_types.push_back(Compression::ZSTD);
-#endif
   return codec_types;
 }
 
