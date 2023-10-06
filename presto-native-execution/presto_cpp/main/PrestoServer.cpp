@@ -68,6 +68,7 @@ constexpr char const* kHttps = "https";
 constexpr char const* kTaskUriFormat =
     "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
+constexpr char const* kConnectorId = "connector.id";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -691,6 +692,10 @@ std::vector<std::string> PrestoServer::registerConnectors(
           fileName.substr(0, fileName.size() - kPropertiesExtension.size());
 
       auto connectorConf = util::readConfig(entry.path());
+      // Store catalogName for use by filesystem to uniquely identify
+      // a catalog even if the connector.name is same.
+      connectorConf.emplace(kConnectorId, catalogName);
+
       PRESTO_STARTUP_LOG(INFO)
           << "Registered properties from " << entry.path() << ":\n"
           << stringifyConnectorConfig(connectorConf);
