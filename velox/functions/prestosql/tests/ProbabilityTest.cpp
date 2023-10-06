@@ -28,6 +28,8 @@ constexpr double kDoubleMax = std::numeric_limits<double>::max();
 constexpr double kDoubleMin = std::numeric_limits<double>::min();
 constexpr int64_t kBigIntMax = std::numeric_limits<int64_t>::max();
 constexpr int64_t kBigIntMin = std::numeric_limits<int64_t>::min();
+constexpr int32_t kIntMax = std::numeric_limits<int32_t>::max();
+constexpr int32_t kIntMin = std::numeric_limits<int32_t>::min();
 
 MATCHER(IsNan, "is NaN") {
   return arg && std::isnan(*arg);
@@ -37,7 +39,99 @@ MATCHER(IsInf, "is Infinity") {
   return arg && std::isinf(*arg);
 }
 
-class ProbabilityTest : public functions::test::FunctionBaseTest {};
+class ProbabilityTest : public functions::test::FunctionBaseTest {
+ protected:
+  template <typename ValueType>
+  auto poissonCDF(
+      const std::optional<double>& lambda,
+      const std::optional<ValueType>& value) {
+    return evaluateOnce<double>("poisson_cdf(c0, c1)", lambda, value);
+  }
+
+  template <typename ValueType>
+  auto binomialCDF(
+      std::optional<ValueType> numberOfTrials,
+      std::optional<double> successProbability,
+      std::optional<ValueType> value) {
+    return evaluateOnce<double>(
+        "binomial_cdf(c0, c1, c2)", numberOfTrials, successProbability, value);
+  }
+
+  template <typename ValueType>
+  void poissonCDFTests() {
+    EXPECT_EQ(0.91608205796869657, poissonCDF<ValueType>(3, 5));
+    EXPECT_EQ(0, poissonCDF<ValueType>(kDoubleMax, 3));
+    EXPECT_EQ(
+        1, poissonCDF<ValueType>(3, std::numeric_limits<ValueType>::max()));
+    EXPECT_EQ(1, poissonCDF<ValueType>(kDoubleMin, 3));
+    EXPECT_EQ(std::nullopt, poissonCDF<ValueType>(std::nullopt, 1));
+    EXPECT_EQ(std::nullopt, poissonCDF<ValueType>(1, std::nullopt));
+    EXPECT_EQ(std::nullopt, poissonCDF<ValueType>(std::nullopt, std::nullopt));
+    VELOX_ASSERT_THROW(
+        poissonCDF<ValueType>(kNan, 3), "lambda must be greater than 0");
+    VELOX_ASSERT_THROW(
+        poissonCDF<ValueType>(-3, 5), "lambda must be greater than 0");
+    VELOX_ASSERT_THROW(
+        poissonCDF<ValueType>(3, std::numeric_limits<ValueType>::min()),
+        "value must be a non-negative integer");
+    VELOX_ASSERT_THROW(
+        poissonCDF<ValueType>(3, -10), "value must be a non-negative integer");
+    EXPECT_THROW(poissonCDF<ValueType>(kInf, 3), VeloxUserError);
+  }
+
+  template <typename ValueType>
+  void binomialCDFTests() {
+    EXPECT_EQ(binomialCDF<ValueType>(5, 0.5, 5), 1.0);
+    EXPECT_EQ(binomialCDF<ValueType>(5, 0.5, 0), 0.03125);
+    EXPECT_EQ(binomialCDF<ValueType>(3, 0.5, 1), 0.5);
+    EXPECT_EQ(binomialCDF<ValueType>(20, 1.0, 0), 0.0);
+    EXPECT_EQ(binomialCDF<ValueType>(20, 0.3, 6), 0.60800981220092398);
+    EXPECT_EQ(binomialCDF<ValueType>(200, 0.3, 60), 0.5348091761606989);
+    EXPECT_EQ(
+        binomialCDF<ValueType>(std::numeric_limits<ValueType>::max(), 0.5, 2),
+        0.0);
+    EXPECT_EQ(
+        binomialCDF<ValueType>(
+            std::numeric_limits<ValueType>::max(),
+            0.5,
+            std::numeric_limits<ValueType>::max()),
+        0.0);
+    EXPECT_EQ(
+        binomialCDF<ValueType>(10, 0.5, std::numeric_limits<ValueType>::max()),
+        1.0);
+    EXPECT_EQ(
+        binomialCDF<ValueType>(10, 0.1, std::numeric_limits<ValueType>::min()),
+        0.0);
+    EXPECT_EQ(binomialCDF<ValueType>(10, 0.1, -2), 0.0);
+    EXPECT_EQ(binomialCDF<ValueType>(25, 0.5, -100), 0.0);
+
+    // Invalid inputs
+    VELOX_ASSERT_THROW(
+        binomialCDF<ValueType>(5, -0.5, 3),
+        "successProbability must be in the interval [0, 1]");
+    VELOX_ASSERT_THROW(
+        binomialCDF<ValueType>(5, 2, 3),
+        "successProbability must be in the interval [0, 1]");
+    VELOX_ASSERT_THROW(
+        binomialCDF<ValueType>(5, std::numeric_limits<ValueType>::max(), 3),
+        "successProbability must be in the interval [0, 1]");
+    VELOX_ASSERT_THROW(
+        binomialCDF<ValueType>(5, kNan, 3),
+        "successProbability must be in the interval [0, 1]");
+    VELOX_ASSERT_THROW(
+        binomialCDF<ValueType>(-1, 0.5, 2),
+        "numberOfTrials must be greater than 0");
+    VELOX_ASSERT_THROW(
+        binomialCDF<ValueType>(std::numeric_limits<ValueType>::min(), 0.5, 1),
+        "numberOfTrials must be greater than 0");
+    VELOX_ASSERT_THROW(
+        binomialCDF<ValueType>(-2, 2, -1),
+        "successProbability must be in the interval [0, 1]");
+    VELOX_ASSERT_THROW(
+        binomialCDF<ValueType>(-2, 0.5, -1),
+        "numberOfTrials must be greater than 0");
+  }
+};
 
 TEST_F(ProbabilityTest, betaCDF) {
   const auto betaCDF = [&](std::optional<double> a,
@@ -108,51 +202,6 @@ TEST_F(ProbabilityTest, normalCDF) {
   VELOX_ASSERT_THROW(normal_cdf(0, 0, 0.1985), "standardDeviation must be > 0");
   VELOX_ASSERT_THROW(
       normal_cdf(0, kNan, 0.1985), "standardDeviation must be > 0");
-}
-
-TEST_F(ProbabilityTest, binomialCDF) {
-  const auto binomialCDF = [&](std::optional<int64_t> numberOfTrials,
-                               std::optional<double> successProbability,
-                               std::optional<int64_t> value) {
-    return evaluateOnce<double>(
-        "binomial_cdf(c0, c1, c2)", numberOfTrials, successProbability, value);
-  };
-
-  EXPECT_EQ(binomialCDF(5, 0.5, 5), 1.0);
-  EXPECT_EQ(binomialCDF(5, 0.5, 0), 0.03125);
-  EXPECT_EQ(binomialCDF(3, 0.5, 1), 0.5);
-  EXPECT_EQ(binomialCDF(20, 1.0, 0), 0.0);
-  EXPECT_EQ(binomialCDF(20, 0.3, 6), 0.60800981220092398);
-  EXPECT_EQ(binomialCDF(200, 0.3, 60), 0.5348091761606989);
-  EXPECT_EQ(binomialCDF(kBigIntMax, 0.5, 2), 0.0);
-  EXPECT_EQ(binomialCDF(kBigIntMax, 0.5, kBigIntMax), 0.0);
-  EXPECT_EQ(binomialCDF(10, 0.5, kBigIntMax), 1.0);
-  EXPECT_EQ(binomialCDF(10, 0.1, kBigIntMin), 0.0);
-  EXPECT_EQ(binomialCDF(10, 0.1, -2), 0.0);
-  EXPECT_EQ(binomialCDF(25, 0.5, -100), 0.0);
-
-  // Invalid inputs
-  VELOX_ASSERT_THROW(
-      binomialCDF(5, -0.5, 3),
-      "successProbability must be in the interval [0, 1]");
-  VELOX_ASSERT_THROW(
-      binomialCDF(5, 2, 3),
-      "successProbability must be in the interval [0, 1]");
-  VELOX_ASSERT_THROW(
-      binomialCDF(5, kBigIntMax, 3),
-      "successProbability must be in the interval [0, 1]");
-  VELOX_ASSERT_THROW(
-      binomialCDF(5, kNan, 3),
-      "successProbability must be in the interval [0, 1]");
-  VELOX_ASSERT_THROW(
-      binomialCDF(-1, 0.5, 2), "numberOfTrials must be greater than 0");
-  VELOX_ASSERT_THROW(
-      binomialCDF(kBigIntMin, 0.5, 1), "numberOfTrials must be greater than 0");
-  VELOX_ASSERT_THROW(
-      binomialCDF(-2, 2, -1),
-      "successProbability must be in the interval [0, 1]");
-  VELOX_ASSERT_THROW(
-      binomialCDF(-2, 0.5, -1), "numberOfTrials must be greater than 0");
 }
 
 TEST_F(ProbabilityTest, cauchyCDF) {
@@ -309,28 +358,6 @@ TEST_F(ProbabilityTest, laplaceCDF) {
       laplaceCDF(1.0, -1.0, 0.5), "scale must be greater than 0");
 }
 
-TEST_F(ProbabilityTest, poissonCDF) {
-  const auto poissonCDF = [&](std::optional<double> lambda,
-                              std::optional<int64_t> value) {
-    return evaluateOnce<double>("poisson_cdf(c0, c1)", lambda, value);
-  };
-
-  EXPECT_EQ(0.91608205796869657, poissonCDF(3, 5));
-  EXPECT_EQ(0, poissonCDF(kDoubleMax, 3));
-  EXPECT_EQ(1, poissonCDF(3, kBigIntMax));
-  EXPECT_EQ(1, poissonCDF(kDoubleMin, 3));
-  EXPECT_EQ(std::nullopt, poissonCDF(std::nullopt, 1));
-  EXPECT_EQ(std::nullopt, poissonCDF(1, std::nullopt));
-  EXPECT_EQ(std::nullopt, poissonCDF(std::nullopt, std::nullopt));
-  VELOX_ASSERT_THROW(poissonCDF(kNan, 3), "lambda must be greater than 0");
-  VELOX_ASSERT_THROW(poissonCDF(-3, 5), "lambda must be greater than 0");
-  VELOX_ASSERT_THROW(
-      poissonCDF(3, kBigIntMin), "value must be a non-negative integer");
-  VELOX_ASSERT_THROW(
-      poissonCDF(3, -10), "value must be a non-negative integer");
-  EXPECT_THROW(poissonCDF(kInf, 3), VeloxUserError);
-}
-
 TEST_F(ProbabilityTest, gammaCDF) {
   const auto gammaCDF = [&](std::optional<double> shape,
                             std::optional<double> scale,
@@ -369,6 +396,16 @@ TEST_F(ProbabilityTest, gammaCDF) {
   VELOX_ASSERT_THROW(gammaCDF(2.0, kNan, 6.0), "scale must be greater than 0");
   VELOX_ASSERT_THROW(
       gammaCDF(2.0, 3.0, kNan), "value must be greater than, or equal to, 0");
+}
+
+TEST_F(ProbabilityTest, poissonCDF) {
+  poissonCDFTests<int32_t>();
+  poissonCDFTests<int64_t>();
+}
+
+TEST_F(ProbabilityTest, binomialCDF) {
+  binomialCDFTests<int32_t>();
+  binomialCDFTests<int64_t>();
 }
 
 } // namespace

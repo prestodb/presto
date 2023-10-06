@@ -72,9 +72,10 @@ template <typename T>
 struct BinomialCDFFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
+  template <typename TValue>
   FOLLY_ALWAYS_INLINE void
-  call(double& result, int64_t numOfTrials, double successProb, int64_t value) {
-    static constexpr int64_t kInf = std::numeric_limits<int64_t>::max();
+  call(double& result, TValue numOfTrials, double successProb, TValue value) {
+    static constexpr TValue kInf = std::numeric_limits<TValue>::max();
 
     VELOX_USER_CHECK(
         (successProb >= 0) && (successProb <= 1),
@@ -213,7 +214,8 @@ template <typename T>
 struct PoissonCDFFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE void call(double& result, double lambda, int64_t value) {
+  template <typename TValue>
+  FOLLY_ALWAYS_INLINE void call(double& result, double lambda, TValue value) {
     VELOX_USER_CHECK_GE(value, 0, "value must be a non-negative integer");
     VELOX_USER_CHECK_GT(lambda, 0, "lambda must be greater than 0");
 

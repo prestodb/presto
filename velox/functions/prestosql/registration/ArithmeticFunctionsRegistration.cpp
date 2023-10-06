@@ -107,6 +107,8 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "normal_cdf"});
   registerFunction<BinomialCDFFunction, double, int64_t, double, int64_t>(
       {prefix + "binomial_cdf"});
+  registerFunction<BinomialCDFFunction, double, int32_t, double, int32_t>(
+      {prefix + "binomial_cdf"});
   registerFunction<CauchyCDFFunction, double, double, double, double>(
       {prefix + "cauchy_cdf"});
   registerFunction<ChiSquaredCDFFunction, double, double, double>(
@@ -116,6 +118,8 @@ void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<FCDFFunction, double, double, double, double>(
       {prefix + "f_cdf"});
   registerFunction<PoissonCDFFunction, double, double, int64_t>(
+      {prefix + "poisson_cdf"});
+  registerFunction<PoissonCDFFunction, double, double, int32_t>(
       {prefix + "poisson_cdf"});
   registerFunction<GammaCDFFunction, double, double, double, double>(
       {prefix + "gamma_cdf"});
