@@ -32,10 +32,11 @@
 
 #include "velox/common/file/File.h"
 #include "velox/common/file/Region.h"
-#include "velox/dwio/common/IoStatistics.h"
+#include "velox/common/io/IoStatistics.h"
 #include "velox/dwio/common/MetricsLog.h"
 
 namespace facebook::velox::dwio::common {
+using namespace facebook::velox::io;
 
 /**
  * An abstract interface for providing readers a stream of bytes.

@@ -495,6 +495,7 @@ add_test(velox_dwio_cache_test velox_dwio_cache_test)
 
 target_link_libraries(
   velox_dwio_cache_test
+  velox_common_io
   velox_link_libs
   velox_temp_path
   Folly::folly

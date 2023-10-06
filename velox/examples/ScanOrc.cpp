@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
   auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
 
   std::string filePath{argv[1]};
-  ReaderOptions readerOpts{pool.get()};
+  dwio::common::ReaderOptions readerOpts{pool.get()};
   // To make DwrfReader reads ORC file, setFileFormat to FileFormat::ORC
   readerOpts.setFileFormat(FileFormat::ORC);
   auto reader = DwrfReader::create(

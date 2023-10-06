@@ -601,7 +601,7 @@ HiveDataSource::HiveDataSource(
     rowReaderOpts_.setSkipRows(folly::to<uint64_t>(skipRowsIt->second));
   }
 
-  ioStats_ = std::make_shared<dwio::common::IoStatistics>();
+  ioStats_ = std::make_shared<io::IoStatistics>();
 }
 
 inline uint8_t parseDelimiter(const std::string& delim) {

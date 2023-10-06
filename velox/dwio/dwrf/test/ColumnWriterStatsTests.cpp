@@ -185,7 +185,7 @@ class ColumnWriterStatsTest : public ::testing::Test {
     auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(data);
     auto input = std::make_unique<BufferedInput>(readFile, *leafPool_);
 
-    ReaderOptions readerOpts{leafPool_.get()};
+    dwio::common::ReaderOptions readerOpts{leafPool_.get()};
     RowReaderOptions rowReaderOpts;
     auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
     return reader->createRowReader(rowReaderOpts);

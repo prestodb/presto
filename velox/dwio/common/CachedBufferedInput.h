@@ -21,11 +21,11 @@
 #include "velox/common/caching/FileGroupStats.h"
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/common/io/IoStatistics.h"
 #include "velox/common/io/Options.h"
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/CacheInputStream.h"
 #include "velox/dwio/common/InputStream.h"
-#include "velox/dwio/common/IoStatistics.h"
 
 DECLARE_int32(cache_load_quantum);
 

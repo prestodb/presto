@@ -18,9 +18,9 @@
 #include <atomic>
 #include <utility>
 
-#include "velox/dwio/common/IoStatistics.h"
+#include "velox/common/io/IoStatistics.h"
 
-namespace facebook::velox::dwio::common {
+namespace facebook::velox::io {
 
 uint64_t IoStatistics::rawBytesRead() const {
   return rawBytesRead_.load(std::memory_order_relaxed);
@@ -142,4 +142,4 @@ folly::dynamic IoStatistics::getOperationStatsSnapshot() const {
   return json;
 }
 
-} // namespace facebook::velox::dwio::common
+} // namespace facebook::velox::io

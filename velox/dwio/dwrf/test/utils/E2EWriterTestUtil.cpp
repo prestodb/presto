@@ -92,7 +92,7 @@ namespace facebook::velox::dwrf {
       std::string_view(sinkPtr->data(), sinkPtr->size()));
   auto input = std::make_unique<BufferedInput>(readFile, pool);
 
-  ReaderOptions readerOpts{&pool};
+  dwio::common::ReaderOptions readerOpts{&pool};
   RowReaderOptions rowReaderOpts;
   auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
   EXPECT_GE(numStripesUpper, reader->getNumberOfStripes());

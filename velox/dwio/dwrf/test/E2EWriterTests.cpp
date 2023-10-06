@@ -58,7 +58,7 @@ class E2EWriterTests : public Test {
 
   std::unique_ptr<DwrfReader> createReader(
       const MemorySink& sink,
-      const ReaderOptions& opts) {
+      const dwio::common::ReaderOptions& opts) {
     std::string_view data(sink.data(), sink.size());
     return std::make_unique<DwrfReader>(
         opts,
@@ -97,7 +97,7 @@ class E2EWriterTests : public Test {
 
     writer.close();
 
-    ReaderOptions readerOpts{defaultPool.get()};
+    dwio::common::ReaderOptions readerOpts{defaultPool.get()};
     RowReaderOptions rowReaderOpts;
     auto reader = createReader(*sinkPtr, readerOpts);
     auto rowReader = reader->createRowReader(rowReaderOpts);
@@ -159,7 +159,7 @@ class E2EWriterTests : public Test {
 
     writer.close();
 
-    ReaderOptions readerOpts{leafPool_.get()};
+    dwio::common::ReaderOptions readerOpts{leafPool_.get()};
     RowReaderOptions rowReaderOpts;
     auto reader = createReader(*sinkPtr, readerOpts);
     auto rowReader = reader->createRowReader(rowReaderOpts);
@@ -438,7 +438,7 @@ TEST_F(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
       config,
       E2EWriterTestUtil::simpleFlushPolicyFactory(true));
 
-  ReaderOptions readerOpts{defaultPool.get()};
+  dwio::common::ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
   auto reader = createReader(*sinkPtr, readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
@@ -806,7 +806,7 @@ TEST_F(E2EWriterTests, PartialStride) {
   writer.write(batch);
   writer.close();
 
-  ReaderOptions readerOpts{defaultPool.get()};
+  dwio::common::ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
   auto reader = createReader(*sinkPtr, readerOpts);
   ASSERT_EQ(size - nullCount, reader->columnStatistics(1)->getNumberOfValues())
@@ -1001,7 +1001,7 @@ class E2EEncryptionTest : public E2EWriterTests {
     writer_->close();
 
     // read it back for compare
-    ReaderOptions readerOpts{defaultPool.get()};
+    dwio::common::ReaderOptions readerOpts{defaultPool.get()};
     readerOpts.setDecrypterFactory(decrypterFactory);
     return createReader(*sink_, readerOpts);
   }
