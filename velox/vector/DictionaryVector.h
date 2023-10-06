@@ -131,15 +131,7 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   BufferPtr mutableIndices(vector_size_t size) {
-    // TODO: change this to isMutable(). See
-    // https://github.com/facebookincubator/velox/issues/6562.
-    if (indices_ && !indices_->isView() &&
-        indices_->capacity() >= size * sizeof(vector_size_t)) {
-      return indices_;
-    }
-
-    indices_ = AlignedBuffer::allocate<vector_size_t>(size, BaseVector::pool_);
-    rawIndices_ = indices_->as<vector_size_t>();
+    BaseVector::resizeIndices(size, BaseVector::pool_, &indices_, &rawIndices_);
     return indices_;
   }
 

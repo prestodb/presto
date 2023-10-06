@@ -2811,8 +2811,29 @@ SelectivityVector toSelectivityVector(
   rows.updateBounds();
   return rows;
 }
-
 } // namespace
+
+TEST_F(VectorTest, mutableIndices) {
+  // Ensure that DictionaryVector::mutableIndices always returns a new indices
+  // buffer if its not unique.
+  auto flatVector = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7, 8});
+  auto indices = makeIndices(8, [](auto row) { return row % 2; });
+  auto vector = BaseVector::wrapInDictionary(nullptr, indices, 8, flatVector);
+  ASSERT_EQ(vector->encoding(), VectorEncoding::Simple::DICTIONARY);
+  auto dictionary = vector->as<DictionaryVector<int64_t>>();
+
+  auto mutableIndices = dictionary->mutableIndices(1);
+  ASSERT_NE(indices.get(), mutableIndices.get());
+  auto mutableIndicesPtr = mutableIndices.get();
+  // Reset the ptr so we can get the same indices when calling mutableIndices.
+  mutableIndices.reset();
+  auto mutableIndicesAgain = dictionary->mutableIndices(1);
+  ASSERT_EQ(mutableIndicesPtr, mutableIndicesAgain.get());
+
+  // Ensure that mutable indices are different.
+  mutableIndices = dictionary->mutableIndices(1);
+  ASSERT_NE(mutableIndices.get(), mutableIndicesAgain.get());
+}
 
 TEST_F(VectorTest, toCopyRanges) {
   SelectivityVector rows(10);
