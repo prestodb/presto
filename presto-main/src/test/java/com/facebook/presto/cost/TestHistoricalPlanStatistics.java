@@ -105,6 +105,6 @@ public class TestHistoricalPlanStatistics
         return HistoricalPlanStatisticsUtil.getPredictedPlanStatistics(
                 historicalPlanStatistics,
                 inputTableStatistics,
-                new HistoryBasedOptimizationConfig());
+                0.1);
     }
 }
