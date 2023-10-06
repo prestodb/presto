@@ -1167,10 +1167,9 @@ TpchPlan TpchQueryBuilder::getQ13Plan() const {
               "",
               {"c_custkey", "o_orderkey"},
               core::JoinType::kRight)
-          .partialAggregation({"c_custkey"}, {"count(o_orderkey) as pc_count"})
+          .partialAggregation({"c_custkey"}, {"count(o_orderkey) as c_count"})
           .localPartition(std::vector<std::string>{})
-          .finalAggregation(
-              {"c_custkey"}, {"count(pc_count) as c_count"}, {BIGINT()})
+          .finalAggregation()
           .singleAggregation({"c_count"}, {"count(0) as custdist"})
           .orderBy({"custdist DESC", "c_count DESC"}, false)
           .planNode();
@@ -1514,11 +1513,9 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
       PlanBuilder(planNodeIdGenerator, pool_.get())
           .tableScan(kLineitem, lineitemSelectedRowType, lineitemFileColumns)
           .capturePlanNodeId(lineitemScanNodeId)
-          .partialAggregation(
-              {"l_orderkey"}, {"sum(l_quantity) AS partial_sum"})
+          .partialAggregation({"l_orderkey"}, {"sum(l_quantity) AS quantity"})
           .localPartition({"l_orderkey"})
-          .finalAggregation(
-              {"l_orderkey"}, {"sum(partial_sum) AS quantity"}, {DOUBLE()})
+          .finalAggregation()
           .filter("quantity > 300.0")
           .planNode();
 
