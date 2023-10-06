@@ -121,6 +121,7 @@ void Timestamp::toTimezone(int16_t tzID) {
 namespace {
 
 constexpr int kTmYearBase = 1900;
+constexpr int64_t kLeapYearOffset = 4000000000ll;
 
 inline bool isLeap(int64_t y) {
   return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
@@ -128,7 +129,7 @@ inline bool isLeap(int64_t y) {
 
 inline int64_t leapThroughEndOf(int64_t y) {
   // Add a large offset to make the calculation for negative years correct.
-  y += 400000000;
+  y += kLeapYearOffset;
   VELOX_DCHECK_GE(y, 0);
   return y / 4 - y / 100 + y / 400;
 }
@@ -137,48 +138,6 @@ const int monthLengths[][12] = {
     {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
     {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
 };
-
-// Our own version of gmtime_r to avoid expensive calls to __tz_convert.  This
-// might not be very significant in micro benchmark, but is causing significant
-// context switching cost in real world queries with higher concurrency (71% of
-// time is on __tz_convert for some queries).
-std::tm toUtc(const time_t& epoch) {
-  constexpr int kSecondsPerHour = 3600;
-  constexpr int kSecondsPerDay = 24 * kSecondsPerHour;
-  constexpr int kDaysPerYear = 365;
-  std::tm tm;
-  int64_t days = epoch / kSecondsPerDay;
-  int64_t rem = epoch % kSecondsPerDay;
-  while (rem < 0) {
-    rem += kSecondsPerDay;
-    --days;
-  }
-  tm.tm_hour = rem / kSecondsPerHour;
-  rem = rem % kSecondsPerHour;
-  tm.tm_min = rem / 60;
-  tm.tm_sec = rem % 60;
-  tm.tm_wday = (4 + days) % 7;
-  if (tm.tm_wday < 0) {
-    tm.tm_wday += 7;
-  }
-  int64_t y = 1970;
-  bool leapYear;
-  while (days < 0 || days >= kDaysPerYear + (leapYear = isLeap(y))) {
-    auto newy = y + days / kDaysPerYear - (days < 0);
-    days -= (newy - y) * kDaysPerYear + leapThroughEndOf(newy - 1) -
-        leapThroughEndOf(y - 1);
-    y = newy;
-  }
-  tm.tm_year = y - kTmYearBase;
-  tm.tm_yday = days;
-  auto* ip = monthLengths[leapYear];
-  for (tm.tm_mon = 0; days >= ip[tm.tm_mon]; ++tm.tm_mon) {
-    days = days - ip[tm.tm_mon];
-  }
-  tm.tm_mday = days + 1;
-  tm.tm_isdst = 0;
-  return tm;
-}
 
 // clang-format off
 const char intToStr[][3] = {
@@ -194,22 +153,65 @@ const char intToStr[][3] = {
 
 void appendSmallInt(int n, std::string& out) {
   VELOX_DCHECK_LE(n, 61);
-  const char* s = intToStr[n];
-  out += s[0];
-  out += s[1];
+  out.append(intToStr[n], 2);
 }
 
 } // namespace
 
-std::string Timestamp::toString(const TimestampToStringOptions& options) const {
-  auto tmValue = toUtc(seconds_);
-  int width = options.precision;
-  auto value = nanos_;
-  if (options.precision == TimestampToStringOptions::kMilliseconds) {
-    value /= 1'000'000;
+bool epochToUtc(int64_t epoch, std::tm& tm) {
+  constexpr int kSecondsPerHour = 3600;
+  constexpr int kSecondsPerDay = 24 * kSecondsPerHour;
+  constexpr int kDaysPerYear = 365;
+  int64_t days = epoch / kSecondsPerDay;
+  int64_t rem = epoch % kSecondsPerDay;
+  while (rem < 0) {
+    rem += kSecondsPerDay;
+    --days;
   }
+  tm.tm_hour = rem / kSecondsPerHour;
+  rem = rem % kSecondsPerHour;
+  tm.tm_min = rem / 60;
+  tm.tm_sec = rem % 60;
+  tm.tm_wday = (4 + days) % 7;
+  if (tm.tm_wday < 0) {
+    tm.tm_wday += 7;
+  }
+  int64_t y = 1970;
+  if (y + days / kDaysPerYear <= -kLeapYearOffset + 10) {
+    return false;
+  }
+  bool leapYear;
+  while (days < 0 || days >= kDaysPerYear + (leapYear = isLeap(y))) {
+    auto newy = y + days / kDaysPerYear - (days < 0);
+    days -= (newy - y) * kDaysPerYear + leapThroughEndOf(newy - 1) -
+        leapThroughEndOf(y - 1);
+    y = newy;
+  }
+  y -= kTmYearBase;
+  if (y > std::numeric_limits<decltype(tm.tm_year)>::max() ||
+      y < std::numeric_limits<decltype(tm.tm_year)>::min()) {
+    return false;
+  }
+  tm.tm_year = y;
+  tm.tm_yday = days;
+  auto* ip = monthLengths[leapYear];
+  for (tm.tm_mon = 0; days >= ip[tm.tm_mon]; ++tm.tm_mon) {
+    days = days - ip[tm.tm_mon];
+  }
+  tm.tm_mday = days + 1;
+  tm.tm_isdst = 0;
+  return true;
+}
+
+std::string tmToString(
+    const std::tm& tmValue,
+    int nanos,
+    const TimestampToStringOptions& options) {
+  VELOX_DCHECK_GE(nanos, 0);
+  VELOX_DCHECK_LT(nanos, 1'000'000'000);
+  int width = options.precision;
   std::string out;
-  out.reserve(26 + width);
+  out.reserve(options.dateOnly ? 10 : 26 + width);
   int n = kTmYearBase + tmValue.tm_year;
   bool negative = n < 0;
   if (negative) {
@@ -230,6 +232,9 @@ std::string Timestamp::toString(const TimestampToStringOptions& options) const {
   appendSmallInt(1 + tmValue.tm_mon, out);
   out += '-';
   appendSmallInt(tmValue.tm_mday, out);
+  if (options.dateOnly) {
+    return out;
+  }
   out += options.dateTimeSeparator;
   appendSmallInt(tmValue.tm_hour, out);
   out += ':';
@@ -238,9 +243,12 @@ std::string Timestamp::toString(const TimestampToStringOptions& options) const {
   appendSmallInt(tmValue.tm_sec, out);
   out += '.';
   int offset = out.size();
-  while (value > 0) {
-    out += '0' + value % 10;
-    value /= 10;
+  if (options.precision == TimestampToStringOptions::kMilliseconds) {
+    nanos /= 1'000'000;
+  }
+  while (nanos > 0) {
+    out += '0' + nanos % 10;
+    nanos /= 10;
   }
   while (out.size() - offset < width) {
     out += '0';

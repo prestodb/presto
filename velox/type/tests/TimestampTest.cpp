@@ -298,5 +298,38 @@ TEST(TimestampTest, outOfRange) {
   VELOX_ASSERT_THROW(
       t.toTimezone(*timezone), "Timestamp is outside of supported range");
 }
+
+TEST(TimestampTest, epochToUtc) {
+  std::tm tm;
+  ASSERT_FALSE(epochToUtc(-(1ll << 60), tm));
+  ASSERT_FALSE(epochToUtc(1ll << 60, tm));
+}
+
+TEST(TimestampTest, randomEpochToUtc) {
+  uint64_t seed = 42;
+  // seed = std::random_device{}();
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<time_t> dist(
+      std::numeric_limits<time_t>::min(), std::numeric_limits<time_t>::max());
+  std::tm actual, expected;
+  for (int i = 0; i < 10000; ++i) {
+    auto epoch = dist(gen);
+    SCOPED_TRACE(fmt::format("epoch={}", epoch));
+    if (gmtime_r(&epoch, &expected)) {
+      ASSERT_TRUE(epochToUtc(epoch, actual));
+      ASSERT_EQ(expected.tm_year, actual.tm_year);
+      ASSERT_EQ(expected.tm_yday, actual.tm_yday);
+      ASSERT_EQ(expected.tm_mon, actual.tm_mon);
+      ASSERT_EQ(expected.tm_mday, actual.tm_mday);
+      ASSERT_EQ(expected.tm_wday, actual.tm_wday);
+      ASSERT_EQ(expected.tm_hour, actual.tm_hour);
+      ASSERT_EQ(expected.tm_min, actual.tm_min);
+      ASSERT_EQ(expected.tm_sec, actual.tm_sec);
+    } else {
+      ASSERT_FALSE(epochToUtc(epoch, actual));
+    }
+  }
+}
+
 } // namespace
 } // namespace facebook::velox

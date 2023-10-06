@@ -31,14 +31,26 @@ class time_zone;
 namespace facebook::velox {
 
 struct TimestampToStringOptions {
-  enum Precision : int {
+  enum Precision : int8_t {
     kMilliseconds = 3,
     kNanoseconds = 9,
   } precision = kNanoseconds;
 
   bool zeroPaddingYear = false;
   char dateTimeSeparator = 'T';
+  bool dateOnly = false;
 };
+
+// Our own version of gmtime_r to avoid expensive calls to __tz_convert.  This
+// might not be very significant in micro benchmark, but is causing significant
+// context switching cost in real world queries with higher concurrency (71% of
+// time is on __tz_convert for some queries).
+//
+// Return whether the epoch second can be converted to a valid std::tm.
+bool epochToUtc(int64_t seconds, std::tm& out);
+
+std::string
+tmToString(const std::tm&, int nanos, const TimestampToStringOptions&);
 
 struct Timestamp {
  public:
@@ -273,7 +285,14 @@ struct Timestamp {
     return StringView("TODO: Implement");
   };
 
-  std::string toString(const TimestampToStringOptions& = {}) const;
+  std::string toString(const TimestampToStringOptions& options = {}) const {
+    std::tm tm;
+    VELOX_USER_CHECK(
+        epochToUtc(seconds_, tm),
+        "Can't convert seconds to time: {}",
+        seconds_);
+    return tmToString(tm, nanos_, options);
+  }
 
   operator std::string() const {
     return toString();
