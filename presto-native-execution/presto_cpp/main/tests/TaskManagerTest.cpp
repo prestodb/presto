@@ -446,7 +446,25 @@ class TaskManagerTest : public testing::Test {
                 {exec::test::PlanBuilder(planNodeIdGenerator)
                      .exchange(partialAggPlanFragment.planNode->outputType())
                      .planNode()})
-            .finalAggregation({"p0"}, {"count(a0)"}, {BIGINT()})
+            .addNode([](auto id, auto sourceNode) -> core::PlanNodePtr {
+              auto groupingKey =
+                  std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "p0");
+              auto aggInput =
+                  std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "a0");
+              core::AggregationNode::Aggregate countAggregate;
+              countAggregate.call = std::make_shared<core::CallTypedExpr>(
+                  BIGINT(), std::vector<core::TypedExprPtr>{aggInput}, "count");
+              return std::make_shared<core::AggregationNode>(
+                  id,
+                  core::AggregationNode::Step::kFinal,
+                  std::vector<core::FieldAccessTypedExprPtr>{groupingKey},
+                  std::vector<
+                      core::FieldAccessTypedExprPtr>{}, // preGroupedKeys
+                  std::vector<std::string>{"a0"},
+                  std::vector<core::AggregationNode::Aggregate>{countAggregate},
+                  false,
+                  sourceNode);
+            })
             .partitionedOutput({}, 1, {"p0", "a0"})
             .planFragment();
 
