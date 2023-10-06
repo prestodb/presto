@@ -134,16 +134,19 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
         {entry.first, std::make_shared<core::MemConfig>(entry.second)});
   }
 
+  velox::core::QueryConfig queryConfig{std::move(configStrings)};
   auto pool = memory::defaultMemoryManager().addRootPool(
       queryId,
-      SystemConfig::instance()->queryMaxMemoryPerNode(),
+      queryConfig.queryMaxMemoryPerNode() != 0
+          ? queryConfig.queryMaxMemoryPerNode()
+          : SystemConfig::instance()->queryMaxMemoryPerNode(),
       !SystemConfig::instance()->memoryArbitratorKind().empty()
           ? memory::MemoryReclaimer::create()
           : nullptr);
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
       executor().get(),
-      std::move(configStrings),
+      std::move(queryConfig),
       connectorConfigs,
       cache::AsyncDataCache::getInstance(),
       std::move(pool),

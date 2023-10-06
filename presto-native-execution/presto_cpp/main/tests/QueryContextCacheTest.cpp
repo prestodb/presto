@@ -50,8 +50,7 @@ TEST_F(QueryContextCacheTest, basic) {
   for (int i = 0; i < 16; ++i) {
     auto queryId = fmt::format("query-{}", i);
     auto queryCtx = std::make_shared<core::QueryCtx>(
-        (folly::Executor*)nullptr,
-        std::unordered_map<std::string, std::string>{});
+        (folly::Executor*)nullptr, core::QueryConfig({}));
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
   }
@@ -81,8 +80,7 @@ TEST_F(QueryContextCacheTest, eviction) {
   for (int i = 0; i < 8; ++i) {
     auto queryId = fmt::format("query-{}", i);
     auto queryCtx = std::make_shared<core::QueryCtx>(
-        (folly::Executor*)nullptr,
-        std::unordered_map<std::string, std::string>{});
+        (folly::Executor*)nullptr, core::QueryConfig({}));
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
   }
@@ -102,8 +100,7 @@ TEST_F(QueryContextCacheTest, eviction) {
   for (int i = 8; i < 12; ++i) {
     auto queryId = fmt::format("query-{}", i);
     auto queryCtx = std::make_shared<core::QueryCtx>(
-        (folly::Executor*)nullptr,
-        std::unordered_map<std::string, std::string>{});
+        (folly::Executor*)nullptr, core::QueryConfig({}));
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
   }
@@ -117,8 +114,7 @@ TEST_F(QueryContextCacheTest, eviction) {
   for (int i = 12; i < 20; ++i) {
     auto queryId = fmt::format("query-{}", i);
     auto queryCtx = std::make_shared<core::QueryCtx>(
-        (folly::Executor*)nullptr,
-        std::unordered_map<std::string, std::string>{});
+        (folly::Executor*)nullptr, core::QueryConfig({}));
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
   }
