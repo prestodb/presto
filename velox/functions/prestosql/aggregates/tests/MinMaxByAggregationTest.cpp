@@ -461,12 +461,16 @@ class MinMaxByGlobalByAggregationTest
          fmt::format("SELECT {}", asSql(dataAt<T>(3)))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
+      // Skip testing with TableScan because the result for some testData
+      // depends on input order that is non-deterministic with two splits.
       testAggregations(
           {testData.inputRowVector},
           {},
           {"min_by(c0, c1)"},
           {},
-          testData.verifyDuckDbSql);
+          testData.verifyDuckDbSql,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
   }
 
@@ -555,12 +559,16 @@ class MinMaxByGlobalByAggregationTest
          fmt::format("SELECT {}", asSql(dataAt<T>(3)))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
+      // Skip testing with TableScan because the result for some testData
+      // depends on input order that is non-deterministic with two splits.
       testAggregations(
           {testData.inputRowVector},
           {},
           {"max_by(c0, c1)"},
           {},
-          testData.verifyDuckDbSql);
+          testData.verifyDuckDbSql,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
   }
 };
@@ -845,12 +853,16 @@ class MinMaxByGroupByAggregationTest
              asSql(dataAt<T>(0)))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
+      // Skip testing with TableScan because the result for some testData
+      // depends on input order that is non-deterministic with two splits.
       testAggregations(
           {testData.inputRowVector},
           {"c2"},
           {"min_by(c0, c1)"},
           {},
-          testData.verifyDuckDbSql);
+          testData.verifyDuckDbSql,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
   }
 
@@ -994,12 +1006,16 @@ class MinMaxByGroupByAggregationTest
              asSql(dataAt<T>(0)))}};
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
+      // Skip testing with TableScan because the result for some testData
+      // depends on input order that is non-deterministic with two splits.
       testAggregations(
           {testData.inputRowVector},
           {"c2"},
           {"max_by(c0, c1)"},
           {},
-          testData.verifyDuckDbSql);
+          testData.verifyDuckDbSql,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
   }
 };
@@ -1573,10 +1589,13 @@ TEST_F(MinMaxByNTest, groupBy) {
       {data}, {"c0"}, {"min_by(c1, c2, 3)", "max_by(c1, c2, 4)"}, {expected});
 
   // bool type of comparison
+  // Make input size at least 8 to ensure drivers get 2 input batches for
+  // spilling when tested with data read from files.
   data = makeRowVector({
-      makeFlatVector<int16_t>({1, 2, 1, 2}),
-      makeFlatVector<int32_t>({1, 2, 3, 4}),
-      makeFlatVector<bool>({true, false, false, true}),
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1, 2}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 1, 2, 3, 4}),
+      makeFlatVector<bool>(
+          {true, false, false, true, true, false, false, true}),
   });
 
   expected = makeRowVector({

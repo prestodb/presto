@@ -62,11 +62,15 @@ TEST_F(ReduceAggTest, integersGlobal) {
   int64_t product = 1 * 2 * 3 * 4 * 5 * 1 * 1;
   auto expected = makeRowVector({makeConstant(product, 1)});
 
+  // Skip testing with TableScan until
+  // https://github.com/facebookincubator/velox/issues/6740 is fixed.
   testAggregations(
       {data},
       {},
       {"reduce_agg(c0, 1, (x, y) -> (x * y), (x, y) -> (x * y))"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // No nulls. With mask.
   product = 1 * 3 * 4 * 1;
@@ -76,7 +80,9 @@ TEST_F(ReduceAggTest, integersGlobal) {
       {data},
       {},
       {"reduce_agg(c0, 1, (x, y) -> (x * y), (x, y) -> (x * y)) FILTER (WHERE m)"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // Some nulls.
   product = 1 * 2 * 0 * 1 * 3;
@@ -86,7 +92,9 @@ TEST_F(ReduceAggTest, integersGlobal) {
       {data},
       {},
       {"reduce_agg(c1, 1, (x, y) -> (x * y), (x, y) -> (x * y))"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // Same as above, but using a sum reduction.
   int64_t sum = 1 + 2 + 3 + 4 + 5 + 1 + 1;
@@ -96,7 +104,9 @@ TEST_F(ReduceAggTest, integersGlobal) {
       {data},
       {},
       {"reduce_agg(c0, 0, (x, y) -> (x + y), (x, y) -> (x + y))"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   sum = 1 + 2 + 0 + 1 + 3;
   expected = makeRowVector({makeConstant(sum, 1)});
@@ -105,7 +115,9 @@ TEST_F(ReduceAggTest, integersGlobal) {
       {data},
       {},
       {"reduce_agg(c1, 0, (x, y) -> (x + y), (x, y) -> (x + y))"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(ReduceAggTest, integersGroupBy) {
@@ -126,7 +138,9 @@ TEST_F(ReduceAggTest, integersGroupBy) {
       {data},
       {"k"},
       {"reduce_agg(c0, 1, (x, y) -> (x * y), (x, y) -> (x * y))"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // With mask.
   expected = makeRowVector({
@@ -138,7 +152,9 @@ TEST_F(ReduceAggTest, integersGroupBy) {
       {data},
       {"k"},
       {"reduce_agg(c0, 1, (x, y) -> (x * y), (x, y) -> (x * y)) FILTER (WHERE m)"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // Sum reduction.
   expected = makeRowVector({
@@ -150,7 +166,9 @@ TEST_F(ReduceAggTest, integersGroupBy) {
       {data},
       {"k"},
       {"reduce_agg(c0, 0, (x, y) -> (x + y), (x, y) -> (x + y))"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // With mask.
   expected = makeRowVector({
@@ -162,7 +180,9 @@ TEST_F(ReduceAggTest, integersGroupBy) {
       {data},
       {"k"},
       {"reduce_agg(c0, 0, (x, y) -> (x + y), (x, y) -> (x + y)) FILTER (WHERE m)"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(ReduceAggTest, arraysGlobal) {
@@ -188,7 +208,9 @@ TEST_F(ReduceAggTest, arraysGlobal) {
       {"reduce_agg(c0, c1, "
        "(a, b) -> slice(reverse(array_sort(array_distinct(concat(a, b)))), 1, 3), "
        "(a, b) -> slice(reverse(array_sort(array_distinct(concat(a, b)))), 1, 3))"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   expected = makeRowVector({makeArrayVector<int64_t>({{7, 3, 2}})});
 
@@ -199,7 +221,9 @@ TEST_F(ReduceAggTest, arraysGlobal) {
        "(a, b) -> slice(reverse(array_sort(array_distinct(concat(a, b)))), 1, 3), "
        "(a, b) -> slice(reverse(array_sort(array_distinct(concat(a, b)))), 1, 3)) "
        "FILTER (WHERE m)"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(ReduceAggTest, arraysGroupBy) {
@@ -232,7 +256,9 @@ TEST_F(ReduceAggTest, arraysGroupBy) {
       {"reduce_agg(c0, c1, "
        "(a, b) -> slice(reverse(array_sort(array_distinct(concat(a, b)))), 1, 3), "
        "(a, b) -> slice(reverse(array_sort(array_distinct(concat(a, b)))), 1, 3))"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   expected = makeRowVector({
       makeFlatVector<int32_t>({1, 2}),
@@ -249,7 +275,9 @@ TEST_F(ReduceAggTest, arraysGroupBy) {
        "(a, b) -> slice(reverse(array_sort(array_distinct(concat(a, b)))), 1, 3), "
        "(a, b) -> slice(reverse(array_sort(array_distinct(concat(a, b)))), 1, 3)) "
        "FILTER (WHERE m)"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(ReduceAggTest, differentInputAndCombine) {
@@ -275,7 +303,9 @@ TEST_F(ReduceAggTest, differentInputAndCombine) {
       {"reduce_agg(c0, c1, "
        "(s, x) -> array_sort(array_distinct(concat(s, array[x]))), "
        "(s, s2) -> array_sort(array_distinct(concat(s, s2))))"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   expected = makeRowVector({
       makeFlatVector<int32_t>({1, 2}),
@@ -289,7 +319,9 @@ TEST_F(ReduceAggTest, differentInputAndCombine) {
        "(s, x) -> array_sort(array_distinct(concat(s, array[x]))), "
        "(s, s2) -> array_sort(array_distinct(concat(s, s2)))) "
        "FILTER (WHERE m)"},
-      {expected});
+      {expected},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(ReduceAggTest, fuzzGlobalSum) {
@@ -304,7 +336,9 @@ TEST_F(ReduceAggTest, fuzzGlobalSum) {
       {},
       {"reduce_agg(c0, 0, (x, y) -> (x + y), (x, y) -> (x + y))"},
       {},
-      {sumResults});
+      {sumResults},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(ReduceAggTest, fuzzGroupBySum) {
@@ -324,7 +358,9 @@ TEST_F(ReduceAggTest, fuzzGroupBySum) {
       {"key"},
       {"reduce_agg(c0, 0, (x, y) -> (x + y), (x, y) -> (x + y))"},
       {},
-      [&](auto& builder) { return builder.assertResults(sumResults); });
+      [&](auto& builder) { return builder.assertResults(sumResults); },
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(ReduceAggTest, fuzzGlobalAvg) {
@@ -346,7 +382,9 @@ TEST_F(ReduceAggTest, fuzzGlobalAvg) {
        "(s, x) -> (row_constructor(s.sum + x, s.count + 1)), "
        "(s, s2) -> (row_constructor(s.sum + s2.sum, s.count + s2.count)))"},
       {"a0.sum / cast(a0.count as double)"},
-      [&](auto& builder) { return builder.assertResults(avgResults); });
+      [&](auto& builder) { return builder.assertResults(avgResults); },
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(ReduceAggTest, fuzzGroupByAvg) {
@@ -372,7 +410,9 @@ TEST_F(ReduceAggTest, fuzzGroupByAvg) {
        "(s, x) -> (row_constructor(s.sum + x, s.count + 1)), "
        "(s, s2) -> (row_constructor(s.sum + s2.sum, s.count + s2.count)))"},
       {"key", "a0.sum / cast(a0.count as double)"},
-      [&](auto& builder) { return builder.assertResults(avgResults); });
+      [&](auto& builder) { return builder.assertResults(avgResults); },
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 } // namespace

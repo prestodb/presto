@@ -244,6 +244,7 @@ TEST_F(SumTest, sumDoubleAndFloat) {
 }
 
 TEST_F(SumTest, sumDecimal) {
+  // Skip testing with TableScan because decimal is not supported in writers.
   std::vector<std::optional<int64_t>> shortDecimalRawVector;
   std::vector<std::optional<int128_t>> longDecimalRawVector;
   for (int i = 0; i < 1000; ++i) {
@@ -257,7 +258,12 @@ TEST_F(SumTest, sumDecimal) {
        makeNullableFlatVector<int128_t>(longDecimalRawVector, DECIMAL(23, 4))});
   createDuckDbTable({input});
   testAggregations(
-      {input}, {}, {"sum(c0)", "sum(c1)"}, "SELECT sum(c0), sum(c1) FROM tmp");
+      {input},
+      {},
+      {"sum(c0)", "sum(c1)"},
+      "SELECT sum(c0), sum(c1) FROM tmp",
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // Decimal sum aggregation with multiple groups.
   auto inputRows = {
@@ -292,7 +298,13 @@ TEST_F(SumTest, sumDecimal) {
            makeFlatVector<int128_t>(
                std::vector<int128_t>{-7493}, DECIMAL(38, 2))})};
 
-  testAggregations(inputRows, {"c0"}, {"sum(c1)"}, expectedResult);
+  testAggregations(
+      inputRows,
+      {"c0"},
+      {"sum(c1)"},
+      expectedResult,
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(SumTest, sumDecimalOverflow) {
@@ -304,7 +316,13 @@ TEST_F(SumTest, sumDecimalOverflow) {
   auto input = makeRowVector(
       {makeFlatVector<int64_t>(shortDecimalInput, DECIMAL(17, 5))});
   createDuckDbTable({input});
-  testAggregations({input}, {}, {"sum(c0)"}, "SELECT sum(c0) FROM tmp");
+  testAggregations(
+      {input},
+      {},
+      {"sum(c0)"},
+      "SELECT sum(c0) FROM tmp",
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   auto decimalSumOverflow = [this](
                                 const std::vector<int128_t>& input,

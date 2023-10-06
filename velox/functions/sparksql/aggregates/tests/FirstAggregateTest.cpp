@@ -44,13 +44,17 @@ class FirstAggregateTest : public AggregationTestBase {
 
       createDuckDbTable(vectors);
 
+      // We do not test with TableScan because having two input splits makes the
+      // result non-deterministic.
       {
         SCOPED_TRACE("ignore null + group by");
         testAggregations(
             vectors,
             {"c0"},
             {"spark_first_ignore_null(c1)"},
-            "SELECT c0, first(c1 ORDER BY c1 NULLS LAST) FROM tmp GROUP BY c0");
+            "SELECT c0, first(c1 ORDER BY c1 NULLS LAST) FROM tmp GROUP BY c0",
+            /*config*/ {},
+            /*testWithTableScan*/ false);
       }
       {
         // Expected result should have first 7 rows including nulls.
@@ -62,7 +66,13 @@ class FirstAggregateTest : public AggregationTestBase {
                 [](auto row) { return row; }, // valueAt
                 [](auto row) { return row % 3 == 0; }), // nullAt
         })};
-        testAggregations(vectors, {"c0"}, {"spark_first(c1)"}, expected);
+        testAggregations(
+            vectors,
+            {"c0"},
+            {"spark_first(c1)"},
+            expected,
+            /*config*/ {},
+            /*testWithTableScan*/ false);
       }
     }
 
@@ -75,13 +85,24 @@ class FirstAggregateTest : public AggregationTestBase {
         SCOPED_TRACE("ignore null + global");
         auto expectedTrue = {makeRowVector({makeNullableFlatVector<T>({1})})};
         testAggregations(
-            vectors, {}, {"spark_first_ignore_null(c0)"}, expectedTrue);
+            vectors,
+            {},
+            {"spark_first_ignore_null(c0)"},
+            expectedTrue,
+            /*config*/ {},
+            /*testWithTableScan*/ false);
       }
       {
         SCOPED_TRACE("not ignore null + global");
         auto expectedFalse = {
             makeRowVector({makeNullableFlatVector<T>({std::nullopt})})};
-        testAggregations(vectors, {}, {"spark_first(c0)"}, expectedFalse);
+        testAggregations(
+            vectors,
+            {},
+            {"spark_first(c0)"},
+            expectedFalse,
+            /*config*/ {},
+            /*testWithTableScan*/ false);
       }
     }
   }
@@ -93,12 +114,23 @@ class FirstAggregateTest : public AggregationTestBase {
     {
       SCOPED_TRACE("ignore null + group by");
       testAggregations(
-          data, {"c0"}, {"spark_first_ignore_null(c1)"}, ignoreNullData);
+          data,
+          {"c0"},
+          {"spark_first_ignore_null(c1)"},
+          ignoreNullData,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
 
     {
       SCOPED_TRACE("not ignore null + group by");
-      testAggregations(data, {"c0"}, {"spark_first(c1)"}, hasNullData);
+      testAggregations(
+          data,
+          {"c0"},
+          {"spark_first(c1)"},
+          hasNullData,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
   }
 
@@ -109,12 +141,23 @@ class FirstAggregateTest : public AggregationTestBase {
     {
       SCOPED_TRACE("ignore null + global");
       testAggregations(
-          data, {}, {"spark_first_ignore_null(c0)"}, ignoreNullData);
+          data,
+          {},
+          {"spark_first_ignore_null(c0)"},
+          ignoreNullData,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
 
     {
       SCOPED_TRACE("not ignore null + global");
-      testAggregations(data, {}, {"spark_first(c0)"}, hasNullData);
+      testAggregations(
+          data,
+          {},
+          {"spark_first(c0)"},
+          hasNullData,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
   }
 };
@@ -379,7 +422,9 @@ TEST_F(FirstAggregateTest, varcharGroupBy) {
         vectors,
         {"c0"},
         {"spark_first_ignore_null(c1)"},
-        "SELECT c0, first(c1) FROM tmp WHERE c1 IS NOT NULL GROUP BY c0");
+        "SELECT c0, first(c1) FROM tmp WHERE c1 IS NOT NULL GROUP BY c0",
+        /*config*/ {},
+        /*testWithTableScan*/ false);
   }
 
   {
@@ -391,7 +436,13 @@ TEST_F(FirstAggregateTest, varcharGroupBy) {
             [&data](auto row) { return StringView(data[row]); }, // valueAt
             nullEvery(3)),
     })};
-    testAggregations(vectors, {"c0"}, {"spark_first(c1)"}, expected);
+    testAggregations(
+        vectors,
+        {"c0"},
+        {"spark_first(c1)"},
+        expected,
+        /*config*/ {},
+        /*testWithTableScan*/ false);
   }
 }
 
@@ -482,7 +533,13 @@ TEST_F(FirstAggregateTest, mapGroupBy) {
           [](auto idx) { return idx * 0.1; }), // valueAt
   })};
 
-  testAggregations(vectors, {"c0"}, {"spark_first(c1)"}, expected);
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"spark_first(c1)"},
+      expected,
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(FirstAggregateTest, mapGlobal) {

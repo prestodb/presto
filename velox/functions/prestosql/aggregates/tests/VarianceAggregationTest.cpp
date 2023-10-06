@@ -211,7 +211,9 @@ TEST_F(VarianceAggregationTest, varianceWithGlobalAggregationAndFilter) {
 }
 
 TEST_F(VarianceAggregationTest, varianceWithGroupBy) {
-  auto vectors = makeVectors(rowType_, 10, 20);
+  // TODO: increase number of batches after fixing
+  // https://github.com/facebookincubator/velox/issues/6505.
+  auto vectors = makeVectors(rowType_, 10, 8);
   createDuckDbTable(vectors);
 
   for (const auto& aggrName : aggrNames_) {

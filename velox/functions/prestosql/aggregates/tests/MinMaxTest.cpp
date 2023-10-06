@@ -50,7 +50,8 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
   }
 
   template <typename TAgg>
-  void doTest(TAgg agg, const TypePtr& inputType) {
+  void
+  doTest(TAgg agg, const TypePtr& inputType, bool testWithTableScan = true) {
     auto rowType = ROW({"c0", "c1", "mask"}, {BIGINT(), inputType, BOOLEAN()});
     auto vectors = fuzzData(rowType);
     createDuckDbTable(vectors);
@@ -61,7 +62,12 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
 
     // Global aggregation.
     testAggregations(
-        vectors, {}, {agg(c1)}, fmt::format("SELECT {} FROM tmp", agg(c1)));
+        vectors,
+        {},
+        {agg(c1)},
+        fmt::format("SELECT {} FROM tmp", agg(c1)),
+        /*config*/ {},
+        testWithTableScan);
 
     // Group by aggregation.
     testAggregations(
@@ -70,12 +76,19 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
         },
         {"p0"},
         {agg(c1)},
-        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
+        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)),
+        /*config*/ {},
+        testWithTableScan);
 
     // Masked aggregations.
     auto maskedAgg = agg(c1) + " filter (where mask)";
     testAggregations(
-        vectors, {}, {maskedAgg}, fmt::format("SELECT {} FROM tmp", maskedAgg));
+        vectors,
+        {},
+        {maskedAgg},
+        fmt::format("SELECT {} FROM tmp", maskedAgg),
+        /*config*/ {},
+        testWithTableScan);
 
     testAggregations(
         [&](auto& builder) {
@@ -83,7 +96,9 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
         },
         {"p0"},
         {maskedAgg},
-        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", maskedAgg));
+        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", maskedAgg),
+        /*config*/ {},
+        testWithTableScan);
 
     // Encodings: use filter to wrap aggregation inputs in a dictionary.
     testAggregations(
@@ -95,14 +110,17 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
         {"p0"},
         {agg(c1)},
         fmt::format(
-            "SELECT c0 % 11, {} FROM tmp WHERE c0 % 2 = 0 GROUP BY 1",
-            agg(c1)));
+            "SELECT c0 % 11, {} FROM tmp WHERE c0 % 2 = 0 GROUP BY 1", agg(c1)),
+        /*config*/ {},
+        testWithTableScan);
 
     testAggregations(
         [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 0"); },
         {},
         {agg(c1)},
-        fmt::format("SELECT {} FROM tmp WHERE c0 % 2 = 0", agg(c1)));
+        fmt::format("SELECT {} FROM tmp WHERE c0 % 2 = 0", agg(c1)),
+        /*config*/ {},
+        testWithTableScan);
   }
 };
 
@@ -266,19 +284,19 @@ TEST_F(MinMaxTest, initialValue) {
 }
 
 TEST_F(MinMaxTest, maxShortDecimal) {
-  doTest(max, DECIMAL(18, 3));
+  doTest(max, DECIMAL(18, 3), false);
 }
 
 TEST_F(MinMaxTest, minShortDecimal) {
-  doTest(min, DECIMAL(3, 1));
+  doTest(min, DECIMAL(3, 1), false);
 }
 
 TEST_F(MinMaxTest, maxLongDecimal) {
-  doTest(max, DECIMAL(20, 3));
+  doTest(max, DECIMAL(20, 3), false);
 }
 
 TEST_F(MinMaxTest, minLongDecimal) {
-  doTest(min, DECIMAL(38, 19));
+  doTest(min, DECIMAL(38, 19), false);
 }
 
 TEST_F(MinMaxTest, array) {
@@ -505,11 +523,15 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         }),
     });
 
+    // TODO: Enable testWithTableScan after fixing
+    // https://github.com/facebookincubator/velox/issues/6506.
     testAggregations(
         {data},
         {},
         {"min(c0, 2)", "min(c0, 5)", "max(c0, 3)", "max(c0, 7)"},
-        {expected});
+        {expected},
+        /*config*/ {},
+        /*testWithTableScan*/ false);
 
     // Add some nulls. Expect these to be ignored.
     data = makeRowVector({
@@ -533,7 +555,9 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         {data},
         {},
         {"min(c0, 2)", "min(c0, 5)", "max(c0, 3)", "max(c0, 7)"},
-        {expected});
+        {expected},
+        /*config*/ {},
+        /*testWithTableScan*/ false);
 
     // Test all null input.
     data = makeRowVector({
@@ -551,7 +575,9 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         {data},
         {},
         {"min(c0, 2)", "min(c0, 5)", "max(c0, 3)", "max(c0, 7)"},
-        {expected});
+        {expected},
+        /*config*/ {},
+        /*testWithTableScan*/ false);
 
     // Test the NULL handling in `N` param.
     data = makeRowVector({
@@ -584,7 +610,9 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         {data},
         {},
         {"min(c0, c1)", "min(c0, c3)", "max(c0, c2)", "max(c0, c3)"},
-        {expected});
+        {expected},
+        /*config*/ {},
+        /*testWithTableScan*/ false);
 
     // Second argument of max_n/min_n must be less than or equal to 10000.
     VELOX_ASSERT_THROW(
@@ -622,11 +650,15 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         }),
     });
 
+    // TODO: Enable testWithTableScan after fixing
+    // https://github.com/facebookincubator/velox/issues/6506.
     testAggregations(
         {data},
         {"c0"},
         {"min(c1, 2)", "min(c1, 5)", "max(c1, 3)", "max(c1, 7)"},
-        {expected});
+        {expected},
+        /*config*/ {},
+        /*testWithTableScan*/ false);
 
     // Add some nulls. Expect these to be ignored.
     data = makeRowVector({
@@ -639,7 +671,9 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         {data},
         {"c0"},
         {"min(c1, 2)", "min(c1, 5)", "max(c1, 3)", "max(c1, 7)"},
-        {expected});
+        {expected},
+        /*config*/ {},
+        /*testWithTableScan*/ false);
 
     // Test all null input.
     data = makeRowVector({
@@ -681,7 +715,9 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         {data},
         {"c0"},
         {"min(c1, 2)", "min(c1, 5)", "max(c1, 3)", "max(c1, 7)"},
-        {expected});
+        {expected},
+        /*config*/ {},
+        /*testWithTableScan*/ false);
 
     // Test the NULL handling in `N` param.
     data = makeRowVector({
@@ -721,7 +757,9 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
         {data},
         {"c0"},
         {"min(c1, c2)", "min(c1, c4)", "max(c1, c3)", "max(c1, c4)"},
-        {expected});
+        {expected},
+        /*config*/ {},
+        /*testWithTableScan*/ false);
   }
 };
 

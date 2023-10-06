@@ -68,7 +68,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::string& duckDbSql,
-      const std::unordered_map<std::string, std::string>& config = {});
+      const std::unordered_map<std::string, std::string>& config = {},
+      bool testWithTableScan = true);
 
   /// Same as above, but allows to specify a set of projections to apply after
   /// the aggregation.
@@ -79,7 +80,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& postAggregationProjections,
       std::function<std::shared_ptr<exec::Task>(
           exec::test::AssertQueryBuilder& builder)> assertResults,
-      const std::unordered_map<std::string, std::string>& config = {});
+      const std::unordered_map<std::string, std::string>& config = {},
+      bool testWithTableScan = true);
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node.
@@ -88,7 +90,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::string& duckDbSql,
-      const std::unordered_map<std::string, std::string>& config = {});
+      const std::unordered_map<std::string, std::string>& config = {},
+      bool testWithTableScan = true);
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node.
@@ -98,7 +101,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& postAggregationProjections,
       const std::string& duckDbSql,
-      const std::unordered_map<std::string, std::string>& config = {});
+      const std::unordered_map<std::string, std::string>& config = {},
+      bool testWithTableScan = true);
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node, and the expected result instead of a
@@ -108,7 +112,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<RowVectorPtr>& expectedResult,
-      const std::unordered_map<std::string, std::string>& config = {});
+      const std::unordered_map<std::string, std::string>& config = {},
+      bool testWithTableScan = true);
 
   /// Convenience version that allows to specify input data instead of a
   /// function to build Values plan node, and the expected result instead of a
@@ -119,7 +124,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& postAggregationProjections,
       const std::vector<RowVectorPtr>& expectedResult,
-      const std::unordered_map<std::string, std::string>& config = {});
+      const std::unordered_map<std::string, std::string>& config = {},
+      bool testWithTableScan = true);
 
   /// Ensure the function is working in streaming use case.  Create a first
   /// aggregation function, add the rawInput1, then extract the accumulator,
@@ -189,13 +195,15 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& postAggregationProjections,
       std::function<std::shared_ptr<exec::Task>(
-          exec::test::AssertQueryBuilder&)> assertResults);
+          exec::test::AssertQueryBuilder&)> assertResults,
+      const std::unordered_map<std::string, std::string>& config = {});
 
   void testReadFromFiles(
       const std::vector<RowVectorPtr>& data,
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
-      const std::vector<RowVectorPtr>& expectedResult) {
+      const std::vector<RowVectorPtr>& expectedResult,
+      const std::unordered_map<std::string, std::string>& config = {}) {
     testReadFromFiles(
         [&](auto& planBuilder) { planBuilder.values(data); },
         groupingKeys,
@@ -203,7 +211,8 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
         {},
         [&](auto& assertBuilder) {
           return assertBuilder.assertResults({expectedResult});
-        });
+        },
+        config);
   }
 
   /// Generates a variety of logically equivalent plans to compute aggregations
@@ -255,6 +264,15 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<VectorPtr>& rawInput2,
       vector_size_t rawInput2Size,
       const std::unordered_map<std::string, std::string>& config = {});
+
+  void testAggregationsImpl(
+      std::function<void(exec::test::PlanBuilder&)> makeSource,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& postAggregationProjections,
+      std::function<std::shared_ptr<exec::Task>(
+          exec::test::AssertQueryBuilder&)> assertResults,
+      const std::unordered_map<std::string, std::string>& config);
 
   bool allowInputShuffle_{false};
 };

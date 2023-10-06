@@ -262,7 +262,8 @@ TEST_F(MapUnionTest, nulls) {
 }
 
 TEST_F(MapUnionTest, unknownKeysAndValues) {
-  // map_union over empty map(unknown, unknown) is allowed.
+  // map_union over empty map(unknown, unknown) is allowed. Skip testing with
+  // TableScan because unknown type is not supported in writers.
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 1}),
       makeMapVector<UnknownValue, UnknownValue>({{}, {}, {}}),
@@ -277,8 +278,20 @@ TEST_F(MapUnionTest, unknownKeysAndValues) {
       makeMapVector<UnknownValue, UnknownValue>({{}, {}}),
   });
 
-  testAggregations({data}, {}, {"map_union(c1)"}, {expectedGlobalResult});
-  testAggregations({data}, {"c0"}, {"map_union(c1)"}, {expectedGroupByResult});
+  testAggregations(
+      {data},
+      {},
+      {"map_union(c1)"},
+      {expectedGlobalResult},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
+  testAggregations(
+      {data},
+      {"c0"},
+      {"map_union(c1)"},
+      {expectedGroupByResult},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // map_union over non-empty map(T, unknown) where T is not unknown is allowed.
   data = makeRowVector({
@@ -316,8 +329,20 @@ TEST_F(MapUnionTest, unknownKeysAndValues) {
       }),
   });
 
-  testAggregations({data}, {}, {"map_union(c1)"}, {expectedGlobalResult});
-  testAggregations({data}, {"c0"}, {"map_union(c1)"}, {expectedGroupByResult});
+  testAggregations(
+      {data},
+      {},
+      {"map_union(c1)"},
+      {expectedGlobalResult},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
+  testAggregations(
+      {data},
+      {"c0"},
+      {"map_union(c1)"},
+      {expectedGroupByResult},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // map_union over non-emtpy map(unknown, T) is not allowed.
   data = makeRowVector({

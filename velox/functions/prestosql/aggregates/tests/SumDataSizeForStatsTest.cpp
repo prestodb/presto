@@ -96,16 +96,18 @@ Timestamp generator<Timestamp>(vector_size_t i) {
   return Timestamp(i, i);
 }
 TEST_F(SumDataSizeForStatsTest, allScalarTypes) {
+  // Make input size at least 8 to ensure drivers get 2 input batches for
+  // spilling when tested with data read from files.
   auto vectors = {makeRowVector(
-      {makeFlatVector<int64_t>({1, 2, 1, 2}),
-       makeFlatVector<int8_t>(4, generator<int8_t>),
-       makeFlatVector<int16_t>(4, generator<int16_t>),
-       makeFlatVector<int32_t>(4, generator<int32_t>),
-       makeFlatVector<int64_t>(4, generator<int64_t>),
-       makeFlatVector<float>(4, generator<float>),
-       makeFlatVector<double>(4, generator<double>),
-       makeFlatVector<bool>(4, generator<bool>),
-       makeFlatVector<Timestamp>(4, generator<Timestamp>)})};
+      {makeFlatVector<int64_t>({1, 2, 1, 2, 1, 2, 1, 2}),
+       makeFlatVector<int8_t>(8, generator<int8_t>),
+       makeFlatVector<int16_t>(8, generator<int16_t>),
+       makeFlatVector<int32_t>(8, generator<int32_t>),
+       makeFlatVector<int64_t>(8, generator<int64_t>),
+       makeFlatVector<float>(8, generator<float>),
+       makeFlatVector<double>(8, generator<double>),
+       makeFlatVector<bool>(8, generator<bool>),
+       makeFlatVector<Timestamp>(8, generator<Timestamp>)})};
 
   // With grouping keys.
   testAggregations(
@@ -120,7 +122,7 @@ TEST_F(SumDataSizeForStatsTest, allScalarTypes) {
        "sum_data_size_for_stats(c7)",
        "sum_data_size_for_stats(c8)"},
       // result for group 1 and 2
-      "VALUES (1,2,4,8,16,8,16,2,32),(2,2,4,8,16,8,16,2,32)");
+      "VALUES (1,4,8,16,32,16,32,4,64),(2,4,8,16,32,16,32,4,64)");
 
   // Without grouping keys.
   testAggregations(
@@ -134,7 +136,7 @@ TEST_F(SumDataSizeForStatsTest, allScalarTypes) {
        "sum_data_size_for_stats(c6)",
        "sum_data_size_for_stats(c7)",
        "sum_data_size_for_stats(c8)"},
-      "VALUES (4,8,16,32,16,32,4,64)");
+      "VALUES (8,16,32,64,32,64,8,128)");
 }
 
 TEST_F(SumDataSizeForStatsTest, arrayGlobalAggregate) {

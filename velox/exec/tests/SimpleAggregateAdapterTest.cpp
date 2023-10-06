@@ -183,6 +183,7 @@ TEST_F(SimpleArrayAggAggregationTest, numbers) {
       {inputVectors},
       {},
       {"simple_array_agg(c2)", "simple_array_agg(c3)"},
+      {"array_sort(a0)", "array_sort(a1)"},
       {expected});
 
   expected = makeRowVector(
@@ -196,6 +197,7 @@ TEST_F(SimpleArrayAggAggregationTest, numbers) {
       {inputVectors},
       {"c0"},
       {"simple_array_agg(c2)", "simple_array_agg(c3)"},
+      {"c0", "array_sort(a0)", "array_sort(a1)"},
       {expected});
 
   expected = makeRowVector(
@@ -209,6 +211,7 @@ TEST_F(SimpleArrayAggAggregationTest, numbers) {
       {inputVectors},
       {"c1"},
       {"simple_array_agg(c2)", "simple_array_agg(c3)"},
+      {"c1", "array_sort(a0)", "array_sort(a1)"},
       {expected});
 
   inputVectors = makeRowVector({makeNullableFlatVector<int64_t>(
@@ -248,6 +251,7 @@ TEST_F(SimpleArrayAggAggregationTest, nestedArray) {
       {inputVectors},
       {"c0"},
       {"simple_array_agg(c1)", "simple_array_agg(c2)"},
+      {"c0", "array_sort(a0)", "array_sort(a1)"},
       {expected});
 
   expected = makeRowVector(
@@ -269,6 +273,7 @@ TEST_F(SimpleArrayAggAggregationTest, nestedArray) {
       {inputVectors},
       {},
       {"simple_array_agg(c1)", "simple_array_agg(c2)"},
+      {"array_sort(a0)", "array_sort(a1)"},
       {expected});
 }
 

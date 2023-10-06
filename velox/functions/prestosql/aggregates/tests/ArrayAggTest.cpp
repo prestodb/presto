@@ -76,7 +76,10 @@ TEST_F(ArrayAggTest, groupBy) {
         batches,
         {"c0"},
         {fmt::format("{}(a)", functionName)},
-        fmt::format("SELECT c0, array_agg(a) {} FROM tmp GROUP BY c0", filter),
+        {"c0", "array_sort(a0)"},
+        fmt::format(
+            "SELECT c0, array_sort(array_agg(a) {}) FROM tmp GROUP BY c0",
+            filter),
         makeConfig(ignoreNulls));
     testAggregationsWithCompanion(
         batches,
@@ -97,8 +100,10 @@ TEST_F(ArrayAggTest, groupBy) {
         batches,
         {"c0"},
         {fmt::format("{}(a)", functionName), "max(c0)"},
+        {"c0", "array_sort(a0)", "a1"},
         fmt::format(
-            "SELECT c0, array_agg(a) {}, max(c0) FROM tmp GROUP BY c0", filter),
+            "SELECT c0, array_sort(array_agg(a) {}), max(c0) FROM tmp GROUP BY c0",
+            filter),
         makeConfig(ignoreNulls));
   };
 
@@ -208,7 +213,8 @@ TEST_F(ArrayAggTest, global) {
         vectors,
         {},
         {fmt::format("{}(c0)", functionName)},
-        fmt::format("SELECT array_agg(c0) {} FROM tmp", filter),
+        {"array_sort(a0)"},
+        fmt::format("SELECT array_sort(array_agg(c0) {}) FROM tmp", filter),
         makeConfig(ignoreNulls));
     testAggregationsWithCompanion(
         vectors,
@@ -423,6 +429,7 @@ TEST_F(ArrayAggTest, mask) {
         split(data),
         {},
         {fmt::format("{}(c0) FILTER (WHERE c1)", functionName)},
+        {"array_sort(a0)"},
         "SELECT [1, 3, 5]");
 
     // Group-by with all-false mask.
@@ -449,6 +456,7 @@ TEST_F(ArrayAggTest, mask) {
         split(data),
         {"c0"},
         {fmt::format("{}(c1) FILTER (WHERE c2)", functionName)},
+        {"c0", "array_sort(a0)"},
         "VALUES (10, [1, 3]), (20, [5])");
   };
 

@@ -100,17 +100,19 @@ Timestamp generator<Timestamp>(vector_size_t i) {
   return Timestamp(i, i);
 }
 TEST_F(MaxSizeForStatsTest, allScalarTypes) {
+  // Make input size at least 8 to ensure drivers get 2 input batches for
+  // spilling when tested with TableScan.
   auto vectors = {makeRowVector(
-      {makeFlatVector<int64_t>({1, 2, 1, 2}),
-       makeFlatVector<int8_t>(4, generator<int8_t>),
-       makeFlatVector<int16_t>(4, generator<int16_t>),
-       makeFlatVector<int32_t>(4, generator<int32_t>),
-       makeFlatVector<int64_t>(4, generator<int64_t>),
-       makeFlatVector<float>(4, generator<float>),
-       makeFlatVector<double>(4, generator<double>),
-       makeFlatVector<bool>(4, generator<bool>),
-       makeFlatVector<int32_t>(4, generator<int32_t>, nullptr, DATE()),
-       makeFlatVector<Timestamp>(4, generator<Timestamp>)})};
+      {makeFlatVector<int64_t>({1, 2, 1, 2, 1, 2, 1, 2}),
+       makeFlatVector<int8_t>(8, generator<int8_t>),
+       makeFlatVector<int16_t>(8, generator<int16_t>),
+       makeFlatVector<int32_t>(8, generator<int32_t>),
+       makeFlatVector<int64_t>(8, generator<int64_t>),
+       makeFlatVector<float>(8, generator<float>),
+       makeFlatVector<double>(8, generator<double>),
+       makeFlatVector<bool>(8, generator<bool>),
+       makeFlatVector<int32_t>(8, generator<int32_t>, nullptr, DATE()),
+       makeFlatVector<Timestamp>(8, generator<Timestamp>)})};
 
   // With grouping keys.
   testAggregations(

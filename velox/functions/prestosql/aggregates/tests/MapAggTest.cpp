@@ -148,7 +148,15 @@ TEST_F(MapAggTest, groupByWithDuplicates) {
       }),
   });
 
-  testAggregations(vectors, {"c0"}, {"map_agg(c1, c2)"}, {expectedResult});
+  // We don't test with TableScan because when there are duplicate keys in
+  // different splits, the result is non-deterministic.
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"map_agg(c1, c2)"},
+      {expectedResult},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(MapAggTest, groupByNoData) {
@@ -300,7 +308,15 @@ TEST_F(MapAggTest, globalDuplicateKeys) {
       }),
   });
 
-  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, {expectedResult});
+  // We don't test with TableScan because when there are duplicate keys in
+  // different splits, the result is non-deterministic.
+  testAggregations(
+      vectors,
+      {},
+      {"map_agg(c0, c1)"},
+      {expectedResult},
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 /// Reproduces the bug reported in

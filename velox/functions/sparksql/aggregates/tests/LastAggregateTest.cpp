@@ -42,13 +42,17 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
 
       createDuckDbTable(vectors);
 
+      // We do not test with TableScan because having two input splits makes the
+      // result non-deterministic.
       {
         SCOPED_TRACE("ignore null + group by");
         testAggregations(
             vectors,
             {"c0"},
             {"spark_last_ignore_null(c1)"},
-            "SELECT c0, last(c1 ORDER BY c1 NULLS FIRST) FROM tmp GROUP BY c0");
+            "SELECT c0, last(c1 ORDER BY c1 NULLS FIRST) FROM tmp GROUP BY c0",
+            /*config*/ {},
+            /*testWithTableScan*/ false);
       }
       {
         // Expected result should have first 7 rows including nulls.
@@ -60,7 +64,13 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
                 [](auto row) { return 91 + row; }, // valueAt
                 [](auto row) { return (91 + row) % 3 == 0; }), // nullAt
         })};
-        testAggregations(vectors, {"c0"}, {"spark_last(c1)"}, expected);
+        testAggregations(
+            vectors,
+            {"c0"},
+            {"spark_last(c1)"},
+            expected,
+            /*config*/ {},
+            /*testWithTableScan*/ false);
       }
     }
 
@@ -73,13 +83,24 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
         SCOPED_TRACE("ignore null + global");
         auto expectedTrue = {makeRowVector({makeNullableFlatVector<T>({2})})};
         testAggregations(
-            vectors, {}, {"spark_last_ignore_null(c0)"}, expectedTrue);
+            vectors,
+            {},
+            {"spark_last_ignore_null(c0)"},
+            expectedTrue,
+            /*config*/ {},
+            /*testWithTableScan*/ false);
       }
       {
         SCOPED_TRACE("not ignore null + global");
         auto expectedFalse = {
             makeRowVector({makeNullableFlatVector<T>({std::nullopt})})};
-        testAggregations(vectors, {}, {"spark_last(c0)"}, expectedFalse);
+        testAggregations(
+            vectors,
+            {},
+            {"spark_last(c0)"},
+            expectedFalse,
+            /*config*/ {},
+            /*testWithTableScan*/ false);
       }
     }
   }
@@ -91,12 +112,23 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
     {
       SCOPED_TRACE("ignore null + group by");
       testAggregations(
-          data, {"c0"}, {"spark_last_ignore_null(c1)"}, ignoreNullData);
+          data,
+          {"c0"},
+          {"spark_last_ignore_null(c1)"},
+          ignoreNullData,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
 
     {
       SCOPED_TRACE("not ignore null + group by");
-      testAggregations(data, {"c0"}, {"spark_last(c1)"}, hasNullData);
+      testAggregations(
+          data,
+          {"c0"},
+          {"spark_last(c1)"},
+          hasNullData,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
   }
 
@@ -107,12 +139,23 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
     {
       SCOPED_TRACE("ignore null + global");
       testAggregations(
-          data, {}, {"spark_last_ignore_null(c0)"}, ignoreNullData);
+          data,
+          {},
+          {"spark_last_ignore_null(c0)"},
+          ignoreNullData,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
 
     {
       SCOPED_TRACE("not ignore null + global");
-      testAggregations(data, {}, {"spark_last(c0)"}, hasNullData);
+      testAggregations(
+          data,
+          {},
+          {"spark_last(c0)"},
+          hasNullData,
+          /*config*/ {},
+          /*testWithTableScan*/ false);
     }
   }
 };
@@ -378,7 +421,9 @@ TEST_F(LastAggregateTest, varcharGroupBy) {
       vectors,
       {"c0"},
       {"spark_last_ignore_null(c1)"},
-      "SELECT c0, last(c1) FROM tmp WHERE c1 IS NOT NULL GROUP BY c0");
+      "SELECT c0, last(c1) FROM tmp WHERE c1 IS NOT NULL GROUP BY c0",
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 
   // Verify when ignoreNull is false.
   // Expected result should have last 7 rows [91..98) including nulls.
@@ -389,7 +434,13 @@ TEST_F(LastAggregateTest, varcharGroupBy) {
           [&data](auto row) { return StringView(data[91 + row]); }, // valueAt
           [](auto row) { return (91 + row) % 3 == 0; }), // nullAt
   })};
-  testAggregations(vectors, {"c0"}, {"spark_last(c1)"}, expected);
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"spark_last(c1)"},
+      expected,
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(LastAggregateTest, varcharGlobal) {
@@ -482,7 +533,13 @@ TEST_F(LastAggregateTest, mapGroupBy) {
           [](auto idx) { return (92 + idx) * 0.1; }), // valueAt
   })};
 
-  testAggregations(vectors, {"c0"}, {"spark_last(c1)"}, expected);
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"spark_last(c1)"},
+      expected,
+      /*config*/ {},
+      /*testWithTableScan*/ false);
 }
 
 TEST_F(LastAggregateTest, mapGlobal) {
