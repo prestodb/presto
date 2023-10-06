@@ -69,6 +69,7 @@ class BroadcastFileWriter {
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
   std::string filename_;
   int64_t numRows_;
+  int64_t maxSerializedSize_;
   velox::memory::MemoryPool* pool_;
   std::unique_ptr<velox::VectorSerde> serde_;
   const velox::RowTypePtr& inputType_;
