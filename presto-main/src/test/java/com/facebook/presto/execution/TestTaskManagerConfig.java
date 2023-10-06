@@ -113,7 +113,7 @@ public class TestTaskManagerConfig
                 .put("task.legacy-lifespan-completion-condition", "true")
                 .put("task.task-priority-tracking", "QUERY_FAIR")
                 .put("task.interrupt-runaway-splits-timeout", "599s")
-                .put("task.memory-based-slowdown-threshold", "0.9")
+                .put("experimental.task.memory-based-slowdown-threshold", "0.9")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()

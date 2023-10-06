@@ -588,8 +588,8 @@ public class TaskManagerConfig
         return memoryBasedSlowDownThreshold;
     }
 
-    @Config("task.memory-based-slowdown-threshold")
-    @ConfigDescription("Pause processing new leaf split if heap memory usage crosses the threshold")
+    @Config("experimental.task.memory-based-slowdown-threshold")
+    @ConfigDescription("Pause processing new leaf split if heap memory usage crosses the threshold. This feature is experimental and use it with caution as could lead to deadlock.")
     public TaskManagerConfig setMemoryBasedSlowDownThreshold(double memoryBasedSlowDownThreshold)
     {
         this.memoryBasedSlowDownThreshold = memoryBasedSlowDownThreshold;
