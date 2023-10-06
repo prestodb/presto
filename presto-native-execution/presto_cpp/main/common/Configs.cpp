@@ -44,98 +44,6 @@ std::string bool2String(bool value) {
   { std::string(_key_), bool2String(_val_) }
 #define NONE_PROP(_key_) \
   { std::string(_key_), folly::none }
-
-enum class CapacityUnit {
-  BYTE,
-  KILOBYTE,
-  MEGABYTE,
-  GIGABYTE,
-  TERABYTE,
-  PETABYTE
-};
-
-double toBytesPerCapacityUnit(CapacityUnit unit) {
-  switch (unit) {
-    case CapacityUnit::BYTE:
-      return 1;
-    case CapacityUnit::KILOBYTE:
-      return exp2(10);
-    case CapacityUnit::MEGABYTE:
-      return exp2(20);
-    case CapacityUnit::GIGABYTE:
-      return exp2(30);
-    case CapacityUnit::TERABYTE:
-      return exp2(40);
-    case CapacityUnit::PETABYTE:
-      return exp2(50);
-    default:
-      VELOX_USER_FAIL("Invalid capacity unit '{}'", (int)unit);
-  }
-}
-
-CapacityUnit valueOfCapacityUnit(const std::string& unitStr) {
-  if (unitStr == "B") {
-    return CapacityUnit::BYTE;
-  }
-  if (unitStr == "kB") {
-    return CapacityUnit::KILOBYTE;
-  }
-  if (unitStr == "MB") {
-    return CapacityUnit::MEGABYTE;
-  }
-  if (unitStr == "GB") {
-    return CapacityUnit::GIGABYTE;
-  }
-  if (unitStr == "TB") {
-    return CapacityUnit::TERABYTE;
-  }
-  if (unitStr == "PB") {
-    return CapacityUnit::PETABYTE;
-  }
-  VELOX_USER_FAIL("Invalid capacity unit '{}'", unitStr);
-}
-
-// Convert capacity string with unit to the capacity number in the specified
-// units
-uint64_t toCapacity(const std::string& from, CapacityUnit to) {
-  static const RE2 kPattern(R"(^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$)");
-  double value;
-  std::string unit;
-  if (!RE2::FullMatch(from, kPattern, &value, &unit)) {
-    VELOX_USER_FAIL("Invalid capacity string '{}'", from);
-  }
-
-  return value *
-      (toBytesPerCapacityUnit(valueOfCapacityUnit(unit)) /
-       toBytesPerCapacityUnit(to));
-}
-
-std::chrono::duration<double> toDuration(const std::string& str) {
-  static const RE2 kPattern(R"(^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*)");
-
-  double value;
-  std::string unit;
-  if (!RE2::FullMatch(str, kPattern, &value, &unit)) {
-    VELOX_USER_FAIL("Invalid duration {}", str);
-  }
-  if (unit == "ns") {
-    return std::chrono::duration<double, std::nano>(value);
-  } else if (unit == "us") {
-    return std::chrono::duration<double, std::micro>(value);
-  } else if (unit == "ms") {
-    return std::chrono::duration<double, std::milli>(value);
-  } else if (unit == "s") {
-    return std::chrono::duration<double>(value);
-  } else if (unit == "m") {
-    return std::chrono::duration<double, std::ratio<60>>(value);
-  } else if (unit == "h") {
-    return std::chrono::duration<double, std::ratio<60 * 60>>(value);
-  } else if (unit == "d") {
-    return std::chrono::duration<double, std::ratio<60 * 60 * 24>>(value);
-  }
-  VELOX_USER_FAIL("Invalid duration {}", str);
-}
-
 } // namespace
 
 ConfigBase::ConfigBase()
@@ -514,7 +422,8 @@ uint64_t SystemConfig::httpMaxAllocateBytes() const {
 
 uint64_t SystemConfig::queryMaxMemoryPerNode() const {
   return toCapacity(
-      optionalProperty(kQueryMaxMemoryPerNode).value(), CapacityUnit::BYTE);
+      optionalProperty(kQueryMaxMemoryPerNode).value(),
+      velox::core::CapacityUnit::BYTE);
 }
 
 bool SystemConfig::enableMemoryLeakCheck() const {
@@ -542,11 +451,13 @@ uint64_t SystemConfig::heartbeatFrequencyMs() const {
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
-  return toDuration(optionalProperty(kExchangeMaxErrorDuration).value());
+  return velox::core::toDuration(
+      optionalProperty(kExchangeMaxErrorDuration).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeRequestTimeout() const {
-  return toDuration(optionalProperty(kExchangeRequestTimeout).value());
+  return velox::core::toDuration(
+      optionalProperty(kExchangeRequestTimeout).value());
 }
 
 int32_t SystemConfig::taskRunTimeSliceMicros() const {
