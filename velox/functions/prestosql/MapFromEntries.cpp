@@ -13,12 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <memory>
 
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/CheckDuplicateKeys.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
+#include "velox/vector/BaseVector.h"
+#include "velox/vector/ComplexVector.h"
+
 namespace facebook::velox::functions {
 namespace {
 static const char* kNullKeyErrorMessage = "map key cannot be null";
@@ -38,7 +42,6 @@ class MapFromEntriesFunction : public exec::VectorFunction {
     VELOX_CHECK_EQ(args.size(), 1);
     auto& arg = args[0];
     VectorPtr localResult;
-
     // Input can be constant or flat.
     if (arg->isConstantEncoding()) {
       auto* constantArray = arg->as<ConstantVector<ComplexType>>();
@@ -91,7 +94,6 @@ class MapFromEntriesFunction : public exec::VectorFunction {
     auto& inputValueVector = inputArray->elements();
     exec::LocalDecodedVector decodedRowVector(context);
     decodedRowVector.get()->decode(*inputValueVector);
-
     // If the input array(unknown) then all rows should have errors.
     if (inputValueVector->typeKind() == TypeKind::UNKNOWN) {
       try {
@@ -122,6 +124,16 @@ class MapFromEntriesFunction : public exec::VectorFunction {
 
     BufferPtr changedSizes = nullptr;
     vector_size_t* mutableSizes = nullptr;
+    auto resetSize = [&](vector_size_t row) {
+      if (!mutableSizes) {
+        changedSizes = allocateSizes(rows.end(), context.pool());
+        mutableSizes = changedSizes->asMutable<vector_size_t>();
+        rows.applyToSelected([&](vector_size_t row) {
+          mutableSizes[row] = inputArray->rawSizes()[row];
+        });
+      }
+      mutableSizes[row] = 0;
+    };
 
     // Validate all map entries and map keys are not null.
     if (decodedRowVector->mayHaveNulls() || keyVector->mayHaveNulls() ||
@@ -134,34 +146,29 @@ class MapFromEntriesFunction : public exec::VectorFunction {
           // Check nulls in the top level row vector.
           const bool isMapEntryNull = decodedRowVector->isNullAt(offset + i);
           if (isMapEntryNull) {
-            if (!mutableSizes) {
-              changedSizes = allocateSizes(rows.end(), context.pool());
-              mutableSizes = changedSizes->asMutable<vector_size_t>();
-              rows.applyToSelected([&](vector_size_t row) {
-                mutableSizes[row] = inputArray->rawSizes()[row];
-              });
-            }
-
             // Set the sizes to 0 so that the final map vector generated is
             // valid in case we are inside a try. The map vector needs to be
             // valid because its consumed by checkDuplicateKeys before try
             // sets invalid rows to null.
-            mutableSizes[row] = 0;
+            resetSize(row);
             VELOX_USER_FAIL(kErrorMessageEntryNotNull);
           }
 
           // Check null keys.
           auto keyIndex = decodedRowVector->index(offset + i);
-          VELOX_USER_CHECK(
-              !keyVector->isNullAt(keyIndex), kNullKeyErrorMessage);
+          if (keyVector->isNullAt(keyIndex)) {
+            resetSize(row);
+            VELOX_USER_FAIL(kNullKeyErrorMessage);
+          }
 
           // Check nested null in keys.
-          VELOX_USER_CHECK(
-              !keyVector->containsNullAt(keyIndex),
-              fmt::format(
-                  "{}: {}",
-                  kIndeterminateKeyErrorMessage,
-                  keyVector->toString(keyIndex)));
+          if (keyVector->containsNullAt(keyIndex)) {
+            resetSize(row);
+            VELOX_USER_FAIL(fmt::format(
+                "{}: {}",
+                kIndeterminateKeyErrorMessage,
+                keyVector->toString(keyIndex)));
+          }
         }
       });
     }

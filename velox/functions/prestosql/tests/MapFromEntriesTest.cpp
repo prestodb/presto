@@ -422,3 +422,21 @@ TEST_F(MapFromEntriesTest, unknownInputs) {
   test("try(map_from_entries(array_constructor(null)))");
   test("try(map_from_entries(null))");
 }
+
+TEST_F(MapFromEntriesTest, nullRowEntriesWithSmallerChildren) {
+  // Row vector is of size 3, childrens are of size 2 since row 2 is null.
+  auto rowVector = makeRowVector(
+      {makeNullableFlatVector<int32_t>({std::nullopt, 2}),
+       makeFlatVector<int32_t>({1, 2})});
+  rowVector->appendNulls(1);
+  rowVector->setNull(2, true);
+
+  // Array [(null,1), (2,2), null]
+  auto arrayVector = makeArrayVector({0}, rowVector);
+  auto result =
+      evaluate("try(map_from_entries(c0))", makeRowVector({arrayVector}));
+  result->validate();
+  assertEqualVectors(
+      BaseVector::createNullConstant(MAP(INTEGER(), INTEGER()), 1, pool()),
+      result);
+}
