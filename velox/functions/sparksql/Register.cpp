@@ -22,6 +22,7 @@
 #include "velox/functions/prestosql/DateTimeFunctions.h"
 #include "velox/functions/prestosql/JsonFunctions.h"
 #include "velox/functions/prestosql/StringFunctions.h"
+#include "velox/functions/sparksql/ArrayMinMaxFunction.h"
 #include "velox/functions/sparksql/ArraySort.h"
 #include "velox/functions/sparksql/Bitwise.h"
 #include "velox/functions/sparksql/DateTimeFunctions.h"
@@ -72,6 +73,28 @@ namespace sparksql {
 void registerAllSpecialFormGeneralFunctions() {
   exec::registerFunctionCallToSpecialForms();
 }
+
+namespace {
+template <typename T>
+inline void registerArrayMinMaxFunctions(const std::string& prefix) {
+  registerFunction<ArrayMinFunction, T, Array<T>>({prefix + "array_min"});
+  registerFunction<ArrayMaxFunction, T, Array<T>>({prefix + "array_max"});
+}
+
+inline void registerArrayMinMaxFunctions(const std::string& prefix) {
+  registerArrayMinMaxFunctions<int8_t>(prefix);
+  registerArrayMinMaxFunctions<int16_t>(prefix);
+  registerArrayMinMaxFunctions<int32_t>(prefix);
+  registerArrayMinMaxFunctions<int64_t>(prefix);
+  registerArrayMinMaxFunctions<int128_t>(prefix);
+  registerArrayMinMaxFunctions<float>(prefix);
+  registerArrayMinMaxFunctions<double>(prefix);
+  registerArrayMinMaxFunctions<bool>(prefix);
+  registerArrayMinMaxFunctions<Varchar>(prefix);
+  registerArrayMinMaxFunctions<Timestamp>(prefix);
+  registerArrayMinMaxFunctions<Date>(prefix);
+}
+} // namespace
 
 void registerFunctions(const std::string& prefix) {
   registerAllSpecialFormGeneralFunctions();
@@ -232,6 +255,8 @@ void registerFunctions(const std::string& prefix) {
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});
+
+  registerArrayMinMaxFunctions(prefix);
 }
 
 } // namespace sparksql
