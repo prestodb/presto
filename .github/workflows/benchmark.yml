@@ -83,7 +83,8 @@ jobs:
           git remote add upstream https://github.com/facebookincubator/velox
           git fetch upstream
           git status
-          merge_base="d51190039648bc1b5725e0261889d19ea2e65a85"
+          merge_base=$(git merge-base 'upstream/${{ github.base_ref }}' 'origin/${{ github.head_ref }}') || \
+            { echo "::error::Failed to find merge base"; exit 1; }
           echo "Merge Base: $merge_base"
           git checkout $merge_base
           git submodule update --init --recursive
