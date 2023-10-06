@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
+import static com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor.defaultFunctionDescriptor;
+
 public interface SqlFunction
 {
     Signature getSignature();
@@ -24,4 +26,9 @@ public interface SqlFunction
     boolean isCalledOnNullInput();
 
     String getDescription();
+
+    default ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
+    {
+        return defaultFunctionDescriptor();
+    }
 }

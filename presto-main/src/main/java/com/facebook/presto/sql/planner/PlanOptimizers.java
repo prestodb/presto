@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNod
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
 import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayContainsToInnerJoin;
+import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayNotContainsToAntiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithOrFilterToInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType;
@@ -157,6 +158,7 @@ import com.facebook.presto.sql.planner.optimizations.RemoveRedundantDistinctAggr
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
+import com.facebook.presto.sql.planner.optimizations.ShardJoins;
 import com.facebook.presto.sql.planner.optimizations.SimplifyPlanWithEmptyInput;
 import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
@@ -504,7 +506,8 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new PushDownFilterExpressionEvaluationThroughCrossJoin(metadata.getFunctionAndTypeManager()),
                                 new CrossJoinWithOrFilterToInnerJoin(metadata.getFunctionAndTypeManager()),
-                                new CrossJoinWithArrayContainsToInnerJoin(metadata.getFunctionAndTypeManager()))),
+                                new CrossJoinWithArrayContainsToInnerJoin(metadata.getFunctionAndTypeManager()),
+                                new CrossJoinWithArrayNotContainsToAntiJoin(metadata, metadata.getFunctionAndTypeManager()))),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
@@ -726,6 +729,8 @@ public class PlanOptimizers
                                     new PruneRedundantProjectionAssignments(),
                                     new InlineProjections(metadata.getFunctionAndTypeManager()),
                                     new RemoveRedundantIdentityProjections())));
+            builder.add(new ShardJoins(metadata, metadata.getFunctionAndTypeManager(), statsCalculator),
+                    new PruneUnreferencedOutputs());
             builder.add(
                     new IterativeOptimizer(
                             metadata,

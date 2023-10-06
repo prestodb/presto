@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.284-SNAPSHOT</version>
+        <version>0.285-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-native-execution</artifactId>
@@ -217,6 +217,20 @@
                                 <REMOTE_FUNCTION_SERVER>_build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main</REMOTE_FUNCTION_SERVER>
                                 <DATA_DIR>/tmp/velox</DATA_DIR>
                             </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>all-non-parquet-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludedGroups combine.self="override">parquet,remote-function</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

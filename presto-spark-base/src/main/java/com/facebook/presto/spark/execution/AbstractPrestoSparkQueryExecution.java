@@ -127,6 +127,7 @@ import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extra
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
+import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG;
 import static com.facebook.presto.spark.SparkErrorCode.EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE;
 import static com.facebook.presto.spark.SparkErrorCode.GENERIC_SPARK_ERROR;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_LOST;
@@ -327,6 +328,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     {
         List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> rddResults;
         try {
+            tuneMaxExecutorsCount();
             rddResults = doExecute();
             queryStateTimer.beginFinishing();
             PrestoSparkTransactionUtils.commit(session, transactionManager);
@@ -1003,6 +1005,16 @@ public abstract class AbstractPrestoSparkQueryExecution
         }
         else {
             log.info("No entry found in bootstrapMetricsCollector");
+        }
+    }
+
+    private void tuneMaxExecutorsCount()
+    {
+        // Executor allocation is currently only supported at root level of the plan
+        // In future this could be extended to fragment level configuration
+        if (planAndMore.getPhysicalResourceSettings().getMaxExecutorCount().isPresent()) {
+            sparkContext.sc().conf().set(SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG,
+                    Integer.toString(planAndMore.getPhysicalResourceSettings().getMaxExecutorCount().getAsInt()));
         }
     }
 }

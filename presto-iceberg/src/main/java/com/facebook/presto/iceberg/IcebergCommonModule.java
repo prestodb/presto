@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheFactory;
 import com.facebook.presto.cache.CacheStats;
@@ -26,24 +27,16 @@ import com.facebook.presto.hive.ForMetastoreHdfsEnvironment;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveNodePartitioningProvider;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
-import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveMetastoreCacheStats;
-import com.facebook.presto.hive.metastore.HivePartitionMutator;
-import com.facebook.presto.hive.metastore.MetastoreCacheStats;
-import com.facebook.presto.hive.metastore.MetastoreConfig;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergParquetDereferencePushDown;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer;
@@ -76,7 +69,6 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
@@ -99,32 +91,27 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class IcebergModule
-        implements Module
+public class IcebergCommonModule
+        extends AbstractConfigurationAwareModule
 {
     private final String connectorId;
 
-    public IcebergModule(String connectorId)
+    public IcebergCommonModule(String connectorId)
     {
         this.connectorId = connectorId;
     }
 
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(CacheConfig.class);
         configBinder(binder).bindConfig(FileMergeCacheConfig.class);
         binder.bind(CacheStats.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(MetastoreClientConfig.class);
         configBinder(binder).bindConfig(HiveGcsConfig.class);
         binder.bind(GcsConfigurationInitializer.class).to(HiveGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
-        binder.bind(PartitionMutator.class).to(HivePartitionMutator.class).in(Scopes.SINGLETON);
-        binder.bind(MetastoreCacheStats.class).to(HiveMetastoreCacheStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(MetastoreCacheStats.class).as(generatedNameOf(MetastoreCacheStats.class, connectorId));
-        binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
@@ -134,9 +121,7 @@ public class IcebergModule
         binder.bind(IcebergCatalogName.class).toInstance(new IcebergCatalogName(connectorId));
         binder.bind(IcebergResourceFactory.class).in(Scopes.SINGLETON);
 
-        configBinder(binder).bindConfig(HiveClientConfig.class);
         configBinder(binder).bindConfig(IcebergConfig.class);
-        configBinder(binder).bindConfig(MetastoreConfig.class);
         configBinder(binder).bindConfig(NessieConfig.class);
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
@@ -148,8 +133,6 @@ public class IcebergModule
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
-
-        binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(CommitTaskData.class);
 

@@ -389,18 +389,20 @@ public class ParquetTester
         }
 
         // write presto parquet
-        for (CompressionCodecName compressionCodecName : writerCompressions) {
-            for (ConnectorSession session : sessions) {
-                try (TempFile tempFile = new TempFile("test", "parquet")) {
-                    OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
-                    checkState(min.isPresent());
-                    writeParquetFileFromPresto(tempFile.getFile(), columnTypes, columnNames, readValues, min.getAsInt(), compressionCodecName);
-                    assertFileContents(
-                            session,
-                            tempFile.getFile(),
-                            getIterators(readValues),
-                            columnNames,
-                            columnTypes);
+        for (WriterVersion version : versions) {
+            for (CompressionCodecName compressionCodecName : writerCompressions) {
+                for (ConnectorSession session : sessions) {
+                    try (TempFile tempFile = new TempFile("test", "parquet")) {
+                        OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
+                        checkState(min.isPresent());
+                        writeParquetFileFromPresto(tempFile.getFile(), columnTypes, columnNames, readValues, min.getAsInt(), compressionCodecName, version);
+                        assertFileContents(
+                                session,
+                                tempFile.getFile(),
+                                getIterators(readValues),
+                                columnNames,
+                                columnTypes);
+                    }
                 }
             }
         }
@@ -825,7 +827,7 @@ public class ParquetTester
         return type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position);
     }
 
-    public static void writeParquetFileFromPresto(File outputFile, List<Type> types, List<String> columnNames, Iterable<?>[] values, int size, CompressionCodecName compressionCodecName)
+    public static void writeParquetFileFromPresto(File outputFile, List<Type> types, List<String> columnNames, Iterable<?>[] values, int size, CompressionCodecName compressionCodecName, WriterVersion writerVersion)
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);
@@ -841,6 +843,7 @@ public class ParquetTester
                 ParquetWriterOptions.builder()
                         .setMaxPageSize(DataSize.succinctBytes(100))
                         .setMaxBlockSize(DataSize.succinctBytes(100000))
+                        .setWriterVersion(writerVersion)
                         .build(),
                 compressionCodecName.getHadoopCompressionCodecClassName());
 

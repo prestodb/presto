@@ -150,15 +150,8 @@ Iceberg connector supports Hadoop catalog
 .. code-block:: none
 
     connector.name=iceberg
-    hive.metastore.uri=hostname:port
     iceberg.catalog.type=hadoop
-
-.. note::
-
-    To use the Hadoop catalog with the Iceberg table, it requires the ``hive.metastore.uri`` property, even
-    though it doesn't rely on the metastore to provide the actual URI when using the Hadoop Catalog.
-    You can provide any value to this property, for example, ``hive.metastore.uri=thrift://localhost:9083``.
-    This will be fixed in a future release of Presto (:issue:`20579`).
+    iceberg.catalog.warehouse=hdfs://hostname:port
 
 Configuration Properties
 ------------------------
@@ -177,9 +170,12 @@ Property Name                                      Description                  
 ``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
                                                    Thrift protocol. If multiple URIs are provided, the first
                                                    URI is used by default, and the rest of the URIs are
-                                                   fallback metastores. This property is required.
+                                                   fallback metastores.
                                                    Example: ``thrift://192.0.2.3:9083`` or
                                                    ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+                                                   This property is required if the
+                                                   ``iceberg.catalog.type`` is ``hive``. Otherwise, it will
+                                                   be ignored.
 
 ``iceberg.file-format``                            The storage file format for Iceberg tables. The available     ``ORC``
                                                    values are ``PARQUET`` and ``ORC``.
@@ -194,12 +190,12 @@ Property Name                                      Description                  
 
 ``iceberg.catalog.warehouse``                      The catalog warehouse root path for Iceberg tables.
                                                    ``Example: hdfs://nn:8020/warehouse/path``
-                                                   This property is required if the iceberg.catalog.type is
-                                                   hadoop. Otherwise, it will be ignored.
+                                                   This property is required if the ``iceberg.catalog.type`` is
+                                                   ``hadoop``. Otherwise, it will be ignored.
 
 ``iceberg.catalog.cached-catalog-num``             The number of Iceberg catalogs to cache. This property is     ``10``
-                                                   required if the iceberg.catalog.type is hadoop. Otherwise,
-                                                   it will be ignored.
+                                                   required if the ``iceberg.catalog.type`` is ``hadoop``.
+                                                   Otherwise, it will be ignored.
 
 ``iceberg.hadoop.config.resources``                The path(s) for Hadoop configuration resources.
                                                    ``Example: /etc/hadoop/conf/core-site.xml.`` This property
@@ -444,6 +440,14 @@ Create an Iceberg table partitioned by the first letter of the team field::
     ``Day``, ``Month``, ``Year``, ``Hour`` partition column transform functions are not supported in Presto Iceberg
     connector yet (:issue:`20570`).
 
+CREATE VIEW
+^^^^^^^^^^^^
+
+The Iceberg connector supports creating views in Hive and Glue metastores.
+To create a view named ``view_page_views`` for the ``iceberg.web.page_views`` table created in the `CREATE TABLE`_ example::
+
+    CREATE VIEW iceberg.web.view_page_views AS SELECT user_id, country FROM iceberg.web.page_views;
+
 INSERT INTO
 ^^^^^^^^^^^^
 
@@ -483,13 +487,46 @@ Alter table operations are supported in the connector::
 
      ALTER TABLE iceberg.web.page_views DROP COLUMN location;
 
+TRUNCATE
+^^^^^^^^
+
+The iceberg connector can delete all of the data from tables without
+dropping the table from the metadata catalog using ``TRUNCATE TABLE``.
+
+.. code-block:: sql
+
+    TRUNCATE TABLE nation;
+
+.. code-block:: text
+
+    TRUNCATE TABLE;
+
+.. code-block:: sql
+
+    SELECT * FROM nation;
+
+.. code-block:: text
+
+     nationkey | name | regionkey | comment
+    -----------+------+-----------+---------
+    (0 rows)
+
 DROP TABLE
 ^^^^^^^^^^^
 
-Drop the table ``page_views``. This only drops the metadata
-& data for the table::
+Drop the table ``page_views`` ::
 
     DROP TABLE iceberg.web.page_views
+
+* Dropping an Iceberg table with Hive Metastore and Glue catalogs only removes metadata from metastore.
+* Dropping an Iceberg table with Hadoop and Nessie catalogs removes all the data and metadata in the table.
+
+DROP VIEW
+^^^^^^^^^^
+
+Drop the view ``view_page_views``::
+
+    DROP VIEW iceberg.web.view_page_views;
 
 DROP SCHEMA
 ^^^^^^^^^^^^
@@ -678,6 +715,5 @@ exists as we've rolled back to the previous state.
 Iceberg Connector Limitations
 -----------------------------
 
-* :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
 * The ``SELECT`` operations on Iceberg Tables with format version 2 do not read the delete files
   and remove the deleted rows as of now (:issue:`20492`).

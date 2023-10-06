@@ -171,7 +171,7 @@ class PrestoServer {
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
   // Executor for exchange data over http.
-  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpExecutor_;
 
   // Instance of MemoryAllocator used for all query memory allocations.
   std::shared_ptr<velox::memory::MemoryAllocator> allocator_;

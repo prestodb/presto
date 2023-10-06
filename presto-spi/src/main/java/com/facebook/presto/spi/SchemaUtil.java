@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static java.lang.String.format;
+
 final class SchemaUtil
 {
     private SchemaUtil()
@@ -25,7 +28,7 @@ final class SchemaUtil
             throw new NullPointerException(name + " is null");
         }
         if (value.isEmpty()) {
-            throw new IllegalArgumentException(name + " is empty");
+            throw new PrestoException(NOT_FOUND, format("%s is empty", name));
         }
         return value;
     }

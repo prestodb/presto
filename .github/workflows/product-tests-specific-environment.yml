@@ -37,6 +37,12 @@ jobs:
       group: ${{ github.workflow }}-product-tests-specific-environment1-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
+      - name: Free Disk Space
+        run: |
+          df -h
+          sudo apt-get clean
+          rm -rf /opt/hostedtoolcache
+          df -h
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
         with:
@@ -79,6 +85,12 @@ jobs:
       group: ${{ github.workflow }}-product-tests-specific-environment2-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
+      - name: Free Disk Space
+        run: |
+          df -h
+          sudo apt-get clean
+          rm -rf /opt/hostedtoolcache
+          df -h
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
         with:

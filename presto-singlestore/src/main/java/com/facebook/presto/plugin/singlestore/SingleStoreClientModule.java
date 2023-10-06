@@ -11,28 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.plugin.singlestore;
 
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.JdbcClient;
 import com.google.inject.Binder;
-import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-import javax.inject.Inject;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 
-public class IcebergMetastoreModule
-        implements Module
+public class SingleStoreClientModule
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
-        binder.bind(MetastoreValidator.class).asEagerSingleton();
-    }
-
-    public static class MetastoreValidator
-    {
-        @Inject
-        public MetastoreValidator(ExtendedHiveMetastore metastore)
-        {
-        }
+        binder.bind(JdbcClient.class).to(SingleStoreClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(BaseJdbcConfig.class);
     }
 }

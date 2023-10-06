@@ -149,15 +149,20 @@ public final class QueryResourceUtil
         return response.build();
     }
 
-    public static Response toResponse(Query query, QueryResults queryResults, String xPrestoPrefixUri, boolean compressionEnabled)
+    public static Response toResponse(Query query, QueryResults queryResults, String xPrestoPrefixUri, boolean compressionEnabled, boolean nestedDataSerializationEnabled)
     {
+        Iterable<List<Object>> queryResultsData = queryResults.getData();
+        if (nestedDataSerializationEnabled) {
+            queryResultsData = prepareJsonData(queryResults.getColumns(), queryResultsData);
+        }
         QueryResults resultsClone = new QueryResults(
                 queryResults.getId(),
                 prependUri(queryResults.getInfoUri(), xPrestoPrefixUri),
                 prependUri(queryResults.getPartialCancelUri(), xPrestoPrefixUri),
                 prependUri(queryResults.getNextUri(), xPrestoPrefixUri),
                 queryResults.getColumns(),
-                prepareJsonData(queryResults.getColumns(), queryResults.getData()),
+                queryResultsData,
+                queryResults.getBinaryData(),
                 queryResults.getStats(),
                 queryResults.getError(),
                 queryResults.getWarnings(),

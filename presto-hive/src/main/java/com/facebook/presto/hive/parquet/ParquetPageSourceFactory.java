@@ -486,13 +486,14 @@ public class ParquetPageSourceFactory
         PrimitiveTypeName parquetTypeName = parquetType.asPrimitiveType().getPrimitiveTypeName();
         switch (parquetTypeName) {
             case INT64:
-                return prestoType.equals(BIGINT) || prestoType.equals(DECIMAL) || prestoType.equals(TIMESTAMP);
+                return prestoType.equals(BIGINT) || prestoType.equals(DECIMAL) || prestoType.equals(TIMESTAMP) || prestoType.equals(StandardTypes.REAL) || prestoType.equals(StandardTypes.DOUBLE);
             case INT32:
-                return prestoType.equals(INTEGER) || prestoType.equals(BIGINT) || prestoType.equals(SMALLINT) || prestoType.equals(DATE) || prestoType.equals(DECIMAL) || prestoType.equals(TINYINT);
+                return prestoType.equals(INTEGER) || prestoType.equals(BIGINT) || prestoType.equals(SMALLINT) || prestoType.equals(DATE) || prestoType.equals(DECIMAL) ||
+                    prestoType.equals(TINYINT) || prestoType.equals(REAL) || prestoType.equals(StandardTypes.DOUBLE);
             case BOOLEAN:
                 return prestoType.equals(StandardTypes.BOOLEAN);
             case FLOAT:
-                return prestoType.equals(REAL);
+                return prestoType.equals(REAL) || prestoType.equals(StandardTypes.DOUBLE);
             case DOUBLE:
                 return prestoType.equals(StandardTypes.DOUBLE);
             case BINARY:

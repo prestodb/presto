@@ -856,13 +856,20 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
         : fmt::format(
               "{}.{}", hiveTableHandle->schemaName, hiveTableHandle->tableName);
 
+    std::unordered_map<std::string, std::string> tableParameters;
+    tableParameters.reserve(hiveLayout->tableParameters.size());
+    for (const auto& [key, value] : hiveLayout->tableParameters) {
+      tableParameters[key] = value;
+    }
+
     return std::make_shared<connector::hive::HiveTableHandle>(
         tableHandle.connectorId,
         tableName,
         hiveLayout->pushdownFilterEnabled,
         std::move(subfieldFilters),
         remainingFilter,
-        dataColumns);
+        dataColumns,
+        tableParameters);
   }
 
   if (auto tpchLayout =
@@ -2856,6 +2863,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     auto broadcastWriteNode = std::make_shared<operators::BroadcastWriteNode>(
         fmt::format("{}.bw", partitionedOutputNode->id()),
         *broadcastBasePath_,
+        partitionedOutputNode->outputType(),
         core::LocalPartitionNode::gather(
             "broadcast-write-gather",
             std::vector<core::PlanNodePtr>{partitionedOutputNode->sources()}));

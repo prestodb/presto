@@ -34,6 +34,7 @@ import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.ColumnIOConverter;
@@ -259,7 +260,8 @@ public class BenchmarkParquetPageSource
                     columnNames,
                     values,
                     ROWS,
-                    compressionCodecName);
+                    compressionCodecName,
+                    ParquetProperties.WriterVersion.PARQUET_2_0);
 
             //Set up PageProcessor
             List<RowExpression> projections = getProjections(type);

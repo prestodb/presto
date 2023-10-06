@@ -38,7 +38,7 @@ public class HivePartitionObjectBuilder
             Optional<Partition> previousPartition)
     {
         ImmutableMap.Builder extraParametersBuilder = ImmutableMap.builder()
-                .put(HiveMetadata.PRESTO_VERSION_NAME, prestoVersion)
+                .put(MetastoreUtil.PRESTO_VERSION_NAME, prestoVersion)
                 .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .putAll(extraParameters);
         getNewPartitionUserSuppliedParameter(session)

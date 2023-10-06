@@ -21,13 +21,19 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.LambdaArgumentDescriptor;
+import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
@@ -46,8 +52,9 @@ public final class ZipWithFunction
         extends SqlScalarFunction
 {
     public static final ZipWithFunction ZIP_WITH_FUNCTION = new ZipWithFunction();
-
     private static final MethodHandle METHOD_HANDLE = methodHandle(ZipWithFunction.class, "zipWith", Type.class, Type.class, ArrayType.class, Block.class, Block.class, BinaryFunctionInterface.class);
+
+    private final ComplexTypeFunctionDescriptor descriptor;
 
     private ZipWithFunction()
     {
@@ -59,6 +66,14 @@ public final class ZipWithFunction
                 parseTypeSignature("array(R)"),
                 ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("array(U)"), parseTypeSignature("function(T,U,R)")),
                 false));
+        descriptor = new ComplexTypeFunctionDescriptor(
+                true,
+                ImmutableList.of(new LambdaDescriptor(2, ImmutableMap.of(
+                        0, new LambdaArgumentDescriptor(0, ComplexTypeFunctionDescriptor::prependAllSubscripts),
+                        1, new LambdaArgumentDescriptor(1, ComplexTypeFunctionDescriptor::prependAllSubscripts)))),
+                Optional.of(ImmutableSet.of(0, 1)),
+                Optional.of(ComplexTypeFunctionDescriptor::clearRequiredSubfields),
+                getSignature());
     }
 
     @Override
@@ -93,6 +108,12 @@ public final class ZipWithFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 METHOD_HANDLE.bindTo(leftElementType).bindTo(rightElementType).bindTo(outputArrayType));
+    }
+
+    @Override
+    public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
+    {
+        return descriptor;
     }
 
     public static Block zipWith(

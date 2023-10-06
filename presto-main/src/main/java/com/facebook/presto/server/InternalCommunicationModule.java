@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.airlift.http.client.spnego.KerberosConfig;
+import com.facebook.presto.server.security.InternalAuthenticationFilter;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
@@ -28,6 +29,7 @@ import static com.facebook.airlift.configuration.ConditionalModule.installModule
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.http.server.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
+import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.presto.server.InternalCommunicationConfig.INTERNAL_COMMUNICATION_KERBEROS_ENABLED;
 import static com.google.common.base.Verify.verify;
 
@@ -54,6 +56,7 @@ public class InternalCommunicationModule
         install(installModuleIf(InternalCommunicationConfig.class, InternalCommunicationConfig::isKerberosEnabled, kerberosInternalCommunicationModule()));
         binder.bind(InternalAuthenticationManager.class);
         httpClientBinder(binder).bindGlobalFilter(InternalAuthenticationManager.class);
+        jaxrsBinder(binder).bind(InternalAuthenticationFilter.class);
     }
 
     private Module kerberosInternalCommunicationModule()

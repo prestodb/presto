@@ -27,13 +27,19 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.LambdaArgumentDescriptor;
+import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
@@ -57,6 +63,8 @@ public final class MapZipWithFunction
 {
     public static final MapZipWithFunction MAP_ZIP_WITH_FUNCTION = new MapZipWithFunction();
 
+    private final ComplexTypeFunctionDescriptor descriptor;
+
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapZipWithFunction.class, "mapZipWith", Type.class, Type.class, Type.class, MapType.class, MethodHandle.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class, MapZipWithLambda.class);
     private MapZipWithFunction()
     {
@@ -68,6 +76,14 @@ public final class MapZipWithFunction
                 parseTypeSignature("map(K,V3)"),
                 ImmutableList.of(parseTypeSignature("map(K,V1)"), parseTypeSignature("map(K,V2)"), parseTypeSignature("function(K,V1,V2,V3)")),
                 false));
+        descriptor = new ComplexTypeFunctionDescriptor(
+                true,
+                ImmutableList.of(new LambdaDescriptor(2, ImmutableMap.of(
+                        1, new LambdaArgumentDescriptor(0, ComplexTypeFunctionDescriptor::prependAllSubscripts),
+                        2, new LambdaArgumentDescriptor(1, ComplexTypeFunctionDescriptor::prependAllSubscripts)))),
+                Optional.of(ImmutableSet.of(0, 1)),
+                Optional.of(ComplexTypeFunctionDescriptor::clearRequiredSubfields),
+                getSignature());
     }
 
     @Override
@@ -86,6 +102,12 @@ public final class MapZipWithFunction
     public String getDescription()
     {
         return "merge two maps into a single map by applying the lambda function to the pair of values with the same key";
+    }
+
+    @Override
+    public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
+    {
+        return descriptor;
     }
 
     @Override

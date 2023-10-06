@@ -23,18 +23,27 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.testing.Closeables;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.BasicSliceInput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Base64;
 import java.util.List;
 
 import static com.facebook.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -59,10 +68,12 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTIO
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.createFunctionAdd;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.createSqlFunctionIdAdd;
 import static com.facebook.presto.server.TestHttpRequestSessionContext.urlEncode;
 import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.readSerializedPage;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
@@ -71,6 +82,7 @@ import static javax.ws.rs.core.Response.Status.OK;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestServer
@@ -136,6 +148,63 @@ public class TestServer
     }
 
     @Test
+    public void testBinaryResults()
+    {
+        // start query
+        URI uri = HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                .replacePath("/v1/statement")
+                .replaceParameter("binaryResults", "true")
+                .build();
+        Request request = preparePost()
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .setHeader(PRESTO_CLIENT_INFO, "{\"clientVersion\":\"testVersion\"}")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+        ImmutableList.Builder<Object> data = ImmutableList.builder();
+        while (queryResults.getNextUri() != null) {
+            Request nextRequest = prepareGet()
+                    .setUri(queryResults.getNextUri())
+                    .build();
+            queryResults = client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+            assertNull(queryResults.getData());
+            if (queryResults.getBinaryData() != null) {
+                data.addAll(queryResults.getBinaryData());
+            }
+        }
+
+        if (queryResults.getError() != null) {
+            fail(queryResults.getError().toString());
+        }
+
+        List<Object> encodedPages = data.build();
+
+        assertEquals(1, encodedPages.size());
+        byte[] decodedPage = Base64.getDecoder().decode((String) encodedPages.get(0));
+
+        BlockEncodingManager blockEncodingSerde = new BlockEncodingManager();
+        PagesSerde pagesSerde = new PagesSerdeFactory(blockEncodingSerde, false, false).createPagesSerde();
+        BasicSliceInput pageInput = new BasicSliceInput(Slices.wrappedBuffer(decodedPage, 0, decodedPage.length));
+        SerializedPage serializedPage = readSerializedPage(pageInput);
+
+        Page page = pagesSerde.deserialize(serializedPage);
+
+        assertEquals(1, page.getChannelCount());
+        assertEquals(1, page.getPositionCount());
+
+        // only the system catalog exists by default
+        Slice slice = VARCHAR.getSlice(page.getBlock(0), 0);
+        assertEquals(slice.toStringUtf8(), "system");
+    }
+
+    @Test
     public void testQuery()
     {
         // start query
@@ -163,7 +232,10 @@ public class TestServer
                 data.addAll(queryResults.getData());
             }
         }
-        assertNull(queryResults.getError());
+
+        if (queryResults.getError() != null) {
+            fail(queryResults.getError().toString());
+        }
 
         // get the query info
         BasicQueryInfo queryInfo = server.getQueryManager().getQueryInfo(new QueryId(queryResults.getId()));
@@ -214,7 +286,10 @@ public class TestServer
             }
             queryResults = client.execute(prepareGet().setUri(queryResults.getValue().getNextUri()).build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
-        assertNull(queryResults.getValue().getError());
+
+        if (queryResults.getValue().getError() != null) {
+            fail(queryResults.getValue().getError().toString());
+        }
         assertNotNull(queryResults.getHeader(PRESTO_STARTED_TRANSACTION_ID));
     }
 

@@ -30,6 +30,7 @@
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
+#include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
@@ -161,6 +162,15 @@ void PrestoServer::run() {
             "Https Client Certificates are not configured correctly");
       }
       clientCertAndKeyPath = optionalClientCertPath.value();
+    }
+
+    if (systemConfig->internalCommunicationJwtEnabled()) {
+#ifndef PRESTO_ENABLE_JWT
+      VELOX_USER_FAIL("Internal JWT is enabled but not supported");
+#endif
+      VELOX_USER_CHECK(
+          !(systemConfig->internalCommunicationSharedSecret().empty()),
+          "Internal JWT is enabled without a corresponding shared secret");
     }
 
     nodeVersion_ = systemConfig->prestoVersion();
@@ -297,12 +307,13 @@ void PrestoServer::run() {
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
-  exchangeExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+  exchangeHttpExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
       systemConfig->numIoThreads(),
       std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
 
-  PRESTO_STARTUP_LOG(INFO) << "Exchange executor has "
-                           << exchangeExecutor_->numThreads() << " threads.";
+  PRESTO_STARTUP_LOG(INFO) << "Exchange Http executor has "
+                           << exchangeHttpExecutor_->numThreads()
+                           << " threads.";
 
   facebook::velox::exec::ExchangeSource::registerFactory(
       [this](
@@ -311,7 +322,12 @@ void PrestoServer::run() {
           std::shared_ptr<velox::exec::ExchangeQueue> queue,
           memory::MemoryPool* pool) {
         return PrestoExchangeSource::create(
-            taskId, destination, queue, pool, exchangeExecutor_);
+            taskId,
+            destination,
+            queue,
+            pool,
+            driverCPUExecutor(),
+            exchangeHttpExecutor_.get());
       });
 
   facebook::velox::exec::ExchangeSource::registerFactory(
@@ -450,10 +466,10 @@ void PrestoServer::run() {
   }
 
   PRESTO_SHUTDOWN_LOG(INFO)
-      << "Joining exchange Executor '" << exchangeExecutor_->getName()
-      << "': threads: " << exchangeExecutor_->numActiveThreads() << "/"
-      << exchangeExecutor_->numThreads();
-  exchangeExecutor_->join();
+      << "Joining exchange Http executor '" << exchangeHttpExecutor_->getName()
+      << "': threads: " << exchangeHttpExecutor_->numActiveThreads() << "/"
+      << exchangeHttpExecutor_->numThreads();
+  exchangeHttpExecutor_->join();
 
   PRESTO_SHUTDOWN_LOG(INFO) << "Done joining our executors.";
 
@@ -567,6 +583,7 @@ void PrestoServer::initializeVeloxMemory() {
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
+    options.arbitrationStateCheckCb = velox::exec::memoryArbitrationStateCheck;
   }
   const auto& manager = memory::MemoryManager::getInstance(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
@@ -651,6 +668,11 @@ PrestoServer::getHttpServerFilters() {
             httpServer_.get()));
   }
 
+  // Always add the authentication filter to make sure the worker configuration
+  // is in line with the overall cluster configuration e.g. cannot have a worker
+  // without JWT enabled.
+  filters.push_back(
+      std::make_unique<http::filters::InternalAuthenticationFilterFactory>());
   return filters;
 }
 

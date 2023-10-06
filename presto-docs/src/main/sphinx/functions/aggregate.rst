@@ -145,11 +145,16 @@ General Aggregate Functions
 
 .. function:: set_agg(x) -> array<[same as input]>
 
-        Returns an array created from the distinct input ``x`` elements.
+    Returns an array created from the distinct input ``x`` elements.
+
+    If the input includes ``NULL``, ``NULL`` will be included in the returned array.
 
 .. function:: set_union(array(T)) -> array(T)
 
-    Returns an array of all the distinct values contained in each array of the input
+    Returns an array of all the distinct values contained in each array of the input.
+
+    When all inputs are ``NULL``, this function returns an empty array. If ``NULL`` is
+    an element of one of the input arrays, ``NULL`` will be included in the returned array.
 
     Example::
 
@@ -176,6 +181,10 @@ Bitwise Aggregate Functions
 .. function:: bitwise_or_agg(x) -> bigint
 
     Returns the bitwise OR of all input values in 2's complement representation.
+
+.. function:: bitwise_xor_agg(x) -> bigint
+
+    Returns the bitwise XOR of all input values in 2's complement representation.
 
 Map Aggregate Functions
 -----------------------
@@ -359,6 +368,33 @@ Approximate Aggregate Functions
 
         SELECT noisy_count_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
         SELECT noisy_count_gaussian(orderkey, 20.0, 321) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; --  (0 row)
+
+.. function:: noisy_count_if_gaussian(x, noise_scale) -> bigint
+
+    Counts the `TRUE` values and then adds a random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale`` to the true count.
+    The noisy count is post-processed to be non-negative and rounded to bigint.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Noise is from a secure random. ::
+
+        SELECT noisy_count_if_gaussian(orderkey > 10, 20.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_count_if_gaussian(orderkey > 10, 20.0) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; -- (0 row)
+
+.. function:: noisy_count_if_gaussian(x, noise_scale, random_seed) -> bigint
+
+    Counts the `TRUE` values and then adds a random Gaussian noise
+    with 0 mean and standard deviation of ``noise_scale`` to the true count.
+    The noisy count is post-processed to be non-negative and rounded to bigint.
+
+    When there are no input rows, this function returns ``NULL``.
+
+    Random seed is used to seed the random generator.
+    This method does not use a secure random. ::
+
+        SELECT noisy_count_if_gaussian(orderkey > 10, 20.0, 321) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_count_if_gaussian(orderkey > 10, 20.0, 321) FROM tpch.tiny.lineitem WHERE false  GROUP BY orderkey; --  (0 row)
 
 .. function:: noisy_sum_gaussian(x, noise_scale) -> double
 

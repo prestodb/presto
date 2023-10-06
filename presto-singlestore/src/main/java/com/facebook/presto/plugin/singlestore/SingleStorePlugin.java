@@ -11,21 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.noisyaggregation;
+package com.facebook.presto.plugin.singlestore;
 
-import java.util.Random;
+import com.facebook.presto.plugin.jdbc.JdbcPlugin;
 
-public class NoisyCountGaussianColumnAggregationUtils
+public class SingleStorePlugin
+        extends JdbcPlugin
 {
-    private NoisyCountGaussianColumnAggregationUtils()
+    public SingleStorePlugin()
     {
-    }
-
-    public static long computeNoisyCount(long trueCount, double noiseScale, Random random)
-    {
-        double noise = random.nextGaussian() * noiseScale;
-        double noisyCount = trueCount + noise;
-        double noisyCountFixedSign = Math.max(noisyCount, 0);  // count should always be >= 0
-        return Math.round(noisyCountFixedSign);
+        super("singlestore", new SingleStoreClientModule());
     }
 }

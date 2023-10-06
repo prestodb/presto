@@ -41,6 +41,7 @@ jobs:
         run: |
           df -h
           sudo apt-get clean
+          rm -rf /opt/hostedtoolcache
           df -h
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1

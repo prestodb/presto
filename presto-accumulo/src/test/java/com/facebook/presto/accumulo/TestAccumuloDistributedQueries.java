@@ -184,6 +184,12 @@ public class TestAccumuloDistributedQueries
         // Cannot munge test to pass due to aliased data set 'x' containing duplicate orderkey and comment columns
     }
 
+    @Test
+    public void testShardedJoinOptimization()
+    {
+        // Override because of extra UUID column in lineitem table, cannot SELECT *
+    }
+
     public void testProbeFilteredLeftJoin()
     {
         // Override because of extra UUID column in lineitem table, cannot SELECT *

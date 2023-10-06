@@ -11,6 +11,12 @@
 # limitations under the License.
 add_library(presto_http HttpClient.cpp HttpServer.cpp)
 
+if(PRESTO_ENABLE_JWT)
+  add_compile_definitions(JWT_DISABLE_PICOJSON)
+  target_include_directories(
+    presto_http PRIVATE ${CMAKE_SOURCE_DIR}/presto_cpp/external/json)
+endif()
+
 add_subdirectory(filters)
 
 target_link_libraries(

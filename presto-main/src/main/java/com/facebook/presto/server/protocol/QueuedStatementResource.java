@@ -47,6 +47,7 @@ import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -60,6 +61,7 @@ import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
@@ -123,13 +125,13 @@ public class QueuedStatementResource
     private final Map<QueryId, Query> retriedQueries = new ConcurrentHashMap<>();   // a mapping from old to-be-retried query id to the current retry query
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
     private final boolean compressionEnabled;
+    private final boolean nestedDataSerializationEnabled;
 
     private final SqlParserOptions sqlParserOptions;
     private final TracerProviderManager tracerProviderManager;
     private final SessionPropertyManager sessionPropertyManager;     // We may need some system default session property values at early query stage even before session is created.
 
     private final QueryBlockingRateLimiter queryRateLimiter;
-    private final TimeStat queuedRateLimiterBlockTime = new TimeStat();
 
     @Inject
     public QueuedStatementResource(
@@ -146,6 +148,7 @@ public class QueuedStatementResource
         this.queryResultsProvider = queryResultsProvider;
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
+        this.nestedDataSerializationEnabled = requireNonNull(serverConfig, "serverConfig is null").isNestedDataSerializationEnabled();
 
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
@@ -199,6 +202,7 @@ public class QueuedStatementResource
     @Produces(APPLICATION_JSON)
     public Response postStatement(
             String statement,
+            @DefaultValue("false") @QueryParam("binaryResults") boolean binaryResults,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @HeaderParam(PRESTO_PREFIX_URL) String xPrestoPrefixUrl,
             @Context HttpServletRequest servletRequest,
@@ -220,7 +224,7 @@ public class QueuedStatementResource
         Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, 0);
         queries.put(query.getQueryId(), query);
 
-        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl)), compressionEnabled).build();
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled).build();
     }
 
     /**
@@ -235,6 +239,7 @@ public class QueuedStatementResource
     @Produces(APPLICATION_JSON)
     public Response retryFailedQuery(
             @PathParam("queryId") QueryId queryId,
+            @DefaultValue("false") @QueryParam("binaryResults") boolean binaryResults,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @HeaderParam(PRESTO_PREFIX_URL) String xPrestoPrefixUrl,
             @Context UriInfo uriInfo)
@@ -268,7 +273,7 @@ public class QueuedStatementResource
             }
         }
 
-        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl)), compressionEnabled).build();
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled).build();
     }
 
     /**
@@ -289,6 +294,7 @@ public class QueuedStatementResource
             @PathParam("token") long token,
             @QueryParam("slug") String slug,
             @QueryParam("maxWait") Duration maxWait,
+            @DefaultValue("false") @QueryParam("binaryResults") boolean binaryResults,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @HeaderParam(PRESTO_PREFIX_URL) String xPrestoPrefixUrl,
             @Context UriInfo uriInfo,
@@ -314,7 +320,7 @@ public class QueuedStatementResource
         // when state changes, fetch the next result
         ListenableFuture<Response> queryResultsFuture = transformAsync(
                 futureStateChange,
-                ignored -> query.toResponse(token, uriInfo, xForwardedProto, xPrestoPrefixUrl, WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait), compressionEnabled),
+                ignored -> query.toResponse(token, uriInfo, xForwardedProto, xPrestoPrefixUrl, WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait), compressionEnabled, nestedDataSerializationEnabled, binaryResults),
                 responseExecutor);
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
     }
@@ -371,16 +377,19 @@ public class QueuedStatementResource
         return QueryResourceUtil.prependUri(uri, xPrestoPrefixUrl);
     }
 
-    private static URI getQueuedUri(QueryId queryId, String slug, long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl)
+    private static URI getQueuedUri(QueryId queryId, String slug, long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, boolean binaryResults)
     {
-        URI uri = uriInfo.getBaseUriBuilder()
+        UriBuilder uriBuilder = uriInfo.getBaseUriBuilder()
                 .scheme(getScheme(xForwardedProto, uriInfo))
-                .replacePath("/v1/statement/queued/")
+                .replacePath("/v1/statement/queued")
                 .path(queryId.toString())
                 .path(String.valueOf(token))
                 .replaceQuery("")
-                .queryParam("slug", slug)
-                .build();
+                .queryParam("slug", slug);
+        if (binaryResults) {
+            uriBuilder.queryParam("binaryResults", "true");
+        }
+        URI uri = uriBuilder.build();
         return QueryResourceUtil.prependUri(uri, xPrestoPrefixUrl);
     }
 
@@ -406,6 +415,7 @@ public class QueuedStatementResource
                 getQueryHtmlUri(queryId, uriInfo, xForwardedProto, xPrestoPrefixUrl),
                 null,
                 nextUri,
+                null,
                 null,
                 null,
                 StatementStats.builder()
@@ -542,7 +552,7 @@ public class QueuedStatementResource
          * @param xForwardedProto Forwarded protocol (http or https)
          * @return {@link com.facebook.presto.client.QueryResults}
          */
-        public synchronized QueryResults getInitialQueryResults(UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl)
+        public synchronized QueryResults getInitialQueryResults(UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, boolean binaryResults)
         {
             verify(lastToken.get() == 0);
             verify(querySubmissionFuture == null);
@@ -551,10 +561,11 @@ public class QueuedStatementResource
                     uriInfo,
                     xForwardedProto,
                     xPrestoPrefixUrl,
-                    DispatchInfo.waitingForPrerequisites(NO_DURATION, NO_DURATION));
+                    DispatchInfo.waitingForPrerequisites(NO_DURATION, NO_DURATION),
+                    binaryResults);
         }
 
-        public ListenableFuture<Response> toResponse(long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, Duration maxWait, boolean compressionEnabled)
+        public ListenableFuture<Response> toResponse(long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, Duration maxWait, boolean compressionEnabled, boolean nestedDataSerializationEnabled, boolean binaryResults)
         {
             long lastToken = this.lastToken.get();
             // token should be the last token or the next token
@@ -572,7 +583,8 @@ public class QueuedStatementResource
                             uriInfo,
                             xForwardedProto,
                             xPrestoPrefixUrl,
-                            DispatchInfo.waitingForPrerequisites(NO_DURATION, NO_DURATION));
+                            DispatchInfo.waitingForPrerequisites(NO_DURATION, NO_DURATION),
+                            binaryResults);
                     return immediateFuture(withCompressionConfiguration(Response.ok(queryResults), compressionEnabled).build());
                 }
             }
@@ -586,7 +598,7 @@ public class QueuedStatementResource
             }
 
             if (!waitForDispatched().isDone()) {
-                return immediateFuture(withCompressionConfiguration(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo.get())), compressionEnabled).build());
+                return immediateFuture(withCompressionConfiguration(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo.get(), binaryResults)), compressionEnabled).build());
             }
 
             com.facebook.presto.server.protocol.Query query;
@@ -594,13 +606,13 @@ public class QueuedStatementResource
                 query = queryProvider.getQuery(queryId, slug);
             }
             catch (WebApplicationException e) {
-                return immediateFuture(withCompressionConfiguration(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo.get())), compressionEnabled).build());
+                return immediateFuture(withCompressionConfiguration(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo.get(), binaryResults)), compressionEnabled).build());
             }
             // If this future completes successfully, the next URI will redirect to the executing statement endpoint.
             // Hence it is safe to hardcode the token to be 0.
             return transform(
-                    query.waitForResults(0, uriInfo, getScheme(xForwardedProto, uriInfo), maxWait, TARGET_RESULT_SIZE),
-                    results -> QueryResourceUtil.toResponse(query, results, xPrestoPrefixUrl, compressionEnabled),
+                    query.waitForResults(0, uriInfo, getScheme(xForwardedProto, uriInfo), maxWait, TARGET_RESULT_SIZE, binaryResults),
+                    results -> QueryResourceUtil.toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled),
                     directExecutor());
         }
 
@@ -609,9 +621,9 @@ public class QueuedStatementResource
             querySubmissionFuture.addListener(() -> dispatchManager.cancelQuery(queryId), directExecutor());
         }
 
-        private QueryResults createQueryResults(long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, DispatchInfo dispatchInfo)
+        private QueryResults createQueryResults(long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, DispatchInfo dispatchInfo, boolean binaryResults)
         {
-            URI nextUri = getNextUri(token, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo);
+            URI nextUri = getNextUri(token, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo, binaryResults);
 
             Optional<QueryError> queryError = dispatchInfo.getFailureInfo()
                     .map(this::toQueryError);
@@ -628,13 +640,13 @@ public class QueuedStatementResource
                     dispatchInfo.getWaitingForPrerequisitesTime());
         }
 
-        private URI getNextUri(long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, DispatchInfo dispatchInfo)
+        private URI getNextUri(long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, DispatchInfo dispatchInfo, boolean binaryResults)
         {
             // if failed, query is complete
             if (dispatchInfo.getFailureInfo().isPresent()) {
                 return null;
             }
-            return getQueuedUri(queryId, slug, token, uriInfo, xForwardedProto, xPrestoPrefixUrl);
+            return getQueuedUri(queryId, slug, token, uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults);
         }
 
         private QueryError toQueryError(ExecutionFailureInfo executionFailureInfo)
