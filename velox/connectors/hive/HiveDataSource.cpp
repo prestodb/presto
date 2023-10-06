@@ -776,7 +776,7 @@ std::optional<RowVectorPtr> HiveDataSource::next(
     auto rowsRemaining = output_->size();
     if (rowsRemaining == 0) {
       // no rows passed the pushed down filters.
-      return RowVector::createEmpty(outputType_, pool_);
+      return getEmptyOutput();
     }
 
     auto rowVector = std::dynamic_pointer_cast<RowVector>(output_);
@@ -791,7 +791,7 @@ std::optional<RowVectorPtr> HiveDataSource::next(
       VELOX_CHECK_LE(rowsRemaining, rowsScanned);
       if (rowsRemaining == 0) {
         // No rows passed the remaining filter.
-        return RowVector::createEmpty(outputType_, pool_);
+        return getEmptyOutput();
       }
 
       if (rowsRemaining < rowVector->size()) {
