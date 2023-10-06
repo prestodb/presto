@@ -104,7 +104,6 @@ jobs:
           DD_SERVICE: presto-flaky-tests
           DD_SITE: datadoghq.com
         run: |
-          echo "DD_API_KEY: $DD_API_KEY"
           wget -O dd-java-agent.jar https://dtdg.co/latest-java-tracer
           export MAVEN_OPTS="${MAVEN_OPTS} -javaagent:dd-java-agent.jar"
           ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
