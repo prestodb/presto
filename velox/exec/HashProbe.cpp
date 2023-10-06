@@ -943,7 +943,10 @@ RowVectorPtr HashProbe::getOutput() {
           folly::Range(outputTableRows_.data(), outputTableRows_.size()));
     }
 
-    if (!numOut) {
+    // We are done processing the input batch if there are no more joined rows
+    // to process and the NoMatchDetector isn't carrying forward a row that
+    // still needs to be written to the output.
+    if (!numOut && !noMatchDetector_.hasLastMissedRow()) {
       input_ = nullptr;
       return nullptr;
     }
@@ -1227,9 +1230,9 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
         rawOutputProbeRowMapping[numPassed++] = rawOutputProbeRowMapping[i];
       }
     }
-    if (results_.atEnd()) {
-      noMatchDetector_.finish(addMiss);
-    }
+
+    noMatchDetector_.finishIteration(
+        addMiss, results_.atEnd(), outputTableRows_.size() - numPassed);
   } else if (isLeftSemiFilterJoin(joinType_)) {
     auto addLastMatch = [&](auto row) {
       outputTableRows_[numPassed] = nullptr;
@@ -1314,9 +1317,9 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
         noMatchDetector_.advance(probeRow, filterPassed(i), addMiss);
       }
     }
-    if (results_.atEnd()) {
-      noMatchDetector_.finish(addMiss);
-    }
+
+    noMatchDetector_.finishIteration(
+        addMiss, results_.atEnd(), outputTableRows_.size() - numPassed);
   } else {
     for (auto i = 0; i < numRows; ++i) {
       if (filterPassed(i)) {

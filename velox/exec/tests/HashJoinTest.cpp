@@ -5856,4 +5856,106 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeAbortDuringInputProcessing) {
     waitForAllTasksToBeDeleted();
   }
 }
+
+TEST_F(HashJoinTest, leftJoinWithMissAtEndOfBatch) {
+  // Tests some cases where the row at the end of an output batch fails the
+  // filter.
+  auto probeVectors = std::vector<RowVectorPtr>{makeRowVector(
+      {"t_k1", "t_k2"},
+      {makeFlatVector<int32_t>(20, [](auto row) { return 1 + row % 2; }),
+       makeFlatVector<int32_t>(20, [](auto row) { return row; })})};
+  auto buildVectors = std::vector<RowVectorPtr>{
+      makeRowVector({"u_k1"}, {makeFlatVector<int32_t>({1, 2})})};
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", {buildVectors});
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+
+  auto test = [&](const std::string& filter) {
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values(probeVectors, true)
+                    .hashJoin(
+                        {"t_k1"},
+                        {"u_k1"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .values(buildVectors, true)
+                            .planNode(),
+                        filter,
+                        {"t_k1", "u_k1"},
+                        core::JoinType::kLeft)
+                    .planNode();
+
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .planNode(plan)
+        .injectSpill(false)
+        .checkSpillStats(false)
+        .spillMemoryThreshold(1)
+        .maxSpillLevel(0)
+        .numDrivers(1)
+        .config(
+            core::QueryConfig::kPreferredOutputBatchRows, std::to_string(10))
+        .referenceQuery(fmt::format(
+            "SELECT t_k1, u_k1 from t left join u on t_k1 = u_k1 and {}",
+            filter))
+        .run();
+  };
+
+  // Alternate rows pass this filter and last row of a batch fails.
+  test("t_k1=1");
+
+  // All rows fail this filter.
+  test("t_k1=5");
+
+  // All rows in the second batch pass this filter.
+  test("t_k2 > 9");
+}
+
+TEST_F(HashJoinTest, leftJoinWithMissAtEndOfBatchMultipleBuildMatches) {
+  // Tests some cases where the row at the end of an output batch fails the
+  // filter and there are multiple matches with the build side..
+  auto probeVectors = std::vector<RowVectorPtr>{makeRowVector(
+      {"t_k1", "t_k2"},
+      {makeFlatVector<int32_t>(10, [](auto row) { return 1 + row % 2; }),
+       makeFlatVector<int32_t>(10, [](auto row) { return row; })})};
+  auto buildVectors = std::vector<RowVectorPtr>{
+      makeRowVector({"u_k1"}, {makeFlatVector<int32_t>({1, 2, 1, 2})})};
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", {buildVectors});
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+
+  auto test = [&](const std::string& filter) {
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values(probeVectors, true)
+                    .hashJoin(
+                        {"t_k1"},
+                        {"u_k1"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .values(buildVectors, true)
+                            .planNode(),
+                        filter,
+                        {"t_k1", "u_k1"},
+                        core::JoinType::kLeft)
+                    .planNode();
+
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .planNode(plan)
+        .injectSpill(false)
+        .checkSpillStats(false)
+        .spillMemoryThreshold(1)
+        .maxSpillLevel(0)
+        .numDrivers(1)
+        .config(
+            core::QueryConfig::kPreferredOutputBatchRows, std::to_string(10))
+        .referenceQuery(fmt::format(
+            "SELECT t_k1, u_k1 from t left join u on t_k1 = u_k1 and {}",
+            filter))
+        .run();
+  };
+
+  // In this case the rows with t_k2 = 4 appear at the end of the first batch,
+  // meaning the last rows in that output batch are misses, and don't get added.
+  // The rows with t_k2 = 8 appear in the second batch so only one row is
+  // written, meaning there is space in the second output batch for the miss
+  // with tk_2 = 4 to get written.
+  test("t_k2 != 4 and t_k2 != 8");
+}
 } // namespace

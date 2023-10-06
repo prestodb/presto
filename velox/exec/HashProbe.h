@@ -382,26 +382,73 @@ class HashProbe : public Operator {
     template <typename TOnMiss>
     void advance(vector_size_t row, bool passed, TOnMiss onMiss) {
       if (currentRow != row) {
-        if (currentRow != -1 && !currentRowPassed) {
+        // Check if 'currentRow' is the same input row as the last missed row
+        // from a previous output batch.  If so finishIteration will call
+        // onMiss.
+        if (currentRow != -1 && !currentRowPassed &&
+            (!lastMissedRow || currentRow != lastMissedRow)) {
           onMiss(currentRow);
         }
         currentRow = row;
         currentRowPassed = false;
       }
+
       if (passed) {
+        // lastMissedRow can only be a row that has never passed the filter.  If
+        // it passes there's no need to continue carrying it forward.
+        if (lastMissedRow && currentRow == lastMissedRow) {
+          lastMissedRow.reset();
+        }
+
         currentRowPassed = true;
       }
     }
 
-    // Called when all rows from the current input batch were processed.
+    // Invoked at the end of one output batch processing. 'end' is set to true
+    // at the end of processing an input batch. 'freeOutputRows' is the number
+    // of rows that can still be written to the output batch.
     template <typename TOnMiss>
-    void finish(TOnMiss onMiss) {
-      if (!currentRowPassed) {
-        onMiss(currentRow);
+    void
+    finishIteration(TOnMiss onMiss, bool endOfData, size_t freeOutputRows) {
+      if (endOfData) {
+        if (!currentRowPassed && currentRow != -1) {
+          // If we're at the end of the input batch and the current row hasn't
+          // passed the filter, it never will, process it as a miss.
+          // We're guaranteed to have space, at least the last row was never
+          // written out since it was a miss.
+          VELOX_CHECK_GE(freeOutputRows, 0);
+          onMiss(currentRow);
+          freeOutputRows--;
+        }
+
+        // We no longer need to carry the current row since we already called
+        // onMiss on it.
+        if (lastMissedRow && currentRow == lastMissedRow) {
+          lastMissedRow.reset();
+        }
+
+        currentRow = -1;
+        currentRowPassed = false;
       }
 
-      currentRow = -1;
-      currentRowPassed = false;
+      // If there's space left in the output batch, write out the last missed
+      // row.
+      if (lastMissedRow && currentRow != lastMissedRow && freeOutputRows > 0) {
+        onMiss(*lastMissedRow);
+        lastMissedRow.reset();
+      }
+
+      // If the current row hasn't passed the filter, we need to carry it
+      // forward in case it never passes the filter.
+      if (!currentRowPassed && currentRow != -1) {
+        lastMissedRow = currentRow;
+      }
+    }
+
+    // Returns if we're carrying forward a missed input row. Notably, if this is
+    // true, we're not yet done processing the input batch.
+    bool hasLastMissedRow() {
+      return lastMissedRow.has_value();
     }
 
    private:
@@ -410,6 +457,13 @@ class HashProbe : public Operator {
 
     // True if currentRow has a match.
     bool currentRowPassed{false};
+
+    // If set, it points to the last missed (input) row carried over from
+    // previous output batch processing. The last missed row is either written
+    // as a passed row if the same input row has a hit in the next output batch
+    // processed or written to the first output batch which has space at
+    // the end if it never has a hit.
+    std::optional<vector_size_t> lastMissedRow;
   };
 
   // For left semi join filter with extra filter, de-duplicates probe side rows
