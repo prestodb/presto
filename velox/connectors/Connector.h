@@ -146,6 +146,11 @@ class DataSink {
     return 0;
   }
 
+  /// Returns the number of files written on disk by this data sink so far.
+  virtual int32_t numWrittenFiles() const {
+    return 0;
+  }
+
   /// Called once after all data has been added via possibly multiple calls to
   /// appendData(). The function returns the metadata of written data in string
   /// form on success. If 'success' is false, this function aborts any pending

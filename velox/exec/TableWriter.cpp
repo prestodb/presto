@@ -162,6 +162,7 @@ RowVectorPtr TableWriter::getOutput() {
 
   finished_ = true;
   updateWrittenBytes();
+  updateNumWrittenFiles();
   const std::vector<std::string> fragments = closeDataSink();
 
   if (outputType_->size() == 1) {
@@ -240,6 +241,12 @@ void TableWriter::updateWrittenBytes() {
   const auto writtenBytes = dataSink_->getCompletedBytes();
   auto lockedStats = stats_.wlock();
   lockedStats->physicalWrittenBytes = writtenBytes;
+}
+
+void TableWriter::updateNumWrittenFiles() {
+  auto lockedStats = stats_.wlock();
+  lockedStats->addRuntimeStat(
+      "numWrittenFiles", RuntimeCounter(dataSink_->numWrittenFiles()));
 }
 
 void TableWriter::close() {

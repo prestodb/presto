@@ -397,6 +397,10 @@ int64_t HiveDataSink::getCompletedBytes() const {
   return completedBytes;
 }
 
+int32_t HiveDataSink::numWrittenFiles() const {
+  return writers_.size();
+}
+
 std::vector<std::string> HiveDataSink::close(bool success) {
   closeInternal(!success);
   if (!success) {

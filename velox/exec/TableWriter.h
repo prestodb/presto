@@ -163,6 +163,9 @@ class TableWriter : public Operator {
   // Updates physicalWrittenBytes in OperatorStats with current written bytes.
   void updateWrittenBytes();
 
+  // Updates numWrittenFiles in runtimeStats.
+  void updateNumWrittenFiles();
+
   std::string createTableCommitContext(bool lastOutput);
 
   // Invoked to set memory reclaimer for connector and file writer memory pool.

@@ -402,6 +402,8 @@ class HiveDataSink : public DataSink {
 
   int64_t getCompletedBytes() const override;
 
+  int32_t numWrittenFiles() const override;
+
   std::vector<std::string> close(bool success) override;
 
  private:
