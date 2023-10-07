@@ -1230,7 +1230,20 @@ public class TestHiveLogicalPlanner
                     "am array(map(int,row(a1 bigint, a2 double))), " +
                     "aa array(array(row(a1 bigint, a2 double))), " +
                     "z array(array(row(p bigint, e row(e1 bigint, e2 varchar)))))");
-           // transform
+
+            // functions that are not outputting all subfields
+            // all_match
+            assertPushdownSubfields("SELECT ALL_MATCH(y, x -> x.a > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+            assertPushdownSubfields("SELECT ALL_MATCH(y, x -> true) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].$")));
+            // any_match
+            assertPushdownSubfields("SELECT ANY_MATCH(y, x -> x.a > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+            // none_match
+            assertPushdownSubfields("SELECT NONE_MATCH(y, x -> x.d.d1 > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d.d1")));
+            // transform
             assertPushdownSubfields("SELECT TRANSFORM(y, x -> x.d.d1) FROM " + tableName, tableName,
                     ImmutableMap.of("y", toSubfields("y[*].d.d1")));
 
@@ -1238,8 +1251,43 @@ public class TestHiveLogicalPlanner
             assertPushdownSubfields("SELECT MAP_ZIP_WITH(m1, m2, (k, v1, v2) -> v1.a1 + v2.a2) FROM " + tableName, tableName,
                     ImmutableMap.of("m1", toSubfields("m1[*].a1"), "m2", toSubfields("m2[*].a2")));
 
+            assertPushdownSubfields("SELECT ANY_MATCH(MAP_VALUES(MAP_ZIP_WITH(m1, m2, (k, v1, v2) -> CAST(ROW(v1.a1, v2.a2) AS ROW(a1 BIGINT, a2 DOUBLE)))), x -> x.a1 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1"), "m2", toSubfields("m2[*].a2")));
+
             // transform_values
             assertPushdownSubfields("SELECT TRANSFORM_VALUES(m1, (k, v) -> v.a1 * 1000) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1")));
+
+            assertPushdownSubfields("SELECT TRANSFORM_VALUES(MAP_FILTER(m1, (k,v) -> v.a2 > 100), (k, v) -> v.a1 * 1000) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1", "m1[*].a2")));
+
+            assertPushdownSubfields("SELECT MAP_FILTER(TRANSFORM_VALUES(m1, (k, v) -> CAST(ROW(v.a1 * 1000, v.a1) AS ROW(a1 BIGINT, a2 DOUBLE))), (k,v) -> v.a2 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1")));
+
+            // map_values
+            assertPushdownSubfields("SELECT ANY_MATCH(MAP_VALUES(m1), x -> x.a1 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1")));
+
+            // cardinality
+            assertPushdownSubfields("SELECT CARDINALITY(y) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].$")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(FLATTEN(z)) FROM " + tableName, tableName,
+                    ImmutableMap.of("z", toSubfields("z[*][*].$")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(FILTER(y, x -> true)) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].$")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(FILTER(y, x -> position('9' IN x.b) > 0)) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].b")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(m1) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].$")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(MAP_FILTER(m1, (k,v) -> v.a2 > 100)) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a2")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(MAP_FILTER(m1, (k,v) -> v.a1 > 100)) FROM " + tableName, tableName,
                     ImmutableMap.of("m1", toSubfields("m1[*].a1")));
 
             // transform
@@ -1259,9 +1307,48 @@ public class TestHiveLogicalPlanner
             assertPushdownSubfields("SELECT FILTER(y, x -> x.a > 0) FROM " + tableName, tableName,
                     ImmutableMap.of("y", toSubfields()));
 
+            assertPushdownSubfields("SELECT CARDINALITY(FILTER(y, x -> x.a > 0)) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            // slice
+            assertPushdownSubfields("SELECT TRANSFORM(SLICE(y, 1, 5), x -> x.a) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            //array_sort
+            assertPushdownSubfields("SELECT ARRAY_SORT(y, (l, r) -> IF(l.a < r.a, 1, IF(l.a = r.a, 0, -1))) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields()));
+
+            assertPushdownSubfields("SELECT ANY_MATCH(SLICE(ARRAY_SORT(y, (l, r) -> IF(l.a < r.a, 1, IF(l.a = r.a, 0, -1))), 1, 3), x -> x.c > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a", "y[*].c")));
+
+            assertPushdownSubfields("SELECT TRANSFORM(ARRAY_SORT(y), x -> x.a) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields())); // ARRAY_SORT(y) function accesses all the subfields as there is no lambda function provided.
+
+            // combinations
+            assertPushdownSubfields("SELECT TRANSFORM(COMBINATIONS(y, 3), x -> x[1].a) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            assertPushdownSubfields("SELECT TRANSFORM(FLATTEN(COMBINATIONS(y, 3)), x -> x.a) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            assertPushdownSubfields("SELECT TRANSFORM(COMBINATIONS(FLATTEN(z), 3), x -> x[1].p) FROM " + tableName, tableName,
+                    ImmutableMap.of("z", toSubfields("z[*][*].p")));
+
             // flatten
             assertPushdownSubfields("SELECT TRANSFORM(FLATTEN(z), x -> x.p) FROM " + tableName, tableName,
                     ImmutableMap.of("z", toSubfields("z[*][*].p")));
+
+            // reverse
+            assertPushdownSubfields("SELECT TRANSFORM(REVERSE(y), x -> x.a) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            // shuffle
+            assertPushdownSubfields("SELECT TRANSFORM(SHUFFLE(y), x -> x.a) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            // trim_array
+            assertPushdownSubfields("SELECT TRANSFORM(TRIM_ARRAY(y, 5), x -> x.a) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
 
             // concat
             assertPushdownSubfields("SELECT TRANSFORM(y || yy,  x -> x.d.d1) FROM " + tableName, tableName,
@@ -1273,8 +1360,87 @@ public class TestHiveLogicalPlanner
             assertPushdownSubfields("SELECT TRANSFORM(CONCAT(y, yy, yyy)  ,  x -> x.d.d1) FROM " + tableName, tableName,
                     ImmutableMap.of("y", toSubfields("y[*].d.d1"), "yy", toSubfields("yy[*].d.d1"), "yyy", toSubfields("yyy[*].d.d1")));
 
+            // map_concat
+            assertPushdownSubfields("SELECT ANY_MATCH(MAP_VALUES(MAP_CONCAT(m1, m2, m3)), x -> x.a1 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1"), "m2", toSubfields("m2[*].a1"), "m3", toSubfields("m3[*].a1")));
+
+            // map
+            assertPushdownSubfields("SELECT ANY_MATCH(MAP_VALUES(MAP(a, y)), x -> x.a > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            assertPushdownSubfields("SELECT ANY_MATCH(MAP_VALUES(CAST(MAP() AS MAP(VARCHAR, ROW(a BIGINT)))), x -> x.a > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of());
+
+            // map_filter
+            assertPushdownSubfields("SELECT ANY_MATCH(MAP_VALUES(MAP_FILTER(m1, (k,v) -> v.a2 > 100)), x -> x.a1 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1", "m1[*].a2")));
+
+            assertPushdownSubfields("SELECT MAP_FILTER(m1, (k,v) -> v.a2 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields()));
+
+            // map_remove_null_values
+            assertPushdownSubfields("SELECT ANY_MATCH(MAP_VALUES(MAP_REMOVE_NULL_VALUES(m1)), x -> x.a1 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1")));
+
+            // map_subset
+            assertPushdownSubfields("SELECT ANY_MATCH(MAP_VALUES(map_subset(m1, ARRAY[1,2,3])), x -> x.a1 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1")));
+
+            // map_top_n_values
+            assertPushdownSubfields("SELECT ANY_MATCH(MAP_TOP_N_VALUES(m1, 10, (x, y) -> IF(x.a1 < y.a1, -1, IF(x.a1 = y.a1, 0, 1))), x -> x.a2 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1", "m1[*].a2")));
+
+            // Simple test of different column type of the array argument
+            assertPushdownSubfields("SELECT ALL_MATCH(y, x -> x.d.d1 > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d.d1")));
+
+            assertPushdownSubfields("SELECT ANY_MATCH(r.a, x -> x.a1 > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("r", toSubfields("r.a[*].a1")));
+
+            assertPushdownSubfields("SELECT ANY_MATCH(z[1], x -> x.e.e1 > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("z", toSubfields("z[1][*].e.e1")));
+
+            assertPushdownSubfields("SELECT ANY_MATCH(mi[1], x -> x.a1 > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("mi", toSubfields("mi[1][*].a1")));
+
+            assertPushdownSubfields("SELECT ANY_MATCH(mv['a'], x -> x.a1 > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("mv", toSubfields("mv[\"a\"][*].a1")));
+
+            assertPushdownSubfields("SELECT ANY_MATCH(aa, x -> x[1].a1 > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("aa", toSubfields("aa[*][1].a1")));
+
+            assertPushdownSubfields("SELECT ANY_MATCH(am, x -> x[1].a1 > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("am", toSubfields("am[*][1].a1")));
+
+            // element_at
+            assertPushdownSubfields("SELECT ANY_MATCH(ELEMENT_AT(mi, 42), x -> x.a1 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("mi", toSubfields("mi[42][*].a1")));
+
+            assertPushdownSubfields("SELECT ANY_MATCH(ELEMENT_AT(mv, '42'), x -> x.a1 > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("mv", toSubfields("mv[\"42\"][*].a1")));
+
+            // Queries that reference variables in different arguments
+            assertPushdownSubfields("SELECT ANY_MATCH(SLICE(y, 1, mv['42'][1].a1), x -> x.a > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("mv", toSubfields("mv[\"42\"][1].a1"), "y", toSubfields("y[*].a")));
+
+            // Special form expressions that can hide the access to the entire struct ('and', 'or' are not interesting)
+            // equal
+            assertPushdownSubfields("SELECT ANY_MATCH(y, x -> x = (row(1, '', 1.0, row(1, 1.0))))  FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields())); // 'equal' effectively accesses the entire struct of the element of 'y'
+
+            // coalesce
+            assertPushdownSubfields("SELECT ANY_MATCH(ZIP_WITH(y, yy, (x, xx) -> COALESCE(x,xx)), x -> x.a > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields(), "yy", toSubfields())); //
+
             assertPushdownSubfields("SELECT TRANSFORM(y, x -> COALESCE(x, row(1, '', 1.0, row(1, 1.0)))) FROM " + tableName, tableName,
                     ImmutableMap.of("y", toSubfields())); // 'coalesce' effectively includes the entire subfield to returned values
+
+            assertPushdownSubfields("SELECT ANY_MATCH(COALESCE(y, yy), x -> x.a > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a"), "yy", toSubfields("yy[*].a")));
+
+            // in
+            assertPushdownSubfields("SELECT ANY_MATCH(y, x -> x IN (row(1, '', 1.0, row(1, 1.0))))  FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields())); // 'in' effectively accesses the entire struct of the element of 'y'
 
             // row_construction
             assertPushdownSubfields("SELECT TRANSFORM(y, x -> ROW(x)) FROM " + tableName, tableName,
@@ -1290,6 +1456,78 @@ public class TestHiveLogicalPlanner
             // if
             assertPushdownSubfields("SELECT TRANSFORM(y, x -> IF(x = row(1, '', 1.0, row(1, 1.0)), 1, 0)) FROM " + tableName, tableName,
                     ImmutableMap.of("y", toSubfields())); // entire struct of the element of 'y' was accessed
+
+            // is_null
+            assertPushdownSubfields("SELECT ANY_MATCH(y, x -> x IS NULL)  FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].$"))); // only checks whether entire struct is null and does not access struct subfields
+
+            // Queries that lack full support
+
+            // bind
+            assertPushdownSubfields("SELECT ANY_MATCH(y, x -> x.a > mv['42'][1].a1) FROM " + tableName, tableName, // missing support for extracting subfields from BIND expression
+                    ImmutableMap.of("mv", toSubfields())); // In fact, we are accessing only y.a and mv['a'].[*].a1
+
+            // Special form expression
+            // cast
+            assertPushdownSubfields("SELECT ANY_MATCH(TRANSFORM(r.a, x -> cast(x AS row(quantity bigint, price double))), x -> x.quantity > 100) FROM " + tableName, tableName,
+                    ImmutableMap.of("r", toSubfields("r.a"))); // in fact, we are accessing only r.a[*].a1
+
+            // WHERE clause
+            // lambda subfield extraction from WHERE clause is not supported when hive.pushdown-filter-enabled=true. The entire field will be included in
+            // OrcSelectivePageSourceFactory by SubfieldExtractor in presto-hive module.
+            assertPushdownSubfields("SELECT a FROM " + tableName + " WHERE ALL_MATCH(y, x -> x.a > 0)", tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a"))); // In fact, we are accessing only y[*].a.
+
+            assertPushdownSubfields("SELECT TRANSFORM(y, x-> x.d.d1) FROM " + tableName + " WHERE ALL_MATCH(y, x -> x.a > 0)", tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d.d1", "y[*].a"))); // In OrcSelectivePageSourceFactory,
+            // 'remainingPredicate' will contain 'ALL_MATCH(y, x -> x.a > 0)' and RequiredSubfieldsExtractor will extract the entire 'y' column that will lead to correct results
+            // though without any optimization
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testMergingSubfields()
+    {
+        final String tableName = "test_merging_subfields";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(id bigint, " +
+                    "r row(a array(row(a1 bigint, a2 double)), i bigint, d row(d1 bigint, d2 double)), " +
+                    "y array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))))");
+
+            // NoSubfields
+            assertPushdownSubfields("SELECT CARDINALITY(y) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].$")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(y), ALL_MATCH(y, x -> x.d.d1 > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d.d1")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(y) FROM " + tableName + " WHERE ALL_MATCH(y, x -> x.d.d1 > 0)", tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d.d1")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(y), TRANSFORM(y, x -> x.a) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            assertPushdownSubfields("SELECT TRANSFORM(y, x -> x.a), CARDINALITY(y) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            assertPushdownSubfields("SELECT CARDINALITY(y), ALL_MATCH(y, x -> x.a > 0), TRANSFORM(y, x -> x.d.d1) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a", "y[*].d.d1")));
+
+            assertPushdownSubfields("SELECT ALL_MATCH(y, x -> x.a > 0) FROM " + tableName + " WHERE CARDINALITY(y) > 42", tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            assertPushdownSubfields("SELECT TRANSFORM(y, x -> x.d), ALL_MATCH(y, x -> x.d.d1 > 0), CARDINALITY(y) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d")));
+
+            assertPushdownSubfields("SELECT ALL_MATCH(y, x -> x.a > 0), CARDINALITY(y) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a")));
+
+            // AllSubfields
+            assertPushdownSubfields("SELECT r.a[1].a1 FROM " + tableName + " WHERE CARDINALITY(r.a) > 42", tableName,
+                    ImmutableMap.of("r", toSubfields("r.a[*].$", "r.a[1].a1"))); // File format reader will handle this situation and extract only r.a[*].a1
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);

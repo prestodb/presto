@@ -84,6 +84,7 @@ public class TestLambdaSubfieldPruning
                             "    row_with_array_of_rows, \n" +
                             "    row_with_map_varchar_key_row_value, \n" +
                             "    map_varchar_key_row_value, \n" +
+                            "    map_row_key_double_value, \n" +
                             "    map_varchar_key_array_of_row_value, \n" +
                             "    array_of_map_entries_varchar_key_row_value, \n" +
                             "    END_OF_LIST \n" +
@@ -114,6 +115,10 @@ public class TestLambdaSubfieldPruning
                             "         ROW('orderdata',    ROW(IF (orderkey % 17 = 0, 1, orderkey), linenumber, partkey)), \n" +
                             "         ROW('orderdata_ex', ROW(orderkey + 100, linenumber + 100, partkey + 100))]) \n" +
                             "      AS MAP(VARCHAR, ROW(orderkey BIGINT, linenumber BIGINT, partkey BIGINT))) AS map_varchar_key_row_value, \n" +
+                            "   CAST(MAP_FROM_ENTRIES(ARRAY[ \n" +
+                            "                ROW(ROW(orderkey, linenumber, partkey), 1.0), \n" +
+                            "                ROW(ROW(orderkey + 100, linenumber + 100, partkey + 100), 1.0)])  \n" +
+                            "     AS MAP(ROW(orderkey BIGINT, linenumber BIGINT, partkey BIGINT), DOUBLE)) AS map_row_key_double_value, \n" +
                             "   CAST(MAP_FROM_ENTRIES(ARRAY[ \n" +
                             "         ROW('orderdata',    IF (orderkey % 13 = 0, NULL, ARRAY[ROW( IF (orderkey % 17 = 0, NULL, orderkey), linenumber, partkey)])), \n" +
                             "         ROW('orderdata_ex', ARRAY[ ROW(orderkey + 100, linenumber + 100, partkey + 100)])]) \n" +
@@ -146,7 +151,16 @@ public class TestLambdaSubfieldPruning
 
     private void testPushDownSubfieldsFromLambdas(String tableName)
     {
+        // functions that are not outputting all subfields
+        assertQuery("SELECT ALL_MATCH(array_of_rows, x -> x.itemdata > 0) FROM " + tableName);
+        assertQuery("SELECT ALL_MATCH(array_of_rows, x -> true) FROM " + tableName);
+        assertQuery("SELECT ALL_MATCH(array_of_rows, x -> x IS NULL) FROM " + tableName);
+        assertQuery("SELECT ANY_MATCH(array_of_rows, x -> x.itemdata > 0) FROM " + tableName);
+        assertQuery("SELECT NONE_MATCH(array_of_rows, x -> x.itemdata > 0) FROM " + tableName);
         assertQuery("SELECT TRANSFORM(array_of_rows, x -> x.itemdata > 0) FROM " + tableName);
+        assertQuery("SELECT CARDINALITY(array_of_rows) FROM " + tableName);
+        assertQuery("SELECT CARDINALITY(FLATTEN(array_of_array_of_rows)) FROM " + tableName);
+        assertQuery("SELECT CARDINALITY(FILTER(array_of_rows, x -> POSITION('T' IN x.comment) > 0)) FROM " + tableName);
         assertQuery("SELECT TRANSFORM(row_with_array_of_rows.array_of_rows, x -> CAST(ROW(x.comment, x.comment) AS ROW(d1 VARCHAR, d2 VARCHAR))) FROM " + tableName);
         assertQuery("SELECT TRANSFORM_VALUES(map_varchar_key_row_value, (k,v) -> v.orderkey) FROM " + tableName);
         assertQuery("SELECT ZIP_WITH(array_of_rows, row_with_array_of_rows.array_of_rows, (x, y) -> CAST(ROW(x.itemdata, y.comment) AS ROW(d1 BIGINT, d2 VARCHAR))) FROM " + tableName);
@@ -154,11 +168,41 @@ public class TestLambdaSubfieldPruning
 
         // functions that outputing all subfields and accept functional parameter
         assertQuery("SELECT FILTER(array_of_rows, x -> POSITION('T' IN x.comment) > 0) FROM " + tableName);
+        assertQuery("SELECT ARRAY_SORT(array_of_rows, (l, r) -> IF(l.itemdata < r.itemdata, 1, IF(l.itemdata = r.itemdata, 0, -1))) FROM " + tableName);
+        assertQuery("SELECT ANY_MATCH(SLICE(ARRAY_SORT(array_of_rows, (l, r) -> IF(l.itemdata < r.itemdata, 1, IF(l.itemdata = r.itemdata, 0, -1))), 1, 3), x -> x.itemdata > 0) FROM " + tableName);
+        assertQuery("SELECT TRANSFORM(ARRAY_SORT(array_of_non_null_rows), x -> x.itemdata) FROM " + tableName);
+        assertQuery("SELECT TRANSFORM(COMBINATIONS(array_of_non_null_rows, 3), x -> x[1].itemdata) FROM " + tableName);
         assertQuery("SELECT TRANSFORM(FLATTEN(array_of_array_of_rows), x -> x.itemdata) FROM " + tableName);
+        assertQuery("SELECT TRANSFORM(REVERSE(array_of_rows), x -> x.itemdata) FROM " + tableName);
+        assertQuery("SELECT ARRAY_SORT(TRANSFORM(SHUFFLE(array_of_non_null_rows), x -> x.itemdata)) FROM " + tableName);
+        assertQuery("SELECT TRANSFORM(SLICE(array_of_rows, 1, 5), x -> x.itemdata) FROM " + tableName);
+        assertQuery("SELECT TRANSFORM(TRIM_ARRAY(array_of_rows, 2), x -> x.itemdata) FROM " + tableName);
         assertQuery("SELECT TRANSFORM(CONCAT(array_of_rows, row_with_array_of_rows.array_of_rows), x -> x.itemdata) FROM " + tableName);
         assertQuery("SELECT TRANSFORM(array_of_rows || row_with_array_of_rows.array_of_rows, x -> x.itemdata) FROM " + tableName);
         assertQuery("SELECT TRANSFORM_VALUES(MAP_CONCAT(map_varchar_key_row_value, row_with_map_varchar_key_row_value.map_varchar_key_row_value), (k,v) -> v.orderkey) FROM " + tableName);
         assertQuery("SELECT TRANSFORM_VALUES(MAP_REMOVE_NULL_VALUES(row_with_map_varchar_key_row_value.map_varchar_key_row_value), (k,v) -> v.orderkey) FROM " + tableName);
         assertQuery("SELECT TRANSFORM_VALUES(MAP_SUBSET(row_with_map_varchar_key_row_value.map_varchar_key_row_value, ARRAY['orderdata_ex']), (k,v) -> v.orderkey) FROM " + tableName);
+        assertQuery("SELECT ANY_MATCH(MAP_VALUES(map_varchar_key_row_value), x -> x.orderkey % 2 = 0) FROM " + tableName);
+        assertQuery("SELECT ANY_MATCH(MAP_TOP_N_VALUES(map_varchar_key_row_value, 10, (x, y) -> IF(x.orderkey < y.orderkey, -1, IF(x.orderkey = y.orderkey, 0, 1))), x -> x.orderkey % 2 = 0) FROM " + tableName);
+        assertQuery("SELECT ANY_MATCH(MAP_VALUES(map_varchar_key_row_value), x -> x.orderkey % 2 = 0) FROM " + tableName);
+
+        // Simple test of different column type of the array argument
+        assertQuery("SELECT ALL_MATCH(array_of_rows, x -> x.itemdata > 0) FROM " + tableName);
+        assertQuery("SELECT ALL_MATCH(row_with_array_of_rows.array_of_rows, x -> x.itemdata > 0) FROM " + tableName);
+        assertQuery("SELECT ALL_MATCH(array_of_array_of_rows[1], x -> x.itemdata > 0) FROM " + tableName);
+        assertQuery("SELECT ALL_MATCH(map_varchar_key_array_of_row_value['orderdata'], x -> x.orderkey > 0) FROM " + tableName);
+
+        // element_at
+        assertQuery("SELECT ALL_MATCH(ELEMENT_AT(map_varchar_key_array_of_row_value, 'orderdata'), x -> x.orderkey > 0) FROM " + tableName);
+        assertQuery("SELECT ALL_MATCH(ELEMENT_AT(array_of_array_of_rows, 1), x -> x.itemdata > 0) FROM " + tableName);
+
+        // Queries that reference variables in lambdas
+        assertQuery("SELECT ALL_MATCH(SLICE(array_of_rows, 1, row_with_array_of_rows.array_of_rows[1].itemdata), x -> x.itemdata > 0) FROM " + tableName);
+        assertQuery("SELECT ALL_MATCH(array_of_rows, x -> x.itemdata > row_with_array_of_rows.array_of_rows[1].itemdata) FROM " + tableName);
+
+        // Additional queries
+        assertQuery("SELECT key.orderkey, key.linenumber, key.partkey, t.value FROM " + tableName + " CROSS JOIN UNNEST(map_row_key_double_value) t(key, value)");
+
+        // Queries that lack full support
     }
 }

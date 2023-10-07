@@ -18,6 +18,9 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
+import com.facebook.presto.spi.function.ScalarFunctionLambdaArgumentDescriptor;
+import com.facebook.presto.spi.function.ScalarFunctionLambdaDescriptor;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
@@ -26,7 +29,12 @@ import io.airlift.slice.Slice;
 import static java.lang.Boolean.TRUE;
 
 @Description("return array containing elements that match the given predicate")
-@ScalarFunction(value = "filter", deterministic = false)
+@ScalarFunction(value = "filter", deterministic = false, descriptor = @ScalarFunctionDescriptor(
+        lambdaDescriptors = {
+                @ScalarFunctionLambdaDescriptor(
+                        callArgumentIndex = 1,
+                        lambdaArgumentDescriptors = {
+                                @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = 0)})}))
 public final class ArrayFilterFunction
 {
     private ArrayFilterFunction() {}

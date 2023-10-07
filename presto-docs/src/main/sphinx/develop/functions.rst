@@ -15,7 +15,7 @@ write a plugin that returns one more functions from ``getFunctions()``:
             implements Plugin
     {
         @Override
-        public Set<Class<?>> getFunctions()
+        public Set<Class<?>> getFunctions()§
         {
             return ImmutableSet.<Class<?>>builder()
                     .add(ExampleNullFunction.class)
@@ -385,4 +385,126 @@ scalar and aggregation functions.
             @TypeParameter("T") Type type,
             @BlockPosition @SqlType("T") Block block,
             @BlockIndex int index) { /* ...implementation */ }
+
+Complex Type Function Descriptor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Complex type function descriptor is used for specifying the metadata for the map or array functions that deal with arguments of ``ROW`` types. Presto optimizer tries to collect
+information about accessed subfields as granular as possible so tha file format reader (ORC/DWRF/Parquet) could prune all subfields that are irrelevant for execution of the current
+query. Consider the example below.
+
+.. code-block:: sql
+
+CREATE TABLE my_table (y array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))))
+
+SELECT CARDINALITY(FILTER(y, x -> x.a > 0)) FROM my_table
+
+SELECT FILTER(y, x -> x.a > 0) FROM my_table
+
+
+In query ``SELECT CARDINALITY(FILTER(y, x -> x.a > 0)) FROM my_table``, we need only ``y[*].x`` subfield for executing the query. However, in query
+``SELECT FILTER(y, x -> x.a > 0) FROM my_table`` we need all subfields of column y. That is due to the difference in intrinsic properties of these functions.
+Complex type function descriptor captures those properties.
+
+Complex type function descriptor could be defined for ``@ScalarFunction`` and ``@CodegenScalarFunction`` annotation using ``descriptor`` parameter.
+
+.. code-block:: java
+@Description("Returns true if the array contains one or more elements that match the given predicate")
+@ScalarFunction(value = "any_match", descriptor = @ScalarFunctionDescriptor(
+        isAccessingInputValues = true,
+        argumentIndicesContainingMapOrArray = {},
+        outputToInputTransformationFunction = {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "clearRequiredSubfields")},
+        lambdaDescriptors = {
+                    @ScalarFunctionLambdaDescriptor(
+                        callArgumentIndex = 1,
+                        lambdaArgumentDescriptors = {
+                                @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = 0)})}))
+public final class ArrayAnyMatchFunction
+{
+    ...
+}
+
+* ``isAccessingInputValues``:
+  Indicates whether the function accesses subfields. If function accesses the subfields internally, then optimizer will check ``lambdaDescriptors`` in order to collect all
+  accessed subfields. If ``lambdaDescriptors``is empty, then it disqualify the function from the optimization. In this case, optimizer will assume that all subfields are required.
+  Default value is ``true``.
+
+* ``lambdaDescriptors``:
+  Contains the array of ``@ScalarFunctionLambdaDescriptor`` for each lambda that this function accepts.
+  ``@ScalarFunctionLambdaDescriptor`` contains two properties:
+
+  * ``callArgumentIndex``:
+    Index of the argument in the Call expression of the lambda function that this LambdaDescriptor represents. For example, function ``ANY_MATCH`` accepts only one lambda in its
+    second argument with index 1 in a 0-indexed array of call arguments. Therefore, ``callArgumentIndex`` for this lambda descriptor is 1.
+
+  * ``lambdaArgumentDescriptors``:
+    Contains the array of ``@ScalarFunctionLambdaArgumentDescriptor`` for each argument that lambda accepts.
+    ``@ScalarFunctionLambdaArgumentDescriptor`` contains two properties:
+
+    * ``@callArgumentIndex``:
+      Index of the function argument that contains the function input (Array or Map), to which this lambda argument relate to.
+      Example: ``SELECT ANY_MATCH(y, x -> x.a > 0) FROM my_table``. The lambda passed to the ``ANY_MATCH`` function will be invoked internally in ``ANY_MATCH`` function
+      passing the element of the array, which ``ANY_MATCH`` receives in the first argument (with index 0 in a 0-indexed array of
+      function arguments) of the ``ANY_MATCH`` function.
+      Therefore, ``@callArgumentIndex`` of the ``@ScalarFunctionLambdaArgumentDescriptor`` for the  ``ANY_MATCH`` function should be `0`.
+
+    * ``@lambdaArgumentToInputTransformationFunction``:
+      Contains the transformation function between the subfields of this lambda argument and the input of the function.
+      Default value for this parameter is ``@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "prependAllSubscripts")``, will add prefix ``[*]`` to the
+      path of the subfield, which is correct for 99% of the functions.
+      Example: ``SELECT ANY_MATCH(y, x -> x.a > 0) FROM my_table``. Even though in the lambda the access subfield has path `a`, we need to add the prefix ``[*]``, because `y`
+      is of array type.
+
+  Default value of the ``lambdaDescriptors`` is an empty array. If function does not accept any lambda parameter, then ``lambdaDescriptors`` should be an empty array.
+
+* ``argumentIndicesContainingMapOrArray``:
+  Consider ``TRIM_ARRAY`` function in this example: ``SELECT ANY_MATCH(TRIM_ARRAY(y, 5), x -> x.a > 0) FROM my_table``.
+  By default, the optimizer passes the subfield accessed in outer functions (here, subfield ``[*].a``, which accessed in function ``ANY_MATCH``) to all array or map arguments
+  (here, to the array `y`).
+  Now, consider function ``MAP`` in this example below.
+
+  .. code-block:: sql
+
+  CREATE TABLE my_table (keys array(bigint), values array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))))
+
+  SELECT ANY_MATCH(MAP_VALUES(MAP(keys, values)), x -> x.a > 100)
+
+  In ``MAP`` function, both ``keys`` and ``values`` are of array type. However, subfields accessed in function ``ANY_MATCH`` relate only to ``values``.  Note, for map type,
+  we collect only subfields of map values.  Default behavior does not work here and we need to manually specify for ``MAP`` function that subfields accessed in outer functions
+  relate only to the second argument (with index 1 in 0-indexed array of arguments).
+  Therefore, for ``MAP`` function we have to specify``argumentIndicesContainingMapOrArray = {1}``.
+  Unless the function does not have such behaviour like ``MAP`` function, ``argumentIndicesContainingMapOrArray`` parameter could be omitted.
+
+* ``outputToInputTransformationFunction``:
+  Contains the transformation function to convert the output back to the input elements of the array or map. Optimizer examines the nested function calls from the most outer
+  function to the most inner function. Oftentimes, the path of the subfields need to be altered reverting the effect that is done by the function to its input. Let's consider the
+  example:
+
+  .. code-block:: sql
+  CREATE TABLE my_table (z array(array(row(p bigint, e row(e1 bigint, e2 varchar)))))
+
+  SELECT TRANSFORM(FLATTEN(z), x -> x.p) FROM my_table
+
+  Here, column `z` is a 2-dimensional array or rows. Function ``FLATTEN`` produces the 1-dimensional array of rows. In ``TRANSFORM``, subfield ``[*].p`` is accessed. The challenge
+  now is to correctly attribute accessed subfield ``[*].p`` to the original column `z` where the path of the subfield `p` is ``[*][*].p``. This is when
+  ``outputToInputTransformationFunction`` comes into play. Because of the internal property of the ``FLATTEN`` function, for any subfield that accessed in outer calls we need to
+  transform the path of the subfield and add additional ``[*]`` prefix.
+
+  There are several pre-defined values for ``outputToInputTransformationFunction`` parameter:
+
+  * {}:
+    This value (empty array) means that no transformation is needed, which is equivalent to the identity function.
+
+  * {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "allSubfieldsRequired")}:
+    This transformation function will indicated that all subfield are required. At this point, optimizer will discard any collected subfields from outer calls and add special
+    subfield ``[*]``  (allSubfields). It means that the transformation of the output to input is unknown and thus the lambda subfields pushdown from outer calls could not be
+    done. This is a default value of ``@ScalarFunction`` annotation.
+
+  * {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "clearRequiredSubfields")}:
+    There are some functions that do not send the input to the output. For instance, ``CARDINALITY`` function, does not returns the input array like ``FILTER`` function does.
+    Instead, it returns only the number (the size of the array). Knowing this property of the function, we can safely discard any accessed subfields in outer functions (even
+    ``[*]``) that essentially means that optimizer can start collecting the accessed subfields from now on. If we are lucky and any other inner call does not include
+    ``{@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "allSubfieldsRequired")}``, then we can conclude that only those collected subfields are required
+    for evaluating the expression and we can safely prune all other subfields.
+
 
