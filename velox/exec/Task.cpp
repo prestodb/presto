@@ -2447,7 +2447,8 @@ std::unique_ptr<memory::MemoryReclaimer> Task::MemoryReclaimer::create(
 
 uint64_t Task::MemoryReclaimer::reclaim(
     memory::MemoryPool* pool,
-    uint64_t targetBytes) {
+    uint64_t targetBytes,
+    memory::MemoryReclaimer::Stats& stats) {
   auto task = ensureTask();
   if (FOLLY_UNLIKELY(task == nullptr)) {
     return 0;
@@ -2466,7 +2467,7 @@ uint64_t Task::MemoryReclaimer::reclaim(
   if (task->isCancelled()) {
     return 0;
   }
-  return memory::MemoryReclaimer::reclaim(pool, targetBytes);
+  return memory::MemoryReclaimer::reclaim(pool, targetBytes, stats);
 }
 
 void Task::MemoryReclaimer::abort(

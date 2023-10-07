@@ -287,7 +287,8 @@ bool TableWriter::MemoryReclaimer::reclaimableBytes(
 
 uint64_t TableWriter::MemoryReclaimer::reclaim(
     memory::MemoryPool* pool,
-    uint64_t /*unused*/) {
+    uint64_t /*unused*/,
+    memory::MemoryReclaimer::Stats& /*unused*/) {
   VELOX_CHECK(!pool->isLeaf());
   return 0;
 }

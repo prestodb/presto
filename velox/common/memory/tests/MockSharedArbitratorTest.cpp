@@ -161,7 +161,8 @@ class MockMemoryOperator {
       return op_->reclaimableBytes(pool, reclaimableBytes);
     }
 
-    uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) override {
+    uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes, Stats& stats)
+        override {
       ++numReclaims_;
       if (!reclaimable_) {
         return 0;

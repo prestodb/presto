@@ -143,7 +143,10 @@ class HashJoinMemoryReclaimer final : public MemoryReclaimer {
         new HashJoinMemoryReclaimer());
   }
 
-  uint64_t reclaim(memory::MemoryPool* pool, uint64_t targetBytes) final;
+  uint64_t reclaim(
+      memory::MemoryPool* pool,
+      uint64_t targetBytes,
+      memory::MemoryReclaimer::Stats& stats) final;
 
  private:
   HashJoinMemoryReclaimer() : MemoryReclaimer() {}

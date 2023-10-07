@@ -100,8 +100,9 @@ class FakeMemoryNode : public core::PlanNode {
 };
 
 using AllocationCallback = std::function<TestAllocation(Operator* op)>;
-using ReclaimInjectionCallback =
-    std::function<void(MemoryPool* pool, uint64_t targetByte)>;
+// If return true, the caller will terminate execution and return early.
+using ReclaimInjectionCallback = std::function<
+    bool(MemoryPool* pool, uint64_t targetByte, MemoryReclaimer::Stats& stats)>;
 
 // Custom operator for the custom factory.
 class FakeMemoryOperator : public Operator {
@@ -163,15 +164,16 @@ class FakeMemoryOperator : public Operator {
     return canReclaim_;
   }
 
-  void reclaim(uint64_t targetBytes) override {
+  void reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
+      override {
     VELOX_CHECK(canReclaim());
     auto* driver = operatorCtx_->driver();
     VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
     VELOX_CHECK(driver->task()->pauseRequested());
     VELOX_CHECK_GT(targetBytes, 0);
 
-    if (reclaimCb_ != nullptr) {
-      reclaimCb_(pool(), targetBytes);
+    if (reclaimCb_ != nullptr && reclaimCb_(pool(), targetBytes, stats)) {
+      return;
     }
 
     uint64_t bytesReclaimed{0};
@@ -575,7 +577,8 @@ class TestMemoryReclaimer : public MemoryReclaimer {
   TestMemoryReclaimer(std::function<void(MemoryPool*)> reclaimCb)
       : reclaimCb_(std::move(reclaimCb)) {}
 
-  uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) override {
+  uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes, Stats& stats)
+      override {
     if (pool->kind() == MemoryPool::Kind::kLeaf) {
       return 0;
     }
@@ -599,7 +602,7 @@ class TestMemoryReclaimer : public MemoryReclaimer {
 
     uint64_t reclaimedBytes{0};
     for (const auto& candidate : candidates) {
-      const auto bytes = candidate.pool->reclaim(targetBytes);
+      const auto bytes = candidate.pool->reclaim(targetBytes, stats);
       if (reclaimCb_ != nullptr) {
         reclaimCb_(candidate.pool);
       }
@@ -1729,6 +1732,7 @@ DEBUG_ONLY_TEST_F(
   // We only expect to reclaim from one hash build operator once.
   ASSERT_EQ(numHashBuildReclaims, 1);
   waitForAllTasksToBeDeleted();
+  ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 1);
 }
 
 DEBUG_ONLY_TEST_F(
@@ -2145,6 +2149,59 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, driverInitTriggeredArbitration) {
                 .project({"1+1+4 as t0", "1+3+3 as t1"})
                 .planNode())
       .assertResults(expectedVector);
+}
+
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimerStats) {
+  std::vector<RowVectorPtr> vectors;
+  const int vectorSize = 100;
+  fuzzerOpts_.vectorSize = vectorSize;
+  vectors.push_back(newVector());
+
+  createDuckDbTable(vectors);
+  setupMemory(32 * MB, 0);
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(32 * MB);
+  ASSERT_EQ(queryCtx->pool()->capacity(), 0);
+  ASSERT_EQ(queryCtx->pool()->maxCapacity(), 32 * MB);
+  auto additionalCtxLeafPool = queryCtx->pool()->addLeafChild("ctx_leaf");
+  TestAllocation outerAlloc;
+  outerAlloc.buffer = additionalCtxLeafPool->allocate(8 * MB);
+  outerAlloc.pool = additionalCtxLeafPool.get();
+  outerAlloc.size = 8 * MB;
+  fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
+    TestAllocation allocation0;
+    TestAllocation allocation1;
+    auto guard = folly::makeGuard([&]() {
+      allocation0.free();
+      allocation1.free();
+    });
+    allocation0.buffer = op->pool()->allocate(16 * MB);
+    allocation0.pool = op->pool();
+    allocation0.size = 16 * MB;
+
+    allocation1.buffer = op->pool()->allocate(16 * MB);
+    allocation1.pool = op->pool();
+    allocation1.size = 16 * MB;
+
+    return TestAllocation{};
+  });
+  fakeOperatorFactory_->setReclaimCallback([&](MemoryPool* /*unused*/,
+                                               uint64_t /*unused*/,
+                                               MemoryReclaimer::Stats& stats) {
+    ++stats.numNonReclaimableAttempts;
+    outerAlloc.free();
+    return true;
+  });
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .queryCtx(queryCtx)
+      .plan(PlanBuilder(planNodeIdGenerator, pool())
+                .values(vectors)
+                .addNode([&](std::string id, core::PlanNodePtr input) {
+                  return std::make_shared<FakeMemoryNode>(id, input);
+                })
+                .planNode())
+      .assertResults(vectors);
+  ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 1);
 }
 
 DEBUG_ONLY_TEST_F(
@@ -2646,10 +2703,13 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
   fakeOperatorFactory_->setMaxDrivers(numDrivers);
   const std::string injectReclaimErrorMessage("Inject reclaim failure");
   fakeOperatorFactory_->setReclaimCallback(
-      [&](MemoryPool* /*unused*/, uint64_t /*unused*/) {
+      [&](MemoryPool* /*unused*/,
+          uint64_t /*unused*/,
+          MemoryReclaimer::Stats& /*unused*/) {
         if (folly::Random::oneIn(10)) {
           VELOX_FAIL(injectReclaimErrorMessage);
         }
+        return false;
       });
 
   const int numThreads = 30;

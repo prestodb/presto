@@ -558,7 +558,8 @@ bool Operator::MemoryReclaimer::reclaimableBytes(
 
 uint64_t Operator::MemoryReclaimer::reclaim(
     memory::MemoryPool* pool,
-    uint64_t targetBytes) {
+    uint64_t targetBytes,
+    memory::MemoryReclaimer::Stats& stats) {
   std::shared_ptr<Driver> driver = ensureDriver();
   if (FOLLY_UNLIKELY(driver == nullptr)) {
     return 0;
@@ -575,7 +576,7 @@ uint64_t Operator::MemoryReclaimer::reclaim(
   TestValue::adjust(
       "facebook::velox::exec::Operator::MemoryReclaimer::reclaim", pool);
 
-  op_->reclaim(targetBytes);
+  op_->reclaim(targetBytes, stats);
   return pool->shrink(targetBytes);
 }
 

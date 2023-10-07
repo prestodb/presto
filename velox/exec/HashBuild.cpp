@@ -1070,7 +1070,9 @@ bool HashBuild::testingTriggerSpill() {
       spillConfig()->testSpillPct;
 }
 
-void HashBuild::reclaim(uint64_t /*unused*/) {
+void HashBuild::reclaim(
+    uint64_t /*unused*/,
+    memory::MemoryReclaimer::Stats& stats) {
   VELOX_CHECK(canReclaim());
   auto* driver = operatorCtx_->driver();
 
@@ -1080,8 +1082,8 @@ void HashBuild::reclaim(uint64_t /*unused*/) {
   // build processing and is not under non-reclaimable execution section.
   if ((state_ != State::kRunning && state_ != State::kWaitForBuild) ||
       nonReclaimableSection_) {
-    // TODO: add stats to record the non-reclaimable case and reduce the log
-    // frequency if it is too verbose.
+    // TODO: reduce the log frequency if it is too verbose.
+    ++stats.numNonReclaimableAttempts;
     LOG(WARNING) << "Can't reclaim from hash build operator, state_["
                  << stateName(state_) << "], nonReclaimableSection_["
                  << nonReclaimableSection_ << "], " << toString();
@@ -1099,8 +1101,8 @@ void HashBuild::reclaim(uint64_t /*unused*/) {
     if ((buildOp->state_ != State::kRunning &&
          buildOp->state_ != State::kWaitForBuild) ||
         buildOp->nonReclaimableSection_) {
-      // TODO: add stats to record the non-reclaimable case and reduce the log
-      // frequency if it is too verbose.
+      // TODO: reduce the log frequency if it is too verbose.
+      ++stats.numNonReclaimableAttempts;
       LOG(WARNING) << "Can't reclaim from hash build operator, state_["
                    << stateName(buildOp->state_) << "], nonReclaimableSection_["
                    << buildOp->nonReclaimableSection_ << "], "

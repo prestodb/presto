@@ -181,10 +181,11 @@ bool isLeftNullAwareJoinWithFilter(
 
 uint64_t HashJoinMemoryReclaimer::reclaim(
     memory::MemoryPool* pool,
-    uint64_t targetBytes) {
+    uint64_t targetBytes,
+    memory::MemoryReclaimer::Stats& stats) {
   uint64_t reclaimedBytes{0};
   pool->visitChildren(
-      [&targetBytes, &reclaimedBytes](memory::MemoryPool* child) {
+      [&targetBytes, &reclaimedBytes, &stats](memory::MemoryPool* child) {
         VELOX_CHECK_EQ(child->kind(), memory::MemoryPool::Kind::kLeaf);
         // The hash probe operator do not support memory reclaim.
         if (!isHashBuildMemoryPool(*child)) {
@@ -192,7 +193,7 @@ uint64_t HashJoinMemoryReclaimer::reclaim(
         }
         // We only need to reclaim from any one of the hash build operators
         // which will reclaim from all the peer hash build operators.
-        reclaimedBytes = child->reclaim(targetBytes);
+        reclaimedBytes = child->reclaim(targetBytes, stats);
         return false;
       });
   return reclaimedBytes;

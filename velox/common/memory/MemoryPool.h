@@ -408,7 +408,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// noop if the reclaimer is not set, otherwise invoke the reclaimer's
   /// corresponding method. The function returns the actually freed capacity
   /// from the root of this memory pool.
-  virtual uint64_t reclaim(uint64_t targetBytes) = 0;
+  virtual uint64_t reclaim(
+      uint64_t targetBytes,
+      memory::MemoryReclaimer::Stats& stats) = 0;
 
   /// Invoked by the memory arbitrator to abort a root memory pool. The function
   /// forwards the request to the corresponding query object to abort its
@@ -627,7 +629,8 @@ class MemoryPoolImpl : public MemoryPool {
 
   bool reclaimableBytes(uint64_t& reclaimableBytes) const override;
 
-  uint64_t reclaim(uint64_t targetBytes) override;
+  uint64_t reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
+      override;
 
   uint64_t shrink(uint64_t targetBytes = 0) override;
 

@@ -77,7 +77,8 @@ class HashBuild final : public Operator {
 
   bool isFinished() override;
 
-  void reclaim(uint64_t targetBytes) override;
+  void reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
+      override;
 
   void abort() override;
 

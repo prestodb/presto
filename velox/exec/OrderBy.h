@@ -57,7 +57,8 @@ class OrderBy : public Operator {
     return finished_;
   }
 
-  void reclaim(uint64_t targetBytes) override;
+  void reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
+      override;
 
   void abort() override;
 

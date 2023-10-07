@@ -200,5 +200,6 @@ class SharedArbitrator : public MemoryArbitrator {
   tsan_atomic<uint64_t> numShrunkBytes_{0};
   tsan_atomic<uint64_t> numReclaimedBytes_{0};
   tsan_atomic<uint64_t> reclaimTimeUs_{0};
+  tsan_atomic<uint64_t> numNonReclaimableAttempts_{0};
 };
 } // namespace facebook::velox::memory

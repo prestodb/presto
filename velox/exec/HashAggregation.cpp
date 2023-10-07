@@ -481,15 +481,17 @@ bool HashAggregation::isFinished() {
   return finished_;
 }
 
-void HashAggregation::reclaim(uint64_t targetBytes) {
+void HashAggregation::reclaim(
+    uint64_t targetBytes,
+    memory::MemoryReclaimer::Stats& stats) {
   VELOX_CHECK(canReclaim());
   auto* driver = operatorCtx_->driver();
 
   /// NOTE: an aggregation operator is reclaimable if it hasn't started output
   /// processing and is not under non-reclaimable execution section.
   if (noMoreInput_ || nonReclaimableSection_) {
-    // TODO: add stats to record the non-reclaimable case and reduce the log
-    // frequency if it is too verbose.
+    // TODO: reduce the log frequency if it is too verbose.
+    ++stats.numNonReclaimableAttempts;
     LOG(WARNING) << "Can't reclaim from aggregation operator, noMoreInput_["
                  << noMoreInput_ << "], nonReclaimableSection_["
                  << nonReclaimableSection_ << "], " << toString();

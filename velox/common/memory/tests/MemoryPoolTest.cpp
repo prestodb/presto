@@ -152,6 +152,7 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
   std::shared_ptr<MemoryAllocator> allocator_;
   std::shared_ptr<MemoryManager> manager_;
   std::shared_ptr<AsyncDataCache> cache_;
+  MemoryReclaimer::Stats stats_;
 };
 
 TEST_P(MemoryPoolTest, Ctor) {
@@ -2778,9 +2779,9 @@ TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
       uint64_t reclaimableBytes{100};
       ASSERT_FALSE(pool->reclaimableBytes(reclaimableBytes));
       ASSERT_EQ(reclaimableBytes, 0);
-      ASSERT_EQ(pool->reclaim(0), 0);
-      ASSERT_EQ(pool->reclaim(100), 0);
-      ASSERT_EQ(pool->reclaim(kMaxMemory), 0);
+      ASSERT_EQ(pool->reclaim(0, stats_), 0);
+      ASSERT_EQ(pool->reclaim(100, stats_), 0);
+      ASSERT_EQ(pool->reclaim(kMaxMemory, stats_), 0);
     }
     for (const auto& allocation : allocations) {
       allocation.pool->free(allocation.buffer, allocation.size);

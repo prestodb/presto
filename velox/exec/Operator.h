@@ -480,7 +480,9 @@ class Operator : public BaseRuntimeStatWriter {
   /// NOTE: this method doesn't return the actually freed memory bytes. The
   /// caller need to claim the actually freed memory space by shrinking the
   /// associated root memory pool's capacity accordingly.
-  virtual void reclaim(uint64_t targetBytes) {}
+  virtual void reclaim(
+      uint64_t targetBytes,
+      memory::MemoryReclaimer::Stats& stats) {}
 
   const core::PlanNodeId& planNodeId() const {
     return operatorCtx_->planNodeId();
@@ -559,7 +561,10 @@ class Operator : public BaseRuntimeStatWriter {
         const memory::MemoryPool& pool,
         uint64_t& reclaimableBytes) const override;
 
-    uint64_t reclaim(memory::MemoryPool* pool, uint64_t targetBytes) override;
+    uint64_t reclaim(
+        memory::MemoryPool* pool,
+        uint64_t targetBytes,
+        memory::MemoryReclaimer::Stats& stats) override;
 
     void abort(memory::MemoryPool* pool, const std::exception_ptr& /* error */)
         override;
