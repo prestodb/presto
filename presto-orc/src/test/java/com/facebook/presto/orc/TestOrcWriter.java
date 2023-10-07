@@ -35,11 +35,15 @@ import org.testng.annotations.Test;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -55,6 +59,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 public class TestOrcWriter
@@ -94,29 +99,18 @@ public class TestOrcWriter
     public void testOutputStreamsByColumnSize(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
             throws IOException
     {
-        testStreamOrder(encoding, kind, level, new ColumnSizeLayoutFactory(), () -> new Consumer<Stream>()
-        {
-            int previousColumnSize;
-            int currentColumnSize;
-            int currentColumnId = -1;
-
-            @Override
-            public void accept(Stream stream)
-            {
-                if (!isIndexStream(stream)) {
-                    if (stream.getColumn() == currentColumnId) {
-                        currentColumnSize += stream.getLength();
-                    }
-                    else {
-                        assertGreaterThanOrEqual(currentColumnSize, previousColumnSize, stream.toString());
-                        previousColumnSize = currentColumnSize;
-
-                        currentColumnSize = stream.getLength();
-                        currentColumnId = stream.getColumn();
-                    }
-                }
+        Map<Integer, Integer> nodeSizes = new LinkedHashMap<>();
+        testStreamOrder(encoding, kind, level, new ColumnSizeLayoutFactory(), () -> stream -> {
+            if (!isIndexStream(stream)) {
+                int node = stream.getColumn();
+                int oldSize = nodeSizes.computeIfAbsent(node, (c) -> 0);
+                nodeSizes.put(node, oldSize + stream.getLength());
             }
         });
+
+        List<Integer> actual = ImmutableList.copyOf(nodeSizes.values());
+        List<Integer> expected = actual.stream().sorted(Comparator.reverseOrder()).collect(Collectors.toList());
+        assertEquals(actual, expected);
     }
 
     private void testStreamOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level, StreamLayoutFactory streamLayoutFactory, Supplier<Consumer<Stream>> streamConsumerFactory)
