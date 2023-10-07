@@ -125,10 +125,8 @@ template <typename DataT>
 void SelectiveDecimalColumnReader<DataT>::getValues(
     RowSet rows,
     VectorPtr* result) {
-  auto nullsPtr = nullsInReadRange_
-      ? (returnReaderNulls_ ? nullsInReadRange_->as<uint64_t>()
-                            : rawResultNulls_)
-      : nullptr;
+  auto nullsPtr =
+      resultNulls() ? resultNulls()->template as<uint64_t>() : nullptr;
   auto scales = scaleBuffer_->as<int64_t>();
   auto values = values_->asMutable<DataT>();
 

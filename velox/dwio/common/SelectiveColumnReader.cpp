@@ -247,13 +247,10 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
           ~simd::toBitMask(zero == xsimd::load_unaligned(rawBytes + i));
     }
   }
-  BufferPtr nulls = anyNulls_
-      ? (returnReaderNulls_ ? nullsInReadRange_ : resultNulls_)
-      : nullptr;
   *result = std::make_shared<FlatVector<bool>>(
       &memoryPool_,
       type,
-      nulls,
+      resultNulls(),
       numValues_,
       std::move(boolValues),
       std::move(stringBuffers_));

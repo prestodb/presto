@@ -132,13 +132,7 @@ void StringColumnReader::getValues(RowSet rows, VectorPtr* result) {
     compactScalarValues<int32_t, int32_t>(rows, false);
 
     *result = std::make_shared<DictionaryVector<StringView>>(
-        &memoryPool_,
-        !anyNulls_               ? nullptr
-            : returnReaderNulls_ ? nullsInReadRange_
-                                 : resultNulls_,
-        numValues_,
-        dictionaryValues,
-        values_);
+        &memoryPool_, resultNulls(), numValues_, dictionaryValues, values_);
     return;
   }
   rawStringBuffer_ = nullptr;

@@ -81,6 +81,9 @@ class SelectiveStringDictionaryColumnReader
       dwio::common::IntDecoder</*isSigned*/ false>& lengthDecoder,
       dwio::common::DictionaryValues& values);
   void ensureInitialized();
+
+  void makeFlat(VectorPtr* result);
+
   std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> dictIndex_;
   std::unique_ptr<ByteRleDecoder> inDictionaryReader_;
   std::unique_ptr<dwio::common::SeekableInputStream> strideDictStream_;
@@ -95,11 +98,13 @@ class SelectiveStringDictionaryColumnReader
   RleVersion version_;
 
   const StrideIndexProvider& provider_;
+  dwio::common::ColumnReaderStatistics& statistics_;
 
   // lazy load the dictionary
   std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> lengthDecoder_;
   std::unique_ptr<dwio::common::SeekableInputStream> blobStream_;
   bool initialized_{false};
+  vector_size_t numRowsScanned_;
 };
 
 template <typename TVisitor>

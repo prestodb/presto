@@ -470,11 +470,13 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
       prefetchedStripeBase->footer,
       getDecryptionHandler());
 
+  auto stripe = getReader().getFooter().stripes(stripeIndex);
   StripeStreamsImpl stripeStreams(
       state,
       getColumnSelector(),
       options_,
-      getReader().getFooter().stripes(stripeIndex).offset(),
+      stripe.offset(),
+      stripe.numberOfRows(),
       *this,
       stripeIndex);
 
@@ -493,6 +495,7 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
         dataType,
         stripeStreams,
         streamLabels,
+        columnReaderStatistics_,
         scanSpec,
         flatMapContext,
         true); // isRoot

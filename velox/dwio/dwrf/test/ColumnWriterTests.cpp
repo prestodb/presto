@@ -177,6 +177,10 @@ class TestStripeStreams : public StripeStreamsBase {
     return mockStrideIndexProvider_;
   }
 
+  int64_t stripeRows() const override {
+    VELOX_UNSUPPORTED();
+  }
+
   uint32_t rowsPerRowGroup() const override {
     VELOX_UNSUPPORTED();
   }

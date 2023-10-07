@@ -77,6 +77,10 @@ class DwrfData : public dwio::common::FormatData {
   // and returns a PositionsProvider for the other streams.
   dwio::common::PositionProvider seekToRowGroup(uint32_t index) override;
 
+  int64_t stripeRows() const {
+    return stripeRows_;
+  }
+
   std::optional<int64_t> rowsPerRowGroup() const override {
     return rowsPerRowGroup_;
   }
@@ -102,6 +106,7 @@ class DwrfData : public dwio::common::FormatData {
   std::unique_ptr<ByteRleDecoder> notNullDecoder_;
   std::unique_ptr<dwio::common::SeekableInputStream> indexStream_;
   std::unique_ptr<proto::RowIndex> index_;
+  int64_t stripeRows_;
   // Number of rows in a row group. Last row group may have fewer rows.
   uint32_t rowsPerRowGroup_;
 
@@ -119,8 +124,9 @@ class DwrfParams : public dwio::common::FormatParams {
   explicit DwrfParams(
       StripeStreams& stripeStreams,
       const StreamLabels& streamLabels,
+      dwio::common::ColumnReaderStatistics& stats,
       FlatMapContext context = {})
-      : FormatParams(stripeStreams.getMemoryPool()),
+      : FormatParams(stripeStreams.getMemoryPool(), stats),
         stripeStreams_(stripeStreams),
         flatMapContext_(context),
         streamLabels_(streamLabels) {}

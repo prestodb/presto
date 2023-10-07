@@ -637,7 +637,7 @@ ParquetRowReader::ParquetRowReader(
   if (rowGroups_.empty()) {
     return; // TODO
   }
-  ParquetParams params(pool_, readerBase_->fileMetaData());
+  ParquetParams params(pool_, columnReaderStats_, readerBase_->fileMetaData());
   auto columnSelector = std::make_shared<ColumnSelector>(
       ColumnSelector::apply(options_.getSelector(), readerBase_->schema()));
   columnReader_ = ParquetColumnReader::build(

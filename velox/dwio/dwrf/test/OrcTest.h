@@ -118,6 +118,10 @@ class MockStripeStreams : public StripeStreams {
     return *getStrideIndexProviderProxy();
   }
 
+  int64_t stripeRows() const override {
+    return 1'000'000;
+  }
+
   uint32_t rowsPerRowGroup() const override {
     // Disable efficient skipping using row index.
     return 1'000'000;

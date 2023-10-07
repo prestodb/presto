@@ -28,8 +28,11 @@
 namespace facebook::velox::parquet {
 class ParquetParams : public dwio::common::FormatParams {
  public:
-  ParquetParams(memory::MemoryPool& pool, const thrift::FileMetaData& metaData)
-      : FormatParams(pool), metaData_(metaData) {}
+  ParquetParams(
+      memory::MemoryPool& pool,
+      dwio::common::ColumnReaderStatistics& stats,
+      const thrift::FileMetaData& metaData)
+      : FormatParams(pool, stats), metaData_(metaData) {}
   std::unique_ptr<dwio::common::FormatData> toFormatData(
       const std::shared_ptr<const dwio::common::TypeWithId>& type,
       const common::ScanSpec& scanSpec) override;

@@ -518,6 +518,13 @@ class Statistics {
    */
   virtual uint32_t getNumberOfColumns() const = 0;
 };
+
+struct ColumnReaderStatistics {
+  // Number of rows returned by string dictionary reader that is flattened
+  // instead of keeping dictionary encoding.
+  int64_t flattenStringDictionaryValues{0};
+};
+
 struct RuntimeStatistics {
   // Number of splits skipped based on statistics.
   int64_t skippedSplits{0};
@@ -528,12 +535,16 @@ struct RuntimeStatistics {
   // Number of strides (row groups) skipped based on statistics.
   int64_t skippedStrides{0};
 
+  ColumnReaderStatistics columnReaderStatistics;
+
   std::unordered_map<std::string, RuntimeCounter> toMap() {
     return {
         {"skippedSplits", RuntimeCounter(skippedSplits)},
         {"skippedSplitBytes",
          RuntimeCounter(skippedSplitBytes, RuntimeCounter::Unit::kBytes)},
-        {"skippedStrides", RuntimeCounter(skippedStrides)}};
+        {"skippedStrides", RuntimeCounter(skippedStrides)},
+        {"flattenStringDictionaryValues",
+         RuntimeCounter(columnReaderStatistics.flattenStringDictionaryValues)}};
   }
 };
 

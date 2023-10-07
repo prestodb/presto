@@ -132,7 +132,8 @@ class FormatData {
 /// Base class for format-specific reader initialization arguments.
 class FormatParams {
  public:
-  explicit FormatParams(memory::MemoryPool& pool) : pool_(pool) {}
+  explicit FormatParams(memory::MemoryPool& pool, ColumnReaderStatistics& stats)
+      : pool_(pool), stats_(stats) {}
 
   virtual ~FormatParams() = default;
 
@@ -146,8 +147,13 @@ class FormatParams {
     return pool_;
   }
 
+  ColumnReaderStatistics& runtimeStatistics() {
+    return stats_;
+  }
+
  private:
   memory::MemoryPool& pool_;
+  ColumnReaderStatistics& stats_;
 };
 
 } // namespace facebook::velox::dwio::common

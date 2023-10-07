@@ -105,6 +105,7 @@ void verifyStats(
       rowReader.getColumnSelector(),
       rowReader.getRowReaderOptions(),
       stripeInfo.offset(),
+      static_cast<int64_t>(stripeInfo.numberOfRows()),
       rowReader,
       0};
   streams.loadReadPlan();

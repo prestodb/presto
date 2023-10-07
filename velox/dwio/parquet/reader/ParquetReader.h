@@ -94,6 +94,8 @@ class ParquetRowReader : public dwio::common::RowReader {
   std::unique_ptr<dwio::common::SelectiveColumnReader> columnReader_;
 
   RowTypePtr requestedType_;
+
+  dwio::common::ColumnReaderStatistics columnReaderStats_;
 };
 
 /// Implements the reader interface for Parquet.

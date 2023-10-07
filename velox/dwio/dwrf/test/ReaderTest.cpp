@@ -2298,7 +2298,9 @@ createWriterReader(
     const std::vector<VectorPtr>& batches,
     memory::MemoryPool& pool,
     const std::shared_ptr<dwrf::Config>& config =
-        std::make_shared<dwrf::Config>()) {
+        std::make_shared<dwrf::Config>(),
+    std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicy =
+        E2EWriterTestUtil::simpleFlushPolicyFactory(true)) {
   auto sink =
       std::make_unique<MemorySink>(1 << 20, FileSink::Options{.pool = &pool});
   auto* sinkPtr = sink.get();
@@ -2307,7 +2309,7 @@ createWriterReader(
       asRowType(batches[0]->type()),
       batches,
       config,
-      E2EWriterTestUtil::simpleFlushPolicyFactory(true));
+      std::move(flushPolicy));
   std::string_view data(sinkPtr->data(), sinkPtr->size());
   auto input = std::make_unique<BufferedInput>(
       std::make_shared<InMemoryReadFile>(data), pool);
@@ -2662,4 +2664,55 @@ TEST(TestReader, readStructWithWholeBatchFiltered) {
     ASSERT_FALSE(resultValues->isNullAt(i));
     ASSERT_EQ(resultValues->valueAt(i), i + 10);
   }
+}
+
+TEST(TestReader, readStringDictionaryAsFlat) {
+  std::vector<std::string> dictionary;
+  for (int i = 0; i < 26; ++i) {
+    dictionary.emplace_back(20 + i, 'a' + i);
+  }
+  auto* pool = getDefaultPool().get();
+  VectorMaker maker(pool);
+  auto indices = allocateIndices(200, pool);
+  auto* rawIndices = indices->asMutable<vector_size_t>();
+  for (int i = 0; i < 200; ++i) {
+    rawIndices[i] = i % dictionary.size();
+  }
+  auto batch = maker.rowVector({
+      BaseVector::wrapInDictionary(
+          nullptr, indices, 200, maker.flatVector(dictionary)),
+  });
+  auto [writer, reader] = createWriterReader(
+      {batch},
+      *pool,
+      std::make_shared<dwrf::Config>(),
+      // The always true flush policy would disable dictionary encoding at least
+      // for first batch.
+      E2EWriterTestUtil::simpleFlushPolicyFactory(false));
+  auto rowType = reader->rowType();
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*rowType);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  auto actual = BaseVector::create(rowType, 0, pool);
+  ASSERT_EQ(rowReader->next(20, actual), 20);
+  ASSERT_EQ(actual->size(), 20);
+  auto* c0 = actual->as<RowVector>()->childAt(0)->loadedVector();
+  ASSERT_EQ(c0->encoding(), VectorEncoding::Simple::DICTIONARY);
+  ASSERT_TRUE(c0->valueVector()->isFlatEncoding());
+  ASSERT_EQ(c0->valueVector()->size(), dictionary.size());
+  dwio::common::RuntimeStatistics stats;
+  rowReader->updateRuntimeStats(stats);
+  ASSERT_EQ(stats.columnReaderStatistics.flattenStringDictionaryValues, 0);
+  spec->childByName("c0")->setFilter(std::make_unique<common::BytesValues>(
+      std::vector<std::string>{"aaaaaaaaaaaaaaaaaaaa"}, false));
+  spec->resetCachedValues(true);
+  rowReader = reader->createRowReader(rowReaderOpts);
+  ASSERT_EQ(rowReader->next(20, actual), 20);
+  ASSERT_EQ(actual->size(), 1);
+  ASSERT_TRUE(actual->as<RowVector>()->childAt(0)->isFlatEncoding());
+  stats = {};
+  rowReader->updateRuntimeStats(stats);
+  ASSERT_EQ(stats.columnReaderStatistics.flattenStringDictionaryValues, 1);
 }

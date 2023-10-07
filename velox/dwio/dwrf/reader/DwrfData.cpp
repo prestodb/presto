@@ -28,6 +28,7 @@ DwrfData::DwrfData(
     : memoryPool_(stripe.getMemoryPool()),
       nodeType_(std::move(nodeType)),
       flatMapContext_(std::move(flatMapContext)),
+      stripeRows_{stripe.stripeRows()},
       rowsPerRowGroup_{stripe.rowsPerRowGroup()} {
   EncodingKey encodingKey{nodeType_->id(), flatMapContext_.sequence};
   std::unique_ptr<dwio::common::SeekableInputStream> stream = stripe.getStream(

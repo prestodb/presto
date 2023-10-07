@@ -180,6 +180,7 @@ class E2EWriterTests : public Test {
             dwrfRowReader->getColumnSelector(),
             rowReaderOpts,
             currentStripeInfo.offset(),
+            currentStripeInfo.numberOfRows(),
             *dwrfRowReader,
             i);
 
