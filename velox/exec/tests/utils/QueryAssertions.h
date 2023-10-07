@@ -72,8 +72,6 @@ class DuckDbQueryRunner {
     return allRows;
   }
 
-  void initializeTpch(double scaleFactor);
-
  private:
   ::duckdb::DuckDB db_;
 
