@@ -14,6 +14,8 @@ add_library(presto_exception Exception.cpp)
 add_library(presto_common Counters.cpp Utils.cpp ConfigReader.cpp Configs.cpp)
 
 target_link_libraries(presto_exception velox_exception)
+set_property(TARGET presto_exception PROPERTY JOB_POOL_LINK link_job_pool)
+
 target_link_libraries(presto_common velox_config velox_core velox_exception)
 
 if(PRESTO_ENABLE_TESTING)
