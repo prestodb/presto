@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.google.common.net.HostAndPort;
+import org.apache.thrift.TConfiguration;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -212,6 +213,35 @@ public final class Transport
         {
             try {
                 transport.flush();
+            }
+            catch (TTransportException e) {
+                throw rewriteException(e, address);
+            }
+        }
+
+        @Override
+        public TConfiguration getConfiguration()
+        {
+            return transport.getConfiguration();
+        }
+
+        @Override
+        public void updateKnownMessageSize(long size)
+                throws TTransportException
+        {
+            try {
+                transport.updateKnownMessageSize(size);
+            }
+            catch (TTransportException e) {
+                throw rewriteException(e, address);
+            }
+        }
+        @Override
+        public void checkReadBytesAvailable(long numBytes)
+                throws TTransportException
+        {
+            try {
+                transport.checkReadBytesAvailable(numBytes);
             }
             catch (TTransportException e) {
                 throw rewriteException(e, address);

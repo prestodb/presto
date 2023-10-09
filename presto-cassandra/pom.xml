@@ -165,6 +165,8 @@
             <groupId>org.apache.thrift</groupId>
             <artifactId>libthrift</artifactId>
             <scope>test</scope>
+            <!-- libthrift >= 0.14.0 not compatible with cassandra-server 2.x -->
+            <version>0.9.3</version>
         </dependency>
 
         <dependency>
