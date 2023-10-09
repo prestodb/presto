@@ -112,9 +112,13 @@ jobs:
               -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
               -DPRESTO_ENABLE_JWT=ON \
               -DCMAKE_PREFIX_PATH=/usr/local \
-              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+              -DMAX_HIGH_MEM_JOBS=2 \
+              -DMAX_LINK_JOBS=2
             ninja -C _build/debug -j 8
             ccache -s
+          environment:
+            NUM_THREADS: 2
       - save_cache:
           name: "Save CCache cache"
           key: native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
