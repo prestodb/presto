@@ -113,7 +113,7 @@ jobs:
               -DPRESTO_ENABLE_JWT=ON \
               -DCMAKE_PREFIX_PATH=/usr/local \
               -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-            ninja -C _build/debug -j 8
+            ninja -C _build/debug -j 7
             ccache -s
       - save_cache:
           name: "Save CCache cache"
