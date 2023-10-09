@@ -485,22 +485,36 @@ void HashAggregation::reclaim(
     uint64_t targetBytes,
     memory::MemoryReclaimer::Stats& stats) {
   VELOX_CHECK(canReclaim());
-  auto* driver = operatorCtx_->driver();
 
-  /// NOTE: an aggregation operator is reclaimable if it hasn't started output
-  /// processing and is not under non-reclaimable execution section.
-  if (noMoreInput_ || nonReclaimableSection_) {
+  // NOTE: an aggregation operator is reclaimable if it hasn't started output
+  // processing and is not under non-reclaimable execution section.
+  if (nonReclaimableSection_) {
     // TODO: reduce the log frequency if it is too verbose.
     ++stats.numNonReclaimableAttempts;
-    LOG(WARNING) << "Can't reclaim from aggregation operator, noMoreInput_["
-                 << noMoreInput_ << "], nonReclaimableSection_["
-                 << nonReclaimableSection_ << "], " << toString();
+    LOG(WARNING)
+        << "Can't reclaim from aggregation operator which is under non-reclaimable section: "
+        << pool()->toString();
     return;
   }
 
-  // TODO: support fine-grain disk spilling based on 'targetBytes' after having
-  // row container memory compaction support later.
-  groupingSet_->spill(0, targetBytes);
+  if (noMoreInput_) {
+    if (groupingSet_->hasSpilled()) {
+      LOG(WARNING)
+          << "Can't reclaim from aggregation operator which has spilled and is under output processing: "
+          << pool()->toString();
+      return;
+    }
+    // Spill all the rows starting from the next output row pointed by
+    // 'resultIterator_'.
+    groupingSet_->spill(resultIterator_);
+    // NOTE: we will only spill once during the output processing stage so
+    // record stats here.
+    recordSpillStats();
+  } else {
+    // TODO: support fine-grain disk spilling based on 'targetBytes' after
+    // having row container memory compaction support later.
+    groupingSet_->spill(0, targetBytes);
+  }
   VELOX_CHECK_EQ(groupingSet_->numRows(), 0);
   VELOX_CHECK_EQ(groupingSet_->numDistinct(), 0);
   // Release the minimum reserved memory.

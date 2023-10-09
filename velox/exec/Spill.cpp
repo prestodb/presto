@@ -359,7 +359,7 @@ std::unique_ptr<TreeOfLosers<SpillMergeStream>> SpillState::startMerge(
       result.push_back(FileSpillMergeStream::create(std::move(file)));
     }
   }
-  VELOX_DCHECK_EQ(!result.empty(), isPartitionSpilled(partition));
+  VELOX_CHECK_EQ(!result.empty(), isPartitionSpilled(partition));
   if (extra != nullptr) {
     result.push_back(std::move(extra));
   }

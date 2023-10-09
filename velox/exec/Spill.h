@@ -620,16 +620,15 @@ class SpillState {
     return spilledPartitionSet_.size() == maxPartitions_;
   }
 
-  // Appends data to 'partition'. The rows given by 'indices' must be
-  // sorted for a sorted spill and must hash to 'partition'. It is
-  // safe to call this on multiple threads if all threads specify a
-  // different partition.
-  // Returns the size to sppend to partition.
+  /// Appends data to 'partition'. The rows given by 'indices' must be sorted
+  /// for a sorted spill and must hash to 'partition'. It is safe to call this
+  /// on multiple threads if all threads specify a different partition. Returns
+  /// the size to sppend to partition.
   uint64_t appendToPartition(int32_t partition, const RowVectorPtr& rows);
 
-  // Finishes a sorted run for 'partition'. If write is called for 'partition'
-  // again, the data does not have to be sorted relative to the data
-  // written so far.
+  /// Finishes a sorted run for 'partition'. If write is called for 'partition'
+  /// again, the data does not have to be sorted relative to the data written so
+  /// far.
   void finishWrite(int32_t partition) {
     VELOX_DCHECK(isPartitionSpilled(partition));
     files_[partition]->finishFile();
@@ -640,9 +639,9 @@ class SpillState {
   /// no spilled data.
   SpillFiles files(int32_t partition);
 
-  // Starts reading values for 'partition'. If 'extra' is non-null, it can be
-  // a stream of rows from a RowContainer so as to merge unspilled data with
-  // spilled data.
+  /// Starts reading values for 'partition'. If 'extra' is non-null, it can be
+  /// a stream of rows from a RowContainer so as to merge unspilled data with
+  /// spilled data.
   std::unique_ptr<TreeOfLosers<SpillMergeStream>> startMerge(
       int32_t partition,
       std::unique_ptr<SpillMergeStream>&& extra);

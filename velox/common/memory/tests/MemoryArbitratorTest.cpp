@@ -741,4 +741,20 @@ TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
   ASSERT_EQ(totalUsedBytes, 0);
   ASSERT_EQ(stats_, MemoryReclaimer::Stats{});
 }
+
+TEST_F(MemoryArbitrationTest, reclaimerStats) {
+  MemoryReclaimer::Stats stats1;
+  MemoryReclaimer::Stats stats2;
+  ASSERT_EQ(stats1.numNonReclaimableAttempts, 0);
+  ASSERT_EQ(stats1, stats2);
+  stats1.numNonReclaimableAttempts = 2;
+  ASSERT_NE(stats1, stats2);
+  stats2.numNonReclaimableAttempts = 3;
+  ASSERT_NE(stats1, stats2);
+  stats2.reset();
+  ASSERT_EQ(stats2.numNonReclaimableAttempts, 0);
+  ASSERT_NE(stats1, stats2);
+  stats1.reset();
+  ASSERT_EQ(stats1, stats2);
+}
 } // namespace facebook::velox::memory

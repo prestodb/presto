@@ -66,6 +66,7 @@ GroupingSet::GroupingSet(
       isGlobal_(hashers_.empty()),
       isPartial_(isPartial),
       isRawInput_(isRawInput),
+      queryConfig_(&operatorCtx->task()->queryCtx()->queryConfig()),
       aggregates_(std::move(aggregates)),
       masks_(maskChannels(aggregates_)),
       ignoreNullKeys_(ignoreNullKeys),
@@ -77,10 +78,7 @@ GroupingSet::GroupingSet(
       nonReclaimableSection_(nonReclaimableSection),
       stringAllocator_(operatorCtx->pool()),
       rows_(operatorCtx->pool()),
-      isAdaptive_(operatorCtx->task()
-                      ->queryCtx()
-                      ->queryConfig()
-                      .hashAdaptivityEnabled()),
+      isAdaptive_(queryConfig_->hashAdaptivityEnabled()),
       pool_(*operatorCtx->pool()) {
   VELOX_CHECK_NOT_NULL(nonReclaimableSection_);
   VELOX_CHECK(pool_.trackUsage());
@@ -227,6 +225,8 @@ void GroupingSet::noMoreInput() {
   if (sortedAggregations_) {
     sortedAggregations_->noMoreInput();
   }
+
+  ensureOutputFits();
 }
 
 bool GroupingSet::hasSpilled() const {
@@ -246,9 +246,6 @@ void GroupingSet::addInputForActiveRows(
   }
   ensureInputFits(input);
 
-  TestValue::adjust(
-      "facebook::velox::exec::GroupingSet::addInputForActiveRows", this);
-
   // Prevents the memory arbitrator to reclaim memory from this grouping set
   // during the execution below.
   //
@@ -256,6 +253,9 @@ void GroupingSet::addInputForActiveRows(
   // associated aggregation operator.
   auto guard = folly::makeGuard([this]() { *nonReclaimableSection_ = false; });
   *nonReclaimableSection_ = true;
+
+  TestValue::adjust(
+      "facebook::velox::exec::GroupingSet::addInputForActiveRows", this);
 
   table_->prepareForProbe(*lookup_, input, activeRows_, ignoreNullKeys_);
   table_->groupProbe(*lookup_);
@@ -654,6 +654,11 @@ bool GroupingSet::getOutput(
     int32_t maxOutputBytes,
     RowContainerIterator& iterator,
     RowVectorPtr& result) {
+  auto guard = folly::makeGuard([this]() { *nonReclaimableSection_ = false; });
+  *nonReclaimableSection_ = true;
+
+  TestValue::adjust("facebook::velox::exec::GroupingSet::getOutput", this);
+
   if (isGlobal_) {
     return getGlobalAggregationOutput(
         maxOutputRows, isPartial_, iterator, result);
@@ -850,6 +855,31 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
           0, outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow)));
 }
 
+void GroupingSet::ensureOutputFits() {
+  // If spilling has already been triggered on this operator, then we don't need
+  // to reserve memory for the output as we can't reclaim much memory from this
+  // operator itself. The output processing can reclaim memory from the other
+  // operator or query through memory arbitration.
+  if (isPartial_ || spillConfig_ == nullptr || hasSpilled()) {
+    return;
+  }
+
+  // Test-only spill path.
+  if (spillConfig_->testSpillPct > 0 &&
+      (folly::hasher<uint64_t>()(++spillTestCounter_)) % 100 <=
+          spillConfig_->testSpillPct) {
+    spill(RowContainerIterator{});
+    return;
+  }
+
+  const uint64_t outputBufferSizeToReserve =
+      queryConfig_->preferredOutputBatchBytes() * 1.2;
+  if (pool_.maybeReserve(outputBufferSizeToReserve)) {
+    return;
+  }
+  spill(RowContainerIterator{});
+}
+
 void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
   // NOTE: if the disk spilling is triggered by the memory arbitrator, then it
   // is possible that the grouping set hasn't processed any input data yet.
@@ -869,7 +899,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
     }
     VELOX_DCHECK(pool_.trackUsage());
     spiller_ = std::make_unique<Spiller>(
-        Spiller::Type::kAggregate,
+        Spiller::Type::kAggregateInput,
         rows,
         [&](folly::Range<char**> rows) { table_->erase(rows); },
         ROW(std::move(names), std::move(types)),
@@ -884,7 +914,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         spillConfig_->writeBufferSize,
         spillConfig_->minSpillRunSize,
         spillConfig_->compressionKind,
-        Spiller::pool(),
+        memory::spillMemoryPool(),
         spillConfig_->executor);
   }
   ++(*numSpillRuns_);
@@ -892,6 +922,39 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
   if (table_->rows()->numRows() == 0) {
     table_->clear();
   }
+}
+
+void GroupingSet::spill(const RowContainerIterator& rowIterator) {
+  VELOX_CHECK(!hasSpilled());
+
+  if (table_ == nullptr) {
+    return;
+  }
+
+  auto* rows = table_->rows();
+  auto types = rows->keyTypes();
+  for (const auto& aggregate : aggregates_) {
+    types.push_back(aggregate.intermediateType);
+  }
+  std::vector<std::string> names;
+  for (auto i = 0; i < types.size(); ++i) {
+    names.push_back(fmt::format("s{}", i));
+  }
+  VELOX_CHECK(pool_.trackUsage());
+  spiller_ = std::make_unique<Spiller>(
+      Spiller::Type::kAggregateOutput,
+      rows,
+      [&](folly::Range<char**> rows) { table_->erase(rows); },
+      ROW(std::move(names), std::move(types)),
+      spillConfig_->filePath,
+      spillConfig_->writeBufferSize,
+      spillConfig_->compressionKind,
+      memory::spillMemoryPool(),
+      spillConfig_->executor);
+
+  ++(*numSpillRuns_);
+  spiller_->spill(rowIterator);
+  table_->clear();
 }
 
 bool GroupingSet::getOutputWithSpill(
@@ -927,6 +990,12 @@ bool GroupingSet::getOutputWithSpill(
     nonSpilledRows_ = spiller_->finishSpill();
   }
 
+  // NOTE: we don't expect non-spilled rows if spilling is triggered during the
+  // aggregation output processing.
+  if (spiller_->type() == Spiller::Type::kAggregateOutput) {
+    VELOX_CHECK_EQ(nonSpilledRows_.value().size(), 0);
+  }
+
   if (nonSpilledRowIndex_ < nonSpilledRows_.value().size()) {
     const int32_t numGroups =
         numNonSpilledGroupsToExtract(maxOutputRows, maxOutputBytes);
@@ -939,7 +1008,7 @@ bool GroupingSet::getOutputWithSpill(
   }
 
   while (outputPartition_ < spiller_->state().maxPartitions()) {
-    if (!merge_) {
+    if (merge_ == nullptr) {
       merge_ = spiller_->startMerge(outputPartition_);
     }
     // NOTE: 'merge_' might be nullptr if 'outputPartition_' is empty.

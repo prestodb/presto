@@ -27,40 +27,38 @@
 
 namespace facebook::velox {
 
-// Abstract class defining the interface for a stream of values to be
-// merged by TreeOfLosers or MergeArray. In addition to these, the
-// MergeStream must have a way of accessing its first value and
-// popping off the first value. TreeOfLosers and similar do not call
-// these, so these are left out of this interface.
+/// Abstract class defining the interface for a stream of values to be merged by
+/// TreeOfLosers or MergeArray. In addition to these, the MergeStream must have
+/// a way of accessing its first value and popping off the first value.
+/// TreeOfLosers and similar do not call these, so these are left out of this
+/// interface.
 class MergeStream {
  public:
   virtual ~MergeStream() = default;
 
-  // True if this has a value. If this returns true, it is valid to
-  // call <. A false value means that there will not be any more data
-  // in 'this'.
+  /// True if this has a value. If this returns true, it is valid to call <. A
+  /// false value means that there will not be any more data in 'this'.
   virtual bool hasData() const = 0;
 
-  // Returns true if the first element of 'this' is less than the first element
-  // of 'other'. hasData() must be true of 'this' and 'other'.
+  /// Returns true if the first element of 'this' is less than the first element
+  /// of 'other'. hasData() must be true of 'this' and 'other'.
   virtual bool operator<(const MergeStream& other) const {
     return compare(other) < 0;
   }
 
-  // Returns < 0 if 'this' is < 'other, '0' if equal and > 0 otherwise. This is
-  // not required for TreeOfLosers::next() but is required for
-  // TreeOfLosers::nextWithEquals().
+  /// Returns < 0 if 'this' is < 'other, '0' if equal and > 0 otherwise. This is
+  /// not required for TreeOfLosers::next() but is required for
+  /// TreeOfLosers::nextWithEquals().
   virtual int32_t compare(const MergeStream& /*other*/) const {
     VELOX_UNSUPPORTED();
   }
 };
 
-// Implements a tree of losers algorithm for merging ordered
-// streams. The TreeOfLosers owns one or more instances of
-// Stream. At each call of next(), it returns the Stream that has
-// the lowest value as first value from the set of Streams. It
-// returns nullptr when all Streams are at end. The order is
-// determined by Stream::operator<.
+/// Implements a tree of losers algorithm for merging ordered streams. The
+/// TreeOfLosers owns one or more instances of Stream. At each call of next(),
+/// it returns the Stream that has the lowest value as first value from the set
+/// of Streams. It returns nullptr when all Streams are at end. The order is
+/// determined by Stream::operator<.
 template <typename Stream, typename TIndex = uint16_t>
 class TreeOfLosers {
  public:
@@ -102,9 +100,14 @@ class TreeOfLosers {
     equals_.resize(firstStream_, false);
   }
 
-  // Returns the stream with the lowest first element. The caller is
-  // expected to pop off the first element of the stream before
-  // calling this again. Returns nullptr when all streams are at end.
+  /// Returns the number of streams.
+  size_t numStreams() const {
+    return streams_.size();
+  }
+
+  /// Returns the stream with the lowest first element. The caller is expected
+  /// to pop off the first element of the stream before calling this again.
+  /// Returns nullptr when all streams are at end.
   Stream* next() {
     if (UNLIKELY(lastIndex_ == kEmpty)) {
       if (UNLIKELY(values_.empty())) {
@@ -120,13 +123,13 @@ class TreeOfLosers {
     return lastIndex_ == kEmpty ? nullptr : streams_[lastIndex_].get();
   }
 
-  // Returns the stream with the lowest first element and a flag that
-  // is true if there is another equal value to come from some other
-  // stream. The streams should have ordered unique values when using
-  // this function. This is useful for merging aggregate states that
-  // are unique by their key in each stream.  The caller is
-  // expected to pop off the first element of the stream before
-  // calling this again. Returns {nullptr, false} when all streams are at end.
+  /// Returns the stream with the lowest first element and a flag that is true
+  /// if there is another equal value to come from some other stream. The
+  /// streams should have ordered unique values when using this function. This
+  /// is useful for merging aggregate states that are unique by their key in
+  /// each stream.  The caller is expected to pop off the first element of the
+  /// stream before calling this again. Returns {nullptr, false} when all
+  /// streams are at end.
   std::pair<Stream*, bool> nextWithEquals() {
     IndexAndFlag result;
     if (UNLIKELY(lastIndex_ == kEmpty)) {
@@ -290,12 +293,13 @@ class TreeOfLosers {
     return node * 2 + 2;
   }
 
+  const std::vector<std::unique_ptr<Stream>> streams_;
+
   std::vector<TIndex> values_;
   // 'true' if the corresponding element of 'values_' has met an equal
   // element on its way to its present position. Used only in nextWithEquals().
   // A byte vector is in this case faster than one of bool.
   std::vector<uint8_t> equals_;
-  std::vector<std::unique_ptr<Stream>> streams_;
   TIndex lastIndex_ = kEmpty;
   int32_t firstStream_;
 };

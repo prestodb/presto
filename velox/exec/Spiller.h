@@ -27,14 +27,16 @@ class Spiller {
  public:
   // Define the spiller types.
   enum class Type {
-    // Used for aggregation.
-    kAggregate = 0,
+    // Used for aggregation input processing stage.
+    kAggregateInput = 0,
+    // Used for aggregation output processing stage.
+    kAggregateOutput = 1,
     // Used for hash join build.
-    kHashJoinBuild = 1,
+    kHashJoinBuild = 2,
     // Used for hash join probe.
-    kHashJoinProbe = 2,
+    kHashJoinProbe = 3,
     // Used for order by.
-    kOrderBy = 3,
+    kOrderBy = 4,
   };
   static constexpr int kNumTypes = 4;
   static std::string typeName(Type);
@@ -60,6 +62,17 @@ class Spiller {
 
   Spiller(
       Type type,
+      RowContainer* container,
+      RowContainer::Eraser eraser,
+      RowTypePtr rowType,
+      const std::string& path,
+      uint64_t writeBufferSize,
+      common::CompressionKind compressionKind,
+      memory::MemoryPool* pool,
+      folly::Executor* executor);
+
+  Spiller(
+      Type type,
       RowTypePtr rowType,
       HashBitRange bits,
       const std::string& path,
@@ -86,6 +99,10 @@ class Spiller {
       memory::MemoryPool* pool,
       folly::Executor* executor);
 
+  Type type() const {
+    return type_;
+  }
+
   /// Spills rows from 'this' until there are under 'targetRows' rows
   /// and 'targetBytes' of allocated variable length space in use. spill()
   /// starts with the partition with the most spillable data first. If there is
@@ -94,6 +111,11 @@ class Spiller {
   /// partition has a SpillRun struct in 'spillRuns_' A targetRows of 0 causes
   /// all data to be spilled and 'container_' to become empty.
   void spill(uint64_t targetRows, uint64_t targetBytes);
+
+  /// Spill all rows starting from 'startRowIter'. This is only used by
+  /// 'kAggregateOutput' spiller type to spill during the aggregation output
+  /// processing.
+  void spill(const RowContainerIterator& startRowIter);
 
   /// Spills all the spillable rows collected in 'spillRuns_' from specified
   /// 'partitions'. It is now only used by spilling operator which needs
@@ -137,18 +159,12 @@ class Spiller {
   /// not started spilling.
   SpillRows finishSpill();
 
-  std::unique_ptr<TreeOfLosers<SpillMergeStream>> startMerge(
-      int32_t partition) {
-    if (FOLLY_UNLIKELY(!needSort())) {
-      VELOX_FAIL("Can't sort merge the unsorted spill data: {}", toString());
-    }
-    return state_.startMerge(partition, spillMergeStreamOverRows(partition));
-  }
+  std::unique_ptr<TreeOfLosers<SpillMergeStream>> startMerge(int32_t partition);
 
-  // Extracts up to 'maxRows' or 'maxBytes' from 'rows' into
-  // 'spillVector'. The extract starts at nextBatchIndex and updates
-  // nextBatchIndex to be the index of the first non-extracted element
-  // of 'rows'. Returns the byte size of the extracted rows.
+  /// Extracts up to 'maxRows' or 'maxBytes' from 'rows' into 'spillVector'. The
+  /// extract starts at nextBatchIndex and updates nextBatchIndex to be the
+  /// index of the first non-extracted element of 'rows'. Returns the byte size
+  /// of the extracted rows.
   int64_t extractSpillVector(
       SpillRows& rows,
       int32_t maxRows,
@@ -203,6 +219,14 @@ class Spiller {
   std::string toString() const;
 
  private:
+  // Invoked to spill with specified target. If 'rowIter' is not null, then
+  // we only spill rows from row container starting at the offset pointed by
+  // 'startRowIter'.
+  void spill(
+      uint64_t targetRows,
+      uint64_t targetBytes,
+      const RowContainerIterator* startRowIter);
+
   // Extracts the keys, dependents or accumulators for 'rows' into '*result'.
   // Creates '*results' in spillPool() if nullptr. Used from Spiller and
   // RowContainerSpillMergeStream.
@@ -260,10 +284,14 @@ class Spiller {
   };
 
   // Prepares spill runs for the spillable data from all the hash partitions.
-  // If 'rowsFromNonSpillingPartitions' is not null, the function is invoked
-  // to finish spill, and it will collect rows from the non-spilling partitions
-  // in 'rowsFromNonSpillingPartitions' instead of 'spillRuns_'.
-  void fillSpillRuns(SpillRows* rowsFromNonSpillingPartitions = nullptr);
+  // If 'startRowIter' is not null, we prepare runs starting from the offset
+  // pointed by 'startRowIter'. If 'rowsFromNonSpillingPartitions' is not null,
+  // the function is invoked to finish spill, and it will collect rows from the
+  // non-spilling partitions in 'rowsFromNonSpillingPartitions' instead of
+  // 'spillRuns_'.
+  void fillSpillRuns(
+      const RowContainerIterator* startRowIter = nullptr,
+      SpillRows* rowsFromNonSpillingPartitions = nullptr);
 
   // Picks the next partition to spill. In case of non kHashJoin type, the
   // function picks the partition with spillable data no matter it has spilled
@@ -285,12 +313,15 @@ class Spiller {
 
   // Function for writing a spill partition on an executor. Writes to
   // 'partition' until all rows in spillRuns_[partition] are written
-  // or spill file size limit is exceeded. Returns the number of rows
+  // or spill file size limit is exceededg. Returns the number of rows
   // written.
   std::unique_ptr<SpillStatus> writeSpill(int32_t partition);
 
   // Writes out and erases rows marked for spilling.
   void advanceSpill();
+
+  // Invoked to finalize the spiller and flush any buffered spill to disk.
+  void finalizeSpill();
 
   // Indicates if the spill data needs to be sorted before write to file. It is
   // based on the spiller type. As for now, we need to sort spill data for any

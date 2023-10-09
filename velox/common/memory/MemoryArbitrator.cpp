@@ -244,6 +244,10 @@ void MemoryReclaimer::abort(MemoryPool* pool, const std::exception_ptr& error) {
   });
 }
 
+void MemoryReclaimer::Stats::reset() {
+  numNonReclaimableAttempts = 0;
+}
+
 bool MemoryReclaimer::Stats::operator==(
     const MemoryReclaimer::Stats& other) const {
   return numNonReclaimableAttempts == other.numNonReclaimableAttempts;

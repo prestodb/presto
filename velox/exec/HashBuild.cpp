@@ -1086,7 +1086,7 @@ void HashBuild::reclaim(
     ++stats.numNonReclaimableAttempts;
     LOG(WARNING) << "Can't reclaim from hash build operator, state_["
                  << stateName(state_) << "], nonReclaimableSection_["
-                 << nonReclaimableSection_ << "], " << toString();
+                 << nonReclaimableSection_ << "], " << pool()->name();
     return;
   }
 
@@ -1106,7 +1106,7 @@ void HashBuild::reclaim(
       LOG(WARNING) << "Can't reclaim from hash build operator, state_["
                    << stateName(buildOp->state_) << "], nonReclaimableSection_["
                    << buildOp->nonReclaimableSection_ << "], "
-                   << buildOp->toString();
+                   << buildOp->pool()->name();
       return;
     }
   }

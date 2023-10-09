@@ -61,7 +61,9 @@ TEST_F(TreeOfLosersTest, nextWithEquals) {
     mergeStreams.push_back(std::make_unique<TestingStream>(std::move(stream)));
   }
   std::sort(allNumbers.begin(), allNumbers.end());
+  const int expectedNumMergeStreams = mergeStreams.size();
   TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+  ASSERT_EQ(merge.numStreams(), expectedNumMergeStreams);
   bool expectRepeat = false;
   for (auto i = 0; i < allNumbers.size(); ++i) {
     auto result = merge.nextWithEquals();
@@ -88,6 +90,7 @@ TEST_F(TreeOfLosersTest, singleWithEquals) {
   std::vector<std::unique_ptr<TestingStream>> mergeStreams;
   mergeStreams.push_back(std::make_unique<TestingStream>(std::move(stream)));
   TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+  ASSERT_EQ(merge.numStreams(), 1);
   for (auto i = 0; i < allNumbers.size(); ++i) {
     auto result = merge.nextWithEquals();
     if (result.first == nullptr) {
@@ -116,7 +119,9 @@ TEST_F(TreeOfLosersTest, allDuplicates) {
       mergeStreams.push_back(
           std::make_unique<TestingStream>(std::move(streamNumbers)));
     }
+    const int expectedNumMergeStreams = mergeStreams.size();
     TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+    ASSERT_EQ(merge.numStreams(), expectedNumMergeStreams);
     for (auto i = 0; i < kNumStreams * kNumsPerStream; ++i) {
       TestingStream* stream;
       if (testNextEqual) {
@@ -154,7 +159,9 @@ TEST_F(TreeOfLosersTest, allSorted) {
       mergeStreams.push_back(
           std::make_unique<TestingStream>(std::move(streamNumbers)));
     }
+    const int expectedNumMergeStreams = mergeStreams.size();
     TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+    ASSERT_EQ(merge.numStreams(), expectedNumMergeStreams);
     for (auto i = 0; i < kNumStreams * kNumsPerStream; ++i) {
       TestingStream* stream;
       if (testNextEqual) {
@@ -186,7 +193,9 @@ TEST_F(TreeOfLosersTest, allEmpty) {
             TreeOfLosers<TestingStream> merge(std::move(mergeStreams)));
         continue;
       }
+      const int expectedNumMergeStreams = mergeStreams.size();
       TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+      ASSERT_EQ(merge.numStreams(), expectedNumMergeStreams);
       if (testNextEqual) {
         ASSERT_TRUE(merge.nextWithEquals().first == nullptr);
       } else {
@@ -222,7 +231,9 @@ TEST_F(TreeOfLosersTest, randomWithDuplicates) {
         mergeStreams.push_back(
             std::make_unique<TestingStream>(std::move(streamNumVectors[i])));
       }
+      const int expectedNumMergeStreams = mergeStreams.size();
       TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+      ASSERT_EQ(merge.numStreams(), expectedNumMergeStreams);
       for (auto i = 3; i <= 3 * numCount; ++i) {
         TestingStream* stream;
         if (testNextEqual) {

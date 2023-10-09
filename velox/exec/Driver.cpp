@@ -499,6 +499,8 @@ StopReason Driver::runInternal(
                     op->stats().wlock()->getOutputTiming.add(deltaTiming);
                   });
               RuntimeStatWriterScopeGuard statsWriterGuard(op);
+              TestValue::adjust(
+                  "facebook::velox::exec::Driver::runInternal::getOutput", op);
               CALL_OPERATOR(
                   intermediateResult = op->getOutput(), op, "getOutput");
               if (intermediateResult) {

@@ -262,8 +262,9 @@ class MemoryReclaimer {
     /// due to reclaiming at non-reclaimable stage.
     uint64_t numNonReclaimableAttempts{0};
 
-    bool operator==(const Stats& other) const;
+    void reset();
 
+    bool operator==(const Stats& other) const;
     bool operator!=(const Stats& other) const;
   };
 

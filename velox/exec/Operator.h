@@ -543,6 +543,12 @@ class Operator : public BaseRuntimeStatWriter {
     return operatorCtx_.get();
   }
 
+  /// Returns true if this operator has received no more input signal. This
+  /// method is only used for test.
+  bool testingNoMoreInput() const {
+    return noMoreInput_;
+  }
+
  protected:
   static std::vector<std::unique_ptr<PlanNodeTranslator>>& translators();
   friend class NonReclaimableSection;
