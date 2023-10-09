@@ -441,6 +441,7 @@ public class IcebergDistributedSmokeTestBase
         long afterFirstInsertId = getLatestSnapshotId();
 
         assertUpdate(session, "INSERT INTO test_rollback (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
+        long latestSnapshotId = getLatestSnapshotId();
         assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0",
                 "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT)), (123, CAST(321 AS BIGINT))");
 
@@ -450,6 +451,9 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterCreateTableId));
         assertEquals((long) computeActual(session, "SELECT COUNT(*) FROM test_rollback").getOnlyValue(), 1);
+
+        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", latestSnapshotId));
+        assertEquals((long) computeActual(session, "SELECT COUNT(*) FROM test_rollback").getOnlyValue(), 3);
 
         dropTable(session, "test_rollback");
     }
