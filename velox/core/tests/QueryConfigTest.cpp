@@ -17,6 +17,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/expression/EvalCtx.h"
 
 namespace facebook::velox::core::test {
 
@@ -132,6 +133,51 @@ TEST(TestQueryConfig, taskWriterCountConfig) {
         config.taskPartitionedWriterCount(),
         testConfig.expectedPartitionedWriterCounter);
   }
+}
+
+TEST(TestQueryConfig, enableExpressionEvaluationCacheConfig) {
+  std::shared_ptr<memory::MemoryPool> rootPool_{
+      memory::defaultMemoryManager().addRootPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild("leaf")};
+
+  auto testConfig = [&](bool enableExpressionEvaluationCache) {
+    std::unordered_map<std::string, std::string> configData(
+        {{core::QueryConfig::kEnableExpressionEvaluationCache,
+          enableExpressionEvaluationCache ? "true" : "false"}});
+    auto queryCtx =
+        std::make_shared<core::QueryCtx>(nullptr, std::move(configData));
+    const core::QueryConfig& config = queryCtx->queryConfig();
+    ASSERT_EQ(
+        config.isExpressionEvaluationCacheEnabled(),
+        enableExpressionEvaluationCache);
+
+    auto execCtx = std::make_shared<core::ExecCtx>(pool_.get(), queryCtx.get());
+    ASSERT_EQ(
+        execCtx->isExpressionEvaluationCacheEnabled(),
+        enableExpressionEvaluationCache);
+    ASSERT_EQ(
+        execCtx->vectorPool() != nullptr, enableExpressionEvaluationCache);
+
+    auto evalCtx = std::make_shared<exec::EvalCtx>(execCtx.get());
+    ASSERT_EQ(evalCtx->isCacheEnabled(), enableExpressionEvaluationCache);
+
+    // Test ExecCtx::selectivityVectorPool_.
+    auto rows = execCtx->getSelectivityVector(100);
+    ASSERT_NE(rows, nullptr);
+    ASSERT_EQ(
+        execCtx->releaseSelectivityVector(std::move(rows)),
+        enableExpressionEvaluationCache);
+
+    // Test ExecCtx::decodedVectorPool_.
+    auto decoded = execCtx->getDecodedVector();
+    ASSERT_NE(decoded, nullptr);
+    ASSERT_EQ(
+        execCtx->releaseDecodedVector(std::move(decoded)),
+        enableExpressionEvaluationCache);
+  };
+
+  testConfig(true);
+  testConfig(false);
 }
 
 } // namespace facebook::velox::core::test

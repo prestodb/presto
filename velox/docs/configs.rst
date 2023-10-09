@@ -87,6 +87,11 @@ Generic Configuration
      - If set to true, then during execution of tasks, the output vectors of every operator are validated for consistency.
        This is an expensive check so should only be used for debugging. It can help debug issues where malformed vector
        cause failures or crashes by helping identify which operator is generating them.
+   * - enable_expression_evaluation_cache
+     - bool
+     - true
+     - Whether to enable caches in expression evaluation. If set to true, optimizations including vector pools and
+       evalWithMemo are enabled.
 
 .. _expression-evaluation-conf:
 

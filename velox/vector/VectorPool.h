@@ -73,8 +73,8 @@ class VectorPool {
 /// the allocated vector back to vector pool on destruction.
 class VectorRecycler {
  public:
-  explicit VectorRecycler(VectorPtr& vector, VectorPool& pool)
-      : vector_(vector), pool_(pool) {}
+  VectorRecycler(VectorPtr& vector, VectorPool* pool)
+      : pool_(pool), vector_(vector) {}
   VectorRecycler(const VectorRecycler&) = delete;
   VectorRecycler& operator=(const VectorRecycler&) = delete;
   VectorRecycler(const VectorRecycler&&) = delete;
@@ -83,12 +83,14 @@ class VectorRecycler {
   VectorRecycler& operator=(VectorRecycler&) = delete;
 
   ~VectorRecycler() {
-    pool_.release(vector_);
+    if (pool_) {
+      pool_->release(vector_);
+    }
   }
 
  private:
+  VectorPool* const pool_;
   VectorPtr& vector_;
-  VectorPool& pool_;
 };
 
 } // namespace facebook::velox

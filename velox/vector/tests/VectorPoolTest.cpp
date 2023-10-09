@@ -104,12 +104,12 @@ TEST_F(VectorPoolTest, vectorRecycler) {
 
   // Empty scoped vector does nothing.
   VectorPtr vectorPtr;
-  { VectorRecycler vectorRecycler(vectorPtr, vectorPool); }
+  { VectorRecycler vectorRecycler(vectorPtr, &vectorPool); }
 
   // Get new vector from the pool and release it back.
   BaseVector* rawPtr;
   {
-    VectorRecycler vectorRecycler(vectorPtr, vectorPool);
+    VectorRecycler vectorRecycler(vectorPtr, &vectorPool);
     vectorPtr = vectorPool.get(BIGINT(), 1'000);
     rawPtr = vectorPtr.get();
   }
@@ -117,7 +117,7 @@ TEST_F(VectorPoolTest, vectorRecycler) {
   // Get new vector from the pool and hold it on scoped vector destruction.
   VectorPtr vectorHolder;
   {
-    VectorRecycler vectorRecycler(vectorPtr, vectorPool);
+    VectorRecycler vectorRecycler(vectorPtr, &vectorPool);
     vectorPtr = vectorPool.get(BIGINT(), 1'000);
     ASSERT_EQ(rawPtr, vectorPtr.get());
     vectorHolder = vectorPtr;
@@ -125,7 +125,7 @@ TEST_F(VectorPoolTest, vectorRecycler) {
   ASSERT_NE(vectorHolder, nullptr);
 
   {
-    VectorRecycler vectorRecycler(vectorPtr, vectorPool);
+    VectorRecycler vectorRecycler(vectorPtr, &vectorPool);
     vectorPtr = vectorPool.get(BIGINT(), 1'000);
     ASSERT_NE(rawPtr, vectorPtr.get());
   }

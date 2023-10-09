@@ -277,6 +277,14 @@ class QueryConfig {
   static constexpr const char* kValidateOutputFromOperators =
       "debug.validate_output_from_operators";
 
+  /// If true, enable caches in expression evaluation for performance, including
+  /// ExecCtx::vectorPool_, ExecCtx::decodedVectorPool_,
+  /// ExecCtx::selectivityVectorPool_, Expr::baseDictionary_,
+  /// Expr::dictionaryCache_, and Expr::cachedDictionaryIndices_. Otherwise,
+  /// disable the caches.
+  static constexpr const char* kEnableExpressionEvaluationCache =
+      "enable_expression_evaluation_cache";
+
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
@@ -565,6 +573,10 @@ class QueryConfig {
 
   bool validateOutputFromOperators() const {
     return get<bool>(kValidateOutputFromOperators, false);
+  }
+
+  bool isExpressionEvaluationCacheEnabled() const {
+    return get<bool>(kEnableExpressionEvaluationCache, true);
   }
 
   template <typename T>
