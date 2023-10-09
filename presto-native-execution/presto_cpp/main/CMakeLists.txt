@@ -77,6 +77,8 @@ target_link_libraries(
 target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra
                       ${THRIFT_LIBRARY})
 
+set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK link_job_pool)
+
 add_executable(presto_server PrestoMain.cpp)
 
 # Moving velox_hive_connector and velox_tpch_connector to presto_server_lib
@@ -94,6 +96,8 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
                         velox_functions_remote ${FOLLY_WITH_DEPENDENCIES})
   target_link_libraries(presto_server_lib presto_server_remote_function)
 endif()
+
+set_property(TARGET presto_server PROPERTY JOB_POOL_LINK link_job_pool)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
