@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.facebook.presto.hive.HiveTestUtils.getProperty;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static java.lang.String.format;
@@ -39,14 +40,13 @@ import static org.testng.Assert.assertTrue;
 
 public class PrestoNativeQueryRunnerUtils
 {
-    private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
-
-    private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
-
     // The unix domain socket (UDS) used to communicate with the remote function server.
     public static final String REMOTE_FUNCTION_UDS = "remote_function_server.socket";
     public static final String REMOTE_FUNCTION_JSON_SIGNATURES = "remote_function_server.json";
     public static final String REMOTE_FUNCTION_CATALOG_NAME = "remote";
+
+    private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
+    private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
 
     private PrestoNativeQueryRunnerUtils() {}
 
@@ -250,11 +250,11 @@ public class PrestoNativeQueryRunnerUtils
             log.info("Temp directory for Remote Function Server: %s", tempDirectoryPath.toString());
 
             Process p = new ProcessBuilder(Paths.get(remoteFunctionServerBinaryPath).toAbsolutePath().toString(), "--uds_path", remoteFunctionServerUdsPath.toString(), "--function_prefix", REMOTE_FUNCTION_CATALOG_NAME + ".schema.")
-                                .directory(tempDirectoryPath.toFile())
-                                .redirectErrorStream(true)
-                                .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("thrift_server.out").toFile()))
-                                .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("thrift_server.err").toFile()))
-                                .start();
+                    .directory(tempDirectoryPath.toFile())
+                    .redirectErrorStream(true)
+                    .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("thrift_server.out").toFile()))
+                    .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("thrift_server.err").toFile()))
+                    .start();
             return remoteFunctionServerUdsPath.toString();
         }
         catch (IOException e) {
@@ -264,19 +264,13 @@ public class PrestoNativeQueryRunnerUtils
 
     public static NativeQueryRunnerParameters getNativeQueryRunnerParameters()
     {
-        Path prestoServerPath = Paths.get(Optional.ofNullable(System.getenv("PRESTO_SERVER"))
-                        .orElseGet(() -> Optional.ofNullable(System.getProperty("PRESTO_SERVER"))
-                                .orElse("_build/debug/presto_cpp/main/presto_server")))
+        Path prestoServerPath = Paths.get(getProperty("PRESTO_SERVER")
+                .orElse("_build/debug/presto_cpp/main/presto_server"))
                 .toAbsolutePath();
-        Path dataDirectory = Paths.get(Optional.ofNullable(System.getenv("DATA_DIR"))
-                        .orElseGet(() -> Optional.ofNullable(System.getProperty("DATA_DIR"))
-                                .orElse("target/velox_data")))
+        Path dataDirectory = Paths.get(getProperty("DATA_DIR")
+                .orElse("target/velox_data"))
                 .toAbsolutePath();
-        Optional<String> workerProp = Optional.ofNullable(System.getenv("WORKER_COUNT"));
-        if (!workerProp.isPresent()) {
-            workerProp = Optional.ofNullable(System.getProperty("WORKER_COUNT"));
-        }
-        Optional<Integer> workerCount = workerProp.map(Integer::parseInt);
+        Optional<Integer> workerCount = getProperty("WORKER_COUNT").map(Integer::parseInt);
 
         assertTrue(Files.exists(prestoServerPath), format("Native worker binary at %s not found. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.", prestoServerPath));
         log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);
