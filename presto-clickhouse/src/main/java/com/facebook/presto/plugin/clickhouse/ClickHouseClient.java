@@ -408,11 +408,11 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
-                table = table.toUpperCase(ENGLISH);
-                columnName = columnName.toUpperCase(ENGLISH);
-            }
+//            if (metadata.storesUpperCaseIdentifiers()) {
+//                schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
+//                table = table.toUpperCase(ENGLISH);
+//                columnName = columnName.toUpperCase(ENGLISH);
+//            }
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -536,9 +536,9 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                newColumnName = newColumnName.toUpperCase(ENGLISH);
-            }
+//            if (metadata.storesUpperCaseIdentifiers()) {
+//                newColumnName = newColumnName.toUpperCase(ENGLISH);
+//            }
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -557,12 +557,12 @@ public class ClickHouseClient
         }
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+//            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            if (uppercase) {
-                tableName = tableName.toUpperCase(ENGLISH);
-            }
+//            if (uppercase) {
+//                tableName = tableName.toUpperCase(ENGLISH);
+//            }
             String catalog = connection.getCatalog();
 
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
@@ -570,9 +570,9 @@ public class ClickHouseClient
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 String columnName = column.getName();
-                if (uppercase) {
-                    columnName = columnName.toUpperCase(ENGLISH);
-                }
+//                if (uppercase) {
+//                    columnName = columnName.toUpperCase(ENGLISH);
+//                }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 columnList.add(getColumnDefinitionSql(column, columnName));
@@ -602,12 +602,12 @@ public class ClickHouseClient
         }
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+//            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            if (uppercase) {
-                tableName = tableName.toUpperCase(ENGLISH);
-            }
+//            if (uppercase) {
+//                tableName = tableName.toUpperCase(ENGLISH);
+//            }
             String catalog = connection.getCatalog();
 
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
@@ -615,9 +615,9 @@ public class ClickHouseClient
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 String columnName = column.getName();
-                if (uppercase) {
-                    columnName = columnName.toUpperCase(ENGLISH);
-                }
+//                if (uppercase) {
+//                    columnName = columnName.toUpperCase(ENGLISH);
+//                }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 columnList.add(getColumnDefinitionSql(column, columnName));
@@ -666,16 +666,17 @@ public class ClickHouseClient
             }
         }
 
-        try {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                return tableName.toUpperCase(ENGLISH);
-            }
-            return tableName;
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+//        try {
+//            DatabaseMetaData metadata = connection.getMetaData();
+//            if (metadata.storesUpperCaseIdentifiers()) {
+//                return tableName.toUpperCase(ENGLISH);
+//            }
+//            return tableName;
+//        }
+//        catch (SQLException e) {
+//            throw new PrestoException(JDBC_ERROR, e);
+//        }
+        return tableName;
     }
 
     public void rollbackCreateTable(ClickHouseIdentity identity, ClickHouseOutputTableHandle handle)
@@ -768,12 +769,12 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                schemaName = schemaName.toUpperCase(ENGLISH);
-                tableName = tableName.toUpperCase(ENGLISH);
-                newSchemaName = newSchemaName.toUpperCase(ENGLISH);
-                newTableName = newTableName.toUpperCase(ENGLISH);
-            }
+//            if (metadata.storesUpperCaseIdentifiers()) {
+//                schemaName = schemaName.toUpperCase(ENGLISH);
+//                tableName = tableName.toUpperCase(ENGLISH);
+//                newSchemaName = newSchemaName.toUpperCase(ENGLISH);
+//                newTableName = newTableName.toUpperCase(ENGLISH);
+//            }
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -935,16 +936,17 @@ public class ClickHouseClient
             }
         }
 
-        try {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                return schemaName.toUpperCase(ENGLISH);
-            }
-            return schemaName;
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+//        try {
+//            DatabaseMetaData metadata = connection.getMetaData();
+//            if (metadata.storesUpperCaseIdentifiers()) {
+//                return schemaName.toUpperCase(ENGLISH);
+//            }
+//            return schemaName;
+//        }
+//        catch (SQLException e) {
+//            throw new PrestoException(JDBC_ERROR, e);
+//        }
+        return schemaName;
     }
 
     protected Map<String, String> listSchemasByLowerCase(Connection connection)

@@ -208,10 +208,10 @@ public class MySqlClient
     public void renameColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                newColumnName = newColumnName.toUpperCase(ENGLISH);
-            }
+//            DatabaseMetaData metadata = connection.getMetaData();
+//            if (metadata.storesUpperCaseIdentifiers()) {
+//                newColumnName = newColumnName.toUpperCase(ENGLISH);
+//            }
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
                     quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
