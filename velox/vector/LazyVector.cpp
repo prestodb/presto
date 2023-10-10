@@ -117,6 +117,50 @@ void LazyVector::ensureLoadedRows(
   }
 }
 
+namespace {
+// Given a SelectivityVector 'rows', updates 'baseRows' selecting the rows
+// in the base vector that should be loaded.
+void selectBaseRowsToLoad(
+    const DecodedVector& decoded,
+    SelectivityVector& baseRows,
+    const SelectivityVector& rows) {
+  VELOX_DCHECK(
+      decoded.base()->encoding() == VectorEncoding::Simple::ROW ||
+      decoded.base()->encoding() == VectorEncoding::Simple::LAZY);
+
+  auto deselectNullsIdentity = [&]() {
+    if (decoded.base()->rawNulls()) {
+      baseRows.deselectNulls(
+          decoded.base()->rawNulls(), rows.begin(), rows.end());
+    }
+  };
+
+  if (decoded.isIdentityMapping() && rows.isAllSelected()) {
+    baseRows.resizeFill(rows.end(), true);
+    deselectNullsIdentity();
+    return;
+  }
+
+  if (decoded.isIdentityMapping()) {
+    baseRows.resizeFill(rows.end(), false);
+    baseRows.select(rows);
+    deselectNullsIdentity();
+  } else if (decoded.isConstantMapping()) {
+    baseRows.resizeFill(decoded.index(0) + 1, false);
+    baseRows.setValid(decoded.index(0), true);
+  } else {
+    baseRows.resizeFill(decoded.base()->size(), false);
+    rows.applyToSelected([&](vector_size_t row) {
+      if (!decoded.isNullAt(row)) {
+        baseRows.setValid(decoded.index(row), true);
+      }
+    });
+  }
+
+  baseRows.updateBounds();
+}
+} // namespace
+
 // static
 void LazyVector::ensureLoadedRowsImpl(
     const VectorPtr& vector,
@@ -126,8 +170,8 @@ void LazyVector::ensureLoadedRowsImpl(
   if (decoded.base()->encoding() != VectorEncoding::Simple::LAZY) {
     if (decoded.base()->encoding() == VectorEncoding::Simple::ROW &&
         isLazyNotLoaded(*decoded.base())) {
-      decoded.unwrapRows(baseRows, rows);
       auto* rowVector = decoded.base()->asUnchecked<RowVector>();
+      selectBaseRowsToLoad(decoded, baseRows, rows);
       DecodedVector decodedChild;
       SelectivityVector childRows;
       for (auto child : rowVector->children()) {
@@ -160,7 +204,7 @@ void LazyVector::ensureLoadedRowsImpl(
         rowSet = RowSet(rowNumbers);
       }
     } else {
-      decoded.unwrapRows(baseRows, rows);
+      selectBaseRowsToLoad(decoded, baseRows, rows);
       rowNumbers.resize(baseRows.end());
       rowNumbers.resize(simd::indicesOfSetBits(
           baseRows.asRange().bits(), 0, baseRows.end(), rowNumbers.data()));
@@ -173,7 +217,8 @@ void LazyVector::ensureLoadedRowsImpl(
 
   // The loaded vector can itself also be lazy, so we load recursively.
   if (isLazyNotLoaded(*baseLazyVector->vector_)) {
-    decoded.unwrapRows(baseRows, rows);
+    // We do not neeed to decode all rows.
+    selectBaseRowsToLoad(decoded, baseRows, rows);
     decoded.decode(*baseLazyVector->vector_, baseRows, false);
     SelectivityVector nestedRows;
     ensureLoadedRowsImpl(
