@@ -15,7 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <scala.version>2.12.2</scala.version>
-        <dep.avro.version>1.9.0</dep.avro.version>
+        <dep.avro.version>1.11.0</dep.avro.version>
     </properties>
 
     <dependencies>
@@ -42,6 +42,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-record-decoder</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

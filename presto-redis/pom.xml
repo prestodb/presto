@@ -40,6 +40,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-record-decoder</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
