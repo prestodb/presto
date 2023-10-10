@@ -593,6 +593,16 @@ TEST_F(Re2FunctionsTest, likePatternSuffix) {
   EXPECT_TRUE(like(input, generateString(kAnyWildcardCharacter) + input));
 }
 
+TEST_F(Re2FunctionsTest, nullConstantPatternOrEscape) {
+  // Test null pattern.
+  ASSERT_TRUE(
+      !evaluateOnce<bool>("like('a', cast (null as varchar))").has_value());
+
+  // Test null escape.
+  ASSERT_TRUE(
+      !evaluateOnce<bool>("like('a', 'a', cast(null as varchar))").has_value());
+}
+
 TEST_F(Re2FunctionsTest, likePatternAndEscape) {
   auto like = ([&](std::optional<std::string> str,
                    std::optional<std::string> pattern,

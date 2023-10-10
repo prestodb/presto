@@ -152,6 +152,20 @@ class AlwaysFailingVectorFunction final : public VectorFunction {
   std::exception_ptr exceptionPtr_;
 };
 
+// This functions is used when we know a function will never be called because
+// it is default null with a literal null input value. For example like(c0,
+// null).
+class ApplyNeverCalled final : public VectorFunction {
+  void apply(
+      const SelectivityVector&,
+      std::vector<VectorPtr>&,
+      const TypePtr&,
+      EvalCtx&,
+      VectorPtr&) const final {
+    VELOX_UNREACHABLE("Not expected to be called.")
+  }
+};
+
 // Factory for functions which are template generated from simple functions.
 class SimpleFunctionAdapterFactory {
  public:

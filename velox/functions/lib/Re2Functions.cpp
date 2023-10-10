@@ -947,6 +947,9 @@ std::shared_ptr<exec::VectorFunction> makeLike(
         inputArgs[2].type->toString());
 
     auto constantEscape = escape->as<ConstantVector<StringView>>();
+    if (constantEscape->isNullAt(0)) {
+      return std::make_shared<exec::ApplyNeverCalled>();
+    }
 
     try {
       VELOX_USER_CHECK_EQ(
@@ -966,6 +969,10 @@ std::shared_ptr<exec::VectorFunction> makeLike(
       "{} requires second argument to be a constant of type VARCHAR",
       name,
       inputArgs[1].type->toString());
+  if (constantPattern->isNullAt(0)) {
+    return std::make_shared<exec::ApplyNeverCalled>();
+  }
+
   auto pattern = constantPattern->as<ConstantVector<StringView>>()->valueAt(0);
   if (!escapeChar) {
     PatternKind patternKind;
