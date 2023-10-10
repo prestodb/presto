@@ -13,6 +13,7 @@
  */
 
 import React from "react";
+import DataTable, {createTheme} from 'react-data-table-component';
 
 import {
     addToHistory,
@@ -37,6 +38,12 @@ import {
 } from "../utils";
 import {QueryHeader} from "./QueryHeader";
 
+createTheme('dark', {
+    background: {
+      default: 'transparent',
+    },
+  });
+
 function TaskList({tasks}) {
     function removeQueryId(id) {
         const pos = id.indexOf('.');
@@ -47,8 +54,8 @@ function TaskList({tasks}) {
     }
 
     function compareTaskId(taskA, taskB) {
-        const taskIdArrA = removeQueryId(taskA).split(".");
-        const taskIdArrB = removeQueryId(taskB).split(".");
+        const taskIdArrA = removeQueryId(taskA.taskId).split(".");
+        const taskIdArrB = removeQueryId(taskB.taskId).split(".");
 
         if (taskIdArrA.length > taskIdArrB.length) {
             return 1;
@@ -99,113 +106,149 @@ function TaskList({tasks}) {
 
     const showingPortNumbers = showPortNumbers(tasks);
 
-    const renderedTasks = tasks.map((task, idx) => {
-        let elapsedTime = parseDuration(task.stats.elapsedTimeInNanos + "ns");
+    function calculateElapsedTime(row) {
+        let elapsedTime = parseDuration(row.stats.elapsedTimeInNanos + "ns");
         if (elapsedTime === 0) {
-            elapsedTime = Date.now() - Date.parse(task.stats.createTime);
+            elapsedTime = Date.now() - Date.parse(row.stats.createTime);
         }
+        return elapsedTime;
+    }
+    const customStyles = {
+        headCells: {
+            style: {
+                padding: '0px', // override the cell padding for head cells
+                fontSize: '15px'
+            },
+        },
+        cells: {
+            style: {
+                padding: '0px', // override the cell padding for data cells
+                fontSize: '15px',
+            },
+        },
+    };
 
-        return (
-            <tr key={task.taskId} style={idx % 2 === 0 ? {backgroundColor: "#4A4A4A"}: {}}>
-                <td column="id" value={task.taskId}>
-                    <a href={"/v1/taskInfo/" + task.taskId + "?pretty"}>
-                        {getTaskIdSuffix(task.taskId)}
-                    </a>
-                </td>
-                <td column="host" value={getHostname(task.taskStatus.self)}>
-                    <a href={"worker.html?" + task.nodeId} className="font-light" target="_blank">
-                        {showingPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self)}
-                    </a>
-                </td>
-                <td column="state" value={formatState(task.taskStatus.state, task.stats.fullyBlocked)}>
-                    {formatState(task.taskStatus.state, task.stats.fullyBlocked)}
-                </td>
-                <td column="rows" value={task.stats.rawInputPositions}>
-                    {formatCount(task.stats.rawInputPositions)}
-                </td>
-                <td column="rowsSec" value={computeRate(task.stats.rawInputPositions, elapsedTime)}>
-                    {formatCount(computeRate(task.stats.rawInputPositions, elapsedTime))}
-                </td>
-                <td column="bytes" value={task.stats.rawInputDataSizeInBytes}>
-                    {formatDataSizeBytes(task.stats.rawInputDataSizeInBytes)}
-                </td>
-                <td column="bytesSec" value={computeRate(task.stats.rawInputDataSizeInBytes, elapsedTime)}>
-                    {formatDataSizeBytes(computeRate(task.stats.rawInputDataSizeInBytes, elapsedTime))}
-                </td>
-                <td column="splitsPending" value={task.stats.queuedDrivers}>
-                    {task.stats.queuedDrivers}
-                </td>
-                <td column="splitsRunning" value={task.stats.runningDrivers}>
-                    {task.stats.runningDrivers}
-                </td>
-                <td column="splitsBlocked" value={task.stats.blockedDrivers}>
-                    {task.stats.blockedDrivers}
-                </td>
-                <td column="splitsDone" value={task.stats.completedDrivers}>
-                    {task.stats.completedDrivers}
-                </td>
-                <td column="elapsedTime" value={parseDuration(task.stats.elapsedTimeInNanos + "ns")}>
-                    {formatDuration(parseDuration(task.stats.elapsedTimeInNanos + "ns"))}
-                </td>
-                <td column="cpuTime" value={parseDuration(task.stats.totalCpuTimeInNanos + "ns")}>
-                    {formatDuration(parseDuration(task.stats.totalCpuTimeInNanos + "ns"))}
-                </td>
-                <td column="bufferedBytes" value={task.outputBuffers.totalBufferedBytes}>
-                    {formatDataSizeBytes(task.outputBuffers.totalBufferedBytes)}
-                </td>
-            </tr>
-        );
-    });
+    const columns = [
+        {
+            name: 'ID',
+            selector: row => row.taskId,
+            sortFunction: compareTaskId,
+            cell: row => (<a href={"/v1/taskInfo/" + row.taskId + "?pretty"}>
+                            {getTaskIdSuffix(row.taskId)}
+                            </a>),
+            wrap: false,
+        },
+        {
+            name: 'Host',
+            selector: row => getHostname(row.taskStatus.self),
+            cell: row => (<a href={"worker.html?" + row.nodeId} className="font-light" target="_blank">
+                            {showingPortNumbers ? getHostAndPort(row.taskStatus.self) : getHostname(row.taskStatus.self)}
+                            </a>),
+            sortable: true,
+            wrap: false,
+            maxWidth: "120px",
+            minWidth: "120px",
+        },
+        {
+            name: 'State',
+            selector: row => formatState(row.taskStatus.state, row.stats.fullyBlocked),
+            sortable: true,
+            wrap: false,
+        },
+        {
+            name: (<span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}
+                data-toggle="tooltip" data-placement="top"
+                title="Pending splits"/>),
+            selector: row => row.stats.queuedDrivers,
+            sortable: true,
+            wrap: false,
+            maxWidth: "40px",
+            minWidth: "40px",
+        },
+        {
+            name: (<span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}
+                data-toggle="tooltip" data-placement="top"
+                title="Running splits"/>),
+            selector: row => row.stats.runningDrivers,
+            sortable: true,
+            wrap: false,
+            maxWidth: "40px",
+            minWidth: "40px",
+        },
+        {
+            name: (<span className="glyphicon glyphicon-bookmark"
+                style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip"
+                data-placement="top"
+                title="Blocked splits"/>),
+            selector: row => row.stats.blockedDrivers,
+            sortable: true,
+            wrap: false,
+            maxWidth: "40px",
+            minWidth: "40px",
+        },
+        {
+            name: (<span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}
+                data-toggle="tooltip" data-placement="top"
+                title="Completed splits"/>),
+            selector: row => row.stats.completedDrivers,
+            sortable: true,
+            wrap: false,
+            maxWidth: "40px",
+            minWidth: "40px",
+        },
+        {
+            name: 'Rows',
+            selector: row => row.stats.rawInputPositions,
+            cell: row => formatCount(row.stats.rawInputPositions),
+            sortable: true,
+            wrap: false,
+        },
+        {
+            name: 'Rows/s',
+            selector: row => computeRate(row.stats.rawInputPositions, calculateElapsedTime(row)),
+            cell: row => formatCount(computeRate(row.stats.rawInputPositions, calculateElapsedTime(row))),
+            sortable: true,
+            wrap: false,
+        },
+        {
+            name: 'Bytes',
+            selector: row => row.stats.rawInputDataSizeInBytes,
+            cell: row => formatDataSizeBytes(row.stats.rawInputDataSizeInBytes),
+            sortable: true,
+            wrap: false,
+        },
+        {
+            name: 'Bytes/s',
+            selector: row => computeRate(row.stats.rawInputDataSizeInBytes, calculateElapsedTime(row)),
+            cell: row => formatDataSizeBytes(computeRate(row.stats.rawInputDataSizeInBytes, calculateElapsedTime(row))),
+            sortable: true,
+            wrap: false,
+        },
+        {
+            name: 'Elapsed',
+            selector: row => parseDuration(row.stats.elapsedTimeInNanos + "ns"),
+            cell: row => formatDuration(parseDuration(row.stats.elapsedTimeInNanos + "ns")),
+            sortable: true,
+            wrap: false,
+        },
+        {
+            name: 'CPU Time',
+            selector: row => parseDuration(row.stats.totalCpuTimeInNanos + "ns"),
+            cell: row => formatDuration(parseDuration(row.stats.totalCpuTimeInNanos + "ns")),
+            sortable: true,
+            wrap: false,
+        },
+        {
+            name: 'Buffered',
+            selector: row => row.outputBuffers.totalBufferedBytes,
+            cell: row => formatDataSizeBytes(row.outputBuffers.totalBufferedBytes),
+            sortable: true,
+            wrap: false,
+        },
+    ];
 
     return (
-        <table rules="rows" id="tasks" className="table table-striped sortable" sortable=
-            {[
-                {
-                    column: 'id',
-                    sortFunction: compareTaskId
-                },
-                'host',
-                'state',
-                'splitsPending',
-                'splitsRunning',
-                'splitsBlocked',
-                'splitsDone',
-                'rows',
-                'rowsSec',
-                'bytes',
-                'bytesSec',
-                'elapsedTime',
-                'cpuTime',
-                'bufferedBytes',
-            ]}
-                defaultSort={{column: 'id', direction: 'asc'}}>
-            <thead>
-                <th column="id">ID</th>
-                <th column="host">Host</th>
-                <th column="state">State</th>
-                <th column="splitsPending"><span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}
-                                                    data-toggle="tooltip" data-placement="top"
-                                                    title="Pending splits"/></th>
-                <th column="splitsRunning"><span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}
-                                                    data-toggle="tooltip" data-placement="top"
-                                                    title="Running splits"/></th>
-                <th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark"
-                                                    style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip"
-                                                    data-placement="top"
-                                                    title="Blocked splits"/></th>
-                <th column="splitsDone"><span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}
-                                                data-toggle="tooltip" data-placement="top"
-                                                title="Completed splits"/></th>
-                <th column="rows">Rows</th>
-                <th column="rowsSec">Rows/s</th>
-                <th column="bytes">Bytes</th>
-                <th column="bytesSec">Bytes/s</th>
-                <th column="elapsedTime">Elapsed</th>
-                <th column="cpuTime">CPU Time</th>
-                <th column="bufferedBytes">Buffered</th>
-            </thead>
-            {renderedTasks}
-        </table>
+        <DataTable columns={columns} data={tasks} theme='dark' customStyles={customStyles}/>
     );
 }
 
