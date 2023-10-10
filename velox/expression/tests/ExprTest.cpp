@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <glog/logging.h>
+#include <cstdint>
 #include <exception>
 #include <fstream>
 #include <stdexcept>
@@ -36,6 +36,7 @@
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/vector/SelectivityVector.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/tests/TestingAlwaysThrowsFunction.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -3337,6 +3338,46 @@ TEST_P(ParameterizedExprTest, addNulls) {
         BIGINT(),
         wrappedVectorSmaller);
     EXPECT_EQ(mutableIndices[2], 1);
+  }
+
+  // Verify that when adding nulls to a RowVector outside of its initial size,
+  // we ensure that newly added rows outside of the initial size that are not
+  // marked as null are still accessible.
+  // The function expects an input vector of size 3 and adds a null at idx 5.
+  auto testRowWithPartialSelection = [&](VectorPtr& rowVector) {
+    ASSERT_EQ(rowVector->size(), 3);
+    SelectivityVector localRows(5, false);
+
+    // We do not set null to row three.
+    localRows.setValid(4, true);
+
+    exec::EvalCtx::addNulls(
+        localRows, nullptr, context, rowVector->type(), rowVector);
+    rowVector->validate();
+    ASSERT_TRUE(rowVector->isNullAt(3));
+  };
+
+  {
+    // Test row vector with partial selection.
+    VectorPtr rowVector = makeRowVector({makeFlatVector<int32_t>({0, 1, 2})});
+    testRowWithPartialSelection(rowVector);
+  }
+
+  {
+    // Test constant row vector with partial selection.
+    VectorPtr rowVector =
+        makeRowVector({makeFlatVector<int32_t>(std::vector<int32_t>{0})});
+    auto constant = BaseVector::wrapInConstant(3, 0, rowVector);
+    testRowWithPartialSelection(constant);
+  }
+
+  {
+    // Test dictionary row vector with partial selection.
+    VectorPtr rowVector =
+        makeRowVector({makeFlatVector<int32_t>(std::vector<int32_t>{0})});
+    auto dictionary = BaseVector::wrapInDictionary(
+        nullptr, makeIndices({0, 0, 0}), 3, rowVector);
+    testRowWithPartialSelection(dictionary);
   }
 }
 

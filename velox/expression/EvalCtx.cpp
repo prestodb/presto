@@ -312,15 +312,14 @@ void EvalCtx::addNulls(
   }
 
   if (result->size() < rows.end()) {
+    BaseVector::ensureWritable(
+        SelectivityVector::empty(), type, context.pool(), result);
     if (result->encoding() == VectorEncoding::Simple::ROW) {
       // Avoid calling resize on all children by adding top level nulls only.
       // We know from the check above that result is unique and isNullsWritable.
       result->asUnchecked<RowVector>()->appendNulls(
           rows.end() - result->size());
     } else {
-      BaseVector::ensureWritable(
-          SelectivityVector::empty(), type, context.pool(), result);
-
       result->resize(rows.end());
     }
   }
