@@ -18,12 +18,12 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.hive.HiveTestUtils.getProperty;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.REMOTE_FUNCTION_CATALOG_NAME;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.REMOTE_FUNCTION_JSON_SIGNATURES;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.setupJsonFunctionNamespaceManager;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.startRemoteFunctionServer;
-import static java.util.Objects.requireNonNull;
 
 @Test(groups = "remote-function")
 public abstract class AbstractTestNativeRemoteFunctions
@@ -49,12 +49,8 @@ public abstract class AbstractTestNativeRemoteFunctions
     {
         // Initialize the remote function thrift server process.
         String propertyName = "REMOTE_FUNCTION_SERVER";
-        remoteFunctionServerBinaryPath = System.getenv(propertyName);
-        if (remoteFunctionServerBinaryPath == null) {
-            remoteFunctionServerBinaryPath = System.getProperty(propertyName);
-        }
-
-        requireNonNull(remoteFunctionServerBinaryPath, "Remote function server path missing. Add -DREMOTE_FUNCTION_SERVER=<path/to/binary> to your JVM arguments.");
+        remoteFunctionServerBinaryPath = getProperty(propertyName).orElseThrow(() -> new NullPointerException("Remote function server path missing. Add -DREMOTE_FUNCTION_SERVER=<path/to/binary>" +
+                " to your JVM arguments, or create an environment variable REMOTE_FUNCTION_SERVER with value <path/to/binary>."));
         remoteFunctionServerUds = startRemoteFunctionServer(remoteFunctionServerBinaryPath);
     }
 

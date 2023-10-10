@@ -77,12 +77,14 @@ import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.smile.SmileCodec.smileCodec;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.hive.HiveDwrfEncryptionProvider.NO_ENCRYPTION;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
 public final class HiveTestUtils
@@ -266,5 +268,29 @@ public final class HiveTestUtils
     public static Slice longDecimal(String value)
     {
         return encodeScaledValue(new BigDecimal(value));
+    }
+
+    public static Optional<String> getProperty(String name)
+    {
+        String systemPropertyValue = System.getProperty(name);
+        String environmentVariableValue = System.getenv(name);
+        if (systemPropertyValue == null) {
+            if (environmentVariableValue == null) {
+                return Optional.empty();
+            }
+            else {
+                return Optional.of(environmentVariableValue);
+            }
+        }
+        else {
+            if (environmentVariableValue != null && !systemPropertyValue.equals(environmentVariableValue)) {
+                throw new IllegalArgumentException(format("%s is set in both Java system property and environment variable, but their values are different. The Java system property value is %s, while the" +
+                                " environment variable value is %s. Please use only one value.",
+                        name,
+                        systemPropertyValue,
+                        environmentVariableValue));
+            }
+            return Optional.of(systemPropertyValue);
+        }
     }
 }

@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.log.Level.WARN;
+import static com.facebook.presto.hive.HiveTestUtils.getProperty;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
@@ -207,8 +208,9 @@ public class PrestoSparkNativeQueryRunnerUtils
         if (dataDirectory.isPresent()) {
             return dataDirectory.get();
         }
-        String dataDirectoryStr = System.getProperty("DATA_DIR");
-        if (dataDirectoryStr == null || dataDirectoryStr.isEmpty()) {
+
+        Optional<String> dataDirectoryStr = getProperty("DATA_DIR");
+        if (!dataDirectoryStr.isPresent()) {
             try {
                 dataDirectory = Optional.of(createTempDirectory("PrestoTest").toAbsolutePath());
             }
