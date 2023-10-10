@@ -157,6 +157,8 @@ void getData(
     // Buffer was erased for current TaskId.
     VLOG(1) << "Task " << taskId << ", buffer " << bufferId << ", sequence "
             << token << ", buffer not found.";
+    LOG(ERROR) << "-------- " << taskId << "TaskManager::getData, buffer "
+               << bufferId << ", sequence " << token << ", buffer not found.";
     promiseHolder->promise.setValue(std::move(createTimeOutResult(token)));
   }
 }
@@ -305,7 +307,7 @@ const QueryContextManager* TaskManager::getQueryContextManager() const {
 
 void TaskManager::abortResults(const TaskId& taskId, long bufferId) {
   VLOG(1) << "TaskManager::abortResults " << taskId;
-
+  LOG(ERROR) << "-------- " << "TaskManager::abortResults " << taskId;
   bufferManager_->deleteResults(taskId, bufferId);
 }
 
@@ -423,6 +425,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::OutputBuffers& outputBuffers,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
+  LOG(ERROR) << "--------" << taskId << "TaskManager::createOrUpdateTask";
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
@@ -449,6 +452,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       const auto baseSpillDir = *(baseSpillDir_.rlock());
       maybeSetupTaskSpillDirectory(planFragment, *newExecTask, baseSpillDir);
 
+      LOG(ERROR) << "-------- " << taskId
+                 << "set velox task:" << newExecTask->toString();
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
       startTask = true;
@@ -509,10 +514,13 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     LOG(WARNING) << "Failed to update output buffers for task: " << taskId;
   }
 
+  LOG(ERROR) << "--------" << taskId << " add " << sources.size() << " sources";
   for (const auto& source : sources) {
     // Add all splits from the source to the task.
     VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
             << " for node " << source.planNodeId;
+    LOG(ERROR) << "Adding " << source.splits.size() << " splits to " << taskId
+               << " for node " << source.planNodeId;
     // Keep track of the max sequence for this batch of splits.
     long maxSplitSequenceId{-1};
     for (const auto& protocolSplit : source.splits) {
@@ -520,6 +528,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       if (split.hasConnectorSplit()) {
         maxSplitSequenceId =
             std::max(maxSplitSequenceId, protocolSplit.sequenceId);
+        LOG(ERROR) << "--------" << taskId << " add split:" << split.toString();
         execTask->addSplitWithSequence(
             source.planNodeId, std::move(split), protocolSplit.sequenceId);
       }

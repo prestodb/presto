@@ -186,6 +186,8 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
 
   const auto startProcessCpuTime = PrestoTask::getProcessCpuTime();
 
+  LOG(ERROR) << "-------- " << taskId << " createOrUpdateTaskImpl";
+
   return new http::CallbackRequestHandler(
       [this, taskId, createOrUpdateFunc, startProcessCpuTime](
           proxygen::HTTPMessage* /*message*/,

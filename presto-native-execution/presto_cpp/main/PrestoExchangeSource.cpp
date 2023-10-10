@@ -96,6 +96,10 @@ PrestoExchangeSource::PrestoExchangeSource(
   VELOX_CHECK_NOT_NULL(driverExecutor_);
   VELOX_CHECK_NOT_NULL(httpExecutor_);
   auto* ioEventBase = httpExecutor_->getEventBase();
+  LOG(ERROR) << "-------- "
+             << "create PrestoExchangeSource::PrestoExchangeSource, taskId:"
+             << extractTaskId(baseUri.path()) << ",destination:" << destination
+             << ",host_:" << host_ << "port_:" << port_;
   httpClient_ = std::make_shared<http::HttpClient>(
       ioEventBase,
       address,
@@ -232,6 +236,8 @@ void PrestoExchangeSource::processDataResponse(
                       .compare("true") == 0;
   if (complete) {
     VLOG(1) << "Received buffer-complete header for " << basePath_ << "/"
+            << sequence_;
+    LOG(ERROR) << "Received buffer-complete header for " << basePath_ << "/"
             << sequence_;
   }
 
