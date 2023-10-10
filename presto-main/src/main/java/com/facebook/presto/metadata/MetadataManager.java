@@ -91,7 +91,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -296,7 +295,6 @@ public class MetadataManager
             for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 metadata.listSchemaNames(connectorSession).stream()
-                        .map(schema -> schema.toLowerCase(Locale.ENGLISH))
                         .forEach(schemaNames::add);
             }
         }
@@ -493,7 +491,7 @@ public class MetadataManager
 
         ImmutableMap.Builder<String, ColumnHandle> map = ImmutableMap.builder();
         for (Entry<String, ColumnHandle> mapEntry : handles.entrySet()) {
-            map.put(mapEntry.getKey().toLowerCase(ENGLISH), mapEntry.getValue());
+            map.put(mapEntry.getKey(), mapEntry.getValue());
         }
         return map.build();
     }
@@ -662,7 +660,7 @@ public class MetadataManager
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        metadata.renameColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), source, target.toLowerCase(ENGLISH));
+        metadata.renameColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), source, target);
     }
 
     @Override

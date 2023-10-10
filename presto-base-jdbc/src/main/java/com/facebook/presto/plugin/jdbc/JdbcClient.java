@@ -35,7 +35,7 @@ public interface JdbcClient
 {
     default boolean schemaExists(ConnectorSession session, JdbcIdentity identity, String schema)
     {
-        return getSchemaNames(session, identity).contains(schema);
+        return getSchemaNames(session, identity).stream().anyMatch(schema::equalsIgnoreCase);
     }
 
     String getIdentifierQuote();

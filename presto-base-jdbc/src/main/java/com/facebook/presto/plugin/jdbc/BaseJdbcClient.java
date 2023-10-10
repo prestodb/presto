@@ -30,7 +30,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -77,7 +76,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -150,7 +148,6 @@ public class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             return listSchemas(connection).stream()
-                    .map(schemaName -> schemaName.toLowerCase(ENGLISH))
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
@@ -180,13 +177,12 @@ public class BaseJdbcClient
     public List<SchemaTableName> getTableNames(ConnectorSession session, JdbcIdentity identity, Optional<String> schema)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(identity, connection, schemaName));
-            try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
+            try (ResultSet resultSet = getTables(connection, schema, Optional.empty())) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
                     String tableSchema = getTableSchemaName(resultSet);
                     String tableName = resultSet.getString("TABLE_NAME");
-                    list.add(new SchemaTableName(tableSchema.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH)));
+                    list.add(new SchemaTableName(tableSchema, tableName));
                 }
                 return list.build();
             }
@@ -201,9 +197,7 @@ public class BaseJdbcClient
     public JdbcTableHandle getTableHandle(ConnectorSession session, JdbcIdentity identity, SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
+            try (ResultSet resultSet = getTables(connection, Optional.of(schemaTableName.getSchemaName()), Optional.of(schemaTableName.getTableName()))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
                     tableHandles.add(new JdbcTableHandle(
@@ -349,7 +343,7 @@ public class BaseJdbcClient
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         JdbcIdentity identity = JdbcIdentity.from(session);
-        if (!getSchemaNames(session, identity).contains(schemaTableName.getSchemaName())) {
+        if (!getSchemaNames(session, identity).stream().anyMatch(schemaTableName.getSchemaName()::equalsIgnoreCase)) {
             throw new PrestoException(NOT_FOUND, "Schema not found: " + schemaTableName.getSchemaName());
         }
 
@@ -620,7 +614,6 @@ public class BaseJdbcClient
     protected String toRemoteSchemaName(JdbcIdentity identity, Connection connection, String schemaName)
     {
         requireNonNull(schemaName, "schemaName is null");
-        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
 
         if (caseInsensitiveNameMatching) {
             try {
@@ -665,7 +658,6 @@ public class BaseJdbcClient
     {
         requireNonNull(remoteSchema, "remoteSchema is null");
         requireNonNull(tableName, "tableName is null");
-        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
 
         if (caseInsensitiveNameMatching) {
             try {

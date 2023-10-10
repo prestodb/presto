@@ -268,7 +268,6 @@ public class InformationSchemaMetadata
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             return schemas.get().stream()
-                    .filter(this::isLowerCase)
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                     .collect(toImmutableSet());
         }
@@ -293,8 +292,6 @@ public class InformationSchemaMetadata
         if (tables.isPresent()) {
             return prefixes.stream()
                     .flatMap(prefix -> tables.get().stream()
-                            .filter(this::isLowerCase)
-                            .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> metadataResolver.getView(objectName).isPresent() || metadataResolver.getTableHandle(objectName).isPresent())
                     .map(QualifiedTablePrefix::toQualifiedTablePrefix)
