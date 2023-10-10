@@ -702,7 +702,7 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           BOOL_PROP(
               QueryConfig::kAggregationSpillEnabled,
               c.aggregationSpillEnabled()),
-          BOOL_PROP(QueryConfig::kAggregationSpillAll, "true"),
+          BOOL_PROP(QueryConfig::kAggregationSpillAll, true),
           BOOL_PROP(QueryConfig::kJoinSpillEnabled, c.joinSpillEnabled()),
           BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
           NUM_PROP(
