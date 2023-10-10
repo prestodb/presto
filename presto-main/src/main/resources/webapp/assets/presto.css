@@ -541,6 +541,10 @@ pre {
     border: 1px #3a3a3a solid;
 }
 
+.nowrap {
+    white-space: nowrap;
+}
+
 /** Summary Section **/
 /** =============== **/
 
