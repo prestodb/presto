@@ -109,7 +109,7 @@ public class PrestoNativeQueryRunnerUtils
         return createJavaQueryRunner(dataDirectory, "sql-standard", storageFormat);
     }
 
-    public static QueryRunner createJavaQueryRunner(Optional<Path> baseDataDirectory, String security, String storageFormat)
+    public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory, String security, String storageFormat)
             throws Exception
     {
         ImmutableMap.Builder<String, String> hivePropertiesBuilder = new ImmutableMap.Builder<>();
@@ -121,7 +121,6 @@ public class PrestoNativeQueryRunnerUtils
             hivePropertiesBuilder.put("hive.allow-drop-table", "true");
         }
 
-        Optional<Path> dataDirectory = baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat));
         DistributedQueryRunner queryRunner =
                 HiveQueryRunner.createQueryRunner(
                         ImmutableList.of(),
@@ -159,7 +158,7 @@ public class PrestoNativeQueryRunnerUtils
                 "legacy",
                 getNativeWorkerHiveProperties(storageFormat),
                 workerCount,
-                Optional.of(Paths.get(dataDirectory + "/" + storageFormat)),
+                Optional.of(Paths.get(dataDirectory)),
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
                         Path tempDirectoryPath = Files.createTempDirectory(PrestoNativeQueryRunnerUtils.class.getSimpleName());

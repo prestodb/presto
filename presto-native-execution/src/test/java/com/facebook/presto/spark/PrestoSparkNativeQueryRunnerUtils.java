@@ -125,7 +125,7 @@ public class PrestoSparkNativeQueryRunnerUtils
         customizeLogging();
         return createRunner(
                 defaultCatalog,
-                Optional.of(getBaseDataPath()),
+                Optional.of(getDataPath()),
                 getNativeExecutionSessionConfigs(),
                 getNativeExecutionShuffleConfigs(),
                 ImmutableList.of(nativeExecutionModule));
@@ -140,11 +140,10 @@ public class PrestoSparkNativeQueryRunnerUtils
                         Optional.of(new NativeExecutionConnectorConfig().setConnectorName("tpch"))));
     }
 
-    public static PrestoSparkQueryRunner createRunner(String defaultCatalog, Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
+    public static PrestoSparkQueryRunner createRunner(String defaultCatalog, Optional<Path> dataDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
     {
         ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
         configBuilder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
-        Optional<Path> dataDir = baseDir.map(path -> Paths.get(path.toString() + '/' + DEFAULT_STORAGE_FORMAT));
         PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner(
                 defaultCatalog,
                 configBuilder.build(),
@@ -164,7 +163,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy", DEFAULT_STORAGE_FORMAT);
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getDataPath()), "legacy", DEFAULT_STORAGE_FORMAT);
     }
 
     public static void assertShuffleMetadata()
@@ -205,7 +204,7 @@ public class PrestoSparkNativeQueryRunnerUtils
         return sparkConfigs.build();
     }
 
-    public static synchronized Path getBaseDataPath()
+    public static synchronized Path getDataPath()
     {
         if (dataDirectory.isPresent()) {
             return dataDirectory.get();
