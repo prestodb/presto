@@ -511,6 +511,25 @@ dropping the table from the metadata catalog using ``TRUNCATE TABLE``.
     -----------+------+-----------+---------
     (0 rows)
 
+DELETE
+^^^^^^^^
+
+The iceberg connector can delete data in one or more entire partitions from tables by using ``DELETE FROM``. For example, to delete from the table ``lineitem``::
+
+     DELETE FROM lineitem;
+
+     DELETE FROM lineitem WHERE linenumber = 1;
+
+     DELETE FROM lineitem WHERE linenumber not in (1, 3, 5, 7) and linestatus in ('O', 'F');
+
+.. note::
+
+    Columns in the filter must all be identity transformed partition columns of the target table.
+
+    Filtered columns only support comparison operators, such as EQUALS, LESS THAN, or LESS THAN EQUALS.
+
+    Deletes must only occur on the latest snapshot.
+
 DROP TABLE
 ^^^^^^^^^^^
 

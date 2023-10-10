@@ -23,6 +23,7 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
@@ -57,6 +58,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPS
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Lists.reverse;
@@ -85,6 +87,13 @@ public final class IcebergUtil
     public static boolean isIcebergTable(com.facebook.presto.hive.metastore.Table table)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
+    }
+
+    public static Table getIcebergTable(ConnectorMetadata metadata, ConnectorSession session, SchemaTableName table)
+    {
+        checkArgument(metadata instanceof IcebergAbstractMetadata, "metadata must be instance of IcebergAbstractMetadata!");
+        IcebergAbstractMetadata icebergMetadata = (IcebergAbstractMetadata) metadata;
+        return icebergMetadata.getIcebergTable(session, table);
     }
 
     public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
