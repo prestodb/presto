@@ -175,6 +175,13 @@ DEFINE_int32(
     512 << 10,
     "Maximum distance in bytes in which coalesce will combine requests");
 
+DEFINE_int32(
+    parquet_prefetch_rowgroups,
+    1,
+    "Number of next row groups to "
+    "prefetch. 1 means prefetch the next row group before decoding "
+    "the current one");
+
 struct RunStats {
   std::map<std::string, std::string> flags;
   int64_t micros{0};

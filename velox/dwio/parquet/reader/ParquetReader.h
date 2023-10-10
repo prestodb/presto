@@ -64,6 +64,11 @@ class ParquetRowReader : public dwio::common::RowReader {
     return true;
   }
 
+  // Checks if the specific row group is buffered.
+  // Returns false if the row group is not loaded into buffer
+  // or the buffered data has been evicted.
+  bool isRowGroupBuffered(int32_t rowGroupIndex) const;
+
  private:
   // Compares row group  metadata to filters in ScanSpec in options of
   // ReaderBase and determines the set of row groups to scan.

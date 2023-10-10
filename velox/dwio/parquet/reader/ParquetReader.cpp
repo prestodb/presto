@@ -21,13 +21,6 @@
 #include "velox/dwio/parquet/reader/StructColumnReader.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
 
-DEFINE_int32(
-    parquet_prefetch_rowgroups,
-    1,
-    "Number of next row groups to "
-    "prefetch. 1 means prefetch the next row group before decoding "
-    "the current one");
-
 namespace facebook::velox::parquet {
 
 using dwio::common::ColumnSelector;
@@ -81,11 +74,14 @@ class ReaderBase {
       StructColumnReader& reader);
 
   /// Returns the uncompressed size for columns in 'type' and its children in
-  /// row
-  /// group.
+  /// row group.
   int64_t rowGroupUncompressedSize(
       int32_t rowGroupIndex,
       const dwio::common::TypeWithId& type) const;
+
+  /// Checks whether the specific row group has been loaded and
+  /// the data still exists in the buffered inputs.
+  bool isRowGroupBuffered(int32_t rowGroupIndex) const;
 
  private:
   // Reads and parses file footer.
@@ -578,11 +574,10 @@ void ReaderBase::scheduleRowGroups(
   if (!input) {
     inputs_[thisGroup] = reader.loadRowGroup(thisGroup, input_);
   }
-  for (auto counter = 0; counter < FLAGS_parquet_prefetch_rowgroups;
-       ++counter) {
+  for (auto counter = 0; counter < options_.prefetchRowGroups(); ++counter) {
     if (nextGroup) {
-      if (inputs_.count(nextGroup) != 0) {
-        inputs_[nextGroup] = reader.loadRowGroup(thisGroup, input_);
+      if (inputs_.count(nextGroup) == 0) {
+        inputs_[nextGroup] = reader.loadRowGroup(nextGroup, input_);
       }
     } else {
       break;
@@ -590,7 +585,7 @@ void ReaderBase::scheduleRowGroups(
     nextGroup =
         nextGroup + 1 < rowGroupIds.size() ? rowGroupIds[nextGroup + 1] : 0;
   }
-  if (currentGroup > 1) {
+  if (currentGroup >= 1) {
     inputs_.erase(rowGroupIds[currentGroup - 1]);
   }
 }
@@ -608,6 +603,10 @@ int64_t ReaderBase::rowGroupUncompressedSize(
     sum += rowGroupUncompressedSize(rowGroupIndex, *child);
   }
   return sum;
+}
+
+bool ReaderBase::isRowGroupBuffered(int32_t rowGroupIndex) const {
+  return inputs_.count(rowGroupIndex) != 0;
 }
 
 ParquetRowReader::ParquetRowReader(
@@ -750,6 +749,10 @@ void ParquetRowReader::updateRuntimeStats(
 
 void ParquetRowReader::resetFilterCaches() {
   columnReader_->resetFilterCaches();
+}
+
+bool ParquetRowReader::isRowGroupBuffered(int32_t rowGroupIndex) const {
+  return readerBase_->isRowGroupBuffered(rowGroupIndex);
 }
 
 std::optional<size_t> ParquetRowReader::estimatedRowSize() const {

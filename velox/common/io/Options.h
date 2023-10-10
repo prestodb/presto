@@ -64,11 +64,13 @@ class ReaderOptions {
   int32_t loadQuantum_{kDefaultLoadQuantum};
   int32_t maxCoalesceDistance_{kDefaultCoalesceDistance};
   int64_t maxCoalesceBytes_{kDefaultCoalesceBytes};
+  int32_t prefetchRowGroups_{kDefaultPrefetchRowGroups};
 
  public:
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
   static constexpr int32_t kDefaultCoalesceDistance = 512 << 10; // 512K
   static constexpr int32_t kDefaultCoalesceBytes = 128 << 20; // 128M
+  static constexpr int32_t kDefaultPrefetchRowGroups = 1;
 
   explicit ReaderOptions(velox::memory::MemoryPool* pool)
       : memoryPool(pool),
@@ -81,6 +83,7 @@ class ReaderOptions {
     prefetchMode = other.prefetchMode;
     maxCoalesceDistance_ = other.maxCoalesceDistance_;
     maxCoalesceBytes_ = other.maxCoalesceBytes_;
+    prefetchRowGroups_ = other.prefetchRowGroups_;
     return *this;
   }
 
@@ -135,6 +138,14 @@ class ReaderOptions {
   }
 
   /**
+   * Modify the number of row groups to prefetch.
+   */
+  ReaderOptions& setPrefetchRowGroups(int32_t numPrefetch) {
+    prefetchRowGroups_ = numPrefetch;
+    return *this;
+  }
+
+  /**
    * Get the memory allocator.
    */
   velox::memory::MemoryPool& getMemoryPool() const {
@@ -159,6 +170,10 @@ class ReaderOptions {
 
   int64_t maxCoalesceBytes() const {
     return maxCoalesceBytes_;
+  }
+
+  int64_t prefetchRowGroups() const {
+    return prefetchRowGroups_;
   }
 };
 } // namespace facebook::velox::io
