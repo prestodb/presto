@@ -67,7 +67,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
       int64_t maxMemory = memory::kMaxMemory) {
     auto configCopy = configSettings_;
     auto queryCtx = std::make_shared<core::QueryCtx>(
-        executor_.get(), std::move(configCopy));
+        executor_.get(), core::QueryConfig(std::move(configCopy)));
     queryCtx->testingOverrideMemoryPool(
         memory::defaultMemoryManager().addRootPool(
             queryCtx->queryId(), maxMemory));

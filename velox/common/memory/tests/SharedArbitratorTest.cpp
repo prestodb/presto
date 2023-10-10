@@ -353,7 +353,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
                              : MemoryReclaimer::create());
     auto queryCtx = std::make_shared<core::QueryCtx>(
         executor_.get(),
-        std::unordered_map<std::string, std::string>{},
+        core::QueryConfig({}),
         configs,
         cache::AsyncDataCache::getInstance(),
         std::move(pool));

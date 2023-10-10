@@ -414,8 +414,8 @@ class ParameterizedExprTest : public ExprTest,
     std::unordered_map<std::string, std::string> configData(
         {{core::QueryConfig::kEnableExpressionEvaluationCache,
           GetParam() ? "true" : "false"}});
-    queryCtx_ =
-        std::make_shared<core::QueryCtx>(nullptr, std::move(configData));
+    queryCtx_ = std::make_shared<core::QueryCtx>(
+        nullptr, core::QueryConfig(std::move(configData)));
     execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
   }
 };

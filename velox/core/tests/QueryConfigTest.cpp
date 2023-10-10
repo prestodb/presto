@@ -178,4 +178,63 @@ TEST(TestQueryConfig, enableExpressionEvaluationCacheConfig) {
   testConfig(false);
 }
 
+TEST(TestQueryConfig, capacityConversion) {
+  folly::Random::DefaultGenerator rng;
+  rng.seed(1);
+
+  std::unordered_map<CapacityUnit, std::string> unitStrLookup{
+      {CapacityUnit::BYTE, "B"},
+      {CapacityUnit::KILOBYTE, "kB"},
+      {CapacityUnit::MEGABYTE, "MB"},
+      {CapacityUnit::GIGABYTE, "GB"},
+      {CapacityUnit::TERABYTE, "TB"},
+      {CapacityUnit::PETABYTE, "PB"}};
+
+  std::vector<std::pair<CapacityUnit, double>> units{
+      {CapacityUnit::BYTE, 1},
+      {CapacityUnit::KILOBYTE, 1024},
+      {CapacityUnit::MEGABYTE, 1024 * 1024},
+      {CapacityUnit::GIGABYTE, 1024 * 1024 * 1024},
+      {CapacityUnit::TERABYTE, 1024ll * 1024 * 1024 * 1024},
+      {CapacityUnit::PETABYTE, 1024ll * 1024 * 1024 * 1024 * 1024}};
+  for (int32_t i = 0; i < units.size(); i++) {
+    for (int32_t j = 0; j < units.size(); j++) {
+      // We use this diffRatio to prevent float conversion overflow when
+      // converting from one unit to another.
+      uint64_t diffRatio = i < j ? units[j].second / units[i].second
+                                 : units[i].second / units[j].second;
+      uint64_t randNumber = folly::Random::rand64(rng);
+      uint64_t testNumber = i > j ? randNumber / diffRatio : randNumber;
+      ASSERT_EQ(
+          toCapacity(
+              std::string(
+                  std::to_string(testNumber) + unitStrLookup[units[i].first]),
+              units[j].first),
+          (uint64_t)(testNumber * (units[i].second / units[j].second)));
+    }
+  }
+}
+
+TEST(TestQueryConfig, durationConversion) {
+  folly::Random::DefaultGenerator rng;
+  rng.seed(1);
+
+  std::vector<std::pair<std::string, uint64_t>> units{
+      {"ns", 1},
+      {"us", 1000},
+      {"ms", 1000 * 1000},
+      {"s", 1000ll * 1000 * 1000},
+      {"m", 1000ll * 1000 * 1000 * 60},
+      {"h", 1000ll * 1000 * 1000 * 60 * 60},
+      {"d", 1000ll * 1000 * 1000 * 60 * 60 * 24}};
+  for (uint32_t i = 0; i < units.size(); i++) {
+    auto testNumber = folly::Random::rand32(rng) % 10000;
+    auto duration =
+        toDuration(std::string(std::to_string(testNumber) + units[i].first));
+    ASSERT_EQ(
+        testNumber * units[i].second,
+        std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count());
+  }
+}
+
 } // namespace facebook::velox::core::test

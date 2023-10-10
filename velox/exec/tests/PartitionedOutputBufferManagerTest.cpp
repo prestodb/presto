@@ -68,7 +68,7 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
           std::to_string(maxPartitionedOutputBufferSize);
     }
     auto queryCtx = std::make_shared<core::QueryCtx>(
-        executor_.get(), std::move(configSettings));
+        executor_.get(), core::QueryConfig(std::move(configSettings)));
 
     auto task =
         Task::create(taskId, std::move(planFragment), 0, std::move(queryCtx));

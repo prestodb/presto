@@ -18,6 +18,24 @@
 #include "velox/core/Config.h"
 
 namespace facebook::velox::core {
+enum class CapacityUnit {
+  BYTE,
+  KILOBYTE,
+  MEGABYTE,
+  GIGABYTE,
+  TERABYTE,
+  PETABYTE
+};
+
+double toBytesPerCapacityUnit(CapacityUnit unit);
+
+CapacityUnit valueOfCapacityUnit(const std::string& unitStr);
+
+/// Convert capacity string with unit to the capacity number in the specified
+/// units
+uint64_t toCapacity(const std::string& from, CapacityUnit to);
+
+std::chrono::duration<double> toDuration(const std::string& str);
 
 /// A simple wrapper around velox::Config. Defines constants for query
 /// config properties and accessor methods.
@@ -32,40 +50,45 @@ class QueryConfig {
 
   static constexpr const char* kCodegenEnabled = "codegen.enabled";
 
+  /// Maximum memory that a query can use on a single host.
+  static constexpr const char* kQueryMaxMemoryPerNode =
+      "query_max_memory_per_node";
+
   static constexpr const char* kCodegenConfigurationFilePath =
       "codegen.configuration_file_path";
 
   static constexpr const char* kCodegenLazyLoading = "codegen.lazy_loading";
 
-  // User provided session timezone. Stores a string with the actual timezone
-  // name, e.g: "America/Los_Angeles".
+  /// User provided session timezone. Stores a string with the actual timezone
+  /// name, e.g: "America/Los_Angeles".
   static constexpr const char* kSessionTimezone = "session_timezone";
 
-  // If true, timezone-less timestamp conversions (e.g. string to timestamp,
-  // when the string does not specify a timezone) will be adjusted to the user
-  // provided session timezone (if any).
-  //
-  // For instance:
-  //
-  //  if this option is true and user supplied "America/Los_Angeles",
-  //  "1970-01-01" will be converted to -28800 instead of 0.
-  //
-  // False by default.
+  /// If true, timezone-less timestamp conversions (e.g. string to timestamp,
+  /// when the string does not specify a timezone) will be adjusted to the user
+  /// provided session timezone (if any).
+  ///
+  /// For instance:
+  ///
+  ///  if this option is true and user supplied "America/Los_Angeles",
+  ///  "1970-01-01" will be converted to -28800 instead of 0.
+  ///
+  /// False by default.
   static constexpr const char* kAdjustTimestampToTimezone =
       "adjust_timestamp_to_session_timezone";
 
-  // Whether to use the simplified expression evaluation path. False by default.
+  /// Whether to use the simplified expression evaluation path. False by
+  /// default.
   static constexpr const char* kExprEvalSimplified =
       "expression.eval_simplified";
 
-  // Whether to track CPU usage for individual expressions (supported by call
-  // and cast expressions). False by default. Can be expensive when processing
-  // small batches, e.g. < 10K rows.
+  /// Whether to track CPU usage for individual expressions (supported by call
+  /// and cast expressions). False by default. Can be expensive when processing
+  /// small batches, e.g. < 10K rows.
   static constexpr const char* kExprTrackCpuUsage =
       "expression.track_cpu_usage";
 
-  // Whether to track CPU usage for stages of individual operators. True by
-  // default. Can be expensive when processing small batches, e.g. < 10K rows.
+  /// Whether to track CPU usage for stages of individual operators. True by
+  /// default. Can be expensive when processing small batches, e.g. < 10K rows.
   static constexpr const char* kOperatorTrackCpuUsage =
       "track_operator_cpu_usage";
 
@@ -284,6 +307,11 @@ class QueryConfig {
   /// disable the caches.
   static constexpr const char* kEnableExpressionEvaluationCache =
       "enable_expression_evaluation_cache";
+
+  uint64_t queryMaxMemoryPerNode() const {
+    return toCapacity(
+        get<std::string>(kQueryMaxMemoryPerNode, "0B"), CapacityUnit::BYTE);
+  }
 
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;

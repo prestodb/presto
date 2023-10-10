@@ -553,8 +553,8 @@ TEST_F(DriverTest, pause) {
   // Make sure CPU usage tracking is enabled.
   std::unordered_map<std::string, std::string> queryConfig{
       {core::QueryConfig::kOperatorTrackCpuUsage, "true"}};
-  params.queryCtx =
-      std::make_shared<core::QueryCtx>(executor_.get(), std::move(queryConfig));
+  params.queryCtx = std::make_shared<core::QueryCtx>(
+      executor_.get(), core::QueryConfig(std::move(queryConfig)));
   int32_t numRead = 0;
   readResults(params, ResultOperation::kPause, 370'000'000, &numRead);
   // Each thread will fully read the 1M rows in values.
