@@ -13,7 +13,6 @@
  */
 
 import React from "react";
-import Reactable from "reactable";
 
 import {
     addToHistory,
@@ -38,14 +37,8 @@ import {
 } from "../utils";
 import {QueryHeader} from "./QueryHeader";
 
-const Table = Reactable.Table,
-    Thead = Reactable.Thead,
-    Th = Reactable.Th,
-    Tr = Reactable.Tr,
-    Td = Reactable.Td;
-
-class TaskList extends React.Component {
-    static removeQueryId(id) {
+function TaskList({tasks}) {
+    function removeQueryId(id) {
         const pos = id.indexOf('.');
         if (pos !== -1) {
             return id.substring(pos + 1);
@@ -53,9 +46,9 @@ class TaskList extends React.Component {
         return id;
     }
 
-    static compareTaskId(taskA, taskB) {
-        const taskIdArrA = TaskList.removeQueryId(taskA).split(".");
-        const taskIdArrB = TaskList.removeQueryId(taskB).split(".");
+    function compareTaskId(taskA, taskB) {
+        const taskIdArrA = removeQueryId(taskA).split(".");
+        const taskIdArrB = removeQueryId(taskB).split(".");
 
         if (taskIdArrA.length > taskIdArrB.length) {
             return 1;
@@ -71,11 +64,11 @@ class TaskList extends React.Component {
         return 0;
     }
 
-    static showPortNumbers(tasks) {
+    function showPortNumbers(items) {
         // check if any host has multiple port numbers
         const hostToPortNumber = {};
-        for (let i = 0; i < tasks.length; i++) {
-            const taskUri = tasks[i].taskStatus.self;
+        for (let i = 0; i < items.length; i++) {
+            const taskUri = items[i].taskStatus.self;
             const hostname = getHostname(taskUri);
             const port = getPort(taskUri);
             if ((hostname in hostToPortNumber) && (hostToPortNumber[hostname] !== port)) {
@@ -87,7 +80,7 @@ class TaskList extends React.Component {
         return false;
     }
 
-    static formatState(state, fullyBlocked) {
+    function formatState(state, fullyBlocked) {
         if (fullyBlocked && state === "RUNNING") {
             return "BLOCKED";
         }
@@ -96,127 +89,124 @@ class TaskList extends React.Component {
         }
     }
 
-    render() {
-        const tasks = this.props.tasks;
 
-        if (tasks === undefined || tasks.length === 0) {
-            return (
-                <div className="row error-message">
-                    <div className="col-xs-12"><h4>No threads in the selected group</h4></div>
-                </div>);
+    if (tasks === undefined || tasks.length === 0) {
+        return (
+            <div className="row error-message">
+                <div className="col-xs-12"><h4>No threads in the selected group</h4></div>
+            </div>);
+    }
+
+    const showingPortNumbers = showPortNumbers(tasks);
+
+    const renderedTasks = tasks.map((task, idx) => {
+        let elapsedTime = parseDuration(task.stats.elapsedTimeInNanos + "ns");
+        if (elapsedTime === 0) {
+            elapsedTime = Date.now() - Date.parse(task.stats.createTime);
         }
 
-        const showPortNumbers = TaskList.showPortNumbers(tasks);
-
-        const renderedTasks = tasks.map(task => {
-            let elapsedTime = parseDuration(task.stats.elapsedTimeInNanos + "ns");
-            if (elapsedTime === 0) {
-                elapsedTime = Date.now() - Date.parse(task.stats.createTime);
-            }
-
-            return (
-                <Tr key={task.taskId}>
-                    <Td column="id" value={task.taskId}>
-                        <a href={"/v1/taskInfo/" + task.taskId + "?pretty"}>
-                            {getTaskIdSuffix(task.taskId)}
-                        </a>
-                    </Td>
-                    <Td column="host" value={getHostname(task.taskStatus.self)}>
-                        <a href={"worker.html?" + task.nodeId} className="font-light" target="_blank">
-                            {showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self)}
-                        </a>
-                    </Td>
-                    <Td column="state" value={TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}>
-                        {TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}
-                    </Td>
-                    <Td column="rows" value={task.stats.rawInputPositions}>
-                        {formatCount(task.stats.rawInputPositions)}
-                    </Td>
-                    <Td column="rowsSec" value={computeRate(task.stats.rawInputPositions, elapsedTime)}>
-                        {formatCount(computeRate(task.stats.rawInputPositions, elapsedTime))}
-                    </Td>
-                    <Td column="bytes" value={task.stats.rawInputDataSizeInBytes}>
-                        {formatDataSizeBytes(task.stats.rawInputDataSizeInBytes)}
-                    </Td>
-                    <Td column="bytesSec" value={computeRate(task.stats.rawInputDataSizeInBytes, elapsedTime)}>
-                        {formatDataSizeBytes(computeRate(task.stats.rawInputDataSizeInBytes, elapsedTime))}
-                    </Td>
-                    <Td column="splitsPending" value={task.stats.queuedDrivers}>
-                        {task.stats.queuedDrivers}
-                    </Td>
-                    <Td column="splitsRunning" value={task.stats.runningDrivers}>
-                        {task.stats.runningDrivers}
-                    </Td>
-                    <Td column="splitsBlocked" value={task.stats.blockedDrivers}>
-                        {task.stats.blockedDrivers}
-                    </Td>
-                    <Td column="splitsDone" value={task.stats.completedDrivers}>
-                        {task.stats.completedDrivers}
-                    </Td>
-                    <Td column="elapsedTime" value={parseDuration(task.stats.elapsedTimeInNanos + "ns")}>
-                        {formatDuration(parseDuration(task.stats.elapsedTimeInNanos + "ns"))}
-                    </Td>
-                    <Td column="cpuTime" value={parseDuration(task.stats.totalCpuTimeInNanos + "ns")}>
-                        {formatDuration(parseDuration(task.stats.totalCpuTimeInNanos + "ns"))}
-                    </Td>
-                    <Td column="bufferedBytes" value={task.outputBuffers.totalBufferedBytes}>
-                        {formatDataSizeBytes(task.outputBuffers.totalBufferedBytes)}
-                    </Td>
-                </Tr>
-            );
-        });
-
         return (
-            <Table id="tasks" className="table table-striped sortable" sortable=
-                {[
-                    {
-                        column: 'id',
-                        sortFunction: TaskList.compareTaskId
-                    },
-                    'host',
-                    'state',
-                    'splitsPending',
-                    'splitsRunning',
-                    'splitsBlocked',
-                    'splitsDone',
-                    'rows',
-                    'rowsSec',
-                    'bytes',
-                    'bytesSec',
-                    'elapsedTime',
-                    'cpuTime',
-                    'bufferedBytes',
-                ]}
-                   defaultSort={{column: 'id', direction: 'asc'}}>
-                <Thead>
-                    <Th column="id">ID</Th>
-                    <Th column="host">Host</Th>
-                    <Th column="state">State</Th>
-                    <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}
-                                                     data-toggle="tooltip" data-placement="top"
-                                                     title="Pending splits"/></Th>
-                    <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}
-                                                     data-toggle="tooltip" data-placement="top"
-                                                     title="Running splits"/></Th>
-                    <Th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark"
-                                                     style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip"
-                                                     data-placement="top"
-                                                     title="Blocked splits"/></Th>
-                    <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}
-                                                  data-toggle="tooltip" data-placement="top"
-                                                  title="Completed splits"/></Th>
-                    <Th column="rows">Rows</Th>
-                    <Th column="rowsSec">Rows/s</Th>
-                    <Th column="bytes">Bytes</Th>
-                    <Th column="bytesSec">Bytes/s</Th>
-                    <Th column="elapsedTime">Elapsed</Th>
-                    <Th column="cpuTime">CPU Time</Th>
-                    <Th column="bufferedBytes">Buffered</Th>
-                </Thead>
-                {renderedTasks}
-            </Table>
+            <tr key={task.taskId} style={idx % 2 === 0 ? {backgroundColor: "#4A4A4A"}: {}}>
+                <td column="id" value={task.taskId}>
+                    <a href={"/v1/taskInfo/" + task.taskId + "?pretty"}>
+                        {getTaskIdSuffix(task.taskId)}
+                    </a>
+                </td>
+                <td column="host" value={getHostname(task.taskStatus.self)}>
+                    <a href={"worker.html?" + task.nodeId} className="font-light" target="_blank">
+                        {showingPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self)}
+                    </a>
+                </td>
+                <td column="state" value={formatState(task.taskStatus.state, task.stats.fullyBlocked)}>
+                    {formatState(task.taskStatus.state, task.stats.fullyBlocked)}
+                </td>
+                <td column="rows" value={task.stats.rawInputPositions}>
+                    {formatCount(task.stats.rawInputPositions)}
+                </td>
+                <td column="rowsSec" value={computeRate(task.stats.rawInputPositions, elapsedTime)}>
+                    {formatCount(computeRate(task.stats.rawInputPositions, elapsedTime))}
+                </td>
+                <td column="bytes" value={task.stats.rawInputDataSizeInBytes}>
+                    {formatDataSizeBytes(task.stats.rawInputDataSizeInBytes)}
+                </td>
+                <td column="bytesSec" value={computeRate(task.stats.rawInputDataSizeInBytes, elapsedTime)}>
+                    {formatDataSizeBytes(computeRate(task.stats.rawInputDataSizeInBytes, elapsedTime))}
+                </td>
+                <td column="splitsPending" value={task.stats.queuedDrivers}>
+                    {task.stats.queuedDrivers}
+                </td>
+                <td column="splitsRunning" value={task.stats.runningDrivers}>
+                    {task.stats.runningDrivers}
+                </td>
+                <td column="splitsBlocked" value={task.stats.blockedDrivers}>
+                    {task.stats.blockedDrivers}
+                </td>
+                <td column="splitsDone" value={task.stats.completedDrivers}>
+                    {task.stats.completedDrivers}
+                </td>
+                <td column="elapsedTime" value={parseDuration(task.stats.elapsedTimeInNanos + "ns")}>
+                    {formatDuration(parseDuration(task.stats.elapsedTimeInNanos + "ns"))}
+                </td>
+                <td column="cpuTime" value={parseDuration(task.stats.totalCpuTimeInNanos + "ns")}>
+                    {formatDuration(parseDuration(task.stats.totalCpuTimeInNanos + "ns"))}
+                </td>
+                <td column="bufferedBytes" value={task.outputBuffers.totalBufferedBytes}>
+                    {formatDataSizeBytes(task.outputBuffers.totalBufferedBytes)}
+                </td>
+            </tr>
         );
-    }
+    });
+
+    return (
+        <table rules="rows" id="tasks" className="table table-striped sortable" sortable=
+            {[
+                {
+                    column: 'id',
+                    sortFunction: compareTaskId
+                },
+                'host',
+                'state',
+                'splitsPending',
+                'splitsRunning',
+                'splitsBlocked',
+                'splitsDone',
+                'rows',
+                'rowsSec',
+                'bytes',
+                'bytesSec',
+                'elapsedTime',
+                'cpuTime',
+                'bufferedBytes',
+            ]}
+                defaultSort={{column: 'id', direction: 'asc'}}>
+            <thead>
+                <th column="id">ID</th>
+                <th column="host">Host</th>
+                <th column="state">State</th>
+                <th column="splitsPending"><span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}
+                                                    data-toggle="tooltip" data-placement="top"
+                                                    title="Pending splits"/></th>
+                <th column="splitsRunning"><span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}
+                                                    data-toggle="tooltip" data-placement="top"
+                                                    title="Running splits"/></th>
+                <th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark"
+                                                    style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip"
+                                                    data-placement="top"
+                                                    title="Blocked splits"/></th>
+                <th column="splitsDone"><span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}
+                                                data-toggle="tooltip" data-placement="top"
+                                                title="Completed splits"/></th>
+                <th column="rows">Rows</th>
+                <th column="rowsSec">Rows/s</th>
+                <th column="bytes">Bytes</th>
+                <th column="bytesSec">Bytes/s</th>
+                <th column="elapsedTime">Elapsed</th>
+                <th column="cpuTime">CPU Time</th>
+                <th column="bufferedBytes">Buffered</th>
+            </thead>
+            {renderedTasks}
+        </table>
+    );
 }
 
 const BAR_CHART_WIDTH = 800;
