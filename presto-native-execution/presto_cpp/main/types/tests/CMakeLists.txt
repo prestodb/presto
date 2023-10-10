@@ -78,3 +78,6 @@ target_link_libraries(
   ${GLOG}
   ${GFLAGS_LIBRARIES}
   pthread)
+
+set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
+                                                     presto_link_job_pool)

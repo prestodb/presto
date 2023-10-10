@@ -46,7 +46,8 @@ target_link_libraries(
   gtest
   gtest_main)
 
-set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK link_job_pool)
+set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK
+                                                presto_link_job_pool)
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_executable(presto_server_remote_function_test
@@ -83,3 +84,6 @@ target_link_libraries(
   ${ANTLR4_RUNTIME}
   velox_dwio_dwrf_writer
   velox_exec_test_lib)
+
+set_property(TARGET presto_query_runner_test PROPERTY JOB_POOL_LINK
+                                                      presto_link_job_pool)
