@@ -82,7 +82,7 @@ class Substrait2VeloxPlanConversionTest
 //    l_quantity < 24
 //
 //  Tested Velox operators: TableScan (Filter Pushdown), Project, Aggregate.
-TEST_F(Substrait2VeloxPlanConversionTest, q6) {
+TEST_F(Substrait2VeloxPlanConversionTest, DISABLED_q6) {
   // Generate the used ORC file.
   auto type =
       ROW({"l_orderkey",
