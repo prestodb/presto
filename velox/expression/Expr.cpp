@@ -1000,7 +1000,7 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
 
   // If the expression depends on one dictionary, results are cacheable.
   bool mayCache = false;
-  if (context.isCacheEnabled()) {
+  if (context.cacheEnabled()) {
     mayCache = distinctFields_.size() == 1 &&
         VectorEncoding::isDictionary(context.wrapEncoding()) &&
         !peeledVectors[0]->memoDisabled();

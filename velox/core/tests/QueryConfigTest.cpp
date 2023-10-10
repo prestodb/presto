@@ -152,14 +152,12 @@ TEST(TestQueryConfig, enableExpressionEvaluationCacheConfig) {
         enableExpressionEvaluationCache);
 
     auto execCtx = std::make_shared<core::ExecCtx>(pool_.get(), queryCtx.get());
-    ASSERT_EQ(
-        execCtx->isExpressionEvaluationCacheEnabled(),
-        enableExpressionEvaluationCache);
+    ASSERT_EQ(execCtx->exprEvalCacheEnabled(), enableExpressionEvaluationCache);
     ASSERT_EQ(
         execCtx->vectorPool() != nullptr, enableExpressionEvaluationCache);
 
     auto evalCtx = std::make_shared<exec::EvalCtx>(execCtx.get());
-    ASSERT_EQ(evalCtx->isCacheEnabled(), enableExpressionEvaluationCache);
+    ASSERT_EQ(evalCtx->cacheEnabled(), enableExpressionEvaluationCache);
 
     // Test ExecCtx::selectivityVectorPool_.
     auto rows = execCtx->getSelectivityVector(100);

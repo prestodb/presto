@@ -147,13 +147,12 @@ class ExecCtx {
   ExecCtx(memory::MemoryPool* pool, QueryCtx* queryCtx)
       : pool_(pool),
         queryCtx_(queryCtx),
-        isExpressionEvaluationCacheEnabled_(
+        exprEvalCacheEnabled_(
             !queryCtx ||
             queryCtx->queryConfig().isExpressionEvaluationCacheEnabled()),
         vectorPool_(
-            isExpressionEvaluationCacheEnabled_
-                ? std::make_unique<VectorPool>(pool)
-                : nullptr) {}
+            exprEvalCacheEnabled_ ? std::make_unique<VectorPool>(pool)
+                                  : nullptr) {}
 
   velox::memory::MemoryPool* pool() const {
     return pool_;
@@ -170,8 +169,8 @@ class ExecCtx {
   /// Prefer using LocalSelectivityVector which takes care of returning the
   /// vector to the pool on destruction.
   std::unique_ptr<SelectivityVector> getSelectivityVector(int32_t size) {
-    if (!isExpressionEvaluationCacheEnabled_ ||
-        selectivityVectorPool_.empty()) {
+    VELOX_CHECK(exprEvalCacheEnabled_ || selectivityVectorPool_.empty());
+    if (selectivityVectorPool_.empty()) {
       return std::make_unique<SelectivityVector>(size);
     }
     auto vector = std::move(selectivityVectorPool_.back());
@@ -184,8 +183,8 @@ class ExecCtx {
   // content. The caller is responsible for setting the size and
   // assigning the contents.
   std::unique_ptr<SelectivityVector> getSelectivityVector() {
-    if (!isExpressionEvaluationCacheEnabled_ ||
-        selectivityVectorPool_.empty()) {
+    VELOX_CHECK(exprEvalCacheEnabled_ || selectivityVectorPool_.empty());
+    if (selectivityVectorPool_.empty()) {
       return std::make_unique<SelectivityVector>();
     }
     auto vector = std::move(selectivityVectorPool_.back());
@@ -195,7 +194,7 @@ class ExecCtx {
 
   // Returns true if the vector was moved into the pool.
   bool releaseSelectivityVector(std::unique_ptr<SelectivityVector>&& vector) {
-    if (isExpressionEvaluationCacheEnabled_) {
+    if (exprEvalCacheEnabled_) {
       selectivityVectorPool_.push_back(std::move(vector));
       return true;
     }
@@ -203,7 +202,8 @@ class ExecCtx {
   }
 
   std::unique_ptr<DecodedVector> getDecodedVector() {
-    if (!isExpressionEvaluationCacheEnabled_ || decodedVectorPool_.empty()) {
+    VELOX_CHECK(exprEvalCacheEnabled_ || decodedVectorPool_.empty());
+    if (decodedVectorPool_.empty()) {
       return std::make_unique<DecodedVector>();
     }
     auto vector = std::move(decodedVectorPool_.back());
@@ -213,7 +213,7 @@ class ExecCtx {
 
   // Returns true if the vector was moved into the pool.
   bool releaseDecodedVector(std::unique_ptr<DecodedVector>&& vector) {
-    if (isExpressionEvaluationCacheEnabled_) {
+    if (exprEvalCacheEnabled_) {
       decodedVectorPool_.push_back(std::move(vector));
       return true;
     }
@@ -252,8 +252,8 @@ class ExecCtx {
     return 0;
   }
 
-  bool isExpressionEvaluationCacheEnabled() const {
-    return isExpressionEvaluationCacheEnabled_;
+  bool exprEvalCacheEnabled() const {
+    return exprEvalCacheEnabled_;
   }
 
  private:
@@ -261,7 +261,7 @@ class ExecCtx {
   memory::MemoryPool* const pool_;
   QueryCtx* const queryCtx_;
 
-  const bool isExpressionEvaluationCacheEnabled_;
+  const bool exprEvalCacheEnabled_;
   // A pool of preallocated DecodedVectors for use by expressions and operators.
   std::vector<std::unique_ptr<DecodedVector>> decodedVectorPool_;
   // A pool of preallocated SelectivityVectors for use by expressions

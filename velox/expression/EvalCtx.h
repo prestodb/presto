@@ -319,17 +319,17 @@ class EvalCtx {
     return peeledEncoding_.get();
   }
 
-  /// Return true if caching in expression evaluation is enabled, such as
+  /// Returns true if caching in expression evaluation is enabled, such as
   /// Expr::evalWithMemo.
-  bool isCacheEnabled() const {
-    return isCacheEnabled_;
+  bool cacheEnabled() const {
+    return cacheEnabled_;
   }
 
  private:
   core::ExecCtx* const FOLLY_NONNULL execCtx_;
   ExprSet* FOLLY_NULLABLE const exprSet_;
   const RowVector* FOLLY_NULLABLE row_;
-  const bool isCacheEnabled_;
+  const bool cacheEnabled_;
   bool inputFlatNoNulls_;
 
   // Corresponds 1:1 to children of 'row_'. Set to an inner vector
