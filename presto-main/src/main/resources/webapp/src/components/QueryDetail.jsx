@@ -116,13 +116,13 @@ function TaskList({tasks}) {
     const customStyles = {
         headCells: {
             style: {
-                padding: '0px', // override the cell padding for head cells
-                fontSize: '15px'
+                padding: '2px', // override the cell padding for head cells
+                fontSize: '15px',
             },
         },
         cells: {
             style: {
-                padding: '0px', // override the cell padding for data cells
+                padding: '2px', // override the cell padding for data cells
                 fontSize: '15px',
             },
         },
@@ -136,24 +136,24 @@ function TaskList({tasks}) {
             cell: row => (<a href={"/v1/taskInfo/" + row.taskId + "?pretty"}>
                             {getTaskIdSuffix(row.taskId)}
                             </a>),
-            wrap: false,
+            minWidth: '60px',
         },
         {
             name: 'Host',
             selector: row => getHostname(row.taskStatus.self),
-            cell: row => (<a href={"worker.html?" + row.nodeId} className="font-light" target="_blank">
-                            {showingPortNumbers ? getHostAndPort(row.taskStatus.self) : getHostname(row.taskStatus.self)}
+            cell: row => (<a href={"worker.html?" + row.nodeId} className="font-light nowrap" target="_blank">
+                            {showingPortNumbers ? getHostAndPort(row.taskStatus.self) :  getHostname(row.taskStatus.self)}
                             </a>),
             sortable: true,
-            wrap: false,
-            maxWidth: "120px",
-            minWidth: "120px",
+            grow: 3,
+            minWidth: '30px',
+            style: { overflow: 'auto' },
         },
         {
             name: 'State',
             selector: row => formatState(row.taskStatus.state, row.stats.fullyBlocked),
             sortable: true,
-            wrap: false,
+            minWidth: '80px',
         },
         {
             name: (<span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}
@@ -161,9 +161,8 @@ function TaskList({tasks}) {
                 title="Pending splits"/>),
             selector: row => row.stats.queuedDrivers,
             sortable: true,
-            wrap: false,
-            maxWidth: "40px",
-            minWidth: "40px",
+            maxWidth: '50px',
+            minWidth: '40px',
         },
         {
             name: (<span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}
@@ -171,9 +170,8 @@ function TaskList({tasks}) {
                 title="Running splits"/>),
             selector: row => row.stats.runningDrivers,
             sortable: true,
-            wrap: false,
-            maxWidth: "40px",
-            minWidth: "40px",
+            maxWidth: '50px',
+            minWidth: '40px',
         },
         {
             name: (<span className="glyphicon glyphicon-bookmark"
@@ -182,9 +180,8 @@ function TaskList({tasks}) {
                 title="Blocked splits"/>),
             selector: row => row.stats.blockedDrivers,
             sortable: true,
-            wrap: false,
-            maxWidth: "40px",
-            minWidth: "40px",
+            maxWidth: '50px',
+            minWidth: '40px',
         },
         {
             name: (<span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}
@@ -192,63 +189,62 @@ function TaskList({tasks}) {
                 title="Completed splits"/>),
             selector: row => row.stats.completedDrivers,
             sortable: true,
-            wrap: false,
-            maxWidth: "40px",
-            minWidth: "40px",
+            maxWidth: '50px',
+            minWidth: '40px',
         },
         {
             name: 'Rows',
             selector: row => row.stats.rawInputPositions,
             cell: row => formatCount(row.stats.rawInputPositions),
             sortable: true,
-            wrap: false,
+            minWidth: '75px',
         },
         {
             name: 'Rows/s',
             selector: row => computeRate(row.stats.rawInputPositions, calculateElapsedTime(row)),
             cell: row => formatCount(computeRate(row.stats.rawInputPositions, calculateElapsedTime(row))),
             sortable: true,
-            wrap: false,
+            minWidth: '75px',
         },
         {
             name: 'Bytes',
             selector: row => row.stats.rawInputDataSizeInBytes,
             cell: row => formatDataSizeBytes(row.stats.rawInputDataSizeInBytes),
             sortable: true,
-            wrap: false,
+            minWidth: '75px',
         },
         {
             name: 'Bytes/s',
             selector: row => computeRate(row.stats.rawInputDataSizeInBytes, calculateElapsedTime(row)),
             cell: row => formatDataSizeBytes(computeRate(row.stats.rawInputDataSizeInBytes, calculateElapsedTime(row))),
             sortable: true,
-            wrap: false,
+            minWidth: '75px',
         },
         {
             name: 'Elapsed',
             selector: row => parseDuration(row.stats.elapsedTimeInNanos + "ns"),
             cell: row => formatDuration(parseDuration(row.stats.elapsedTimeInNanos + "ns")),
             sortable: true,
-            wrap: false,
+            minWidth: '75px',
         },
         {
             name: 'CPU Time',
             selector: row => parseDuration(row.stats.totalCpuTimeInNanos + "ns"),
             cell: row => formatDuration(parseDuration(row.stats.totalCpuTimeInNanos + "ns")),
             sortable: true,
-            wrap: false,
+            minWidth: '75px',
         },
         {
             name: 'Buffered',
             selector: row => row.outputBuffers.totalBufferedBytes,
             cell: row => formatDataSizeBytes(row.outputBuffers.totalBufferedBytes),
             sortable: true,
-            wrap: false,
+            minWidth: '75px',
         },
     ];
 
     return (
-        <DataTable columns={columns} data={tasks} theme='dark' customStyles={customStyles}/>
+        <DataTable columns={columns} data={tasks} theme='dark' customStyles={customStyles} striped='true'/>
     );
 }
 
