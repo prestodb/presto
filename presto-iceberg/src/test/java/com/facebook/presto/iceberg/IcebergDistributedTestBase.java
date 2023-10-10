@@ -20,6 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -65,6 +68,60 @@ public class IcebergDistributedTestBase
     @Override
     public void testDelete()
     {
+        // Test delete all rows
+        long totalCount = (long) getQueryRunner().execute("CREATE TABLE test_delete as select * from lineitem")
+                .getOnlyValue();
+        assertUpdate("DELETE FROM test_delete", totalCount);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 0L);
+        assertQuerySucceeds("DROP TABLE test_delete");
+
+        // Test delete whole partitions identified by one partition column
+        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
+                .getOnlyValue();
+        long countPart1 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 1").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 1", countPart1);
+
+        long countPart2 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber > 4 and linenumber < 7").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber > 4 and linenumber < 7", countPart2);
+
+        long newTotalCount = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop")
+                .getOnlyValue();
+        assertEquals(totalCount - countPart1 - countPart2, newTotalCount);
+        assertQuerySucceeds("DROP TABLE test_partitioned_drop");
+
+        // Test delete whole partitions identified by two partition columns
+        totalCount = (long) getQueryRunner().execute("CREATE TABLE test_partitioned_drop WITH (partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem")
+                .getOnlyValue();
+        long countPart1F = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 1 and linestatus = 'F'").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 1 and linestatus = 'F'", countPart1F);
+
+        long countPart2O = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 2 and linestatus = 'O'").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 2 and linestatus = 'O'", countPart2O);
+
+        long countPartOther = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber not in (1, 3, 5, 7) and linestatus in ('O', 'F')").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber not in (1, 3, 5, 7) and linestatus in ('O', 'F')", countPartOther);
+
+        newTotalCount = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop")
+                .getOnlyValue();
+        assertEquals(totalCount - countPart1F - countPart2O - countPartOther, newTotalCount);
+        assertQuerySucceeds("DROP TABLE test_partitioned_drop");
+
+        // Do not support delete with filters about non-identity partition column
+        String errorMessage1 = "This connector only supports delete where one or more partitions are deleted entirely";
+        assertUpdate("CREATE TABLE test_partitioned_drop WITH (partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem", totalCount);
+        assertQueryFails("DELETE FROM test_partitioned_drop WHERE orderkey = 1", errorMessage1);
+        assertQueryFails("DELETE FROM test_partitioned_drop WHERE partkey > 100", errorMessage1);
+        assertQueryFails("DELETE FROM test_partitioned_drop WHERE linenumber = 1 and orderkey = 1", errorMessage1);
+
+        // Do not allow delete data at specified snapshot
+        String errorMessage2 = "This connector do not allow delete data at specified snapshot";
+        List<Long> snapshots = getQueryRunner().execute("SELECT snapshot_id FROM \"test_partitioned_drop$snapshots\"").getOnlyColumnAsSet()
+                .stream().map(Long.class::cast).collect(Collectors.toList());
+        for (long snapshot : snapshots) {
+            assertQueryFails("DELETE FROM \"test_partitioned_drop@" + snapshot + "\" WHERE linenumber = 1", errorMessage2);
+        }
+
+        assertQuerySucceeds("DROP TABLE test_partitioned_drop");
     }
 
     @Test
