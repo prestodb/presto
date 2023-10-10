@@ -388,5 +388,101 @@ TEST_F(MapAggTest, stringLifeCycle) {
   testReadFromFiles(vectors, {}, {"map_agg(c0, c1)"}, {expectedResult});
 }
 
+TEST_F(MapAggTest, arrayCheckNulls) {
+  auto batch = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2]",
+          "[6, 7]",
+          "[2, 3]",
+      }),
+      makeFlatVector<int32_t>({
+          1,
+          2,
+          3,
+      }),
+      makeFlatVector<int32_t>({
+          1,
+          2,
+          3,
+      }),
+  });
+
+  auto batchWithNull = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2]",
+          "[6, 7]",
+          "[3, null]",
+      }),
+      makeFlatVector<int32_t>({
+          1,
+          2,
+          3,
+      }),
+      makeFlatVector<int32_t>({
+          1,
+          2,
+          3,
+      }),
+  });
+
+  testFailingAggregations(
+      {batch, batchWithNull},
+      {},
+      {"map_agg(c0, c1)"},
+      "ARRAY comparison not supported for values that contain nulls");
+  testFailingAggregations(
+      {batch, batchWithNull},
+      {"c2"},
+      {"map_agg(c0, c1)"},
+      "ARRAY comparison not supported for values that contain nulls");
+}
+
+TEST_F(MapAggTest, rowCheckNull) {
+  auto batch = makeRowVector({
+      makeRowVector({
+          makeFlatVector<StringView>({
+              "a"_sv,
+              "b"_sv,
+              "c"_sv,
+          }),
+          makeNullableFlatVector<StringView>({
+              "aa"_sv,
+              "bb"_sv,
+              "cc"_sv,
+          }),
+      }),
+      makeFlatVector<int8_t>({1, 2, 3}),
+      makeFlatVector<int8_t>({1, 2, 3}),
+  });
+
+  auto batchWithNull = makeRowVector({
+      makeRowVector({
+          makeNullableFlatVector<StringView>({
+              "a"_sv,
+              std::nullopt,
+              "c"_sv,
+          }),
+          makeFlatVector<StringView>({
+              "aa"_sv,
+              "bb"_sv,
+              "cc"_sv,
+          }),
+      }),
+      makeFlatVector<int8_t>({1, 2, 3}),
+      makeFlatVector<int8_t>({1, 2, 3}),
+  });
+
+  testFailingAggregations(
+      {batch, batchWithNull},
+      {},
+      {"map_agg(c0, c1)"},
+      "ROW comparison not supported for values that contain nulls");
+  testFailingAggregations(
+      {batch, batchWithNull},
+      {"c2"},
+      {"map_agg(c0, c1)"},
+      "ROW comparison not supported for values that contain nulls");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

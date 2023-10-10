@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include "velox/functions/prestosql/aggregates/Compare.h"
 #include "velox/functions/prestosql/aggregates/MapAggregateBase.h"
 
 namespace facebook::velox::aggregate::prestosql {
@@ -23,8 +25,9 @@ namespace {
 template <typename K>
 class MapAggAggregate : public MapAggregateBase<K> {
  public:
-  explicit MapAggAggregate(TypePtr resultType)
-      : MapAggregateBase<K>(std::move(resultType)) {}
+  explicit MapAggAggregate(TypePtr resultType, bool throwOnNestedNulls = false)
+      : MapAggregateBase<K>(std::move(resultType)),
+        throwOnNestedNulls_(throwOnNestedNulls) {}
 
   using Base = MapAggregateBase<K>;
 
@@ -38,8 +41,15 @@ class MapAggAggregate : public MapAggregateBase<K> {
       VectorPtr& result) const override {
     const auto& keys = args[0];
     const auto& values = args[1];
-
     const auto numRows = rows.size();
+
+    if (throwOnNestedNulls_) {
+      DecodedVector decodedKeys(*keys, rows);
+      const auto* indices = decodedKeys.indices();
+      rows.applyToSelected([&](vector_size_t i) {
+        checkNestedNulls(decodedKeys, indices, i, throwOnNestedNulls_);
+      });
+    }
 
     // Convert input to a single-entry map. Convert entries with null keys to
     // null maps.
@@ -90,16 +100,19 @@ class MapAggAggregate : public MapAggregateBase<K> {
       bool /*mayPushdown*/) override {
     Base::decodedKeys_.decode(*args[0], rows);
     Base::decodedValues_.decode(*args[1], rows);
+    const auto* indices = Base::decodedKeys_.indices();
 
     rows.applyToSelected([&](vector_size_t row) {
-      // Skip null keys
-      if (!Base::decodedKeys_.isNullAt(row)) {
-        auto group = groups[row];
-        Base::clearNull(group);
-        auto tracker = Base::trackRowSize(group);
-        Base::accumulator(group)->insert(
-            Base::decodedKeys_, Base::decodedValues_, row, *Base::allocator_);
+      if (checkNestedNulls(
+              Base::decodedKeys_, indices, row, throwOnNestedNulls_)) {
+        return;
       }
+
+      auto group = groups[row];
+      Base::clearNull(group);
+      auto tracker = Base::trackRowSize(group);
+      Base::accumulator(group)->insert(
+          Base::decodedKeys_, Base::decodedValues_, row, *Base::allocator_);
     });
   }
 
@@ -112,16 +125,23 @@ class MapAggAggregate : public MapAggregateBase<K> {
 
     Base::decodedKeys_.decode(*args[0], rows);
     Base::decodedValues_.decode(*args[1], rows);
+    auto indices = Base::decodedKeys_.indices();
+
     auto tracker = Base::trackRowSize(group);
     rows.applyToSelected([&](vector_size_t row) {
-      // Skip null keys
-      if (!Base::decodedKeys_.isNullAt(row)) {
-        Base::clearNull(group);
-        singleAccumulator->insert(
-            Base::decodedKeys_, Base::decodedValues_, row, *Base::allocator_);
+      if (checkNestedNulls(
+              Base::decodedKeys_, indices, row, throwOnNestedNulls_)) {
+        return;
       }
+
+      Base::clearNull(group);
+      singleAccumulator->insert(
+          Base::decodedKeys_, Base::decodedValues_, row, *Base::allocator_);
     });
   }
+
+ private:
+  const bool throwOnNestedNulls_;
 };
 
 exec::AggregateRegistrationResult registerMapAgg(const std::string& name) {
@@ -150,8 +170,40 @@ exec::AggregateRegistrationResult registerMapAgg(const std::string& name) {
             rawInput ? 2 : 1,
             "{} ({}): unexpected number of arguments",
             name);
-
-        return createMapAggregate<MapAggAggregate>(resultType);
+        const bool throwOnNestedNulls = rawInput;
+        const auto typeKind = resultType->childAt(0)->kind();
+        switch (typeKind) {
+          case TypeKind::BOOLEAN:
+            return std::make_unique<MapAggAggregate<bool>>(resultType);
+          case TypeKind::TINYINT:
+            return std::make_unique<MapAggAggregate<int8_t>>(resultType);
+          case TypeKind::SMALLINT:
+            return std::make_unique<MapAggAggregate<int16_t>>(resultType);
+          case TypeKind::INTEGER:
+            return std::make_unique<MapAggAggregate<int32_t>>(resultType);
+          case TypeKind::BIGINT:
+            return std::make_unique<MapAggAggregate<int64_t>>(resultType);
+          case TypeKind::REAL:
+            return std::make_unique<MapAggAggregate<float>>(resultType);
+          case TypeKind::DOUBLE:
+            return std::make_unique<MapAggAggregate<double>>(resultType);
+          case TypeKind::TIMESTAMP:
+            return std::make_unique<MapAggAggregate<Timestamp>>(resultType);
+          case TypeKind::VARBINARY:
+            [[fallthrough]];
+          case TypeKind::VARCHAR:
+            return std::make_unique<MapAggAggregate<StringView>>(resultType);
+          case TypeKind::ARRAY:
+          case TypeKind::MAP:
+          case TypeKind::ROW:
+            return std::make_unique<MapAggAggregate<ComplexType>>(
+                resultType, throwOnNestedNulls);
+          case TypeKind::UNKNOWN:
+            return std::make_unique<MapAggAggregate<int32_t>>(resultType);
+          default:
+            VELOX_UNREACHABLE(
+                "Unexpected type {}", mapTypeKindToName(typeKind));
+        }
       });
 }
 

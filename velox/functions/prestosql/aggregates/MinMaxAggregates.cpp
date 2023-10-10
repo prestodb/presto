@@ -311,8 +311,9 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     if (throwOnNestedNulls_) {
       DecodedVector decoded(*input, rows, true);
       auto indices = decoded.indices();
-      rows.applyToSelected(
-          [&](vector_size_t i) { checkNulls(decoded, indices, i); });
+      rows.applyToSelected([&](vector_size_t i) {
+        checkNestedNulls(decoded, indices, i, throwOnNestedNulls_);
+      });
     }
 
     if (rows.isAllSelected()) {
@@ -387,7 +388,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     }
 
     rows.applyToSelected([&](vector_size_t i) {
-      if (checkNulls(decoded, indices, i)) {
+      if (checkNestedNulls(decoded, indices, i, throwOnNestedNulls_)) {
         return;
       }
 
@@ -410,7 +411,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     auto baseVector = decoded.base();
 
     if (decoded.isConstantMapping()) {
-      if (checkNulls(decoded, indices, 0)) {
+      if (checkNestedNulls(decoded, indices, 0, throwOnNestedNulls_)) {
         return;
       }
 
@@ -424,7 +425,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
 
     auto accumulator = value<SingleValueAccumulator>(group);
     rows.applyToSelected([&](vector_size_t i) {
-      if (checkNulls(decoded, indices, i)) {
+      if (checkNestedNulls(decoded, indices, i, throwOnNestedNulls_)) {
         return;
       }
 
@@ -433,24 +434,6 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
         accumulator->write(baseVector, indices[i], allocator_);
       }
     });
-  }
-
-  bool checkNulls(
-      const DecodedVector& decoded,
-      const vector_size_t* indices,
-      vector_size_t index) const {
-    if (decoded.isNullAt(index)) {
-      return true;
-    }
-
-    if (throwOnNestedNulls_) {
-      VELOX_USER_CHECK(
-          !decoded.base()->containsNullAt(indices[index]),
-          "{} comparison not supported for values that contain nulls",
-          mapTypeKindToName(decoded.base()->typeKind()));
-    }
-
-    return false;
   }
 
  private:

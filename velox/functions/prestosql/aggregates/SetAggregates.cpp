@@ -16,6 +16,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/SetAccumulator.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/aggregates/Compare.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {
@@ -220,8 +221,9 @@ class SetAggAggregate : public SetBaseAggregate<T> {
     if (throwOnNestedNulls_) {
       DecodedVector decodedElements(*elements, rows);
       auto indices = decodedElements.indices();
-      rows.applyToSelected(
-          [&](vector_size_t i) { checkNulls(decodedElements, indices, i); });
+      rows.applyToSelected([&](vector_size_t i) {
+        checkNestedNulls(decodedElements, indices, i, throwOnNestedNulls_);
+      });
     }
 
     const auto numRows = rows.size();
@@ -268,7 +270,7 @@ class SetAggAggregate : public SetBaseAggregate<T> {
       Base::clearNull(group);
 
       if (throwOnNestedNulls_) {
-        checkNulls(Base::decoded_, indices, i);
+        checkNestedNulls(Base::decoded_, indices, i, throwOnNestedNulls_);
       }
 
       auto tracker = Base::trackRowSize(group);
@@ -290,7 +292,7 @@ class SetAggAggregate : public SetBaseAggregate<T> {
     auto indices = Base::decoded_.indices();
     rows.applyToSelected([&](vector_size_t i) {
       if (throwOnNestedNulls_) {
-        checkNulls(Base::decoded_, indices, i);
+        checkNestedNulls(Base::decoded_, indices, i, throwOnNestedNulls_);
       }
 
       accumulator->addValue(Base::decoded_, i, Base::allocator_);
@@ -298,22 +300,6 @@ class SetAggAggregate : public SetBaseAggregate<T> {
   }
 
  private:
-  void checkNulls(
-      const DecodedVector& decoded,
-      const vector_size_t* indices,
-      vector_size_t index) const {
-    if (decoded.isNullAt(index)) {
-      return;
-    }
-
-    if (throwOnNestedNulls_) {
-      VELOX_USER_CHECK(
-          !decoded.base()->containsNullAt(indices[index]),
-          "{} comparison not supported for values that contain nulls",
-          mapTypeKindToName(decoded.base()->typeKind()));
-    }
-  }
-
   const bool throwOnNestedNulls_;
 };
 
