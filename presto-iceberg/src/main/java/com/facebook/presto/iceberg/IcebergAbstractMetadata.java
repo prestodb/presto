@@ -348,9 +348,16 @@ public abstract class IcebergAbstractMetadata
         if (!column.isNullable()) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
         }
+
+        org.apache.iceberg.types.Type columnType = toIcebergType(column.getType());
+
+        if (columnType.equals(Types.TimestampType.withZone())) {
+            throw new PrestoException(NOT_SUPPORTED, format("Iceberg column type %s is not supported", columnType));
+        }
+
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType()), column.getComment()).commit();
+        icebergTable.updateSchema().addColumn(column.getName(), columnType, column.getComment()).commit();
     }
 
     @Override
