@@ -21,8 +21,9 @@
     "d3": "^5.7.0",
     "dagre-d3": "^0.6.1",
     "react": "18.2.0",
+    "react-data-table-component": "^7.5.4",
     "react-dom": "18.2.0",
-    "reactable": "^1.0.2",
+    "styled-components": "^6.0.8",
     "vis-timeline": "^7.7.2"
   },
   "scripts": {
