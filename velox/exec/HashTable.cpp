@@ -798,7 +798,7 @@ void syncWorkItems(
     bool log = false) {
   // All items must be synced also in case of error because the items
   // hold references to the table and rows which could be destructed
-  // if unwinding the stack did ont pause to sync.
+  // if unwinding the stack did not pause to sync.
   for (auto& item : items) {
     try {
       item->move();
@@ -860,6 +860,9 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
   buildPartitionBounds_.back() = sizeMask_ + 1;
   std::vector<std::shared_ptr<AsyncSource<bool>>> partitionSteps;
   std::vector<std::shared_ptr<AsyncSource<bool>>> buildSteps;
+  // rowPartitions are used in the async threads, so declare them before the
+  // sync guard.
+  std::vector<std::unique_ptr<RowPartitions>> rowPartitions;
   auto sync = folly::makeGuard([&]() {
     // This is executed on returning path, possibly in unwinding, so must not
     // throw.
@@ -868,14 +871,24 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     syncWorkItems(buildSteps, error, true);
   });
 
-  // The parallel table partitioning step.
-  std::vector<std::unique_ptr<RowPartitions>> rowPartitions;
+  const auto getTable = [this](size_t i) INLINE_LAMBDA {
+    return i == 0 ? this : otherTables_[i - 1].get();
+  };
+
+  // This step can involve large memory allocations, so there is a chance of
+  // OOMs here. Do it before any async work is started to reduce the chances of
+  // concurrency issues.
   rowPartitions.reserve(numPartitions);
   for (auto i = 0; i < numPartitions; ++i) {
-    auto* table = i == 0 ? this : otherTables_[i - 1].get();
+    auto* table = getTable(i);
     rowPartitions.push_back(table->rows()->createRowPartitions(*rows_->pool()));
+  }
+
+  // The parallel table partitioning step.
+  for (auto i = 0; i < numPartitions; ++i) {
+    auto* table = getTable(i);
     partitionSteps.push_back(std::make_shared<AsyncSource<bool>>(
-        [this, table, rawRowPartitions = rowPartitions.back().get()]() {
+        [this, table, rawRowPartitions = rowPartitions[i].get()]() {
           partitionRows(*table, *rawRowPartitions);
           return std::make_unique<bool>(true);
         }));

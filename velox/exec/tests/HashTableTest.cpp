@@ -15,14 +15,17 @@
  */
 
 #include "velox/exec/HashTable.h"
+#include "folly/experimental/EventCount.h"
 #include "velox/common/base/SelectivityInfo.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 #include <folly/executors/CPUThreadPoolExecutor.h>
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 #include <memory>
 
@@ -40,6 +43,7 @@ using namespace facebook::velox::test;
 class HashTableTest : public testing::TestWithParam<bool> {
  protected:
   void SetUp() override {
+    common::testutil::TestValue::enable();
     if (GetParam()) {
       executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(16);
     }
@@ -821,4 +825,104 @@ TEST_P(HashTableTest, offsetOverflowLoadTags) {
     makeRows(batchSize, 1, i * batchSize, rowType, batches);
     insertGroups(*batches.back(), *lookup, *table);
   }
+}
+
+DEBUG_ONLY_TEST_P(HashTableTest, failureInCreateRowPartitions) {
+  // This tests an issue in parallelJoinBuild where an exception in
+  // createRowPartitions could lead to concurrency issues in async table
+  // partitioning threads.
+
+  // It is only relevant when the parallel join build is enabled.
+  if (!GetParam()) {
+    return;
+  }
+
+  // Create a table, and 3 "other" tables.
+  std::unique_ptr<HashTable<false>> topTable;
+  std::vector<std::unique_ptr<BaseHashTable>> otherTables;
+  for (int i = 0; i < 4; i++) {
+    auto batch = vectorMaker_->rowVector(
+        {vectorMaker_->flatVector<int64_t>(10, folly::identity)});
+    std::vector<std::unique_ptr<VectorHasher>> hashers;
+    hashers.push_back(std::make_unique<VectorHasher>(BIGINT(), 0));
+    // Set minTableSizeForParallelJoinBuild to be really small so we can trigger
+    // a parallel join build without needing a lot of data.
+    auto table = HashTable<false>::createForJoin(
+        std::move(hashers), {BIGINT()}, true, false, 1, pool_.get());
+    copyVectorsToTable({batch}, 0, table.get());
+
+    if (!topTable) {
+      topTable = std::move(table);
+    } else {
+      otherTables.emplace_back(std::move(table));
+    }
+  }
+
+  topTable->prepareJoinTable(std::move(otherTables), executor_.get());
+
+  const std::string expectedFailureMessage =
+      "Triggering expected failure in allocation";
+
+  // Fail when allocating memory for the third table.  So we know 2
+  // RowPartitions have been created.
+  std::atomic_int allocateCount{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::common::memory::MemoryPoolImpl::allocateNonContiguous",
+      std::function<void(void*)>(([&](void*) {
+        if (++allocateCount >= 3) {
+          VELOX_FAIL(expectedFailureMessage);
+        }
+      })));
+
+  std::atomic_bool moveReady{false};
+  folly::EventCount moveWait;
+  std::atomic_bool prepareReady{false};
+  folly::EventCount prepareWait;
+  std::atomic_int moveCount{0};
+  // Wait until prepare hash been called at least once to call move.  This way
+  // we know at least one async thread is running.
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::AsyncSource::move",
+      std::function<void(void*)>(([&](void*) {
+        // We only need to do this the first time it's called.
+        if (++moveCount == 1) {
+          prepareWait.await([&]() { return prepareReady.load(); });
+          moveReady.store(true);
+          moveWait.notifyAll();
+        }
+      })));
+
+  // Make any async table partitioning threads wait until move is
+  // called. Since move blocks until the threads complete, this is as
+  // long as the threads can possibly wait to begin processing. (I.e. we've
+  // given as much time as we can for something to go wrong.)
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::AsyncSource::prepare",
+      std::function<void(void*)>(([&](void*) {
+        prepareReady.store(true);
+        prepareWait.notifyAll();
+        moveWait.await([&]() { return moveReady.load(); });
+      })));
+
+  // Set a flag so we know if something in the future causes the test to miss
+  // the parallelJoinBuild function which is what we're targeting.
+  std::atomic<bool> isParallelBuild{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashTable::parallelJoinBuild",
+      std::function<void(void*)>([&](void*) { isParallelBuild = true; }));
+
+  // We expect this to trigger the exception from the TestValue we set for
+  // allocateNonContiguous.
+  // Set hash mode to HASH and numNew to something much larger than the
+  // capacity to trigger a rehash.
+  VELOX_ASSERT_THROW(
+      topTable->testingSetHashMode(
+          BaseHashTable::HashMode::kHash, topTable->capacity() * 2),
+      expectedFailureMessage);
+
+  // Double check that the parallelJoinBuild function was called.
+  ASSERT_TRUE(isParallelBuild.load());
+
+  // Any outstanding async work should be finish cleanly despite the exception.
+  executor_->join();
 }
