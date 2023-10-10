@@ -3350,9 +3350,11 @@ TEST_P(ParameterizedExprTest, addNulls) {
 
     // We do not set null to row three.
     localRows.setValid(4, true);
-
+    localRows.updateBounds();
     exec::EvalCtx::addNulls(
         localRows, nullptr, context, rowVector->type(), rowVector);
+    ASSERT_EQ(rowVector->size(), 5);
+
     rowVector->validate();
     ASSERT_TRUE(rowVector->isNullAt(3));
   };
