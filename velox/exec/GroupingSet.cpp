@@ -1034,7 +1034,7 @@ size_t GroupingSet::numNonSpilledGroupsToExtract(
   for (; numGroups < maxNumGroups; ++numGroups, ++nextRow) {
     const auto rowSize =
         nonSpilledRowContainer_->rowSize(nonSpilledRows_.value()[nextRow]);
-    if (numGroups > 0 && (totalBytes + rowSize) < maxOutputBytes) {
+    if (numGroups > 0 && (totalBytes + rowSize) >= maxOutputBytes) {
       break;
     }
     totalBytes += rowSize;
