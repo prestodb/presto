@@ -88,6 +88,15 @@ void validateOperatorResult(RowVectorPtr& result, Operator& op) {
 }
 
 thread_local DriverThreadContext* driverThreadCtx{nullptr};
+
+void recordSilentThrows(Operator& op) {
+  auto numThrow = threadNumVeloxThrow();
+  if (numThrow > 0) {
+    op.stats().wlock()->addRuntimeStat(
+        "numSilentThrow", RuntimeCounter(numThrow));
+  }
+}
+
 } // namespace
 
 DriverCtx::DriverCtx(
@@ -329,9 +338,13 @@ void Driver::enqueueInternal() {
   queueTimeStartMicros_ = getCurrentTimeMicro();
 }
 
+// Call an Oprator method. record silenced throws, but not a query
+// terminating throw. Annotate exceptions with Operator info.
 #define CALL_OPERATOR(call, operator, methodName)                       \
   try {                                                                 \
+    threadNumVeloxThrow() = 0;                                          \
     call;                                                               \
+    recordSilentThrows(*operator);                                      \
   } catch (const VeloxException& e) {                                   \
     throw;                                                              \
   } catch (const std::exception& e) {                                   \

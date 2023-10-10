@@ -73,6 +73,7 @@ template <typename Exception, typename StringType>
                << ", ErrorCode: " << args.errorCode;
   }
 
+  ++threadNumVeloxThrow();
   throw Exception(
       args.file,
       args.line,
