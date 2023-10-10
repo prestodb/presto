@@ -542,11 +542,23 @@ bool FunctionType::equivalent(const Type& other) const {
   if (&other == this) {
     return true;
   }
+
   if (!Type::hasSameTypeId(other)) {
     return false;
   }
+
   auto& otherTyped = *reinterpret_cast<const FunctionType*>(&other);
-  return children_ == otherTyped.children_;
+  if (children_.size() != otherTyped.size()) {
+    return false;
+  }
+
+  for (auto i = 0; i < children_.size(); ++i) {
+    if (!children_.at(i)->equivalent(*otherTyped.children_.at(i))) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 std::string FunctionType::toString() const {
