@@ -768,4 +768,11 @@ TEST_F(VectorFuzzerTest, complexTooLarge) {
       VeloxUserError);
 }
 
+TEST_F(VectorFuzzerTest, randOrderableType) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+  for (int i = 0; i < 100; ++i) {
+    ASSERT_TRUE(fuzzer.randOrderableType()->isOrderable());
+  }
+}
 } // namespace

@@ -249,6 +249,11 @@ class VectorFuzzer {
   // There are no options to control type generation yet; these may be added in
   // the future.
   TypePtr randType(int maxDepth = 5);
+
+  /// Same as the function above, but only generate orderable types.
+  /// MAP types are not generated as they are not orderable.
+  TypePtr randOrderableType(int maxDepth = 5);
+
   TypePtr randType(const std::vector<TypePtr>& scalarTypes, int maxDepth = 5);
   RowTypePtr randRowType(int maxDepth = 5);
   RowTypePtr randRowType(
@@ -346,10 +351,14 @@ class VectorFuzzer {
   FuzzerGenerator rng_;
 };
 
-/// Generates a random type, including maps, vectors, and arrays. maxDepth
+/// Generates a random type, including maps, structs, and arrays. maxDepth
 /// limits the maximum level of nesting for complex types. maxDepth <= 1 means
 /// no complex types are allowed.
 TypePtr randType(FuzzerGenerator& rng, int maxDepth = 5);
+
+/// Same as the function above, but only generate orderable types.
+/// MAP types are not generated as they are not orderable.
+TypePtr randOrderableType(FuzzerGenerator& rng, int maxDepth = 5);
 
 TypePtr randType(
     FuzzerGenerator& rng,

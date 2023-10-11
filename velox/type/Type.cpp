@@ -20,7 +20,6 @@
 #include <re2/re2.h>
 #include <sstream>
 #include <typeindex>
-#include "velox/common/base/Exceptions.h"
 #include "velox/type/TimestampConversion.h"
 
 namespace std {
