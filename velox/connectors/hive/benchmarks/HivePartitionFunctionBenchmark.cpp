@@ -30,7 +30,7 @@ using connector::hive::HivePartitionFunction;
 
 namespace {
 
-constexpr std::array<TypeKind, 10> kSupportedTypes{
+constexpr std::array<TypeKind, 10> kSupportedScalarTypes{
     TypeKind::BOOLEAN,
     TypeKind::TINYINT,
     TypeKind::SMALLINT,
@@ -52,9 +52,13 @@ class HivePartitionFunctionBenchmark
     opts.stringLength = 20;
     VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
     VectorMaker vm{pool_.get()};
-    for (auto typeKind : kSupportedTypes) {
-      auto flatVector = fuzzer.fuzzFlat(createScalarType(typeKind));
-      rowVectors_[typeKind] = vm.rowVector({flatVector});
+    auto addRowVector = [&](const TypePtr& type) {
+      auto flatVector = fuzzer.fuzzFlat(type);
+      rowVectors_[type->kind()] = vm.rowVector({flatVector});
+    };
+
+    for (auto typeKind : kSupportedScalarTypes) {
+      addRowVector(createScalarType(typeKind));
     }
 
     // Prepare HivePartitionFunction
