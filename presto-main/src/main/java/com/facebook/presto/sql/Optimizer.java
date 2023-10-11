@@ -177,9 +177,12 @@ public class Optimizer
                 isTriggered ||
                 !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
                         optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+        boolean isCostBased = isTriggered && optimizer.isCostBased(session);
+        String statsSource = optimizer.getStatsSource();
 
-        if (isTriggered || isApplicable) {
-            session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(optimizerName, isTriggered, Optional.of(isApplicable), Optional.empty()));
+        if (isTriggered || isApplicable || isCostBased) {
+            session.getOptimizerInformationCollector().addInformation(
+                    new PlanOptimizerInformation(optimizerName, isTriggered, Optional.of(isApplicable), Optional.empty(), Optional.of(isCostBased), statsSource == null ? Optional.empty() : Optional.of(statsSource)));
         }
 
         if (isTriggered && isVerboseOptimizerResults(session, optimizerName)) {

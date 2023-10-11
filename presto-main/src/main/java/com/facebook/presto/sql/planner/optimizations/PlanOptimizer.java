@@ -34,6 +34,17 @@ public interface PlanOptimizer
         return true;
     }
 
+    default boolean isCostBased(Session session)
+    {
+        return false;
+    }
+
+    default String getStatsSource()
+    {
+        // source of statistics used for this optimizer: reimplement accordingly for each cost-based optimizer
+        return null;
+    }
+
     default void setEnabledForTesting(boolean isSet)
     {
         return;

@@ -136,7 +136,8 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
 
     private void logOptimizerFailure(Session session)
     {
-        session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(HistoricalStatisticsEquivalentPlanMarkingOptimizer.class.getSimpleName(), false, Optional.empty(), Optional.of(true)));
+        session.getOptimizerInformationCollector().addInformation(
+                new PlanOptimizerInformation(HistoricalStatisticsEquivalentPlanMarkingOptimizer.class.getSimpleName(), false, Optional.empty(), Optional.of(true), Optional.empty(), Optional.empty()));
     }
 
     private static class Rewriter

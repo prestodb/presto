@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.LocalCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
@@ -63,10 +64,25 @@ public class DetermineJoinDistributionType
     private final CostComparator costComparator;
     private final TaskCountEstimator taskCountEstimator;
 
+    // records whether distribution decision was cost-based
+    private String statsSource;
+
     public DetermineJoinDistributionType(CostComparator costComparator, TaskCountEstimator taskCountEstimator)
     {
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
         this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+    }
+
+    @Override
+    public boolean isCostBased(Session session)
+    {
+        return getJoinDistributionType(session) == AUTOMATIC;
+    }
+
+    @Override
+    public String getStatsSource()
+    {
+        return statsSource;
     }
 
     @Override
@@ -80,7 +96,9 @@ public class DetermineJoinDistributionType
     {
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
         if (joinDistributionType == AUTOMATIC) {
-            return Result.ofPlanNode(getCostBasedJoin(joinNode, context));
+            PlanNode resultNode = getCostBasedJoin(joinNode, context);
+            statsSource = context.getStatsProvider().getStats(joinNode).getSourceInfo().getSourceInfoName();
+            return Result.ofPlanNode(resultNode);
         }
         return Result.ofPlanNode(getSyntacticOrderJoin(joinNode, context, joinDistributionType));
     }

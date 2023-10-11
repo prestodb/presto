@@ -112,7 +112,8 @@ jobs:
               -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
               -DPRESTO_ENABLE_JWT=ON \
               -DCMAKE_PREFIX_PATH=/usr/local \
-              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+              -DMAX_LINK_JOBS=2
             ninja -C _build/debug -j 8
             ccache -s
       - save_cache:
@@ -124,7 +125,7 @@ jobs:
           name: 'Run Unit Tests'
           command: |
             cd presto-native-execution/_build/debug
-            ctest -j 8 -VV --output-on-failure --exclude-regex velox.*
+            ctest -j 10 -VV --output-on-failure --exclude-regex velox.*
       - persist_to_workspace:
           root: presto-native-execution
           paths:
@@ -244,7 +245,8 @@ jobs:
               -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
               -DPRESTO_ENABLE_JWT=ON \
               -DCMAKE_PREFIX_PATH=/usr/local \
-              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+              -DMAX_LINK_JOBS=2
             ninja -C _build/release -j 8
 
   format-check:

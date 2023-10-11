@@ -27,6 +27,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.LocalCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
@@ -62,10 +63,13 @@ import static java.util.Objects.requireNonNull;
 public class DetermineSemiJoinDistributionType
         implements Rule<SemiJoinNode>
 {
+    private static final Pattern<SemiJoinNode> PATTERN = semiJoin().matching(semiJoin -> !semiJoin.getDistributionType().isPresent());
+
     private final TaskCountEstimator taskCountEstimator;
     private final CostComparator costComparator;
 
-    private static final Pattern<SemiJoinNode> PATTERN = semiJoin().matching(semiJoin -> !semiJoin.getDistributionType().isPresent());
+    // records whether distribution decision was cost-based
+    private String statsSource;
 
     public DetermineSemiJoinDistributionType(CostComparator costComparator, TaskCountEstimator taskCountEstimator)
     {
@@ -80,12 +84,26 @@ public class DetermineSemiJoinDistributionType
     }
 
     @Override
+    public boolean isCostBased(Session session)
+    {
+        return getJoinDistributionType(session) == JoinDistributionType.AUTOMATIC;
+    }
+
+    @Override
+    public String getStatsSource()
+    {
+        return statsSource;
+    }
+
+    @Override
     public Result apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
     {
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
         switch (joinDistributionType) {
             case AUTOMATIC:
-                return Result.ofPlanNode(getCostBasedDistributionType(semiJoinNode, context));
+                PlanNode resultNode = getCostBasedDistributionType(semiJoinNode, context);
+                statsSource = context.getStatsProvider().getStats(semiJoinNode).getSourceInfo().getSourceInfoName();
+                return Result.ofPlanNode(resultNode);
             case PARTITIONED:
                 return Result.ofPlanNode(semiJoinNode.withDistributionType(PARTITIONED));
             case BROADCAST:

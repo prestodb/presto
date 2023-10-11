@@ -123,7 +123,8 @@ public class SimplifyPlanWithEmptyInput
             Rewriter rewriter = new Rewriter(idAllocator);
             PlanNode rewrittenNode = SimplePlanRewriter.rewriteWith(rewriter, plan);
             if (rewriter.isPlanChanged()) {
-                session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(SimplifyPlanWithEmptyInput.class.getSimpleName(), true, Optional.empty(), Optional.empty()));
+                session.getOptimizerInformationCollector().addInformation(
+                        new PlanOptimizerInformation(SimplifyPlanWithEmptyInput.class.getSimpleName(), true, Optional.empty(), Optional.empty(), Optional.of(false), Optional.empty()));
             }
             return rewrittenNode;
         }

@@ -123,7 +123,7 @@ public class TestPinotExpressionConverters
         // in, not in
         testFilter("regionid in (20, 30, 40)", "(\"regionId\" IN (20, 30, 40))", sessionHolder);
         testFilter("regionid not in (20, 30, 40)", "(\"regionId\" NOT IN (20, 30, 40))", sessionHolder);
-        testFilter("city in ('San Jose', 'Campbell', 'Union City')", "(\"city\" IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
+        testFilter("city in ('San Jose', 'Campbell', 'Union City', 'L''Aquila')", "(\"city\" IN ('San Jose', 'Campbell', 'Union City', 'L''Aquila'))", sessionHolder);
         testFilter("city not in ('San Jose', 'Campbell', 'Union City')", "(\"city\" NOT IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
         testFilterUnsupported("secondssinceepoch + 1 in (234, 24324)", sessionHolder);
         testFilterUnsupported("NOT (secondssinceepoch = 2323)", sessionHolder);

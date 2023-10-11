@@ -80,6 +80,15 @@ Array Functions
 
     Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
 
+.. function:: array_least_frequent(array(T)) -> array(T)
+
+    Returns the least frequent element of an array. If there are multiple elements with same frequency, the function returns the largest element.
+
+.. function:: array_least_frequent(array(T), n) -> array(T)
+
+    Returns n least frequent elements of an array. The elements are based on increasing order of their frequencies.
+    If two elements have same frequency then element with higher value will appear before lower value.
+
 .. function:: array_max(x) -> x
 
     Returns the maximum value of input array.
@@ -205,7 +214,7 @@ Array Functions
 .. function:: combinations(array(T), n) -> array(array(T))
 
     Returns n-element combinations of the input array.
-    If the input array has no duplicates, ``combinations`` returns n-element subsets. 
+    If the input array has no duplicates, ``combinations`` returns n-element subsets.
     Order of subgroup is deterministic but unspecified. Order of elements within
     a subgroup are deterministic but unspecified. ``n`` must not be greater than 5,
     and the total size of subgroups generated must be smaller than 100000::

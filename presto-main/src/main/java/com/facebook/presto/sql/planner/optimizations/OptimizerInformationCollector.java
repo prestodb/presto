@@ -19,14 +19,14 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.LinkedList;
+import java.util.HashSet;
 import java.util.List;
 
 @ThreadSafe
 public class OptimizerInformationCollector
 {
     @GuardedBy("this")
-    private final List<PlanOptimizerInformation> optimizationInfo = new LinkedList<>();
+    private final HashSet<PlanOptimizerInformation> optimizationInfo = new HashSet<>();
 
     public synchronized void addInformation(PlanOptimizerInformation optimizerInformation)
     {
