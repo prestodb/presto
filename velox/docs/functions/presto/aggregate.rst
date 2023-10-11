@@ -223,13 +223,17 @@ General Aggregate Functions
 Bitwise Aggregate Functions
 ---------------------------
 
-.. function:: bitwise_and_agg(x) -> bigint
+.. function:: bitwise_and_agg(x) -> [same as x]
 
     Returns the bitwise AND of all input values in 2's complement representation.
 
-.. function:: bitwise_or_agg(x) -> bigint
+    Supported types are TINYINT, SMALLINT, INTEGER and BIGINT.
+
+.. function:: bitwise_or_agg(x) -> [same as x]
 
     Returns the bitwise OR of all input values in 2's complement representation.
+
+    Supported types are TINYINT, SMALLINT, INTEGER and BIGINT.
 
 .. function:: bitwise_xor_agg(x) -> [same as x]
 
