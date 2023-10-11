@@ -490,6 +490,100 @@ TEST_F(HivePartitionFunctionTest, nestedMaps) {
   assertPartitionsWithConstChannel(values, 997);
 }
 
+TEST_F(HivePartitionFunctionTest, row) {
+  auto col1 = makeNullableFlatVector<int32_t>({std::nullopt, std::nullopt, 1});
+  auto col2 = makeNullableFlatVector<float>({std::nullopt, std::nullopt, 1.0});
+  auto col3 =
+      makeNullableFlatVector<std::string>({std::nullopt, std::nullopt, "a"});
+  auto values =
+      makeRowVector({col1, col2, col3}, [](auto row) { return row == 0; });
+
+  assertPartitions(values, 1, {0, 0, 0});
+  assertPartitions(values, 2, {0, 0, 0});
+  assertPartitions(values, 500, {0, 0, 34});
+  assertPartitions(values, 997, {0, 0, 466});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
+
+TEST_F(HivePartitionFunctionTest, rowFieldsEncoded) {
+  vector_size_t size = 5;
+
+  // Dictionary encode the fields.
+  auto col1 = makeFlatVector<int32_t>(
+      size, [](auto row) { return row; }, [](auto row) { return row == 2; });
+  // Produces indices: [0, 2, 4, 1, 3]
+  auto col1Indices = makeIndices(size, [](auto row) { return (row * 2) % 5; });
+  auto encodedCol1 = wrapInDictionary(col1Indices, col1);
+  auto col2 = makeFlatVector<float>(
+      size,
+      [](auto row) { return row + 10.0; },
+      [](auto row) { return row == 4; });
+  // Produces keys: [0, 3, 1, 4, 2]
+  auto col2Indices = makeIndices(size, [](auto row) { return (row * 3) % 5; });
+  auto encodedCol2 = wrapInDictionary(col2Indices, col2);
+  auto col3 = makeFlatVector<std::string>(
+      size, [](auto row) { return fmt::format("{}", row + 20); });
+  auto col3Indices = makeIndicesInReverse(size);
+  auto encodedCol3 = wrapInDictionary(col3Indices, col3);
+
+  BufferPtr nullsBuffer =
+      AlignedBuffer::allocate<bool>(size, pool_.get(), bits::kNotNull);
+  ;
+  auto rawNulls = nullsBuffer->asMutable<uint64_t>();
+
+  bits::setNull(rawNulls, 2);
+
+  // Produces rows that look like:
+  // {col1: 0, col2: 10.0, col3: "24"}
+  // {col1: NULL, col2: 13.0, col3: "23"}
+  // NULL
+  // {col1: 1, col2: NULL, col3: "21"}
+  // {col1: 3, col2: 12.0, col3: "20"}
+  auto values = std::make_shared<RowVector>(
+      pool_.get(),
+      ROW({col1->type(), col2->type(), col3->type()}),
+      nullsBuffer,
+      size,
+      std::vector<VectorPtr>{encodedCol1, encodedCol2, encodedCol3});
+
+  assertPartitions(values, 1, {0, 0, 0, 0, 0});
+  assertPartitions(values, 2, {0, 1, 0, 0, 1});
+  assertPartitions(values, 500, {334, 401, 0, 60, 425});
+  assertPartitions(values, 997, {354, 354, 0, 566, 575});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
+
+TEST_F(HivePartitionFunctionTest, nestedRows) {
+  auto innerCol1 = makeNullableFlatVector<int32_t>(
+      {std::nullopt, std::nullopt, 1, std::nullopt, 3});
+  auto innerCol2 = makeNullableFlatVector<float>(
+      {2.0, std::nullopt, 1.0, std::nullopt, 3.0});
+  auto innerRow =
+      makeRowVector({innerCol1, innerCol2}, [](auto row) { return row == 1; });
+  auto outerCol = makeNullableFlatVector<std::string>(
+      {"a", "b", std::nullopt, std::nullopt, "c"});
+  auto values =
+      makeRowVector({outerCol, innerRow}, [](auto row) { return row == 3; });
+
+  assertPartitions(values, 1, {0, 0, 0, 0, 0});
+  assertPartitions(values, 2, {1, 0, 1, 0, 0});
+  assertPartitions(values, 500, {331, 38, 247, 0, 290});
+  assertPartitions(values, 997, {756, 47, 921, 0, 836});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
+
 TEST_F(HivePartitionFunctionTest, spec) {
   Type::registerSerDe();
   core::ITypedExpr::registerSerDe();

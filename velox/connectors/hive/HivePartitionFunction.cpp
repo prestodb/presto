@@ -367,6 +367,49 @@ void HivePartitionFunction::hashTyped<TypeKind::MAP>(
   });
 }
 
+template <>
+void HivePartitionFunction::hashTyped<TypeKind::ROW>(
+    const DecodedVector& values,
+    const SelectivityVector& rows,
+    bool mix,
+    std::vector<uint32_t>& hashes,
+    size_t poolIndex) {
+  auto& childDecodedVector = getDecodedVector(poolIndex);
+  auto& childRows = getRows(poolIndex);
+  auto& childHashes = getHashes(poolIndex);
+
+  const auto* rowVector = values.base()->as<RowVector>();
+  childRows.resizeFill(rowVector->size(), false);
+  childHashes.resize(rowVector->size());
+
+  rows.applyToSelected([&](auto row) {
+    if (!values.isNullAt(row)) {
+      childRows.setValid(values.index(row), true);
+    }
+  });
+
+  childRows.updateBounds();
+
+  for (vector_size_t i = 0; i < rowVector->childrenSize(); ++i) {
+    auto& child = rowVector->childAt(i);
+    childDecodedVector.decode(*child, childRows);
+    hash(
+        childDecodedVector,
+        child->typeKind(),
+        childRows,
+        i > 0,
+        childHashes,
+        poolIndex + 1);
+  }
+
+  rows.applyToSelected([&](auto row) {
+    mergeHash(
+        mix,
+        values.isNullAt(row) ? 0 : childHashes[values.index(row)],
+        hashes[row]);
+  });
+}
+
 void HivePartitionFunction::hash(
     const DecodedVector& values,
     TypeKind typeKind,

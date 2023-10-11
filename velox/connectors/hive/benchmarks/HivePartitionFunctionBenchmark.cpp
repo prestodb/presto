@@ -63,6 +63,7 @@ class HivePartitionFunctionBenchmark
 
     addRowVector(ARRAY(REAL()));
     addRowVector(MAP(BIGINT(), BOOLEAN()));
+    addRowVector(ROW({"a", "b"}, {INTEGER(), DOUBLE()}));
 
     // Prepare HivePartitionFunction
     fewBucketsFunction_ = createHivePartitionFunction(20);
@@ -304,6 +305,24 @@ BENCHMARK(mapManyRowsFewBuckets) {
 
 BENCHMARK_RELATIVE(mapManyRowsManyBuckets) {
   benchmarkMany->runMany<TypeKind::MAP>();
+}
+
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK(rowFewRowsFewBuckets) {
+  benchmarkFew->runFew<TypeKind::ROW>();
+}
+
+BENCHMARK_RELATIVE(rowFewRowsManyBuckets) {
+  benchmarkFew->runMany<TypeKind::ROW>();
+}
+
+BENCHMARK(rowManyRowsFewBuckets) {
+  benchmarkMany->runFew<TypeKind::ROW>();
+}
+
+BENCHMARK_RELATIVE(rowManyRowsManyBuckets) {
+  benchmarkMany->runMany<TypeKind::ROW>();
 }
 
 BENCHMARK_DRAW_LINE();
