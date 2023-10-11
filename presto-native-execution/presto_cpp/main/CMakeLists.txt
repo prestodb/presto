@@ -76,8 +76,10 @@ target_link_libraries(
 # dependencies first followed by FBThrift.
 target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra
                       ${THRIFT_LIBRARY})
-
-set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK link_job_pool)
+message("Checking CMAKE_JOB_POOL_LINK: ${CMAKE_JOB_POOL_LINK}")
+if("${CMAKE_JOB_POOL_LINK}")
+  set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK link_job_pool)
+endif()
 
 add_executable(presto_server PrestoMain.cpp)
 
@@ -97,7 +99,10 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   target_link_libraries(presto_server_lib presto_server_remote_function)
 endif()
 
-set_property(TARGET presto_server PROPERTY JOB_POOL_LINK link_job_pool)
+message("Checking CMAKE_JOB_POOL_LINK: ${CMAKE_JOB_POOL_LINK}")
+if("${CMAKE_JOB_POOL_LINK}")
+  set_property(TARGET presto_server PROPERTY JOB_POOL_LINK link_job_pool)
+endif()
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

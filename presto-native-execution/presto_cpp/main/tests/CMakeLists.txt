@@ -46,7 +46,9 @@ target_link_libraries(
   gtest
   gtest_main)
 
-set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK link_job_pool)
+if("${CMAKE_JOB_POOL_LINK}")
+  set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK link_job_pool)
+endif()
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_executable(presto_server_remote_function_test
