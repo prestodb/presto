@@ -300,6 +300,73 @@ void HivePartitionFunction::hashTyped<TypeKind::ARRAY>(
   });
 }
 
+template <>
+void HivePartitionFunction::hashTyped<TypeKind::MAP>(
+    const DecodedVector& values,
+    const SelectivityVector& rows,
+    bool mix,
+    std::vector<uint32_t>& hashes,
+    size_t poolIndex) {
+  auto& valuesDecoded = getDecodedVector(poolIndex);
+  auto& keysDecoded = getDecodedVector(poolIndex + 1);
+  auto& elementsRows = getRows(poolIndex);
+  auto& valuesHashes = getHashes(poolIndex);
+  auto& keysHashes = getHashes(poolIndex + 1);
+
+  const auto* mapVector = values.base()->as<MapVector>();
+  const vector_size_t elementsSize = mapVector->mapKeys()->size();
+  elementsRows.resizeFill(elementsSize, false);
+  keysHashes.resize(elementsSize);
+  valuesHashes.resize(elementsSize);
+
+  rows.applyToSelected([&](auto row) {
+    if (!values.isNullAt(row)) {
+      const auto index = values.index(row);
+      const auto offset = mapVector->offsetAt(index);
+      const auto length = mapVector->sizeAt(index);
+
+      elementsRows.setValidRange(offset, offset + length, true);
+    }
+  });
+
+  elementsRows.updateBounds();
+
+  keysDecoded.decode(*mapVector->mapKeys(), elementsRows);
+  valuesDecoded.decode(*mapVector->mapValues(), elementsRows);
+
+  hash(
+      keysDecoded,
+      keysDecoded.base()->typeKind(),
+      elementsRows,
+      false,
+      keysHashes,
+      poolIndex + 2);
+
+  hash(
+      valuesDecoded,
+      valuesDecoded.base()->typeKind(),
+      elementsRows,
+      false,
+      valuesHashes,
+      poolIndex + 2);
+
+  rows.applyToSelected([&](auto row) {
+    uint32_t hash = 0;
+
+    if (!values.isNullAt(row)) {
+      const auto index = values.index(row);
+      const auto offset = mapVector->offsetAt(index);
+      const auto length = mapVector->sizeAt(index);
+
+      for (size_t i = offset; i < offset + length; ++i) {
+        hash += keysHashes[i] ^ valuesHashes[i];
+      }
+    }
+
+    mergeHash(mix, hash, hashes[row]);
+  });
+}
+
 void HivePartitionFunction::hash(
     const DecodedVector& values,
     TypeKind typeKind,

@@ -374,6 +374,122 @@ TEST_F(HivePartitionFunctionTest, nestedArrays) {
   assertPartitionsWithConstChannel(values, 997);
 }
 
+TEST_F(HivePartitionFunctionTest, map) {
+  auto values = makeNullableMapVector<std::string, int32_t>(
+      std::vector<std::optional<
+          std::vector<std::pair<std::string, std::optional<int32_t>>>>>{
+          std::nullopt,
+          std::vector<std::pair<std::string, std::optional<int32_t>>>{},
+          std::vector<std::pair<std::string, std::optional<int32_t>>>{
+              {"a", std::nullopt}},
+          std::vector<std::pair<std::string, std::optional<int32_t>>>{{"b", 1}},
+          std::vector<std::pair<std::string, std::optional<int32_t>>>{
+              {"x", 1}, {"y", 2}, {"z", 3}}});
+
+  assertPartitions(values, 1, {0, 0, 0, 0, 0});
+  assertPartitions(values, 2, {0, 0, 1, 1, 1});
+  assertPartitions(values, 500, {0, 0, 97, 99, 365});
+  assertPartitions(values, 997, {0, 0, 97, 99, 365});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
+
+TEST_F(HivePartitionFunctionTest, mapEntriesEncoded) {
+  vector_size_t elementsSize = 10;
+
+  // Dictionary encode the keys and values.
+  auto mapKeys = makeFlatVector<std::string>(
+      elementsSize, [](auto row) { return fmt::format("key_{}", row); });
+  // Produces indices: [0, 3, 6, 9, 2, 5, 8, 1, 4, 7]
+  auto keyIndices =
+      makeIndices(elementsSize, [](auto row) { return (row * 3) % 10; });
+  auto encodedKeys = wrapInDictionary(keyIndices, mapKeys);
+  auto mapValues = makeFlatVector<int32_t>(
+      elementsSize,
+      [](auto row) { return row; },
+      [](auto row) { return row % 4 == 0; });
+  auto valueIndices = makeIndicesInReverse(elementsSize);
+  auto encodedValues = wrapInDictionary(valueIndices, mapValues);
+
+  vector_size_t size = 5;
+  BufferPtr offsetsBuffer = allocateOffsets(size, pool_.get());
+  BufferPtr sizesBuffer = allocateSizes(size, pool_.get());
+  BufferPtr nullsBuffer =
+      AlignedBuffer::allocate<bool>(size, pool_.get(), bits::kNotNull);
+  ;
+  auto rawOffsets = offsetsBuffer->asMutable<vector_size_t>();
+  auto rawSizes = sizesBuffer->asMutable<vector_size_t>();
+  auto rawNulls = nullsBuffer->asMutable<uint64_t>();
+
+  // Make the elements overlap and have gaps.
+  // Set the values in position 2 to be invalid since that Map should be null.
+  std::vector<vector_size_t> offsets{
+      0, 2, std::numeric_limits<int32_t>().max(), 1, 8};
+  std::vector<vector_size_t> sizes{
+      4, 3, std::numeric_limits<int32_t>().max(), 5, 2};
+  memcpy(rawOffsets, offsets.data(), size * sizeof(vector_size_t));
+  memcpy(rawSizes, sizes.data(), size * sizeof(vector_size_t));
+
+  bits::setNull(rawNulls, 2);
+
+  // Produces maps that look like:
+  // {key_0: 9, key_3: NULL, key_6: 7, key_9: 6}
+  // {key_6: 7, key_9: 6, key_2: 5}
+  // NULL
+  // {key_3: NULL, key_6: 7, key_9: 6, key_2: 5, key_5: NULL}
+  // {key_4: 1, key_7: NULL}
+  auto values = std::make_shared<MapVector>(
+      pool_.get(),
+      MAP(mapKeys->type(), mapValues->type()),
+      nullsBuffer,
+      size,
+      offsetsBuffer,
+      sizesBuffer,
+      encodedKeys,
+      encodedValues);
+
+  assertPartitions(values, 1, {0, 0, 0, 0, 0});
+  assertPartitions(values, 2, {0, 1, 0, 1, 0});
+  assertPartitions(values, 500, {176, 259, 0, 91, 336});
+  assertPartitions(values, 997, {694, 24, 0, 365, 345});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
+
+TEST_F(HivePartitionFunctionTest, nestedMaps) {
+  auto innerMaps = makeNullableMapVector<int32_t, float>(
+      std::vector<
+          std::optional<std::vector<std::pair<int32_t, std::optional<float>>>>>{
+          std::vector<std::pair<int32_t, std::optional<float>>>{
+              {1, -1.0}, {2, -2.0}, {3, -3.0}},
+          std::vector<std::pair<int32_t, std::optional<float>>>{
+              {4, -4.0}, {5, -5.0}},
+          std::vector<std::pair<int32_t, std::optional<float>>>{
+              {6, -6.0}, {7, -7.0}, {8, -8.0}},
+          std::nullopt,
+          std::vector<std::pair<int32_t, std::optional<float>>>{{9, -9.0}},
+          std::vector<std::pair<int32_t, std::optional<float>>>{
+              {10, -10.0}, {12, std::nullopt}, {11, -11.0}}});
+  auto keys = makeFlatVector<std::string>({"a", "b", "c", "d", "e", "f"});
+  auto values = makeMapVector({0, 2, 2, 3}, keys, innerMaps, {1});
+
+  assertPartitions(values, 1, {0, 0, 0, 0});
+  assertPartitions(values, 2, {0, 0, 0, 1});
+  assertPartitions(values, 500, {98, 0, 134, 207});
+  assertPartitions(values, 997, {189, 0, 569, 505});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
+
 TEST_F(HivePartitionFunctionTest, spec) {
   Type::registerSerDe();
   core::ITypedExpr::registerSerDe();
