@@ -296,6 +296,7 @@ public final class SystemSessionProperties
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
     public static final String NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD = "native_aggregation_spill_memory_threshold";
+    public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
     public static final String NATIVE_JOIN_SPILL_MEMORY_THRESHOLD = "native_join_spill_memory_threshold";
     public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "native_order_by_spill_memory_threshold";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
@@ -1498,6 +1499,14 @@ public final class SystemSessionProperties
                         NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD,
                         "Native Execution only. The max memory that a final aggregation can use before spilling. If it is 0, then there is no limit",
                         0,
+                        false),
+                booleanProperty(
+                        NATIVE_AGGREGATION_SPILL_ALL,
+                        "Native Execution only. If true and spilling has been triggered during the input " +
+                                "processing, the spiller will spill all the remaining in-memory state to disk before " +
+                                "output processing. This is to simplify the aggregation query OOM prevention in " +
+                                "output processing stage.",
+                        true,
                         false),
                 integerProperty(
                         NATIVE_JOIN_SPILL_MEMORY_THRESHOLD,
