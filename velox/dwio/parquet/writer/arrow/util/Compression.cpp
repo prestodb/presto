@@ -174,13 +174,11 @@ Result<std::unique_ptr<Codec>> Codec::Create(
       codec = internal::MakeSnappyCodec();
       break;
     case Compression::GZIP: {
-#ifdef ARROW_WITH_ZLIB
       auto opt = dynamic_cast<const GZipCodecOptions*>(&codec_options);
       codec = internal::MakeGZipCodec(
           compression_level,
           opt ? opt->gzip_format : GZipFormat::GZIP,
           opt ? opt->window_bits : std::nullopt);
-#endif
       break;
     }
     case Compression::BROTLI: {
@@ -236,15 +234,9 @@ Result<std::unique_ptr<Codec>> Codec::Create(
 bool Codec::IsAvailable(Compression::type codec_type) {
   switch (codec_type) {
     case Compression::UNCOMPRESSED:
-      return true;
     case Compression::SNAPPY:
-      return true;
     case Compression::GZIP:
-#ifdef ARROW_WITH_ZLIB
       return true;
-#else
-      return false;
-#endif
     case Compression::LZO:
       return false;
     case Compression::BROTLI:

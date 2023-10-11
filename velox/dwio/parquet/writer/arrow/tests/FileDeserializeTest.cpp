@@ -93,9 +93,7 @@ static std::vector<Compression::type> GetSupportedCodecTypes() {
   codec_types.push_back(Compression::BROTLI);
 #endif
 
-#ifdef ARROW_WITH_GZIP
   codec_types.push_back(Compression::GZIP);
-#endif
 
 #ifdef ARROW_WITH_LZ4
   codec_types.push_back(Compression::LZ4);

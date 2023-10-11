@@ -598,7 +598,6 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndBrotliCompression) {
 
 #endif
 
-#ifdef ARROW_WITH_GZIP
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
   this->TestRequiredWithSettings(
       Encoding::PLAIN, Compression::GZIP, false, false, LARGE_SIZE);
@@ -613,7 +612,6 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
   this->TestRequiredWithSettings(
       Encoding::PLAIN, Compression::GZIP, false, true, LARGE_SIZE);
 }
-#endif
 
 #ifdef ARROW_WITH_LZ4
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithLz4Compression) {
