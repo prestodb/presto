@@ -29,24 +29,27 @@ GroupId::GroupId(
           "GroupId") {
   const auto& inputType = groupIdNode->sources()[0]->outputType();
 
-  std::unordered_map<std::string, column_index_t>
-      inputToOutputGroupingKeyMapping;
+  std::unordered_map<column_index_t, column_index_t>
+      outputToInputGroupingKeyMapping;
   for (const auto& groupingKeyInfo : groupIdNode->groupingKeyInfos()) {
-    inputToOutputGroupingKeyMapping[groupingKeyInfo.input->name()] =
-        outputType_->getChildIdx(groupingKeyInfo.output);
+    outputToInputGroupingKeyMapping[outputType_->getChildIdx(
+        groupingKeyInfo.output)] =
+        inputType->getChildIdx(groupingKeyInfo.input->name());
   }
-
-  auto numGroupingSets = groupIdNode->groupingSets().size();
-  groupingKeyMappings_.reserve(numGroupingSets);
 
   auto numGroupingKeys = groupIdNode->numGroupingKeys();
 
+  groupingKeyMappings_.reserve(groupIdNode->groupingSets().size());
   for (const auto& groupingSet : groupIdNode->groupingSets()) {
     std::vector<column_index_t> mappings(numGroupingKeys, kMissingGroupingKey);
     for (const auto& groupingKey : groupingSet) {
-      auto outputChannel =
-          inputToOutputGroupingKeyMapping.at(groupingKey->name());
-      auto inputChannel = inputType->getChildIdx(groupingKey->name());
+      auto outputChannel = outputType_->getChildIdx(groupingKey);
+      VELOX_USER_CHECK_NE(
+          outputToInputGroupingKeyMapping.count(outputChannel),
+          0,
+          "GroupIdNode didn't map grouping key {} to input channel",
+          groupingKey);
+      auto inputChannel = outputToInputGroupingKeyMapping.at(outputChannel);
       mappings[outputChannel] = inputChannel;
     }
 

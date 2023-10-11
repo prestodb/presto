@@ -164,8 +164,14 @@ TEST_F(PlanNodeSerdeTest, filter) {
 TEST_F(PlanNodeSerdeTest, groupId) {
   auto plan = PlanBuilder()
                   .values({data_})
-                  .groupId({{"c0"}, {"c0", "c1"}}, {"c2"})
+                  .groupId({"c0", "c1"}, {{"c0"}, {"c0", "c1"}}, {"c2"})
                   .planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder()
+             .values({data_})
+             .groupId({"c0", "c0 as c1"}, {{"c0"}, {"c0", "c1"}}, {"c2"})
+             .planNode();
   testSerde(plan);
 }
 

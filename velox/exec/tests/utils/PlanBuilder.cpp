@@ -740,33 +740,39 @@ PlanBuilder& PlanBuilder::streamingAggregation(
 }
 
 PlanBuilder& PlanBuilder::groupId(
+    const std::vector<std::string>& groupingKeys,
     const std::vector<std::vector<std::string>>& groupingSets,
     const std::vector<std::string>& aggregationInputs,
     std::string groupIdName) {
-  std::vector<std::vector<core::FieldAccessTypedExprPtr>> groupingSetExprs;
-  groupingSetExprs.reserve(groupingSets.size());
-  for (const auto& groupingSet : groupingSets) {
-    groupingSetExprs.push_back(fields(groupingSet));
-  }
-
   std::vector<core::GroupIdNode::GroupingKeyInfo> groupingKeyInfos;
-  std::set<std::string> names;
-  auto index = 0;
-  for (const auto& groupingSet : groupingSetExprs) {
-    for (const auto& groupingKey : groupingSet) {
-      if (names.find(groupingKey->name()) == names.end()) {
-        core::GroupIdNode::GroupingKeyInfo keyInfos;
-        keyInfos.output = groupingKey->name();
-        keyInfos.input = groupingKey;
-        groupingKeyInfos.push_back(keyInfos);
-      }
-      names.insert(groupingKey->name());
-    }
+  groupingKeyInfos.reserve(groupingKeys.size());
+  for (const auto& groupingKey : groupingKeys) {
+    auto untypedExpr = parse::parseExpr(groupingKey, options_);
+    const auto* fieldAccessExpr =
+        dynamic_cast<const core::FieldAccessExpr*>(untypedExpr.get());
+    VELOX_USER_CHECK(
+        fieldAccessExpr,
+        "Grouping key {} is not valid projection",
+        groupingKey);
+    std::string inputField = fieldAccessExpr->getFieldName();
+    std::string outputField = untypedExpr->alias().has_value()
+        ?
+        // This is a projection with a column alias with the format
+        // "input_col as output_col".
+        untypedExpr->alias().value()
+        :
+        // This is a projection without a column alias.
+        fieldAccessExpr->getFieldName();
+
+    core::GroupIdNode::GroupingKeyInfo keyInfos;
+    keyInfos.output = outputField;
+    keyInfos.input = field(inputField);
+    groupingKeyInfos.push_back(keyInfos);
   }
 
   planNode_ = std::make_shared<core::GroupIdNode>(
       nextPlanNodeId(),
-      groupingSetExprs,
+      groupingSets,
       std::move(groupingKeyInfos),
       fields(aggregationInputs),
       std::move(groupIdName),

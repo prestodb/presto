@@ -802,9 +802,29 @@ class GroupIdNode : public PlanNode {
   /// @param groupIdName Name of the column that will contain the grouping set
   /// ID (a zero based integer).
   /// @param source Input plan node.
+  /// NOTE: THIS FUNCTION IS DEPRECATED. PLEASE DO NOT USE.
   GroupIdNode(
       PlanNodeId id,
       std::vector<std::vector<FieldAccessTypedExprPtr>> groupingSets,
+      std::vector<GroupingKeyInfo> groupingKeyInfos,
+      std::vector<FieldAccessTypedExprPtr> aggregationInputs,
+      std::string groupIdName,
+      PlanNodePtr source);
+
+  /// @param id Plan node ID.
+  /// @param groupingSets A list of grouping key sets. Grouping keys within the
+  /// set must be unique, but grouping keys across sets may repeat.
+  /// Note: groupingSets are specified using output column names.
+  /// @param groupingKeyInfos The names and order of the grouping keys in the
+  /// output.
+  /// @param aggregationInputs Columns that contain inputs to the aggregate
+  /// functions.
+  /// @param groupIdName Name of the column that will contain the grouping set
+  /// ID (a zero based integer).
+  /// @param source Input plan node.
+  GroupIdNode(
+      PlanNodeId id,
+      std::vector<std::vector<std::string>> groupingSets,
       std::vector<GroupingKeyInfo> groupingKeyInfos,
       std::vector<FieldAccessTypedExprPtr> aggregationInputs,
       std::string groupIdName,
@@ -818,8 +838,7 @@ class GroupIdNode : public PlanNode {
     return sources_;
   }
 
-  const std::vector<std::vector<FieldAccessTypedExprPtr>>& groupingSets()
-      const {
+  const std::vector<std::vector<std::string>>& groupingSets() const {
     return groupingSets_;
   }
 
@@ -852,7 +871,12 @@ class GroupIdNode : public PlanNode {
 
   const std::vector<PlanNodePtr> sources_;
   const RowTypePtr outputType_;
-  const std::vector<std::vector<FieldAccessTypedExprPtr>> groupingSets_;
+
+  // Specifies groupingSets with output column names.
+  // This allows for the case when a single input column could map
+  // to multiple output columns which are used in separate grouping sets.
+  const std::vector<std::vector<std::string>> groupingSets_;
+
   const std::vector<GroupingKeyInfo> groupingKeyInfos_;
   const std::vector<FieldAccessTypedExprPtr> aggregationInputs_;
   const std::string groupIdName_;

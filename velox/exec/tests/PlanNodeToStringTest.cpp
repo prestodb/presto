@@ -254,7 +254,7 @@ TEST_F(PlanNodeToStringTest, aggregation) {
 TEST_F(PlanNodeToStringTest, groupId) {
   auto plan = PlanBuilder()
                   .values({data_})
-                  .groupId({{"c0"}, {"c1"}}, {"c2"})
+                  .groupId({"c0", "c1"}, {{"c0"}, {"c1"}}, {"c2"})
                   .planNode();
   ASSERT_EQ("-- GroupId\n", plan->toString());
   ASSERT_EQ(
@@ -263,11 +263,20 @@ TEST_F(PlanNodeToStringTest, groupId) {
 
   plan = PlanBuilder()
              .values({data_})
-             .groupId({{"c0", "c1"}, {"c1"}}, {"c2"}, "gid")
+             .groupId({"c0", "c1"}, {{"c0", "c1"}, {"c1"}}, {"c2"}, "gid")
              .planNode();
   ASSERT_EQ("-- GroupId\n", plan->toString());
   ASSERT_EQ(
       "-- GroupId[[c0, c1], [c1]] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT, gid:BIGINT\n",
+      plan->toString(true, false));
+
+  plan = PlanBuilder()
+             .values({data_})
+             .groupId({"c0", "c0 as c1"}, {{"c0", "c1"}, {"c1"}}, {"c2"}, "gid")
+             .planNode();
+  ASSERT_EQ("-- GroupId\n", plan->toString());
+  ASSERT_EQ(
+      "-- GroupId[[c0, c1], [c1]] -> c0:SMALLINT, c1:SMALLINT, c2:BIGINT, gid:BIGINT\n",
       plan->toString(true, false));
 }
 

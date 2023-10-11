@@ -446,10 +446,18 @@ class PlanBuilder {
       core::AggregationNode::Step step,
       bool ignoreNullKeys);
 
-  /// Add a GroupIdNode using the specified grouping sets, aggregation inputs
-  /// and a groupId column name. And create GroupIdNode plan node with grouping
-  /// keys appearing in the output in the order they appear in 'groupingSets'.
+  /// Add a GroupIdNode using the specified grouping keys, grouping sets,
+  /// aggregation inputs and a groupId column name.
+  /// The grouping keys can specify aliases if an input column is mapped
+  /// to an output column with a different name.
+  /// e.g. Grouping keys {"k1", "k1 as k2"} means there are 2 grouping keys:
+  /// the input column k1 and output column k2 which is an alias of column k1.
+  /// Grouping sets using above grouping keys use the output column aliases.
+  /// e.g. Grouping sets in the above case could be {{"k1"}, {"k2"}, {}}
+  /// The GroupIdNode output columns have grouping keys in the order specified
+  /// in groupingKeys variable.
   PlanBuilder& groupId(
+      const std::vector<std::string>& groupingKeys,
       const std::vector<std::vector<std::string>>& groupingSets,
       const std::vector<std::string>& aggregationInputs,
       std::string groupIdName = "group_id");
