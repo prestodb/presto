@@ -171,4 +171,12 @@ public class TestClientOptions
         ClientOptions options = console.clientOptions;
         options.toClientSession();
     }
+
+    @Test
+    public void testValidateNextUriSource()
+    {
+        Console console = singleCommand(Console.class).parse("--validate-nexturi-source");
+        assertTrue(console.clientOptions.validateNextUriSource);
+        assertTrue(console.clientOptions.toClientSession().validateNextUriSource());
+    }
 }

@@ -84,7 +84,8 @@ public abstract class AbstractCliTest
                 new Duration(2, MINUTES),
                 true,
                 ImmutableMap.of(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
     }
 
     protected QueryResults createMockQueryResults()
