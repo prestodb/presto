@@ -69,9 +69,16 @@ class PrestoVectorSerde : public VectorSerde {
       RowTypePtr type,
       std::shared_ptr<RowVector>* result,
       const Options* options) override;
-
   static void registerVectorSerde();
 };
+
+// Testing function for nested encodings. See comments in scatterStructNulls().
+void testingScatterStructNulls(
+    vector_size_t size,
+    vector_size_t scatterSize,
+    const vector_size_t* scatter,
+    const uint64_t* incomingNulls,
+    RowVector& row);
 
 class PrestoOutputStreamListener : public OutputStreamListener {
  public:

@@ -15,6 +15,7 @@
  */
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/common/base/Crc.h"
+#include "velox/common/base/RawVector.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/BiasVector.h"
@@ -553,6 +554,242 @@ void readTimestampWithTimeZone(
       std::vector<VectorPtr>{timestamps, timezones});
 }
 
+template <typename T>
+void scatterValues(int32_t numValues, const vector_size_t* indices, T* data) {
+  for (auto index = numValues - 1; index >= 0; --index) {
+    auto destination = indices[index];
+    if (destination == index) {
+      break;
+    }
+    data[destination] = data[index];
+  }
+}
+
+void scatterBits(
+    int32_t numValues,
+    const vector_size_t* indices,
+    uint64_t* data) {
+  for (auto index = numValues - 1; index >= 0; --index) {
+    auto destination = indices[index];
+    if (destination == index) {
+      break;
+    }
+    bits::setBit(data, destination, bits::isBitSet(data, index));
+  }
+}
+
+template <TypeKind kind>
+void scatterFlatValues(
+    vector_size_t scatterSize,
+    const vector_size_t* scatter,
+    BaseVector& vector) {
+  using T = typename TypeTraits<kind>::NativeType;
+  auto* values = const_cast<T*>(vector.values()->as<T>());
+  scatterValues(scatterSize, scatter, values);
+}
+
+template <>
+void scatterFlatValues<TypeKind::BOOLEAN>(
+    vector_size_t scatterSize,
+    const vector_size_t* scatter,
+    BaseVector& vector) {
+  auto* values = const_cast<uint64_t*>(vector.values()->as<uint64_t>());
+  scatterBits(scatterSize, scatter, values);
+}
+
+void scatterStructNulls(
+    vector_size_t size,
+    vector_size_t scatterSize,
+    const vector_size_t* scatter,
+    const uint64_t* incomingNulls,
+    RowVector& row);
+
+// Scatters existing nulls and adds 'incomingNulls' to the gaps. 'oldSize' is
+// the number of valid bits in the nulls of 'vector'. 'vector' must have been
+// resized to the new size before calling this.
+void scatterNulls(
+    vector_size_t oldSize,
+    const uint64_t* incomingNulls,
+    BaseVector& vector) {
+  bool hasNulls = vector.mayHaveNulls();
+  auto size = vector.size();
+  vector.mutableRawNulls();
+  if (hasNulls) {
+    auto bits = reinterpret_cast<char*>(vector.mutableRawNulls());
+    bits::scatterBits(oldSize, vector.size(), bits, incomingNulls, bits);
+  } else {
+    memcpy(
+        vector.mutableRawNulls(), incomingNulls, bits::nbytes(vector.size()));
+  }
+}
+
+void scatterVector(
+    int32_t size,
+    vector_size_t scatterSize,
+    const vector_size_t* scatter,
+    const uint64_t* incomingNulls,
+    VectorPtr& vector) {
+  auto oldSize = vector->size();
+  vector->resize(size);
+  switch (vector->encoding()) {
+    case VectorEncoding::Simple::DICTIONARY: {
+      if (incomingNulls) {
+        auto dictIndices =
+            const_cast<vector_size_t*>(vector->wrapInfo()->as<vector_size_t>());
+        scatterValues(scatterSize, scatter, dictIndices);
+        scatterNulls(oldSize, incomingNulls, *vector);
+      }
+      auto values = vector->valueVector();
+      scatterVector(values->size(), 0, nullptr, nullptr, values);
+      break;
+    }
+    case VectorEncoding::Simple::CONSTANT: {
+      auto values = vector->valueVector();
+      if (values) {
+        scatterVector(values->size(), 0, nullptr, nullptr, values);
+      }
+
+      if (incomingNulls) {
+        BaseVector::ensureWritable(
+            SelectivityVector::empty(), vector->type(), vector->pool(), vector);
+        scatterNulls(oldSize, incomingNulls, *vector);
+      }
+      break;
+    }
+    case VectorEncoding::Simple::ARRAY: {
+      auto* array = reinterpret_cast<ArrayVector*>(vector.get());
+      if (incomingNulls) {
+        auto offsets = const_cast<vector_size_t*>(array->rawOffsets());
+        auto sizes = const_cast<vector_size_t*>(array->rawSizes());
+        scatterValues(scatterSize, scatter, offsets);
+        scatterValues(scatterSize, scatter, sizes);
+        scatterNulls(oldSize, incomingNulls, *vector);
+      }
+      auto elements = array->elements();
+      scatterVector(array->elements()->size(), 0, nullptr, nullptr, elements);
+      break;
+    }
+    case VectorEncoding::Simple::MAP: {
+      auto* map = reinterpret_cast<MapVector*>(vector.get());
+      if (incomingNulls) {
+        auto offsets = const_cast<vector_size_t*>(map->rawOffsets());
+        auto sizes = const_cast<vector_size_t*>(map->rawSizes());
+        scatterValues(scatterSize, scatter, offsets);
+        scatterValues(scatterSize, scatter, sizes);
+        scatterNulls(oldSize, incomingNulls, *vector);
+      }
+      auto keys = map->mapKeys();
+      scatterVector(keys->size(), 0, nullptr, nullptr, keys);
+      auto values = map->mapValues();
+      scatterVector(values->size(), 0, nullptr, nullptr, values);
+      break;
+    }
+    case VectorEncoding::Simple::ROW: {
+      auto* row = reinterpret_cast<RowVector*>(vector.get());
+      scatterStructNulls(row->size(), 0, nullptr, nullptr, *row);
+      break;
+    }
+    case VectorEncoding::Simple::FLAT: {
+      if (incomingNulls) {
+        VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
+            scatterFlatValues,
+            vector->typeKind(),
+            scatterSize,
+            scatter,
+            *vector);
+        scatterNulls(oldSize, incomingNulls, *vector);
+      }
+      break;
+    }
+    default:
+      VELOX_FAIL("Unsupported encoding in scatter: {}", vector->encoding());
+  }
+}
+
+// A RowVector with nulls is serialized with children having a value
+// only for rows where the struct is non-null. After deserializing,
+// we do an extra traversal to add gaps into struct members where
+// the containing struct is null. As we go down the struct tree, we
+// merge child struct nulls into the nulls from enclosing structs so
+// that the leaves only get scattered once, considering all nulls
+// from all  enclosing structs.
+void scatterStructNulls(
+    vector_size_t size,
+    vector_size_t scatterSize,
+    const vector_size_t* scatter,
+    const uint64_t* incomingNulls,
+    RowVector& row) {
+  auto oldSize = row.size();
+  if (isTimestampWithTimeZoneType(row.type())) {
+    // The timestamp with tz case is special. The child vectors are aligned with
+    // the struct even if the struct as nulls.
+    if (incomingNulls) {
+      scatterVector(
+          row.size(), scatterSize, scatter, incomingNulls, row.childAt(0));
+      scatterVector(
+          row.size(), scatterSize, scatter, incomingNulls, row.childAt(1));
+      row.resize(size);
+      scatterNulls(oldSize, incomingNulls, row);
+    }
+    return;
+  }
+  const uint64_t* childIncomingNulls = incomingNulls;
+  const vector_size_t* childScatter = scatter;
+  auto childScatterSize = scatterSize;
+  raw_vector<vector_size_t> innerScatter;
+  raw_vector<uint64_t> childIncomingNullsVector;
+  if (auto* rawNulls = row.rawNulls()) {
+    if (!incomingNulls) {
+      childIncomingNulls = rawNulls;
+      innerScatter.resize(size);
+      childScatterSize =
+          simd::indicesOfSetBits(rawNulls, 0, size, innerScatter.data());
+      childScatter = innerScatter.data();
+    } else {
+      childIncomingNullsVector.resize(bits::nwords(size));
+      auto newNulls = childIncomingNullsVector.data();
+      bits::scatterBits(
+          row.size(),
+          size,
+          reinterpret_cast<const char*>(rawNulls),
+          incomingNulls,
+          reinterpret_cast<char*>(newNulls));
+      childIncomingNulls = newNulls;
+      innerScatter.resize(size);
+      childScatterSize = simd::indicesOfSetBits(
+          childIncomingNulls, 0, size, innerScatter.data());
+      childScatter = innerScatter.data();
+    }
+  }
+  for (auto i = 0; i < row.childrenSize(); ++i) {
+    auto& child = row.childAt(i);
+    if (child->encoding() == VectorEncoding::Simple::ROW) {
+      scatterStructNulls(
+          size,
+          childScatterSize,
+          childScatter,
+          childIncomingNulls,
+          *reinterpret_cast<RowVector*>(child.get()));
+    } else {
+      scatterVector(
+          size,
+          childScatterSize,
+          childScatter,
+          childIncomingNulls,
+          row.childAt(i));
+    }
+  }
+  if (incomingNulls) {
+    row.resize(size);
+    scatterNulls(oldSize, incomingNulls, row);
+  }
+  // On return of scatter we check that child sizes match the struct size. This
+  // is safe also if no scatter.
+  for (auto i = 0; i < row.childrenSize(); ++i) {
+    VELOX_CHECK_EQ(row.childAt(i)->size(), row.size());
+  }
+}
+
 void readRowVector(
     ByteStream* source,
     std::shared_ptr<const Type> type,
@@ -565,64 +802,21 @@ void readRowVector(
   }
 
   int32_t numChildren = source->read<int32_t>();
-  auto& children = result->as<RowVector>()->children();
+  auto* row = result->as<RowVector>();
+  auto& children = row->children();
 
   const auto& childTypes = type->asRow().children();
   readColumns(source, pool, childTypes, children, useLosslessTimestamp);
 
   auto size = source->read<int32_t>();
-
-  result->resize(size);
-
-  vector_size_t* rawOffsets = nullptr;
-  BufferPtr offsets(nullptr);
-  bool needOffsets = false;
+  // Set the size of the row but do not alter the size of the
+  // children. The children get adjusted in a separate pass over the
+  // data. The parent and child size MUST be separate until the second pass.
+  row->BaseVector::resize(size);
   for (int32_t i = 0; i <= size; ++i) {
-    int32_t childOffset = source->read<int32_t>();
-    if (childOffset != i) {
-      needOffsets = true;
-      if (!rawOffsets) {
-        BaseVector::resizeIndices(
-            size,
-            pool,
-            &offsets,
-            const_cast<const vector_size_t**>(&rawOffsets));
-        for (int32_t child = 0; child < i; ++child) {
-          rawOffsets[child] = child;
-        }
-      }
-      rawOffsets[i] = childOffset;
-    }
+    source->read<int32_t>();
   }
-
   readNulls(source, size, *result);
-
-  // If offsets is needed, reconstruct aligned layout.
-  // TODO: make it efficient
-  if (!needOffsets) {
-    return;
-  }
-
-  std::vector<VectorPtr> tempChildren;
-  tempChildren.resize(numChildren);
-  auto sourceRow = dynamic_cast<RowVector*>(result.get());
-  for (int32_t child = 0; child < numChildren; ++child) {
-    tempChildren[child] = BaseVector::create(childTypes[child], size, pool);
-    auto& src = sourceRow->childAt(child);
-    for (int32_t i = 0; i < size; ++i) {
-      if (!sourceRow->isNullAt(i)) {
-        tempChildren[child]->copy(src.get(), i, rawOffsets[i], 1);
-      }
-    }
-  }
-
-  result = std::make_shared<RowVector>(
-      pool,
-      type,
-      result->nulls(),
-      size,
-      std::move(tempChildren),
-      result->getNullCount());
 }
 
 std::string readLengthPrefixedString(ByteStream* source) {
@@ -2024,6 +2218,16 @@ void PrestoVectorSerde::deserialize(
     readColumns(
         &uncompressedSource, pool, childTypes, children, useLosslessTimestamp);
   }
+  scatterStructNulls((*result)->size(), 0, nullptr, nullptr, **result);
+}
+
+void testingScatterStructNulls(
+    vector_size_t size,
+    vector_size_t scatterSize,
+    const vector_size_t* scatter,
+    const uint64_t* incomingNulls,
+    RowVector& row) {
+  scatterStructNulls(size, scatterSize, scatter, incomingNulls, row);
 }
 
 // static
