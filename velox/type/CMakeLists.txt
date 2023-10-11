@@ -25,6 +25,7 @@ add_library(
   DoubleUtil.cpp
   Filter.cpp
   HugeInt.cpp
+  StringView.cpp
   StringView.h
   Subfield.cpp
   Timestamp.cpp
