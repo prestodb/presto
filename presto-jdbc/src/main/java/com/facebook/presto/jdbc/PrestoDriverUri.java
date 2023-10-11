@@ -71,6 +71,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASS
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.TIMEZONE_ID;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
+import static com.facebook.presto.jdbc.ConnectionProperties.VALIDATE_NEXTURI_SOURCE;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -208,6 +209,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return HTTP_PROTOCOLS.getValue(properties);
+    }
+
+    public boolean validateNextUriSource()
+            throws SQLException
+    {
+        return VALIDATE_NEXTURI_SOURCE.getValue(properties).orElse(false);
     }
 
     public void setupClient(OkHttpClient.Builder builder)
