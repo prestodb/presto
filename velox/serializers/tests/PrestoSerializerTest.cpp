@@ -432,7 +432,10 @@ TEST_P(PrestoSerializerTest, scatterEncoded) {
       numNonNull, [](auto row) { return row; }, pool_.get());
 
   inner->children()[0] = BaseVector::createConstant(
-      BIGINT(), variant(11L), numNonNull, pool_.get());
+      BIGINT(),
+      variant::create<TypeKind::BIGINT>(11L),
+      numNonNull,
+      pool_.get());
   inner->children()[1] = BaseVector::wrapInDictionary(
       BufferPtr(nullptr), indices, numNonNull, inner->childAt(1));
   inner->children()[2] =
