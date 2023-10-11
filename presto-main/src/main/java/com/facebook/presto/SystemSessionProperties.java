@@ -302,6 +302,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_JOIN_SPILL_MEMORY_THRESHOLD = "native_join_spill_memory_threshold";
     public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "native_order_by_spill_memory_threshold";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
+    public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
     public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
     public static final String NATIVE_SPILL_WRITE_BUFFER_SIZE = "native_spill_write_buffer_size";
     public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
@@ -1530,6 +1531,11 @@ public final class SystemSessionProperties
                         "Native Execution only. The maximum allowed spilling level for hash join build.\n" +
                                 "0 is the initial spilling level, -1 means unlimited.",
                         4,
+                        false),
+                integerProperty(
+                        NATIVE_MAX_SPILL_FILE_SIZE,
+                        "The max allowed spill file size. If it is zero, then there is no limit.",
+                        0,
                         false),
                 stringProperty(
                         NATIVE_SPILL_COMPRESSION_CODEC,
