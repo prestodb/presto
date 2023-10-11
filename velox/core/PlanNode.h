@@ -497,6 +497,13 @@ class AggregationNode : public PlanNode {
     /// Function name and input column names.
     CallTypedExprPtr call;
 
+    /// Raw input types used to properly identify aggregate function. These
+    /// might be different from the input types specified in 'call' when
+    /// aggregation step is kIntermediate or kFinal.
+    ///
+    /// Note: not used yet.
+    std::vector<TypePtr> rawInputTypes;
+
     /// Optional name of input column to use as a mask. Column type must be
     /// BOOLEAN.
     FieldAccessTypedExprPtr mask;

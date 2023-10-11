@@ -70,7 +70,7 @@ static std::shared_ptr<core::AggregationNode> generateAggregationNode(
       BIGINT(), std::vector<core::TypedExprPtr>{inputField}, "min");
   std::vector<std::string> aggregateNames = {"min"};
   std::vector<core::AggregationNode::Aggregate> aggregates = {
-      core::AggregationNode::Aggregate{callExpr, nullptr, {}, {}}};
+      core::AggregationNode::Aggregate{callExpr, {}, nullptr, {}, {}}};
   return std::make_shared<core::AggregationNode>(
       core::PlanNodeId(),
       step,
@@ -2404,19 +2404,23 @@ TEST_P(AllTableWriterTest, columnStatsDataTypes) {
       "count",
       "sum_data_size_for_stats",
   };
+
+  auto makeAggregate = [](const auto& callExpr) {
+    return core::AggregationNode::Aggregate{callExpr, {}, nullptr, {}, {}};
+  };
+
   std::vector<core::AggregationNode::Aggregate> aggregates = {
-      core::AggregationNode::Aggregate{minCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{maxCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{distinctCountCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{maxDataSizeCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{sumDataSizeCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{countCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{countIfCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{countMapCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{sumDataSizeMapCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{countArrayCallExpr, nullptr, {}, {}},
-      core::AggregationNode::Aggregate{
-          sumDataSizeArrayCallExpr, nullptr, {}, {}},
+      makeAggregate(minCallExpr),
+      makeAggregate(maxCallExpr),
+      makeAggregate(distinctCountCallExpr),
+      makeAggregate(maxDataSizeCallExpr),
+      makeAggregate(sumDataSizeCallExpr),
+      makeAggregate(countCallExpr),
+      makeAggregate(countIfCallExpr),
+      makeAggregate(countMapCallExpr),
+      makeAggregate(sumDataSizeMapCallExpr),
+      makeAggregate(countArrayCallExpr),
+      makeAggregate(sumDataSizeArrayCallExpr),
   };
   const auto aggregationNode = std::make_shared<core::AggregationNode>(
       core::PlanNodeId(),

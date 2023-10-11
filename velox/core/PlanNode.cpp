@@ -296,6 +296,7 @@ std::vector<SortOrder> deserializeSortingOrders(const folly::dynamic& array) {
 folly::dynamic AggregationNode::Aggregate::serialize() const {
   folly::dynamic obj = folly::dynamic::object();
   obj["call"] = call->serialize();
+  obj["rawInputTypes"] = ISerializable::serialize(rawInputTypes);
   if (mask) {
     obj["mask"] = mask->serialize();
   }
@@ -310,6 +311,8 @@ AggregationNode::Aggregate AggregationNode::Aggregate::deserialize(
     const folly::dynamic& obj,
     void* context) {
   auto call = ISerializable::deserialize<CallTypedExpr>(obj["call"]);
+  auto rawInputTypes =
+      ISerializable::deserialize<std::vector<Type>>(obj["rawInputTypes"]);
   FieldAccessTypedExprPtr mask;
   if (obj.count("mask")) {
     mask = ISerializable::deserialize<FieldAccessTypedExpr>(obj["mask"]);
@@ -318,7 +321,12 @@ AggregationNode::Aggregate AggregationNode::Aggregate::deserialize(
   auto sortingOrders = deserializeSortingOrders(obj["sortingOrders"]);
   bool distinct = obj["distinct"].asBool();
   return {
-      call, mask, std::move(sortingKeys), std::move(sortingOrders), distinct};
+      call,
+      rawInputTypes,
+      mask,
+      std::move(sortingKeys),
+      std::move(sortingOrders),
+      distinct};
 }
 
 // static

@@ -179,6 +179,8 @@ Properties of individual measures.
      - Description
    * - call
      - An expression for computing the measure, e.g. count(1), sum(a), avg(b). Expressions must be in the form of aggregate function calls over input columns directly, e.g. sum(c) is ok, but sum(c + d) is not.
+   * - rawInputTypes
+     - A list of raw input types for the aggregation function. There are used to correctly identify aggregation function, e.g. to decide between min(x) and min(x, n) in case of intermediate aggregation. These can be different from the input types specified in 'call' when aggregation step is intermediate or final.
    * - mask
      - An optional boolean input column that's used to mask out rows for this particular measure. Multiple measures may specify same input column as a mask.
    * - sortingKeys

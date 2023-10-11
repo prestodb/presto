@@ -155,7 +155,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     auto aggExpr = std::make_shared<const core::CallTypedExpr>(
         aggVeloxType, std::move(aggParams), funcName);
     aggregates.emplace_back(
-        core::AggregationNode::Aggregate{aggExpr, mask, {}, {}});
+        core::AggregationNode::Aggregate{aggExpr, {}, mask, {}, {}});
   }
 
   bool ignoreNullKeys = false;

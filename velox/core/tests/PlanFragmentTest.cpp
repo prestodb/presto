@@ -127,6 +127,7 @@ TEST_F(PlanFragmentTest, aggregationCanSpill) {
       std::make_shared<InputTypedExpr>(BIGINT())};
   const std::vector<AggregationNode::Aggregate> aggregates{
       {std::make_shared<core::CallTypedExpr>(BIGINT(), aggregateInputs, "sum"),
+       {},
        nullptr,
        {},
        {}}};

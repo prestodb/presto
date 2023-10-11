@@ -320,6 +320,7 @@ PlanNodePtr toVeloxPlan(
     aggregates.push_back(
         {std::make_shared<CallTypedExpr>(
              call->type(), fieldInputs, call->name()),
+         {},
          nullptr,
          {},
          {}});
