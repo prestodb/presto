@@ -25,6 +25,7 @@ add_library(
   HiveDataSource.cpp
   HivePartitionUtil.cpp
   PartitionIdGenerator.cpp
+  SplitReader.cpp
   TableHandle.cpp)
 
 target_link_libraries(
