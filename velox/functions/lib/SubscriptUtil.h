@@ -23,6 +23,12 @@
 
 namespace facebook::velox::functions {
 
+// Below functions return a stock instance of each of the possible errors in
+// SubscriptImpl
+const std::exception_ptr& zeroSubscriptError();
+const std::exception_ptr& badSubscriptError();
+const std::exception_ptr& negativeSubscriptError();
+
 /// Generic subscript/element_at implementation for both array and map data
 /// types.
 ///
@@ -189,22 +195,20 @@ class SubscriptImpl : public exec::Subscript {
 
     // Optimize for constant encoding case.
     if (decodedIndices->isConstantMapping()) {
-      vector_size_t adjustedIndex = -1;
       bool allFailed = false;
       // If index is invalid, capture the error and mark all rows as failed.
-      try {
-        adjustedIndex = adjustIndex(decodedIndices->valueAt<I>(0));
-      } catch (const VeloxRuntimeError&) {
-        throw;
-      } catch (const std::exception& e) {
-        context.setErrors(rows, std::current_exception());
+      bool isZeroSubscriptError = false;
+      const auto adjustedIndex =
+          adjustIndex(decodedIndices->valueAt<I>(0), isZeroSubscriptError);
+      if (isZeroSubscriptError) {
+        context.setErrors(rows, zeroSubscriptError());
         allFailed = true;
       }
 
       if (!allFailed) {
-        context.applyToSelectedNoThrow(rows, [&](auto row) {
-          auto elementIndex =
-              getIndex(adjustedIndex, row, rawSizes, rawOffsets, arrayIndices);
+        rows.applyToSelected([&](auto row) {
+          const auto elementIndex = getIndex(
+              adjustedIndex, row, rawSizes, rawOffsets, arrayIndices, context);
           rawIndices[row] = elementIndex;
           if (elementIndex == -1) {
             nullsBuilder.setNull(row);
@@ -212,10 +216,17 @@ class SubscriptImpl : public exec::Subscript {
         });
       }
     } else {
-      context.applyToSelectedNoThrow(rows, [&](auto row) {
-        auto adjustedIndex = adjustIndex(decodedIndices->valueAt<I>(row));
-        auto elementIndex =
-            getIndex(adjustedIndex, row, rawSizes, rawOffsets, arrayIndices);
+      rows.applyToSelected([&](auto row) {
+        const auto originalIndex = decodedIndices->valueAt<I>(row);
+        bool isZeroSubscriptError = false;
+        const auto adjustedIndex =
+            adjustIndex(originalIndex, isZeroSubscriptError);
+        if (isZeroSubscriptError) {
+          context.setError(row, zeroSubscriptError());
+          return;
+        }
+        const auto elementIndex = getIndex(
+            adjustedIndex, row, rawSizes, rawOffsets, arrayIndices, context);
         rawIndices[row] = elementIndex;
         if (elementIndex == -1) {
           nullsBuilder.setNull(row);
@@ -237,12 +248,12 @@ class SubscriptImpl : public exec::Subscript {
   // Normalize indices from 1 or 0-based into always 0-based (according to
   // indexStartsAtOne template parameter - no-op if it's false).
   template <typename I>
-  vector_size_t adjustIndex(I index) const {
+  vector_size_t adjustIndex(I index, bool& isZeroSubscriptError) const {
     // If array indices start at 1.
     if constexpr (indexStartsAtOne) {
-      // If it's zero, throw.
       if (UNLIKELY(index == 0)) {
-        VELOX_USER_FAIL("SQL array indices start at 1");
+        isZeroSubscriptError = true;
+        return 0;
       }
 
       // If larger than zero, adjust it.
@@ -262,7 +273,8 @@ class SubscriptImpl : public exec::Subscript {
       vector_size_t row,
       const vector_size_t* rawSizes,
       const vector_size_t* rawOffsets,
-      const vector_size_t* indices) const {
+      const vector_size_t* indices,
+      exec::EvalCtx& context) const {
     auto arraySize = rawSizes[indices[row]];
 
     if (index < 0) {
@@ -274,7 +286,8 @@ class SubscriptImpl : public exec::Subscript {
           index += arraySize;
         }
       } else {
-        VELOX_USER_FAIL("Array subscript is negative.");
+        context.setError(row, negativeSubscriptError());
+        return -1;
       }
     }
 
@@ -283,10 +296,9 @@ class SubscriptImpl : public exec::Subscript {
       // If we allow it, return null.
       if constexpr (allowOutOfBound) {
         return -1;
-      }
-      // Otherwise, throw.
-      else {
-        VELOX_USER_FAIL("Array subscript out of bounds.");
+      } else {
+        context.setError(row, badSubscriptError());
+        return -1;
       }
     }
 
