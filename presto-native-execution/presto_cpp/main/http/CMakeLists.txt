@@ -35,7 +35,7 @@ target_link_libraries(
   ${FMT}
   ${RE2})
 
-set_property(TARGET presto_http PROPERTY JOB_POOL_LINK link_job_pool)
+set_property(TARGET presto_http PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

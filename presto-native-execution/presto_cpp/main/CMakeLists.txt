@@ -77,7 +77,8 @@ target_link_libraries(
 target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra
                       ${THRIFT_LIBRARY})
 
-set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK link_job_pool)
+set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
+                                               presto_link_job_pool)
 
 add_executable(presto_server PrestoMain.cpp)
 
@@ -97,7 +98,7 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   target_link_libraries(presto_server_lib presto_server_remote_function)
 endif()
 
-set_property(TARGET presto_server PROPERTY JOB_POOL_LINK link_job_pool)
+set_property(TARGET presto_server PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
