@@ -108,20 +108,20 @@ public class TestTpchDistributedStats
     public void testIntersect()
     {
         statisticsAssertion.check("SELECT * FROM nation INTERSECT SELECT * FROM nation",
-                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(1.0))); // estimated: [50.0], real: [25.0]
 
         statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 INTERSECT SELECT * FROM orders WHERE o_custkey > 600",
-                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(18004.005))); // estimated: [18004.00534045394], real: [3012.0]
     }
 
     @Test
     public void testExcept()
     {
         statisticsAssertion.check("SELECT * FROM nation EXCEPT SELECT * FROM nation",
-                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(1.0))); // estimated: [1.0], real: [0.0]
 
         statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 EXCEPT SELECT * FROM orders WHERE o_custkey > 600",
-                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(5929.0))); // estimated: [1.0], real: [5929.0], refine estimateFilterRange
     }
 
     @Test

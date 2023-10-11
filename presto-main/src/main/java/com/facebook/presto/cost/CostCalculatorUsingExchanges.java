@@ -166,7 +166,8 @@ public class CostCalculatorUsingExchanges
         public PlanCostEstimate visitAggregation(AggregationNode node, Void context)
         {
             if (node.getStep() != FINAL && node.getStep() != SINGLE) {
-                return PlanCostEstimate.unknown();
+                // For PARTIAL step, the cost can be derived from the source stats.
+                return costForAccumulation(node, LocalCostEstimate.zero());
             }
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());

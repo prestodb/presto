@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeStatsEstimate
 {
-    private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
+    protected static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
     private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, NaN, false, ImmutableMap.of());
 
     private final double outputRowCount;

@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 
 public class TestAggregationStatsRule
         extends BaseStatsCalculatorTest
@@ -58,17 +59,12 @@ public class TestAggregationStatsRule
                 .check(outputRowCountAndZStatsAreCalculated);
 
         Consumer<PlanNodeStatsAssertion> outputRowsCountAndZStatsAreNotFullyCalculated = check -> check
-                .outputRowsCountUnknown()
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                .variableStats(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                         .unknownRange()
                         .distinctValuesCountUnknown()
-                        .nullsFractionUnknown())
-                .variableStats(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
-                        .unknownRange()
-                        .nullsFractionUnknown()
-                        .distinctValuesCountUnknown());
+                        .nullsFractionUnknown());
 
-        testAggregation(
+        testAggregationUnknownStats(
                 VariableStatsEstimate.builder()
                         .setLowValue(10)
                         .setHighValue(15)
@@ -76,7 +72,7 @@ public class TestAggregationStatsRule
                         .build())
                 .check(outputRowsCountAndZStatsAreNotFullyCalculated);
 
-        testAggregation(
+        testAggregationUnknownStats(
                 VariableStatsEstimate.builder()
                         .setLowValue(10)
                         .setHighValue(15)
@@ -112,20 +108,23 @@ public class TestAggregationStatsRule
                         .build())
                 .check(check -> check
                         .variableStats(new VariableReferenceExpression(Optional.empty(), "sum", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
-                                .lowValueUnknown()
-                                .highValueUnknown()
-                                .distinctValuesCountUnknown()
-                                .nullsFractionUnknown())
+                                .lowValue(Double.NEGATIVE_INFINITY)
+                                .highValue(Double.POSITIVE_INFINITY)
+                                .distinctValuesCount(15)
+                                .nullsFraction(0)
+                                .averageRowSize(8))
                         .variableStats(new VariableReferenceExpression(Optional.empty(), "count", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
-                                .lowValueUnknown()
-                                .highValueUnknown()
-                                .distinctValuesCountUnknown()
-                                .nullsFractionUnknown())
+                                .lowValue(Double.NEGATIVE_INFINITY)
+                                .highValue(Double.POSITIVE_INFINITY)
+                                .distinctValuesCount(15)
+                                .nullsFraction(0)
+                                .averageRowSize(8.0))
                         .variableStats(new VariableReferenceExpression(Optional.empty(), "count_on_x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
-                                .lowValueUnknown()
-                                .highValueUnknown()
-                                .distinctValuesCountUnknown()
-                                .nullsFractionUnknown())
+                                .lowValue(Double.NEGATIVE_INFINITY)
+                                .highValue(Double.POSITIVE_INFINITY)
+                                .distinctValuesCount(15)
+                                .nullsFraction(0)
+                                .averageRowSize(8.0))
                         .variableStats(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
@@ -133,6 +132,59 @@ public class TestAggregationStatsRule
                                 .nullsFractionUnknown()));
     }
 
+    private StatsCalculatorAssertion testAggregationUnknownStats(VariableStatsEstimate zStats)
+    {
+        return tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .addAggregation(pb.variable("sum", BIGINT), pb.rowExpression("sum(x)"))
+                                .addAggregation(pb.variable("count", BIGINT), pb.rowExpression("count()"))
+                                .addAggregation(pb.variable("count_on_x", BIGINT), pb.rowExpression("count(x)"))
+                                .singleGroupingSet(pb.variable("y", BIGINT), pb.variable("z", BIGINT))
+                                .source(pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT), pb.variable("z", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), VariableStatsEstimate.builder()
+                                .setLowValue(1)
+                                .setHighValue(10)
+                                .setDistinctValuesCount(5)
+                                .setNullsFraction(0.3)
+                                .build())
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), VariableStatsEstimate.builder()
+                                .setLowValue(0)
+                                .setHighValue(3)
+                                .setDistinctValuesCount(3)
+                                .setNullsFraction(0)
+                                .build())
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), zStats)
+                        .build())
+                .check(check -> check
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "sum", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                                .lowValue(Double.NEGATIVE_INFINITY)
+                                .highValue(Double.POSITIVE_INFINITY)
+                                .distinctValuesCountUnknown()
+                                .nullsFraction(0.0))
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "count", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                                .lowValue(Double.NEGATIVE_INFINITY)
+                                .highValue(Double.POSITIVE_INFINITY)
+                                .distinctValuesCountUnknown()
+                                .nullsFraction(0.0))
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "count_on_x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                                .lowValue(Double.NEGATIVE_INFINITY)
+                                .highValue(Double.POSITIVE_INFINITY)
+                                .distinctValuesCountUnknown()
+                                .nullsFraction(0.0))
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "y", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                                .lowValue(0.0)
+                                .highValue(3.0)
+                                .distinctValuesCount(3.0)
+                                .nullsFraction(0.0))
+                        .variableStats(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
+                                .lowValueUnknown()
+                                .highValueUnknown()
+                                .distinctValuesCountUnknown()
+                                .nullsFractionUnknown()));
+    }
     @Test
     public void testAggregationStatsCappedToInputRows()
     {
@@ -148,5 +200,195 @@ public class TestAggregationStatsRule
                         .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "z", BIGINT), VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
                         .build())
                 .check(check -> check.outputRowsCount(100));
+    }
+
+    @Test
+    public void testAggregateMaxToSingleRow()
+    {
+        VariableStatsEstimate xStats = VariableStatsEstimate.builder()
+                .setLowValue(1)
+                .setHighValue(10)
+                .setDistinctValuesCount(5)
+                .setNullsFraction(0.1)
+                .build();
+
+        tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .step(SINGLE)
+                                .addAggregation(pb.variable("max", BIGINT), pb.rowExpression("max(x)"))
+                                .globalGrouping()
+                                .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(1));
+
+        // having a non-empty global groupingset cannot aggregate the result into single row
+        tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .step(SINGLE)
+                                .addAggregation(pb.variable("max", BIGINT), pb.rowExpression("max(x)"))
+                                .singleGroupingSet(pb.variable("x", BIGINT))
+                                .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(6));
+    }
+
+    @Test
+    public void testAggregateMinToSingleRow()
+    {
+        VariableStatsEstimate xStats = VariableStatsEstimate.builder()
+                .setLowValue(1)
+                .setHighValue(10)
+                .setDistinctValuesCount(5)
+                .setNullsFraction(0.1)
+                .build();
+
+        tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .step(SINGLE)
+                                .addAggregation(pb.variable("min", BIGINT), pb.rowExpression("min(x)"))
+                                .globalGrouping()
+                                .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(1));
+
+        // having a non-empty global groupingset cannot aggregate the result into single row
+        tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .step(SINGLE)
+                                .addAggregation(pb.variable("min", BIGINT), pb.rowExpression("min(x)"))
+                                .singleGroupingSet(pb.variable("x", BIGINT))
+                                .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(6));
+    }
+
+    @Test
+    public void testAggregateAvgToSingleRow()
+    {
+        VariableStatsEstimate xStats = VariableStatsEstimate.builder()
+                .setLowValue(1)
+                .setHighValue(10)
+                .setDistinctValuesCount(5)
+                .setNullsFraction(0.1)
+                .build();
+
+        tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .step(SINGLE)
+                                .addAggregation(pb.variable("avg", BIGINT), pb.rowExpression("avg(x)"))
+                                .globalGrouping()
+                                .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(1));
+
+        // having a non-empty global groupingset cannot aggregate the result into single row
+        tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .step(SINGLE)
+                                .addAggregation(pb.variable("avg", BIGINT), pb.rowExpression("avg(x)"))
+                                .singleGroupingSet(pb.variable("x", BIGINT))
+                                .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(6));
+    }
+
+    @Test
+    public void testAggregateSumToSingleRow()
+    {
+        VariableStatsEstimate xStats = VariableStatsEstimate.builder()
+                .setLowValue(1)
+                .setHighValue(10)
+                .setDistinctValuesCount(5)
+                .setNullsFraction(0.1)
+                .build();
+
+        tester().assertStatsFor(pb -> pb
+                .registerVariable(pb.variable("x"))
+                .aggregation(ab -> ab
+                        .step(SINGLE)
+                        .addAggregation(pb.variable("sum", BIGINT), pb.rowExpression("sum(x)"))
+                        .globalGrouping()
+                        .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(1));
+
+        // having a non-empty global groupingset cannot aggregate the result into single row
+        tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .step(SINGLE)
+                                .addAggregation(pb.variable("sum", BIGINT), pb.rowExpression("sum(x)"))
+                                .singleGroupingSet(pb.variable("x", BIGINT))
+                                .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(6));
+    }
+
+    @Test
+    public void testAggregateCountToSingleRow()
+    {
+        VariableStatsEstimate xStats = VariableStatsEstimate.builder()
+                .setLowValue(1)
+                .setHighValue(10)
+                .setDistinctValuesCount(5)
+                .setNullsFraction(0.1)
+                .build();
+
+        tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .step(SINGLE)
+                                .addAggregation(pb.variable("count", BIGINT), pb.rowExpression("count(x)"))
+                                .globalGrouping()
+                                .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(1));
+
+        // having a non-empty global groupingset cannot aggregate the result into single row
+        tester().assertStatsFor(pb -> pb
+                        .registerVariable(pb.variable("x"))
+                        .aggregation(ab -> ab
+                                .step(SINGLE)
+                                .addAggregation(pb.variable("count", BIGINT), pb.rowExpression("count(x)"))
+                                .singleGroupingSet(pb.variable("x", BIGINT))
+                                .source(pb.values(pb.variable("x", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", BIGINT), xStats)
+                        .build())
+                .check(check -> check.outputRowsCount(6));
     }
 }

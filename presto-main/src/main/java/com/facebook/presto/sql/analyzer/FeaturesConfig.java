@@ -160,6 +160,7 @@ public class FeaturesConfig
     // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
     // which could result in syntactic join order. Set it to 0 to disable this feature
     private double defaultJoinSelectivityCoefficient;
+    private double defaultAggregateSelectivityCoefficient = 1.0;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -1416,6 +1417,21 @@ public class FeaturesConfig
     public double getDefaultJoinSelectivityCoefficient()
     {
         return defaultJoinSelectivityCoefficient;
+    }
+
+    @Config("optimizer.default-aggregate-selectivity-coefficient")
+    @ConfigDescription("Used when aggregate selectivity needs to be tuned. Default is 1 to indicate 100% selectivity meaning the stats estimate for aggregate is the same as the source")
+    public FeaturesConfig setDefaultAggregateSelectivityCoefficient(double defaultAggregateSelectivityCoefficient)
+    {
+        this.defaultAggregateSelectivityCoefficient = defaultAggregateSelectivityCoefficient;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDefaultAggregateSelectivityCoefficient()
+    {
+        return defaultAggregateSelectivityCoefficient;
     }
 
     public DataSize getTopNOperatorUnspillMemoryLimit()

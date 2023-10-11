@@ -108,7 +108,7 @@ public class TestHistoryBasedStatsTracking
                 anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(12.5)));
         assertPlan(
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
-                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(5.0)));
 
         // HBO Statistics
         executeAndTrackHistory("SELECT max(nationkey) FROM nation where name < 'D' group by regionkey");
