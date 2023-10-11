@@ -495,7 +495,8 @@ public class QueryStateMachine
                 aggregateFunctions.get(),
                 windowsFunctions.get(),
                 Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of),
-                Optional.ofNullable(planIdNodeMap.get()).orElseGet(ImmutableMap::of));
+                Optional.ofNullable(planIdNodeMap.get()).orElseGet(ImmutableMap::of),
+                Optional.empty());
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
@@ -1104,7 +1105,8 @@ public class QueryStateMachine
                 queryInfo.getAggregateFunctions(),
                 queryInfo.getWindowsFunctions(),
                 ImmutableList.of(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                queryInfo.getPrestoSparkExecutionContext());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

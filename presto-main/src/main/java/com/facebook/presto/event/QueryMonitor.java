@@ -232,7 +232,8 @@ public class QueryMonitor
                 ImmutableList.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableSet.of()));
+                ImmutableSet.of(),
+                Optional.empty()));
 
         logQueryTimeline(queryInfo);
     }
@@ -270,7 +271,8 @@ public class QueryMonitor
                         queryInfo.getCteInformationList(),
                         queryInfo.getScalarFunctions(),
                         queryInfo.getAggregateFunctions(),
-                        queryInfo.getWindowsFunctions()));
+                        queryInfo.getWindowsFunctions(),
+                        queryInfo.getPrestoSparkExecutionContext()));
 
         logQueryTimeline(queryInfo);
     }

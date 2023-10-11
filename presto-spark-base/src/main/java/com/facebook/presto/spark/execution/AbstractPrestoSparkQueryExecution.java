@@ -1024,9 +1024,9 @@ public abstract class AbstractPrestoSparkQueryExecution
     {
         // Executor allocation is currently only supported at root level of the plan
         // In future this could be extended to fragment level configuration
-        if (planAndMore.getPhysicalResourceSettings().getMaxExecutorCount().isPresent()) {
+        if (planAndMore.getPhysicalResourceSettings().isMaxExecutorCountAutoTuned()) {
             sparkContext.sc().conf().set(SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG,
-                    Integer.toString(planAndMore.getPhysicalResourceSettings().getMaxExecutorCount().getAsInt()));
+                    Integer.toString(planAndMore.getPhysicalResourceSettings().getMaxExecutorCount()));
         }
     }
 }
