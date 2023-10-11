@@ -2,8 +2,8 @@
 Secrets Manager
 =====================
 
-Presto supports Custom Secrets Manager Plugins to retrieve secrets from secrets manager implementations of users' choice.
-By default, Hashicorp Vault is integrated as part of presto-vault module. More implementations can be plugged into the framework by extending
+Presto supports custom secrets manager plugins to retrieve secrets from implementations of users' choice.
+By default, Hashicorp Vault is integrated as part of the presto-vault module. More implementations can be plugged into the framework by extending
 the Presto SPI.
 
 
@@ -31,10 +31,12 @@ configured using an ``etc/secrets-manager.properties`` file.
 
 The ``secrets-manager.name`` property is used by Presto to find a registered
 ``SecretsManagerFactory`` based on the name returned by
-``SecretsManagerFactory.getName()``. Remaining configuration needed by the custom implementation should be loaded from plugin code itself.
+``SecretsManagerFactory.getName()``. The remaining configuration needed by the custom implementation should be loaded from the plugin code itself.
 
-Example configuration file:
+An example of a ``secrets-manager.properties`` configuration file:
 
 .. code-block:: none
 
     secrets-manager.name=custom-secrets-manager
+
+This example configuration file defines the name custom-secrets-manager that Presto uses to find the instance created by SecretsManagerFactory.
