@@ -499,7 +499,7 @@ class QueryConfig {
   }
 
   bool aggregationSpillAll() const {
-    return get<bool>(kAggregationSpillAll, false);
+    return get<bool>(kAggregationSpillAll, true);
   }
 
   uint64_t maxSpillFileSize() const {

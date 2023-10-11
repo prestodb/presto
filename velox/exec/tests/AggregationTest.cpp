@@ -1326,6 +1326,7 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
           .spillDirectory(tempDirectory->path)
           .config(QueryConfig::kSpillEnabled, "true")
           .config(QueryConfig::kAggregationSpillEnabled, "true")
+          .config(QueryConfig::kAggregationSpillAll, "false")
           .config(
               QueryConfig::kAggregationSpillPartitionBits,
               std::to_string(kPartitionsBits))
