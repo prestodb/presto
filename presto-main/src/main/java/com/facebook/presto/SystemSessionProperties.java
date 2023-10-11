@@ -2950,7 +2950,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(INFER_INEQUALITY_PREDICATES, Boolean.class);
     }
 
-    public static boolean useHBOForScaledWriters(Session session)
+    public static boolean useHistoryBasedScaledWriters(Session session)
     {
         return session.getSystemProperty(ENABLE_HISTORY_BASED_SCALED_WRITER, Boolean.class);
     }
