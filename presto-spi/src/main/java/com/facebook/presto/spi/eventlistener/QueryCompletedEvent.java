@@ -17,6 +17,7 @@ import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.prestospark.PrestoSparkExecutionContext;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 
 import java.time.Instant;
@@ -52,6 +53,7 @@ public class QueryCompletedEvent
     private final Set<String> scalarFunctions;
     private final Set<String> aggregateFunctions;
     private final Set<String> windowsFunctions;
+    private final Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext;
 
     public QueryCompletedEvent(
             QueryMetadata metadata,
@@ -75,7 +77,8 @@ public class QueryCompletedEvent
             List<CTEInformation> cteInformationList,
             Set<String> scalarFunctions,
             Set<String> aggregateFunctions,
-            Set<String> windowsFunctions)
+            Set<String> windowsFunctions,
+            Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
@@ -99,6 +102,7 @@ public class QueryCompletedEvent
         this.scalarFunctions = requireNonNull(scalarFunctions, "scalarFunctions is null");
         this.aggregateFunctions = requireNonNull(aggregateFunctions, "aggregateFunctions is null");
         this.windowsFunctions = requireNonNull(windowsFunctions, "windowsFunctions is null");
+        this.prestoSparkExecutionContext = requireNonNull(prestoSparkExecutionContext, "prestoSparkExecutionContext is null");
     }
 
     public QueryMetadata getMetadata()
@@ -209,5 +213,10 @@ public class QueryCompletedEvent
     public Set<String> getWindowsFunctions()
     {
         return windowsFunctions;
+    }
+
+    public Optional<PrestoSparkExecutionContext> getPrestoSparkExecutionContext()
+    {
+        return prestoSparkExecutionContext;
     }
 }
