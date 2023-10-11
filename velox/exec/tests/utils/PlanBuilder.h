@@ -311,16 +311,11 @@ class PlanBuilder {
   /// Add final aggregation plan node using specified grouping keys, aggregate
   /// expressions and their types.
   ///
-  /// @param resultTypes Optional list of result types for the aggregates. Use
-  /// it to specify the result types for aggregates which cannot infer result
-  /// type solely from the types of the intermediate results. 'resultTypes' can
-  /// be empty or have fewer elements than 'aggregates'. Elements that are
-  /// present must be aligned with 'aggregates' though, e.g. resultTypes[i]
-  /// specifies the result type for aggregates[i].
+  /// @param rawInputTypes Raw input types for the aggregate functions.
   PlanBuilder& finalAggregation(
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
-      const std::vector<TypePtr>& resultTypes) {
+      const std::vector<std::vector<TypePtr>>& rawInputTypes) {
     return aggregation(
         groupingKeys,
         {},
@@ -328,7 +323,7 @@ class PlanBuilder {
         {},
         core::AggregationNode::Step::kFinal,
         false,
-        resultTypes);
+        rawInputTypes);
   }
 
   /// Add intermediate aggregation plan node to match the current partial
@@ -341,16 +336,14 @@ class PlanBuilder {
   /// aggregate expressions and their types.
   PlanBuilder& intermediateAggregation(
       const std::vector<std::string>& groupingKeys,
-      const std::vector<std::string>& aggregates,
-      const std::vector<TypePtr>& resultTypes) {
+      const std::vector<std::string>& aggregates) {
     return aggregation(
         groupingKeys,
         {},
         aggregates,
         {},
         core::AggregationNode::Step::kIntermediate,
-        false,
-        resultTypes);
+        false);
   }
 
   /// Add a single aggregation plan node using specified grouping keys and
@@ -385,19 +378,14 @@ class PlanBuilder {
   /// @param step Aggregation step: partial, final, intermediate or single.
   /// @param ignoreNullKeys Boolean indicating whether to skip input rows where
   /// one of the grouping keys is null.
-  /// @param resultTypes Optional list of aggregate result types. Must be
-  /// specified for intermediate and final aggregations where it is not possible
-  /// to infer the result types based on input types. Not needed for partial and
-  /// single aggregations.
   PlanBuilder& aggregation(
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks,
       core::AggregationNode::Step step,
-      bool ignoreNullKeys,
-      const std::vector<TypePtr>& resultTypes = {}) {
+      bool ignoreNullKeys) {
     return aggregation(
-        groupingKeys, {}, aggregates, masks, step, ignoreNullKeys, resultTypes);
+        groupingKeys, {}, aggregates, masks, step, ignoreNullKeys);
   }
 
   /// Same as above, but also allows to specify a subset of grouping keys on
@@ -412,8 +400,16 @@ class PlanBuilder {
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks,
       core::AggregationNode::Step step,
-      bool ignoreNullKeys,
-      const std::vector<TypePtr>& resultTypes = {});
+      bool ignoreNullKeys) {
+    return aggregation(
+        groupingKeys,
+        preGroupedKeys,
+        aggregates,
+        masks,
+        step,
+        ignoreNullKeys,
+        {});
+  }
 
   /// A convenience method to create partial aggregation plan node for the case
   /// where input is clustered on all grouping keys.
@@ -433,15 +429,13 @@ class PlanBuilder {
   /// where input is clustered on all grouping keys.
   PlanBuilder& finalStreamingAggregation(
       const std::vector<std::string>& groupingKeys,
-      const std::vector<std::string>& aggregates,
-      const std::vector<TypePtr>& resultTypes = {}) {
+      const std::vector<std::string>& aggregates) {
     return streamingAggregation(
         groupingKeys,
         aggregates,
         {},
         core::AggregationNode::Step::kFinal,
-        false,
-        resultTypes);
+        false);
   }
 
   /// Add an AggregationNode assuming input is clustered on all grouping keys.
@@ -450,8 +444,7 @@ class PlanBuilder {
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks,
       core::AggregationNode::Step step,
-      bool ignoreNullKeys,
-      const std::vector<TypePtr>& resultTypes = {});
+      bool ignoreNullKeys);
 
   /// Add a GroupIdNode using the specified grouping sets, aggregation inputs
   /// and a groupId column name. And create GroupIdNode plan node with grouping
@@ -839,7 +832,16 @@ class PlanBuilder {
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks,
       core::AggregationNode::Step step,
-      const std::vector<TypePtr>& resultTypes);
+      const std::vector<std::vector<TypePtr>>& rawInputTypes = {});
+
+  PlanBuilder& aggregation(
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& preGroupedKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& masks,
+      core::AggregationNode::Step step,
+      bool ignoreNullKeys,
+      const std::vector<std::vector<TypePtr>>& rawInputTypes);
 
  protected:
   core::PlanNodePtr planNode_;

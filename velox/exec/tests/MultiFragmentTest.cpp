@@ -198,7 +198,7 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
   for (int i = 0; i < 3; i++) {
     finalAggPlan = PlanBuilder()
                        .exchange(partialAggPlan->outputType())
-                       .finalAggregation({"c0"}, {"sum(a0)"}, {BIGINT()})
+                       .finalAggregation({"c0"}, {"sum(a0)"}, {{BIGINT()}})
                        .partitionedOutput({}, 1)
                        .planNode();
 
@@ -283,11 +283,12 @@ TEST_F(MultiFragmentTest, aggregationMultiKey) {
   core::PlanNodePtr finalAggPlan;
   std::vector<std::string> finalAggTaskIds;
   for (int i = 0; i < 3; i++) {
-    finalAggPlan = PlanBuilder()
-                       .exchange(partialAggPlan->outputType())
-                       .finalAggregation({"c0", "c1"}, {"sum(a0)"}, {BIGINT()})
-                       .partitionedOutput({}, 1)
-                       .planNode();
+    finalAggPlan =
+        PlanBuilder()
+            .exchange(partialAggPlan->outputType())
+            .finalAggregation({"c0", "c1"}, {"sum(a0)"}, {{BIGINT()}})
+            .partitionedOutput({}, 1)
+            .planNode();
 
     finalAggTaskIds.push_back(makeTaskId("final-agg", i));
     auto task = makeTask(finalAggTaskIds.back(), finalAggPlan, i);
@@ -682,11 +683,11 @@ TEST_F(MultiFragmentTest, replicateNullsAndAny) {
 
   // Collect results and verify number of nulls is 3 times larger than in the
   // original data.
-  auto op =
-      PlanBuilder()
-          .exchange(finalAggPlan->outputType())
-          .finalAggregation({}, {"sum(a0)", "sum(a1)"}, {BIGINT(), BIGINT()})
-          .planNode();
+  auto op = PlanBuilder()
+                .exchange(finalAggPlan->outputType())
+                .finalAggregation(
+                    {}, {"sum(a0)", "sum(a1)"}, {{BIGINT()}, {BIGINT()}})
+                .planNode();
 
   assertQuery(
       op,
@@ -1317,7 +1318,7 @@ DEBUG_ONLY_TEST_F(
       })));
   auto rootPlan = PlanBuilder()
                       .exchange(leafPlan->outputType())
-                      .finalAggregation({"c0"}, {"count(c1)"}, {BIGINT()})
+                      .finalAggregation({"c0"}, {"count(c1)"}, {{BIGINT()}})
                       .planNode();
 
   const int64_t kRootMemoryLimit = 1 << 20;

@@ -335,7 +335,7 @@ PlanBuilder& PlanBuilder::tableWrite(
   std::shared_ptr<core::AggregationNode> aggregationNode;
   if (!aggregates.empty()) {
     auto aggregatesAndNames = createAggregateExpressionsAndNames(
-        aggregates, {}, core::AggregationNode::Step::kPartial, {});
+        aggregates, {}, core::AggregationNode::Step::kPartial);
     aggregationNode = std::make_shared<core::AggregationNode>(
         nextPlanNodeId(),
         core::AggregationNode::Step::kPartial,
@@ -456,8 +456,8 @@ class AggregateTypeResolver {
     core::Expressions::setTypeResolverHook(previousHook_);
   }
 
-  void setResultType(const TypePtr& type) {
-    resultType_ = type;
+  void setRawInputTypes(const std::vector<TypePtr>& types) {
+    rawInputTypes_ = types;
   }
 
  private:
@@ -465,21 +465,22 @@ class AggregateTypeResolver {
       const std::vector<core::TypedExprPtr>& inputs,
       const std::shared_ptr<const core::CallExpr>& expr,
       bool nullOnFailure) const {
-    if (resultType_) {
-      return resultType_;
-    }
-
-    std::vector<TypePtr> types;
-    for (auto& input : inputs) {
-      types.push_back(input->type());
-    }
-
     auto functionName = expr->getFunctionName();
 
     // Use raw input types (if available) to resolve intermediate and final
     // result types.
     if (exec::isRawInput(step_)) {
+      std::vector<TypePtr> types;
+      for (auto& input : inputs) {
+        types.push_back(input->type());
+      }
+
       return resolveAggregateType(functionName, step_, types, nullOnFailure);
+    }
+
+    if (!rawInputTypes_.empty()) {
+      return resolveAggregateType(
+          functionName, step_, rawInputTypes_, nullOnFailure);
     }
 
     if (!nullOnFailure) {
@@ -492,7 +493,7 @@ class AggregateTypeResolver {
 
   const core::AggregationNode::Step step_;
   const core::Expressions::TypeResolverHook previousHook_;
-  TypePtr resultType_;
+  std::vector<TypePtr> rawInputTypes_;
 };
 
 } // namespace
@@ -609,7 +610,19 @@ PlanBuilder::AggregatesAndNames PlanBuilder::createAggregateExpressionsAndNames(
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
     core::AggregationNode::Step step,
-    const std::vector<TypePtr>& resultTypes) {
+    const std::vector<std::vector<TypePtr>>& rawInputTypes) {
+  if (step == core::AggregationNode::Step::kPartial ||
+      step == core::AggregationNode::Step::kSingle) {
+    VELOX_CHECK(
+        rawInputTypes.empty(),
+        "Do not provide raw inputs types for partial or single aggregation");
+  } else {
+    VELOX_CHECK_EQ(
+        aggregates.size(),
+        rawInputTypes.size(),
+        "Do provide raw inputs types for final or intermediate aggregation");
+  }
+
   std::vector<core::AggregationNode::Aggregate> aggs;
 
   AggregateTypeResolver resolver(step);
@@ -622,8 +635,9 @@ PlanBuilder::AggregatesAndNames PlanBuilder::createAggregateExpressionsAndNames(
 
   for (auto i = 0; i < aggregates.size(); i++) {
     auto& aggregate = aggregates[i];
-    if (i < resultTypes.size()) {
-      resolver.setResultType(resultTypes[i]);
+
+    if (!rawInputTypes.empty()) {
+      resolver.setRawInputTypes(rawInputTypes[i]);
     }
 
     auto untypedExpr = duckdb::parseAggregateExpr(aggregate, options);
@@ -690,9 +704,9 @@ PlanBuilder& PlanBuilder::aggregation(
     const std::vector<std::string>& masks,
     core::AggregationNode::Step step,
     bool ignoreNullKeys,
-    const std::vector<TypePtr>& resultTypes) {
-  auto aggregatesAndNames =
-      createAggregateExpressionsAndNames(aggregates, masks, step, resultTypes);
+    const std::vector<std::vector<TypePtr>>& rawInputTypes) {
+  auto aggregatesAndNames = createAggregateExpressionsAndNames(
+      aggregates, masks, step, rawInputTypes);
   planNode_ = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
@@ -710,10 +724,9 @@ PlanBuilder& PlanBuilder::streamingAggregation(
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
     core::AggregationNode::Step step,
-    bool ignoreNullKeys,
-    const std::vector<TypePtr>& resultTypes) {
+    bool ignoreNullKeys) {
   auto aggregatesAndNames =
-      createAggregateExpressionsAndNames(aggregates, masks, step, resultTypes);
+      createAggregateExpressionsAndNames(aggregates, masks, step);
   planNode_ = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
@@ -1292,19 +1305,11 @@ class WindowTypeResolver {
     core::Expressions::setTypeResolverHook(previousHook_);
   }
 
-  void setResultType(const TypePtr& type) {
-    resultType_ = type;
-  }
-
  private:
   TypePtr resolveType(
       const std::vector<core::TypedExprPtr>& inputs,
       const std::shared_ptr<const core::CallExpr>& expr,
       bool nullOnFailure) const {
-    if (resultType_) {
-      return resultType_;
-    }
-
     std::vector<TypePtr> types;
     for (auto& input : inputs) {
       types.push_back(input->type());
@@ -1316,7 +1321,6 @@ class WindowTypeResolver {
   }
 
   const core::Expressions::TypeResolverHook previousHook_;
-  TypePtr resultType_;
 };
 
 const core::WindowNode::Frame createWindowFrame(
