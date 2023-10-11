@@ -245,6 +245,61 @@ void HivePartitionFunction::hashTyped<TypeKind::TIMESTAMP>(
   hashPrimitive<TypeKind::TIMESTAMP>(values, rows, mix, hashes);
 }
 
+template <>
+void HivePartitionFunction::hashTyped<TypeKind::ARRAY>(
+    const DecodedVector& values,
+    const SelectivityVector& rows,
+    bool mix,
+    std::vector<uint32_t>& hashes,
+    size_t poolIndex) {
+  auto& elementsDecoded = getDecodedVector(poolIndex);
+  auto& elementsRows = getRows(poolIndex);
+  auto& elementsHashes = getHashes(poolIndex);
+
+  const auto* arrayVector = values.base()->as<ArrayVector>();
+  const vector_size_t elementsSize = arrayVector->elements()->size();
+  elementsRows.resizeFill(elementsSize, false);
+  elementsHashes.resize(elementsSize);
+
+  rows.applyToSelected([&](auto row) {
+    if (!values.isNullAt(row)) {
+      const auto index = values.index(row);
+      const auto offset = arrayVector->offsetAt(index);
+      const auto length = arrayVector->sizeAt(index);
+
+      elementsRows.setValidRange(offset, offset + length, true);
+    }
+  });
+
+  elementsRows.updateBounds();
+
+  elementsDecoded.decode(*arrayVector->elements(), elementsRows);
+
+  hash(
+      elementsDecoded,
+      elementsDecoded.base()->typeKind(),
+      elementsRows,
+      false,
+      elementsHashes,
+      poolIndex + 1);
+
+  rows.applyToSelected([&](auto row) {
+    uint32_t hash = 0;
+
+    if (!values.isNullAt(row)) {
+      const auto index = values.index(row);
+      const auto offset = arrayVector->offsetAt(index);
+      const auto length = arrayVector->sizeAt(index);
+
+      for (size_t i = offset; i < offset + length; ++i) {
+        mergeHash(true, elementsHashes[i], hash);
+      }
+    }
+
+    mergeHash(mix, hash, hashes[row]);
+  });
+}
+
 void HivePartitionFunction::hash(
     const DecodedVector& values,
     TypeKind typeKind,

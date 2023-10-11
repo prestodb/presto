@@ -278,6 +278,102 @@ TEST_F(HivePartitionFunctionTest, date) {
   assertPartitionsWithConstChannel(values, 997);
 }
 
+TEST_F(HivePartitionFunctionTest, array) {
+  auto values = makeNullableArrayVector<int32_t>(
+      std::vector<std::optional<std::vector<std::optional<int32_t>>>>{
+          std::nullopt,
+          std::vector<std::optional<int32_t>>{},
+          std::vector<std::optional<int32_t>>{std::nullopt},
+          std::vector<std::optional<int32_t>>{1},
+          std::vector<std::optional<int32_t>>{1, 2, 3}});
+
+  assertPartitions(values, 1, {0, 0, 0, 0, 0});
+  assertPartitions(values, 2, {0, 0, 0, 1, 0});
+  assertPartitions(values, 500, {0, 0, 0, 1, 26});
+  assertPartitions(values, 997, {0, 0, 0, 1, 29});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
+
+TEST_F(HivePartitionFunctionTest, arrayElementsEncoded) {
+  // Dictionary encode the elements.
+  auto elements = makeFlatVector<int32_t>(
+      10, [](auto row) { return row; }, [](auto row) { return row % 4 == 0; });
+  auto indices = makeIndicesInReverse(elements->size());
+  auto encodedElements = wrapInDictionary(indices, elements);
+
+  vector_size_t size = 5;
+  BufferPtr offsetsBuffer = allocateOffsets(size, pool_.get());
+  BufferPtr sizesBuffer = allocateSizes(size, pool_.get());
+  BufferPtr nullsBuffer =
+      AlignedBuffer::allocate<bool>(size, pool_.get(), bits::kNotNull);
+  ;
+  auto rawOffsets = offsetsBuffer->asMutable<vector_size_t>();
+  auto rawSizes = sizesBuffer->asMutable<vector_size_t>();
+  auto rawNulls = nullsBuffer->asMutable<uint64_t>();
+
+  // Make the elements overlap and have gaps.
+  // Set the values in position 2 to be invalid since that Array should be null.
+  std::vector<vector_size_t> offsets{
+      0, 2, std::numeric_limits<int32_t>().max(), 1, 8};
+  std::vector<vector_size_t> sizes{
+      4, 3, std::numeric_limits<int32_t>().max(), 5, 2};
+  memcpy(rawOffsets, offsets.data(), size * sizeof(vector_size_t));
+  memcpy(rawSizes, sizes.data(), size * sizeof(vector_size_t));
+
+  bits::setNull(rawNulls, 2);
+
+  // Produces arrays that look like:
+  // [9, NULL, 7, 6]
+  // [7, 6, 5]
+  // NULL
+  // [NULL, 7, 6, 5, NULL]
+  // [1, NULL]
+  auto values = std::make_shared<ArrayVector>(
+      pool_.get(),
+      ARRAY(elements->type()),
+      nullsBuffer,
+      size,
+      offsetsBuffer,
+      sizesBuffer,
+      encodedElements);
+
+  assertPartitions(values, 1, {0, 0, 0, 0, 0});
+  assertPartitions(values, 2, {0, 0, 0, 0, 1});
+  assertPartitions(values, 500, {342, 418, 0, 458, 31});
+  assertPartitions(values, 997, {149, 936, 0, 103, 31});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
+
+TEST_F(HivePartitionFunctionTest, nestedArrays) {
+  auto innerArrays = makeNullableArrayVector<int32_t>(
+      std::vector<std::optional<std::vector<std::optional<int32_t>>>>{
+          std::vector<std::optional<int32_t>>{1, 2, 3},
+          std::vector<std::optional<int32_t>>{4, 5},
+          std::vector<std::optional<int32_t>>{6, 7, 8},
+          std::nullopt,
+          std::vector<std::optional<int32_t>>{9},
+          std::vector<std::optional<int32_t>>{10, std::nullopt, 11}});
+  auto values = makeArrayVector({0, 2, 2, 3}, innerArrays, {1});
+
+  assertPartitions(values, 1, {0, 0, 0, 0});
+  assertPartitions(values, 2, {1, 0, 1, 0});
+  assertPartitions(values, 500, {435, 0, 491, 400});
+  assertPartitions(values, 997, {31, 0, 9, 927});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
+
 TEST_F(HivePartitionFunctionTest, spec) {
   Type::registerSerDe();
   core::ITypedExpr::registerSerDe();

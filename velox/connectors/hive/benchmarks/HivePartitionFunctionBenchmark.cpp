@@ -61,6 +61,8 @@ class HivePartitionFunctionBenchmark
       addRowVector(createScalarType(typeKind));
     }
 
+    addRowVector(ARRAY(REAL()));
+
     // Prepare HivePartitionFunction
     fewBucketsFunction_ = createHivePartitionFunction(20);
     manyBucketsFunction_ = createHivePartitionFunction(100);
@@ -265,6 +267,24 @@ BENCHMARK(timestampManyRowsFewBuckets) {
 
 BENCHMARK_RELATIVE(timestampManyRowsManyBuckets) {
   benchmarkMany->runMany<TypeKind::TIMESTAMP>();
+}
+
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK(arrayFewRowsFewBuckets) {
+  benchmarkFew->runFew<TypeKind::ARRAY>();
+}
+
+BENCHMARK_RELATIVE(arrayFewRowsManyBuckets) {
+  benchmarkFew->runMany<TypeKind::ARRAY>();
+}
+
+BENCHMARK(arrayManyRowsFewBuckets) {
+  benchmarkMany->runFew<TypeKind::ARRAY>();
+}
+
+BENCHMARK_RELATIVE(arrayManyRowsManyBuckets) {
+  benchmarkMany->runMany<TypeKind::ARRAY>();
 }
 
 BENCHMARK_DRAW_LINE();
