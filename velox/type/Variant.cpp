@@ -683,4 +683,27 @@ bool variant::equalsWithEpsilon(const variant& other) const {
   return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(equals, kind_, *this, other);
 }
 
+void variant::verifyArrayElements(const std::vector<variant>& inputs) {
+  if (!inputs.empty()) {
+    auto elementTypeKind = TypeKind::UNKNOWN;
+    // Find the typeKind from the first non-null element.
+    int i = 0;
+    for (; i < inputs.size(); ++i) {
+      if (!inputs[i].isNull()) {
+        elementTypeKind = inputs[i].kind();
+        break;
+      }
+    }
+    // Verify that the remaining non-null elements match.
+    for (; i < inputs.size(); ++i) {
+      if (!inputs[i].isNull()) {
+        VELOX_CHECK_EQ(
+            elementTypeKind,
+            inputs[i].kind(),
+            "All array elements must be of the same kind");
+      }
+    }
+  }
+}
+
 } // namespace facebook::velox
