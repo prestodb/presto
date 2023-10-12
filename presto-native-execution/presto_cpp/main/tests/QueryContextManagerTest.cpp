@@ -55,7 +55,7 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
   EXPECT_TRUE(queryCtx->queryConfig().joinSpillEnabled());
   EXPECT_FALSE(queryCtx->queryConfig().validateOutputFromOperators());
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1L << 20);
-  EXPECT_FALSE(queryCtx->queryConfig().aggregationSpillAll());
+  EXPECT_TRUE(queryCtx->queryConfig().aggregationSpillAll());
 }
 
 } // namespace facebook::presto
