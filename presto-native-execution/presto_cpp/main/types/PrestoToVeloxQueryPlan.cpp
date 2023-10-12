@@ -1960,19 +1960,19 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   //    orderpriority$gid
   //    => orderpriority]
 
-  // core::GroupIdNode.groupingSets is defined using input fields.
-  // core::GroupIdNode.outputGroupingKeyNames maps output name of a
+  // core::GroupIdNode.groupingSets is defined using output field names.
+  // core::GroupIdNode.groupingKeys maps output name of a
   // grouping key to the corresponding input field.
 
-  std::vector<std::vector<core::FieldAccessTypedExprPtr>> groupingSets;
+  std::vector<std::vector<std::string>> groupingSets;
   groupingSets.reserve(node->groupingSets.size());
   for (const auto& groupingSet : node->groupingSets) {
-    std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+    std::vector<std::string> groupingKeys;
     groupingKeys.reserve(groupingSet.size());
+    // Use the output key name in the GroupingSet as there could be
+    // multiple output keys mapping to the same input column.
     for (const auto& groupingKey : groupingSet) {
-      groupingKeys.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
-          stringToType(groupingKey.type),
-          node->groupingColumns.at(groupingKey).name));
+      groupingKeys.emplace_back(groupingKey.name);
     }
     groupingSets.emplace_back(std::move(groupingKeys));
   }
