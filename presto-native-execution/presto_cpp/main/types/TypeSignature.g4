@@ -13,6 +13,7 @@ grammar TypeSignature;
     #define isArrayToken()       (UpCase(Token()) == "ARRAY")
     #define isVarToken()         (UpCase(Token()) == "VARCHAR" || UpCase(Token()) == "VARBINARY")
     #define isDecimalToken()     (UpCase(Token()) == "DECIMAL")
+    #define isFunctionToken()     (UpCase(Token()) == "FUNCTION")
 }
 
 start : type_spec EOF ;
@@ -33,6 +34,7 @@ type :
     | array_type
     | map_type
     | row_type
+    | function_type
     ;
 
 simple_type :
@@ -60,6 +62,9 @@ map_type :
 
 array_type :
     { isArrayToken() }? WORD '(' type ')' ;
+
+function_type :
+    { isFunctionToken() }? WORD '(' type (',' type)* ')' ;
 
 identifier :
       QUOTED_ID

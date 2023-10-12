@@ -3,10 +3,14 @@ Details on how to create a lexer and parser using antlr4 are available here:
 https://github.com/antlr/antlr4/blob/master/doc/cpp-target.md  
 
 **TypeSignature.g4** file specifies the grammar. Any new rules must be added to this file.   
-presto_cpp requires the antlr4 **visitor** and does not need the antlr4 **listener**.  
-antlr files are generated using the following command:  
+presto_cpp requires the antlr4 **visitor** and does not need the antlr4 **listener**.
 
-    antlr4 -Dlanguage=Cpp -no-listener -visitor TypeSignature.g4 -o antlr
+To generate antlr files:
+
++ Download https://repo1.maven.org/maven2/org/antlr/antlr4/4.9.3/antlr4-4.9.3-complete.jar
++ Run
+
+    java -jar <path/to>/antlr4-4.9.3-complete.jar -Dlanguage=Cpp -package facebook::presto::type -visitor -no-listener -o antlr TypeSignature.g4
 
 The following files are generated inside the antlr directory:
 + TypeSignature.interp  

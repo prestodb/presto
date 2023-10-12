@@ -392,11 +392,11 @@ TEST_F(TestTypeSignature, spaces13) {
 }
 
 TEST_F(TestTypeSignature, functionType) {
-  ASSERT_THROWS_CONTAINS_MESSAGE(
-      parseTypeSignature("function(boolean,varchar(5),boolean)");
-      ,
-      VeloxUserError,
-      "Failed to parse type [function(boolean,varchar(5),boolean)]");
+  assertSignature(
+      "function(bigint,bigint,bigint)", "FUNCTION<BIGINT, BIGINT, BIGINT>");
+  assertSignature(
+      "function(bigint,array(varchar),varchar)",
+      "FUNCTION<BIGINT, ARRAY<VARCHAR>, VARCHAR>");
 }
 
 TEST_F(TestTypeSignature, decimalType) {

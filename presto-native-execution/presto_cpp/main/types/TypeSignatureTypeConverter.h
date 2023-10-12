@@ -45,6 +45,8 @@ class TypeSignatureTypeConverter : TypeSignatureBaseVisitor {
       TypeSignatureParser::Map_typeContext* ctx) override;
   virtual antlrcpp::Any visitArray_type(
       TypeSignatureParser::Array_typeContext* ctx) override;
+  virtual antlrcpp::Any visitFunction_type(
+      TypeSignatureParser::Function_typeContext* ctx) override;
   virtual antlrcpp::Any visitIdentifier(
       TypeSignatureParser::IdentifierContext* ctx) override;
 
