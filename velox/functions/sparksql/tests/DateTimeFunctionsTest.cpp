@@ -379,5 +379,30 @@ TEST_F(DateTimeFunctionsTest, dayofWeekTs) {
   }
 }
 
+TEST_F(DateTimeFunctionsTest, dateDiffDate) {
+  const auto dateDiff = [&](std::optional<int32_t> endDate,
+                            std::optional<int32_t> startDate) {
+    return evaluateOnce<int32_t, int32_t>(
+        "datediff(c0, c1)", {endDate, startDate}, {DATE(), DATE()});
+  };
+
+  // Simple tests.
+  EXPECT_EQ(-1, dateDiff(parseDate("2019-02-28"), parseDate("2019-03-01")));
+  EXPECT_EQ(-358, dateDiff(parseDate("2019-02-28"), parseDate("2020-02-21")));
+  EXPECT_EQ(0, dateDiff(parseDate("1994-04-20"), parseDate("1994-04-20")));
+
+  // Account for the last day of a year-month.
+  EXPECT_EQ(395, dateDiff(parseDate("2020-02-29"), parseDate("2019-01-30")));
+
+  // Check Large date.
+  EXPECT_EQ(
+      -737790, dateDiff(parseDate("2020-02-29"), parseDate("4040-02-29")));
+
+  // Overflowed result, consistent with spark.
+  EXPECT_EQ(
+      2147474628,
+      dateDiff(parseDate("-5877641-06-23"), parseDate("1994-09-12")));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

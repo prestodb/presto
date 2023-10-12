@@ -232,7 +232,8 @@ void registerFunctions(const std::string& prefix) {
       Varchar>({prefix + "unix_timestamp", prefix + "to_unix_timestamp"});
   registerFunction<MakeDateFunction, Date, int32_t, int32_t, int32_t>(
       {prefix + "make_date"});
-
+  registerFunction<DateDiffFunction, int32_t, Date, Date>(
+      {prefix + "datediff"});
   registerFunction<LastDayFunction, Date, Date>({prefix + "last_day"});
 
   registerFunction<DateAddFunction, Date, Date, int32_t>({prefix + "date_add"});

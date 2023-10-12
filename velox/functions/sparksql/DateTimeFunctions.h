@@ -319,4 +319,21 @@ struct DayOfWeekFunction : public InitSessionTimezone<T>,
   }
 };
 
+template <typename T>
+struct DateDiffFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int32_t& result,
+      const arg_type<Date>& endDate,
+      const arg_type<Date>& startDate)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+      __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+  {
+    result = endDate - startDate;
+  }
+};
 } // namespace facebook::velox::functions::sparksql
