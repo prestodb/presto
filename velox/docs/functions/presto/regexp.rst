@@ -18,6 +18,11 @@ See https://github.com/google/re2/wiki/Syntax for more information.
     Note: The wildcard '%' represents 0, 1 or multiple characters and the
     wildcard '_' represents exactly one character.
 
+    Note: Each function instance allow for a maximum of 20 regular expressions to
+    be compiled throughout the lifetime of the query. Not all Patterns requires
+    compilation of regular expressions; for example a pattern 'aa' does not.
+    Only those that require the compilation of regular expressions are counted.
+
         SELECT like('abc', '%b%'); -- true
         SELECT like('a_c', '%#_%', '#'); -- true
 

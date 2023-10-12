@@ -17,6 +17,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <velox/type/Type.h>
 #include <functional>
 #include <optional>
 #include <string>
@@ -26,6 +27,7 @@
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/type/StringView.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -81,6 +83,68 @@ class Re2FunctionsTest : public test::FunctionBaseTest {
       output += characterSet[i % arrLen];
     }
     return output;
+  }
+
+  void testLike(
+      const std::string& input,
+      const std::string& pattern,
+      std::optional<bool> expected) {
+    testLike(input, pattern, std::nullopt, expected);
+  }
+
+  // If expected is std::nullopt, then we expect the last argument to be the
+  // content of the expected error.
+  void testLike(
+      const std::string& input,
+      const std::string& pattern,
+      std::optional<char> escape,
+      std::optional<bool> expected,
+      const std::string& errorMessage = "") {
+    {
+      // Test literal path.
+      auto eval = [&]() {
+        return evaluateOnce<bool>(
+            escape.has_value()
+                ? fmt::format("like(c0, '{}', '{}')", pattern, escape.value())
+                : fmt::format("like(c0, '{}')", pattern),
+            std::optional<std::string>{input});
+      };
+
+      if (expected.has_value()) {
+        EXPECT_EQ(eval().value(), *expected);
+      } else {
+        VELOX_ASSERT_THROW(eval(), errorMessage);
+      }
+    }
+
+    // Test not literal path.
+    auto inputView = StringView(input);
+    auto patternView = StringView(pattern);
+    auto escapeView = ""_sv;
+    if (escape.has_value()) {
+      escapeView = StringView(&escape.value(), 1);
+    }
+
+    auto flatInput = makeFlatVector<StringView>(
+        {inputView, inputView, inputView, inputView});
+    auto flatPattern = makeFlatVector<StringView>(
+        {patternView, patternView, patternView, patternView});
+    auto flatEscape = makeFlatVector<StringView>(
+        {escapeView, escapeView, escapeView, escapeView});
+
+    auto eval = [&]() {
+      return evaluate(
+          escape.has_value() ? "like(c0, c1, c2)" : "like(c0, c1)",
+          makeRowVector({flatInput, flatPattern, flatEscape}));
+    };
+
+    if (expected.has_value()) {
+      auto result = eval();
+      assertEqualVectors(
+          BaseVector::createConstant(BOOLEAN(), *expected, 4, pool()), result);
+    } else {
+      VELOX_ASSERT_THROW(eval(), errorMessage);
+    }
   }
 };
 
@@ -362,46 +426,38 @@ TEST_F(Re2FunctionsTest, regexExtractConstantPatternNoGroupId) {
 }
 
 TEST_F(Re2FunctionsTest, likePattern) {
-  auto like = [&](std::optional<std::string> str,
-                  std::optional<std::string> pattern) {
-    return evaluateOnce<bool>("like(c0, '" + *pattern + "')", str);
-  };
+  testLike("abc", "%b%", true);
+  testLike("bcd", "%b%", true);
+  testLike("cde", "%b%", false);
+  testLike("cde", "def", false);
 
-  EXPECT_EQ(like("abc", "%b%"), true);
-  EXPECT_EQ(like("bcd", "%b%"), true);
-  EXPECT_EQ(like("cde", "%b%"), false);
-  EXPECT_EQ(like("cde", "def"), false);
+  testLike("abc", "_b%", true);
+  testLike("bcd", "_b%", false);
+  testLike("cde", "_b%", false);
 
-  EXPECT_EQ(like("abc", "_b%"), true);
-  EXPECT_EQ(like("bcd", "_b%"), false);
-  EXPECT_EQ(like("cde", "_b%"), false);
+  testLike("abc", "b%", false);
+  testLike("bcd", "b%", true);
+  testLike("cde", "b%", false);
 
-  EXPECT_EQ(like("abc", "b%"), false);
-  EXPECT_EQ(like("bcd", "b%"), true);
-  EXPECT_EQ(like("cde", "b%"), false);
+  testLike("abc", "B%", false);
+  testLike("bcd", "B%", false);
+  testLike("cde", "B%", false);
 
-  EXPECT_EQ(like("abc", "B%"), false);
-  EXPECT_EQ(like("bcd", "B%"), false);
-  EXPECT_EQ(like("cde", "B%"), false);
+  testLike("stringwithmorethan16chars", "string%", true);
+  testLike("stringwithmorethan16chars", "stringwithmorethan16chars", true);
+  testLike("stringwithmorethan16chars", "stringwithlessthan16chars", false);
 
-  EXPECT_EQ(like("stringwithmorethan16chars", "string%"), true);
-  EXPECT_EQ(
-      like("stringwithmorethan16chars", "stringwithmorethan16chars"), true);
-  EXPECT_EQ(
-      like("stringwithmorethan16chars", "stringwithlessthan16chars"), false);
-
-  EXPECT_EQ(
-      like(
-          "\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 abc",
-          "\u4FE1\u5FF5 \u7231%"),
+  testLike(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 abc",
+      "\u4FE1\u5FF5 \u7231%",
       true);
-  EXPECT_EQ(
-      like("\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ", "\u4FE1%\u7231%"), true);
-  EXPECT_EQ(
-      like("\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ", "\u7231\u4FE1%\u7231%"),
+  testLike("\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ", "\u4FE1%\u7231%", true);
+  testLike(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ",
+      "\u7231\u4FE1%\u7231%",
       false);
 
-  EXPECT_EQ(like("abc", "MEDIUM POLISHED%"), false);
+  testLike("abc", "MEDIUM POLISHED%", false);
 }
 
 TEST_F(Re2FunctionsTest, likeDeterminePatternKind) {
@@ -443,154 +499,129 @@ TEST_F(Re2FunctionsTest, likeDeterminePatternKind) {
 }
 
 TEST_F(Re2FunctionsTest, likePatternWildcard) {
-  auto like = [&](std::string str, std::string pattern) {
-    auto likeResult = evaluateOnce<bool>(
-        fmt::format("like(c0, '{}')", pattern), std::make_optional(str));
-    VELOX_CHECK(likeResult, "Like operator evaluation failed");
-    return *likeResult;
-  };
+  testLike("", "", true);
+  testLike("", "%", true);
+  testLike("abc", "%%%%", true);
+  testLike("abc", "%%", true);
+  testLike("abc", "%_%_%", true);
+  testLike("abc", "_%_%_%", true);
+  testLike("a", "_", true);
+  testLike("ab", "__", true);
+  testLike("abc", "___", true);
 
-  EXPECT_TRUE(like("", ""));
-  EXPECT_TRUE(like("", "%"));
-  EXPECT_TRUE(like("abc", "%%%%"));
-  EXPECT_TRUE(like("abc", "%%"));
-  EXPECT_TRUE(like("abc", "%_%_%"));
-  EXPECT_TRUE(like("abc", "_%_%_%"));
-  EXPECT_TRUE(like("a", "_"));
-  EXPECT_TRUE(like("ab", "__"));
-  EXPECT_TRUE(like("abc", "___"));
-  EXPECT_FALSE(like("", "_"));
-  EXPECT_FALSE(like("ab", "_"));
-  EXPECT_FALSE(like("abcd", "___"));
-  EXPECT_FALSE(like("acb", "%ab_%"));
-  EXPECT_FALSE(like("abcd", "_abc%d"));
-  EXPECT_FALSE(like("abcd", "%ab_c%"));
+  testLike("", "_", false);
+  testLike("ab", "_", false);
+  testLike("abcd", "___", false);
+  testLike("acb", "%ab_%", false);
+  testLike("abcd", "_abc%d", false);
+  testLike("abcd", "%ab_c%", false);
 
-  EXPECT_TRUE(like(
+  testLike(
       generateString(kLikePatternCharacterSet),
-      generateString(kWildcardCharacterSet)));
-  EXPECT_FALSE(like(
+      generateString(kWildcardCharacterSet),
+      true);
+  testLike(
       generateString(kLikePatternCharacterSet),
-      generateString(kSingleWildcardCharacter, 65)));
+      generateString(kSingleWildcardCharacter, 65),
+      false);
 
   // Test that % matches newline.
-  EXPECT_TRUE(like("\nabcde\n", "%bcd%"));
-  EXPECT_TRUE(like("\nabcd", "%bcd"));
-  EXPECT_TRUE(like("bcde\n", "bcd%"));
-  EXPECT_FALSE(like("\nabcde\n", "bcd%"));
-  EXPECT_FALSE(like("\nabcde\n", "%bcd"));
-  EXPECT_FALSE(like("\nabcde\n", "%bcf%"));
+  testLike("\nabcde\n", "%bcd%", true);
+  testLike("\nabcd", "%bcd", true);
+  testLike("bcde\n", "bcd%", true);
+  testLike("\nabcde\n", "bcd%", false);
+  testLike("\nabcde\n", "%bcd", false);
+  testLike("\nabcde\n", "%bcf%", false);
 }
 
 TEST_F(Re2FunctionsTest, likePatternFixed) {
-  auto like = [&](std::string str, std::string pattern) {
-    auto likeResult = evaluateOnce<bool>(
-        fmt::format("like(c0, '{}')", pattern), std::make_optional(str));
-    VELOX_CHECK(likeResult, "Like operator evaluation failed");
-    return *likeResult;
-  };
-
-  EXPECT_TRUE(like("", ""));
-  EXPECT_TRUE(like("abcde", "abcde"));
-  EXPECT_TRUE(like("ABCDE", "ABCDE"));
-  EXPECT_FALSE(like("abcde", "uvwxy"));
-  EXPECT_FALSE(like("ABCDE", "abcde"));
-  EXPECT_TRUE(like("abc", "%%%%"));
-  EXPECT_TRUE(like("abc", "%%"));
-  EXPECT_TRUE(like("abc", "%_%_%"));
-  EXPECT_TRUE(like("abc", "_%_%_%"));
-  EXPECT_TRUE(like("a", "_"));
-  EXPECT_FALSE(like("", "_"));
-  EXPECT_FALSE(like("ab", "_"));
-  EXPECT_FALSE(like("abc", "__%_%_"));
-  EXPECT_FALSE(like("abcd", "_c%_%_"));
-  EXPECT_TRUE(like("\nab\ncd\n", "\nab\ncd\n"));
-  EXPECT_TRUE(like("abcd\n", "abcd\n"));
-  EXPECT_TRUE(like("\nabcd", "\nabcd"));
-  EXPECT_TRUE(like("\tab\ncd\b", "\tab\ncd\b"));
-  EXPECT_FALSE(like("\nabcd\n", "\nabc\nd\n"));
-  EXPECT_FALSE(like("\nab\tcd\b", "\nabcd\b"));
+  testLike("", "", true);
+  testLike("abcde", "abcde", true);
+  testLike("ABCDE", "ABCDE", true);
+  testLike("abcde", "uvwxy", false);
+  testLike("ABCDE", "abcde", false);
+  testLike("abc", "%%%%", true);
+  testLike("abc", "%%", true);
+  testLike("abc", "%_%_%", true);
+  testLike("abc", "_%_%_%", true);
+  testLike("a", "_", true);
+  testLike("", "_", false);
+  testLike("ab", "_", false);
+  testLike("abc", "__%_%_", false);
+  testLike("abcd", "_c%_%_", false);
+  testLike("\nab\ncd\n", "\nab\ncd\n", true);
+  testLike("abcd\n", "abcd\n", true);
+  testLike("\nabcd", "\nabcd", true);
+  testLike("\tab\ncd\b", "\tab\ncd\b", true);
+  testLike("\nabcd\n", "\nabc\nd\n", false);
+  testLike("\nab\tcd\b", "\nabcd\b", false);
 
   std::string input = generateString(kLikePatternCharacterSet, 66);
-  EXPECT_TRUE(like(input, input));
+  testLike(input, input, true);
 }
 
 TEST_F(Re2FunctionsTest, likePatternPrefix) {
-  auto like = [&](std::string str, std::string pattern) {
-    auto likeResult = evaluateOnce<bool>(
-        fmt::format("like(c0, '{}')", pattern), std::make_optional(str));
-    VELOX_CHECK(likeResult, "Like operator evaluation failed");
-    return *likeResult;
-  };
-
-  EXPECT_TRUE(like("", "%"));
-  EXPECT_TRUE(like("", "%%"));
-  EXPECT_TRUE(like("abcde", "abcd%"));
-  EXPECT_TRUE(like("ABCDE", "ABC%"));
-  EXPECT_TRUE(like("abcde", "abcd%%"));
-  EXPECT_TRUE(like("ABCDE", "ABC_%"));
-  EXPECT_TRUE(like("abcde", "ab%"));
-  EXPECT_TRUE(like("ABCDE", "AB%"));
-  EXPECT_TRUE(like("abcde", "ab_%"));
-  EXPECT_TRUE(like("ABCDE", "AB%%"));
-  EXPECT_FALSE(like("", "_%"));
-  EXPECT_FALSE(like("abcde", "abce%"));
-  EXPECT_FALSE(like("ABCDE", "ABD%"));
-  EXPECT_FALSE(like("abcde", "abce%_"));
-  EXPECT_FALSE(like("ABCDE", "ABD%%"));
-  EXPECT_FALSE(like("abcde", "ad%"));
-  EXPECT_FALSE(like("ABCDE", "abc%"));
-  EXPECT_FALSE(like("abcde", "ad%%"));
-  EXPECT_FALSE(like("ABCDE", "abc_%"));
-  EXPECT_TRUE(like("ABC\n", "ABC_"));
-  EXPECT_TRUE(like("ABC\n", "ABC_%"));
-  EXPECT_TRUE(like("\nABC\n", "_ABC%"));
-  EXPECT_TRUE(like("\nabcde\n", "\nab%"));
-  EXPECT_TRUE(like("\nab\ncde\n", "\nab\n%"));
-  EXPECT_FALSE(like("\nabc\nde\n", "ab\nc%"));
-  EXPECT_FALSE(like("\nabc\nde\n", "abc%"));
+  testLike("", "%", true);
+  testLike("", "%%", true);
+  testLike("abcde", "abcd%", true);
+  testLike("ABCDE", "ABC%", true);
+  testLike("abcde", "abcd%%", true);
+  testLike("ABCDE", "ABC_%", true);
+  testLike("abcde", "ab%", true);
+  testLike("ABCDE", "AB%", true);
+  testLike("abcde", "ab_%", true);
+  testLike("ABCDE", "AB%%", true);
+  testLike("", "_%", false);
+  testLike("abcde", "abce%", false);
+  testLike("ABCDE", "ABD%", false);
+  testLike("abcde", "abce%_", false);
+  testLike("ABCDE", "ABD%%", false);
+  testLike("abcde", "ad%", false);
+  testLike("ABCDE", "abc%", false);
+  testLike("abcde", "ad%%", false);
+  testLike("ABCDE", "abc_%", false);
+  testLike("ABC\n", "ABC_", true);
+  testLike("ABC\n", "ABC_%", true);
+  testLike("\nABC\n", "_ABC%", true);
+  testLike("\nabcde\n", "\nab%", true);
+  testLike("\nab\ncde\n", "\nab\n%", true);
+  testLike("\nabc\nde\n", "ab\nc%", false);
+  testLike("\nabc\nde\n", "abc%", false);
 
   std::string input = generateString(kLikePatternCharacterSet, 66);
-  EXPECT_TRUE(like(input, input + generateString(kAnyWildcardCharacter)));
+  testLike(input, input + generateString(kAnyWildcardCharacter), true);
 }
 
 TEST_F(Re2FunctionsTest, likePatternSuffix) {
-  auto like = [&](std::string str, std::string pattern) {
-    auto likeResult = evaluateOnce<bool>(
-        fmt::format("like(c0, '{}')", pattern), std::make_optional(str));
-    VELOX_CHECK(likeResult, "Like operator evaluation failed");
-    return *likeResult;
-  };
-
-  EXPECT_TRUE(like("", "%"));
-  EXPECT_TRUE(like("abcde", "%bcde"));
-  EXPECT_TRUE(like("ABCDE", "%CDE"));
-  EXPECT_TRUE(like("abcde", "%%cde"));
-  EXPECT_TRUE(like("ABCDE", "%%DE"));
-  EXPECT_TRUE(like("abcde", "%de"));
-  EXPECT_TRUE(like("ABCDE", "%DE"));
-  EXPECT_TRUE(like("abcde", "%%e"));
-  EXPECT_TRUE(like("ABCDE", "%%E"));
-  EXPECT_FALSE(like("", "%_"));
-  EXPECT_FALSE(like("abcde", "%ccde"));
-  EXPECT_FALSE(like("ABCDE", "%BDE"));
-  EXPECT_FALSE(like("abcde", "%%ccde"));
-  EXPECT_FALSE(like("ABCDE", "%%BDE"));
-  EXPECT_FALSE(like("abcde", "%be"));
-  EXPECT_FALSE(like("ABCDE", "%de"));
-  EXPECT_FALSE(like("abcde", "%%ce"));
-  EXPECT_FALSE(like("ABCDE", "%%e"));
-  EXPECT_TRUE(like("\nabc\nde\n", "%\nde\n"));
-  EXPECT_TRUE(like("\nabcde\n", "%%de\n"));
-  EXPECT_TRUE(like("\nabc\tde\b", "%\tde\b"));
-  EXPECT_TRUE(like("\nabcde\t", "%%de\t"));
-  EXPECT_TRUE(like("\nabc\nde\t", "%bc_de_"));
-  EXPECT_FALSE(like("\nabcde\n", "%de\b"));
-  EXPECT_FALSE(like("\nabcde\n", "%d\n"));
-  EXPECT_FALSE(like("\nabcde\n", "%e_\n"));
+  testLike("", "%", true);
+  testLike("abcde", "%bcde", true);
+  testLike("ABCDE", "%CDE", true);
+  testLike("abcde", "%%cde", true);
+  testLike("ABCDE", "%%DE", true);
+  testLike("abcde", "%de", true);
+  testLike("ABCDE", "%DE", true);
+  testLike("abcde", "%%e", true);
+  testLike("ABCDE", "%%E", true);
+  testLike("", "%_", false);
+  testLike("abcde", "%ccde", false);
+  testLike("ABCDE", "%BDE", false);
+  testLike("abcde", "%%ccde", false);
+  testLike("ABCDE", "%%BDE", false);
+  testLike("abcde", "%be", false);
+  testLike("ABCDE", "%de", false);
+  testLike("abcde", "%%ce", false);
+  testLike("ABCDE", "%%e", false);
+  testLike("\nabc\nde\n", "%\nde\n", true);
+  testLike("\nabcde\n", "%%de\n", true);
+  testLike("\nabc\tde\b", "%\tde\b", true);
+  testLike("\nabcde\t", "%%de\t", true);
+  testLike("\nabc\nde\t", "%bc_de_", true);
+  testLike("\nabcde\n", "%de\b", false);
+  testLike("\nabcde\n", "%d\n", false);
+  testLike("\nabcde\n", "%e_\n", false);
 
   std::string input = generateString(kLikePatternCharacterSet, 65);
-  EXPECT_TRUE(like(input, generateString(kAnyWildcardCharacter) + input));
+  testLike(input, generateString(kAnyWildcardCharacter) + input, true);
 }
 
 TEST_F(Re2FunctionsTest, nullConstantPatternOrEscape) {
@@ -604,22 +635,20 @@ TEST_F(Re2FunctionsTest, nullConstantPatternOrEscape) {
 }
 
 TEST_F(Re2FunctionsTest, likePatternAndEscape) {
-  auto like = ([&](std::optional<std::string> str,
-                   std::optional<std::string> pattern,
-                   std::optional<char> escape) {
-    return evaluateOnce<bool>(
-        "like(c0, '" + *pattern + "', '" + *escape + "')", str);
-  });
+  testLike("a_c", "%#_%", '#', true);
+  testLike("_cd", "%#_%", '#', true);
+  testLike("cde", "%#_%", '#', false);
 
-  EXPECT_EQ(like("a_c", "%#_%", '#'), true);
-  EXPECT_EQ(like("_cd", "%#_%", '#'), true);
-  EXPECT_EQ(like("cde", "%#_%", '#'), false);
+  testLike("a%c", "%#%%", '#', true);
+  testLike("%cd", "%#%%", '#', true);
+  testLike("cde", "%#%%", '#', false);
 
-  EXPECT_EQ(like("a%c", "%#%%", '#'), true);
-  EXPECT_EQ(like("%cd", "%#%%", '#'), true);
-  EXPECT_EQ(like("cde", "%#%%", '#'), false);
-
-  EXPECT_THROW(like("abcd", "a#}#+", '#'), std::exception);
+  testLike(
+      "abcd",
+      "a#}#+",
+      '#',
+      std::nullopt,
+      "Escape character must be followed by '%', '_' or the escape character itself");
 }
 
 template <typename T>
@@ -667,20 +696,19 @@ void Re2FunctionsTest::testRe2ExtractAll(
         // Case 1: constant pattern, no groupId
         // for example: expression = re2_extract_all(c0, '(\\d+)([a-z]+)')
         expression = std::string("re2_extract_all(c0") + constantPattern + ")";
-        return evaluate<ArrayVector>(expression, makeRowVector({input}));
+        return evaluate(expression, makeRowVector({input}));
       } else if (!constantGroupId.empty()) {
         // Case 2: constant pattern, constant groupId
         // for example: expression = re2_extract_all(c0, '(\\d+)([a-z]+)', 1)
         expression = std::string("re2_extract_all(c0") + constantPattern +
             constantGroupId + ")";
-        return evaluate<ArrayVector>(expression, makeRowVector({input}));
+        return evaluate(expression, makeRowVector({input}));
       } else {
         // Case 3: constant pattern, variable groupId
         // for example: expression = re2_extract_all(c0, '(\\d+)([a-z]+)', c1)
         expression =
             std::string("re2_extract_all(c0") + constantPattern + ", c1)";
-        return evaluate<ArrayVector>(
-            expression, makeRowVector({input, groupId}));
+        return evaluate(expression, makeRowVector({input, groupId}));
       }
     }
 
@@ -688,7 +716,7 @@ void Re2FunctionsTest::testRe2ExtractAll(
     if (groupIds.empty()) {
       // for example: expression = re2_extract_all(c0, c1)
       expression = std::string("re2_extract_all(c0, c1)");
-      return evaluate<ArrayVector>(expression, makeRowVector({input, pattern}));
+      return evaluate(expression, makeRowVector({input, pattern}));
     }
 
     // Case 5: variable pattern, constant groupId
@@ -696,13 +724,12 @@ void Re2FunctionsTest::testRe2ExtractAll(
       // for example: expression = re2_extract_all(c0, c1, 0)
       expression =
           std::string("re2_extract_all(c0, c1") + constantGroupId + ")";
-      return evaluate<ArrayVector>(expression, makeRowVector({input, pattern}));
+      return evaluate(expression, makeRowVector({input, pattern}));
     }
 
     // Case 6: variable pattern, variable groupId
     expression = std::string("re2_extract_all(c0, c1, c2)");
-    return evaluate<ArrayVector>(
-        expression, makeRowVector({input, pattern, groupId}));
+    return evaluate(expression, makeRowVector({input, pattern, groupId}));
   }();
 
   // Creating vectors for output string vectors
@@ -884,13 +911,11 @@ TEST_F(Re2FunctionsTest, tryException) {
 
   // Assert we can handle trys safely for re2_extract.
   {
-    auto result =
-        evaluate<SimpleVector<StringView>>("try(re2_extract(c0, c1))", input);
+    auto result = evaluate("try(re2_extract(c0, c1))", input);
     assertEqualVectors(makeNullConstant(TypeKind::VARCHAR, 3), result);
 
     // Atleast one non null result.
-    result = evaluate<SimpleVector<StringView>>(
-        "try(re2_extract(c0, c1))", oneGoodInput);
+    result = evaluate("try(re2_extract(c0, c1))", oneGoodInput);
     assertEqualVectors(
         makeNullableFlatVector<StringView>({std::nullopt, "mno", std::nullopt}),
         result);
@@ -898,12 +923,11 @@ TEST_F(Re2FunctionsTest, tryException) {
 
   // Try the same with re2_match.
   {
-    auto result = evaluate<SimpleVector<bool>>("try(re2_match(c0, c1))", input);
+    auto result = evaluate("try(re2_match(c0, c1))", input);
     assertEqualVectors(makeNullConstant(TypeKind::BOOLEAN, 3), result);
 
     // At least one non null result.
-    result =
-        evaluate<SimpleVector<bool>>("try(re2_match(c0, c1))", oneGoodInput);
+    result = evaluate("try(re2_match(c0, c1))", oneGoodInput);
     assertEqualVectors(
         makeNullableFlatVector<bool>({std::nullopt, true, std::nullopt}),
         result);
@@ -911,13 +935,11 @@ TEST_F(Re2FunctionsTest, tryException) {
 
   // Try the same with re2_search.
   {
-    auto result =
-        evaluate<SimpleVector<bool>>("try(re2_search(c0, c1))", input);
+    auto result = evaluate("try(re2_search(c0, c1))", input);
     assertEqualVectors(makeNullConstant(TypeKind::BOOLEAN, 3), result);
 
     // At least one non null result.
-    result =
-        evaluate<SimpleVector<bool>>("try(re2_search(c0, c1))", oneGoodInput);
+    result = evaluate("try(re2_search(c0, c1))", oneGoodInput);
     assertEqualVectors(
         makeNullableFlatVector<bool>({std::nullopt, true, std::nullopt}),
         result);
@@ -953,8 +975,7 @@ TEST_F(Re2FunctionsTest, tryException) {
 
     auto input = makeRowVector(
         {stringVector, makeConstant("abc", 3), makeConstant(100, 3)});
-    auto result = evaluate<SimpleVector<StringView>>(
-        "try(re2_extract(c0, c1, c2))", input);
+    auto result = evaluate("try(re2_extract(c0, c1, c2))", input);
 
     assertEqualVectors(makeNullConstant(TypeKind::VARCHAR, 3), result);
 
@@ -966,7 +987,82 @@ TEST_F(Re2FunctionsTest, tryException) {
     assertEqualVectors(
         makeNullableArrayVector<StringView>(
             {std::nullopt, {{"123"_sv, "2"_sv}}, std::nullopt}),
-        evaluate<ArrayVector>("try(re2_extract_all(c0, c1, c2))", input));
+        evaluate("try(re2_extract_all(c0, c1, c2))", input));
+  }
+}
+
+// Make sure we do not compile more than kMaxCompiledRegexes.
+TEST_F(Re2FunctionsTest, likeRegexLimit) {
+  VectorPtr pattern = makeFlatVector<StringView>(26);
+  VectorPtr input = makeFlatVector<StringView>(26);
+
+  auto flatInput = input->asFlatVector<StringView>();
+  for (int i = 0; i < 26; i++) {
+    flatInput->set(i, "");
+  }
+
+  auto flatPattern = pattern->asFlatVector<StringView>();
+
+  // Over 20 all optimized, will pass.
+  for (int i = 0; i < 26; i++) {
+    std::string localPattern = fmt::format("{}.*{}", 'c' + i, 'c' + i);
+    flatPattern->set(i, StringView(localPattern));
+  }
+
+  auto result = evaluate("like(c0 , c1)", makeRowVector({input, pattern}));
+  assertEqualVectors(makeConstant(false, 26), result);
+
+  // Over 20, all require regex, will fail.
+  for (int i = 0; i < 26; i++) {
+    std::string localPattern =
+        fmt::format("b%[0-9]+.*{}.*{}.*[0-9]+", 'c' + i, 'c' + i);
+    flatPattern->set(i, StringView(localPattern));
+  }
+
+  VELOX_ASSERT_THROW(
+      evaluate("like(c0 , c1)", makeRowVector({input, pattern})),
+      "Max number of regex reached");
+
+  // Make sure try does not suppress that faluire.
+  VELOX_ASSERT_THROW(
+      evaluate("try(like(c0 , c1))", makeRowVector({input, pattern})),
+      "Max number of regex reached");
+
+  // All are complex but the same, should pass.
+  for (int i = 0; i < 26; i++) {
+    flatPattern->set(i, "b%[0-9]+.*{}.*{}.*[0-9]+");
+  }
+  assertEqualVectors(
+      BaseVector::createConstant(BOOLEAN(), false, 26, pool()), result);
+}
+
+TEST_F(Re2FunctionsTest, invalidEscapeChar) {
+  VectorPtr pattern = makeFlatVector<StringView>({"A", "B", "C_%"});
+  VectorPtr input = makeFlatVector<StringView>({"A", "B", "C"});
+  VectorPtr escapeChar = makeFlatVector<StringView>({"AA", "", "C"});
+  auto rowVector = makeRowVector({input, pattern, escapeChar});
+
+  VELOX_ASSERT_THROW(
+      evaluate("like(c0 , c1, c2)", rowVector),
+      "Escape string must be a single character");
+
+  VELOX_ASSERT_THROW(
+      evaluate("like(c0 ,'AA', 'AA')", rowVector),
+      "Escape string must be a single character");
+
+  VELOX_ASSERT_THROW(
+      evaluate("like(c0 ,'AA', '')", rowVector),
+      "Escape string must be a single character");
+  {
+    auto result = evaluate("try(like(c0 , c1, c2))", rowVector);
+    auto expected =
+        makeNullableFlatVector<bool>({std::nullopt, std::nullopt, false});
+    assertEqualVectors(expected, result);
+  }
+
+  {
+    auto result = evaluate("try(like(c0 , 'AA', 'AA'))", rowVector);
+    assertEqualVectors(makeNullConstant(TypeKind::BOOLEAN, 3), result);
   }
 }
 

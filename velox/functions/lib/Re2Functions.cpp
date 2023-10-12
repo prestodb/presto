@@ -16,10 +16,13 @@
 #include "velox/functions/lib/Re2Functions.h"
 
 #include <re2/re2.h>
+#include <memory>
 #include <optional>
 #include <string>
 
 #include "velox/expression/VectorWriters.h"
+#include "velox/type/StringView.h"
+#include "velox/vector/BaseVector.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -29,6 +32,8 @@ using ::facebook::velox::exec::Expr;
 using ::facebook::velox::exec::VectorFunction;
 using ::facebook::velox::exec::VectorFunctionArg;
 using ::re2::RE2;
+
+static const int kMaxCompiledRegexes = 20;
 
 std::string printTypesCsv(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
@@ -419,18 +424,21 @@ class OptimizedLikeWithMemcmp final : public VectorFunction {
       vector_size_t reducedPatternLength)
       : pattern_{pattern}, reducedPatternLength_{reducedPatternLength} {}
 
-  bool match(StringView input) const {
+  static bool match(
+      const StringView& input,
+      const StringView& pattern,
+      vector_size_t reducedPatternLength) {
     switch (P) {
       case PatternKind::kExactlyN:
-        return input.size() == reducedPatternLength_;
+        return input.size() == reducedPatternLength;
       case PatternKind::kAtLeastN:
-        return input.size() >= reducedPatternLength_;
+        return input.size() >= reducedPatternLength;
       case PatternKind::kFixed:
-        return matchExactPattern(input, pattern_, reducedPatternLength_);
+        return matchExactPattern(input, pattern, reducedPatternLength);
       case PatternKind::kPrefix:
-        return matchPrefixPattern(input, pattern_, reducedPatternLength_);
+        return matchPrefixPattern(input, pattern, reducedPatternLength);
       case PatternKind::kSuffix:
-        return matchSuffixPattern(input, pattern_, reducedPatternLength_);
+        return matchSuffixPattern(input, pattern, reducedPatternLength);
     }
   }
 
@@ -447,13 +455,14 @@ class OptimizedLikeWithMemcmp final : public VectorFunction {
 
     if (toSearch->isIdentityMapping()) {
       auto input = toSearch->data<StringView>();
-      context.applyToSelectedNoThrow(
-          rows, [&](vector_size_t i) { result.set(i, match(input[i])); });
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t i) {
+        result.set(i, match(input[i], pattern_, reducedPatternLength_));
+      });
       return;
     }
     if (toSearch->isConstantMapping()) {
       auto input = toSearch->valueAt<StringView>(0);
-      bool matchResult = match(input);
+      bool matchResult = match(input, pattern_, reducedPatternLength_);
       context.applyToSelectedNoThrow(
           rows, [&](vector_size_t i) { result.set(i, matchResult); });
       return;
@@ -470,6 +479,8 @@ class OptimizedLikeWithMemcmp final : public VectorFunction {
   vector_size_t reducedPatternLength_;
 };
 
+// This function is used when pattern and escape are constants. And there is not
+// fast path that avoids compiling the regular expression.
 class LikeWithRe2 final : public VectorFunction {
  public:
   LikeWithRe2(StringView pattern, std::optional<char> escapeChar) {
@@ -531,6 +542,114 @@ class LikeWithRe2 final : public VectorFunction {
  private:
   std::optional<RE2> re_;
   bool validPattern_;
+};
+
+// This function is constructed when pattern or escape are not constants.
+// It allows up to kMaxCompiledRegexes different regular expressions to be
+// compiled throughout the query life per function, note that optimized regular
+// expressions that are not compiled are not counted.
+class LikeGeneric final : public VectorFunction {
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& type,
+      EvalCtx& context,
+      VectorPtr& result) const final {
+    VectorPtr localResult;
+
+    auto applyWithRegex = [&](const StringView& input,
+                              const StringView& pattern,
+                              const std::optional<char>& escapeChar) -> bool {
+      RE2::Options opt{RE2::Quiet};
+      opt.set_dot_nl(true);
+      bool validEscapeUsage;
+      auto regex = likePatternToRe2(pattern, escapeChar, validEscapeUsage);
+      VELOX_USER_CHECK(
+          validEscapeUsage,
+          "Escape character must be followed by '%', '_' or the escape character itself");
+
+      auto key =
+          std::pair<StringView, std::optional<char>>{pattern, escapeChar};
+
+      auto [it, inserted] = compiledRegularExpressions_.emplace(
+          key, std::make_unique<RE2>(toStringPiece(regex), opt));
+      VELOX_CHECK_LE(
+          compiledRegularExpressions_.size(),
+          kMaxCompiledRegexes,
+          "Max number of regex reached");
+      checkForBadPattern(*it->second);
+      return re2FullMatch(input, *it->second);
+    };
+
+    auto applyRow = [&](const StringView& input,
+                        const StringView& pattern,
+                        const std::optional<char>& escapeChar) -> bool {
+      if (!escapeChar) {
+        PatternKind patternKind;
+        vector_size_t reducedLength;
+        std::tie(patternKind, reducedLength) = determinePatternKind(pattern);
+
+        switch (patternKind) {
+          case PatternKind::kExactlyN:
+            return OptimizedLikeWithMemcmp<PatternKind::kExactlyN>::match(
+                input, pattern, reducedLength);
+          case PatternKind::kAtLeastN:
+            return OptimizedLikeWithMemcmp<PatternKind::kAtLeastN>::match(
+                input, pattern, reducedLength);
+          case PatternKind::kFixed:
+            return OptimizedLikeWithMemcmp<PatternKind::kFixed>::match(
+                input, pattern, reducedLength);
+          case PatternKind::kPrefix:
+            return OptimizedLikeWithMemcmp<PatternKind::kPrefix>::match(
+                input, pattern, reducedLength);
+          case PatternKind::kSuffix:
+            return OptimizedLikeWithMemcmp<PatternKind::kSuffix>::match(
+                input, pattern, reducedLength);
+          default:
+            return applyWithRegex(input, pattern, escapeChar);
+        }
+      }
+      return applyWithRegex(input, pattern, escapeChar);
+    };
+
+    context.ensureWritable(rows, type, localResult);
+    exec::VectorWriter<bool> vectorWriter;
+    vectorWriter.init(*localResult->asFlatVector<bool>());
+    exec::DecodedArgs decodedArgs(rows, args, context);
+
+    exec::VectorReader<Varchar> inputReader(decodedArgs.at(0));
+    exec::VectorReader<Varchar> patternReader(decodedArgs.at(1));
+
+    if (args.size() == 2) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
+        vectorWriter.setOffset(row);
+        vectorWriter.current() =
+            applyRow(inputReader[row], patternReader[row], std::nullopt);
+        vectorWriter.commit(true);
+      });
+    } else {
+      VELOX_CHECK_EQ(args.size(), 3);
+      exec::VectorReader<Varchar> escapeReader(decodedArgs.at(2));
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
+        vectorWriter.setOffset(row);
+        auto escapeChar = escapeReader[row];
+        VELOX_USER_CHECK_EQ(
+            escapeChar.size(), 1, "Escape string must be a single character");
+        vectorWriter.current() = applyRow(
+            inputReader[row], patternReader[row], escapeChar.data()[0]);
+        vectorWriter.commit(true);
+      });
+    }
+
+    vectorWriter.finish();
+    context.moveOrCopyResult(localResult, rows, result);
+  }
+
+ private:
+  mutable folly::F14FastMap<
+      std::pair<std::string, std::optional<char>>,
+      std::unique_ptr<RE2>>
+      compiledRegularExpressions_;
 };
 
 void re2ExtractAll(
@@ -913,38 +1032,13 @@ std::shared_ptr<exec::VectorFunction> makeLike(
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& /*config*/) {
   auto numArgs = inputArgs.size();
-  VELOX_USER_CHECK(
-      numArgs == 2 || numArgs == 3,
-      "{} requires 2 or 3 arguments, but got {}",
-      name,
-      numArgs);
-
-  VELOX_USER_CHECK(
-      inputArgs[0].type->isVarchar(),
-      "{} requires first argument of type VARCHAR, but got {}",
-      name,
-      inputArgs[0].type->toString());
-
-  VELOX_USER_CHECK(
-      inputArgs[1].type->isVarchar(),
-      "{} requires second argument of type VARCHAR, but got {}",
-      name,
-      inputArgs[1].type->toString());
 
   std::optional<char> escapeChar;
   if (numArgs == 3) {
-    VELOX_USER_CHECK(
-        inputArgs[2].type->isVarchar(),
-        "{} requires third argument of type VARCHAR, but got {}",
-        name,
-        inputArgs[2].type->toString());
-
     BaseVector* escape = inputArgs[2].constantValue.get();
-    VELOX_USER_CHECK(
-        escape != nullptr,
-        "{} requires third argument to be a constant of type VARCHAR",
-        name,
-        inputArgs[2].type->toString());
+    if (!escape) {
+      return std::make_shared<LikeGeneric>();
+    }
 
     auto constantEscape = escape->as<ConstantVector<StringView>>();
     if (constantEscape->isNullAt(0)) {
@@ -964,16 +1058,15 @@ std::shared_ptr<exec::VectorFunction> makeLike(
   }
 
   BaseVector* constantPattern = inputArgs[1].constantValue.get();
-  VELOX_USER_CHECK(
-      constantPattern != nullptr,
-      "{} requires second argument to be a constant of type VARCHAR",
-      name,
-      inputArgs[1].type->toString());
+  if (!constantPattern) {
+    return std::make_shared<LikeGeneric>();
+  }
+
   if (constantPattern->isNullAt(0)) {
     return std::make_shared<exec::ApplyNeverCalled>();
   }
-
   auto pattern = constantPattern->as<ConstantVector<StringView>>()->valueAt(0);
+
   if (!escapeChar) {
     PatternKind patternKind;
     vector_size_t reducedLength;
@@ -998,9 +1091,11 @@ std::shared_ptr<exec::VectorFunction> makeLike(
         return std::make_shared<OptimizedLikeWithMemcmp<PatternKind::kSuffix>>(
             pattern, reducedLength);
       default:
+
         return std::make_shared<LikeWithRe2>(pattern, escapeChar);
     }
   }
+
   return std::make_shared<LikeWithRe2>(pattern, escapeChar);
 }
 
