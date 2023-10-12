@@ -66,6 +66,9 @@ class TypeSignatureVisitor : public antlr4::tree::AbstractParseTreeVisitor {
   virtual antlrcpp::Any visitArray_type(
       TypeSignatureParser::Array_typeContext* context) = 0;
 
+  virtual antlrcpp::Any visitFunction_type(
+      TypeSignatureParser::Function_typeContext* context) = 0;
+
   virtual antlrcpp::Any visitIdentifier(
       TypeSignatureParser::IdentifierContext* context) = 0;
 };

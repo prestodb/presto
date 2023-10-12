@@ -48,7 +48,8 @@ class TypeSignatureParser : public antlr4::Parser {
     RuleRow_type = 8,
     RuleMap_type = 9,
     RuleArray_type = 10,
-    RuleIdentifier = 11
+    RuleFunction_type = 11,
+    RuleIdentifier = 12
   };
 
   explicit TypeSignatureParser(antlr4::TokenStream* input);
@@ -75,6 +76,7 @@ class TypeSignatureParser : public antlr4::Parser {
   class Row_typeContext;
   class Map_typeContext;
   class Array_typeContext;
+  class Function_typeContext;
   class IdentifierContext;
 
   class StartContext : public antlr4::ParserRuleContext {
@@ -126,6 +128,7 @@ class TypeSignatureParser : public antlr4::Parser {
     Array_typeContext* array_type();
     Map_typeContext* map_type();
     Row_typeContext* row_type();
+    Function_typeContext* function_type();
 
     virtual antlrcpp::Any accept(
         antlr4::tree::ParseTreeVisitor* visitor) override;
@@ -231,6 +234,22 @@ class TypeSignatureParser : public antlr4::Parser {
 
   Array_typeContext* array_type();
 
+  class Function_typeContext : public antlr4::ParserRuleContext {
+   public:
+    Function_typeContext(
+        antlr4::ParserRuleContext* parent,
+        size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode* WORD();
+    std::vector<TypeContext*> type();
+    TypeContext* type(size_t i);
+
+    virtual antlrcpp::Any accept(
+        antlr4::tree::ParseTreeVisitor* visitor) override;
+  };
+
+  Function_typeContext* function_type();
+
   class IdentifierContext : public antlr4::ParserRuleContext {
    public:
     IdentifierContext(antlr4::ParserRuleContext* parent, size_t invokingState);
@@ -257,6 +276,9 @@ class TypeSignatureParser : public antlr4::Parser {
   bool row_typeSempred(Row_typeContext* _localctx, size_t predicateIndex);
   bool map_typeSempred(Map_typeContext* _localctx, size_t predicateIndex);
   bool array_typeSempred(Array_typeContext* _localctx, size_t predicateIndex);
+  bool function_typeSempred(
+      Function_typeContext* _localctx,
+      size_t predicateIndex);
 
  private:
   static std::vector<antlr4::dfa::DFA> _decisionToDFA;
@@ -278,6 +300,7 @@ class TypeSignatureParser : public antlr4::Parser {
 #define isVarToken() \
   (UpCase(Token()) == "VARCHAR" || UpCase(Token()) == "VARBINARY")
 #define isDecimalToken() (UpCase(Token()) == "DECIMAL")
+#define isFunctionToken() (UpCase(Token()) == "FUNCTION")
 
   struct Initializer {
     Initializer();
