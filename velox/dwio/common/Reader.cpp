@@ -18,9 +18,72 @@
 
 namespace facebook::velox::dwio::common {
 
+using namespace velox::common;
+
+namespace {
+
+template <TypeKind kKind>
+bool filterSimpleVectorRow(
+    const BaseVector& vector,
+    Filter& filter,
+    vector_size_t index) {
+  using T = typename TypeTraits<kKind>::NativeType;
+  auto* simpleVector = vector.asUnchecked<SimpleVector<T>>();
+  return applyFilter(filter, simpleVector->valueAt(index));
+}
+
+bool filterRow(const BaseVector& vector, Filter& filter, vector_size_t index) {
+  if (vector.isNullAt(index)) {
+    return filter.testNull();
+  }
+  switch (vector.typeKind()) {
+    case TypeKind::ARRAY:
+    case TypeKind::MAP:
+    case TypeKind::ROW:
+      VELOX_USER_CHECK(
+          filter.kind() == FilterKind::kIsNull ||
+              filter.kind() == FilterKind::kIsNotNull,
+          "Complex type can only take null filter, got {}",
+          filter.toString());
+      return filter.testNonNull();
+    default:
+      return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          filterSimpleVectorRow, vector.typeKind(), vector, filter, index);
+  }
+}
+
+void applyFilter(
+    const BaseVector& vector,
+    const ScanSpec& spec,
+    uint64_t* result) {
+  if (spec.filter()) {
+    bits::forEachSetBit(result, 0, vector.size(), [&](auto i) {
+      if (!filterRow(vector, *spec.filter(), i)) {
+        bits::clearBit(result, i);
+      }
+    });
+  }
+  if (!vector.type()->isRow()) {
+    // Filter on MAP or ARRAY children are pruning, and won't affect correctness
+    // of the result.
+    return;
+  }
+  auto& rowType = vector.type()->asRow();
+  auto* rowVector = vector.as<RowVector>();
+  // Should not have any lazy from non-selective reader.
+  VELOX_CHECK_NOT_NULL(rowVector);
+  for (auto& childSpec : spec.children()) {
+    auto child =
+        rowVector->childAt(rowType.getChildIdx(childSpec->fieldName()));
+    applyFilter(*child, *childSpec, result);
+  }
+}
+
+} // namespace
+
 VectorPtr RowReader::projectColumns(
     const VectorPtr& input,
-    const velox::common::ScanSpec& spec) {
+    const ScanSpec& spec) {
   auto* inputRow = input->as<RowVector>();
   VELOX_CHECK_NOT_NULL(inputRow);
   auto& inputRowType = input->type()->asRow();
@@ -31,27 +94,43 @@ VectorPtr RowReader::projectColumns(
   std::vector<std::string> names(numColumns);
   std::vector<TypePtr> types(numColumns);
   std::vector<VectorPtr> children(numColumns);
+  std::vector<uint64_t> passed(bits::nwords(input->size()), -1);
   for (auto& childSpec : spec.children()) {
+    VectorPtr child;
+    if (childSpec->isConstant()) {
+      child = BaseVector::wrapInConstant(
+          input->size(), 0, childSpec->constantValue());
+    } else {
+      child =
+          inputRow->childAt(inputRowType.getChildIdx(childSpec->fieldName()));
+      applyFilter(*child, *childSpec, passed.data());
+    }
     if (!childSpec->projectOut()) {
       continue;
     }
     auto i = childSpec->channel();
     names[i] = childSpec->fieldName();
-    if (childSpec->isConstant()) {
-      children[i] = BaseVector::wrapInConstant(
-          input->size(), 0, childSpec->constantValue());
-    } else {
-      children[i] =
-          inputRow->childAt(inputRowType.getChildIdx(childSpec->fieldName()));
+    types[i] = child->type();
+    children[i] = std::move(child);
+  }
+  auto rowType = ROW(std::move(names), std::move(types));
+  auto size = bits::countBits(passed.data(), 0, input->size());
+  if (size == 0) {
+    return RowVector::createEmpty(rowType, input->pool());
+  }
+  if (size < input->size()) {
+    auto indices = allocateIndices(size, input->pool());
+    auto* rawIndices = indices->asMutable<vector_size_t>();
+    vector_size_t j = 0;
+    bits::forEachSetBit(
+        passed.data(), 0, input->size(), [&](auto i) { rawIndices[j++] = i; });
+    for (auto& child : children) {
+      child = BaseVector::wrapInDictionary(
+          nullptr, indices, size, std::move(child));
     }
-    types[i] = children[i]->type();
   }
   return std::make_shared<RowVector>(
-      input->pool(),
-      ROW(std::move(names), std::move(types)),
-      nullptr,
-      input->size(),
-      std::move(children));
+      input->pool(), rowType, nullptr, size, std::move(children));
 }
 
 } // namespace facebook::velox::dwio::common
