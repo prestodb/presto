@@ -121,6 +121,22 @@ antlrcpp::Any TypeSignatureTypeConverter::visitArray_type(
   return arrayFromType(visit(ctx->type()).as<TypePtr>());
 }
 
+antlrcpp::Any TypeSignatureTypeConverter::visitFunction_type(
+    TypeSignatureParser::Function_typeContext* ctx) {
+  const auto numArgs = ctx->type().size() - 1;
+
+  std::vector<TypePtr> argumentTypes;
+  argumentTypes.reserve(numArgs);
+  for (auto i = 0; i < numArgs; ++i) {
+    argumentTypes.push_back(visit(ctx->type()[i]).as<TypePtr>());
+  }
+
+  auto returnType = visit(ctx->type().back()).as<TypePtr>();
+
+  TypePtr functionType = FUNCTION(std::move(argumentTypes), returnType);
+  return functionType;
+}
+
 antlrcpp::Any TypeSignatureTypeConverter::visitIdentifier(
     TypeSignatureParser::IdentifierContext* ctx) {
   if (ctx->WORD()) {
@@ -193,4 +209,5 @@ TypePtr mapFromKeyValueType(TypePtr keyType, TypePtr valueType) {
 TypePtr arrayFromType(TypePtr valueType) {
   return TypeFactory<TypeKind::ARRAY>::create(valueType);
 }
+
 } // namespace facebook::presto

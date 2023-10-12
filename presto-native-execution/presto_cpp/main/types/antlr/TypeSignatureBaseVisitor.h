@@ -86,6 +86,11 @@ class TypeSignatureBaseVisitor : public TypeSignatureVisitor {
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any visitFunction_type(
+      TypeSignatureParser::Function_typeContext* ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitIdentifier(
       TypeSignatureParser::IdentifierContext* ctx) override {
     return visitChildren(ctx);
