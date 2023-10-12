@@ -188,7 +188,7 @@ void SortBuffer::spill(int64_t targetRows, int64_t targetBytes) {
         data_->keyTypes().size(),
         sortCompareFlags_,
         spillConfig_->filePath,
-        spillConfig_->maxFileSize,
+        std::numeric_limits<uint64_t>::max(),
         spillConfig_->writeBufferSize,
         spillConfig_->minSpillRunSize,
         spillConfig_->compressionKind,

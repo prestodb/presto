@@ -438,7 +438,10 @@ TEST_F(SortBufferTest, spill) {
       ASSERT_LE(spillStats->spilledRows, totalNumInput);
       ASSERT_GT(spillStats->spilledBytes, 0);
       ASSERT_EQ(spillStats->spilledPartitions, 1);
-      ASSERT_GT(spillStats->spilledFiles, 0);
+      // SortBuffer shall not respect maxFileSize. Total files should be num
+      // addInput() calls minus one which is the first one that has nothing to
+      // spill.
+      ASSERT_EQ(spillStats->spilledFiles, 2);
       sortBuffer.reset();
       ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
       if (Spiller::pool()->trackUsage()) {
