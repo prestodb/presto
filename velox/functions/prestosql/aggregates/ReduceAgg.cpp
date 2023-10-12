@@ -297,7 +297,10 @@ class ReduceAgg : public exec::Aggregate {
     // Do not evaluate on null input.
     SelectivityVector remainingRows = rows;
     if (input->mayHaveNulls()) {
-      remainingRows.deselectNulls(input->rawNulls(), 0, rows.size());
+      DecodedVector decoded(*input, rows);
+      if (auto* rawNulls = decoded.nulls()) {
+        remainingRows.deselectNulls(rawNulls, rows.begin(), rows.end());
+      }
     }
 
     const auto& lambda = initializeInputLambda();
