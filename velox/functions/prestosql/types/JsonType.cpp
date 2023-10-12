@@ -670,15 +670,29 @@ FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::ROW>(
     column_index_t fieldCount = rowType.size();
     auto notFound = object.items().end();
 
+    folly::F14FastMap<std::string, const folly::dynamic*> lowerCaseKeys;
+    lowerCaseKeys.reserve(object.size());
+
+    for (const auto& [key, value] : object.items()) {
+      // Skip null values.
+      if (!value.isNull()) {
+        const auto lowerCaseKey =
+            boost::algorithm::to_lower_copy(key.asString());
+        lowerCaseKeys.insert({lowerCaseKey, &value});
+      }
+    }
+
     for (column_index_t i = 0; i < fieldCount; ++i) {
-      auto it = object.find(rowType.nameOf(i));
-      if (it == notFound || it->second.isNull()) {
+      const auto lowerCaseName =
+          boost::algorithm::to_lower_copy(rowType.nameOf(i));
+      auto it = lowerCaseKeys.find(lowerCaseName);
+      if (it == lowerCaseKeys.end()) {
         writerTyped.set_null_at(i);
       } else {
         VELOX_DYNAMIC_TYPE_DISPATCH(
             castFromJsonTyped,
             rowType.childAt(i)->kind(),
-            it->second,
+            *(it->second),
             writerTyped.get_writer_at(i));
       }
     }

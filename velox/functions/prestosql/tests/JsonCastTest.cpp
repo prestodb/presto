@@ -1002,6 +1002,28 @@ TEST_F(JsonCastTest, toRow) {
       map,
       makeRowVector({child4, child5, child6}));
 
+  // Use a mix of lower case and upper case JSON keys.
+  map = makeNullableFlatVector<JsonNativeType>(
+      {R"({"K1":123,"k2":"abc","k3":true})"_sv,
+       R"({"K2":"abc","k3":true,"k1":123})"_sv,
+       R"({"k1":123,"k3":true,"K1":456})"_sv,
+       R"({"k4":123,"K5":"abc","k3":false})"_sv,
+       R"({"k1":null,"K3":false})"_sv,
+       R"({"k1":null,"k3":null,"K2":null})"_sv},
+      JSON());
+  testCast(
+      JSON(),
+      ROW({"k1", "k2", "k3"}, {BIGINT(), VARCHAR(), BOOLEAN()}),
+      map,
+      makeRowVector({child4, child5, child6}));
+
+  // Use a mix of lower case and upper case field names in target ROW type.
+  testCast(
+      JSON(),
+      ROW({"K1", "k2", "K3"}, {BIGINT(), VARCHAR(), BOOLEAN()}),
+      map,
+      makeRowVector({child4, child5, child6}));
+
   // Test casting to ROW from JSON null.
   auto null = makeNullableFlatVector<JsonNativeType>({"null"_sv});
   auto nullExpected = makeRowVector(ROW({BIGINT(), DOUBLE()}), 1);
