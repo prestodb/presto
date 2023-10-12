@@ -162,6 +162,9 @@ constexpr folly::StringPiece kCounterArbitratorNumReclaimedBytes{
 /// The free memory capacity in bytes.
 constexpr folly::StringPiece kCounterArbitratorFreeCapacityBytes{
     "presto_cpp.arbitrator_free_capacity_bytes"};
+/// The number of non-reclaimable operator reclaim attempts.
+constexpr folly::StringPiece kCounterArbitratorNonReclaimableAttempts{
+    "presto_cpp.arbitrator_non_reclaimable_attempts"};
 
 /// ================== Disk Spilling Counters =================
 

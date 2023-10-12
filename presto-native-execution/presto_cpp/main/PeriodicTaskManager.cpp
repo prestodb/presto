@@ -543,6 +543,10 @@ void PeriodicTaskManager::updateArbitratorStatsTask() {
   REPORT_IF_NOT_ZERO(
       kCounterArbitratorFreeCapacityBytes,
       deltaArbitratorStats.freeCapacityBytes);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNonReclaimableAttempts,
+      deltaArbitratorStats.numNonReclaimableAttempts);
+
   if (!deltaArbitratorStats.empty()) {
     LOG(INFO) << "Updated memory arbitrator stats: "
               << updatedArbitratorStats.toString();
