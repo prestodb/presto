@@ -18,6 +18,7 @@
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
@@ -144,11 +145,16 @@ class AsyncDataCacheTest : public testing::Test {
   // loading. Stops after loading 'loadBytes' worth of entries. If
   // 'errorEveryNBatches' is non-0, every nth load batch will have a
   // bad read and wil be dropped. The entries of the failed batch read
-  // will still be accessed one by one.
+  // will still be accessed one by one. If 'largeEveryNBatches' is
+  // non-0, allocates and freees a single allocation of 'largeBytes'
+  // every so many batches. This creates extra memory pressure, as
+  // happens when allocating large hash tables in queries.
   void loadLoop(
       int64_t startOffset,
       int64_t loadBytes,
-      int32_t errorEveryNBatches = 0);
+      int32_t errorEveryNBatches = 0,
+      int32_t largeEveryNBatches = 0,
+      int32_t largeBytes = 0);
 
   // Calls func on 'numThreads' in parallel.
   template <typename Func>
@@ -223,6 +229,7 @@ class AsyncDataCacheTest : public testing::Test {
   std::shared_ptr<AsyncDataCache> cache_;
   std::vector<StringIdLease> filenames_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
+  int32_t numLargeRetries_{0};
 };
 
 class TestingCoalescedLoad : public CoalescedLoad {
@@ -445,11 +452,14 @@ void AsyncDataCacheTest::loadBatch(
 void AsyncDataCacheTest::loadLoop(
     int64_t startOffset,
     int64_t loadBytes,
-    int32_t errorEveryNBatches) {
+    int32_t errorEveryNBatches,
+    int32_t largeEveryNBatches,
+    int32_t largeAllocSize) {
   const int64_t maxOffset =
       std::max<int64_t>(100'000, (startOffset + loadBytes) / filenames_.size());
   int64_t skippedBytes = 0;
   int32_t errorCounter = 0;
+  int32_t largeCounter = 0;
   std::vector<Request> batch;
   for (auto i = 0; i < filenames_.size(); ++i) {
     const auto fileNum = filenames_[i].id();
@@ -464,6 +474,27 @@ void AsyncDataCacheTest::loadLoop(
       batch.emplace_back(offset, size);
       if (batch.size() >= 8) {
         for (;;) {
+          if (largeEveryNBatches > 0 &&
+              largeCounter++ % largeEveryNBatches == 0) {
+            // Many threads will allocate a single large chunk at the
+            // same time. Some are expected to fail. All will
+            // eventually succeed because whoever gets the allocation
+            // frees it soon and without deadlocking with others..
+            memory::ContiguousAllocation large;
+            // Explicitly free 'large' on exit. Do not use MemoryPool for that
+            // because we test the allocator's limits, not the pool/memory
+            // manager  limits.
+            auto guard =
+                folly::makeGuard([&]() { allocator_->freeContiguous(large); });
+            while (!allocator_->allocateContiguous(
+                memory::AllocationTraits::numPages(largeAllocSize),
+                nullptr,
+                large)) {
+              ++numLargeRetries_;
+            }
+            std::this_thread::sleep_for(
+                std::chrono::microseconds(2000)); // NOLINT
+          }
           const bool injectError = (errorEveryNBatches > 0) &&
               (++errorCounter % errorEveryNBatches == 0);
           loadBatch(fileNum, batch, injectError);
@@ -563,6 +594,54 @@ TEST_F(AsyncDataCacheTest, replace) {
   EXPECT_GE(
       kMaxBytes / memory::AllocationTraits::kPageSize,
       cache_->incrementCachedPages(0));
+}
+
+TEST_F(AsyncDataCacheTest, evictAccounting) {
+  constexpr int64_t kMaxBytes = 64 << 20;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
+  initializeCache(kMaxBytes);
+  auto memoryManager =
+      std::make_unique<memory::MemoryManager>(memory::MemoryManagerOptions{
+          .capacity = (int64_t)allocator_->capacity(),
+          .trackDefaultUsage = true,
+          .allocator = allocator_.get()});
+  auto pool = memoryManager->addLeafPool("test");
+
+  // We make allocations that we exchange for larger ones later. This will evict
+  // cache. We check that the evictions are not counted on the pool even if they
+  // occur as a result of action on the pool.
+  memory::Allocation allocation;
+  memory::ContiguousAllocation large;
+  pool->allocateNonContiguous(1200, allocation);
+  pool->allocateContiguous(1200, large);
+  EXPECT_EQ(memory::AllocationTraits::kPageSize * 2400, pool->currentBytes());
+  loadLoop(0, kMaxBytes * 1.1);
+  pool->allocateNonContiguous(2400, allocation);
+  pool->allocateContiguous(2400, large);
+  EXPECT_EQ(memory::AllocationTraits::kPageSize * 4800, pool->currentBytes());
+  auto stats = cache_->refreshStats();
+  EXPECT_LT(0, stats.numEvict);
+}
+
+TEST_F(AsyncDataCacheTest, largeEvict) {
+  constexpr int64_t kMaxBytes = 256 << 20;
+  constexpr int32_t kNumThreads = 24;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
+  initializeCache(kMaxBytes);
+  // Load 10x the max size, inject an allocation of 1/8 the capacity every 4
+  // batches.
+  runThreads(kNumThreads, [&](int32_t /*i*/) {
+    loadLoop(0, kMaxBytes * 1.2, 0, 1, kMaxBytes / 4);
+  });
+  if (executor_) {
+    executor_->join();
+  }
+  auto stats = cache_->refreshStats();
+  EXPECT_LT(0, stats.numEvict);
+  EXPECT_GE(
+      kMaxBytes / memory::AllocationTraits::kPageSize,
+      cache_->incrementCachedPages(0));
+  LOG(INFO) << "Reties after failed evict: " << numLargeRetries_;
 }
 
 TEST_F(AsyncDataCacheTest, outOfCapacity) {

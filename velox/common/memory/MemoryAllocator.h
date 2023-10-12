@@ -146,13 +146,17 @@ class MemoryAllocator;
 class Cache {
  public:
   virtual ~Cache() = default;
-  /// This method should be implemented so that it tries to accommodate the
-  /// passed in 'allocate' by freeing up space from 'this' if needed. 'numPages'
-  /// is the number of pages 'allocate' tries to allocate.It should return true
-  /// if 'allocate' succeeds, and false otherwise.
+  /// This method should be implemented so that it tries to
+  /// accommodate the passed in 'allocate' by freeing up space from
+  /// 'this' if needed. 'numPages' is the number of pages 'allocate
+  /// needs to be free for allocate to succeed. This should return
+  /// true if 'allocate' succeeds, and false otherwise. 'numPages' can
+  /// be less than the planned allocation, even 0 but not
+  /// negative. This is possible if 'allocate' brings its own memory
+  /// that is exchanged for the new allocation.
   virtual bool makeSpace(
       memory::MachinePageCount numPages,
-      std::function<bool()> allocate) = 0;
+      std::function<bool(Allocation&)> allocate) = 0;
 
   virtual MemoryAllocator* allocator() const = 0;
 };

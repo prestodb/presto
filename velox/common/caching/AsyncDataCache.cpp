@@ -331,7 +331,11 @@ void CacheShard::removeEntryLocked(AsyncDataCacheEntry* entry) {
   }
 }
 
-void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
+void CacheShard::evict(
+    uint64_t bytesToFree,
+    bool evictAllUnpinned,
+    int32_t pagesToAcquire,
+    memory::Allocation& acquired) {
   int64_t tinyFreed = 0;
   int64_t largeFreed = 0;
   int32_t evictSaveableSkipped = 0;
@@ -380,7 +384,16 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
           continue;
         }
         largeFreed += candidate->data_.byteSize();
-        toFree.push_back(std::move(candidate->data()));
+        if (pagesToAcquire > 0) {
+          auto candidatePages = candidate->data().numPages();
+          pagesToAcquire = candidatePages > pagesToAcquire
+              ? 0
+              : pagesToAcquire - candidatePages;
+          acquired.appendMove(candidate->data());
+          VELOX_CHECK(candidate->data().empty());
+        } else {
+          toFree.push_back(std::move(candidate->data()));
+        }
         removeEntryLocked(candidate);
         emptySlots_.push_back(entryIndex);
         tinyFreed += candidate->tinyData_.size();
@@ -567,7 +580,7 @@ bool AsyncDataCache::exists(RawFileCacheKey key) const {
 
 bool AsyncDataCache::makeSpace(
     MachinePageCount numPages,
-    std::function<bool()> allocate) {
+    std::function<bool(memory::Allocation& allocation)> allocate) {
   // Try to allocate and if failed, evict the desired amount and
   // retry. This is without synchronization, so that other threads may
   // get what one thread evicted but this will usually work in a
@@ -581,15 +594,28 @@ bool AsyncDataCache::makeSpace(
   // called from inside a global mutex.
 
   constexpr int32_t kMaxAttempts = kNumShards * 4;
+  // Evict at least 1MB even for small allocations to avoid constantly hitting
+  // the mutex protected evict loop.
+  constexpr int32_t kMinEvictPages = 256;
   // If requesting less than kSmallSizePages try up to 4x more if
   // first try failed.
   constexpr int32_t kSmallSizePages = 2048; // 8MB
-  int32_t sizeMultiplier = 1;
+  float sizeMultiplier = 1.2;
   // True if this thread is counted in 'numThreadsInAllocate_'.
   bool isCounted = false;
   // If more than half the allowed retries are needed, this is the rank in
   // arrival order of this.
   int32_t rank = 0;
+  // Allocation into which evicted pages are moved.
+  memory::Allocation acquired;
+  // 'acquired' is not managed by a pool. Make sure it is freed on throw.
+  // Destruct without pool and non-empty kills the process.
+  auto guard = folly::makeGuard([&]() {
+    allocator_->freeNonContiguous(acquired);
+    if (isCounted) {
+      --numThreadsInAllocate_;
+    }
+  });
   VELOX_CHECK(
       numThreadsInAllocate_ >= 0 && numThreadsInAllocate_ < 10000,
       "Leak in numThreadsInAllocate_: {}",
@@ -599,19 +625,12 @@ bool AsyncDataCache::makeSpace(
     isCounted = true;
   }
   for (auto nthAttempt = 0; nthAttempt < kMaxAttempts; ++nthAttempt) {
-    try {
-      if (allocate()) {
-        if (isCounted) {
-          --numThreadsInAllocate_;
-        }
+    if (canTryAllocate(numPages, acquired)) {
+      if (allocate(acquired)) {
         return true;
       }
-    } catch (const std::exception& e) {
-      if (isCounted) {
-        --numThreadsInAllocate_;
-      }
-      throw;
     }
+
     if (nthAttempt > 2 && ssdCache_ && ssdCache_->writeInProgress()) {
       VELOX_SSD_CACHE_LOG(INFO)
           << "Pause 0.5s after failed eviction waiting for SSD cache write to unpin memory";
@@ -624,23 +643,42 @@ bool AsyncDataCache::makeSpace(
       }
     }
     if (rank) {
+      // Free the grabbed allocation before sleep so the contender can make
+      // progress. This is only on heavy contention, after 8 missed tries.
+      allocator_->freeNonContiguous(acquired);
       backoff(nthAttempt + rank);
+      // If some of the competing threads are done, maybe give this thread a
+      // better rank.
+      rank = std::min<int32_t>(rank, numThreadsInAllocate_);
     }
     ++shardCounter_;
+    int32_t numPagesToAcquire =
+        acquired.numPages() < numPages ? numPages - acquired.numPages() : 0;
     // Evict from next shard. If we have gone through all shards once
     // and still have not made the allocation, we go to desperate mode
     // with 'evictAllUnpinned' set to true.
     shards_[shardCounter_ & (kShardMask)]->evict(
-        numPages * sizeMultiplier * memory::AllocationTraits::kPageSize,
-        nthAttempt >= kNumShards);
+        memory::AllocationTraits::pageBytes(
+            std::max<int32_t>(kMinEvictPages, numPages) * sizeMultiplier),
+        nthAttempt >= kNumShards,
+        numPagesToAcquire,
+        acquired);
     if (numPages < kSmallSizePages && sizeMultiplier < 4) {
       sizeMultiplier *= 2;
     }
   }
-  if (isCounted) {
-    --numThreadsInAllocate_;
-  }
   return false;
+}
+
+bool AsyncDataCache::canTryAllocate(
+    int32_t numPages,
+    const memory::Allocation& acquired) const {
+  if (numPages <= acquired.numPages()) {
+    return true;
+  }
+  return numPages - acquired.numPages() <=
+      (memory::AllocationTraits::numPages(allocator_->capacity())) -
+      allocator_->numAllocated();
 }
 
 void AsyncDataCache::backoff(int32_t counter) {
@@ -706,7 +744,9 @@ CacheStats AsyncDataCache::refreshStats() const {
 
 void AsyncDataCache::clear() {
   for (auto& shard : shards_) {
-    shard->evict(std::numeric_limits<int32_t>::max(), true);
+    memory::Allocation acquired;
+    shard->evict(std::numeric_limits<int32_t>::max(), true, 0, acquired);
+    VELOX_CHECK(acquired.empty());
   }
 }
 

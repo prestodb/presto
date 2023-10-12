@@ -160,6 +160,9 @@ class Allocation {
     return numPages_ == 0;
   }
 
+  /// Moves the runs in 'from' to 'this'. 'from' is empty on return.
+  void appendMove(Allocation& from);
+
   std::string toString() const;
 
  private:
@@ -189,6 +192,7 @@ class Allocation {
   VELOX_FRIEND_TEST(MemoryAllocatorTest, allocationClass1);
   VELOX_FRIEND_TEST(MemoryAllocatorTest, allocationClass2);
   VELOX_FRIEND_TEST(AllocationTest, append);
+  VELOX_FRIEND_TEST(AllocationTest, appendMove);
 };
 
 /// Represents a run of contiguous pages that do not belong to any size class.

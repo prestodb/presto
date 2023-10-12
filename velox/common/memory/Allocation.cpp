@@ -37,6 +37,14 @@ void Allocation::append(uint8_t* address, int32_t numPages) {
       "Appending a duplicate address into a PageRun");
   runs_.emplace_back(address, numPages);
 }
+void Allocation::appendMove(Allocation& other) {
+  for (auto& run : other.runs_) {
+    numPages_ += run.numPages();
+    runs_.push_back(std::move(run));
+  }
+  other.runs_.clear();
+  other.numPages_ = 0;
+}
 
 void Allocation::findRun(uint64_t offset, int32_t* index, int32_t* offsetInRun)
     const {

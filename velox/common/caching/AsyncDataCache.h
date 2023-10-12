@@ -548,8 +548,14 @@ class CacheShard {
   // not pinned. This favors first removing older and less frequently
   // used entries. If 'evictAllUnpinned' is true, anything that is
   // not pinned is evicted at first sight. This is for out of memory
-  // emergencies.
-  void evict(uint64_t bytesToFree, bool evictAllUnpinned);
+  // emergencies. If 'pagesToAcquire' is set, up to this amount is added to
+  // 'allocation'. A smaller amount can be added if not enough evictable data is
+  // found.
+  void evict(
+      uint64_t bytesToFree,
+      bool evictAllUnpinned,
+      int32_t pagesToAcquire,
+      memory::Allocation& acquiredAllocation);
 
   // Removes 'entry' from 'this'. Removes a possible promise from the entry
   // inside the shard mutex and returns it so that it can be realized outside of
@@ -659,7 +665,7 @@ class AsyncDataCache : public memory::Cache {
   /// for memory arbitration to work.
   bool makeSpace(
       memory::MachinePageCount numPages,
-      std::function<bool()> allocate) override;
+      std::function<bool(memory::Allocation& allocation)> allocate) override;
 
   memory::MemoryAllocator* allocator() const override {
     return allocator_;
@@ -756,6 +762,11 @@ class AsyncDataCache : public memory::Cache {
   static constexpr int32_t kNumShards = 4; // Must be power of 2.
   static constexpr int32_t kShardMask = kNumShards - 1;
 
+  // True if 'acquired' has more pages than 'numPages' or allocator has space
+  // for numPages - acquired pages of more allocation.
+  bool canTryAllocate(int32_t numPages, const memory::Allocation& acquired)
+      const;
+
   static AsyncDataCache** getInstancePtr();
 
   // Waits a pseudorandom delay times 'counter'.
@@ -820,15 +831,15 @@ T percentile(Next next, int32_t numSamples, int percent) {
 //'offsetFunc' returns the starting offset of the data in the
 // file given a pin and the pin's index in 'pins'. The pins are expected to be
 // sorted by this offset. 'readFunc' reads from the appropriate media. It gets
-// the 'pins' and the index of the first pin included in the read and the index
-// of the first pin not included. It gets the starting offset of the read and a
-// vector of memory ranges to fill by ReadFile::preadv or a similar
+// the 'pins' and the index of the first pin included in the read and the
+// index of the first pin not included. It gets the starting offset of the
+// read and a vector of memory ranges to fill by ReadFile::preadv or a similar
 // function.
-// The caller is responsible for calling setValid on the pins after a successful
-// read.
+// The caller is responsible for calling setValid on the pins after a
+// successful read.
 //
-// Returns the number of distinct IOs, the number of bytes loaded into pins and
-// the number of extra bytes read.
+// Returns the number of distinct IOs, the number of bytes loaded into pins
+// and the number of extra bytes read.
 CoalesceIoStats readPins(
     const std::vector<CachePin>& pins,
     int32_t maxGap,
