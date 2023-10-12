@@ -93,6 +93,14 @@ std::unique_ptr<Result> createTimeOutResult(long token) {
   return result;
 }
 
+std::unique_ptr<Result> createCompleteResult(long token) {
+  auto result = std::make_unique<Result>();
+  result->sequence = result->nextSequence = token;
+  result->data = folly::IOBuf::create(0);
+  result->complete = true;
+  return result;
+}
+
 void getData(
     PromiseHolderPtr<std::unique_ptr<Result>> promiseHolder,
     const TaskId& taskId,
@@ -822,6 +830,11 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
 
     for (;;) {
       if (prestoTask->taskStarted) {
+        // If the task has finished, then send completion result.
+        if (prestoTask->task->state() == exec::kFinished) {
+          promiseHolder->promise.setValue(createCompleteResult(token));
+          return std::move(future).via(eventBase);
+        }
         // If task is not running let the request timeout. The task may have
         // failed at creation time and the coordinator hasn't yet caught up.
         if (prestoTask->task->state() == exec::kRunning) {
@@ -831,6 +844,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
         return std::move(future).via(eventBase).onTimeout(
             std::chrono::microseconds(maxWaitMicros), timeoutFn);
       }
+
       std::lock_guard<std::mutex> l(prestoTask->mutex);
       if (prestoTask->taskStarted) {
         continue;
