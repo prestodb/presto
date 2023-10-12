@@ -60,7 +60,16 @@ void BufferedInput::load(const LogType logType) {
   } else {
     for (const auto& region : regions_) {
       auto allocated = allocate(region);
-      input_->read(allocated.data(), allocated.size(), region.offset, logType);
+      uint64_t usec = 0;
+      {
+        MicrosecondTimer timer(&usec);
+        input_->read(
+            allocated.data(), allocated.size(), region.offset, logType);
+      }
+      if (auto* stats = input_->getStats()) {
+        stats->read().increment(region.length);
+        stats->queryThreadIoLatency().increment(usec);
+      }
     }
   }
 
