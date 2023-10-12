@@ -194,7 +194,7 @@ class ConstantExpr : public IExpr,
         value_{std::move(value)} {}
 
   std::string toString() const override {
-    return appendAliasIfExists(variant{value_}.toJson());
+    return appendAliasIfExists(variant{value_}.toJson(type_));
   }
 
   const variant& value() const {

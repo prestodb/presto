@@ -64,7 +64,7 @@ TEST_F(TypedExprSerDeTest, fieldAccess) {
 }
 
 TEST_F(TypedExprSerDeTest, constant) {
-  auto expression = std::make_shared<ConstantTypedExpr>(BIGINT(), 127);
+  auto expression = std::make_shared<ConstantTypedExpr>(BIGINT(), 127LL);
   testSerde(expression);
 
   expression =
@@ -148,7 +148,7 @@ TEST_F(TypedExprSerDeTest, lambda) {
           BOOLEAN(),
           std::vector<TypedExprPtr>{
               std::make_shared<FieldAccessTypedExpr>(BIGINT(), "x"),
-              std::make_shared<ConstantTypedExpr>(BIGINT(), 10),
+              std::make_shared<ConstantTypedExpr>(BIGINT(), 10LL),
           },
           "gt"));
   testSerde(expression);

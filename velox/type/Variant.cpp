@@ -200,6 +200,10 @@ std::string variant::toJson(const TypePtr& type) const {
     return "null";
   }
 
+  VELOX_CHECK(type);
+
+  VELOX_CHECK_EQ(this->kind(), type->kind(), "Wrong type in variant::toJson");
+
   switch (kind_) {
     case TypeKind::MAP: {
       auto& map = value<TypeKind::MAP>();
@@ -211,9 +215,9 @@ std::string variant::toJson(const TypePtr& type) const {
           b += ",";
         }
         b += "{\"key\":";
-        b += pair.first.toJson();
+        b += pair.first.toJson(type->childAt(0));
         b += ",\"value\":";
-        b += pair.second.toJson();
+        b += pair.second.toJson(type->childAt(1));
         b += "}";
         first = false;
       }
@@ -225,11 +229,16 @@ std::string variant::toJson(const TypePtr& type) const {
       std::string b{};
       b += "[";
       bool first = true;
+      uint32_t idx = 0;
+      VELOX_CHECK_EQ(
+          row.size(),
+          type->size(),
+          "Wrong number of fields in a struct in variant::toJson");
       for (auto& v : row) {
         if (!first) {
           b += ",";
         }
-        b += v.toJson();
+        b += v.toJson(type->childAt(idx++));
         first = false;
       }
       b += "]";
@@ -240,11 +249,12 @@ std::string variant::toJson(const TypePtr& type) const {
       std::string b{};
       b += "[";
       bool first = true;
+      auto arrayElementType = type->childAt(0);
       for (auto& v : array) {
         if (!first) {
           b += ",";
         }
-        b += v.toJson();
+        b += v.toJson(arrayElementType);
         first = false;
       }
       b += "]";
@@ -261,9 +271,138 @@ std::string variant::toJson(const TypePtr& type) const {
       folly::json::escapeString(str, target, getOpts());
       return target;
     }
-    case TypeKind::HUGEINT:
-      VELOX_CHECK(type && type->isLongDecimal());
-      return DecimalUtil::toString(value<TypeKind::HUGEINT>(), type);
+    case TypeKind::HUGEINT: {
+      VELOX_CHECK(type->isLongDecimal()) {
+        return DecimalUtil::toString(value<TypeKind::HUGEINT>(), type);
+      }
+    }
+    case TypeKind::TINYINT:
+      [[fallthrough]];
+    case TypeKind::SMALLINT:
+      [[fallthrough]];
+    case TypeKind::INTEGER:
+      if (type->isDate()) {
+        return '"' + DATE()->toString(value<TypeKind::INTEGER>()) + '"';
+      }
+      [[fallthrough]];
+    case TypeKind::BIGINT:
+      if (type->isShortDecimal()) {
+        return DecimalUtil::toString(value<TypeKind::BIGINT>(), type);
+      }
+      [[fallthrough]];
+    case TypeKind::BOOLEAN: {
+      auto converted = VariantConverter::convert<TypeKind::VARCHAR>(*this);
+      if (converted.isNull()) {
+        return "null";
+      } else {
+        return converted.value<TypeKind::VARCHAR>();
+      }
+    }
+    case TypeKind::REAL: {
+      return stringifyFloatingPointerValue<float>(value<TypeKind::REAL>());
+    }
+    case TypeKind::DOUBLE: {
+      return stringifyFloatingPointerValue<double>(value<TypeKind::DOUBLE>());
+    }
+    case TypeKind::TIMESTAMP: {
+      auto& timestamp = value<TypeKind::TIMESTAMP>();
+      return '"' + timestamp.toString() + '"';
+    }
+    case TypeKind::OPAQUE: {
+      // Although this is not used for deserialization, we need to include the
+      // real data because commonExpressionEliminationRules uses
+      // CallTypedExpr.toString as key, which ends up using this string.
+      // Opaque types that want to use common expression elimination need to
+      // make their serialization deterministic.
+      const detail::OpaqueCapsule& capsule = value<TypeKind::OPAQUE>();
+      auto serializeFunction = capsule.type->getSerializeFunc();
+      return "Opaque<type:" + capsule.type->toString() + ",value:\"" +
+          serializeFunction(capsule.obj) + "\">";
+    }
+    case TypeKind::FUNCTION:
+    case TypeKind::UNKNOWN:
+    case TypeKind::INVALID:
+      VELOX_NYI();
+  }
+
+  VELOX_UNSUPPORTED(
+      "Unsupported: given type {} is not json-ready", mapTypeKindToName(kind_));
+}
+
+// This is the unsafe older implementation of toJson. It is kept here for
+// backward compatibility with Meta's internal python bindings.
+std::string variant::toJsonUnsafe(const TypePtr& type) const {
+  if (isNull()) {
+    return "null";
+  }
+
+  switch (kind_) {
+    case TypeKind::MAP: {
+      auto& map = value<TypeKind::MAP>();
+      std::string b{};
+      b += "[";
+      bool first = true;
+      for (auto& pair : map) {
+        if (!first) {
+          b += ",";
+        }
+        b += "{\"key\":";
+        b += pair.first.toJsonUnsafe();
+        b += ",\"value\":";
+        b += pair.second.toJsonUnsafe();
+        b += "}";
+        first = false;
+      }
+      b += "]";
+      return b;
+    }
+    case TypeKind::ROW: {
+      auto& row = value<TypeKind::ROW>();
+      std::string b{};
+      b += "[";
+      bool first = true;
+      for (auto& v : row) {
+        if (!first) {
+          b += ",";
+        }
+        b += v.toJsonUnsafe();
+
+        first = false;
+      }
+      b += "]";
+      return b;
+    }
+    case TypeKind::ARRAY: {
+      auto& array = value<TypeKind::ARRAY>();
+      std::string b{};
+      b += "[";
+      bool first = true;
+      for (auto& v : array) {
+        if (!first) {
+          b += ",";
+        }
+        b += v.toJsonUnsafe();
+        first = false;
+      }
+      b += "]";
+      return b;
+    }
+    case TypeKind::VARBINARY: {
+      auto& str = value<TypeKind::VARBINARY>();
+      auto encoded = encoding::Base64::encode(str);
+      return '"' + encoded + '"';
+    }
+    case TypeKind::VARCHAR: {
+      auto& str = value<TypeKind::VARCHAR>();
+      std::string target;
+      folly::json::escapeString(str, target, getOpts());
+      return target;
+    }
+    case TypeKind::HUGEINT: {
+      VELOX_CHECK(type && type->isLongDecimal()) {
+        return DecimalUtil::toString(value<TypeKind::HUGEINT>(), type);
+      }
+    }
     case TypeKind::TINYINT:
       [[fallthrough]];
     case TypeKind::SMALLINT:

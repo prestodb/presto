@@ -17,9 +17,8 @@
 #include "velox/type/Variant.h"
 #include <gtest/gtest.h>
 #include <velox/type/Type.h>
-#include "velox/common/base/tests/GTestUtils.h"
-
 #include <numeric>
+#include "velox/common/base/tests/GTestUtils.h"
 
 using namespace facebook::velox;
 
@@ -271,7 +270,8 @@ TEST_F(VariantSerializationTest, serializeOpaque) {
 }
 
 TEST_F(VariantSerializationTest, opaqueToString) {
-  auto s = var_.toJson();
+  const auto type = var_.inferType();
+  auto s = var_.toJson(type);
   EXPECT_EQ(
       s,
       "Opaque<type:OPAQUE<SerializableClass>,value:\"{\"name\":\"test_class\",\"value\":false}\">");
@@ -279,20 +279,22 @@ TEST_F(VariantSerializationTest, opaqueToString) {
 
 TEST(VariantFloatingToJsonTest, normalTest) {
   // Zero
-  EXPECT_EQ(variant::create<float>(0).toJson(), "0");
-  EXPECT_EQ(variant::create<double>(0).toJson(), "0");
+  EXPECT_EQ(variant::create<float>(0).toJson(REAL()), "0");
+  EXPECT_EQ(variant::create<double>(0).toJson(DOUBLE()), "0");
 
   // Infinite
   EXPECT_EQ(
-      variant::create<float>(std::numeric_limits<float>::infinity()).toJson(),
+      variant::create<float>(std::numeric_limits<float>::infinity())
+          .toJson(REAL()),
       "\"Infinity\"");
   EXPECT_EQ(
-      variant::create<double>(std::numeric_limits<double>::infinity()).toJson(),
+      variant::create<double>(std::numeric_limits<double>::infinity())
+          .toJson(DOUBLE()),
       "\"Infinity\"");
 
   // NaN
-  EXPECT_EQ(variant::create<float>(0.0 / 0.0).toJson(), "\"NaN\"");
-  EXPECT_EQ(variant::create<double>(0.0 / 0.0).toJson(), "\"NaN\"");
+  EXPECT_EQ(variant::create<float>(0.0 / 0.0).toJson(REAL()), "\"NaN\"");
+  EXPECT_EQ(variant::create<double>(0.0 / 0.0).toJson(DOUBLE()), "\"NaN\"");
 }
 
 TEST(VariantTest, opaqueSerializationNotRegistered) {
@@ -308,4 +310,112 @@ TEST(VariantTest, opaqueSerializationNotRegistered) {
   auto opaqueAfterRegistration = variant::opaque<opaqueSerializationTestStruct>(
       std::make_shared<opaqueSerializationTestStruct>());
   EXPECT_THROW(opaqueAfterRegistration.serialize(), VeloxException);
+}
+
+TEST(VariantTest, toJsonRow) {
+  auto rowType = ROW({{"c0", DECIMAL(20, 3)}});
+  EXPECT_EQ(
+      "[123456.789]",
+      variant::row({static_cast<int128_t>(123456789)}).toJson(rowType));
+
+  rowType = ROW({{"c0", DECIMAL(10, 2)}});
+  EXPECT_EQ("[12345.67]", variant::row({1234567LL}).toJson(rowType));
+
+  rowType = ROW({{"c0", DECIMAL(20, 1)}, {"c1", BOOLEAN()}, {"c3", VARCHAR()}});
+  EXPECT_EQ(
+      "[1234567890.1,true,\"test works fine\"]",
+      variant::row({static_cast<int128_t>(12345678901),
+                    variant((bool)true),
+                    variant((std::string) "test works fine")})
+          .toJson(rowType));
+
+  // Row variant tests with wrong type passed to variant::toJson()
+  rowType = ROW({{"c0", DECIMAL(10, 3)}});
+  VELOX_ASSERT_THROW(
+      variant::row({static_cast<int128_t>(123456789)}).toJson(rowType),
+      "(HUGEINT vs. BIGINT) Wrong type in variant::toJson");
+
+  rowType = ROW({{"c0", DECIMAL(20, 3)}});
+  VELOX_ASSERT_THROW(
+      variant::row({123456789LL}).toJson(rowType),
+      "(BIGINT vs. HUGEINT) Wrong type in variant::toJson");
+  VELOX_ASSERT_THROW(
+      variant::row(
+          {static_cast<int128_t>(123456789),
+           variant((
+               std::
+                   string) "test confirms variant child count is greater than expected"),
+           variant((bool)false)})
+          .toJson(rowType),
+      "(3 vs. 1) Wrong number of fields in a struct in variant::toJson");
+
+  rowType =
+      ROW({{"c0", DECIMAL(19, 4)}, {"c1", VARCHAR()}, {"c2", DECIMAL(10, 3)}});
+  VELOX_ASSERT_THROW(
+      variant::row(
+          {static_cast<int128_t>(12345678912),
+           variant((
+               std::
+                   string) "test confirms variant child count is lesser than expected")})
+          .toJson(rowType),
+      "(2 vs. 3) Wrong number of fields in a struct in variant::toJson");
+
+  // Row variant tests that contains NULL variants.
+  EXPECT_EQ(
+      "[null,null,null]",
+      variant::row({variant::null(TypeKind::HUGEINT),
+                    variant::null(TypeKind::VARCHAR),
+                    variant::null(TypeKind::BIGINT)})
+          .toJson(rowType));
+}
+
+TEST(VariantTest, toJsonArray) {
+  auto arrayType = ARRAY(DECIMAL(9, 2));
+  EXPECT_EQ(
+      "[1234567.89,6345654.64,2345452.78]",
+      variant::array({123456789LL, 634565464LL, 234545278LL})
+          .toJson(arrayType));
+
+  arrayType = ARRAY(DECIMAL(20, 3));
+  EXPECT_EQ(
+      "[123456.789,634565.464,234545.278]",
+      variant::array({static_cast<int128_t>(123456789),
+                      static_cast<int128_t>(634565464),
+                      static_cast<int128_t>(234545278)})
+          .toJson(arrayType));
+
+  // Array is empty.
+  EXPECT_EQ("[]", variant::array({}).toJson(arrayType));
+
+  // Array variant tests that contains NULL variants.
+  EXPECT_EQ(
+      "[null,null,null]",
+      variant::array({variant::null(TypeKind::HUGEINT),
+                      variant::null(TypeKind::HUGEINT),
+                      variant::null(TypeKind::HUGEINT)})
+          .toJson(arrayType));
+}
+
+TEST(VariantTest, toJsonMap) {
+  auto mapType = MAP(VARCHAR(), DECIMAL(6, 3));
+  std::map<variant, variant> mapValue = {
+      {(std::string) "key1", 235499LL}, {(std::string) "key2", 123456LL}};
+  EXPECT_EQ(
+      "[{\"key\":\"key1\",\"value\":235.499},{\"key\":\"key2\",\"value\":123.456}]",
+      variant::map(mapValue).toJson(mapType));
+
+  mapType = MAP(VARCHAR(), DECIMAL(20, 3));
+  mapValue = {
+      {(std::string) "key1", static_cast<int128_t>(45464562323423)},
+      {(std::string) "key2", static_cast<int128_t>(12334581232456)}};
+  EXPECT_EQ(
+      "[{\"key\":\"key1\",\"value\":45464562323.423},{\"key\":\"key2\",\"value\":12334581232.456}]",
+      variant::map(mapValue).toJson(mapType));
+
+  // Map variant tests that contains NULL variants.
+  mapValue = {
+      {variant::null(TypeKind::VARCHAR), variant::null(TypeKind::HUGEINT)}};
+  EXPECT_EQ(
+      "[{\"key\":null,\"value\":null}]",
+      variant::map(mapValue).toJson(mapType));
 }

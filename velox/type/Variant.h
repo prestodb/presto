@@ -205,7 +205,7 @@ class variant {
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::HUGEINT)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::REAL)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::DOUBLE)
-  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARCHAR);
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARCHAR)
   // VARBINARY conflicts with VARCHAR, so we don't gen these methods
   // VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARBINARY);
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::TIMESTAMP)
@@ -294,7 +294,7 @@ class variant {
 
   variant() : kind_{TypeKind::INVALID}, ptr_{nullptr} {}
 
-  variant(TypeKind kind) : kind_{kind}, ptr_{nullptr} {}
+  /* implicit */ variant(TypeKind kind) : kind_{kind}, ptr_{nullptr} {}
 
   variant(const variant& other) : kind_{other.kind_}, ptr_{nullptr} {
     auto op = other.ptr_;
@@ -304,13 +304,13 @@ class variant {
   }
 
   // Support construction from StringView as well as StringPiece.
-  variant(StringView view) : variant{folly::StringPiece{view}} {}
+  /* implicit */ variant(StringView view) : variant{folly::StringPiece{view}} {}
 
   // Break ties between implicit conversions to StringView/StringPiece.
-  variant(std::string str)
+  /* implicit */ variant(std::string str)
       : kind_{TypeKind::VARCHAR}, ptr_{new std::string{std::move(str)}} {}
 
-  variant(const char* str)
+  /* implicit */ variant(const char* str)
       : kind_{TypeKind::VARCHAR}, ptr_{new std::string{str}} {}
 
   template <TypeKind KIND>
@@ -354,7 +354,7 @@ class variant {
     return *this;
   }
 
-  variant& operator=(variant&& other) {
+  variant& operator=(variant&& other) noexcept {
     if (ptr_ != nullptr) {
       dynamicFree();
     }
@@ -390,7 +390,7 @@ class variant {
     return dispatchDynamicVariantEquality(*this, other, true);
   }
 
-  variant(variant&& other) : kind_{other.kind_}, ptr_{other.ptr_} {
+  variant(variant&& other) noexcept : kind_{other.kind_}, ptr_{other.ptr_} {
     other.ptr_ = nullptr;
   }
 
@@ -400,11 +400,12 @@ class variant {
     }
   }
 
-  std::string toJson(const TypePtr& type = nullptr) const;
+  std::string toJson(const TypePtr& type) const;
+  std::string toJsonUnsafe(const TypePtr& type = nullptr) const;
 
   /// Used by python binding, do not change signature.
   std::string pyToJson() const {
-    return toJson();
+    return toJsonUnsafe();
   }
 
   folly::dynamic serialize() const;
@@ -516,6 +517,7 @@ class variant {
       case TypeKind::ROW: {
         auto& r = row();
         std::vector<std::shared_ptr<const Type>> children{};
+        children.reserve(r.size());
         for (auto& v : r) {
           children.push_back(v.inferType());
         }
@@ -543,7 +545,8 @@ class variant {
   }
 
   friend std::ostream& operator<<(std::ostream& stream, const variant& k) {
-    stream << k.toJson();
+    const auto type = k.inferType();
+    stream << k.toJson(type);
     return stream;
   }
 
