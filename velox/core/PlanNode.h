@@ -725,17 +725,6 @@ class TableWriteMergeNode : public PlanNode {
   /// 'outputType' specifies the type to store the metadata of table write
   /// output which contains the following columns: 'numWrittenRows', 'fragment'
   /// and 'tableCommitContext'.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  TableWriteMergeNode(
-      const PlanNodeId& id,
-      RowTypePtr outputType,
-      PlanNodePtr source)
-      : PlanNode(id),
-        aggregationNode_(nullptr),
-        sources_{std::move(source)},
-        outputType_(std::move(outputType)) {}
-#endif
-
   TableWriteMergeNode(
       const PlanNodeId& id,
       RowTypePtr outputType,
