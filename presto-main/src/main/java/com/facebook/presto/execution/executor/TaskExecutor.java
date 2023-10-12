@@ -486,7 +486,7 @@ public class TaskExecutor
 
     private synchronized void scheduleTaskIfNecessary(TaskHandle taskHandle)
     {
-        // Worker skip processing split if jvm heap usage crosses configured threhold
+        // Worker skip processing split if jvm heap usage crosses configured threshold
         // Helps reduce memory pressure on the worker and avoid OOMs
         if (isLowMemory()) {
             log.debug("Skip task scheduling due to low memory");
@@ -508,7 +508,7 @@ public class TaskExecutor
 
     private synchronized void addNewEntrants()
     {
-        // Worker skip processing split if jvm heap usage crosses configured threhold
+        // Worker skip processing split if jvm heap usage crosses configured threshold
         // Helps reduce memory pressure on the worker and avoid OOMs
         if (isLowMemory()) {
             log.debug("Skip polling next split worker due to low memory");
