@@ -335,7 +335,7 @@ public class SpillableHashAggregationBuilder
                 Optional.of(DataSize.succinctBytes(0)),
                 joinCompiler,
                 false,
-                Optional.of((memorySize) -> localRevocableMemoryContext.setBytes(memorySize)));
+                false);
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }
 }
