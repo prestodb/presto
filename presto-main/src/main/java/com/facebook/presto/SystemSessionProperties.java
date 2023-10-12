@@ -37,6 +37,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrat
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeProbeSideStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.planner.CompilerConfig;
@@ -262,6 +263,7 @@ public final class SystemSessionProperties
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY = "randomize_outer_join_null_key";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY = "randomize_outer_join_null_key_strategy";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD = "randomize_outer_join_null_key_null_ratio_threshold";
+    public static final String RANDOMIZE_PROBE_SIDE_STRATEGY = "randomize_probe_side_strategy";
     public static final String SHARDED_JOINS_STRATEGY = "sharded_joins_strategy";
     public static final String JOIN_SHARD_COUNT = "join_shard_count";
     public static final String IN_PREDICATES_AS_INNER_JOINS_ENABLED = "in_predicates_as_inner_joins_enabled";
@@ -1632,6 +1634,18 @@ public final class SystemSessionProperties
                         "Number of shards to use in sharded joins optimization",
                         featuresConfig.getJoinShardCount(),
                         true),
+                new PropertyMetadata<>(
+                        RANDOMIZE_PROBE_SIDE_STRATEGY,
+                        format("When to randomize the probe side of a join to eliminate skew",
+                                Stream.of(RandomizeProbeSideStrategy.values())
+                                        .map(RandomizeProbeSideStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        RandomizeProbeSideStrategy.class,
+                        featuresConfig.getRandomizeProbeSideStrategy(),
+                        false,
+                        value -> RandomizeProbeSideStrategy.valueOf(((String) value).toUpperCase()),
+                        FeaturesConfig.RandomizeProbeSideStrategy::name),
                 booleanProperty(
                         OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED,
                         "Enable rewriting IF(condition, AGG(x)) to AGG(x) with condition included in mask",
@@ -2832,6 +2846,11 @@ public final class SystemSessionProperties
     public static int getJoinShardCount(Session session)
     {
         return session.getSystemProperty(JOIN_SHARD_COUNT, Integer.class);
+    }
+
+    public static RandomizeProbeSideStrategy getRandomizeProbeSideStrategy(Session session)
+    {
+        return session.getSystemProperty(RANDOMIZE_PROBE_SIDE_STRATEGY, RandomizeProbeSideStrategy.class);
     }
 
     public static boolean isOptimizeConditionalAggregationEnabled(Session session)

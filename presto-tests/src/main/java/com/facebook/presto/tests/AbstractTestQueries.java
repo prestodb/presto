@@ -54,6 +54,7 @@ import static com.facebook.presto.SystemSessionProperties.ADD_PARTIAL_NODE_FOR_R
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
@@ -71,6 +72,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_T
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_PROBE_SIDE_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
@@ -7186,5 +7188,28 @@ public abstract class AbstractTestQueries
         assertQuery(session, "select x, contains(array[null, 1], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, true), (2, null), (3, null), (4, null), (null, null)");
         assertQuery(session, "select x, contains(array[], x) from (values 1, 2, 3, 4, null) t(x)", "values (1, false), (2, false), (3, false), (4, false), (null, null)");
         assertQuery(session, "select x, contains(cast(null as array<bigint>), x) from (values 1, 2, 3, 4, null) t(x)", "values (1, null), (2, null), (3, null), (4, null), (null, null)");
+    }
+
+    @Test
+    public void testRandomizeProbeSideOptimization()
+    {
+        Session defaultSession = getSession();
+        Session session = Session.builder(getSession())
+                .setSystemProperty(RANDOMIZE_PROBE_SIDE_STRATEGY, "ALWAYS")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .build();
+
+        String[] queries = {
+                "select * from lineitem l join orders o on (l.orderkey=o.orderkey)",
+                "select * from lineitem l join orders o on (l.orderkey=o.orderkey) join part p on (l.partkey=p.partkey)",
+                "select * from lineitem l LEFT JOIN orders o on (l.orderkey=o.orderkey)"
+        };
+
+        for (String query : queries) {
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            assertThat(((String) resultExplainQuery.getOnlyValue()).contains("REPARTITION"));
+
+            assertQueryWithSameQueryRunner(session, query, defaultSession);
+        }
     }
 }

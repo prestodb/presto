@@ -257,6 +257,7 @@ public class FeaturesConfig
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
     private ShardedJoinStrategy shardedJoinStrategy = ShardedJoinStrategy.DISABLED;
     private int joinShardCount = 100;
+    private RandomizeProbeSideStrategy randomizeProbeSideStrategy = RandomizeProbeSideStrategy.DISABLED;
     private boolean isOptimizeConditionalAggregationEnabled;
     private boolean isRemoveRedundantDistinctAggregationEnabled = true;
     private boolean inPredicatesAsInnerJoinsEnabled;
@@ -379,6 +380,13 @@ public class FeaturesConfig
         DISABLED,
         COST_BASED,
         ALWAYS
+    }
+
+    public enum RandomizeProbeSideStrategy
+    {
+        DISABLED,
+        ALWAYS,
+        COST_BASED
     }
 
     public enum PushDownFilterThroughCrossJoinStrategy
@@ -2515,6 +2523,19 @@ public class FeaturesConfig
     public FeaturesConfig setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy)
     {
         this.randomizeOuterJoinNullKeyStrategy = randomizeOuterJoinNullKeyStrategy;
+        return this;
+    }
+
+    public RandomizeProbeSideStrategy getRandomizeProbeSideStrategy()
+    {
+        return randomizeProbeSideStrategy;
+    }
+
+    @Config("optimizer.randomize-probe-side-strategy")
+    @ConfigDescription("When to randomize the probe side of a join to eliminate skew")
+    public FeaturesConfig setRandomizeProbeSideStrategy(RandomizeProbeSideStrategy randomizeProbeSideStrategy)
+    {
+        this.randomizeProbeSideStrategy = randomizeProbeSideStrategy;
         return this;
     }
 

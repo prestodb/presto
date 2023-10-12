@@ -154,6 +154,7 @@ import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PrefilterForLimitingAggregation;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.PushdownSubfields;
+import com.facebook.presto.sql.planner.optimizations.RandomShuffleProbeSide;
 import com.facebook.presto.sql.planner.optimizations.RandomizeNullKeyInOuterJoin;
 import com.facebook.presto.sql.planner.optimizations.RemoveRedundantDistinctAggregation;
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
@@ -738,6 +739,7 @@ public class PlanOptimizers
                                     new PruneRedundantProjectionAssignments(),
                                     new InlineProjections(metadata.getFunctionAndTypeManager()),
                                     new RemoveRedundantIdentityProjections())));
+
             builder.add(new ShardJoins(metadata, metadata.getFunctionAndTypeManager(), statsCalculator),
                     new PruneUnreferencedOutputs());
             builder.add(
@@ -752,6 +754,18 @@ public class PlanOptimizers
 
         //noinspection UnusedAssignment
         estimatedExchangesCostCalculator = null; // Prevent accidental use after AddExchanges
+
+        builder.add(new RandomShuffleProbeSide(metadata, metadata.getFunctionAndTypeManager()),
+                new PruneUnreferencedOutputs(),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(
+                                new PruneRedundantProjectionAssignments(),
+                                new InlineProjections(metadata.getFunctionAndTypeManager()),
+                                new RemoveRedundantIdentityProjections())));
 
         builder.add(
                 new IterativeOptimizer(
