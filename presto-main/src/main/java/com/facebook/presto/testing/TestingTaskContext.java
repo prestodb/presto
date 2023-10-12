@@ -55,15 +55,6 @@ public final class TestingTaskContext
                 .build();
     }
 
-    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session,
-                                                DataSize maxMemory, DataSize maxTotalMemory)
-    {
-        return builder(notificationExecutor, yieldExecutor, session)
-                .setQueryMaxMemory(maxMemory)
-                .setQueryMaxTotalMemory(maxTotalMemory)
-                .build();
-    }
-
     public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session, TaskStateMachine taskStateMachine)
     {
         return builder(notificationExecutor, yieldExecutor, session)
