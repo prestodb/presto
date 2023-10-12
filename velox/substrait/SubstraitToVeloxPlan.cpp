@@ -17,6 +17,7 @@
 #include "velox/substrait/SubstraitToVeloxPlan.h"
 #include "velox/substrait/TypeUtils.h"
 #include "velox/substrait/VariantToVectorConverter.h"
+#include "velox/substrait/VeloxSubstraitSignature.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::substrait {
@@ -144,6 +145,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const auto& aggFunction = measure.measure();
     auto funcName = substraitParser_->findVeloxFunction(
         functionMap_, aggFunction.function_reference());
+
     std::vector<core::TypedExprPtr> aggParams;
     aggParams.reserve(aggFunction.arguments().size());
     for (const auto& arg : aggFunction.arguments()) {
@@ -154,8 +156,30 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
         substraitParser_->parseType(aggFunction.output_type())->type);
     auto aggExpr = std::make_shared<const core::CallTypedExpr>(
         aggVeloxType, std::move(aggParams), funcName);
+
+    const auto& functionSpec = findFunction(aggFunction.function_reference());
+
+    std::vector<TypePtr> rawInputTypes;
+
+    size_t pos = functionSpec.find(":");
+    for (;;) {
+      const size_t endPos = functionSpec.find("_", pos + 1);
+      if (endPos == std::string::npos) {
+        std::string typeName = functionSpec.substr(pos + 1);
+        rawInputTypes.push_back(
+            VeloxSubstraitSignature::fromSubstraitSignature(typeName));
+        break;
+      }
+
+      const std::string typeName =
+          functionSpec.substr(pos + 1, endPos - pos - 1);
+      rawInputTypes.push_back(
+          VeloxSubstraitSignature::fromSubstraitSignature(typeName));
+      pos = endPos + 1;
+    }
+
     aggregates.emplace_back(
-        core::AggregationNode::Aggregate{aggExpr, {}, mask, {}, {}});
+        core::AggregationNode::Aggregate{aggExpr, rawInputTypes, mask, {}, {}});
   }
 
   bool ignoreNullKeys = false;

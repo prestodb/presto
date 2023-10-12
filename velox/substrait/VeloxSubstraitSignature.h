@@ -31,6 +31,9 @@ class VeloxSubstraitSignature {
   /// https://substrait.io/extensions/#function-signature-compound-names.
   static std::string toSubstraitSignature(const TypePtr& type);
 
+  /// Given a substrait type signature, return the Velox type.
+  static TypePtr fromSubstraitSignature(const std::string& signature);
+
   /// Given a velox scalar function name and argument types, return the
   /// substrait function signature.
   static std::string toSubstraitSignature(
