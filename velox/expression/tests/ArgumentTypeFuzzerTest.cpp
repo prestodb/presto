@@ -326,4 +326,81 @@ TEST_F(ArgumentTypeFuzzerTest, unconstrainedSignatureTemplate) {
   ASSERT_EQ(argumentTypes[0]->childAt(0), argumentTypes[1]);
 }
 
+TEST_F(ArgumentTypeFuzzerTest, orderableConstraint) {
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .orderableTypeVariable("T")
+                         .returnType("bigint")
+                         .argumentType("T")
+                         .build();
+
+    for (size_t i = 0; i < 100; ++i) {
+      std::mt19937 rng(i);
+      ArgumentTypeFuzzer fuzzer{*signature, nullptr, rng};
+      fuzzer.fuzzArgumentTypes(kMaxVariadicArgs);
+      ASSERT_TRUE(fuzzer.argumentTypes()[0]->isOrderable())
+          << fuzzer.argumentTypes()[0]->toString();
+    }
+  }
+
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .orderableTypeVariable("T")
+                         .returnType("T")
+                         .argumentType("T")
+                         .build();
+    testFuzzingFailure(signature, MAP(VARCHAR(), BIGINT()));
+    testFuzzingFailure(signature, ARRAY(MAP(VARCHAR(), BIGINT())));
+  }
+
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .orderableTypeVariable("T")
+                         .returnType("array(T)")
+                         .argumentType("array(T)")
+                         .build();
+
+    testFuzzingSuccess(signature, ARRAY(DOUBLE()), {ARRAY(DOUBLE())});
+    testFuzzingSuccess(
+        signature, ARRAY(ROW({DOUBLE()})), {ARRAY(ROW({DOUBLE()}))});
+    testFuzzingFailure(signature, MAP(VARCHAR(), BIGINT()));
+  }
+
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .typeVariable("T")
+                         .orderableTypeVariable("U")
+                         .returnType("row(T, U)")
+                         .argumentType("T")
+                         .argumentType("row(T,U)")
+                         .build();
+
+    testFuzzingSuccess(
+        signature,
+        ROW({MAP(BIGINT(), BIGINT()), BIGINT()}),
+        {MAP(BIGINT(), BIGINT()), ROW({MAP(BIGINT(), BIGINT()), BIGINT()})});
+
+    testFuzzingFailure(signature, ROW({BIGINT(), MAP(VARCHAR(), BIGINT())}));
+  }
+
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .typeVariable("T")
+                         .orderableTypeVariable("U")
+                         .returnType("row(T,U)")
+                         .argumentType("T")
+                         .argumentType("function(T,U)")
+                         .build();
+
+    testFuzzingSuccess(
+        signature,
+        ROW({MAP(BIGINT(), BIGINT()), BIGINT()}),
+        {MAP(BIGINT(), BIGINT()),
+         std::make_shared<FunctionType>(
+             std::vector<TypePtr>{MAP(BIGINT(), BIGINT())}, BIGINT())});
+
+    testFuzzingFailure(signature, ROW({BIGINT(), MAP(VARCHAR(), BIGINT())}));
+  }
+}
+
 } // namespace facebook::velox::test

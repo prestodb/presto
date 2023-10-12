@@ -48,12 +48,20 @@ void ArgumentTypeFuzzer::determineUnboundedTypeVariables() {
     // Random randomType() never generates unknown here.
     // TODO: we should extend randomType types and exclude unknown based
     // on variableInfo.
-    bindings_[variableName] = randType();
+    if (variableInfo.orderableTypesOnly()) {
+      bindings_[variableName] = randOrderableType();
+    } else {
+      bindings_[variableName] = randType();
+    }
   }
 }
 
 TypePtr ArgumentTypeFuzzer::randType() {
   return velox::randType(rng_, 2);
+}
+
+TypePtr ArgumentTypeFuzzer::randOrderableType() {
+  return velox::randOrderableType(rng_, 2);
 }
 
 bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {

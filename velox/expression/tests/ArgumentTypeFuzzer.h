@@ -71,6 +71,9 @@ class ArgumentTypeFuzzer {
 
   TypePtr randType();
 
+  /// Generates an orderable random type, including structs, and arrays.
+  TypePtr randOrderableType();
+
   const exec::FunctionSignature& signature_;
 
   TypePtr returnType_;
