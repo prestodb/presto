@@ -19,6 +19,8 @@
 
 namespace facebook::velox::window::test {
 
+enum class WindowStyle { kSort, kStreaming, kRandom };
+
 /// Exhaustive set of window function over clauses using a combination of four
 /// columns. Columns c0 and c1 have input data meant to test partitioning
 /// and sorting behavior of the operator. Columns c2 and c3 are used with
@@ -132,6 +134,14 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       const std::string& overClause,
       const std::string& frameClause);
 
+  // This function is used to test the StreamingWindow. It will add the order by
+  // action to ensure the data is ordered.
+  QueryInfo buildStreamingWindowQuery(
+      const std::vector<RowVectorPtr>& input,
+      const std::string& function,
+      const std::string& overClause,
+      const std::string& frameClause);
+
   /// This function tests SQL queries for the window function and
   /// the specified overClauses and frameClauses with the input RowVectors.
   /// Note : 'function' should be a full window function invocation string
@@ -144,7 +154,8 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       const std::string& function,
       const std::vector<std::string>& overClauses,
       const std::vector<std::string>& frameClauses = {""},
-      bool createTable = true);
+      bool createTable = true,
+      WindowStyle windowStyle = WindowStyle::kRandom);
 
   /// This function tests the SQL query for the window function and overClause
   /// combination with the input RowVectors. It is expected that query execution

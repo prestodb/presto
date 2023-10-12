@@ -19,6 +19,7 @@
 #include <boost/random/uniform_int_distribution.hpp>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/duckdb/conversion/DuckParser.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -46,6 +47,44 @@ WindowTestBase::QueryInfo WindowTestBase::buildWindowQuery(
       fmt::format("SELECT {}, {} FROM tmp", columnsString, functionSql);
 
   return {op, functionSql, querySql};
+}
+
+WindowTestBase::QueryInfo WindowTestBase::buildStreamingWindowQuery(
+    const std::vector<RowVectorPtr>& input,
+    const std::string& function,
+    const std::string& overClause,
+    const std::string& frameClause) {
+  std::string functionSql =
+      fmt::format("{} over ({} {})", function, overClause, frameClause);
+  std::vector<std::string> orderByClauses;
+  auto windowExpr = duckdb::parseWindowExpr(functionSql, {});
+
+  // Extract the partition by keys.
+  for (const auto& partition : windowExpr.partitionBy) {
+    orderByClauses.push_back(partition->toString() + " NULLS FIRST");
+  }
+
+  // Extract the order by keys.
+  const auto& orderBy = windowExpr.orderBy;
+  for (auto i = 0; i < orderBy.size(); ++i) {
+    orderByClauses.push_back(
+        orderBy[i].first->toString() + " " + orderBy[i].second.toString());
+  }
+
+  // Sort the input data before streaming window.
+  auto plan = PlanBuilder()
+                  .setParseOptions(options_)
+                  .values(input)
+                  .orderBy(orderByClauses, false)
+                  .streamingWindow({functionSql})
+                  .planNode();
+
+  auto rowType = asRowType(input[0]->type());
+  std::string columnsString = folly::join(", ", rowType->names());
+  std::string querySql =
+      fmt::format("SELECT {}, {} FROM tmp", columnsString, functionSql);
+
+  return {plan, functionSql, querySql};
 }
 
 RowVectorPtr WindowTestBase::makeSimpleVector(vector_size_t size) {
@@ -108,14 +147,30 @@ void WindowTestBase::testWindowFunction(
     const std::string& function,
     const std::vector<std::string>& overClauses,
     const std::vector<std::string>& frameClauses,
-    bool createTable) {
+    bool createTable,
+    WindowStyle windowStyle) {
   if (createTable) {
     createDuckDbTable(input);
   }
+
+  // Generate a random boolean to determine the window style
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<int> dis(0, 1);
+
   for (const auto& overClause : overClauses) {
-    for (auto& frameClause : frameClauses) {
-      auto queryInfo =
-          buildWindowQuery(input, function, overClause, frameClause);
+    WindowTestBase::QueryInfo queryInfo;
+    for (const auto& frameClause : frameClauses) {
+      auto resolvedWindowStyle = windowStyle == WindowStyle::kRandom
+          ? static_cast<int>(dis(gen))
+          : static_cast<int>(windowStyle);
+      if (resolvedWindowStyle == static_cast<int>(WindowStyle::kSort)) {
+        queryInfo = buildWindowQuery(input, function, overClause, frameClause);
+      } else {
+        queryInfo =
+            buildStreamingWindowQuery(input, function, overClause, frameClause);
+      }
+
       SCOPED_TRACE(queryInfo.functionSql);
       assertQuery(queryInfo.planNode, queryInfo.querySql);
     }

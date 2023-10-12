@@ -153,7 +153,7 @@ class Window : public Operator {
 
   // WindowBuild is used to store input rows and return WindowPartitions
   // for the processing.
-  const std::unique_ptr<WindowBuild> windowBuild_;
+  std::unique_ptr<WindowBuild> windowBuild_;
 
   // The cached window plan node used for window function initialization. It is
   // reset after the initialization.

@@ -66,6 +66,7 @@ add_library(
   SpillOperatorGroup.cpp
   Spiller.cpp
   StreamingAggregation.cpp
+  StreamingWindowBuild.cpp
   Strings.cpp
   TableScan.cpp
   TableWriteMerge.cpp

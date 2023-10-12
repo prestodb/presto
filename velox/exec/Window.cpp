@@ -16,6 +16,7 @@
 #include "velox/exec/Window.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/SortWindowBuild.h"
+#include "velox/exec/StreamingWindowBuild.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
@@ -31,10 +32,15 @@ Window::Window(
           windowNode->id(),
           "Window"),
       numInputColumns_(windowNode->sources()[0]->outputType()->size()),
-      windowBuild_(std::make_unique<SortWindowBuild>(windowNode, pool())),
       windowNode_(windowNode),
       currentPartition_(nullptr),
-      stringAllocator_(pool()) {}
+      stringAllocator_(pool()) {
+  if (windowNode->inputsSorted()) {
+    windowBuild_ = std::make_unique<StreamingWindowBuild>(windowNode, pool());
+  } else {
+    windowBuild_ = std::make_unique<SortWindowBuild>(windowNode, pool());
+  }
+}
 
 void Window::initialize() {
   Operator::initialize();
@@ -163,10 +169,6 @@ void Window::createPeerAndFrameBuffers() {
 
 void Window::noMoreInput() {
   Operator::noMoreInput();
-  // No data.
-  if (numRows_ == 0) {
-    return;
-  }
   windowBuild_->noMoreInput();
 }
 

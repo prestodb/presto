@@ -416,6 +416,23 @@ TEST_F(PlanNodeSerdeTest, window) {
              .planNode();
 
   testSerde(plan);
+
+  // Test StreamingWindow serde.
+  plan =
+      PlanBuilder()
+          .values({data_})
+          .streamingWindow(
+              {"sum(c0) over (partition by c1 order by c2 rows between 10 preceding and 5 following)"})
+          .planNode();
+
+  testSerde(plan);
+
+  plan = PlanBuilder()
+             .values({data_})
+             .streamingWindow({"sum(c0) over (partition by c1 order by c2)"})
+             .planNode();
+
+  testSerde(plan);
 }
 
 TEST_F(PlanNodeSerdeTest, rowNumber) {

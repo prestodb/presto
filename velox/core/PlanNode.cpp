@@ -1169,12 +1169,14 @@ WindowNode::WindowNode(
     std::vector<SortOrder> sortingOrders,
     std::vector<std::string> windowColumnNames,
     std::vector<Function> windowFunctions,
+    bool inputsSorted,
     PlanNodePtr source)
     : PlanNode(std::move(id)),
       partitionKeys_(std::move(partitionKeys)),
       sortingKeys_(std::move(sortingKeys)),
       sortingOrders_(std::move(sortingOrders)),
       windowFunctions_(std::move(windowFunctions)),
+      inputsSorted_(inputsSorted),
       sources_{std::move(source)},
       outputType_(getWindowOutputType(
           sources_[0]->outputType(),
@@ -1210,6 +1212,8 @@ void WindowNode::addDetails(std::stringstream& stream) const {
     stream << outputType_->names()[i] << " := ";
     addWindowFunction(stream, windowFunctions_[i - numInputCols]);
   }
+
+  stream << " inputsSorted [" << inputsSorted_ << "]";
 }
 
 namespace {
@@ -1326,6 +1330,7 @@ folly::dynamic WindowNode::serialize() const {
     windowNames.push_back(outputType_->nameOf(i));
   }
   obj["names"] = ISerializable::serialize(windowNames);
+  obj["inputsSorted"] = inputsSorted_;
 
   return obj;
 }
@@ -1345,6 +1350,8 @@ PlanNodePtr WindowNode::create(const folly::dynamic& obj, void* context) {
 
   auto windowNames = deserializeStrings(obj["names"]);
 
+  auto inputsSorted = obj["inputsSorted"].asBool();
+
   return std::make_shared<WindowNode>(
       deserializePlanNodeId(obj),
       partitionKeys,
@@ -1352,6 +1359,7 @@ PlanNodePtr WindowNode::create(const folly::dynamic& obj, void* context) {
       sortingOrders,
       windowNames,
       functions,
+      inputsSorted,
       source);
 }
 
