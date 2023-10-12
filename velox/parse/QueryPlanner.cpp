@@ -301,9 +301,11 @@ PlanNodePtr toVeloxPlan(
     auto call = std::dynamic_pointer_cast<const CallTypedExpr>(
         toVeloxExpression(*expression, sources[0]->outputType()));
     std::vector<TypedExprPtr> fieldInputs;
+    std::vector<TypePtr> rawInputTypes;
 
     for (auto& input : call->inputs()) {
       projections.push_back(input);
+      rawInputTypes.push_back(input->type());
 
       if (auto field =
               std::dynamic_pointer_cast<const FieldAccessTypedExpr>(input)) {
@@ -317,13 +319,14 @@ PlanNodePtr toVeloxPlan(
       }
     }
 
-    aggregates.push_back(
-        {std::make_shared<CallTypedExpr>(
-             call->type(), fieldInputs, call->name()),
-         {},
-         nullptr,
-         {},
-         {}});
+    aggregates.push_back({
+        std::make_shared<CallTypedExpr>(
+            call->type(), fieldInputs, call->name()),
+        rawInputTypes,
+        nullptr, // mask
+        {}, // sortingKeys
+        {} // sortingOrders
+    });
   }
 
   std::vector<FieldAccessTypedExprPtr> groupingKeys;

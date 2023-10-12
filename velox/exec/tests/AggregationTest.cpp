@@ -410,8 +410,13 @@ TEST_F(AggregationTest, missingFunctionOrSignature) {
     return PlanBuilder()
         .values({data})
         .addNode([&](auto nodeId, auto source) -> core::PlanNodePtr {
+          std::vector<TypePtr> rawInputTypes;
+          for (const auto& input : aggExpr->inputs()) {
+            rawInputTypes.push_back(input->type());
+          }
+
           std::vector<core::AggregationNode::Aggregate> aggregates{
-              {aggExpr, {}, nullptr, {}, {}}};
+              {aggExpr, rawInputTypes, nullptr, {}, {}}};
 
           return std::make_shared<core::AggregationNode>(
               nodeId,
@@ -471,7 +476,7 @@ TEST_F(AggregationTest, missingLambdaFunction) {
                     std::vector<core::AggregationNode::Aggregate> aggregates{
                         {std::make_shared<core::CallTypedExpr>(
                              BIGINT(), inputs, "missing-lambda"),
-                         {},
+                         {BIGINT()},
                          nullptr,
                          {},
                          {}}};

@@ -152,13 +152,20 @@ HashAggregation::HashAggregation(
     auto argTypes =
         populateAggregateInputs(aggregate, inputType->asRow(), info, pool());
 
-    if (isRawInput(aggregationNode->step())) {
-      info.intermediateType =
-          Aggregate::intermediateType(aggregate.call->name(), argTypes);
+    if (aggregate.rawInputTypes.empty()) {
+      // Backwards-compatible code path.
+      if (isRawInput(aggregationNode->step())) {
+        info.intermediateType =
+            Aggregate::intermediateType(aggregate.call->name(), argTypes);
+      } else {
+        verifyIntermediateInputs(aggregate.call->name(), argTypes);
+        info.intermediateType = argTypes[0];
+      }
     } else {
-      verifyIntermediateInputs(aggregate.call->name(), argTypes);
-      info.intermediateType = argTypes[0];
+      info.intermediateType = Aggregate::intermediateType(
+          aggregate.call->name(), aggregate.rawInputTypes);
     }
+
     // Setup aggregation mask: convert the Variable Reference name to the
     // channel (projection) index, if there is a mask.
     if (const auto& mask = aggregate.mask) {
@@ -168,12 +175,24 @@ HashAggregation::HashAggregation(
     }
 
     const auto& resultType = outputType_->childAt(numHashers + i);
-    info.function = Aggregate::create(
-        aggregate.call->name(),
-        aggregationNode->step(),
-        argTypes,
-        resultType,
-        driverCtx->queryConfig());
+    if (aggregate.rawInputTypes.empty()) {
+      // Backwards-compatible code path.
+      info.function = Aggregate::create(
+          aggregate.call->name(),
+          aggregationNode->step(),
+          argTypes,
+          resultType,
+          driverCtx->queryConfig());
+    } else {
+      info.function = Aggregate::create(
+          aggregate.call->name(),
+          isPartialOutput(aggregationNode->step())
+              ? core::AggregationNode::Step::kPartial
+              : core::AggregationNode::Step::kSingle,
+          aggregate.rawInputTypes,
+          resultType,
+          driverCtx->queryConfig());
+    }
 
     auto lambdas = extractLambdaInputs(aggregate);
     if (!lambdas.empty()) {

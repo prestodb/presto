@@ -517,14 +517,13 @@ core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
     auto name = partialAggregates[i].call->name();
     auto rawInputs = partialAggregates[i].call->inputs();
 
-    std::vector<TypePtr> rawInputTypes;
+    core::AggregationNode::Aggregate aggregate;
     for (auto& rawInput : rawInputs) {
-      rawInputTypes.push_back(rawInput->type());
+      aggregate.rawInputTypes.push_back(rawInput->type());
     }
 
-    core::AggregationNode::Aggregate aggregate;
-
-    auto type = resolveAggregateType(name, step, rawInputTypes, false);
+    auto type =
+        resolveAggregateType(name, step, aggregate.rawInputTypes, false);
     std::vector<core::TypedExprPtr> inputs = {field(numGroupingKeys + i)};
 
     // Add lambda inputs.
@@ -643,8 +642,19 @@ PlanBuilder::AggregatesAndNames PlanBuilder::createAggregateExpressionsAndNames(
     auto untypedExpr = duckdb::parseAggregateExpr(aggregate, options);
 
     core::AggregationNode::Aggregate agg;
+
     agg.call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
         inferTypes(untypedExpr.expr));
+
+    if (step == core::AggregationNode::Step::kPartial ||
+        step == core::AggregationNode::Step::kSingle) {
+      for (const auto& input : agg.call->inputs()) {
+        agg.rawInputTypes.push_back(input->type());
+      }
+    } else {
+      agg.rawInputTypes = rawInputTypes[i];
+    }
+
     if (untypedExpr.maskExpr != nullptr) {
       auto maskExpr =
           std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
