@@ -604,6 +604,15 @@ public class TestRowOperators
     }
 
     @Test
+    public void testRowNestedNullVarchar()
+    {
+        assertFunction(
+                "CAST(ROW(JSON_EXTRACT('{\"decision_data\":{\"result\":null}}', '$.decision_data.result')) AS ROW(decision_string VARCHAR))",
+                RowType.from(ImmutableList.of(RowType.field("decision_string", VARCHAR))),
+                asList((String) null));
+    }
+
+    @Test
     public void testIndeterminate()
     {
         assertOperator(INDETERMINATE, "cast(null as row(col0 bigint))", BOOLEAN, true);
