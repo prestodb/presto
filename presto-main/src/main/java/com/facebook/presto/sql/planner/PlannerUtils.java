@@ -80,8 +80,10 @@ import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.forEachPair;
 import static java.util.Arrays.asList;
+import static java.util.function.Function.identity;
 
 public class PlannerUtils
 {
@@ -183,6 +185,19 @@ public class PlannerUtils
                 source,
                 assignments.build(),
                 LOCAL);
+    }
+
+    // Add a projection node, which assignment new value if output exists in variableMap, otherwise identity assignment
+    public static PlanNode addOverrideProjection(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, Map<VariableReferenceExpression, ? extends RowExpression> variableMap)
+    {
+        // When source node output duplicate variables (at least possible for LateralJoin node), it will fail the assignment builder, skip here
+        if (variableMap.isEmpty() || source.getOutputVariables().stream().noneMatch(variableMap::containsKey)
+                || source.getOutputVariables().stream().distinct().count() != source.getOutputVariables().size()) {
+            return source;
+        }
+        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        assignmentsBuilder.putAll(source.getOutputVariables().stream().collect(toImmutableMap(identity(), x -> variableMap.containsKey(x) ? variableMap.get(x) : x)));
+        return new ProjectNode(source.getSourceLocation(), planNodeIdAllocator.getNextId(), source, assignmentsBuilder.build(), LOCAL);
     }
 
     public static PlanNode restrictOutput(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> outputVariables)
