@@ -668,7 +668,6 @@ FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::ROW>(
   } else {
     auto rowType = writer.type()->asRow();
     column_index_t fieldCount = rowType.size();
-    auto notFound = object.items().end();
 
     folly::F14FastMap<std::string, const folly::dynamic*> lowerCaseKeys;
     lowerCaseKeys.reserve(object.size());
