@@ -770,7 +770,8 @@ class VectorMaker {
           MAP(CppToType<K>::create(), CppToType<V>::create())) {
     static_assert(
         std::is_same_v<K, int8_t> || std::is_same_v<K, int16_t> ||
-        std::is_same_v<K, int32_t> || std::is_same_v<K, int64_t>);
+        std::is_same_v<K, int32_t> || std::is_same_v<K, int64_t> ||
+        std::is_same_v<K, float> || std::is_same_v<K, double>);
 
     std::vector<std::optional<std::vector<std::pair<K, std::optional<V>>>>>
         maps;
@@ -779,6 +780,7 @@ class VectorMaker {
 
       folly::json::serialization_opts options;
       options.convert_int_keys = true;
+      options.allow_non_string_keys = true;
       folly::dynamic mapObject = folly::parseJson(jsonMap, options);
       if (mapObject.isNull()) {
         // Null map.

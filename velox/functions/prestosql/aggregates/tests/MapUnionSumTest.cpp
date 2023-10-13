@@ -378,5 +378,30 @@ TEST_F(MapUnionSumTest, groupByVarcharKey) {
   testAggregations({data}, {"c0"}, {"map_union_sum(c1)"}, {expected});
 }
 
+TEST_F(MapUnionSumTest, floatingPointKeys) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 1, 2, 1, 1, 2, 2}),
+      makeMapVectorFromJson<float, int64_t>({
+          "{1.1: 10, 1.2: 20, 1.3: 30}",
+          "{2.1: 10, 1.2: 20, 2.3: 30}",
+          "{3.1: 10, 1.2: 20, 2.3: 30}",
+          "{}",
+          "null",
+          "{4.1: 10, 4.2: 20, 2.3: 30}",
+          "{5.1: 10, 4.2: 20, 2.3: 30}",
+          "{6.1: 10, 6.2: 20, 6.3: 30}",
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeMapVectorFromJson<float, int64_t>({
+          "{1.1: 10, 1.2: 60, 1.3: 30, 2.1: 10, 2.3: 120, 3.1: 10, 4.1: 10, "
+          "4.2: 40, 5.1: 10, 6.1: 10, 6.2: 20, 6.3: 30}",
+      }),
+  });
+
+  testAggregations({data}, {}, {"map_union_sum(c1)"}, {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test
