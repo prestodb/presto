@@ -49,7 +49,7 @@ inline void registerArrayCombinationsFunctions(const std::string& prefix) {
       ParameterBinder<CombinationsFunction, T>,
       Array<Array<T>>,
       Array<T>,
-      int64_t>({prefix + "combinations"});
+      int32_t>({prefix + "combinations"});
 }
 
 template <typename T>
