@@ -299,6 +299,19 @@ TEST(DateTimeUtilTest, toGMT) {
   ts = fromTimestampString("2021-03-14 08:00:00");
   ts.toGMT(*laZone);
   EXPECT_EQ(ts, fromTimestampString("2021-03-14 15:00:00"));
+
+  // Ambiguous time 2019-11-03 01:00:00.
+  // It could be 2019-11-03 01:00:00 PDT == 2019-11-03 08:00:00 UTC
+  // or 2019-11-03 01:00:00 PST == 2019-11-03 09:00:00 UTC.
+  ts = fromTimestampString("2019-11-03 01:00:00");
+  ts.toGMT(*laZone);
+  EXPECT_EQ(ts, fromTimestampString("2019-11-03 08:00:00"));
+
+  // Nonexistent time 2019-03-10 02:00:00.
+  // It is in a gap between 2019-03-10 02:00:00 PST and 2019-03-10 03:00:00 PDT
+  // which are both equivalent to 2019-03-10 10:00:00 UTC.
+  ts = fromTimestampString("2019-03-10 02:00:00");
+  EXPECT_THROW(ts.toGMT(*laZone), VeloxUserError);
 }
 
 TEST(DateTimeUtilTest, toTimezone) {

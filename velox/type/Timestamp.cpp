@@ -54,7 +54,17 @@ void Timestamp::toGMT(const date::time_zone& zone) {
   date::local_time<std::chrono::seconds> localTime{
       std::chrono::seconds(seconds_)};
   std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>
-      sysTime = zone.to_sys(localTime, date::choose::latest);
+      sysTime;
+  try {
+    sysTime = zone.to_sys(localTime);
+  } catch (const date::ambiguous_local_time& error) {
+    // If the time is ambiguous, pick the earlier possibility to be consistent
+    // with Presto.
+    sysTime = zone.to_sys(localTime, date::choose::earliest);
+  } catch (const date::nonexistent_local_time& error) {
+    // If the time does not exist, fail the conversion.
+    VELOX_USER_FAIL(error.what());
+  }
   seconds_ = sysTime.time_since_epoch().count();
 }
 
