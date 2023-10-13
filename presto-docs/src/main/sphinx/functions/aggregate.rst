@@ -67,9 +67,11 @@ General Aggregate Functions
 
     This is an alias for :func:`bool_and`.
 
-.. function:: geometric_mean(x) -> double
+.. function:: geometric_mean(bigint) -> double
+              geometric_mean(double) -> double
+              geometric_mean(real) -> real
 
-    Returns the geometric mean of all input values.
+    Returns the `geometric mean <https://en.wikipedia.org/wiki/Geometric_mean>`_ of all input values.
 
 .. function:: max_by(x, y) -> [same as x]
 
