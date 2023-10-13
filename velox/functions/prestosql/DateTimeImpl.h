@@ -59,8 +59,8 @@ FOLLY_ALWAYS_INLINE std::optional<Timestamp> fromUnixtime(double unixtime) {
   }
 
   auto seconds = std::floor(unixtime);
-  auto nanos = unixtime - seconds;
-  return Timestamp(seconds, nanos * kNanosecondsInSecond);
+  auto milliseconds = std::llround((unixtime - seconds) * kMillisInSecond);
+  return Timestamp(seconds, milliseconds * kNanosecondsInMillisecond);
 }
 
 namespace {
