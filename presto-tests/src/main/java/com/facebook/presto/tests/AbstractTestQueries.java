@@ -7203,4 +7203,10 @@ public abstract class AbstractTestQueries
         // Do not trigger optimization
         assertQuery(session, "select * from customer c join orders o on cast(acctbal as varchar) = cast(totalprice as varchar)");
     }
+
+    @Test
+    public void testMapBlockBug()
+    {
+        assertQueryFails(" VALUES(MAP_AGG(12345,123))", ".*Cannot evaluate non-scalar function.*");
+    }
 }
