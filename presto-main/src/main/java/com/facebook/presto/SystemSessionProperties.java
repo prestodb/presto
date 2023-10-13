@@ -310,6 +310,7 @@ public final class SystemSessionProperties
     public static final String HANDLE_COMPLEX_EQUI_JOINS = "handle_complex_equi_joins";
     public static final String SKIP_HASH_GENERATION_FOR_JOIN_WITH_TABLE_SCAN_INPUT = "skip_hash_generation_for_join_with_table_scan_input";
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
+    public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -1891,6 +1892,11 @@ public final class SystemSessionProperties
                         GENERATE_DOMAIN_FILTERS,
                         "Infer predicates from column domains during predicate pushdown",
                         featuresConfig.getGenerateDomainFilters(),
+                                false),
+                booleanProperty(
+                        REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION,
+                        "Rewrite left join with is null check to semi join",
+                        featuresConfig.isRewriteExpressionWithConstantVariable(),
                         false));
     }
 
@@ -3129,5 +3135,10 @@ public final class SystemSessionProperties
     public static boolean shouldGenerateDomainFilters(Session session)
     {
         return session.getSystemProperty(GENERATE_DOMAIN_FILTERS, Boolean.class);
+    }
+
+    public static boolean isRewriteExpressionWithConstantEnabled(Session session)
+    {
+        return session.getSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, Boolean.class);
     }
 }

@@ -786,6 +786,15 @@ Optimizer Properties
     outputs of the join. This optimization eliminates the cross join, may convert the outer join into an inner
     join and thereby produces more optimal plans.
 
+``optimizer.rewrite-expression-with-constant-variable``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Extract expressions which have constant value from filter and assignment expressions, and replace the expressions with
+    constant value.
+
 
 Planner Properties
 --------------------------------------

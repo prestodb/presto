@@ -284,6 +284,7 @@ public class FeaturesConfig
     private boolean inferInequalityPredicates;
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
+    private boolean rewriteExpressionWithConstantVariable = true;
 
     private boolean preProcessMetadataCalls;
     private boolean handleComplexEquiJoins;
@@ -2983,6 +2984,19 @@ public class FeaturesConfig
     public FeaturesConfig setGenerateDomainFilters(boolean generateDomainFilters)
     {
         this.generateDomainFilters = generateDomainFilters;
+        return this;
+    }
+
+    public boolean isRewriteExpressionWithConstantVariable()
+    {
+        return this.rewriteExpressionWithConstantVariable;
+    }
+
+    @Config("optimizer.rewrite-expression-with-constant-variable")
+    @ConfigDescription("Rewrite expression with constant variables")
+    public FeaturesConfig setRewriteExpressionWithConstantVariable(boolean rewriteExpressionWithConstantVariable)
+    {
+        this.rewriteExpressionWithConstantVariable = rewriteExpressionWithConstantVariable;
         return this;
     }
 }
