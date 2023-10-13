@@ -14,404 +14,193 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/types/ParseTypeSignature.h"
-#include "presto_cpp/main/types/TypeSignatureTypeConverter.h"
-#include "velox/type/Type.h"
+#include "velox/common/base/tests/GTestUtils.h"
 
-using namespace facebook::presto;
 using namespace facebook::velox;
 
-template <typename... T>
-TypePtr rowSignature(T const&... elements) {
-  std::vector<NamedType> types = {elements...};
-  return rowFromNamedTypes(types);
-}
-
-TypePtr signature(std::string typeName) {
-  return typeFromString(typeName);
-}
-
-NamedType namedParameter(std::string name, TypePtr type) {
-  return NamedType{name, type};
-}
-
-NamedType namedParameter(std::string name, bool _unused, TypePtr type) {
-  return namedParameter(name, type);
-}
-
-NamedType unnamedParameter(TypePtr type) {
-  return NamedType{"", type};
-}
-
-TypePtr varchar() {
-  return typeFromString("VARCHAR");
-}
-
-TypePtr varchar(int size) {
-  return typeFromString("VARCHAR");
-}
-
-TypePtr array(TypePtr type) {
-  return arrayFromType(type);
-}
-TypePtr map(TypePtr key, TypePtr value) {
-  return mapFromKeyValueType(key, value);
-}
-
-#define ASSERT_THROWS_CONTAINS_MESSAGE(statement, exception, message) \
-  try {                                                               \
-    statement FAIL();                                                 \
-  } catch (const exception& err) {                                    \
-    EXPECT_PRED_FORMAT2(testing::IsSubstring, message, err.what());   \
-  }
-
-#define assertRowSignature(input, expected) \
-  ASSERT_EQ(parseTypeSignature(input)->toString(), expected->toString());
-#define assertSignature(input, expected) \
-  ASSERT_EQ(parseTypeSignature(input)->toString(), expected)
-#define assertSignatureFail(input) \
-  ASSERT_ANY_THROW(parseTypeSignature(input)->toString();)
-#define assertEquals(input, expected) \
-  ASSERT_EQ(input->toString(), expected->toString())
-
-// Checks that exception error message contains the given message.
-#define assertRowSignatureContainsThrows(input, expected, exception, message) \
-  ASSERT_THROWS_CONTAINS_MESSAGE(parseTypeSignature(input)->toString();       \
-                                 , exception, message)
+namespace facebook::presto {
+namespace {
 
 class TestTypeSignature : public ::testing::Test {};
 
-TEST_F(TestTypeSignature, sig01) {
-  assertSignature("boolean", "BOOLEAN");
+TEST_F(TestTypeSignature, booleanType) {
+  ASSERT_EQ(*parseTypeSignature("boolean"), *BOOLEAN());
 }
 
-TEST_F(TestTypeSignature, sig02) {
-  assertSignature("varchar", "VARCHAR");
+TEST_F(TestTypeSignature, integerType) {
+  ASSERT_EQ(*parseTypeSignature("int"), *INTEGER());
+  ASSERT_EQ(*parseTypeSignature("integer"), *INTEGER());
 }
 
-TEST_F(TestTypeSignature, sig03) {
-  assertEquals(parseTypeSignature("int"), parseTypeSignature("integer"));
+TEST_F(TestTypeSignature, varcharType) {
+  ASSERT_EQ(*parseTypeSignature("varchar"), *VARCHAR());
 }
 
-TEST_F(TestTypeSignature, sig04) {
-  assertSignature("array(bigint)", "ARRAY<BIGINT>");
+TEST_F(TestTypeSignature, varbinary) {
+  ASSERT_EQ(*parseTypeSignature("varbinary"), *VARBINARY());
 }
 
-TEST_F(TestTypeSignature, sig05) {
-  assertEquals(
-      parseTypeSignature("array(int)"), parseTypeSignature("array(integer)"));
+TEST_F(TestTypeSignature, arrayType) {
+  ASSERT_EQ(*parseTypeSignature("array(bigint)"), *ARRAY(BIGINT()));
+
+  ASSERT_EQ(*parseTypeSignature("array(int)"), *ARRAY(INTEGER()));
+  ASSERT_EQ(*parseTypeSignature("array(integer)"), *ARRAY(INTEGER()));
+
+  ASSERT_EQ(
+      *parseTypeSignature("array(array(bigint))"), *ARRAY(ARRAY(BIGINT())));
+
+  ASSERT_EQ(*parseTypeSignature("array(array(int))"), *ARRAY(ARRAY(INTEGER())));
 }
 
-TEST_F(TestTypeSignature, sig06) {
-  assertSignature("array(array(bigint))", "ARRAY<ARRAY<BIGINT>>");
+TEST_F(TestTypeSignature, mapType) {
+  ASSERT_EQ(
+      *parseTypeSignature("map(bigint,bigint)"), *MAP(BIGINT(), BIGINT()));
+
+  ASSERT_EQ(
+      *parseTypeSignature("map(bigint,array(bigint))"),
+      *MAP(BIGINT(), ARRAY(BIGINT())));
+
+  ASSERT_EQ(
+      *parseTypeSignature("map(bigint,map(bigint,map(varchar,bigint)))"),
+      *MAP(BIGINT(), MAP(BIGINT(), MAP(VARCHAR(), BIGINT()))));
 }
 
-TEST_F(TestTypeSignature, sig07) {
-  assertEquals(
-      parseTypeSignature("array(array(int))"),
-      parseTypeSignature("array(array(integer))"));
+TEST_F(TestTypeSignature, invalidType) {
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("blah()"), "Failed to parse type [blah()]");
+
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("array()"), "Failed to parse type [array()]");
+
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("map()"), "Failed to parse type [map()]");
+
+  VELOX_ASSERT_THROW(parseTypeSignature("x"), "Failed to parse type [x]");
+
+  // Ensure this is not treated as a row type.
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("rowxxx(a)"), "Failed to parse type [rowxxx(a)]");
 }
 
-TEST_F(TestTypeSignature, sig08) {
-  assertSignature("map(bigint,bigint)", "MAP<BIGINT,BIGINT>");
+TEST_F(TestTypeSignature, rowType) {
+  ASSERT_EQ(
+      *parseTypeSignature("row(a bigint,b varchar,c real)"),
+      *ROW({"a", "b", "c"}, {BIGINT(), VARCHAR(), REAL()}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(a bigint,b array(bigint),c row(a bigint))"),
+      *ROW(
+          {"a", "b", "c"},
+          {BIGINT(), ARRAY(BIGINT()), ROW({"a"}, {BIGINT()})}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(\"12\" bigint,b bigint,c bigint)"),
+      *ROW({"12", "b", "c"}, {BIGINT(), BIGINT(), BIGINT()}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(a varchar(10),b row(a bigint))"),
+      *ROW({"a", "b"}, {VARCHAR(), ROW({"a"}, {BIGINT()})}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("array(row(col0 bigint,col1 double))"),
+      *ARRAY(ROW({"col0", "col1"}, {BIGINT(), DOUBLE()})));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(col0 array(row(col0 bigint,col1 double)))"),
+      *ROW({"col0"}, {ARRAY(ROW({"col0", "col1"}, {BIGINT(), DOUBLE()}))}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(bigint,varchar)"), *ROW({BIGINT(), VARCHAR()}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(bigint,array(bigint),row(a bigint))"),
+      *ROW({BIGINT(), ARRAY(BIGINT()), ROW({"a"}, {BIGINT()})}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(varchar(10),b row(bigint))"),
+      *ROW({"", "b"}, {VARCHAR(), ROW({BIGINT()})}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("array(row(col0 bigint,double))"),
+      *ARRAY(ROW({"col0", ""}, {BIGINT(), DOUBLE()})));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(col0 array(row(bigint,double)))"),
+      *ROW({"col0"}, {ARRAY(ROW({BIGINT(), DOUBLE()}))}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(double double precision)"),
+      *ROW({"double"}, {DOUBLE()}));
+
+  ASSERT_EQ(*parseTypeSignature("row(double precision)"), *ROW({DOUBLE()}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("RoW(a bigint,b varchar)"),
+      *ROW({"a", "b"}, {BIGINT(), VARCHAR()}));
+
+  // Field type canonicalization.
+  ASSERT_EQ(*parseTypeSignature("row(col iNt)"), *ROW({"col"}, {INTEGER()}));
 }
 
-TEST_F(TestTypeSignature, sig09) {
-  assertSignature("map(bigint,array(bigint))", "MAP<BIGINT,ARRAY<BIGINT>>");
-}
-
-TEST_F(TestTypeSignature, sig10) {
-  assertSignature(
-      "map(bigint,map(bigint,map(varchar,bigint)))",
-      "MAP<BIGINT,MAP<BIGINT,MAP<VARCHAR,BIGINT>>>");
-}
-
-TEST_F(TestTypeSignature, sig11) {
-  assertSignatureFail("blah()");
-}
-
-TEST_F(TestTypeSignature, sig12) {
-  assertSignatureFail("array()");
-}
-
-TEST_F(TestTypeSignature, sig13) {
-  assertSignatureFail("map()");
-}
-
-TEST_F(TestTypeSignature, sig14) {
-  assertSignatureFail("x");
-}
-
-TEST_F(TestTypeSignature, sig16) {
-  // ensure this is not treated as a row type
-  assertSignatureFail("rowxxx(a)");
-}
-
-TEST_F(TestTypeSignature, rowWithNumericFieldName) {
-  assertRowSignature(
-      "row(\"12\" bigint,b bigint,c bigint)",
-      rowSignature(
-          namedParameter("12", false, signature("bigint")),
-          namedParameter("b", false, signature("bigint")),
-          namedParameter("c", false, signature("bigint"))));
-}
-
-TEST_F(TestTypeSignature, TestRow01) {
-  assertRowSignature(
-      "row(a bigint,b bigint,c bigint)",
-      rowSignature(
-          namedParameter("a", false, signature("bigint")),
-          namedParameter("b", false, signature("bigint")),
-          namedParameter("c", false, signature("bigint"))));
-}
-
-TEST_F(TestTypeSignature, TestRow02) {
-  assertRowSignature(
-      "row(a bigint,b array(bigint),c row(a bigint))",
-      rowSignature(
-          namedParameter("a", false, signature("bigint")),
-          namedParameter("b", false, array(signature("bigint"))),
-          namedParameter(
-              "c",
-              false,
-              rowSignature(namedParameter("a", false, signature("bigint"))))));
-}
-
-// row signature with named fields
-TEST_F(TestTypeSignature, row03) {
-  assertRowSignature(
-      "row(a bigint,b varchar)",
-      rowSignature(
-          namedParameter("a", false, signature("bigint")),
-          namedParameter("b", false, varchar())));
-}
-
-TEST_F(TestTypeSignature, row04) {
-  // Wondering about this test of '_varchar' ??
-  // assertRowSignature(
-  //        "row(__a__ bigint,_b@_: _varchar)",
-  //        rowSignature(namedParameter("__a__", false, signature("bigint")),
-  //        namedParameter("_b@_:", false, signature("_varchar"))));
-}
-
-TEST_F(TestTypeSignature, row05) {
-  assertRowSignature(
-      "row(a bigint,b array(bigint),c row(a bigint))",
-      rowSignature(
-          namedParameter("a", false, signature("bigint")),
-          namedParameter("b", false, array(signature("bigint"))),
-          namedParameter(
-              "c",
-              false,
-              rowSignature(namedParameter("a", false, signature("bigint"))))));
-}
-
-TEST_F(TestTypeSignature, row06) {
-  assertRowSignature(
-      "row(a varchar(10),b row(a bigint))",
-      rowSignature(
-          namedParameter("a", false, varchar(10)),
-          namedParameter(
-              "b",
-              false,
-              rowSignature(namedParameter("a", false, signature("bigint"))))));
-}
-
-TEST_F(TestTypeSignature, row07) {
-  assertRowSignature(
-      "array(row(col0 bigint,col1 double))",
-      array(rowSignature(
-          namedParameter("col0", false, signature("bigint")),
-          namedParameter("col1", false, signature("double")))));
-}
-
-TEST_F(TestTypeSignature, row08) {
-  assertRowSignature(
-      "row(col0 array(row(col0 bigint,col1 double)))",
-      rowSignature(namedParameter(
-          "col0",
-          false,
-          array(rowSignature(
-              namedParameter("col0", false, signature("bigint")),
-              namedParameter("col1", false, signature("double")))))));
-}
-
-TEST_F(TestTypeSignature, row09) {
-  // row with mixed fields
-  assertRowSignature(
-      "row(bigint,varchar)",
-      rowSignature(
-          unnamedParameter(signature("bigint")), unnamedParameter(varchar())));
-}
-
-TEST_F(TestTypeSignature, row10) {
-  assertRowSignature(
-      "row(bigint,array(bigint),row(a bigint))",
-      rowSignature(
-          unnamedParameter(signature("bigint")),
-          unnamedParameter(array(signature("bigint"))),
-          unnamedParameter(
-              rowSignature(namedParameter("a", false, signature("bigint"))))));
-}
-
-TEST_F(TestTypeSignature, row11) {
-  assertRowSignature(
-      "row(varchar(10),b row(bigint))",
-      rowSignature(
-          unnamedParameter(varchar(10)),
-          namedParameter(
-              "b",
-              false,
-              rowSignature(unnamedParameter(signature("bigint"))))));
-}
-
-TEST_F(TestTypeSignature, row12) {
-  assertRowSignature(
-      "array(row(col0 bigint,double))",
-      array(rowSignature(
-          namedParameter("col0", false, signature("bigint")),
-          unnamedParameter(signature("double")))));
-}
-
-TEST_F(TestTypeSignature, row13) {
-  assertRowSignature(
-      "row(col0 array(row(bigint,double)))",
-      rowSignature(namedParameter(
-          "col0",
-          false,
-          array(rowSignature(
-              unnamedParameter(signature("bigint")),
-              unnamedParameter(signature("double")))))));
-}
-
-TEST_F(TestTypeSignature, row14) {
-  assertRowSignature(
-      "row(double double precision)",
-      rowSignature(
-          namedParameter("double", false, signature("double precision"))));
-}
-
-TEST_F(TestTypeSignature, row15) {
-  assertRowSignature(
-      "row(double precision)",
-      rowSignature(unnamedParameter(signature("double precision"))));
-}
-
-TEST_F(TestTypeSignature, row16) {
-  // preserve base name case
-  assertRowSignature(
-      "RoW(a bigint,b varchar)",
-      rowSignature(
-          namedParameter("a", false, signature("bigint")),
-          namedParameter("b", false, varchar())));
-}
-
-TEST_F(TestTypeSignature, row17) {
-  // field type canonicalization
-  assertEquals(
-      parseTypeSignature("row(col iNt)"),
-      parseTypeSignature("row(col integer)"));
-}
-
-// TEST_F(TestTypeSignature, row18) {
-// assertEquals(parseTypeSignature("row(a Int(p1))"), parseTypeSignature("row(a
-// integer(p1))"));
-
-// signature with invalid type
-// assertRowSignature(
-//        "row(\"time\" with time zone)",
-//        rowSignature(namedParameter("time", true, signature("with time
-//        zone"))));
-//}
-
-// The TestSpacesXX tests all throw failures.  The parser succeeds by the
-// resulting types are not supported by Koski.
-//
-TEST_F(TestTypeSignature, spaces01) {
-  // named fields of types with spaces
-  assertRowSignatureContainsThrows(
-      "row(time time with time zone)",
-      rowSignature(
-          namedParameter("time", false, signature("time with time zone"))),
-      VeloxUserError,
+TEST_F(TestTypeSignature, typesWithSpaces) {
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("row(time time with time zone)"),
       "Specified element is not found : TIME WITH TIME ZONE");
-}
 
-TEST_F(TestTypeSignature, spaces04) {
-  assertRowSignature(
-      "row(interval interval year to month)",
-      rowSignature(namedParameter(
-          "interval", false, signature("interval year to month"))));
-}
+  ASSERT_EQ(
+      *parseTypeSignature("row(double double precision)"),
+      *ROW({"double"}, {DOUBLE()}));
 
-TEST_F(TestTypeSignature, spaces05) {
-  assertRowSignature(
-      "row(double double precision)",
-      rowSignature(
-          namedParameter("double", false, signature("double precision"))));
-}
-
-TEST_F(TestTypeSignature, spaces06) {
-  // unnamed fields of types with spaces
-  assertRowSignatureContainsThrows(
-      "row(time with time zone)",
-      rowSignature(unnamedParameter(signature("time with time zone"))),
-      VeloxUserError,
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("row(time with time zone)"),
       "Specified element is not found : TIME WITH TIME ZONE");
-}
 
-TEST_F(TestTypeSignature, spaces09) {
-  assertRowSignature(
-      "row(interval year to month)",
-      rowSignature(unnamedParameter(signature("interval year to month"))));
-}
+  ASSERT_EQ(*parseTypeSignature("row(double precision)"), *ROW({DOUBLE()}));
 
-TEST_F(TestTypeSignature, spaces10) {
-  assertRowSignature(
-      "row(double precision)",
-      rowSignature(unnamedParameter(signature("double precision"))));
-}
-
-TEST_F(TestTypeSignature, spaces11) {
-  assertRowSignatureContainsThrows(
-      "row(array(time with time zone))",
-      rowSignature(unnamedParameter(array(signature("time with time zone")))),
-      VeloxUserError,
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("row(array(time with time zone))"),
       "Specified element is not found : TIME WITH TIME ZONE");
-}
 
-TEST_F(TestTypeSignature, spaces13) {
   // quoted field names
-  assertRowSignatureContainsThrows(
-      "row(\"time with time zone\" time with time zone,\"double\" double)",
-      rowSignature(
-          namedParameter(
-              "time with time zone", true, signature("time with time zone")),
-          namedParameter("double", true, signature("double"))),
-      VeloxUserError,
+  VELOX_ASSERT_THROW(
+      parseTypeSignature(
+          "row(\"time with time zone\" time with time zone,\"double\" double)"),
       "Specified element is not found : TIME WITH TIME ZONE");
+}
+
+TEST_F(TestTypeSignature, intervalYearToMonthType) {
+  ASSERT_EQ(
+      *parseTypeSignature("row(interval interval year to month)"),
+      *ROW({"interval"}, {INTERVAL_YEAR_MONTH()}));
+
+  ASSERT_EQ(
+      *parseTypeSignature("row(interval year to month)"),
+      *ROW({INTERVAL_YEAR_MONTH()}));
 }
 
 TEST_F(TestTypeSignature, functionType) {
-  assertSignature(
-      "function(bigint,bigint,bigint)", "FUNCTION<BIGINT, BIGINT, BIGINT>");
-  assertSignature(
-      "function(bigint,array(varchar),varchar)",
-      "FUNCTION<BIGINT, ARRAY<VARCHAR>, VARCHAR>");
+  ASSERT_EQ(
+      *parseTypeSignature("function(bigint,bigint,bigint)"),
+      *FUNCTION({BIGINT(), BIGINT()}, BIGINT()));
+  ASSERT_EQ(
+      *parseTypeSignature("function(bigint,array(varchar),varchar)"),
+      *FUNCTION({BIGINT(), ARRAY(VARCHAR())}, VARCHAR()));
 }
 
 TEST_F(TestTypeSignature, decimalType) {
-  assertSignature("decimal(10, 5)", "DECIMAL(10, 5)");
-  assertSignature("decimal(20,10)", "DECIMAL(20, 10)");
-  ASSERT_THROWS_CONTAINS_MESSAGE(
-      parseTypeSignature("decimal");
-      , VeloxUserError, "Failed to parse type [decimal]");
-  ASSERT_THROWS_CONTAINS_MESSAGE(
-      parseTypeSignature("decimal()");
-      , VeloxUserError, "Failed to parse type [decimal()]");
-  ASSERT_THROWS_CONTAINS_MESSAGE(
-      parseTypeSignature("decimal(20)");
-      , VeloxUserError, "Failed to parse type [decimal(20)]");
-  ASSERT_THROWS_CONTAINS_MESSAGE(
-      parseTypeSignature("decimal(, 20)");
-      , VeloxUserError, "Failed to parse type [decimal(, 20)]");
+  ASSERT_EQ(*parseTypeSignature("decimal(10, 5)"), *DECIMAL(10, 5));
+  ASSERT_EQ(*parseTypeSignature("decimal(20,10)"), *DECIMAL(20, 10));
+
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("decimal"), "Failed to parse type [decimal]");
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("decimal()"), "Failed to parse type [decimal()]");
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("decimal(20)"), "Failed to parse type [decimal(20)]");
+  VELOX_ASSERT_THROW(
+      parseTypeSignature("decimal(, 20)"),
+      "Failed to parse type [decimal(, 20)]");
 }
+
+} // namespace
+} // namespace facebook::presto
