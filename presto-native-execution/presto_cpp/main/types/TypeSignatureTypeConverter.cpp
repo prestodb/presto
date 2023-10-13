@@ -23,6 +23,7 @@
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox;
+
 namespace facebook::presto {
 
 TypePtr parseTypeSignature(const std::string& signature) {
@@ -32,9 +33,9 @@ TypePtr parseTypeSignature(const std::string& signature) {
 // static
 TypePtr TypeSignatureTypeConverter::parse(const std::string& text) {
   antlr4::ANTLRInputStream input(text);
-  TypeSignatureLexer lexer(&input);
+  type::TypeSignatureLexer lexer(&input);
   antlr4::CommonTokenStream tokens(&lexer);
-  TypeSignatureParser parser(&tokens);
+  type::TypeSignatureParser parser(&tokens);
 
   parser.setErrorHandler(std::make_shared<antlr4::BailErrorStrategy>());
 
@@ -47,105 +48,7 @@ TypePtr TypeSignatureTypeConverter::parse(const std::string& text) {
   }
 }
 
-antlrcpp::Any TypeSignatureTypeConverter::visitStart(
-    TypeSignatureParser::StartContext* ctx) {
-  NamedType named = visit(ctx->type_spec()).as<NamedType>();
-  return named.type;
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitType_spec(
-    TypeSignatureParser::Type_specContext* ctx) {
-  if (ctx->named_type()) {
-    return visit(ctx->named_type());
-  } else {
-    return NamedType{"", visit(ctx->type()).as<TypePtr>()};
-  }
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitNamed_type(
-    TypeSignatureParser::Named_typeContext* ctx) {
-  return NamedType{
-      visit(ctx->identifier()).as<std::string>(),
-      visit(ctx->type()).as<TypePtr>()};
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitType(
-    TypeSignatureParser::TypeContext* ctx) {
-  return visitChildren(ctx);
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitSimple_type(
-    TypeSignatureParser::Simple_typeContext* ctx) {
-  return ctx->WORD() ? typeFromString(ctx->WORD()->getText())
-                     : typeFromString(ctx->TYPE_WITH_SPACES()->getText());
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitDecimal_type(
-    TypeSignatureParser::Decimal_typeContext* ctx) {
-  if (ctx->NUMBER().size() != 2) {
-    VELOX_USER_FAIL("Invalid decimal type");
-  }
-  auto precision = ctx->NUMBER(0)->getText();
-  auto scale = ctx->NUMBER(1)->getText();
-  return DECIMAL(std::atoi(precision.c_str()), std::atoi(scale.c_str()));
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitVariable_type(
-    TypeSignatureParser::Variable_typeContext* ctx) {
-  return typeFromString(ctx->WORD()->getText());
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitType_list(
-    TypeSignatureParser::Type_listContext* ctx) {
-  std::vector<NamedType> types;
-  for (auto type_spec : ctx->type_spec()) {
-    types.emplace_back(visit(type_spec).as<NamedType>());
-  }
-  return types;
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitRow_type(
-    TypeSignatureParser::Row_typeContext* ctx) {
-  return rowFromNamedTypes(
-      visit(ctx->type_list()).as<std::vector<NamedType>>());
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitMap_type(
-    TypeSignatureParser::Map_typeContext* ctx) {
-  return mapFromKeyValueType(
-      visit(ctx->type()[0]).as<TypePtr>(), visit(ctx->type()[1]).as<TypePtr>());
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitArray_type(
-    TypeSignatureParser::Array_typeContext* ctx) {
-  return arrayFromType(visit(ctx->type()).as<TypePtr>());
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitFunction_type(
-    TypeSignatureParser::Function_typeContext* ctx) {
-  const auto numArgs = ctx->type().size() - 1;
-
-  std::vector<TypePtr> argumentTypes;
-  argumentTypes.reserve(numArgs);
-  for (auto i = 0; i < numArgs; ++i) {
-    argumentTypes.push_back(visit(ctx->type()[i]).as<TypePtr>());
-  }
-
-  auto returnType = visit(ctx->type().back()).as<TypePtr>();
-
-  TypePtr functionType = FUNCTION(std::move(argumentTypes), returnType);
-  return functionType;
-}
-
-antlrcpp::Any TypeSignatureTypeConverter::visitIdentifier(
-    TypeSignatureParser::IdentifierContext* ctx) {
-  if (ctx->WORD()) {
-    return ctx->WORD()->getText();
-  } else {
-    return ctx->QUOTED_ID()->getText().substr(
-        1, ctx->QUOTED_ID()->getText().length() - 2);
-  }
-}
+namespace {
 
 TypePtr typeFromString(const std::string& typeName) {
   auto upper = boost::to_upper_copy(typeName);
@@ -187,27 +90,124 @@ TypePtr typeFromString(const std::string& typeName) {
   return createScalarType(mapNameToTypeKind(upper));
 }
 
-TypePtr rowFromNamedTypes(const std::vector<NamedType>& named) {
-  std::vector<std::string> names{};
-  std::transform(
-      named.begin(), named.end(), std::back_inserter(names), [](NamedType v) {
-        return v.name;
-      });
-  std::vector<TypePtr> types{};
-  std::transform(
-      named.begin(), named.end(), std::back_inserter(types), [](NamedType v) {
-        return v.type;
-      });
+struct NamedType {
+  std::string name;
+  velox::TypePtr type;
+};
 
-  return TypeFactory<TypeKind::ROW>::create(std::move(names), std::move(types));
+} // namespace
+
+antlrcpp::Any TypeSignatureTypeConverter::visitStart(
+    type::TypeSignatureParser::StartContext* ctx) {
+  NamedType named = visit(ctx->type_spec()).as<NamedType>();
+  return named.type;
 }
 
-TypePtr mapFromKeyValueType(TypePtr keyType, TypePtr valueType) {
-  return TypeFactory<TypeKind::MAP>::create(keyType, valueType);
+antlrcpp::Any TypeSignatureTypeConverter::visitType_spec(
+    type::TypeSignatureParser::Type_specContext* ctx) {
+  if (ctx->named_type()) {
+    return visit(ctx->named_type());
+  } else {
+    return NamedType{"", visit(ctx->type()).as<TypePtr>()};
+  }
 }
 
-TypePtr arrayFromType(TypePtr valueType) {
-  return TypeFactory<TypeKind::ARRAY>::create(valueType);
+antlrcpp::Any TypeSignatureTypeConverter::visitNamed_type(
+    type::TypeSignatureParser::Named_typeContext* ctx) {
+  return NamedType{
+      visit(ctx->identifier()).as<std::string>(),
+      visit(ctx->type()).as<TypePtr>()};
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitType(
+    type::TypeSignatureParser::TypeContext* ctx) {
+  return visitChildren(ctx);
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitSimple_type(
+    type::TypeSignatureParser::Simple_typeContext* ctx) {
+  return ctx->WORD() ? typeFromString(ctx->WORD()->getText())
+                     : typeFromString(ctx->TYPE_WITH_SPACES()->getText());
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitDecimal_type(
+    type::TypeSignatureParser::Decimal_typeContext* ctx) {
+  VELOX_USER_CHECK_EQ(2, ctx->NUMBER().size(), "Invalid decimal type");
+
+  const auto precision = ctx->NUMBER(0)->getText();
+  const auto scale = ctx->NUMBER(1)->getText();
+  return DECIMAL(std::atoi(precision.c_str()), std::atoi(scale.c_str()));
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitVariable_type(
+    type::TypeSignatureParser::Variable_typeContext* ctx) {
+  return typeFromString(ctx->WORD()->getText());
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitType_list(
+    type::TypeSignatureParser::Type_listContext* ctx) {
+  std::vector<NamedType> types;
+  for (auto type_spec : ctx->type_spec()) {
+    types.emplace_back(visit(type_spec).as<NamedType>());
+  }
+  return types;
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitRow_type(
+    type::TypeSignatureParser::Row_typeContext* ctx) {
+  const auto namedTypes = visit(ctx->type_list()).as<std::vector<NamedType>>();
+
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+  names.reserve(namedTypes.size());
+  types.reserve(namedTypes.size());
+  for (const auto& namedType : namedTypes) {
+    names.push_back(namedType.name);
+    types.push_back(namedType.type);
+  }
+
+  const TypePtr rowType = ROW(std::move(names), std::move(types));
+  return rowType;
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitMap_type(
+    type::TypeSignatureParser::Map_typeContext* ctx) {
+  const auto keyType = visit(ctx->type()[0]).as<TypePtr>();
+  const auto valueType = visit(ctx->type()[1]).as<TypePtr>();
+  const TypePtr mapType = MAP(keyType, valueType);
+  return mapType;
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitArray_type(
+    type::TypeSignatureParser::Array_typeContext* ctx) {
+  const TypePtr arrayType = ARRAY(visit(ctx->type()).as<TypePtr>());
+  return arrayType;
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitFunction_type(
+    type::TypeSignatureParser::Function_typeContext* ctx) {
+  const auto numArgs = ctx->type().size() - 1;
+
+  std::vector<TypePtr> argumentTypes;
+  argumentTypes.reserve(numArgs);
+  for (auto i = 0; i < numArgs; ++i) {
+    argumentTypes.push_back(visit(ctx->type()[i]).as<TypePtr>());
+  }
+
+  auto returnType = visit(ctx->type().back()).as<TypePtr>();
+
+  TypePtr functionType = FUNCTION(std::move(argumentTypes), returnType);
+  return functionType;
+}
+
+antlrcpp::Any TypeSignatureTypeConverter::visitIdentifier(
+    type::TypeSignatureParser::IdentifierContext* ctx) {
+  if (ctx->WORD()) {
+    return ctx->WORD()->getText();
+  } else {
+    return ctx->QUOTED_ID()->getText().substr(
+        1, ctx->QUOTED_ID()->getText().length() - 2);
+  }
 }
 
 } // namespace facebook::presto
