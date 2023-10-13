@@ -485,6 +485,28 @@ TEST_P(PrestoSerializerTest, ioBufRoundTrip) {
   }
 }
 
+TEST_P(PrestoSerializerTest, roundTrip) {
+  VectorFuzzer::Options opts;
+  opts.timestampPrecision =
+      VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
+  opts.nullRatio = 0.1;
+  VectorFuzzer fuzzer(opts, pool_.get());
+
+  const size_t numRounds = 20;
+
+  for (size_t i = 0; i < numRounds; ++i) {
+    auto rowType = fuzzer.randRowType();
+    auto inputRowVector = fuzzer.fuzzInputRow(rowType);
+    testRoundTrip(inputRowVector);
+  }
+}
+
+TEST_P(PrestoSerializerTest, emptyArrayOfRowVector) {
+  // The value of nullCount_ + nonNullCount_ of the inner RowVector is 0.
+  auto arrayOfRow = vectorMaker_->arrayOfRowVector(ROW({UNKNOWN()}), {{}});
+  testRoundTrip(arrayOfRow);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     PrestoSerializerTest,
     PrestoSerializerTest,

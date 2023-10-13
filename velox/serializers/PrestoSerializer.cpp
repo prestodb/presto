@@ -998,6 +998,9 @@ class VectorStream {
               initialNumRows,
               useLosslessTimestamp);
         }
+        // The first element in the offsets in the wire format is always 0 for
+        // nested types.
+        lengths_.appendOne<int32_t>(0);
         break;
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
@@ -1038,15 +1041,6 @@ class VectorStream {
   }
 
   void appendLength(int32_t length) {
-    if (nullCount_ + nonNullCount_ == 1) {
-      // The first element in the offsets in the wire format is always 0 for
-      // nested types but not for string.
-      auto kind = type_->kind();
-      if (kind == TypeKind::ROW || kind == TypeKind::ARRAY ||
-          kind == TypeKind::MAP) {
-        lengths_.appendOne<int32_t>(0);
-      }
-    }
     totalLength_ += length;
     lengths_.appendOne<int32_t>(totalLength_);
   }
@@ -1113,11 +1107,6 @@ class VectorStream {
           child->flush(out);
         }
         writeInt32(out, nullCount_ + nonNullCount_);
-        if (nullCount_ + nonNullCount_ == 0) {
-          // If nothing was added, there is still one offset in the wire
-          // format.
-          lengths_.appendOne<int32_t>(0);
-        }
         lengths_.flush(out);
         flushNulls(out);
         return;
@@ -1125,11 +1114,6 @@ class VectorStream {
       case TypeKind::ARRAY:
         children_[0]->flush(out);
         writeInt32(out, nullCount_ + nonNullCount_);
-        if (nullCount_ + nonNullCount_ == 0) {
-          // If nothing was added, there is still one offset in the wire
-          // format.
-          lengths_.appendOne<int32_t>(0);
-        }
         lengths_.flush(out);
         flushNulls(out);
         return;
@@ -1140,11 +1124,6 @@ class VectorStream {
         // hash table size. -1 means not included in serialization.
         writeInt32(out, -1);
         writeInt32(out, nullCount_ + nonNullCount_);
-        if (nullCount_ + nonNullCount_ == 0) {
-          // If nothing was added, there is still one offset in the wire
-          // format.
-          lengths_.appendOne<int32_t>(0);
-        }
 
         lengths_.flush(out);
         flushNulls(out);
