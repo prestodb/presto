@@ -18,53 +18,39 @@
 
 #include "presto_cpp/main/types/antlr/TypeSignatureBaseVisitor.h"
 
-namespace facebook {
-namespace presto {
-using namespace type;
+namespace facebook::presto {
 
-class TypeSignatureTypeConverter : TypeSignatureBaseVisitor {
-  virtual antlrcpp::Any visitStart(
-      TypeSignatureParser::StartContext* ctx) override;
-  virtual antlrcpp::Any visitNamed_type(
-      TypeSignatureParser::Named_typeContext* ctx) override;
-  virtual antlrcpp::Any visitType_spec(
-      TypeSignatureParser::Type_specContext* ctx) override;
-  virtual antlrcpp::Any visitType(
-      TypeSignatureParser::TypeContext* ctx) override;
-  virtual antlrcpp::Any visitSimple_type(
-      TypeSignatureParser::Simple_typeContext* ctx) override;
-  virtual antlrcpp::Any visitDecimal_type(
-      TypeSignatureParser::Decimal_typeContext* ctx) override;
-  virtual antlrcpp::Any visitVariable_type(
-      TypeSignatureParser::Variable_typeContext* ctx) override;
-  virtual antlrcpp::Any visitType_list(
-      TypeSignatureParser::Type_listContext* ctx) override;
-  virtual antlrcpp::Any visitRow_type(
-      TypeSignatureParser::Row_typeContext* ctx) override;
-  virtual antlrcpp::Any visitMap_type(
-      TypeSignatureParser::Map_typeContext* ctx) override;
-  virtual antlrcpp::Any visitArray_type(
-      TypeSignatureParser::Array_typeContext* ctx) override;
-  virtual antlrcpp::Any visitFunction_type(
-      TypeSignatureParser::Function_typeContext* ctx) override;
-  virtual antlrcpp::Any visitIdentifier(
-      TypeSignatureParser::IdentifierContext* ctx) override;
-
+class TypeSignatureTypeConverter : type::TypeSignatureBaseVisitor {
  public:
-  static std::shared_ptr<const velox::Type> parse(const std::string& text);
+  static velox::TypePtr parse(const std::string& text);
+
+ private:
+  virtual antlrcpp::Any visitStart(
+      type::TypeSignatureParser::StartContext* ctx) override;
+  virtual antlrcpp::Any visitNamed_type(
+      type::TypeSignatureParser::Named_typeContext* ctx) override;
+  virtual antlrcpp::Any visitType_spec(
+      type::TypeSignatureParser::Type_specContext* ctx) override;
+  virtual antlrcpp::Any visitType(
+      type::TypeSignatureParser::TypeContext* ctx) override;
+  virtual antlrcpp::Any visitSimple_type(
+      type::TypeSignatureParser::Simple_typeContext* ctx) override;
+  virtual antlrcpp::Any visitDecimal_type(
+      type::TypeSignatureParser::Decimal_typeContext* ctx) override;
+  virtual antlrcpp::Any visitVariable_type(
+      type::TypeSignatureParser::Variable_typeContext* ctx) override;
+  virtual antlrcpp::Any visitType_list(
+      type::TypeSignatureParser::Type_listContext* ctx) override;
+  virtual antlrcpp::Any visitRow_type(
+      type::TypeSignatureParser::Row_typeContext* ctx) override;
+  virtual antlrcpp::Any visitMap_type(
+      type::TypeSignatureParser::Map_typeContext* ctx) override;
+  virtual antlrcpp::Any visitArray_type(
+      type::TypeSignatureParser::Array_typeContext* ctx) override;
+  virtual antlrcpp::Any visitFunction_type(
+      type::TypeSignatureParser::Function_typeContext* ctx) override;
+  virtual antlrcpp::Any visitIdentifier(
+      type::TypeSignatureParser::IdentifierContext* ctx) override;
 };
 
-struct NamedType {
-  std::string name;
-  velox::TypePtr type;
-};
-
-velox::TypePtr typeFromString(const std::string& typeName);
-velox::TypePtr rowFromNamedTypes(const std::vector<NamedType>& named);
-velox::TypePtr mapFromKeyValueType(
-    velox::TypePtr keyType,
-    velox::TypePtr valueType);
-velox::TypePtr arrayFromType(velox::TypePtr valueType);
-
-} // namespace presto
-} // namespace facebook
+} // namespace facebook::presto
