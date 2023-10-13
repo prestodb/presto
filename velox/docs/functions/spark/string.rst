@@ -179,6 +179,30 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT substring('Spark SQL', -10, 3); -- "Sp"
         SELECT substring('Spark SQL', -20, 3); -- ""
 
+.. spark:function:: substring_index(string, delim, count) -> [same as string]
+
+    Returns the substring from ``string`` before ``count`` occurrences of the delimiter ``delim``.
+    Here the ``string`` can be VARCHAR or VARBINARY and return type matches type of ``string``.
+    If ``count`` is positive, returns everything to the left of the final delimiter
+    (counting from the left). If ``count`` is negative, returns everything to the right
+    of the final delimiter (counting from the right). If ``count`` is 0, returns empty string.
+    If ``delim`` is not found or found fewer times than ``count``, returns the original input string.
+    ``delim`` is case-sensitive. It also takes into account overlapping strings. ::
+
+        SELECT substring_index('Spark.SQL', '.', 1); -- "Spark"
+        SELECT substring_index('Spark.SQL', '.', 0); -- ""
+        SELECT substring_index('Spark.SQL', '.', -1); -- "SQL"
+        SELECT substring_index('TEST.Spark.SQL', '.',2); -- "TEST.Spark"
+        SELECT substring_index('TEST.Spark.SQL', '', 0); -- ""
+        SELECT substring_index('TEST.Spark.SQL', '.', -2); -- "Spark.SQL"
+        SELECT substring_index('TEST.Spark.SQL', '.', 10); -- "TEST.Spark.SQL"
+        SELECT substring_index('TEST.Spark.SQL', '.', -12); -- "TEST.Spark.SQL"
+        SELECT substring_index('aaaaa', 'aa', 2); -- "a"
+        SELECT substring_index('aaaaa', 'aa', -4); -- "aaa"
+        SELECT substring_index('aaaaa', 'aa', 0); -- ""
+        SELECT substring_index('aaaaa', 'aa', 5); -- "aaaaa"
+        SELECT substring_index('aaaaa', 'aa', -5); -- "aaaaa"
+
 .. spark:function:: translate(string, match, replace) -> varchar
 
     Returns a new translated string. It translates the character in ``string`` by a
