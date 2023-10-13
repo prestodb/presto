@@ -284,9 +284,9 @@ TEST_F(SimpleArrayAggAggregationTest, trackRowSize) {
                               bool testGlobal) {
     auto fn = Aggregate::create(
         "simple_array_agg",
-        step,
-        isRawInput(step) ? std::vector<TypePtr>{BIGINT()}
-                         : std::vector<TypePtr>{ARRAY(BIGINT())},
+        isPartialOutput(step) ? core::AggregationNode::Step::kPartial
+                              : core::AggregationNode::Step::kSingle,
+        std::vector<TypePtr>{BIGINT()},
         ARRAY(BIGINT()),
         queryConfig);
 

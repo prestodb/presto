@@ -252,6 +252,24 @@ class Aggregate {
     validateIntermediateInputs_ = true;
   }
 
+  /// Creates an instance of aggregate function to accumulate a mix of raw input
+  /// and intermediate results and produce either intermediate or final result.
+  ///
+  /// The caller will call setAllocator and setOffsets before starting to add
+  /// data via initializeNewGroups, addRawInput, addIntermediateResults, etc.
+  ///
+  /// @param name Function name, e.g. min, max, sum, avg.
+  /// @param step Either kPartial or kSingle. Determines the type of result:
+  /// intermediate if kPartial, final if kSingle. Partial and intermediate
+  /// aggregations create functions using kPartial. Single and final
+  /// aggregations create functions using kSingle.
+  /// @param argTypes Raw input types. Combined with the function name, uniquely
+  /// identifies the function.
+  /// @param resultType Intermediate result type if step is kPartial. Final
+  /// result type is step is kFinal. This parameter is redundant since it can be
+  /// derived from rawInput types and step. Present for legacy reasons.
+  /// @param config Query config.
+  /// @return An instance of the aggregate function.
   static std::unique_ptr<Aggregate> create(
       const std::string& name,
       core::AggregationNode::Step step,

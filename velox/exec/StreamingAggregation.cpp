@@ -57,9 +57,7 @@ StreamingAggregation::StreamingAggregation(
 
     std::vector<column_index_t> channels;
     std::vector<VectorPtr> constants;
-    std::vector<TypePtr> argTypes;
     for (auto& arg : aggregate.call->inputs()) {
-      argTypes.push_back(arg->type());
       channels.push_back(exprToChannel(arg.get(), inputType));
       if (channels.back() == kConstantChannel) {
         auto constant = static_cast<const core::ConstantTypedExpr*>(arg.get());
@@ -79,8 +77,10 @@ StreamingAggregation::StreamingAggregation(
     const auto& aggResultType = outputType_->childAt(numKeys + i);
     aggregates_.push_back(Aggregate::create(
         aggregate.call->name(),
-        aggregationNode->step(),
-        argTypes,
+        isPartialOutput(aggregationNode->step())
+            ? core::AggregationNode::Step::kPartial
+            : core::AggregationNode::Step::kSingle,
+        aggregate.rawInputTypes,
         aggResultType,
         driverCtx->queryConfig()));
     args_.push_back(channels);
