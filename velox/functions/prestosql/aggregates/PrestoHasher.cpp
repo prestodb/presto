@@ -267,7 +267,7 @@ void PrestoHasher::hash<TypeKind::ROW>(
   BufferPtr combinedChildHashes =
       AlignedBuffer::allocate<int64_t>(elementRows.end(), baseRow->pool());
   auto* rawCombinedChildHashes = combinedChildHashes->asMutable<int64_t>();
-  std::fill_n(rawCombinedChildHashes, rows.end(), 1);
+  std::fill_n(rawCombinedChildHashes, elementRows.end(), 1);
 
   std::fill_n(rawHashes, rows.end(), 1);
 

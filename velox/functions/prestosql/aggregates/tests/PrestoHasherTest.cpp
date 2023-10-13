@@ -109,6 +109,25 @@ class PrestoHasherTest : public testing::Test,
 
     checkHashes(dictionaryVector, modifiedExpected);
 
+    // The dictionary vector is larger than the values.
+    // We make it much larger so that if we allocate any Buffers using the base
+    // Vector's size, it won't be large enough to hold the number of elements in
+    // the DictionaryVector even after aligning the size and expanding it to the
+    // preferred size.
+    auto longerSize = vectorSize * 100;
+
+    modifiedExpected.resize(longerSize);
+    for (size_t i = 0; i < longerSize; ++i) {
+      modifiedExpected[i] = expected[i % vectorSize];
+    }
+
+    BufferPtr longerIndices = makeIndices(
+        longerSize, [vectorSize](auto row) { return row % vectorSize; });
+
+    dictionaryVector = wrapInDictionary(longerIndices, longerSize, vector);
+
+    checkHashes(dictionaryVector, modifiedExpected);
+
     // Wrap in a constant vector of various sizes.
 
     for (int size = 1; size <= vectorSize - 1; size++) {
