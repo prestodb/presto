@@ -240,3 +240,47 @@ arbitrary large timestamps.
 .. function:: yow(x) -> bigint
 
     This is an alias for :func:`year_of_week`.
+
+
+Time Zones
+----------
+
+Velox has full support for time zone rules, which are needed to perform date/time
+calculations correctly. Typically, the session time zone is used for temporal
+calculations. This is the time zone of the client computer that submits the query, if
+available. Otherwise, it is the time zone of the server running the Presto coordinator.
+
+Queries that operate with time zones that follow daylight saving can produce unexpected
+results. For example, if we run the following query in the `America/Los Angeles` time
+zone: ::
+
+        SELECT date_add('hour', 24, cast('2014-03-08 09:00:00' as timestamp));
+        -- 2014-03-09 10:00:00.000
+
+The timestamp appears to only advance 23 hours. This is because on March 9th clocks in
+`America/Los Angeles` are turned forward 1 hour, so March 9th only has 23 hours. To
+advance the day part of the timestamp, use the `day` unit instead: ::
+
+        SELECT date_add('day', 1, cast('2014-03-08 09:00:00' as timestamp));
+        -- 2014-03-09 09:00:00.000
+
+This works because the :func:`date_add` function treats the timestamp as list of fields, adds
+the value to the specified field and then rolls any overflow into the next higher field.
+
+Time zones are also necessary for parsing and printing timestamps. Queries that use this
+functionality can also produce unexpected results. For example, on the same machine: ::
+
+        SELECT cast('2014-03-09 02:30:00' as timestamp);
+
+The above query causes an error because there was no 2:30 AM on March 9th in
+`America/Los_Angeles` due to a daylight saving time transition.
+
+Similarly, the following query has two possible outcomes due to a daylight saving time
+transition: ::
+
+        SELECT cast('2014-11-02 01:30:00' as timestamp);
+        -- 2014-11-02 08:30:00.000
+
+It can be interpreted as `2014-11-02 01:30:00 PDT`, or `2014-11-02 01:30:00 PST`, which are
+`2014-11-02 08:30:00 UTC` or `2014-11-02 09:30:00 UTC` respectively. The former one is
+picked to be consistent with Presto.
