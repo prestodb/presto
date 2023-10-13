@@ -500,6 +500,11 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   options.memoryPool = connectorQueryCtx_->connectorMemoryPool();
   options.compressionKind = insertTableHandle_->compressionKind();
   options.setMemoryReclaimer = connectorQueryCtx_->setMemoryReclaimer();
+  options.maxStripeSize = std::optional(HiveConfig::getKOrcWriterMaxStripeSize(
+      connectorQueryCtx_->config(), connectorProperties_.get()));
+  options.maxDictionaryMemory =
+      std::optional(HiveConfig::getKOrcWriterMaxDictionaryMemory(
+          connectorQueryCtx_->config(), connectorProperties_.get()));
   ioStats_.emplace_back(std::make_shared<io::IoStatistics>());
   auto writer = writerFactory_->createWriter(
       dwio::common::FileSink::create(

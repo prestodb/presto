@@ -16,6 +16,7 @@
 
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/Config.h"
+#include "velox/core/QueryConfig.h"
 
 #include <boost/algorithm/string.hpp>
 
@@ -163,6 +164,49 @@ int32_t HiveConfig::maxCoalescedDistanceBytes(const Config* config) {
 // static.
 int32_t HiveConfig::numCacheFileHandles(const Config* config) {
   return config->get<int32_t>(kNumCacheFileHandles, 20'000);
+}
+
+uint64_t const HiveConfig::getKOrcWriterMaxStripeSize(
+    const Config* connectorQueryCtxConfig,
+    const Config* connectorPropertiesConfig) {
+  if (connectorQueryCtxConfig != nullptr &&
+      connectorQueryCtxConfig->isValueExists(kOrcWriterMaxStripeSize)) {
+    return toCapacity(
+        connectorQueryCtxConfig->get<std::string>(kOrcWriterMaxStripeSize)
+            .value(),
+        core::CapacityUnit::BYTE);
+  }
+  if (connectorPropertiesConfig != nullptr &&
+      connectorPropertiesConfig->isValueExists(kOrcWriterMaxStripeSizeConfig)) {
+    return toCapacity(
+        connectorPropertiesConfig
+            ->get<std::string>(kOrcWriterMaxStripeSizeConfig)
+            .value(),
+        core::CapacityUnit::BYTE);
+  }
+  return 64L * 1024L * 1024L;
+}
+
+uint64_t const HiveConfig::getKOrcWriterMaxDictionaryMemory(
+    const Config* connectorQueryCtxConfig,
+    const Config* connectorPropertiesConfig) {
+  if (connectorQueryCtxConfig != nullptr &&
+      connectorQueryCtxConfig->isValueExists(kOrcWriterMaxDictionaryMemory)) {
+    return toCapacity(
+        connectorQueryCtxConfig->get<std::string>(kOrcWriterMaxDictionaryMemory)
+            .value(),
+        core::CapacityUnit::BYTE);
+  }
+  if (connectorPropertiesConfig != nullptr &&
+      connectorPropertiesConfig->isValueExists(
+          kOrcWriterMaxDictionaryMemoryConfig)) {
+    return toCapacity(
+        connectorPropertiesConfig
+            ->get<std::string>(kOrcWriterMaxDictionaryMemoryConfig)
+            .value(),
+        core::CapacityUnit::BYTE);
+  }
+  return 16L * 1024L * 1024L;
 }
 
 } // namespace facebook::velox::connector::hive
