@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
@@ -73,8 +74,7 @@ TEST_F(MapFilterTest, filter) {
   auto data = std::static_pointer_cast<RowVector>(
       BatchMaker::createBatch(rowType, 1'000, *execCtx_.pool()));
 
-  auto result = evaluate<BaseVector>(
-      "map_filter(map_val, (k, v) -> (k > long_val))", data);
+  auto result = evaluate("map_filter(map_val, (k, v) -> (k > long_val))", data);
   auto* cutoff = data->childAt(0)->as<SimpleVector<int64_t>>();
   checkMapFilter<SimpleVector<int64_t>, SimpleVector<int32_t>>(
       data->childAt(1).get(),
@@ -119,7 +119,7 @@ TEST_F(MapFilterTest, dictionaryWithUniqueValues) {
   // Wrap the input in a dictionary.
   BufferPtr indices = makeIndicesInReverse(data->size());
   data->childAt(1) = wrapInDictionary(indices, data->size(), data->childAt(1));
-  auto result = evaluate<BaseVector>(
+  auto result = evaluate(
       "map_filter(map_filter(map_val, (k, v) -> (k > long_val)), (k, v) -> (v > 0))",
       data);
   auto* cutoff = data->childAt(0)->as<SimpleVector<int64_t>>();
@@ -140,7 +140,7 @@ TEST_F(MapFilterTest, dictionaryWithUniqueValues) {
 
   // Wrap both inputs in the same dictionary.
   data->childAt(0) = wrapInDictionary(indices, data->size(), data->childAt(0));
-  result = evaluate<BaseVector>(
+  result = evaluate(
       "map_filter(map_filter(map_val, (k, v) -> (k > long_val)), (k, v) -> (v > 0))",
       data);
   cutoff = data->childAt(0)->as<SimpleVector<int64_t>>();
@@ -154,7 +154,7 @@ TEST_F(MapFilterTest, conditional) {
   auto data = std::static_pointer_cast<RowVector>(
       BatchMaker::createBatch(rowType, 1'000, *execCtx_.pool()));
 
-  auto result = evaluate<BaseVector>(
+  auto result = evaluate(
       "map_filter(map_val, "
       "  if (long_val < 0, (k, v) -> (v < long_val), (k, v) -> (k > long_val)))",
       data);
@@ -205,13 +205,13 @@ TEST_F(MapFilterTest, dictionaryWithDuplicates) {
 
   auto input = makeRowVector({capture, map});
 
-  auto result = evaluate<BaseVector>(
-      "map_filter(c1, (k, v) -> ((k + v + c0) % 7 < 3))", input);
+  auto result =
+      evaluate("map_filter(c1, (k, v) -> ((k + v + c0) % 7 < 3))", input);
 
   auto flatMap = flatten(map);
   input = makeRowVector({capture, flatMap});
-  auto expectedResult = evaluate<BaseVector>(
-      "map_filter(c1, (k, v) -> ((k + v + c0) % 7 < 3))", input);
+  auto expectedResult =
+      evaluate("map_filter(c1, (k, v) -> ((k + v + c0) % 7 < 3))", input);
 
   assertEqualVectors(expectedResult, result);
 }
@@ -260,13 +260,18 @@ TEST_F(MapFilterTest, try) {
       }),
   });
 
-  ASSERT_THROW(
-      evaluate<BaseVector>("map_filter(c0, (k, v) -> (v / k > 0))", data),
-      std::exception);
+  VELOX_ASSERT_THROW(
+      evaluate("map_filter(c0, (k, v) -> (v / k > 0))", data),
+      "division by zero");
 
-  auto result =
-      evaluate<BaseVector>("try(map_filter(c0, (k, v) -> (v / k > 0)))", data);
+  auto result = evaluate("try(map_filter(c0, (k, v) -> (v / k > 0)))", data);
   auto expected = makeNullableMapVector<int64_t, int64_t>(
       {{{{1, 2}, {2, 3}}}, std::nullopt, {{{7, 8}}}, {{}}});
   assertEqualVectors(expected, result);
+}
+
+TEST_F(MapFilterTest, unknown) {
+  auto data = makeRowVector({makeAllNullMapVector(10, UNKNOWN(), BIGINT())});
+  auto result = evaluate("map_filter(c0, (k, v) -> (v > 5))", data);
+  assertEqualVectors(data->childAt(0), result);
 }

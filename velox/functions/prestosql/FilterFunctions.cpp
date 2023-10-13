@@ -237,7 +237,7 @@ class MapFilterFunction : public FilterFunctionBase {
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     // map(K,V), function(K,V,boolean) -> map(K,V)
     return {exec::FunctionSignatureBuilder()
-                .knownTypeVariable("K")
+                .typeVariable("K")
                 .typeVariable("V")
                 .returnType("map(K,V)")
                 .argumentType("map(K,V)")
