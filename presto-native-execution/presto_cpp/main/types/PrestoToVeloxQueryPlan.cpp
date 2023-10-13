@@ -2446,6 +2446,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     windowFunctions.emplace_back(toVeloxWindowFunction(func.second));
   }
 
+  // TODO(spershin): Supply proper 'inputsSorted' argument to WindowNode
+  // constructor instead of 'false'.
   return std::make_shared<velox::core::WindowNode>(
       node->id,
       partitionFields,
@@ -2453,6 +2455,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       sortOrders,
       windowNames,
       windowFunctions,
+      false,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
