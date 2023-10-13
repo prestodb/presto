@@ -1853,6 +1853,22 @@ TaskStats Task::taskStats() const {
     } else {
       ++taskStats.numBlockedDrivers[driver->blockingReason()];
     }
+    // Find the longest running operator.
+    auto ocs = driver->opCallStatus();
+    if (!ocs.empty()) {
+      const auto callDuration = ocs.callDuration();
+      if (callDuration > taskStats.longestRunningOpCallMs) {
+        taskStats.longestRunningOpCall =
+            ocs.formatCall(driver->findOperatorNoThrow(ocs.opId), ocs.method);
+        taskStats.longestRunningOpCallMs = callDuration;
+      }
+    }
+  }
+
+  // Don't bother with operator calls running under 30 seconds.
+  if (taskStats.longestRunningOpCallMs < 30000) {
+    taskStats.longestRunningOpCall.clear();
+    taskStats.longestRunningOpCallMs = 0;
   }
 
   auto bufferManager = bufferManager_.lock();

@@ -91,6 +91,11 @@ struct TaskStats {
   double outputBufferUtilization{0};
   /// Indicates if output buffer is over-utilized and thus blocks the producers.
   bool outputBufferOverutilized{false};
+
+  /// The longest still running operator call in "op::call" format.
+  std::string longestRunningOpCall;
+  /// The longest still running operator call's duration in ms.
+  size_t longestRunningOpCallMs{0};
 };
 
 } // namespace facebook::velox::exec
