@@ -15,8 +15,10 @@
  */
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/functions/lib/aggregates/SumAggregateBase.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/SumAggregate.h"
+
+using namespace facebook::velox::functions::aggregate;
 
 namespace facebook::velox::aggregate::prestosql {
 

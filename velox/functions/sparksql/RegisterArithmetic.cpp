@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #include "velox/functions/sparksql/RegisterArithmetic.h"
+#include "velox/functions/lib/CheckedArithmetic.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Arithmetic.h"
-#include "velox/functions/prestosql/CheckedArithmetic.h"
 #include "velox/functions/sparksql/Arithmetic.h"
 #include "velox/functions/sparksql/Rand.h"
 

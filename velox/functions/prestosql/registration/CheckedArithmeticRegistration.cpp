@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include "velox/functions/lib/CheckedArithmetic.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
-#include "velox/functions/prestosql/CheckedArithmetic.h"
 
 namespace facebook::velox::functions {
 

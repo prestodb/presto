@@ -17,7 +17,7 @@
 
 #include "velox/expression/ComplexViewTypes.h"
 #include "velox/functions/Udf.h"
-#include "velox/functions/prestosql/CheckedArithmetic.h"
+#include "velox/functions/lib/CheckedArithmetic.h"
 #include "velox/type/Conversions.h"
 
 namespace facebook::velox::functions {

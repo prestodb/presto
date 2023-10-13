@@ -16,7 +16,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/Strings.h"
 #include "velox/expression/FunctionSignature.h"
-#include "velox/functions/prestosql/CheckedArithmeticImpl.h"
+#include "velox/functions/lib/CheckedArithmeticImpl.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/vector/FlatVector.h"
 
