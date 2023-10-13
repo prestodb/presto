@@ -321,3 +321,21 @@ TEST_F(GreatestLeastTest, longDecimal) {
       type);
   runDecimalTest("greatest(c0, c1)", {a, b}, expected);
 }
+
+TEST_F(GreatestLeastTest, boolean) {
+  auto data = makeRowVector({
+      makeFlatVector<bool>({true, true, false, false, true, false}),
+      makeNullableFlatVector<bool>(
+          {true, false, true, false, std::nullopt, std::nullopt}),
+  });
+
+  auto result = evaluate("least(c0, c1)", data);
+  auto expected = makeNullableFlatVector<bool>(
+      {true, false, false, false, std::nullopt, std::nullopt});
+  test::assertEqualVectors(expected, result);
+
+  result = evaluate("greatest(c0, c1)", data);
+  expected = makeNullableFlatVector<bool>(
+      {true, true, true, false, std::nullopt, std::nullopt});
+  test::assertEqualVectors(expected, result);
+}
