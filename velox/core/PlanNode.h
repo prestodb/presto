@@ -782,25 +782,6 @@ class GroupIdNode : public PlanNode {
   /// @param id Plan node ID.
   /// @param groupingSets A list of grouping key sets. Grouping keys within the
   /// set must be unique, but grouping keys across sets may repeat.
-  /// @param groupingKeyInfos The names and order of the grouping keys in the
-  /// output.
-  /// @param aggregationInputs Columns that contain inputs to the aggregate
-  /// functions.
-  /// @param groupIdName Name of the column that will contain the grouping set
-  /// ID (a zero based integer).
-  /// @param source Input plan node.
-  /// NOTE: THIS FUNCTION IS DEPRECATED. PLEASE DO NOT USE.
-  GroupIdNode(
-      PlanNodeId id,
-      std::vector<std::vector<FieldAccessTypedExprPtr>> groupingSets,
-      std::vector<GroupingKeyInfo> groupingKeyInfos,
-      std::vector<FieldAccessTypedExprPtr> aggregationInputs,
-      std::string groupIdName,
-      PlanNodePtr source);
-
-  /// @param id Plan node ID.
-  /// @param groupingSets A list of grouping key sets. Grouping keys within the
-  /// set must be unique, but grouping keys across sets may repeat.
   /// Note: groupingSets are specified using output column names.
   /// @param groupingKeyInfos The names and order of the grouping keys in the
   /// output.
