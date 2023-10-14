@@ -195,7 +195,7 @@ void PrestoExchangeSource::doRequest(
                   bodyAsString(*response, self->pool_.get())));
         } else if (response->hasError()) {
           self->processDataError(
-              path, maxBytes, maxWaitSeconds, response->error(), false);
+              path, maxBytes, maxWaitSeconds, response->error());
         } else {
           self->processDataResponse(std::move(response));
         }
@@ -335,10 +335,11 @@ void PrestoExchangeSource::processDataError(
 
   onFinalFailure(
       fmt::format(
-          "Failed to fetch data from {}:{} {} - Exhausted retries: {}",
+          "Failed to fetch data from {}:{} {} - Exhausted after {} retries: {}",
           host_,
           port_,
           path,
+          failedAttempts_,
           error),
       queue_);
 
