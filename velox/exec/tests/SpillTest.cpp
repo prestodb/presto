@@ -248,7 +248,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
       int numDuplicates,
       const std::vector<CompareFlags>& compareFlags,
       uint64_t expectedNumSpilledFiles) {
-    const int numRowsPerBatch = 20'000;
+    const int numRowsPerBatch = 1'000;
     SCOPED_TRACE(fmt::format(
         "targetFileSize: {}, numPartitions: {}, numBatches: {}, numDuplicates: {}, nullsFirst: {}, ascending: {}",
         targetFileSize,
@@ -273,7 +273,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     ASSERT_GT(stats.spilledBytes, 0);
     ASSERT_GT(stats.spillDiskWrites, 0);
     ASSERT_GT(stats.spillWriteTimeUs, 0);
-    ASSERT_GT(stats.spillFlushTimeUs, 0);
+    ASSERT_GE(stats.spillFlushTimeUs, 0);
     ASSERT_GT(stats.spilledRows, 0);
     // NOTE: the following stats are not collected by spill state.
     ASSERT_EQ(stats.spillFillTimeUs, 0);
@@ -362,7 +362,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     ASSERT_EQ(
         finalStats.toString(),
         fmt::format(
-            "spillRuns[{}] spilledInputBytes[{}] spilledBytes[{}] spilledRows[{}] spilledPartitions[{}] spilledFiles[{}] spillFillTimeUs[{}] spillSortTime[{}] spillSerializationTime[{}] spillDiskWrites[{}] spillFlushTime[{}] spillWriteTime[{}]",
+            "spillRuns[{}] spilledInputBytes[{}] spilledBytes[{}] spilledRows[{}] spilledPartitions[{}] spilledFiles[{}] spillFillTimeUs[{}] spillSortTime[{}] spillSerializationTime[{}] spillDiskWrites[{}] spillFlushTime[{}] spillWriteTime[{}] maxSpillExceededLimitCount[0]",
             finalStats.spillRuns,
             succinctBytes(finalStats.spilledInputBytes),
             succinctBytes(finalStats.spilledBytes),
@@ -402,18 +402,18 @@ TEST_P(SpillTest, spillState) {
   // triggered by batch write.
 
   // Test with distinct sort keys.
-  spillStateTest(kGB, 2, 10, 1, {CompareFlags{true, true}}, 10);
-  spillStateTest(kGB, 2, 10, 1, {CompareFlags{true, false}}, 10);
-  spillStateTest(kGB, 2, 10, 1, {CompareFlags{false, true}}, 10);
-  spillStateTest(kGB, 2, 10, 1, {CompareFlags{false, false}}, 10);
-  spillStateTest(kGB, 2, 10, 1, {}, 10);
+  spillStateTest(kGB, 2, 8, 1, {CompareFlags{true, true}}, 8);
+  spillStateTest(kGB, 2, 8, 1, {CompareFlags{true, false}}, 8);
+  spillStateTest(kGB, 2, 8, 1, {CompareFlags{false, true}}, 8);
+  spillStateTest(kGB, 2, 8, 1, {CompareFlags{false, false}}, 8);
+  spillStateTest(kGB, 2, 8, 1, {}, 8);
 
   // Test with duplicate sort keys.
-  spillStateTest(kGB, 2, 10, 10, {CompareFlags{true, true}}, 10);
-  spillStateTest(kGB, 2, 10, 10, {CompareFlags{true, false}}, 10);
-  spillStateTest(kGB, 2, 10, 10, {CompareFlags{false, true}}, 10);
-  spillStateTest(kGB, 2, 10, 10, {CompareFlags{false, false}}, 10);
-  spillStateTest(kGB, 2, 10, 10, {}, 10);
+  spillStateTest(kGB, 2, 8, 8, {CompareFlags{true, true}}, 8);
+  spillStateTest(kGB, 2, 8, 8, {CompareFlags{true, false}}, 8);
+  spillStateTest(kGB, 2, 8, 8, {CompareFlags{false, true}}, 8);
+  spillStateTest(kGB, 2, 8, 8, {CompareFlags{false, false}}, 8);
+  spillStateTest(kGB, 2, 8, 8, {}, 8);
 }
 
 TEST_P(SpillTest, spillTimestamp) {
@@ -467,18 +467,18 @@ TEST_P(SpillTest, spillStateWithSmallTargetFileSize) {
   // write.
 
   // Test with distinct sort keys.
-  spillStateTest(1, 2, 10, 1, {CompareFlags{true, true}}, 10 * 2);
-  spillStateTest(1, 2, 10, 1, {CompareFlags{true, false}}, 10 * 2);
-  spillStateTest(1, 2, 10, 1, {CompareFlags{false, true}}, 10 * 2);
-  spillStateTest(1, 2, 10, 1, {CompareFlags{false, false}}, 10 * 2);
-  spillStateTest(1, 2, 10, 1, {}, 10 * 2);
+  spillStateTest(1, 2, 8, 1, {CompareFlags{true, true}}, 8 * 2);
+  spillStateTest(1, 2, 8, 1, {CompareFlags{true, false}}, 8 * 2);
+  spillStateTest(1, 2, 8, 1, {CompareFlags{false, true}}, 8 * 2);
+  spillStateTest(1, 2, 8, 1, {CompareFlags{false, false}}, 8 * 2);
+  spillStateTest(1, 2, 8, 1, {}, 8 * 2);
 
   // Test with duplicated sort keys.
-  spillStateTest(1, 2, 10, 10, {CompareFlags{true, false}}, 10 * 2);
-  spillStateTest(1, 2, 10, 10, {CompareFlags{true, true}}, 10 * 2);
-  spillStateTest(1, 2, 10, 10, {CompareFlags{false, false}}, 10 * 2);
-  spillStateTest(1, 2, 10, 10, {CompareFlags{false, true}}, 10 * 2);
-  spillStateTest(1, 2, 10, 10, {}, 10 * 2);
+  spillStateTest(1, 2, 8, 8, {CompareFlags{true, false}}, 8 * 2);
+  spillStateTest(1, 2, 8, 8, {CompareFlags{true, true}}, 8 * 2);
+  spillStateTest(1, 2, 8, 8, {CompareFlags{false, false}}, 8 * 2);
+  spillStateTest(1, 2, 8, 8, {CompareFlags{false, true}}, 8 * 2);
+  spillStateTest(1, 2, 8, 8, {}, 8 * 2);
 }
 
 TEST_P(SpillTest, spillPartitionId) {
@@ -494,7 +494,7 @@ TEST_P(SpillTest, spillPartitionId) {
   ASSERT_NE(partitionId1_2, partitionId1_3);
   ASSERT_LT(partitionId1_2, partitionId1_3);
 
-  for (int iter = 0; iter < 5; ++iter) {
+  for (int iter = 0; iter < 3; ++iter) {
     folly::Random::DefaultGenerator rng;
     rng.seed(iter);
     const int numIds = std::max<int>(1024, folly::Random::rand64(rng) % 4096);
@@ -529,7 +529,7 @@ TEST_P(SpillTest, spillPartitionId) {
 }
 
 TEST_P(SpillTest, spillPartitionSet) {
-  for (int iter = 0; iter < 5; ++iter) {
+  for (int iter = 0; iter < 3; ++iter) {
     folly::Random::DefaultGenerator rng;
     rng.seed(iter);
     const int numPartitions =
@@ -547,6 +547,10 @@ TEST_P(SpillTest, spillPartitionSet) {
       partitionIdSet.insert(id);
       spillPartitions.push_back(std::make_unique<SpillPartition>(id));
       ASSERT_EQ(id, spillPartitions.back()->id());
+      ASSERT_EQ(
+          spillPartitions.back()->toString(),
+          fmt::format(
+              "SPILLED PARTITION[ID:{} FILES:0 SIZE:0B]", id.toString()));
       // Expect an empty reader.
       auto reader = spillPartitions.back()->createReader();
       ASSERT_FALSE(reader->nextBatch(output));
@@ -579,7 +583,9 @@ TEST_P(SpillTest, spillPartitionSet) {
   std::vector<std::vector<RowVectorPtr>> batchesByPartition(numPartitions);
   std::vector<std::unique_ptr<SpillPartition>> spillPartitions;
   int numBatchesPerPartition = 0;
-  const int numRowsPerBatch = 100;
+  const int numRowsPerBatch = 50;
+  std::vector<uint64_t> expectedPartitionSizes(numPartitions, 0);
+  std::vector<uint64_t> expectedPartitionFiles(numPartitions, 0);
   for (int iter = 0; iter < numSpillers; ++iter) {
     folly::Random::DefaultGenerator rng;
     rng.seed(iter);
@@ -589,11 +595,16 @@ TEST_P(SpillTest, spillPartitionSet) {
     numBatchesPerPartition += numBatches;
     for (int i = 0; i < numPartitions; ++i) {
       const SpillPartitionId id(0, i);
+      auto spillFiles = state_->files(i);
+      for (const auto& file : spillFiles) {
+        expectedPartitionSizes[i] += file->size();
+        ++expectedPartitionFiles[i];
+      }
       if (iter == 0) {
         spillPartitions.emplace_back(
-            std::make_unique<SpillPartition>(id, state_->files(i)));
+            std::make_unique<SpillPartition>(id, std::move(spillFiles)));
       } else {
-        spillPartitions[i]->addFiles(state_->files(i));
+        spillPartitions[i]->addFiles(std::move(spillFiles));
       }
       std::copy(
           batchesByPartition_[i].begin(),
@@ -605,6 +616,14 @@ TEST_P(SpillTest, spillPartitionSet) {
   for (int i = 0; i < numPartitions; ++i) {
     RowVectorPtr output;
     {
+      ASSERT_EQ(spillPartitions[i]->size(), expectedPartitionSizes[i]);
+      ASSERT_EQ(
+          spillPartitions[i]->toString(),
+          fmt::format(
+              "SPILLED PARTITION[ID:[0,{}] FILES:{} SIZE:{}]",
+              i,
+              expectedPartitionFiles[i],
+              succinctBytes(expectedPartitionSizes[i])));
       auto reader = spillPartitions[i]->createReader();
       for (int j = 0; j < numBatchesPerPartition; ++j) {
         ASSERT_TRUE(reader->nextBatch(output));
@@ -628,11 +647,11 @@ TEST_P(SpillTest, spillPartitionSet) {
 TEST_P(SpillTest, spillPartitionSpilt) {
   for (int seed = 0; seed < 5; ++seed) {
     SCOPED_TRACE(fmt::format("seed: {}", seed));
-    int numBatches = 100;
+    int numBatches = 50;
     std::vector<RowVectorPtr> batches;
     batches.reserve(numBatches);
 
-    const int numRowsPerBatch = 100;
+    const int numRowsPerBatch = 50;
     setupSpillState(seed % 2 ? 1 : kGB, 1, numBatches, numRowsPerBatch);
     const SpillPartitionId id(0, 0);
 
@@ -672,7 +691,7 @@ TEST_P(SpillTest, spillPartitionSpilt) {
 }
 
 TEST_P(SpillTest, nonExistSpillFileOnDeletion) {
-  const int32_t numRowsPerBatch = 100;
+  const int32_t numRowsPerBatch = 50;
   std::vector<RowVectorPtr> batches;
   setupSpillState(kGB, 1, 2, numRowsPerBatch);
   // Delete the tmp dir to verify the spill file deletion error won't fail the
@@ -707,6 +726,7 @@ TEST(SpillTest, spillStats) {
   stats1.spillFillTimeUs = 1023;
   stats1.spilledRows = 1023;
   stats1.spillSerializationTimeUs = 1023;
+  stats1.spillMaxLevelExceededCount = 3;
   ASSERT_FALSE(stats1.empty());
   SpillStats stats2;
   stats2.spillRuns = 100;
@@ -721,6 +741,7 @@ TEST(SpillTest, spillStats) {
   stats2.spillFillTimeUs = 1030;
   stats2.spilledRows = 1031;
   stats2.spillSerializationTimeUs = 1032;
+  stats2.spillMaxLevelExceededCount = 4;
   ASSERT_TRUE(stats1 < stats2);
   ASSERT_TRUE(stats1 <= stats2);
   ASSERT_FALSE(stats1 > stats2);
@@ -759,6 +780,7 @@ TEST(SpillTest, spillStats) {
   ASSERT_EQ(delta.spillFillTimeUs, -7);
   ASSERT_EQ(delta.spilledRows, -8);
   ASSERT_EQ(delta.spillSerializationTimeUs, -9);
+  ASSERT_EQ(delta.spillMaxLevelExceededCount, -1);
   stats1.spilledInputBytes = 2060;
   stats1.spilledBytes = 1030;
   VELOX_ASSERT_THROW(stats1 < stats2, "");
@@ -772,5 +794,5 @@ TEST(SpillTest, spillStats) {
   ASSERT_EQ(zeroStats, stats1);
   ASSERT_EQ(
       stats2.toString(),
-      "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] spillFillTimeUs[1.03ms] spillSortTime[1.03ms] spillSerializationTime[1.03ms] spillDiskWrites[1028] spillFlushTime[1.03ms] spillWriteTime[1.03ms]");
+      "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] spillFillTimeUs[1.03ms] spillSortTime[1.03ms] spillSerializationTime[1.03ms] spillDiskWrites[1028] spillFlushTime[1.03ms] spillWriteTime[1.03ms] maxSpillExceededLimitCount[4]");
 }

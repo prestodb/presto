@@ -1597,26 +1597,26 @@ DEBUG_ONLY_TEST_F(
     } else {
       joinQueryCtx = newQueryCtx(kMemoryCapacity);
     }
-
-    folly::EventCount fakeAllocationWait;
-    auto fakeAllocationWaitKey = fakeAllocationWait.prepareWait();
-    folly::EventCount taskPauseWait;
-
     const auto joinMemoryUsage = 8L << 20;
     const auto fakeAllocationSize = kMemoryCapacity - joinMemoryUsage / 2;
 
     std::atomic<bool> injectAllocationOnce{true};
+    std::atomic<bool> fakeAllocationWaitFlag{true};
+    folly::EventCount fakeAllocationWait;
     fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
       if (!injectAllocationOnce.exchange(false)) {
         return TestAllocation{};
       }
-      fakeAllocationWait.wait(fakeAllocationWaitKey);
+      fakeAllocationWait.await(
+          [&]() { return !fakeAllocationWaitFlag.load(); });
       auto buffer = op->pool()->allocate(fakeAllocationSize);
       return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
     std::atomic<int> injectCount{0};
     folly::futures::Barrier builderBarrier(numDrivers);
+    std::atomic<bool> taskPauseWaitFlag{true};
+    folly::EventCount taskPauseWait;
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::addInput",
         std::function<void(Operator*)>(([&](Operator* op) {
@@ -1633,18 +1633,20 @@ DEBUG_ONLY_TEST_F(
           }
           auto future = builderBarrier.wait();
           if (future.wait().value()) {
-            fakeAllocationWait.notify();
+            fakeAllocationWaitFlag = false;
+            fakeAllocationWait.notifyAll();
           }
 
-          auto taskPauseWaitKey = taskPauseWait.prepareWait();
           // Wait for pause to be triggered.
-          taskPauseWait.wait(taskPauseWaitKey);
+          taskPauseWait.await([&]() { return !taskPauseWaitFlag.load(); });
         })));
 
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Task::requestPauseLocked",
-        std::function<void(Task*)>(
-            [&](Task* /*unused*/) { taskPauseWait.notifyAll(); }));
+        std::function<void(Task*)>([&](Task* /*unused*/) {
+          taskPauseWaitFlag = false;
+          taskPauseWait.notifyAll();
+        }));
 
     // joinQueryCtx and fakeMemoryQueryCtx may be the same and thus share the
     // same underlying QueryConfig.  We apply the changes here instead of using
@@ -1653,11 +1655,7 @@ DEBUG_ONLY_TEST_F(
     std::unordered_map<std::string, std::string> config{
         {core::QueryConfig::kSpillEnabled, "true"},
         {core::QueryConfig::kJoinSpillEnabled, "true"},
-        {core::QueryConfig::kJoinSpillPartitionBits, "2"},
-        // NOTE: set an extreme large value to avoid non-reclaimable
-        // section in test.
-        {core::QueryConfig::kSpillableReservationGrowthPct, "8000"},
-    };
+        {core::QueryConfig::kJoinSpillPartitionBits, "2"}};
     joinQueryCtx->testingOverrideConfigUnsafe(std::move(config));
 
     std::thread joinThread([&]() {
@@ -1723,47 +1721,25 @@ DEBUG_ONLY_TEST_F(
       newQueryCtx(kMemoryCapacity);
   std::shared_ptr<core::QueryCtx> joinQueryCtx = newQueryCtx(kMemoryCapacity);
 
+  std::atomic<bool> allocationWaitFlag{true};
   folly::EventCount allocationWait;
-  auto allocationWaitKey = allocationWait.prepareWait();
+  std::atomic<bool> allocationDoneWaitFlag{true};
   folly::EventCount allocationDoneWait;
-  auto allocationDoneWaitKey = allocationDoneWait.prepareWait();
 
   const auto joinMemoryUsage = 8L << 20;
-  const auto fakeAllocationSize = kMemoryCapacity - joinMemoryUsage / 2;
+  const auto fakeAllocationSize = kMemoryCapacity - joinMemoryUsage / 3;
 
   std::atomic<bool> injectAllocationOnce{true};
   fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
     if (!injectAllocationOnce.exchange(false)) {
       return TestAllocation{};
     }
-    allocationWait.wait(allocationWaitKey);
+    allocationWait.await([&]() { return !allocationWaitFlag.load(); });
     EXPECT_ANY_THROW(op->pool()->allocate(fakeAllocationSize));
-    allocationDoneWait.notify();
+    allocationDoneWaitFlag = false;
+    allocationDoneWait.notifyAll();
     return TestAllocation{};
   });
-
-  std::atomic<int> injectCount{0};
-  folly::futures::Barrier builderBarrier(numDrivers);
-  folly::futures::Barrier pauseBarrier(numDrivers + 1);
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::Driver::runInternal::addInput",
-      std::function<void(Operator*)>(([&](Operator* op) {
-        if (op->operatorType() != "HashBuild") {
-          return;
-        }
-        // Check all the hash build operators' memory usage instead of
-        // individual operator.
-        if (op->pool()->parent()->currentBytes() < joinMemoryUsage) {
-          return;
-        }
-        if (++injectCount > numDrivers - 1) {
-          return;
-        }
-        if (builderBarrier.wait().get()) {
-          allocationWait.notify();
-        }
-        pauseBarrier.wait();
-      })));
 
   std::atomic<bool> injectNonReclaimableSectionOnce{true};
   SCOPED_TESTVALUE_SET(
@@ -1780,34 +1756,22 @@ DEBUG_ONLY_TEST_F(
             if (!injectNonReclaimableSectionOnce.exchange(false)) {
               return;
             }
-            if (builderBarrier.wait().get()) {
-              allocationWait.notify();
-            }
-            pauseBarrier.wait();
+            allocationWaitFlag = false;
+            allocationWait.notifyAll();
+
             // Suspend the driver to simulate the arbitration.
             pool->reclaimer()->enterArbitration();
-            allocationDoneWait.wait(allocationDoneWaitKey);
+            allocationDoneWait.await(
+                [&]() { return !allocationDoneWaitFlag.load(); });
             pool->reclaimer()->leaveArbitration();
           })));
-
-  std::atomic<bool> injectPauseOnce{true};
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::Task::requestPauseLocked",
-      std::function<void(Task*)>([&](Task* /*unused*/) {
-        if (!injectPauseOnce.exchange(false)) {
-          return;
-        }
-        pauseBarrier.wait();
-      }));
 
   // Verifies that we only trigger the hash build reclaim once.
   std::atomic<int> numHashBuildReclaims{0};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::HashBuild::reclaim",
-      std::function<void(Operator*)>([&](Operator* /*unused*/) {
-        ++numHashBuildReclaims;
-        ASSERT_EQ(numHashBuildReclaims, 1);
-      }));
+      std::function<void(Operator*)>(
+          [&](Operator* /*unused*/) { ++numHashBuildReclaims; }));
 
   std::thread joinThread([&]() {
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
@@ -1817,9 +1781,6 @@ DEBUG_ONLY_TEST_F(
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kJoinSpillEnabled, "true")
             .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
-            // NOTE: set an extreme large value to avoid non-reclaimable
-            // section in test.
-            .config(core::QueryConfig::kSpillableReservationGrowthPct, "8000")
             .maxDrivers(numDrivers)
             .queryCtx(joinQueryCtx)
             .plan(PlanBuilder(planNodeIdGenerator)

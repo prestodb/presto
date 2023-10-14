@@ -204,6 +204,9 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
         operatorCtx_->driver()->shared_from_this(),
         [&](const std::vector<Operator*>& operators) { runSpill(operators); });
   } else {
+    LOG(INFO) << "Setup reader to read spilled input from "
+              << spillPartition->toString()
+              << ", memory pool: " << pool()->name();
     spillInputReader_ = spillPartition->createReader();
 
     const auto startBit = spillPartition->id().partitionBitOffset() +
@@ -211,6 +214,11 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     // Disable spilling if exceeding the max spill level and the query might run
     // out of memory if the restored partition still can't fit in memory.
     if (spillConfig.exceedJoinSpillLevelLimit(startBit)) {
+      LOG(WARNING) << "Exceeded spill level limit: "
+                   << spillConfig.maxSpillLevel
+                   << ", and disable spilling for memory pool: "
+                   << pool()->name();
+      exceededMaxSpillLevelLimit_ = true;
       return;
     }
     hashBits = HashBitRange(startBit, startBit + spillConfig.joinPartitionBits);
@@ -310,6 +318,8 @@ void HashBuild::addInput(RowVectorPtr input) {
     VELOX_CHECK(future_.valid());
     return;
   }
+
+  TestValue::adjust("facebook::velox::exec::HashBuild::addInput", this);
 
   // Prevents the memory arbitrator to reclaim memory from this operator during
   // the execution belowg.
@@ -433,8 +443,8 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
   numSpillRows_ = 0;
   numSpillBytes_ = 0;
 
-  auto rows = table_->rows();
-  auto numRows = rows->numRows();
+  auto* rows = table_->rows();
+  const auto numRows = rows->numRows();
   if (numRows == 0) {
     // Skip the memory reservation for the first input as we are lack of memory
     // usage stats for estimation. It is safe to skip as the query should have
@@ -443,10 +453,11 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
   }
 
   auto [freeRows, outOfLineFreeBytes] = rows->freeSpace();
-  auto outOfLineBytes =
+  const auto outOfLineBytes =
       rows->stringAllocator().retainedSize() - outOfLineFreeBytes;
-  auto outOfLineBytesPerRow = std::max<uint64_t>(1, outOfLineBytes / numRows);
-  int64_t flatBytes = input->estimateFlatSize();
+  const auto outOfLineBytesPerRow =
+      std::max<uint64_t>(1, outOfLineBytes / numRows);
+  const int64_t flatBytes = input->estimateFlatSize();
 
   // Test-only spill path.
   if (testingTriggerSpill()) {
@@ -467,36 +478,45 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
     return false;
   }
 
-  if (freeRows > input->size() &&
-      (outOfLineBytes == 0 || outOfLineFreeBytes >= flatBytes)) {
-    // Enough free rows for input rows and enough variable length free
-    // space for the flat size of the whole vector. If outOfLineBytes
-    // is 0 there is no need for variable length space.
-    return true;
-  }
+  const auto minReservationBytes =
+      currentUsage * spillConfig_->minSpillableReservationPct / 100;
+  const auto availableReservationBytes = pool()->availableReservation();
+  const auto tableIncrementBytes = table_->hashTableSizeIncrease(input->size());
+  const auto incrementBytes =
+      rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes * 2 : 0) +
+      tableIncrementBytes;
 
-  // If there is variable length data we take the flat size of the
-  // input as a cap on the new variable length data needed.
-  const auto increment =
-      rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes : 0);
+  // First to check if we have sufficient minimal memory reservation.
+  if (availableReservationBytes >= minReservationBytes) {
+    if (freeRows > input->size() &&
+        (outOfLineBytes == 0 || outOfLineFreeBytes >= flatBytes)) {
+      // Enough free rows for input rows and enough variable length free
+      // space for the flat size of the whole vector. If outOfLineBytes
+      // is 0 there is no need for variable length space.
+      return true;
+    }
 
-  // There must be at least 2x the increments in reservation.
-  if (pool()->availableReservation() > 2 * increment) {
-    return true;
+    // If there is variable length data we take the flat size of the
+    // input as a cap on the new variable length data needed. There must be at
+    // least 2x the increments in reservation.
+    if (pool()->availableReservation() > 2 * incrementBytes) {
+      return true;
+    }
   }
 
   // Check if we can increase reservation. The increment is the larger of
   // twice the maximum increment from this input and
   // 'spillableReservationGrowthPct_' of the current reservation.
-  auto targetIncrement = std::max<int64_t>(
-      increment * 2,
-      pool()->currentBytes() * spillConfig()->spillableReservationGrowthPct /
-          100);
-  if (pool()->maybeReserve(targetIncrement)) {
+  const auto targetIncrementBytes = std::max<int64_t>(
+      incrementBytes * 2,
+      currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
+
+  if (pool()->maybeReserve(targetIncrementBytes)) {
     return true;
   }
+
   numSpillRows_ = std::max<int64_t>(
-      1, targetIncrement / (rows->fixedRowSize() + outOfLineBytesPerRow));
+      1, targetIncrementBytes / (rows->fixedRowSize() + outOfLineBytesPerRow));
   numSpillBytes_ = numSpillRows_ * outOfLineBytesPerRow;
   return false;
 }
@@ -726,6 +746,7 @@ void HashBuild::noMoreInputInternal() {
 
 bool HashBuild::finishHashBuild() {
   checkRunning();
+
   // Release the unused memory reservation before building the merged join
   // table.
   pool()->release();
@@ -789,13 +810,12 @@ bool HashBuild::finishHashBuild() {
     otherTables.push_back(std::move(build->table_));
     if (build->spiller_ != nullptr) {
       build->spiller_->finishSpill(spillPartitions);
-      build->recordSpillStats();
     }
+    build->recordSpillStats();
   }
 
   if (spiller_ != nullptr) {
     spiller_->finishSpill(spillPartitions);
-    recordSpillStats();
 
     // Remove the spilled partitions which are empty so as we don't need to
     // trigger unnecessary spilling at hash probe side.
@@ -808,6 +828,7 @@ bool HashBuild::finishHashBuild() {
       }
     }
   }
+  recordSpillStats();
 
   // TODO: re-enable parallel join build with spilling triggered after
   // https://github.com/facebookincubator/velox/issues/3567 is fixed.
@@ -830,10 +851,16 @@ bool HashBuild::finishHashBuild() {
 }
 
 void HashBuild::recordSpillStats() {
-  VELOX_CHECK_NOT_NULL(spiller_);
-  const auto spillStats = spiller_->stats();
-  VELOX_CHECK_EQ(spillStats.spillSortTimeUs, 0);
-  Operator::recordSpillStats(spillStats);
+  if (spiller_ != nullptr) {
+    const auto spillStats = spiller_->stats();
+    VELOX_CHECK_EQ(spillStats.spillSortTimeUs, 0);
+    Operator::recordSpillStats(spillStats);
+  } else if (exceededMaxSpillLevelLimit_) {
+    exceededMaxSpillLevelLimit_ = false;
+    SpillStats spillStats;
+    spillStats.spillMaxLevelExceededCount = 1;
+    Operator::recordSpillStats(spillStats);
+  }
 }
 
 void HashBuild::ensureTableFits(uint64_t numRows) {
@@ -980,7 +1007,7 @@ BlockingReason HashBuild::isBlocked(ContinueFuture* future) {
       }
       break;
     case State::kWaitForBuild:
-      [[fallthrough]];
+      FOLLY_FALLTHROUGH;
     case State::kWaitForProbe:
       if (!future_.valid()) {
         setRunning();

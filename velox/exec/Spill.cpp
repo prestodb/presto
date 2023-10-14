@@ -426,6 +426,14 @@ std::vector<std::unique_ptr<SpillPartition>> SpillPartition::split(
   return shards;
 }
 
+std::string SpillPartition::toString() const {
+  return fmt::format(
+      "SPILLED PARTITION[ID:{} FILES:{} SIZE:{}]",
+      id_.toString(),
+      files_.size(),
+      succinctBytes(size_));
+}
+
 std::unique_ptr<UnorderedStreamReader<BatchStream>>
 SpillPartition::createReader() {
   std::vector<std::unique_ptr<BatchStream>> streams;
@@ -450,7 +458,8 @@ SpillStats::SpillStats(
     uint64_t _spillSerializationTimeUs,
     uint64_t _spillDiskWrites,
     uint64_t _spillFlushTimeUs,
-    uint64_t _spillWriteTimeUs)
+    uint64_t _spillWriteTimeUs,
+    uint64_t _spillMaxLevelExceededCount)
     : spillRuns(_spillRuns),
       spilledInputBytes(_spilledInputBytes),
       spilledBytes(_spilledBytes),
@@ -462,7 +471,8 @@ SpillStats::SpillStats(
       spillSerializationTimeUs(_spillSerializationTimeUs),
       spillDiskWrites(_spillDiskWrites),
       spillFlushTimeUs(_spillFlushTimeUs),
-      spillWriteTimeUs(_spillWriteTimeUs) {}
+      spillWriteTimeUs(_spillWriteTimeUs),
+      spillMaxLevelExceededCount(_spillMaxLevelExceededCount) {}
 
 bool SpillStats::empty() const {
   return spilledBytes == 0;
@@ -481,6 +491,7 @@ SpillStats& SpillStats::operator+=(const SpillStats& other) {
   spillDiskWrites += other.spillDiskWrites;
   spillFlushTimeUs += other.spillFlushTimeUs;
   spillWriteTimeUs += other.spillWriteTimeUs;
+  spillMaxLevelExceededCount += other.spillMaxLevelExceededCount;
   return *this;
 }
 
@@ -499,6 +510,8 @@ SpillStats SpillStats::operator-(const SpillStats& other) const {
   result.spillDiskWrites = spillDiskWrites - other.spillDiskWrites;
   result.spillFlushTimeUs = spillFlushTimeUs - other.spillFlushTimeUs;
   result.spillWriteTimeUs = spillWriteTimeUs - other.spillWriteTimeUs;
+  result.spillMaxLevelExceededCount =
+      spillMaxLevelExceededCount - other.spillMaxLevelExceededCount;
   return result;
 }
 
@@ -529,6 +542,7 @@ bool SpillStats::operator<(const SpillStats& other) const {
   UPDATE_COUNTER(spillDiskWrites);
   UPDATE_COUNTER(spillFlushTimeUs);
   UPDATE_COUNTER(spillWriteTimeUs);
+  UPDATE_COUNTER(spillMaxLevelExceededCount);
 #undef UPDATE_COUNTER
   VELOX_CHECK(
       !((gtCount > 0) && (ltCount > 0)),
@@ -563,7 +577,8 @@ bool SpillStats::operator==(const SpillStats& other) const {
              spillSerializationTimeUs,
              spillDiskWrites,
              spillFlushTimeUs,
-             spillWriteTimeUs) ==
+             spillWriteTimeUs,
+             spillMaxLevelExceededCount) ==
       std::tie(
              other.spillRuns,
              other.spilledInputBytes,
@@ -576,7 +591,8 @@ bool SpillStats::operator==(const SpillStats& other) const {
              other.spillSerializationTimeUs,
              other.spillDiskWrites,
              other.spillFlushTimeUs,
-             other.spillWriteTimeUs);
+             other.spillWriteTimeUs,
+             spillMaxLevelExceededCount);
 }
 
 void SpillStats::reset() {
@@ -592,11 +608,12 @@ void SpillStats::reset() {
   spillDiskWrites = 0;
   spillFlushTimeUs = 0;
   spillWriteTimeUs = 0;
+  spillMaxLevelExceededCount = 0;
 }
 
 std::string SpillStats::toString() const {
   return fmt::format(
-      "spillRuns[{}] spilledInputBytes[{}] spilledBytes[{}] spilledRows[{}] spilledPartitions[{}] spilledFiles[{}] spillFillTimeUs[{}] spillSortTime[{}] spillSerializationTime[{}] spillDiskWrites[{}] spillFlushTime[{}] spillWriteTime[{}]",
+      "spillRuns[{}] spilledInputBytes[{}] spilledBytes[{}] spilledRows[{}] spilledPartitions[{}] spilledFiles[{}] spillFillTimeUs[{}] spillSortTime[{}] spillSerializationTime[{}] spillDiskWrites[{}] spillFlushTime[{}] spillWriteTime[{}] maxSpillExceededLimitCount[{}]",
       spillRuns,
       succinctBytes(spilledInputBytes),
       succinctBytes(spilledBytes),
@@ -608,7 +625,8 @@ std::string SpillStats::toString() const {
       succinctMicros(spillSerializationTimeUs),
       spillDiskWrites,
       succinctMicros(spillFlushTimeUs),
-      succinctMicros(spillWriteTimeUs));
+      succinctMicros(spillWriteTimeUs),
+      spillMaxLevelExceededCount);
 }
 
 SpillPartitionIdSet toSpillPartitionIdSet(
@@ -665,6 +683,12 @@ void updateGlobalSpillMemoryBytes(uint64_t spilledInputBytes) {
 
 void incrementGlobalSpilledFiles() {
   ++localSpillStats().wlock()->spilledFiles;
+}
+
+void updateGlobalMaxSpillLevelExceededCount(
+    uint64_t maxSpillLevelExceededCount) {
+  localSpillStats().wlock()->spillMaxLevelExceededCount +=
+      maxSpillLevelExceededCount;
 }
 
 SpillStats globalSpillStats() {

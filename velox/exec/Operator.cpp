@@ -343,6 +343,15 @@ void Operator::recordSpillStats(const SpillStats& spillStats) {
         "spillRuns", RuntimeCounter{static_cast<int64_t>(numSpillRuns_)});
     updateGlobalSpillRunStats(numSpillRuns_);
   }
+
+  if (spillStats.spillMaxLevelExceededCount != 0) {
+    lockedStats->addRuntimeStat(
+        "exceededMaxSpillLevel",
+        RuntimeCounter{
+            static_cast<int64_t>(spillStats.spillMaxLevelExceededCount)});
+    updateGlobalMaxSpillLevelExceededCount(
+        spillStats.spillMaxLevelExceededCount);
+  }
 }
 
 std::string Operator::toString() const {

@@ -5978,4 +5978,121 @@ TEST_F(HashJoinTest, leftJoinWithMissAtEndOfBatchMultipleBuildMatches) {
   // with tk_2 = 4 to get written.
   test("t_k2 != 4 and t_k2 != 8");
 }
+
+DEBUG_ONLY_TEST_F(HashJoinTest, minSpillableMemoryReservation) {
+  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
+  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
+  const int32_t numBuildVectors = 10;
+  std::vector<RowVectorPtr> buildVectors;
+  for (int32_t i = 0; i < numBuildVectors; ++i) {
+    buildVectors.push_back(fuzzer.fuzzInputRow(buildType_));
+  }
+  const int32_t numProbeVectors = 5;
+  std::vector<RowVectorPtr> probeVectors;
+  for (int32_t i = 0; i < numProbeVectors; ++i) {
+    probeVectors.push_back(fuzzer.fuzzInputRow(probeType_));
+  }
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  core::PlanNodeId probeScanId;
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(probeVectors, false)
+                  .hashJoin(
+                      {"t_k1"},
+                      {"u_k1"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(buildVectors, false)
+                          .planNode(),
+                      "",
+                      concat(probeType_->names(), buildType_->names()))
+                  .planNode();
+
+  for (int32_t minSpillableReservationPct : {5, 50, 100}) {
+    SCOPED_TRACE(fmt::format(
+        "minSpillableReservationPct: {}", minSpillableReservationPct));
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::HashBuild::addInput",
+        std::function<void(exec::HashBuild*)>(([&](exec::HashBuild* hashBuild) {
+          memory::MemoryPool* pool = hashBuild->pool();
+          const auto availableReservationBytes = pool->availableReservation();
+          const auto currentUsedBytes = pool->currentBytes();
+          // Verifies we always have min reservation after ensuring the input.
+          ASSERT_GE(
+              availableReservationBytes,
+              currentUsedBytes * minSpillableReservationPct / 100);
+        })));
+
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .numDrivers(numDrivers_)
+        .planNode(plan)
+        .injectSpill(false)
+        .spillDirectory(tempDirectory->path)
+        .referenceQuery(
+            "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+        .run();
+  }
+}
+
+TEST_F(HashJoinTest, exceededMaxSpillLevel) {
+  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
+  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
+  const int32_t numBuildVectors = 10;
+  std::vector<RowVectorPtr> buildVectors;
+  for (int32_t i = 0; i < numBuildVectors; ++i) {
+    buildVectors.push_back(fuzzer.fuzzRow(buildType_));
+  }
+  const int32_t numProbeVectors = 5;
+  std::vector<RowVectorPtr> probeVectors;
+  for (int32_t i = 0; i < numProbeVectors; ++i) {
+    probeVectors.push_back(fuzzer.fuzzRow(probeType_));
+  }
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  core::PlanNodeId probeScanId;
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(probeVectors, false)
+                  .hashJoin(
+                      {"t_k1"},
+                      {"u_k1"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(buildVectors, false)
+                          .planNode(),
+                      "",
+                      concat(probeType_->names(), buildType_->names()))
+                  .planNode();
+
+  auto tempDirectory = exec::test::TempDirectoryPath::create();
+  const int exceededMaxSpillLevelCount =
+      globalSpillStats().spillMaxLevelExceededCount;
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .numDrivers(1)
+      .planNode(plan)
+      .injectSpill(false)
+      // Always trigger spilling.
+      .spillMemoryThreshold(1)
+      .maxSpillLevel(0)
+      .spillDirectory(tempDirectory->path)
+      .referenceQuery(
+          "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+      .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+        auto joinStats = task->taskStats()
+                             .pipelineStats.back()
+                             .operatorStats.back()
+                             .runtimeStats;
+        ASSERT_EQ(joinStats["exceededMaxSpillLevel"].sum, 4);
+        ASSERT_EQ(joinStats["exceededMaxSpillLevel"].count, 4);
+      })
+      .run();
+  ASSERT_EQ(
+      globalSpillStats().spillMaxLevelExceededCount,
+      exceededMaxSpillLevelCount + 4);
+}
 } // namespace

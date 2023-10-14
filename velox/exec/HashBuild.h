@@ -249,6 +249,8 @@ class HashBuild final : public Operator {
   // If it is zero, then there is no such limit.
   const uint64_t spillMemoryThreshold_;
 
+  bool exceededMaxSpillLevelLimit_{false};
+
   std::shared_ptr<SpillOperatorGroup> spillGroup_;
 
   State state_{State::kRunning};
