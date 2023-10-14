@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
@@ -402,4 +404,57 @@ TEST_F(UnnestTest, allEmptyOrNullMaps) {
            .unnest({"c0"}, {"c1", "c2"}, "ordinal")
            .planNode();
   assertQueryReturnsEmptyResult(op);
+}
+
+TEST_F(UnnestTest, batchSize) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(10'000, [](auto row) { return row; }),
+  });
+
+  // Unnest 10K rows into 30K rows.
+  core::PlanNodeId unnestId;
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .project({"sequence(1, 3) as s"})
+                  .unnest({}, {"s"})
+                  .capturePlanNodeId(unnestId)
+                  .planNode();
+
+  auto expected = makeRowVector({
+      makeFlatVector<int64_t>(10'000 * 3, [](auto row) { return 1 + row % 3; }),
+  });
+
+  // 17 rows per output allows to unnest 6 input rows at a time.
+  {
+    auto task = AssertQueryBuilder(plan)
+                    .config(core::QueryConfig::kPreferredOutputBatchRows, "17")
+                    .assertResults({expected});
+    auto stats = exec::toPlanStats(task->taskStats());
+
+    ASSERT_EQ(30'000, stats.at(unnestId).outputRows);
+    ASSERT_EQ(1 + 10'000 / 6, stats.at(unnestId).outputVectors);
+  }
+
+  // 2 rows per output allows to unnest 1 input row at a time.
+  {
+    auto task = AssertQueryBuilder(plan)
+                    .config(core::QueryConfig::kPreferredOutputBatchRows, "2")
+                    .assertResults({expected});
+    auto stats = exec::toPlanStats(task->taskStats());
+
+    ASSERT_EQ(30'000, stats.at(unnestId).outputRows);
+    ASSERT_EQ(10'000, stats.at(unnestId).outputVectors);
+  }
+
+  // 100K rows per output allows to unnest all at once.
+  {
+    auto task =
+        AssertQueryBuilder(plan)
+            .config(core::QueryConfig::kPreferredOutputBatchRows, "100000")
+            .assertResults({expected});
+    auto stats = exec::toPlanStats(task->taskStats());
+
+    ASSERT_EQ(30'000, stats.at(unnestId).outputRows);
+    ASSERT_EQ(1, stats.at(unnestId).outputVectors);
+  }
 }

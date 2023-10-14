@@ -29,7 +29,7 @@ class Unnest : public Operator {
   }
 
   bool needsInput() const override {
-    return true;
+    return input_ == nullptr;
   }
 
   void addInput(RowVectorPtr input) override;
@@ -39,11 +39,30 @@ class Unnest : public Operator {
   bool isFinished() override;
 
  private:
+  // Generate output for 'size' input rows starting from 'start' input row.
+  //
+  // @param start First input row to include in the output.
+  // @param size Number of input rows to include in the output.
+  // @param outputSize Pre-computed number of output rows.
+  RowVectorPtr generateOutput(
+      vector_size_t start,
+      vector_size_t size,
+      vector_size_t outputSize);
+
+  const bool withOrdinality_;
   std::vector<column_index_t> unnestChannels_;
 
   SelectivityVector inputRows_;
   std::vector<DecodedVector> unnestDecoded_;
 
-  const bool withOrdinality_;
+  BufferPtr maxSizes_;
+  vector_size_t* rawMaxSizes_{nullptr};
+
+  std::vector<const vector_size_t*> rawSizes_;
+  std::vector<const vector_size_t*> rawOffsets_;
+  std::vector<const vector_size_t*> rawIndices_;
+
+  // Next 'input_' row to process in getOutput().
+  vector_size_t nextInputRow_{0};
 };
 } // namespace facebook::velox::exec
