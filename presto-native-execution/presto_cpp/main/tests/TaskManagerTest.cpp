@@ -43,6 +43,8 @@ DECLARE_bool(velox_memory_leak_check_enabled);
 static const std::string kHiveConnectorId = "test-hive";
 
 using namespace facebook::velox;
+using namespace facebook::velox::exec;
+using namespace facebook::velox::exec::test;
 
 namespace facebook::presto {
 
@@ -631,6 +633,56 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
   auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
 
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
+}
+
+TEST_F(TaskManagerTest, fecthFromFinishedTask) {
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i]->path, vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutputArbitrary({"c0", "c1"})
+                          .planFragment();
+
+  const protocol::TaskId taskId = "scan.0.0.1.0";
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, true, splitSequenceId));
+  const auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  const protocol::Duration longWait("300s");
+  const auto maxSize = protocol::DataSize("32MB");
+  auto resultRequestState = http::CallbackRequestHandlerState::create();
+  const auto destination = 0;
+  auto consumeCompleted = false;
+  // Keep consuming destination 0 until completed.
+  while (!consumeCompleted) {
+    auto results =
+        taskManager_
+            ->getResults(
+                taskId, destination, 0, maxSize, longWait, resultRequestState)
+            .getVia(folly::EventBaseManager::get()->getEventBase());
+    consumeCompleted = results->complete;
+  }
+  // Close destination 0 and triggers the task closure.
+  taskManager_->abortResults(taskId, destination);
+  auto prestoTask = taskManager_->tasks().at(taskId);
+  ASSERT_TRUE(waitForTaskStateChange(
+      prestoTask->task.get(), TaskState::kFinished, 3'000'000));
+
+  const auto newDestination = 1;
+  // Fetch destination 1 from the closed task.
+  auto newResult = taskManager_->getResults(
+      taskId, newDestination, 0, maxSize, longWait, resultRequestState);
+  // It should get an immediate complete signal instead of waiting for timeout.
+  ASSERT_TRUE(newResult.isReady());
+  ASSERT_TRUE(newResult.value()->complete);
 }
 
 TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
