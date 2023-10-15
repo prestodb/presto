@@ -199,6 +199,10 @@ constexpr folly::StringPiece kCounterSpillFlushTimeUs{
 /// The time spent on writing spilled rows to disk.
 constexpr folly::StringPiece kCounterSpillWriteTimeUs{
     "presto_cpp.spill_write_time_us"};
+/// The number of times that a spillable operator exceeds the max spill level
+/// limit that can't spill.
+constexpr folly::StringPiece kCounterSpillMaxLevelExceeded{
+    "presto_cpp.spill_exceeded_max_level_count"};
 /// The current spilling memory usage in bytes.
 constexpr folly::StringPiece kCounterSpillMemoryBytes{
     "presto_cpp.spill_memory_bytes"};

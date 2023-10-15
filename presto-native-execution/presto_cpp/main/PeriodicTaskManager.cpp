@@ -581,6 +581,10 @@ void PeriodicTaskManager::updateSpillStatsTask() {
       kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
   REPORT_IF_NOT_ZERO(
       kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
+  REPORT_IF_NOT_ZERO(
+      kCounterSpillMaxLevelExceeded,
+      deltaSpillStats.spillMaxLevelExceededCount);
+
   if (!deltaSpillStats.empty()) {
     LOG(INFO) << "Updated spill stats: " << updatedSpillStats.toString();
     LOG(INFO) << "Spill stats change:" << deltaSpillStats.toString();
