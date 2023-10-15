@@ -127,7 +127,7 @@ public abstract class AbstractTestJoinQueries
     }
 
     // Disable since the test is flaky
-    @Test(enabled = false)
+    @Test(groups = "flaky")
     public void testLimitWithJoin()
     {
         MaterializedResult actual = computeActual("SELECT o1.orderkey, o2.orderkey FROM orders o1 JOIN orders o2 on o1.orderkey = o2.orderkey LIMIT 10");

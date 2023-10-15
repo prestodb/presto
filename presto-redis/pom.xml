@@ -192,6 +192,7 @@
                         <exclude>**/TestRedisDistributed.java</exclude>
                         <exclude>**/TestRedisDistributedHash.java</exclude>
                     </excludes>
+                    <excludedGroups>flaky</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>
@@ -207,6 +208,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes combine.self="override" />
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -226,6 +228,7 @@
                             <excludes>
                                 <exclude>**/TestRedisIntegrationSmokeTest.java</exclude>
                             </excludes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -242,6 +245,7 @@
                             <includes>
                                 <include>**/TestRedisIntegrationSmokeTest.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

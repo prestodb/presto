@@ -29,7 +29,7 @@ public class TestTpchTaskUpdateSizeLimitIntegrationTest
     }
 
     // This test is flaky: https://github.com/prestodb/presto/issues/19659
-    @Test(enabled = false)
+    @Test(groups = "flaky")
     public void testTaskUpdateSizeLimit()
     {
         assertQueryFails(

@@ -210,6 +210,7 @@
                     <excludes>
                         <exclude>**/TestFullParquetReader.java</exclude>
                     </excludes>
+                    <excludedGroups>flaky</excludedGroups>
                 </configuration>
             </plugin>
             <plugin>
@@ -284,6 +285,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes combine.self="override" />
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

@@ -192,6 +192,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <threadCount>1</threadCount>
+                    <excludedGroups>flaky</excludedGroups>
                 </configuration>
             </plugin>
 
@@ -239,6 +240,7 @@
                             <excludes>
                                 <exclude>**/TestCassandraIntegrationSmokeTest.java</exclude>
                             </excludes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -255,6 +257,7 @@
                             <includes>
                                 <include>**/TestCassandraIntegrationSmokeTest.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

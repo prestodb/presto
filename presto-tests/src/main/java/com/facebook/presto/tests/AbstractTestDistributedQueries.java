@@ -394,7 +394,7 @@ public abstract class AbstractTestDistributedQueries
     }
 
     // Flaky test: https://github.com/prestodb/presto/issues/20764
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Regexp matching interrupted", timeOut = 30_000, enabled = false)
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Regexp matching interrupted", timeOut = 30_000, groups = { "flaky" })
     public void testRunawayRegexAnalyzerTimeout()
     {
         Session session = Session.builder(getSession())

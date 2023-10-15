@@ -354,6 +354,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <skipTests>true</skipTests>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

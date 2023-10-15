@@ -188,6 +188,7 @@
                             <excludes>
                                 <exclude>**/TestKuduIntegration*.java</exclude>
                             </excludes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

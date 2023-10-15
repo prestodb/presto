@@ -171,7 +171,7 @@ public class TestDistributedQueuesDb
     }
 
     // Temporarily disabling flaky test
-    @Test(timeOut = 2_000, enabled = false)
+    @Test(timeOut = 2_000, groups = "flaky")
     public void testDistributedQueue_burstTraffic()
             throws Exception
     {

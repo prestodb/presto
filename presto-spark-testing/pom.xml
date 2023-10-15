@@ -162,6 +162,7 @@
                             <excludes>
                                 <exclude>**/TestPrestoSparkLauncherIntegrationSmokeTest.java</exclude>
                             </excludes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -178,6 +179,7 @@
                             <includes>
                                 <include>**/TestPrestoSparkLauncherIntegrationSmokeTest.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

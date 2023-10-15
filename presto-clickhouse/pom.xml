@@ -225,6 +225,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes combine.self="override" />
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -247,6 +248,7 @@
                                 <exclude>**/TestClickHouseIntegrationSmokeTest.java</exclude>
                                 <include>**/TestClickHouseDistributedQueries.java</include>
                             </excludes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

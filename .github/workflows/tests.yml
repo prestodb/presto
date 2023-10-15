@@ -39,6 +39,7 @@ jobs:
         modules:
           - ":presto-tests -P presto-tests-execution-memory"
           - ":presto-tests -P presto-tests-general"
+          - ":presto-tests -P presto-tests-flaky"
           - ":presto-tests -P ci-only-distributed-non-hash-gen"
           - ":presto-tests -P ci-only-tpch-distributed-queries"
           - ":presto-tests -P ci-only-local-queries"
@@ -56,6 +57,7 @@ jobs:
           - ":presto-hive -P test-hive-pushdown-filter-queries-advanced"
           - ":presto-hive -P test-hive-repartitioning"
           - ":presto-hive -P test-hive-parquet"
+          - ":presto-hive -P test-hive-flaky"
           - ":presto-main"
           - ":presto-mongodb -P test-mongo-distributed-queries"
           - ":presto-redis -P test-redis-integration-smoke-test"

@@ -374,6 +374,7 @@
                         <exclude>**/TestSpilledAggregations.java</exclude>
                         <exclude>**/TestQueryPlanDeterminism.java</exclude>
                     </excludes>
+                    <excludedGroups>flaky</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>
@@ -389,6 +390,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes combine.self="override" />
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -407,6 +409,7 @@
                             <includes>
                                 <include>**/TestDistributedQueriesNoHashGeneration.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -424,6 +427,7 @@
                             <includes>
                                 <include>**/TestTpchDistributedQueries.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -441,6 +445,7 @@
                             <includes>
                                 <include>**/TestLocalQueries.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -458,6 +463,7 @@
                             <includes>
                                 <include>**/TestNonIterativeDistributedQueries.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -475,6 +481,7 @@
                             <includes>
                                 <include>**/TestQueryPlanDeterminism.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -495,6 +502,7 @@
                                 <include>**/TestOptimizeMixedDistinctAggregations.java</include>
                                 <include>**/TestSpilledAggregations.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -514,6 +522,7 @@
                                 <include>**/connector/informationschema/*.java</include>
                                 <include>**/memory/*.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -544,6 +553,7 @@
                                 <exclude>**/connector/informationschema/*.java</exclude>
                                 <exclude>**/memory/*.java</exclude>
                             </excludes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -562,6 +572,23 @@
                             <includes>
                                 <include>**/resourcemanager/Test*.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>presto-tests-flaky</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override" />
+                            <groups>flaky</groups>
                         </configuration>
                     </plugin>
                 </plugins>

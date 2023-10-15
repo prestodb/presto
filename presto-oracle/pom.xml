@@ -201,6 +201,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes combine.self="override" />
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -223,6 +224,7 @@
                                 <exclude>**/TestOracleIntegrationSmokeTest.java</exclude>
                                 <include>**/TestOracleDistributedQueries.java</include>
                             </excludes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

@@ -83,7 +83,7 @@ public class TestDistributedQueuesSchedulingPolicy
     }
 
     // This test is flaky: https://github.com/prestodb/presto/issues/19658
-    @Test(timeOut = 60_000, groups = "weightedFairScheduling", enabled = false)
+    @Test(timeOut = 60_000, groups = { "weightedFairScheduling", "flaky" })
     public void testWeightedFairScheduling()
             throws Exception
     {
@@ -138,7 +138,7 @@ public class TestDistributedQueuesSchedulingPolicy
     }
 
     //Test is flaky https://github.com/prestodb/presto/issues/19691
-    @Test(timeOut = 60_000, groups = "weightedScheduling", enabled = false)
+    @Test(timeOut = 60_000, groups = {"weightedScheduling", "flaky" })
     public void testWeightedScheduling()
             throws Exception
     {

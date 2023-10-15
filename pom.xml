@@ -2318,6 +2318,7 @@
                         <exclude>**/*jmhTest*.java</exclude>
                         <exclude>**/*jmhType*.java</exclude>
                     </excludes>
+                    <excludedGroups>flaky</excludedGroups>
                 </configuration>
             </plugin>
 

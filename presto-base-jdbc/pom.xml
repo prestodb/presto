@@ -208,6 +208,7 @@
                     <excludes>
                         <exclude>**/TestJdbcDistributedQueries.java</exclude>
                     </excludes>
+                    <excludedGroups>flaky</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>
@@ -223,6 +224,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes combine.self="override" />
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

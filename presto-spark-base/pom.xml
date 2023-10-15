@@ -339,6 +339,7 @@
                                 <exclude>**/TestPrestoSparkSpilledJoinQueries.java</exclude>
                                 <exclude>**/TestPrestoSparkNativeExecution.java</exclude>
                             </excludes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -358,6 +359,7 @@
                                 <include>**/TestPrestoSparkOrderByQueries.java</include>
                                 <include>**/TestPrestoSparkWindowQueries.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -375,6 +377,7 @@
                                 <include>**/TestPrestoSparkSpilledAggregations.java</include>
                                 <include>**/TestPrestoSparkSpilledJoinQueries.java</include>
                             </includes>
+                            <excludedGroups>flaky</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

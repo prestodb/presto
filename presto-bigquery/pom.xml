@@ -342,6 +342,7 @@
                     <excludes>
                         <!--Run this after uncommenting properties below-->
                         <exclude>**/TestBigQueryIntegrationSmokeTest.java</exclude>
+                        <excludedGroups>flaky</excludedGroups>
                     </excludes>
                 </configuration>
             </plugin>

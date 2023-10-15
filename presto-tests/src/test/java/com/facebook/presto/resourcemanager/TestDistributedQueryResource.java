@@ -174,7 +174,7 @@ public class TestDistributedQueryResource
     }
 
     // Flaky test.
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000, groups = "flaky")
     public void testGetAllQueryInfoForLimits()
             throws InterruptedException
     {

@@ -148,7 +148,7 @@ public class TestQueuesDb
     }
 
     //Disabling flaky test
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000, groups = "flaky")
     public void testTwoQueriesAtSameTime()
             throws Exception
     {

@@ -331,7 +331,7 @@ public class TestQueues
     }
 
     // This test is flaky: https://github.com/prestodb/presto/issues/19633
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000, groups = "flaky")
     public void testQueuedQueryInteraction()
             throws Exception
     {
