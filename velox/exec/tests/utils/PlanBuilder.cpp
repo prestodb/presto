@@ -988,6 +988,16 @@ PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::partitionedOutputArbitrary(
+    const std::vector<std::string>& outputLayout) {
+  auto outputType = outputLayout.empty()
+      ? planNode_->outputType()
+      : extract(planNode_->outputType(), outputLayout);
+  planNode_ = core::PartitionedOutputNode::arbitrary(
+      nextPlanNodeId(), outputType, planNode_);
+  return *this;
+}
+
 PlanBuilder& PlanBuilder::localPartition(
     const std::vector<std::string>& keys,
     const std::vector<core::PlanNodePtr>& sources) {
