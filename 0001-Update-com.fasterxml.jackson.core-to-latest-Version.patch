@@ -1,0 +1,57 @@
+From d3e27eeb541491743749683a53b1594dc0775ebe Mon Sep 17 00:00:00 2001
+From: "kedia,Akanksha" <akedia@visa.com>
+Date: Sun, 15 Oct 2023 11:43:09 +0530
+Subject: [PATCH] Update com.fasterxml.jackson.core to latest Version
+
+---
+ presto-hudi/pom.xml    | 2 +-
+ presto-iceberg/pom.xml | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/presto-hudi/pom.xml b/presto-hudi/pom.xml
+index 0b715c68b0..86a9eb4202 100644
+--- a/presto-hudi/pom.xml
++++ b/presto-hudi/pom.xml
+@@ -212,7 +212,7 @@
+         <dependency>
+             <groupId>com.fasterxml.jackson.core</groupId>
+             <artifactId>jackson-annotations</artifactId>
+-            <version>2.10.2</version>
++            <version>2.15.3</version>
+             <scope>provided</scope>
+         </dependency>
+ 
+diff --git a/presto-iceberg/pom.xml b/presto-iceberg/pom.xml
+index 08a96dd98b..c81152c1de 100644
+--- a/presto-iceberg/pom.xml
++++ b/presto-iceberg/pom.xml
+@@ -181,7 +181,7 @@
+         <dependency>
+             <groupId>com.fasterxml.jackson.core</groupId>
+             <artifactId>jackson-core</artifactId>
+-            <version>2.10.2</version>
++            <version>2.13.3</version>
+             <scope>compile</scope>
+         </dependency>
+ 
+@@ -432,7 +432,7 @@
+         <dependency>
+             <groupId>com.fasterxml.jackson.core</groupId>
+             <artifactId>jackson-annotations</artifactId>
+-            <version>2.10.2</version>
++            <version>2.15.3</version>
+             <scope>provided</scope>
+         </dependency>
+ 
+@@ -540,7 +540,7 @@
+                 </plugin>
+                 <plugin>
+                     <groupId>org.apache.maven.plugins</groupId>
+-                    <artifactId>maven-enforcer-plugin</artifactId>
++                    <artifactId>maven-e:wnforcer-plugin</artifactId>
+                     <configuration>
+                         <rules>
+                             <requireUpperBoundDeps>
+-- 
+2.21.0
+
