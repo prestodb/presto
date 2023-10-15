@@ -104,7 +104,7 @@ std::unique_ptr<Result> createCompleteResult(long token) {
 void getData(
     PromiseHolderPtr<std::unique_ptr<Result>> promiseHolder,
     const TaskId& taskId,
-    long bufferId,
+    long destination,
     long token,
     protocol::DataSize maxSize,
     exec::PartitionedOutputBufferManager& bufferManager) {
@@ -116,10 +116,10 @@ void getData(
   int64_t startMs = getCurrentTimeMs();
   auto bufferFound = bufferManager.getData(
       taskId,
-      bufferId,
+      destination,
       maxSize.getValue(protocol::DataUnit::BYTE),
       token,
-      [taskId = taskId, bufferId = bufferId, promiseHolder, startMs](
+      [taskId = taskId, bufferId = destination, promiseHolder, startMs](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
           int64_t sequence) mutable {
         bool complete = pages.empty();
@@ -163,7 +163,7 @@ void getData(
 
   if (!bufferFound) {
     // Buffer was erased for current TaskId.
-    VLOG(1) << "Task " << taskId << ", buffer " << bufferId << ", sequence "
+    VLOG(1) << "Task " << taskId << ", buffer " << destination << ", sequence "
             << token << ", buffer not found.";
     promiseHolder->promise.setValue(std::move(createTimeOutResult(token)));
   }
@@ -769,15 +769,15 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
 
 folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
     const TaskId& taskId,
-    long bufferId,
+    long destination,
     long token,
     protocol::DataSize maxSize,
     protocol::Duration maxWait,
     std::shared_ptr<http::CallbackRequestHandlerState> state) {
   uint64_t maxWaitMicros =
       std::max(1.0, maxWait.getValue(protocol::TimeUnit::MICROSECONDS));
-  VLOG(1) << "TaskManager::getResults " << taskId << ", " << bufferId << ", "
-          << token;
+  VLOG(1) << "TaskManager::getResults task:" << taskId
+          << ", destination:" << destination << ", token:" << token;
   auto [promise, future] =
       folly::makePromiseContract<std::unique_ptr<Result>>();
 
@@ -839,7 +839,12 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
         // failed at creation time and the coordinator hasn't yet caught up.
         if (prestoTask->task->state() == exec::kRunning) {
           getData(
-              promiseHolder, taskId, bufferId, token, maxSize, *bufferManager_);
+              promiseHolder,
+              taskId,
+              destination,
+              token,
+              maxSize,
+              *bufferManager_);
         }
         return std::move(future).via(eventBase).onTimeout(
             std::chrono::microseconds(maxWaitMicros), timeoutFn);
@@ -850,18 +855,18 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
         continue;
       }
       // The task is not started yet, put the request
-      VLOG(1) << "Queuing up result request for task " << taskId << ", buffer "
-              << bufferId << ", sequence " << token;
+      VLOG(1) << "Queuing up result request for task " << taskId
+              << ", destination " << destination << ", sequence " << token;
 
       keepPromiseAlive(promiseHolder, state);
 
       auto request = std::make_unique<ResultRequest>();
       request->promise = folly::to_weak_ptr(promiseHolder);
       request->taskId = taskId;
-      request->bufferId = bufferId;
+      request->bufferId = destination;
       request->token = token;
       request->maxSize = maxSize;
-      prestoTask->resultRequests.insert({bufferId, std::move(request)});
+      prestoTask->resultRequests.insert({destination, std::move(request)});
       return std::move(future).via(eventBase).onTimeout(
           std::chrono::microseconds(maxWaitMicros), timeoutFn);
     }

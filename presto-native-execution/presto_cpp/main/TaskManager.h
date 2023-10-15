@@ -103,7 +103,7 @@ class TaskManager {
 
   folly::Future<std::unique_ptr<Result>> getResults(
       const protocol::TaskId& taskId,
-      long bufferId,
+      long destination,
       long token,
       protocol::DataSize maxSize,
       protocol::Duration maxWait,
