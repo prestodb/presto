@@ -134,14 +134,14 @@ proxygen::RequestHandler* TaskResource::abortResults(
     proxygen::HTTPMessage* /*message*/,
     const std::vector<std::string>& pathMatch) {
   protocol::TaskId taskId = pathMatch[1];
-  long bufferId = folly::to<long>(pathMatch[2]);
+  long destination = folly::to<long>(pathMatch[2]);
   return new http::CallbackRequestHandler(
-      [this, taskId, bufferId](
+      [this, taskId, destination](
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
         try {
-          taskManager_.abortResults(taskId, bufferId);
+          taskManager_.abortResults(taskId, destination);
         } catch (const std::exception& e) {
           http::sendErrorResponse(downstream, e.what());
           return;
