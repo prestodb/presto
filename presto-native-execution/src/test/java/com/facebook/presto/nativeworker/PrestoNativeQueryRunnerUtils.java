@@ -264,13 +264,13 @@ public class PrestoNativeQueryRunnerUtils
 
     public static NativeQueryRunnerParameters getNativeQueryRunnerParameters()
     {
-        Path prestoServerPath = Paths.get(Optional.ofNullable(System.getProperty("PRESTO_SERVER"))
+        Path prestoServerPath = Paths.get(Optional.ofNullable(System.getenv("PRESTO_SERVER"))
                         .orElse("_build/debug/presto_cpp/main/presto_server"))
                 .toAbsolutePath();
-        Path dataDirectory = Paths.get(Optional.ofNullable(System.getProperty("DATA_DIR"))
+        Path dataDirectory = Paths.get(Optional.ofNullable(System.getenv("DATA_DIR"))
                         .orElse("target/velox_data"))
                 .toAbsolutePath();
-        Optional<Integer> workerCount = Optional.ofNullable(System.getProperty("WORKER_COUNT")).map(Integer::parseInt);
+        Optional<Integer> workerCount = Optional.ofNullable(System.getenv("WORKER_COUNT")).map(Integer::parseInt);
 
         assertTrue(Files.exists(prestoServerPath), format("Native worker binary at %s not found. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.", prestoServerPath));
         log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);
