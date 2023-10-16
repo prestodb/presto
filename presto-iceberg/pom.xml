@@ -84,6 +84,10 @@
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>animal-sniffer-annotations</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.apache.solr</groupId>
+                    <artifactId>solr-solrj</artifactId>
+                </exclusion>
             </exclusions>
             <scope>compile</scope>
         </dependency>
