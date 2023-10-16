@@ -152,7 +152,8 @@ public class PushAggregationThroughOuterJoin
                 ImmutableList.of(),
                 aggregation.getStep(),
                 aggregation.getHashVariable(),
-                aggregation.getGroupIdVariable());
+                aggregation.getGroupIdVariable(),
+                aggregation.getAggregationId());
 
         JoinNode rewrittenJoin;
         if (join.getType() == JoinNode.Type.LEFT) {
@@ -377,6 +378,7 @@ public class PushAggregationThroughOuterJoin
                 globalAggregation(),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

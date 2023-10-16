@@ -196,7 +196,8 @@ public class HashGenerationOptimizer
                             node.getPreGroupedVariables(),
                             node.getStep(),
                             hashVariable,
-                            node.getGroupIdVariable()),
+                            node.getGroupIdVariable(),
+                            node.getAggregationId()),
                     hashVariable.isPresent() ? ImmutableMap.of(groupByHash.get(), hashVariable.get()) : ImmutableMap.of());
         }
 

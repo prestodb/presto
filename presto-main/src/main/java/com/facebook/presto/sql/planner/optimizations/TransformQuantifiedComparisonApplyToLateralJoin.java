@@ -202,6 +202,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
 
             PlanNode lateralJoinNode = new LateralJoinNode(

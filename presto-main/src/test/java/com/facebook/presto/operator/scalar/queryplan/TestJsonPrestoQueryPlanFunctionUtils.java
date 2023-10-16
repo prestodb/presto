@@ -27,7 +27,7 @@ public class TestJsonPrestoQueryPlanFunctionUtils
                     "   \"identifier\" : \"[a, b, a, b]\",\n" +
                     "   \"details\" : \"b := b_1 (1:41)\\n\",\n" +
                     "   \"children\" : [ {\n" +
-                    "     \"id\" : \"241\",\n" +
+                    "     \"id\" : \"253\",\n" +
                     "     \"name\" : \"RemoteSource\",\n" +
                     "     \"identifier\" : \"[1]\",\n" +
                     "     \"details\" : \"\",\n" +
@@ -65,22 +65,28 @@ public class TestJsonPrestoQueryPlanFunctionUtils
                     "     },\n" +
                     "     \"joinNodeStatsEstimate\" : {\n" +
                     "       \"nullJoinBuildKeyCount\" : \"NaN\",\n" +
-                    "       \"joinBuildKeyCount\" : \"NaN\"\n" +
+                    "       \"joinBuildKeyCount\" : \"NaN\",\n" +
+                    "       \"nullJoinProbeKeyCount\" : \"NaN\",\n" +
+                    "       \"joinProbeKeyCount\" : \"NaN\"\n" +
                     "     },\n" +
                     "     \"tableWriterNodeStatsEstimate\" : {\n" +
                     "       \"taskCountIfScaledWriter\" : \"NaN\"\n" +
+                    "     },\n" +
+                    "     \"partialAggregationStatsEstimate\" : {\n" +
+                    "       \"inputBytes\" : \"NaN\",\n" +
+                    "       \"outputBytes\" : \"NaN\"\n" +
                     "     }\n" +
                     "   } ]\n" +
                     " }\n" +
                     "   },\n" +
                     "   \"1\" : {\n" +
                     "     \"plan\" : {\n" +
-                    "   \"id\" : \"218\",\n" +
+                    "   \"id\" : \"230\",\n" +
                     "   \"name\" : \"InnerJoin\",\n" +
                     "   \"identifier\" : \"[(\\\"a\\\" = \\\"a_0\\\")][$hashvalue, $hashvalue_21]\",\n" +
                     "   \"details\" : \"Distribution: PARTITIONED\\n\",\n" +
                     "   \"children\" : [ {\n" +
-                    "     \"id\" : \"239\",\n" +
+                    "     \"id\" : \"251\",\n" +
                     "     \"name\" : \"RemoteSource\",\n" +
                     "     \"identifier\" : \"[2]\",\n" +
                     "     \"details\" : \"\",\n" +
@@ -88,12 +94,12 @@ public class TestJsonPrestoQueryPlanFunctionUtils
                     "     \"remoteSources\" : [ \"2\" ],\n" +
                     "     \"estimates\" : [ ]\n" +
                     "   }, {\n" +
-                    "     \"id\" : \"272\",\n" +
+                    "     \"id\" : \"284\",\n" +
                     "     \"name\" : \"LocalExchange\",\n" +
                     "     \"identifier\" : \"[HASH][$hashvalue_21] (a_0)\",\n" +
                     "     \"details\" : \"\",\n" +
                     "     \"children\" : [ {\n" +
-                    "       \"id\" : \"240\",\n" +
+                    "       \"id\" : \"252\",\n" +
                     "       \"name\" : \"RemoteSource\",\n" +
                     "       \"identifier\" : \"[3]\",\n" +
                     "       \"details\" : \"\",\n" +
@@ -131,10 +137,16 @@ public class TestJsonPrestoQueryPlanFunctionUtils
                     "       },\n" +
                     "       \"joinNodeStatsEstimate\" : {\n" +
                     "         \"nullJoinBuildKeyCount\" : \"NaN\",\n" +
-                    "         \"joinBuildKeyCount\" : \"NaN\"\n" +
+                    "         \"joinBuildKeyCount\" : \"NaN\",\n" +
+                    "         \"nullJoinProbeKeyCount\" : \"NaN\",\n" +
+                    "         \"joinProbeKeyCount\" : \"NaN\"\n" +
                     "       },\n" +
                     "       \"tableWriterNodeStatsEstimate\" : {\n" +
                     "         \"taskCountIfScaledWriter\" : \"NaN\"\n" +
+                    "       },\n" +
+                    "       \"partialAggregationStatsEstimate\" : {\n" +
+                    "         \"inputBytes\" : \"NaN\",\n" +
+                    "         \"outputBytes\" : \"NaN\"\n" +
                     "       }\n" +
                     "     } ]\n" +
                     "   } ],\n" +
@@ -168,20 +180,26 @@ public class TestJsonPrestoQueryPlanFunctionUtils
                     "     },\n" +
                     "     \"joinNodeStatsEstimate\" : {\n" +
                     "       \"nullJoinBuildKeyCount\" : \"NaN\",\n" +
-                    "       \"joinBuildKeyCount\" : \"NaN\"\n" +
+                    "       \"joinBuildKeyCount\" : \"NaN\",\n" +
+                    "       \"nullJoinProbeKeyCount\" : \"NaN\",\n" +
+                    "       \"joinProbeKeyCount\" : \"NaN\"\n" +
                     "     },\n" +
                     "     \"tableWriterNodeStatsEstimate\" : {\n" +
                     "       \"taskCountIfScaledWriter\" : \"NaN\"\n" +
+                    "     },\n" +
+                    "     \"partialAggregationStatsEstimate\" : {\n" +
+                    "       \"inputBytes\" : \"NaN\",\n" +
+                    "       \"outputBytes\" : \"NaN\"\n" +
                     "     }\n" +
                     "   } ]\n" +
                     " }\n" +
                     "   },\n" +
                     "   \"2\" : {\n" +
                     "     \"plan\" : {\n" +
-                    "   \"id\" : \"301\",\n" +
+                    "   \"id\" : \"313\",\n" +
                     "   \"name\" : \"ScanProject\",\n" +
                     "   \"identifier\" : \"[table = TableHandle {connectorId='hive', connectorHandle='HiveTableHandle{schemaName=tpch, tableName=r, analyzePartitionValues=Optional.empty}', layout='Optional[tpch.r{}]'}, projectLocality = LOCAL]\",\n" +
-                    "   \"details\" : \"$hashvalue_20 := combine_hash(BIGINT'0', COALESCE($operator$hash_code(a), BIGINT'0')) (1:55)\\nLAYOUT: tpch.r{}\\na := a:int:0:REGULAR (1:55)\\nb := b:int:1:REGULAR (1:55)\\n\",\n" +
+                    "   \"details\" : \"$hashvalue_20 := combine_hash(BIGINT'0', COALESCE($operator$hash_code(a), BIGINT'0')) (1:55)\\nLAYOUT: tpch.r{}\\nb := b:int:1:REGULAR (1:55)\\na := a:int:0:REGULAR (1:55)\\n\",\n" +
                     "   \"children\" : [ ],\n" +
                     "   \"remoteSources\" : [ ],\n" +
                     "   \"estimates\" : [ {\n" +
@@ -206,10 +224,16 @@ public class TestJsonPrestoQueryPlanFunctionUtils
                     "     },\n" +
                     "     \"joinNodeStatsEstimate\" : {\n" +
                     "       \"nullJoinBuildKeyCount\" : \"NaN\",\n" +
-                    "       \"joinBuildKeyCount\" : \"NaN\"\n" +
+                    "       \"joinBuildKeyCount\" : \"NaN\",\n" +
+                    "       \"nullJoinProbeKeyCount\" : \"NaN\",\n" +
+                    "       \"joinProbeKeyCount\" : \"NaN\"\n" +
                     "     },\n" +
                     "     \"tableWriterNodeStatsEstimate\" : {\n" +
                     "       \"taskCountIfScaledWriter\" : \"NaN\"\n" +
+                    "     },\n" +
+                    "     \"partialAggregationStatsEstimate\" : {\n" +
+                    "       \"inputBytes\" : \"NaN\",\n" +
+                    "       \"outputBytes\" : \"NaN\"\n" +
                     "     }\n" +
                     "   }, {\n" +
                     "     \"outputRowCount\" : 0.0,\n" +
@@ -240,17 +264,23 @@ public class TestJsonPrestoQueryPlanFunctionUtils
                     "     },\n" +
                     "     \"joinNodeStatsEstimate\" : {\n" +
                     "       \"nullJoinBuildKeyCount\" : \"NaN\",\n" +
-                    "       \"joinBuildKeyCount\" : \"NaN\"\n" +
+                    "       \"joinBuildKeyCount\" : \"NaN\",\n" +
+                    "       \"nullJoinProbeKeyCount\" : \"NaN\",\n" +
+                    "       \"joinProbeKeyCount\" : \"NaN\"\n" +
                     "     },\n" +
                     "     \"tableWriterNodeStatsEstimate\" : {\n" +
                     "       \"taskCountIfScaledWriter\" : \"NaN\"\n" +
+                    "     },\n" +
+                    "     \"partialAggregationStatsEstimate\" : {\n" +
+                    "       \"inputBytes\" : \"NaN\",\n" +
+                    "       \"outputBytes\" : \"NaN\"\n" +
                     "     }\n" +
                     "   } ]\n" +
                     " }\n" +
                     "   },\n" +
                     "   \"3\" : {\n" +
                     "     \"plan\" : {\n" +
-                    "   \"id\" : \"302\",\n" +
+                    "   \"id\" : \"314\",\n" +
                     "   \"name\" : \"ScanProject\",\n" +
                     "   \"identifier\" : \"[table = TableHandle {connectorId='hive', connectorHandle='HiveTableHandle{schemaName=tpch, tableName=s, analyzePartitionValues=Optional.empty}', layout='Optional[tpch.s{}]'}, projectLocality = LOCAL]\",\n" +
                     "   \"details\" : \"$hashvalue_23 := combine_hash(BIGINT'0', COALESCE($operator$hash_code(a_0), BIGINT'0')) (1:57)\\nLAYOUT: tpch.s{}\\nb_1 := b:int:1:REGULAR (1:57)\\na_0 := a:int:0:REGULAR (1:57)\\n\",\n" +
@@ -278,10 +308,16 @@ public class TestJsonPrestoQueryPlanFunctionUtils
                     "     },\n" +
                     "     \"joinNodeStatsEstimate\" : {\n" +
                     "       \"nullJoinBuildKeyCount\" : \"NaN\",\n" +
-                    "       \"joinBuildKeyCount\" : \"NaN\"\n" +
+                    "       \"joinBuildKeyCount\" : \"NaN\",\n" +
+                    "       \"nullJoinProbeKeyCount\" : \"NaN\",\n" +
+                    "       \"joinProbeKeyCount\" : \"NaN\"\n" +
                     "     },\n" +
                     "     \"tableWriterNodeStatsEstimate\" : {\n" +
                     "       \"taskCountIfScaledWriter\" : \"NaN\"\n" +
+                    "     },\n" +
+                    "     \"partialAggregationStatsEstimate\" : {\n" +
+                    "       \"inputBytes\" : \"NaN\",\n" +
+                    "       \"outputBytes\" : \"NaN\"\n" +
                     "     }\n" +
                     "   }, {\n" +
                     "     \"outputRowCount\" : 0.0,\n" +
@@ -312,10 +348,16 @@ public class TestJsonPrestoQueryPlanFunctionUtils
                     "     },\n" +
                     "     \"joinNodeStatsEstimate\" : {\n" +
                     "       \"nullJoinBuildKeyCount\" : \"NaN\",\n" +
-                    "       \"joinBuildKeyCount\" : \"NaN\"\n" +
+                    "       \"joinBuildKeyCount\" : \"NaN\",\n" +
+                    "       \"nullJoinProbeKeyCount\" : \"NaN\",\n" +
+                    "       \"joinProbeKeyCount\" : \"NaN\"\n" +
                     "     },\n" +
                     "     \"tableWriterNodeStatsEstimate\" : {\n" +
                     "       \"taskCountIfScaledWriter\" : \"NaN\"\n" +
+                    "     },\n" +
+                    "     \"partialAggregationStatsEstimate\" : {\n" +
+                    "       \"inputBytes\" : \"NaN\",\n" +
+                    "       \"outputBytes\" : \"NaN\"\n" +
                     "     }\n" +
                     "   } ]\n" +
                     " }\n" +

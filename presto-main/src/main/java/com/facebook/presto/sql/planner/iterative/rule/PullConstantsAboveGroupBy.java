@@ -112,7 +112,8 @@ public class PullConstantsAboveGroupBy
                 ImmutableList.of(),
                 parent.getStep(),
                 parent.getHashVariable(),
-                parent.getGroupIdVariable());
+                parent.getGroupIdVariable(),
+                parent.getAggregationId());
 
         Map<VariableReferenceExpression, RowExpression> remainingVars =
                 outputVariables.stream()

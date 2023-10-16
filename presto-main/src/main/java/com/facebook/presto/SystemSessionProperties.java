@@ -294,6 +294,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
     public static final String ENABLE_HISTORY_BASED_SCALED_WRITER = "enable_history_based_scaled_writer";
+    public static final String USE_PARTIAL_AGGREGATION_HISTORY = "use_partial_aggregation_history";
     public static final String REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN = "remove_redundant_cast_to_varchar_in_join";
     public static final String HANDLE_COMPLEX_EQUI_JOINS = "handle_complex_equi_joins";
 
@@ -1773,6 +1774,11 @@ public final class SystemSessionProperties
                         featuresConfig.isUseHBOForScaledWriters(),
                         false),
                 booleanProperty(
+                        USE_PARTIAL_AGGREGATION_HISTORY,
+                        "Use collected partial aggregation statistics from HBO",
+                        featuresConfig.isUsePartialAggregationHistory(),
+                        false),
+                booleanProperty(
                         REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN,
                         "If both left and right side of join clause are varchar cast from int/bigint, remove the cast here",
                         featuresConfig.isRemoveRedundantCastToVarcharInJoin(),
@@ -2959,6 +2965,11 @@ public final class SystemSessionProperties
     public static boolean useHistoryBasedScaledWriters(Session session)
     {
         return session.getSystemProperty(ENABLE_HISTORY_BASED_SCALED_WRITER, Boolean.class);
+    }
+
+    public static boolean usePartialAggregationHistory(Session session)
+    {
+        return session.getSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, Boolean.class);
     }
 
     public static boolean isRemoveRedundantCastToVarcharInJoinEnabled(Session session)
