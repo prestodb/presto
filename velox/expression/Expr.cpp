@@ -1259,6 +1259,8 @@ void computeIsAsciiForInputs(
         inputValues[index]->type()->kind() == TypeKind::VARCHAR) {
       auto* vector =
           inputValues[index]->template as<SimpleVector<StringView>>();
+
+      VELOX_CHECK(vector);
       vector->computeAndSetIsAscii(rows);
     }
   }
