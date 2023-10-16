@@ -462,6 +462,7 @@ HiveDataSource::HiveDataSource(
       subfields,
       filters,
       hiveTableHandle_->dataColumns(),
+      partitionKeys_,
       pool_);
   if (remainingFilter) {
     metadataFilter_ = std::make_shared<common::MetadataFilter>(
@@ -712,13 +713,16 @@ std::shared_ptr<common::ScanSpec> HiveDataSource::makeScanSpec(
         outputSubfields,
     const SubfieldFilters& filters,
     const RowTypePtr& dataColumns,
+    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
+        partitionKeys,
     memory::MemoryPool* pool) {
   auto spec = std::make_shared<common::ScanSpec>("root");
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
       filterSubfields;
   std::vector<SubfieldSpec> subfieldSpecs;
   for (auto& [subfield, _] : filters) {
-    if (auto name = subfield.toString(); name != kPath && name != kBucket) {
+    if (auto name = subfield.toString();
+        name != kPath && name != kBucket && partitionKeys.count(name) == 0) {
       filterSubfields[getColumnName(subfield)].push_back(&subfield);
     }
   }

@@ -80,6 +80,8 @@ class HiveDataSource : public DataSource {
           std::vector<const common::Subfield*>>& outputSubfields,
       const SubfieldFilters& filters,
       const RowTypePtr& dataColumns,
+      const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
+          partitionKeys,
       memory::MemoryPool* pool);
 
   // Internal API, made public to be accessible in unit tests.  Do not use in
