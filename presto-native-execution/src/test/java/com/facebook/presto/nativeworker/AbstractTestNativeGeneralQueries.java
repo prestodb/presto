@@ -43,8 +43,6 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractTestNativeGeneralQueries
         extends AbstractTestQueryFramework
 {
-    private static final String[] TABLE_FORMATS = {"DWRF"};
-
     @Override
     protected void createTables()
     {
@@ -209,10 +207,9 @@ public abstract class AbstractTestNativeGeneralQueries
         // Create a partitioned table and run analyze on it.
         String tmpTableName = generateRandomTableName();
         try {
-            Session writeSession = buildSessionForTableWrite();
-            getQueryRunner().execute(writeSession, String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT," +
+            getQueryRunner().execute(String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT," +
                     "nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
-            getQueryRunner().execute(writeSession,
+            getQueryRunner().execute(
                     String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
             assertQuery(String.format("SELECT * FROM %s", tmpTableName),
                     "SELECT name, regionkey, nationkey FROM nation");
@@ -988,190 +985,10 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testCreateTableWithUnsupportedFormats()
-    {
-        Session session = buildSessionForTableWrite();
-        // Generate temporary table name.
-        String tmpTableName = generateRandomTableName();
-        String[] unsupportedTableFormats = {"ORC", "JSON"};
-        for (String unsupportedTableFormat : unsupportedTableFormats) {
-            assertQueryFails(String.format("CREATE TABLE %s WITH (format = '" + unsupportedTableFormat + "') AS SELECT * FROM nation", tmpTableName), " Unsupported file format in TableWrite: \"" + unsupportedTableFormat + "\".");
-        }
-    }
-
-    @Test
     public void testReadTableWithUnsupportedFormats()
     {
         assertQueryFails("SELECT * FROM nation_json", ".*ReaderFactory is not registered for format json.*");
         assertQueryFails("SELECT * FROM nation_text", ".*ReaderFactory is not registered for format text.*");
-    }
-
-    @Test
-    public void testCreateUnpartitionedTableAsSelect()
-    {
-        Session session = buildSessionForTableWrite();
-        // Generate temporary table name.
-        String tmpTableName = generateRandomTableName();
-        for (String tableFormat : TABLE_FORMATS) {
-            try {
-                getQueryRunner().execute(session, String.format("CREATE TABLE %s WITH (format = '" + tableFormat + "') AS SELECT * FROM nation", tmpTableName));
-                assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT * FROM nation");
-            }
-            finally {
-                dropTableIfExists(tmpTableName);
-            }
-        }
-
-        try {
-            getQueryRunner().execute(session, String.format("CREATE TABLE %s AS SELECT linenumber, count(*) as cnt FROM lineitem GROUP BY 1", tmpTableName));
-            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT linenumber, count(*) FROM lineitem GROUP BY 1");
-        }
-        finally {
-            dropTableIfExists(tmpTableName);
-        }
-
-        try {
-            getQueryRunner().execute(session, String.format("CREATE TABLE %s AS SELECT orderkey, count(*) as cnt FROM lineitem GROUP BY 1", tmpTableName));
-            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT orderkey, count(*) FROM lineitem GROUP BY 1");
-        }
-        finally {
-            dropTableIfExists(tmpTableName);
-        }
-    }
-
-    @Test
-    public void testCreatePartitionedTableAsSelect()
-    {
-        {
-            Session session = buildSessionForTableWrite();
-            // Generate temporary table name for created partitioned table.
-            String partitionedOrdersTableName = generateRandomTableName();
-
-            for (String tableFormat : TABLE_FORMATS) {
-                try {
-                    getQueryRunner().execute(session, String.format(
-                            "CREATE TABLE %s WITH (format = '" + tableFormat + "', " +
-                                    "partitioned_by = ARRAY[ 'orderstatus' ]) " +
-                                    "AS SELECT custkey, comment, orderstatus FROM orders", partitionedOrdersTableName));
-                    assertQuery(String.format("SELECT * FROM %s", partitionedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders");
-                }
-                finally {
-                    dropTableIfExists(partitionedOrdersTableName);
-                }
-            }
-        }
-    }
-
-    @Test
-    public void testInsertIntoPartitionedTable()
-    {
-        // Generate temporary table name.
-        String tmpTableName = generateRandomTableName();
-        Session writeSession = buildSessionForTableWrite();
-
-        try {
-            getQueryRunner().execute(writeSession, String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT, nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
-            // Test insert into an empty table.
-            getQueryRunner().execute(writeSession, String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
-            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT name, regionkey, nationkey FROM nation");
-
-            // Test failure on insert into existing partitions.
-            assertQueryFails(writeSession, String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName),
-                    ".*Cannot insert into an existing partition of Hive table: regionkey=.*/nationkey=.*");
-
-            // Test insert into existing partitions if insert_existing_partitions_behavior is set to OVERWRITE.
-            Session overwriteSession = Session.builder(writeSession)
-                    .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "OVERWRITE")
-                    .build();
-            getQueryRunner().execute(overwriteSession, String.format("INSERT INTO %s SELECT CONCAT(name, '.test'), regionkey, nationkey FROM nation", tmpTableName));
-            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT CONCAT(name, '.test'), regionkey, nationkey FROM nation");
-        }
-        finally {
-            dropTableIfExists(tmpTableName);
-        }
-    }
-
-    @Test
-    public void testInsertIntoSpecialPartitionName()
-    {
-        Session writeSession = buildSessionForTableWrite();
-        // Generate temporary table name.
-        String tmpTableName = generateRandomTableName();
-        try {
-            getQueryRunner().execute(writeSession, String.format("CREATE TABLE %s (name VARCHAR, nationkey VARCHAR) WITH (partitioned_by = ARRAY['nationkey'])", tmpTableName));
-
-            // For special character in partition name, without correct handling, it would throw errors like 'Invalid partition spec: nationkey=A/B'
-            // In this test, verify those partition names can be successfully created
-            String[] specialCharacters = new String[] {"\"", "#", "%", "''", "*", "/", ":", "=", "?", "\\", "\\x7F", "{", "[", "]", "^"}; // escape single quote for sql
-            for (String specialCharacter : specialCharacters) {
-                getQueryRunner().execute(writeSession, String.format("INSERT INTO %s VALUES ('name', 'A%sB')", tmpTableName, specialCharacter));
-                assertQuery(String.format("SELECT nationkey FROM %s", tmpTableName), String.format("VALUES('A%sB')", specialCharacter));
-                getQueryRunner().execute(writeSession, String.format("DELETE FROM %s", tmpTableName));
-            }
-        }
-        finally {
-            dropTableIfExists(tmpTableName);
-        }
-    }
-
-    @Test
-    public void testCreateBucketTableAsSelect()
-    {
-        Session session = buildSessionForTableWrite();
-        // Generate temporary table name for bucketed table.
-        String bucketedOrdersTableName = generateRandomTableName();
-
-        for (String tableFormat : TABLE_FORMATS) {
-            try {
-                getQueryRunner().execute(session, String.format(
-                        "CREATE TABLE %s WITH (format = '" + tableFormat + "', " +
-                                "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                                "bucketed_by = ARRAY[ 'custkey' ], " +
-                                "bucket_count = 1) " +
-                                "AS SELECT custkey, comment, orderstatus FROM orders", bucketedOrdersTableName));
-                assertQuery(String.format("SELECT * FROM %s", bucketedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders");
-            }
-            finally {
-                dropTableIfExists(bucketedOrdersTableName);
-            }
-        }
-    }
-
-    @Test
-    public void testCreateBucketSortedTableAsSelect()
-    {
-        Session session = buildSessionForTableWrite();
-        // Generate temporary table name.
-        String badBucketTableName = generateRandomTableName();
-
-        for (String tableFormat : TABLE_FORMATS) {
-            try {
-                getQueryRunner().execute(session, String.format(
-                        "CREATE TABLE %s WITH (format = '%s', " +
-                                "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                                "bucketed_by=array['custkey'], " +
-                                "bucket_count=1, " +
-                                "sorted_by=array['orderkey']) " +
-                                "AS SELECT custkey, orderkey, orderstatus FROM orders", badBucketTableName, tableFormat));
-                assertQueryOrdered(String.format("SELECT custkey, orderkey, orderstatus FROM %s where orderstatus = '0'", badBucketTableName), "SELECT custkey, orderkey, orderstatus FROM orders where orderstatus = '0'");
-            }
-            finally {
-                dropTableIfExists(badBucketTableName);
-            }
-        }
-    }
-
-    private Session buildSessionForTableWrite()
-    {
-        // TODO: enable this after column stats collection is enabled.
-        return Session.builder(getSession())
-                .setSystemProperty("table_writer_merge_operator_enabled", "true")
-                .setSystemProperty("task_writer_count", "4")
-                .setSystemProperty("task_partitioned_writer_count", "2")
-                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
-                .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
-                .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
-                .build();
     }
 
     private void dropTableIfExists(String tableName)
