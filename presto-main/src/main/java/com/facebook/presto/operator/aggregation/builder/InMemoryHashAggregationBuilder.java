@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.GroupByHash;
+import com.facebook.presto.operator.HashAggregationOperator.ReserveType;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.TransformWork;
@@ -44,6 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -61,7 +63,8 @@ public class InMemoryHashAggregationBuilder
     private final OptionalLong maxPartialMemory;
     private final LocalMemoryContext systemMemoryContext;
     private final LocalMemoryContext localUserMemoryContext;
-    private final boolean useSystemMemory;
+    private final ReserveType reserveType;
+    private final Consumer<Long> memoryConsumer;
 
     private boolean full;
 
@@ -76,7 +79,7 @@ public class InMemoryHashAggregationBuilder
             Optional<DataSize> maxPartialMemory,
             JoinCompiler joinCompiler,
             boolean yieldForMemoryReservation,
-            boolean useSystemMemory)
+            ReserveType reserveType)
     {
         this(accumulatorFactories,
                 step,
@@ -89,7 +92,36 @@ public class InMemoryHashAggregationBuilder
                 Optional.empty(),
                 joinCompiler,
                 yieldForMemoryReservation,
-                useSystemMemory);
+                reserveType,
+                Optional.empty());
+    }
+
+    public InMemoryHashAggregationBuilder(
+            List<AccumulatorFactory> accumulatorFactories,
+            Step step,
+            int expectedGroups,
+            List<Type> groupByTypes,
+            List<Integer> groupByChannels,
+            Optional<Integer> hashChannel,
+            OperatorContext operatorContext,
+            Optional<DataSize> maxPartialMemory,
+            JoinCompiler joinCompiler,
+            boolean yieldForMemoryReservation,
+            Optional<Consumer<Long>> memoryConsumer)
+    {
+        this(accumulatorFactories,
+                step,
+                expectedGroups,
+                groupByTypes,
+                groupByChannels,
+                hashChannel,
+                operatorContext,
+                maxPartialMemory,
+                Optional.empty(),
+                joinCompiler,
+                yieldForMemoryReservation,
+                ReserveType.REVOCABLE,
+                memoryConsumer);
     }
 
     public InMemoryHashAggregationBuilder(
@@ -104,8 +136,24 @@ public class InMemoryHashAggregationBuilder
             Optional<Integer> overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler,
             boolean yieldForMemoryReservation,
-            boolean useSystemMemory)
+            ReserveType reserveType,
+            Optional<Consumer<Long>> memoryConsumer)
     {
+        // reserveType is REVOCABLE implies current InMemoryHashAggregationBuilder is built from SpillableHashAggregationBuilder
+        //  and it will accept a customized memoryConsumer for memory update
+        if (reserveType == ReserveType.REVOCABLE) {
+            checkArgument(memoryConsumer.isPresent(),
+                    "memoryConsumer must be present when reserve type is REVOCABLE");
+        }
+
+        this.reserveType = reserveType;
+        if (memoryConsumer.isPresent()) {
+            this.memoryConsumer = memoryConsumer.get();
+        }
+        else {
+            this.memoryConsumer = this::updateMemory;
+        }
+
         UpdateMemory updateMemory;
         if (yieldForMemoryReservation) {
             updateMemory = this::updateMemoryWithYieldInfo;
@@ -113,7 +161,6 @@ public class InMemoryHashAggregationBuilder
         else {
             // Report memory usage but do not yield for memory.
             // This is specially used for spillable hash aggregation operator.
-            // TODO: revisit this when spillable hash aggregation operator is turned on
             updateMemory = () -> {
                 updateMemoryWithYieldInfo();
                 return true;
@@ -132,7 +179,6 @@ public class InMemoryHashAggregationBuilder
         this.maxPartialMemory = maxPartialMemory.map(dataSize -> OptionalLong.of(dataSize.toBytes())).orElseGet(OptionalLong::empty);
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(InMemoryHashAggregationBuilder.class.getSimpleName());
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
-        this.useSystemMemory = useSystemMemory;
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -151,7 +197,7 @@ public class InMemoryHashAggregationBuilder
     @Override
     public void close()
     {
-        updateMemory(0);
+        memoryConsumer.accept(0L);
     }
 
     @Override
@@ -326,24 +372,28 @@ public class InMemoryHashAggregationBuilder
     {
         long memorySize = getSizeInMemory();
         if (partial && maxPartialMemory.isPresent()) {
-            updateMemory(memorySize);
+            memoryConsumer.accept(memorySize);
             full = (memorySize > maxPartialMemory.getAsLong());
             return true;
         }
         // Operator/driver will be blocked on memory after we call setBytes.
         // If memory is not available, once we return, this operator will be blocked until memory is available.
-        updateMemory(memorySize);
+        memoryConsumer.accept(memorySize);
         // If memory is not available, inform the caller that we cannot proceed for allocation.
         return operatorContext.isWaitingForMemory().isDone();
     }
 
     private void updateMemory(long memorySize)
     {
-        if (useSystemMemory) {
-            systemMemoryContext.setBytes(memorySize);
-        }
-        else {
-            localUserMemoryContext.setBytes(memorySize);
+        switch (reserveType) {
+            case USER:
+                localUserMemoryContext.setBytes(memorySize);
+                break;
+            case SYSTEM:
+                systemMemoryContext.setBytes(memorySize);
+                break;
+            default:
+                throw new AssertionError("InMemoryHashAggregationBuilder do not support reserve type: " + reserveType);
         }
     }
 

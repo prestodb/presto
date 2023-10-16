@@ -621,6 +621,54 @@ public class TestHashAggregationOperator
     }
 
     @Test
+    public void testMemoryLimitInSpillWhenTriggerRehash()
+    {
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
+
+        int smallPagesSpillThresholdSize = 100000;
+
+        List<Page> input = rowPagesBuilder
+                .addSequencePage(smallPagesSpillThresholdSize, 0)
+                .addSequencePage(smallPagesSpillThresholdSize, smallPagesSpillThresholdSize)
+                .addSequencePage(smallPagesSpillThresholdSize, 2 * smallPagesSpillThresholdSize)
+                .addSequencePage(smallPagesSpillThresholdSize, 3 * smallPagesSpillThresholdSize)
+                .build();
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Step.SINGLE,
+                false,
+                ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
+                rowPagesBuilder.getHashChannel(),
+                Optional.empty(),
+                1,
+                Optional.of(new DataSize(16, MEGABYTE)),
+                true,
+                new DataSize(smallPagesSpillThresholdSize, Unit.BYTE),
+                succinctBytes(Integer.MAX_VALUE),
+                spillerFactory,
+                joinCompiler,
+                false);
+
+        TaskContext taskContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION,
+                new DataSize(10, MEGABYTE), new DataSize(20, MEGABYTE));
+        DriverContext driverContext = taskContext
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+
+        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT, BIGINT);
+        for (int i = 0; i < 4 * smallPagesSpillThresholdSize; ++i) {
+            resultBuilder.row((long) i, (long) i);
+        }
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build());
+    }
+
+    @Test
     public void testSpillerFailure()
     {
         JavaAggregationFunctionImplementation maxVarcharColumn = getAggregation("max", VARCHAR);
