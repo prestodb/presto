@@ -111,6 +111,7 @@ public class TransformDistinctInnerJoinToRightEarlyOutJoin
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         JoinNode newInnerJoin = new JoinNode(
@@ -136,7 +137,8 @@ public class TransformDistinctInnerJoinToRightEarlyOutJoin
                 aggregationNode.getPreGroupedVariables(),
                 aggregationNode.getStep(),
                 aggregationNode.getHashVariable(),
-                aggregationNode.getGroupIdVariable());
+                aggregationNode.getGroupIdVariable(),
+                aggregationNode.getAggregationId());
 
         return Result.ofPlanNode(newDistinctNode);
     }

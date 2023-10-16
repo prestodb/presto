@@ -168,6 +168,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                         ImmutableList.of(),
                         parent.getStep(),
                         parent.getHashVariable(),
-                        parent.getGroupIdVariable()));
+                        parent.getGroupIdVariable(),
+                        parent.getAggregationId()));
     }
 }

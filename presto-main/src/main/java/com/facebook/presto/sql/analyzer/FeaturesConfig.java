@@ -284,6 +284,8 @@ public class FeaturesConfig
     private boolean handleComplexEquiJoins;
     private boolean useHBOForScaledWriters;
 
+    private boolean usePartialAggregationHistory;
+
     private boolean removeRedundantCastToVarcharInJoin = true;
 
     public enum PartitioningPrecisionStrategy
@@ -2817,6 +2819,19 @@ public class FeaturesConfig
     public FeaturesConfig setUseHBOForScaledWriters(boolean useHBOForScaledWriters)
     {
         this.useHBOForScaledWriters = useHBOForScaledWriters;
+        return this;
+    }
+
+    public boolean isUsePartialAggregationHistory()
+    {
+        return this.usePartialAggregationHistory;
+    }
+
+    @Config("optimizer.use-partial-aggregation-history")
+    @ConfigDescription("Use partial aggregation histories for splitting aggregations")
+    public FeaturesConfig setUsePartialAggregationHistory(boolean usePartialAggregationHistory)
+    {
+        this.usePartialAggregationHistory = usePartialAggregationHistory;
         return this;
     }
 

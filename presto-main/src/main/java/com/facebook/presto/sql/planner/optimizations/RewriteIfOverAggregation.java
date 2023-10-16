@@ -240,7 +240,8 @@ public class RewriteIfOverAggregation
                     node.getPreGroupedVariables(),
                     node.getStep(),
                     node.getHashVariable(),
-                    node.getGroupIdVariable());
+                    node.getGroupIdVariable(),
+                    node.getAggregationId());
 
             return context.defaultRewrite(aggregationNode, ImmutableMap.of());
         }

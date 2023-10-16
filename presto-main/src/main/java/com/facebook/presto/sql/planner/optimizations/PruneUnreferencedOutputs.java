@@ -403,7 +403,8 @@ public class PruneUnreferencedOutputs
                     ImmutableList.of(),
                     node.getStep(),
                     node.getHashVariable(),
-                    node.getGroupIdVariable());
+                    node.getGroupIdVariable(),
+                    node.getAggregationId());
         }
 
         @Override

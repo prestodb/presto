@@ -1641,7 +1641,8 @@ public class PredicatePushDown
                         ImmutableList.of(),
                         node.getStep(),
                         node.getHashVariable(),
-                        node.getGroupIdVariable());
+                        node.getGroupIdVariable(),
+                        node.getAggregationId());
             }
             if (!postAggregationConjuncts.isEmpty()) {
                 planChanged = true;

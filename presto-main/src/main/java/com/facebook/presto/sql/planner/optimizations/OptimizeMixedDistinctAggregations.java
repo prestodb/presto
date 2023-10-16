@@ -238,7 +238,8 @@ public class OptimizeMixedDistinctAggregations
                     ImmutableList.of(),
                     node.getStep(),
                     Optional.empty(),
-                    node.getGroupIdVariable());
+                    node.getGroupIdVariable(),
+                    node.getAggregationId());
 
             planChanged = true;
 
@@ -524,6 +525,7 @@ public class OptimizeMixedDistinctAggregations
                     ImmutableList.of(),
                     SINGLE,
                     originalNode.getHashVariable(),
+                    Optional.empty(),
                     Optional.empty());
         }
 

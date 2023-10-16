@@ -274,6 +274,7 @@ public class ImplementIntersectAndExceptAsUnion
                     ImmutableList.of(),
                     Step.SINGLE,
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
 
