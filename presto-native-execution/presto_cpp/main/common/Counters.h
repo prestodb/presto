@@ -66,6 +66,8 @@ constexpr folly::StringPiece kCounterNumZombieVeloxTasks{
     "presto_cpp.num_zombie_velox_tasks"};
 constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
     "presto_cpp.num_zombie_presto_tasks"};
+constexpr folly::StringPiece kCounterNumTasksWithStuckOperator{
+    "presto_cpp.num_tasks_with_stuck_operator"};
 constexpr folly::StringPiece kCounterNumRunningDrivers{
     "presto_cpp.num_running_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedDrivers{
