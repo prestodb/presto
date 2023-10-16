@@ -202,14 +202,16 @@ static void processOperatorStats(
   }
 }
 
-// Process the runtime stats of protocol::TaskStats. Copy taskRuntimeMetrics to
-// protocol::TaskStats if it is one of the final task states. Otherwise set the
-// runtime stats to empty.
-static void processTaskStats(
+// Copy taskRuntimeMetrics to protocol::TaskStats if we are in a final task
+// state, or we are told to not skip metrics if still running.
+// Clear runtime stats otherwise.
+void processTaskStats(
     protocol::TaskStats& prestoTaskStats,
     const std::unordered_map<std::string, RuntimeMetric>& taskRuntimeMetrics,
-    protocol::TaskState state) {
-  if (!SystemConfig::instance()->skipRuntimeStatsInRunningTaskInfo() ||
+    protocol::TaskState state,
+    bool tryToSkipIfRunning = true) {
+  if (!tryToSkipIfRunning ||
+      !SystemConfig::instance()->skipRuntimeStatsInRunningTaskInfo() ||
       isFinalState(state)) {
     for (const auto& stat : taskRuntimeMetrics) {
       prestoTaskStats.runtimeStats[stat.first] =
@@ -595,8 +597,13 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
     } // pipeline's operators loop
   } // task's pipelines loop
 
-  // Task runtime metrics for driver counters.
+  processOperatorStats(prestoTaskStats, taskStatus.state);
+  processTaskStats(prestoTaskStats, taskRuntimeStats, taskStatus.state);
+
+  // Task runtime metrics we want while the Task is not finalized.
+  hasStuckOperator = false;
   if (!isFinalState(taskStatus.state)) {
+    taskRuntimeStats.clear();
     addRuntimeMetricIfNotZero(
         taskRuntimeStats, "drivers.total", taskStats.numTotalDrivers);
     addRuntimeMetricIfNotZero(
@@ -611,10 +618,17 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
           fmt::format("drivers.{}", exec::blockingReasonToString(it.first)),
           it.second);
     }
+    if (taskStats.longestRunningOpCallMs != 0) {
+      hasStuckOperator = true;
+      addRuntimeMetricIfNotZero(
+          taskRuntimeStats,
+          "stuck_op." + taskStats.longestRunningOpCall,
+          taskStats.numCompletedDrivers);
+    }
+    // These metrics we need when we are running, so do not try to skipp them.
+    processTaskStats(
+        prestoTaskStats, taskRuntimeStats, taskStatus.state, false);
   }
-
-  processOperatorStats(prestoTaskStats, taskStatus.state);
-  processTaskStats(prestoTaskStats, taskRuntimeStats, taskStatus.state);
 
   return info;
 }

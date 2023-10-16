@@ -264,7 +264,7 @@ struct ZombieTaskStatsSet {
                << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
                << numFailed << "]  Sample task IDs (shows only "
                << numSampleTasks << " IDs): " << std::endl;
-    for (int i = 0; i < tasks.size(); ++i) {
+    for (auto i = 0; i < tasks.size(); ++i) {
       LOG(ERROR) << "Zombie Task[" << i + 1 << "/" << tasks.size()
                  << "]: " << tasks[i].toString() << std::endl;
     }
@@ -619,23 +619,28 @@ size_t TaskManager::cleanOldTasks() {
 
   ZombieTaskStatsSet zombieVeloxTaskCounts;
   ZombieTaskStatsSet zombiePrestoTaskCounts;
+  uint32_t numTasksWithStuckOperator{0};
   {
     // We copy task map locally to avoid locking task map for a potentially long
     // time. We also lock for 'read'.
-    TaskMap taskMap = *(taskMap_.rlock());
+    const TaskMap taskMap = *(taskMap_.rlock());
 
-    for (auto it = taskMap.begin(); it != taskMap.end(); ++it) {
+    for (const auto& [id, prestoTask] : taskMap) {
+      if (prestoTask->hasStuckOperator) {
+        ++numTasksWithStuckOperator;
+      }
+
       bool eraseTask{false};
-      if (it->second->task != nullptr) {
-        if (it->second->task->state() != exec::TaskState::kRunning) {
-          if (it->second->task->timeSinceEndMs() >= oldTaskCleanUpMs_) {
+      if (prestoTask->task != nullptr) {
+        if (prestoTask->task->state() != exec::TaskState::kRunning) {
+          if (prestoTask->task->timeSinceEndMs() >= oldTaskCleanUpMs_) {
             // Not running and old.
             eraseTask = true;
           }
         }
       } else {
         // Use heartbeat to determine the task's age.
-        if (it->second->timeSinceLastHeartbeatMs() >= oldTaskCleanUpMs_) {
+        if (prestoTask->timeSinceLastHeartbeatMs() >= oldTaskCleanUpMs_) {
           eraseTask = true;
         }
       }
@@ -645,15 +650,15 @@ size_t TaskManager::cleanOldTasks() {
         continue;
       }
 
-      const auto prestoTaskRefCount = it->second.use_count();
-      const auto taskRefCount = it->second->task.use_count();
+      const auto prestoTaskRefCount = prestoTask.use_count();
+      const auto taskRefCount = prestoTask->task.use_count();
 
       // Do not remove 'zombie' tasks (with outstanding references) from the
       // map. We use it to track the number of tasks. Note, since we copied the
       // task map, presto tasks should have an extra reference (2 from two
       // maps).
       if (prestoTaskRefCount > 2 || taskRefCount > 1) {
-        auto& task = it->second->task;
+        auto& task = prestoTask->task;
         if (prestoTaskRefCount > 2) {
           ++zombiePrestoTaskCounts.numTotal;
           if (task != nullptr) {
@@ -665,7 +670,7 @@ size_t TaskManager::cleanOldTasks() {
           zombieVeloxTaskCounts.updateCounts(task);
         }
       } else {
-        taskIdsToClean.emplace(it->first);
+        taskIdsToClean.emplace(id);
       }
     }
   }
@@ -700,6 +705,8 @@ size_t TaskManager::cleanOldTasks() {
       kCounterNumZombieVeloxTasks, zombieVeloxTaskCounts.numTotal);
   REPORT_ADD_STAT_VALUE(
       kCounterNumZombiePrestoTasks, zombiePrestoTaskCounts.numTotal);
+  REPORT_ADD_STAT_VALUE(
+      kCounterNumTasksWithStuckOperator, numTasksWithStuckOperator);
   return taskIdsToClean.size();
 }
 
