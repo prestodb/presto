@@ -36,7 +36,9 @@ class Destination {
   // Resets the destination before starting a new batch.
   void beginBatch() {
     ranges_.clear();
+    rangesToSerialize_.clear();
     rangeIdx_ = 0;
+    rowsInCurrentRange_ = 0;
   }
 
   void addRow(vector_size_t row) {
@@ -47,6 +49,7 @@ class Destination {
     ranges_.push_back(rows);
   }
 
+  // Serializes row from 'output' till either 'maxBytes' have been serialized or
   BlockingReason advance(
       uint64_t maxBytes,
       const std::vector<vector_size_t>& sizes,
@@ -74,9 +77,6 @@ class Destination {
   }
 
  private:
-  void
-  serialize(const RowVectorPtr& input, vector_size_t begin, vector_size_t end);
-
   // Sets the next target size for flushing. This is called at the
   // start of each batch of output for the destination. The effect is
   // to make different destinations ready at slightly different times
@@ -93,11 +93,23 @@ class Destination {
   const std::string taskId_;
   const int destination_;
   memory::MemoryPool* const pool_;
+  // Bytes serialized in 'current_'
   uint64_t bytesInCurrent_{0};
+  // Number of rows serialized in 'current_'
+  vector_size_t rowsInCurrent_{0};
   std::vector<IndexRange> ranges_;
+  // List of ranges to be serialized. This is only used by
+  // Destination::advance() and defined as a member variable to reuse allocated
+  // capacity between calls.
+  std::vector<IndexRange> rangesToSerialize_;
 
   // First range index of 'ranges_' that is not appended to 'current_'.
   vector_size_t rangeIdx_{0};
+  // Number of rows serialized in the current range pointed to by 'rangeIdx_'.
+  // This is non-zero if the current range was partially serialized.
+  vector_size_t rowsInCurrentRange_{0};
+  // The current stream where the input is serialized to. This is cleared on
+  // every flush() call.
   std::unique_ptr<VectorStreamGroup> current_;
   bool finished_{false};
 

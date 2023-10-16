@@ -39,42 +39,43 @@ BlockingReason Destination::advance(
     return flush(bufferManager, bufferReleaseFn, future);
   }
 
-  auto firstRangeIdx = rangeIdx_;
-  for (; rangeIdx_ < ranges_.size(); ++rangeIdx_) {
-    // TODO: add support for serializing partial ranges if the full range is too
-    // big.
-    for (vector_size_t i = 0; i < ranges_[rangeIdx_].size; i++) {
-      bytesInCurrent_ += sizes[ranges_[rangeIdx_].begin + i];
+  // Collect ranges to serialize.
+  rangesToSerialize_.clear();
+  bool shouldFlush = false;
+  while (rangeIdx_ < ranges_.size() && !shouldFlush) {
+    auto& currRange = ranges_[rangeIdx_];
+    auto startRow = rowsInCurrentRange_;
+    for (; rowsInCurrentRange_ < currRange.size && !shouldFlush;
+         rowsInCurrentRange_++) {
+      ++rowsInCurrent_;
+      bytesInCurrent_ += sizes[currRange.begin + rowsInCurrentRange_];
+      shouldFlush = bytesInCurrent_ >= adjustedMaxBytes ||
+          rowsInCurrent_ >= targetNumRows_;
     }
-    if (bytesInCurrent_ >= adjustedMaxBytes ||
-        rangeIdx_ - firstRangeIdx >= targetNumRows_) {
-      serialize(output, firstRangeIdx, rangeIdx_ + 1);
-      if (rangeIdx_ == ranges_.size() - 1) {
-        *atEnd = true;
-      }
-      ++rangeIdx_;
-      return flush(bufferManager, bufferReleaseFn, future);
+    rangesToSerialize_.push_back(
+        {currRange.begin + startRow, rowsInCurrentRange_ - startRow});
+    if (rowsInCurrentRange_ == currRange.size) {
+      rowsInCurrentRange_ = 0;
+      rangeIdx_++;
     }
   }
-  serialize(output, firstRangeIdx, rangeIdx_);
-  *atEnd = true;
-  return BlockingReason::kNotBlocked;
-}
 
-void Destination::serialize(
-    const RowVectorPtr& output,
-    vector_size_t begin,
-    vector_size_t end) {
+  // Serialize
   if (!current_) {
     current_ = std::make_unique<VectorStreamGroup>(pool_);
     auto rowType = asRowType(output->type());
-    vector_size_t numRows = 0;
-    for (vector_size_t i = begin; i < end; i++) {
-      numRows += ranges_[i].size;
-    }
-    current_->createStreamTree(rowType, numRows);
+    current_->createStreamTree(rowType, rowsInCurrent_);
   }
-  current_->append(output, folly::Range(&ranges_[begin], end - begin));
+  current_->append(
+      output, folly::Range(&rangesToSerialize_[0], rangesToSerialize_.size()));
+  // Update output state variable.
+  if (rangeIdx_ == ranges_.size()) {
+    *atEnd = true;
+  }
+  if (shouldFlush) {
+    return flush(bufferManager, bufferReleaseFn, future);
+  }
+  return BlockingReason::kNotBlocked;
 }
 
 BlockingReason Destination::flush(
@@ -95,6 +96,7 @@ BlockingReason Destination::flush(
   current_->flush(&stream);
   current_.reset();
   bytesInCurrent_ = 0;
+  rowsInCurrent_ = 0;
   setTargetSizePct();
 
   bool blocked = bufferManager.enqueue(

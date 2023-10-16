@@ -531,6 +531,78 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
   }
 }
 
+TEST_F(MultiFragmentTest, partitionedOutputWithLargeInput) {
+  // Verify that partitionedOutput operator is able to split a single input
+  // vector if it hits memory or row limits.
+  // We create a large vector that hits the row limit (70% - 120% of 10,000)
+  // which would hit a task level memory limit of 1MB unless its split up.
+  // This test exercises splitting up the input both from the edges and the
+  // middle as it ends up splitting it in ~ 10 splits.
+  setupSources(1, 100'000);
+  const int64_t kRootMemoryLimit = 1 << 20; // 1MB
+  // Single Partition
+  {
+    auto leafTaskId = makeTaskId("leaf", 0);
+    auto leafPlan =
+        PlanBuilder()
+            .values(vectors_)
+            .partitionedOutput({}, 1, {"c0", "c1", "c2", "c3", "c4"})
+            .planNode();
+    auto leafTask =
+        makeTask(leafTaskId, leafPlan, 0, nullptr, kRootMemoryLimit);
+    Task::start(leafTask, 1);
+    auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
+
+    auto task =
+        assertQuery(op, {leafTaskId}, "SELECT c0, c1, c2, c3, c4 FROM tmp");
+    auto exchangeStats = task->taskStats().pipelineStats[0].operatorStats[0];
+    ASSERT_GT(exchangeStats.inputVectors, 2);
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get()))
+        << leafTask->taskId() << "state: " << leafTask->state();
+  }
+
+  // Multiple partitions but round-robin.
+  {
+    constexpr int32_t kFanout = 2;
+    auto leafTaskId = makeTaskId("leaf", 0);
+    auto leafPlan =
+        PlanBuilder()
+            .values(vectors_)
+            .partitionedOutput(
+                {},
+                kFanout,
+                false,
+                std::make_shared<exec::RoundRobinPartitionFunctionSpec>(),
+                {"c0", "c1", "c2", "c3", "c4"})
+            .planNode();
+    auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+    Task::start(leafTask, 1);
+
+    auto intermediatePlan =
+        PlanBuilder()
+            .exchange(leafPlan->outputType())
+            .partitionedOutput({}, 1, {"c0", "c1", "c2", "c3", "c4"})
+            .planNode();
+    std::vector<std::string> intermediateTaskIds;
+    for (auto i = 0; i < kFanout; ++i) {
+      intermediateTaskIds.push_back(makeTaskId("intermediate", i));
+      auto intermediateTask =
+          makeTask(intermediateTaskIds.back(), intermediatePlan, i);
+      Task::start(intermediateTask, 1);
+      addRemoteSplits(intermediateTask, {leafTaskId});
+    }
+
+    auto op = PlanBuilder().exchange(intermediatePlan->outputType()).planNode();
+
+    auto task = assertQuery(
+        op, intermediateTaskIds, "SELECT c0, c1, c2, c3, c4 FROM tmp");
+    auto exchangeStats = task->taskStats().pipelineStats[0].operatorStats[0];
+    ASSERT_GT(exchangeStats.inputVectors, 2);
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get()))
+        << "state: " << leafTask->state();
+  }
+}
+
 TEST_F(MultiFragmentTest, broadcast) {
   auto data = makeRowVector(
       {makeFlatVector<int32_t>(1'000, [](auto row) { return row; })});
