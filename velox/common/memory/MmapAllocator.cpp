@@ -292,7 +292,8 @@ bool MmapAllocator::allocateContiguousImpl(
     } catch (const std::exception& e) {
       VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
           << "Exceeded memory reservation limit when reserve " << newPages
-          << " new pages when allocate " << numPages << " pages";
+          << " new pages when allocate " << numPages
+          << " pages, error: " << e.what();
       numAllocated_ -= totalCollateralPages;
       numMapped_ -= numCollateralUnmap;
       numExternalMapped_ -= numCollateralUnmap;

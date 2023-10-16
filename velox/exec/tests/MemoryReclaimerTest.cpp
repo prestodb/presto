@@ -81,3 +81,34 @@ TEST_F(MemoryReclaimerTest, enterArbitrationTest) {
     }
   }
 }
+
+TEST_F(MemoryReclaimerTest, abortTest) {
+  for (const auto& leafPool : {false, true}) {
+    const std::string testName = fmt::format("leafPool: {}", leafPool);
+    SCOPED_TRACE(testName);
+    auto rootPool = defaultMemoryManager().addRootPool(
+        testName, kMaxMemory, exec::MemoryReclaimer::create());
+    ASSERT_FALSE(rootPool->aborted());
+    if (leafPool) {
+      auto leafPool = rootPool->addLeafChild(
+          "leafAbortTest", true, exec::MemoryReclaimer::create());
+      try {
+        VELOX_FAIL("abortTest error");
+      } catch (const VeloxRuntimeError& e) {
+        leafPool->abort(std::current_exception());
+      }
+      ASSERT_TRUE(rootPool->aborted());
+      ASSERT_TRUE(leafPool->aborted());
+    } else {
+      auto aggregatePool = rootPool->addAggregateChild(
+          "nonLeafAbortTest", exec::MemoryReclaimer::create());
+      try {
+        VELOX_FAIL("abortTest error");
+      } catch (const VeloxRuntimeError& e) {
+        aggregatePool->abort(std::current_exception());
+      }
+      ASSERT_TRUE(rootPool->aborted());
+      ASSERT_TRUE(aggregatePool->aborted());
+    }
+  }
+}

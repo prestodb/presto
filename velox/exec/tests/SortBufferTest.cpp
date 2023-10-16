@@ -417,8 +417,9 @@ TEST_F(SortBufferTest, spill) {
     VectorFuzzer fuzzer({.vectorSize = 1024}, fuzzerPool.get());
     uint64_t totalNumInput = 0;
 
-    ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
-    const auto peakSpillMemoryUsage = Spiller::pool()->stats().peakBytes;
+    ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+    const auto peakSpillMemoryUsage =
+        memory::spillMemoryPool()->stats().peakBytes;
 
     for (int i = 0; i < 3; ++i) {
       sortBuffer->addInput(fuzzer.fuzzRow(inputType_));
@@ -443,10 +444,11 @@ TEST_F(SortBufferTest, spill) {
       // spill.
       ASSERT_EQ(spillStats->spilledFiles, 2);
       sortBuffer.reset();
-      ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
-      if (Spiller::pool()->trackUsage()) {
-        ASSERT_GT(Spiller::pool()->stats().peakBytes, 0);
-        ASSERT_GE(Spiller::pool()->stats().peakBytes, peakSpillMemoryUsage);
+      ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+      if (memory::spillMemoryPool()->trackUsage()) {
+        ASSERT_GT(memory::spillMemoryPool()->stats().peakBytes, 0);
+        ASSERT_GE(
+            memory::spillMemoryPool()->stats().peakBytes, peakSpillMemoryUsage);
       }
     }
   }

@@ -237,7 +237,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       spillConfig.writeBufferSize,
       spillConfig.minSpillRunSize,
       spillConfig.compressionKind,
-      Spiller::pool(),
+      memory::spillMemoryPool(),
       spillConfig.executor);
 
   const int32_t numPartitions = spiller_->hashBits().numPartitions();
@@ -1102,6 +1102,7 @@ void HashBuild::reclaim(
     memory::MemoryReclaimer::Stats& stats) {
   VELOX_CHECK(canReclaim());
   auto* driver = operatorCtx_->driver();
+  VELOX_CHECK_NOT_NULL(driver);
 
   TestValue::adjust("facebook::velox::exec::HashBuild::reclaim", this);
 

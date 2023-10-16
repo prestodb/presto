@@ -192,7 +192,7 @@ void SortBuffer::spill(int64_t targetRows, int64_t targetBytes) {
         spillConfig_->writeBufferSize,
         spillConfig_->minSpillRunSize,
         spillConfig_->compressionKind,
-        Spiller::pool(),
+        memory::spillMemoryPool(),
         spillConfig_->executor);
     VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);
   }

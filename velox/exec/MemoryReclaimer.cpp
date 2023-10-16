@@ -51,6 +51,21 @@ void MemoryReclaimer::leaveArbitration() noexcept {
   driver->task()->leaveSuspended(driver->state());
 }
 
+void MemoryReclaimer::abort(
+    memory::MemoryPool* pool,
+    const std::exception_ptr& error) {
+  if (pool->kind() == memory::MemoryPool::Kind::kLeaf) {
+    return;
+  }
+  pool->visitChildren([&](memory::MemoryPool* child) {
+    auto* reclaimer = child->reclaimer();
+    if (reclaimer != nullptr) {
+      reclaimer->abort(child, error);
+    }
+    return true;
+  });
+}
+
 void memoryArbitrationStateCheck(memory::MemoryPool& pool) {
   const auto* driverThreadCtx = driverThreadContext();
   if (driverThreadCtx != nullptr) {

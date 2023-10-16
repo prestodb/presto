@@ -439,8 +439,8 @@ void SharedArbitrator::abort(
   try {
     pool->abort(error);
   } catch (const std::exception& e) {
-    VELOX_MEM_LOG(WARNING) << "Failed to abort memory pool "
-                           << pool->toString();
+    VELOX_MEM_LOG(WARNING) << "Failed to abort memory pool " << pool->toString()
+                           << ", error: " << e.what();
   }
   // NOTE: no matter memory pool abort throws or not, it should have been marked
   // as aborted to prevent any new memory arbitration triggered from the aborted

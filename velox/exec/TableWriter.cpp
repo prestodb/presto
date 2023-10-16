@@ -297,7 +297,6 @@ void TableWriter::MemoryReclaimer::abort(
     memory::MemoryPool* pool,
     const std::exception_ptr& /* error */) {
   VELOX_CHECK(!pool->isLeaf());
-  return;
 }
 
 // static

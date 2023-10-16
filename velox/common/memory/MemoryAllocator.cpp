@@ -177,7 +177,7 @@ bool MemoryAllocator::allocateNonContiguous(
     return allocateNonContiguousWithoutRetry(
         numPages, out, reservationCB, minSizeClass);
   }
-  bool success = cache()->makeSpace(
+  const bool success = cache()->makeSpace(
       pagesToAcquire(numPages, out.numPages()), [&](Allocation& acquired) {
         freeNonContiguous(acquired);
         return allocateNonContiguousWithoutRetry(
@@ -209,31 +209,27 @@ bool MemoryAllocator::allocateContiguous(
   }
   auto numCollateralPages =
       allocation.numPages() + (collateral ? collateral->numPages() : 0);
-  bool success = cache()->makeSpace(
+  const bool success = cache()->makeSpace(
       pagesToAcquire(numPages, numCollateralPages), [&](Allocation& acquired) {
         freeNonContiguous(acquired);
         return allocateContiguousWithoutRetry(
             numPages, collateral, allocation, reservationCB, maxPages);
       });
   if (!success) {
+    // There can be a failure where allocation was never called because there
     // never was a chance based on numAllocated() and capacity(). Make sure old
     // data is still freed.
-    int64_t bytes = 0;
-    ;
-    if (collateral && !collateral->empty()) {
-      if (reservationCB) {
-        bytes += AllocationTraits::pageBytes(collateral->numPages());
-      }
+    int64_t freedBytes{0};
+    if ((collateral != nullptr) && !collateral->empty()) {
+      freedBytes += AllocationTraits::pageBytes(collateral->numPages());
       freeNonContiguous(*collateral);
     }
     if (!allocation.empty()) {
-      if (reservationCB) {
-        bytes += allocation.size();
-      }
+      freedBytes += allocation.size();
       freeContiguous(allocation);
     }
-    if (bytes) {
-      reservationCB(bytes, false);
+    if ((reservationCB) != nullptr && (freedBytes > 0)) {
+      reservationCB(freedBytes, false);
     }
   }
   return success;

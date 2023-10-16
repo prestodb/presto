@@ -731,8 +731,9 @@ void AggregationTestBase::testAggregationsImpl(
 
     auto spillDirectory = exec::test::TempDirectoryPath::create();
 
-    ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
-    const auto peakSpillMemoryUsage = Spiller::pool()->stats().peakBytes;
+    ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+    const auto peakSpillMemoryUsage =
+        memory::spillMemoryPool()->stats().peakBytes;
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
     queryBuilder.configs(config)
         .config(core::QueryConfig::kTestingSpillPct, "100")
@@ -747,9 +748,10 @@ void AggregationTestBase::testAggregationsImpl(
     auto inputRows = toPlanStats(task->taskStats()).at(partialNodeId).inputRows;
     if (inputRows > 1) {
       EXPECT_LT(0, spilledBytes(*task));
-      ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
-      ASSERT_GT(Spiller::pool()->stats().peakBytes, 0);
-      ASSERT_GE(Spiller::pool()->stats().peakBytes, peakSpillMemoryUsage);
+      ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+      ASSERT_GT(memory::spillMemoryPool()->stats().peakBytes, 0);
+      ASSERT_GE(
+          memory::spillMemoryPool()->stats().peakBytes, peakSpillMemoryUsage);
     } else {
       EXPECT_EQ(0, spilledBytes(*task));
     }

@@ -102,7 +102,7 @@ void JoinSpillInputTest::setUp() {
       FLAGS_spiller_benchmark_write_buffer_size,
       FLAGS_spiller_benchmark_min_spill_run_size,
       stringToCompressionKind(FLAGS_spiller_benchmark_compression_kind),
-      Spiller::pool(),
+      memory::spillMemoryPool(),
       executor_.get());
   spiller_->setPartitionsSpilled({0});
 }

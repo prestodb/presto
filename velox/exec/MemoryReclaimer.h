@@ -32,6 +32,9 @@ class MemoryReclaimer : public memory::MemoryReclaimer {
 
   void leaveArbitration() noexcept override;
 
+  void abort(memory::MemoryPool* pool, const std::exception_ptr& error)
+      override;
+
  protected:
   MemoryReclaimer() = default;
 };

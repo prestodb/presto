@@ -193,8 +193,9 @@ class OrderByTest : public OperatorTestBase {
       params.spillDirectory = spillDirectory->path;
       auto task = assertQueryOrdered(params, duckDbSql, sortingKeys);
       auto inputRows = toPlanStats(task->taskStats()).at(orderById).inputRows;
-      const uint64_t peakSpillMemoryUsage = Spiller::pool()->stats().peakBytes;
-      ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
+      const uint64_t peakSpillMemoryUsage =
+          memory::spillMemoryPool()->stats().peakBytes;
+      ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
       if (inputRows > 0) {
         EXPECT_LT(0, spilledStats(*task).spilledInputBytes);
         EXPECT_LT(0, spilledStats(*task).spilledBytes);
@@ -202,10 +203,12 @@ class OrderByTest : public OperatorTestBase {
         EXPECT_LT(0, spilledStats(*task).spilledFiles);
         // NOTE: the last input batch won't go spilling.
         EXPECT_GT(inputRows, spilledStats(*task).spilledRows);
-        ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
-        if (Spiller::pool()->trackUsage()) {
-          ASSERT_GT(Spiller::pool()->stats().peakBytes, 0);
-          ASSERT_GE(Spiller::pool()->stats().peakBytes, peakSpillMemoryUsage);
+        ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+        if (memory::spillMemoryPool()->trackUsage()) {
+          ASSERT_GT(memory::spillMemoryPool()->stats().peakBytes, 0);
+          ASSERT_GE(
+              memory::spillMemoryPool()->stats().peakBytes,
+              peakSpillMemoryUsage);
         }
       } else {
         EXPECT_EQ(0, spilledStats(*task).spilledInputBytes);

@@ -160,9 +160,10 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     spillIndicesBuffers_.resize(numPartitions_);
     numPartitionInputs_.resize(numPartitions_, 0);
     // Check spiller memory pool properties.
-    ASSERT_EQ(Spiller::pool()->name(), "_sys.spilling");
-    ASSERT_EQ(Spiller::pool()->kind(), memory::MemoryPool::Kind::kLeaf);
-    ASSERT_TRUE(Spiller::pool()->threadSafe());
+    ASSERT_EQ(memory::spillMemoryPool()->name(), "_sys.spilling");
+    ASSERT_EQ(
+        memory::spillMemoryPool()->kind(), memory::MemoryPool::Kind::kLeaf);
+    ASSERT_TRUE(memory::spillMemoryPool()->threadSafe());
   }
 
  protected:

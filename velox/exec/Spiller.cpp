@@ -173,7 +173,8 @@ Spiller::Spiller(
 
 void Spiller::extractSpill(folly::Range<char**> rows, RowVectorPtr& resultPtr) {
   if (!resultPtr) {
-    resultPtr = BaseVector::create<RowVector>(rowType_, rows.size(), pool());
+    resultPtr = BaseVector::create<RowVector>(
+        rowType_, rows.size(), memory::spillMemoryPool());
   } else {
     resultPtr->prepareForReuse();
     resultPtr->resize(rows.size());
@@ -768,10 +769,5 @@ void Spiller::fillSpillRuns(std::vector<SpillableStats>& statsList) {
 
 SpillStats Spiller::stats() const {
   return stats_.copy();
-}
-
-// static
-memory::MemoryPool* Spiller::pool() {
-  return memory::spillMemoryPool();
 }
 } // namespace facebook::velox::exec

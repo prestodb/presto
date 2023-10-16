@@ -622,8 +622,9 @@ class HashJoinBuilder {
     SCOPED_TRACE(
         injectSpill ? fmt::format("With Max Spill Level: {}", maxSpillLevel)
                     : "Without Spill");
-    ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
-    const uint64_t peakSpillMemoryUsage = Spiller::pool()->stats().peakBytes;
+    ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+    const uint64_t peakSpillMemoryUsage =
+        memory::spillMemoryPool()->stats().peakBytes;
     auto task = builder.assertResults(referenceQuery_);
     const auto statsPair = taskSpilledStats(*task);
     if (injectSpill) {
@@ -643,10 +644,12 @@ class HashJoinBuilder {
         }
         verifyTaskSpilledRuntimeStats(*task, true);
       }
-      ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
-      if (statsPair.first.spilledBytes > 0 && Spiller::pool()->trackUsage()) {
-        ASSERT_GT(Spiller::pool()->stats().peakBytes, 0);
-        ASSERT_GE(Spiller::pool()->stats().peakBytes, peakSpillMemoryUsage);
+      ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
+      if (statsPair.first.spilledBytes > 0 &&
+          memory::spillMemoryPool()->trackUsage()) {
+        ASSERT_GT(memory::spillMemoryPool()->stats().peakBytes, 0);
+        ASSERT_GE(
+            memory::spillMemoryPool()->stats().peakBytes, peakSpillMemoryUsage);
       }
       // NOTE: if 'spillDirectory_' is not empty and spill threshold is not
       // set, the test might trigger spilling by its own.
@@ -663,7 +666,7 @@ class HashJoinBuilder {
       ASSERT_EQ(statsPair.second.spilledFiles, 0);
       verifyTaskSpilledRuntimeStats(*task, false);
     }
-    ASSERT_EQ(Spiller::pool()->stats().currentBytes, 0);
+    ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
     // Customized test verification.
     if (testVerifier_ != nullptr) {
       testVerifier_(task, injectSpill);
