@@ -69,6 +69,7 @@ struct PrestoTask {
   const PrestoTaskId id;
   const long startProcessCpuTime;
   std::shared_ptr<velox::exec::Task> task;
+  std::atomic_bool hasStuckOperator{false};
 
   // Has the task been normally created and started.
   // When you create task with error - it has never been started.
