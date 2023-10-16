@@ -232,6 +232,7 @@ public class LogicalPlanner
                         ImmutableList.of(),
                         AggregationNode.Step.SINGLE,
                         Optional.empty(),
+                        Optional.empty(),
                         Optional.empty()),
                 targetTable,
                 variableAllocator.newVariable(getSourceLocation(analyzeStatement), "rows", BIGINT),

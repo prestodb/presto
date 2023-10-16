@@ -153,6 +153,7 @@ public class TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         ImmutableList<VariableReferenceExpression> referencedOutputs = ImmutableList.<VariableReferenceExpression>builder()

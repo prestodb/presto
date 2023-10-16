@@ -811,6 +811,7 @@ public class TestCostCalculator
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

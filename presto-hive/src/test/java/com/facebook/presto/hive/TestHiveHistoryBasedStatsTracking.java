@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.Plan;
@@ -32,9 +33,11 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.PARTIAL_AGGREGATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
+import static com.facebook.presto.SystemSessionProperties.USE_PARTIAL_AGGREGATION_HISTORY;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
@@ -80,7 +83,7 @@ public class TestHiveHistoryBasedStatsTracking
                     anyTree(node(ProjectNode.class, any())).withOutputRowCount(229.5));
 
             // HBO Statistics
-            executeAndTrackHistory("SELECT *, 1 FROM test_orders where ds = '2020-09-01' and substr(orderpriority, 1, 1) = '1'");
+            executeAndTrackHistory("SELECT *, 1 FROM test_orders where ds = '2020-09-01' and substr(orderpriority, 1, 1) = '1'", defaultSession());
             assertPlan(
                     "SELECT *, 2 FROM test_orders where ds = '2020-09-02' and substr(orderpriority, 1, 1) = '1'",
                     anyTree(node(ProjectNode.class, any()).withOutputRowCount(48)));
@@ -96,7 +99,7 @@ public class TestHiveHistoryBasedStatsTracking
         try {
             getQueryRunner().execute("CREATE TABLE test_orders (orderkey integer, ds varchar) WITH (partitioned_by = ARRAY['ds'])");
 
-            Plan plan = plan("insert into test_orders (values (1, '2023-09-20'), (2, '2023-09-21'))", createSession());
+            Plan plan = plan("insert into test_orders (values (1, '2023-09-20'), (2, '2023-09-21'))", defaultSession());
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
                     .where(node -> node instanceof TableWriterMergeNode && !node.getStatsEquivalentPlanNode().isPresent())
@@ -125,7 +128,7 @@ public class TestHiveHistoryBasedStatsTracking
             // CBO Statistics
             Plan plan = plan("SELECT * FROM " +
                     "(SELECT * FROM test_orders where ds = '2020-09-01' and substr(CAST(custkey AS VARCHAR), 1, 3) <> '370') t1 JOIN " +
-                    "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", createSession());
+                    "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", defaultSession());
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
                     .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinNode.DistributionType.PARTITIONED))
@@ -135,11 +138,12 @@ public class TestHiveHistoryBasedStatsTracking
             // HBO Statistics
             executeAndTrackHistory("SELECT * FROM " +
                     "(SELECT * FROM test_orders where ds = '2020-09-01' and substr(CAST(custkey AS VARCHAR), 1, 3) <> '370') t1 JOIN " +
-                    "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey");
+                    "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey",
+                    defaultSession());
 
             plan = plan("SELECT * FROM " +
                     "(SELECT * FROM test_orders where ds = '2020-09-01' and substr(CAST(custkey AS VARCHAR), 1, 3) <> '370') t1 JOIN " +
-                    "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", createSession());
+                    "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", defaultSession());
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
                     .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinNode.DistributionType.REPLICATED))
@@ -151,28 +155,65 @@ public class TestHiveHistoryBasedStatsTracking
         }
     }
 
+    @Test
+    public void testPartialAggStatistics()
+    {
+        try {
+            // CBO Statistics
+            getQueryRunner().execute("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['ds', 'ts']) AS " +
+                    "SELECT orderkey, orderpriority, comment, custkey, '2020-09-01' as ds, '00:01' as ts FROM orders where orderkey < 2000 ");
+
+            String query = "SELECT count(*) FROM test_orders group by custkey";
+            Session session = createSession("always");
+            Plan plan = plan(query, session);
+
+            assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
+                    .where(node -> node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL)
+                    .findFirst()
+                    .isPresent());
+
+            // collect HBO Statistics
+            executeAndTrackHistory(query, createSession("always"));
+
+            plan = plan(query, createSession("automatic"));
+
+            assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
+                    .where(node -> node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL).findAll().isEmpty());
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_orders");
+        }
+    }
+
     @Override
     protected void assertPlan(@Language("SQL") String query, PlanMatchPattern pattern)
     {
-        assertPlan(createSession(), query, pattern);
+        assertPlan(defaultSession(), query, pattern);
     }
 
-    private void executeAndTrackHistory(String sql)
+    private void executeAndTrackHistory(String sql, Session session)
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
         InMemoryHistoryBasedPlanStatisticsProvider provider = (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
 
-        queryRunner.execute(createSession(), sql);
+        queryRunner.execute(session, sql);
         provider.waitProcessQueryEvents();
     }
 
-    private Session createSession()
+    private Session defaultSession()
+    {
+        return createSession("automatic");
+    }
+
+    private Session createSession(String partialAggregationStrategy)
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "automatic")
+                .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, partialAggregationStrategy)
+                .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
                 .setSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, "false")
                 .build();

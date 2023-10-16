@@ -19,6 +19,7 @@ import com.facebook.presto.cost.FragmentStatsProvider;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
 import com.facebook.presto.cost.JoinNodeStatsEstimate;
+import com.facebook.presto.cost.PartialAggregationStatsEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculatorTester;
 import com.facebook.presto.cost.TableWriterNodeStatsEstimate;
@@ -33,6 +34,7 @@ import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.JoinNodeStatistics;
+import com.facebook.presto.spi.statistics.PartialAggregationStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -110,7 +112,7 @@ public class TestPrestoSparkStatsCalculator
     @Test
     public void testUsesHboStatsWhenMatchRuntime()
     {
-        fragmentStatsProvider.putStats(TEST_QUERY_ID, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown()));
+        fragmentStatsProvider.putStats(TEST_QUERY_ID, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
         PlanBuilder planBuilder = new PlanBuilder(session, new PlanNodeIdAllocator(), metadata);
         PlanNode statsEquivalentRemoteSource = planBuilder
                 .registerVariable(planBuilder.variable("c1"))
@@ -126,7 +128,7 @@ public class TestPrestoSparkStatsCalculator
                 new HistoricalPlanStatistics(
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty()),
+                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
                                         ImmutableList.of())))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1)), statsEquivalentRemoteSource))
@@ -137,7 +139,7 @@ public class TestPrestoSparkStatsCalculator
     @Test
     public void testUsesRuntimeStatsWhenNoHboStats()
     {
-        fragmentStatsProvider.putStats(TEST_QUERY_ID, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown()));
+        fragmentStatsProvider.putStats(TEST_QUERY_ID, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))
                 .check(check -> check.totalSize(1000)
                         .outputRowsCountUnknown());
@@ -160,7 +162,7 @@ public class TestPrestoSparkStatsCalculator
         StatsCalculatorTester tester = new StatsCalculatorTester(
                 localQueryRunner,
                 prestoSparkStatsCalculator);
-        fragmentStatsProvider.putStats(TEST_QUERY_ID, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown()));
+        fragmentStatsProvider.putStats(TEST_QUERY_ID, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
 
         PlanBuilder planBuilder = new PlanBuilder(session, new PlanNodeIdAllocator(), localQueryRunner.getMetadata());
         PlanNode statsEquivalentRemoteSource = planBuilder
@@ -175,7 +177,7 @@ public class TestPrestoSparkStatsCalculator
                 new HistoricalPlanStatistics(
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty()),
+                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
                                         ImmutableList.of())))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))
@@ -187,7 +189,7 @@ public class TestPrestoSparkStatsCalculator
     @Test
     public void testUsesRuntimeStatsWhenDiffersFromHbo()
     {
-        fragmentStatsProvider.putStats(TEST_QUERY_ID, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown()));
+        fragmentStatsProvider.putStats(TEST_QUERY_ID, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
 
         PlanBuilder planBuilder = new PlanBuilder(session, new PlanNodeIdAllocator(), metadata);
         PlanNode statsEquivalentRemoteSource = planBuilder
@@ -202,7 +204,7 @@ public class TestPrestoSparkStatsCalculator
                 new HistoricalPlanStatistics(
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(10), Estimate.of(100), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty()),
+                                        new PlanStatistics(Estimate.of(10), Estimate.of(100), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
                                         ImmutableList.of())))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))
