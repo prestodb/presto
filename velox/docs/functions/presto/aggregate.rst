@@ -82,11 +82,11 @@ General Aggregate Functions
     each input value occurs. Supports integral, floating-point,
     boolean, timestamp, and date input types.
 
-.. function:: geometric_mean(x) -> double
+.. function:: geometric_mean(bigint) -> double
+              geometric_mean(double) -> double
+              geometric_mean(real) -> real
 
     Returns the `geometric mean <https://en.wikipedia.org/wiki/Geometric_mean>`_ of all input values.
-
-    Supported types are BIGINT and DOUBLE.
 
 .. function:: max_by(x, y) -> [same as x]
 

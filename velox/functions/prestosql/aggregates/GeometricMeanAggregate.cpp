@@ -24,20 +24,20 @@ namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
-template <typename T>
+template <typename TInput, typename TResult>
 class GeometricMeanAggregate {
  public:
-  using InputType = Row<T>;
+  using InputType = Row<TInput>;
 
   using IntermediateType =
       Row</*logSum*/ double,
           /*count*/ int64_t>;
 
-  using OutputType = double;
+  using OutputType = TResult;
 
   static bool toIntermediate(
       exec::out_type<Row<double, int64_t>>& out,
-      exec::arg_type<T> in) {
+      exec::arg_type<TInput> in) {
     out.copy_from(std::make_tuple(std::log(in), 1));
     return true;
   }
@@ -52,7 +52,9 @@ class GeometricMeanAggregate {
 
     explicit AccumulatorType(HashStringAllocator* /*allocator*/) {}
 
-    void addInput(HashStringAllocator* /*allocator*/, exec::arg_type<T> data) {
+    void addInput(
+        HashStringAllocator* /*allocator*/,
+        exec::arg_type<TInput> data) {
       logSum_ += std::log(data);
       count_ = checkedPlus<int64_t>(count_, 1);
     }
@@ -93,6 +95,13 @@ void registerGeometricMeanAggregate(const std::string& prefix) {
                              .build());
   }
 
+  // Register for real input type.
+  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                           .returnType("real")
+                           .intermediateType("row(double,bigint)")
+                           .argumentType("real")
+                           .build());
+
   exec::registerAggregateFunction(
       name,
       std::move(signatures),
@@ -104,34 +113,24 @@ void registerGeometricMeanAggregate(const std::string& prefix) {
           -> std::unique_ptr<exec::Aggregate> {
         VELOX_USER_CHECK_EQ(argTypes.size(), 1, "{} takes one argument", name);
         auto inputType = argTypes[0];
-        if (exec::isRawInput(step)) {
-          switch (inputType->kind()) {
-            case TypeKind::BIGINT:
-              return std::make_unique<
-                  SimpleAggregateAdapter<GeometricMeanAggregate<int64_t>>>(
-                  resultType);
-            case TypeKind::DOUBLE:
-              return std::make_unique<
-                  SimpleAggregateAdapter<GeometricMeanAggregate<double>>>(
-                  resultType);
-            default:
-              VELOX_USER_FAIL(
-                  "Unknown input type for {} aggregation {}",
-                  name,
-                  inputType->toString());
-          }
-        } else {
-          switch (resultType->kind()) {
-            case TypeKind::DOUBLE:
-            case TypeKind::ROW:
-              return std::make_unique<
-                  SimpleAggregateAdapter<GeometricMeanAggregate<double>>>(
-                  resultType);
-            default:
-              VELOX_USER_FAIL(
-                  "Unsupported result type for final aggregation: {}",
-                  resultType->toString());
-          }
+
+        switch (inputType->kind()) {
+          case TypeKind::BIGINT:
+            return std::make_unique<SimpleAggregateAdapter<
+                GeometricMeanAggregate<int64_t, double>>>(resultType);
+          case TypeKind::DOUBLE:
+            return std::make_unique<
+                SimpleAggregateAdapter<GeometricMeanAggregate<double, double>>>(
+                resultType);
+          case TypeKind::REAL:
+            return std::make_unique<
+                SimpleAggregateAdapter<GeometricMeanAggregate<float, float>>>(
+                resultType);
+          default:
+            VELOX_USER_FAIL(
+                "Unknown input type for {} aggregation {}",
+                name,
+                inputType->toString());
         }
       },
       false);
