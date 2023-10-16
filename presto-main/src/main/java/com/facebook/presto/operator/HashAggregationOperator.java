@@ -575,7 +575,7 @@ public class HashAggregationOperator
                     maxPartialMemory,
                     joinCompiler,
                     true,
-                    useSystemMemory);
+                    useSystemMemory ? ReserveType.SYSTEM : ReserveType.USER);
         }
         else {
             verify(!useSystemMemory, "using system memory in spillable aggregations is not supported");
@@ -666,5 +666,12 @@ public class HashAggregationOperator
             }
         }
         return result;
+    }
+
+    public enum ReserveType
+    {
+        USER,
+        SYSTEM,
+        REVOCABLE
     }
 }
