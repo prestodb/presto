@@ -612,6 +612,53 @@ struct ArrayTrimFunctionString {
   }
 };
 
+template <typename T>
+struct ArrayRemoveNullFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Fast path for primitives.
+  template <typename Out, typename In>
+  FOLLY_ALWAYS_INLINE void call(Out& out, const In& inputArray) {
+    for (int i = 0; i < inputArray.size(); ++i) {
+      if (inputArray[i].has_value()) {
+        auto& newItem = out.add_item();
+        newItem = inputArray[i].value();
+      }
+    }
+  }
+
+  // Generic implementation.
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<Generic<T1>>>& out,
+      const arg_type<Array<Generic<T1>>>& inputArray) {
+    for (int i = 0; i < inputArray.size(); ++i) {
+      if (inputArray[i].has_value()) {
+        auto& newItem = out.add_item();
+        newItem.copy_from(inputArray[i].value());
+      }
+    }
+  }
+};
+
+template <typename T>
+struct ArrayRemoveNullFunctionString {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  // String version that avoids copy of strings.
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<Varchar>>& out,
+      const arg_type<Array<Varchar>>& inputArray) {
+    for (int i = 0; i < inputArray.size(); ++i) {
+      if (inputArray[i].has_value()) {
+        auto& newItem = out.add_item();
+        newItem.setNoCopy(inputArray[i].value());
+      }
+    }
+  }
+};
+
 /// This class implements the array flatten function.
 ///
 /// DEFINITION:

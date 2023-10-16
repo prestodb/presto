@@ -330,6 +330,14 @@ Array Functions
         SELECT trim_array(ARRAY[1, 2, 3, 4], 2); -- [1, 2]
         SELECT trim_array(ARRAY[1, 2, 3, 4], 4); -- []
 
+.. function:: remove_nulls(x) -> array
+
+    Remove null values from an array ``array``::
+
+        SELECT remove_nulls(ARRAY[1, NULL, 3, NULL]); -- [1, 3]
+        SELECT remove_nulls(ARRAY[true, false, NULL]); -- [true, false]
+        SELECT remove_nulls(ARRAY[ARRAY[1, 2], NULL, ARRAY[1, NULL, 3]]); -- [[1, 2], [1, null, 3]]
+
 .. function:: zip(array(T), array(U),..) -> array(row(T,U, ...))
 
     Returns the merge of the given arrays, element-wise into a single array of rows.
