@@ -54,10 +54,6 @@ public class TestPrestoSparkNativeGeneralQueries
     @Ignore
     public void testShowAndDescribe() {}
 
-    @Override
-    @Ignore
-    public void testInsertIntoSpecialPartitionName(){}
-
     // @TODO Refer https://github.com/prestodb/presto/issues/20294
     @Override
     @Ignore
