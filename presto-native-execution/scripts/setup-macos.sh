@@ -34,7 +34,7 @@ function install_folly {
 function install_fizz {
   github_checkout facebookincubator/fizz "${FB_OS_VERSION}"
   OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF -S fizz
+    cmake_install -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF -S fizz
 }
 
 function install_wangle {
@@ -52,7 +52,7 @@ function install_fbthrift {
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
   OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF
+    cmake_install -DBUILD_TESTS=OFF -DBUILD_SAMPLES=OFF
 }
 
 function install_antlr {
