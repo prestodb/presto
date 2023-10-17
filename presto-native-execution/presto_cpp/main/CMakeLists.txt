@@ -14,6 +14,7 @@ add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
+add_subdirectory(functions)
 
 add_library(
   presto_server_lib
@@ -46,6 +47,7 @@ target_link_libraries(
   presto_exception
   presto_http
   presto_operators
+  presto_functions
   velox_aggregates
   velox_core
   velox_dwio_common_exception

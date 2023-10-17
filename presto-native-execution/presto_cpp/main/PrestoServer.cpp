@@ -41,6 +41,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/main/functions/KeySamplingPercentFunctionRegistration.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -900,6 +901,7 @@ void PrestoServer::registerFunctions() {
     velox::aggregate::prestosql::registerAllAggregateFunctions(
         "json.test_schema.");
   }
+  facebook::presto::functions::registerKeySamplingPercentFunction(kPrestoDefaultPrefix);
 }
 
 void PrestoServer::registerRemoteFunctions() {

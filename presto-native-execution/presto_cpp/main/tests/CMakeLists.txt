@@ -38,13 +38,16 @@ target_link_libraries(
   velox_tpch_connector
   velox_presto_serializer
   velox_functions_prestosql
+  presto_functions
   velox_aggregates
   velox_hive_partition_function
   ${RE2}
   Folly::folly
   gmock
   gtest
-  gtest_main)
+  gtest_main
+  velox_functions_test_lib
+  )
 
 set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK
                                                 presto_link_job_pool)
