@@ -132,6 +132,9 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
+        IcebergTableHandle tableHandle = ((IcebergTableLayoutHandle) handle).getTable();
+        Table table = getIcebergTable(session, tableHandle.getSchemaTableName());
+        validateTableMode(session, table);
         return new ConnectorTableLayout(handle);
     }
 
@@ -381,6 +384,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        validateTableMode(session, icebergTable);
 
         return beginIcebergTableInsert(table, icebergTable);
     }
@@ -414,7 +418,6 @@ public abstract class IcebergAbstractMetadata
 
         // use a new schema table name that omits the table type
         Table table = getIcebergTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
-        validateTableMode(session, table);
 
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
