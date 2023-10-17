@@ -532,7 +532,14 @@ struct VectorWriter<Generic<T>> : public VectorWriterBase {
       castWriter_->ensureSize(size);
     } else {
       if (vector_->size() < size) {
-        vector_->resize(size, false);
+        if (vector_->typeKind() == TypeKind::ROW) {
+          // Avoid calling resize on all children by adding top level nulls
+          // only.
+          vector_->asUnchecked<RowVector>()->appendNulls(
+              size - vector_->size());
+        } else {
+          vector_->resize(size, false);
+        }
       }
     }
   }
