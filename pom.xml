@@ -53,6 +53,7 @@
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.36</dep.drift.version>
+        <dep.jackson.version>2.15.3</dep.jackson.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.2</dep.joda.version>
@@ -143,7 +144,6 @@
         <module>presto-cli</module>
         <module>presto-benchmark-driver</module>
         <module>presto-server</module>
-        <module>presto-docs</module>
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
         <module>presto-plugin-toolkit</module>
