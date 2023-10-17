@@ -16,8 +16,11 @@
 
 #include "velox/exec/Spill.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/serializers/PrestoSerializer.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 namespace {
@@ -329,6 +332,10 @@ uint64_t SpillState::appendToPartition(
     const RowVectorPtr& rows) {
   VELOX_CHECK(
       isPartitionSpilled(partition), "Partition {} is not spilled", partition);
+
+  TestValue::adjust(
+      "facebook::velox::exec::SpillState::appendToPartition", this);
+
   // Ensure that partition exist before writing.
   if (!files_.at(partition)) {
     files_[partition] = std::make_unique<SpillFileList>(

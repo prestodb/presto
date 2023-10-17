@@ -1141,18 +1141,57 @@ void HashBuild::reclaim(
 
   std::vector<Spiller::SpillableStats> spillableStats;
   spillableStats.reserve(spiller_->hashBits().numPartitions());
-  // TODO: consider to parallelize this disk spilling processing.
+
+  struct SpillResult {
+    const std::exception_ptr error{nullptr};
+
+    explicit SpillResult(std::exception_ptr _error) : error(_error) {}
+  };
+
+  std::vector<std::shared_ptr<AsyncSource<SpillResult>>> spillTasks;
+  auto* spillExecutor = spillConfig()->executor;
   for (auto* op : operators) {
     HashBuild* buildOp = static_cast<HashBuild*>(op);
     ++buildOp->numSpillRuns_;
-    buildOp->spiller_->fillSpillRuns(spillableStats);
-    // TODO: support fine-grain disk spilling based on 'targetBytes' after
-    // having row container memory compaction support later.
-    buildOp->spiller_->spill();
-    VELOX_CHECK_EQ(buildOp->table_->numDistinct(), 0);
-    buildOp->table_->clear();
-    // Release the minimum reserved memory.
-    op->pool()->release();
+    spillTasks.push_back(std::make_shared<AsyncSource<SpillResult>>(
+        [this, &spillableStats, buildOp]() {
+          try {
+            buildOp->spiller_->fillSpillRuns(spillableStats);
+            buildOp->spiller_->spill();
+            VELOX_CHECK_EQ(buildOp->table_->numDistinct(), 0);
+            buildOp->table_->clear();
+            // Release the minimum reserved memory.
+            buildOp->pool()->release();
+            return std::make_unique<SpillResult>(nullptr);
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Spill from hash build pool "
+                       << buildOp->pool()->name() << " failed: " << e.what();
+            // The exception is captured and thrown by the caller.
+            return std::make_unique<SpillResult>(std::current_exception());
+          }
+        }));
+    if ((operators.size() > 1) && (spillExecutor != nullptr)) {
+      spillExecutor->add([source = spillTasks.back()]() { source->prepare(); });
+    }
+  }
+
+  auto syncGuard = folly::makeGuard([&]() {
+    for (auto& spillTask : spillTasks) {
+      // We consume the result for the pending tasks. This is a cleanup in the
+      // guard and must not throw. The first error is already captured before
+      // this runs.
+      try {
+        spillTask->move();
+      } catch (const std::exception& e) {
+      }
+    }
+  });
+
+  for (auto& spillTask : spillTasks) {
+    const auto result = spillTask->move();
+    if (result->error) {
+      std::rethrow_exception(result->error);
+    }
   }
 }
 

@@ -2747,6 +2747,60 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
   }
 }
 
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, joinBuildSpillError) {
+  const int kMemoryCapacity = 32 << 20;
+  // Set a small memory capacity to trigger spill.
+  setupMemory(kMemoryCapacity, 0);
+
+  const int numVectors = 16;
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(newVector());
+  }
+
+  std::shared_ptr<core::QueryCtx> joinQueryCtx = newQueryCtx(kMemoryCapacity);
+
+  const int numDrivers = 4;
+  std::atomic<int> numAppends{0};
+  const std::string injectedErrorMsg("injected spillError");
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::SpillState::appendToPartition",
+      std::function<void(exec::SpillState*)>([&](exec::SpillState* state) {
+        if (++numAppends != numDrivers) {
+          return;
+        }
+        VELOX_FAIL(injectedErrorMsg);
+      }));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(vectors)
+                  .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(vectors)
+                          .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                          .planNode(),
+                      "",
+                      {"t1"},
+                      core::JoinType::kAnti)
+                  .planNode();
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan)
+          .queryCtx(joinQueryCtx)
+          .spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, "true")
+          .config(core::QueryConfig::kJoinSpillEnabled, "true")
+          .copyResults(pool()),
+      injectedErrorMsg);
+
+  waitForAllTasksToBeDeleted();
+  ASSERT_EQ(arbitrator_->stats().numFailures, 1);
+}
+
 TEST_F(SharedArbitrationTest, concurrentArbitration) {
   FLAGS_velox_suppress_memory_capacity_exceeding_error_message = true;
   const int numVectors = 8;
