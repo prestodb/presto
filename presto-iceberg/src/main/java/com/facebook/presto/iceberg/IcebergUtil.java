@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsContext;
@@ -23,6 +24,7 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.BaseTable;
@@ -81,6 +83,7 @@ import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 public final class IcebergUtil
 {
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
+    private static final Logger log = Logger.get(IcebergUtil.class);
 
     private IcebergUtil() {}
 
@@ -135,7 +138,7 @@ public final class IcebergUtil
             }
             return name.getSnapshotId();
         }
-        return Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
+        return tryGetCurrentSnapshot(table).map(Snapshot::snapshotId);
     }
 
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
@@ -242,5 +245,27 @@ public final class IcebergUtil
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
                 .build();
+    }
+
+    public static Optional<Map<String, String>> tryGetProperties(Table table)
+    {
+        try {
+            return Optional.ofNullable(table.properties());
+        }
+        catch (TableNotFoundException e) {
+            log.warn(String.format("Unable to fetch properties for table %s: %s", table.name(), e.getMessage()));
+            return Optional.empty();
+        }
+    }
+
+    public static Optional<Snapshot> tryGetCurrentSnapshot(Table table)
+    {
+        try {
+            return Optional.ofNullable(table.currentSnapshot());
+        }
+        catch (TableNotFoundException e) {
+            log.warn(String.format("Unable to fetch snapshot for table %s: %s", table.name(), e.getMessage()));
+            return Optional.empty();
+        }
     }
 }
