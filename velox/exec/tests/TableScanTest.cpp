@@ -381,7 +381,7 @@ TEST_F(TableScanTest, timestamp) {
       "SELECT c0 FROM tmp WHERE c1 < timestamp'1970-01-01 01:30:00'");
 }
 
-DEBUG_ONLY_TEST_F(TableScanTest, getOutputTimeLimit) {
+DEBUG_ONLY_TEST_F(TableScanTest, timeLimitInGetOutput) {
   // Create two different row vectors: with some nulls and with no nulls.
   vector_size_t numRows = 100;
   auto tsFunc = [](vector_size_t row) {

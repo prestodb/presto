@@ -968,6 +968,8 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kWaitForConnector";
     case BlockingReason::kWaitForSpill:
       return "kWaitForSpill";
+    case BlockingReason::kYield:
+      return "kYield";
   }
   VELOX_UNREACHABLE();
   return "";

@@ -162,6 +162,10 @@ enum class BlockingReason {
   /// Build operator is blocked waiting for all its peers to stop to run group
   /// spill on all of them.
   kWaitForSpill,
+  /// Some operators (like Table Scan) may run long loops and can 'voluntarily'
+  /// exit them because Task requested to yield or stop or after a certain time.
+  /// This is the blocking reason used in such cases.
+  kYield,
 };
 
 std::string blockingReasonToString(BlockingReason reason);

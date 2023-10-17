@@ -61,13 +61,13 @@ RowVectorPtr TableScan::getOutput() {
   const auto startTimeMs = getCurrentTimeMs();
   for (;;) {
     if (needNewSplit_) {
-      // Check if our task needs us to yield or we've been running for too long
-      // w/o producing a result. In this case we setup a fake blocking reason
-      // and one already fulfilled future.
+      // Check if our Task needs us to yield or we've been running for too long
+      // w/o producing a result. In this case we return with the Yield blocking
+      // reason and an already fulfilled future.
       if (this->driverCtx_->task->shouldStop() != StopReason::kNone or
           (getOutputTimeLimitMs_ != 0 and
            (getCurrentTimeMs() - startTimeMs) >= getOutputTimeLimitMs_)) {
-        blockingReason_ = BlockingReason::kWaitForSplit;
+        blockingReason_ = BlockingReason::kYield;
         blockingFuture_ = ContinueFuture{folly::Unit{}};
         // A point for test code injection.
         TestValue::adjust(
