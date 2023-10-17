@@ -94,10 +94,6 @@ class SelectiveStringDirectColumnReader
   template <bool scatter, bool skip>
   bool try8Consecutive(int32_t start, const int32_t* rows, int32_t row);
 
-  template <bool kScatter, bool kGreaterThan4>
-  bool
-  try8ConsecutiveSmall(const char* data, const uint16_t* offsets, int startRow);
-
   std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> lengthDecoder_;
   std::unique_ptr<dwio::common::SeekableInputStream> blobStream_;
   const char* bufferStart_ = nullptr;

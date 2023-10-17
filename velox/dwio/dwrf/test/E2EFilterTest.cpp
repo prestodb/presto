@@ -15,7 +15,6 @@
  */
 
 #include "velox/common/base/Portability.h"
-#include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/E2EFilterTestBase.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
@@ -245,14 +244,6 @@ TEST_F(E2EFilterTest, floatAndDouble) {
 }
 
 TEST_F(E2EFilterTest, stringDirect) {
-  testutil::TestValue::enable();
-  bool coverage[2][2]{};
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::dwrf::SelectiveStringDirectColumnReader::try8ConsecutiveSmall",
-      std::function<void(bool*)>([&](bool* params) {
-        coverage[0][params[0]] = true;
-        coverage[1][params[1]] = true;
-      }));
   flushEveryNBatches_ = 1;
   testWithTypes(
       "string_val:string,"
@@ -261,16 +252,11 @@ TEST_F(E2EFilterTest, stringDirect) {
         makeStringUnique("string_val");
         makeStringUnique("string_val_2");
       },
+
       true,
       {"string_val", "string_val_2"},
       20,
       true);
-#ifndef NDEBUG
-  ASSERT_TRUE(coverage[0][0]);
-  ASSERT_TRUE(coverage[0][1]);
-  ASSERT_TRUE(coverage[1][0]);
-  ASSERT_TRUE(coverage[1][1]);
-#endif
 }
 
 TEST_F(E2EFilterTest, stringDictionary) {

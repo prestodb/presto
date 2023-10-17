@@ -75,17 +75,6 @@ void prepareResult(
   // makeOffsetsAndSizes.  Child vectors are handled in child column readers.
 }
 
-vector_size_t
-advanceNestedRows(const RowSet& rows, vector_size_t i, vector_size_t last) {
-  while (i + 16 < rows.size() && rows[i + 16] < last) {
-    i += 16;
-  }
-  while (i < rows.size() && rows[i] < last) {
-    ++i;
-  }
-  return i;
-}
-
 } // namespace
 
 void SelectiveRepeatedColumnReader::makeNestedRowSet(
@@ -148,19 +137,24 @@ void SelectiveRepeatedColumnReader::makeOffsetsAndSizes(
     auto row = rows[i];
     currentOffset += sumLengths(allLengths_, nulls, currentRow, row);
     currentRow = row + 1;
-    nestedRowIndex =
-        advanceNestedRows(nestedRows_, nestedRowIndex, currentOffset);
+    while (nestedRowIndex < nestedRows_.size() &&
+           nestedRows_[nestedRowIndex] < currentOffset) {
+      ++nestedRowIndex;
+    }
     rawOffsets[i] = nestedRowIndex;
     if (nulls && bits::isBitNull(nulls, row)) {
       rawSizes[i] = 0;
       bits::setNull(rawResultNulls_, i);
       anyNulls_ = true;
     } else {
+      vector_size_t length = 0;
       currentOffset += allLengths_[row];
-      auto newNestedRowIndex =
-          advanceNestedRows(nestedRows_, nestedRowIndex, currentOffset);
-      rawSizes[i] = newNestedRowIndex - nestedRowIndex;
-      nestedRowIndex = newNestedRowIndex;
+      while (nestedRowIndex < nestedRows_.size() &&
+             nestedRows_[nestedRowIndex] < currentOffset) {
+        ++length;
+        ++nestedRowIndex;
+      }
+      rawSizes[i] = length;
     }
   }
   numValues_ = rows.size();

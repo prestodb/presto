@@ -36,10 +36,5 @@ add_library(
   StripeStream.cpp)
 
 target_link_libraries(
-  velox_dwio_dwrf_reader
-  velox_dwio_common
-  velox_dwio_dwrf_common
-  velox_caching
-  velox_dwio_dwrf_utils
-  velox_test_util
-  fmt::fmt)
+  velox_dwio_dwrf_reader velox_dwio_common velox_dwio_dwrf_common velox_caching
+  velox_dwio_dwrf_utils fmt::fmt)
