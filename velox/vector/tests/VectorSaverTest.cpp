@@ -50,6 +50,11 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
     // are the same.
     switch (expected->encoding()) {
       case VectorEncoding::Simple::CONSTANT:
+        if (expected->isNullAt(0)) {
+          // No need to compare value vector as deserialized RowVector can have
+          // different values in its flat children of size 1.
+          break;
+        }
       case VectorEncoding::Simple::DICTIONARY:
         if (expected->valueVector()) {
           ASSERT_TRUE(actual->valueVector() != nullptr);

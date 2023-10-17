@@ -244,14 +244,16 @@ RowVectorPtr NestedLoopJoinProbe::getMismatchedOutput(
   }
   VELOX_CHECK_GT(numUnmatched, 0);
 
-  auto output =
-      BaseVector::create<RowVector>(outputType_, numUnmatched, pool());
-  projectChildren(output, data, projections, numUnmatched, unmatchedMapping);
-  for (auto projection : nullProjections) {
-    output->childAt(projection.outputChannel) = BaseVector::createNullConstant(
-        outputType_->childAt(projection.outputChannel), output->size(), pool());
+  std::vector<VectorPtr> projectedChildren(outputType_->size());
+  projectChildren(
+      projectedChildren, data, projections, numUnmatched, unmatchedMapping);
+  for (auto [_, outputChannel] : nullProjections) {
+    VELOX_CHECK_GT(projectedChildren.size(), outputChannel);
+    projectedChildren[outputChannel] = BaseVector::createNullConstant(
+        outputType_->childAt(outputChannel), numUnmatched, pool());
   }
-  return output;
+  return std::make_shared<RowVector>(
+      pool(), outputType_, nullptr, numUnmatched, std::move(projectedChildren));
 }
 
 void NestedLoopJoinProbe::finishProbeInput() {
@@ -359,8 +361,6 @@ RowVectorPtr NestedLoopJoinProbe::getCrossProduct(
   const auto numOutputRows = probeCnt * buildSize;
   const bool probeCntChanged = (probeCnt != numPrevProbedRows_);
   numPrevProbedRows_ = probeCnt;
-  auto output =
-      BaseVector::create<RowVector>(outputType, numOutputRows, pool());
 
   auto rawProbeIndices =
       initializeRowNumberMapping(probeIndices_, numOutputRows, pool());
@@ -382,15 +382,22 @@ RowVectorPtr NestedLoopJoinProbe::getCrossProduct(
     }
   }
 
+  std::vector<VectorPtr> projectedChildren(outputType->size());
   projectChildren(
-      output, input_, probeProjections, numOutputRows, probeIndices_);
+      projectedChildren,
+      input_,
+      probeProjections,
+      numOutputRows,
+      probeIndices_);
   projectChildren(
-      output,
+      projectedChildren,
       buildVectors_.value()[buildIndex_],
       buildProjections,
       numOutputRows,
       buildIndices_);
-  return output;
+
+  return std::make_shared<RowVector>(
+      pool(), outputType, nullptr, numOutputRows, std::move(projectedChildren));
 }
 
 bool NestedLoopJoinProbe::advanceProbeRows(vector_size_t probeCnt) {
@@ -465,17 +472,27 @@ RowVectorPtr NestedLoopJoinProbe::doMatch(vector_size_t probeCnt) {
   if (numOutputRows == 0) {
     return nullptr;
   }
-  auto output =
-      BaseVector::create<RowVector>(outputType_, numOutputRows, pool());
+
+  std::vector<VectorPtr> projectedChildren(outputType_->size());
   projectChildren(
-      output, input_, identityProjections_, numOutputRows, probeOutMapping_);
+      projectedChildren,
+      input_,
+      identityProjections_,
+      numOutputRows,
+      probeOutMapping_);
   projectChildren(
-      output,
+      projectedChildren,
       buildVectors_.value()[buildIndex_],
       buildProjections_,
       numOutputRows,
       buildOutMapping_);
-  return output;
+
+  return std::make_shared<RowVector>(
+      pool(),
+      outputType_,
+      nullptr,
+      numOutputRows,
+      std::move(projectedChildren));
 }
 
 } // namespace facebook::velox::exec

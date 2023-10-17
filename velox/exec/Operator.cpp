@@ -206,26 +206,26 @@ RowVectorPtr Operator::fillOutput(
     wrapResults = false;
   }
 
-  auto output{std::make_shared<RowVector>(
-      operatorCtx_->pool(),
-      outputType_,
-      nullptr,
-      size,
-      std::vector<VectorPtr>(outputType_->size(), nullptr))};
-  output->resize(size);
+  std::vector<VectorPtr> projectedChildren(outputType_->size());
   projectChildren(
-      output,
+      projectedChildren,
       input_,
       identityProjections_,
       size,
       wrapResults ? mapping : nullptr);
   projectChildren(
-      output,
+      projectedChildren,
       results_,
       resultProjections_,
       size,
       wrapResults ? mapping : nullptr);
-  return output;
+
+  return std::make_shared<RowVector>(
+      operatorCtx_->pool(),
+      outputType_,
+      nullptr,
+      size,
+      std::move(projectedChildren));
 }
 
 OperatorStats Operator::stats(bool clear) {

@@ -136,11 +136,14 @@ folly::Range<vector_size_t*> initializeRowNumberMapping(
     vector_size_t size,
     memory::MemoryPool* pool);
 
-/// Projects children of 'src' row vector to 'dest' row vector according to
-/// 'projections' and 'mapping'. 'size' specifies number of projected rows in
-/// 'dest'.
+/// Projects children of 'src' row vector according to 'projections'. Optionally
+/// takes a 'mapping' and 'size' that represent the indices and size,
+/// respectively, of a dictionary wrapping that should be applied to the
+/// projections. The output param 'projectedChildren' will contain all the final
+/// projections at the expected channel index. Indices not specified in
+/// 'projections' will be left untouched in 'projectedChildren'.
 void projectChildren(
-    const RowVectorPtr& dest,
+    std::vector<VectorPtr>& projectedChildren,
     const RowVectorPtr& src,
     const std::vector<IdentityProjection>& projections,
     int32_t size,
@@ -149,7 +152,7 @@ void projectChildren(
 /// Overload of the above function that takes reference to const vector of
 /// VectorPtr as 'src' argument, instead of row vector.
 void projectChildren(
-    const RowVectorPtr& dest,
+    std::vector<VectorPtr>& projectedChildren,
     const std::vector<VectorPtr>& src,
     const std::vector<IdentityProjection>& projections,
     int32_t size,

@@ -311,12 +311,15 @@ TEST_F(OperatorUtilsTest, projectChildren) {
 
   {
     std::vector<IdentityProjection> emptyProjection;
-    auto destRowVector =
-        BaseVector::create<RowVector>(srcRowType, srcVectorSize, pool());
+    std::vector<VectorPtr> projectedChildren(srcRowType->size());
     projectChildren(
-        destRowVector, srcRowVector, emptyProjection, srcVectorSize, nullptr);
-    for (vector_size_t i = 0; i < destRowVector->childrenSize(); ++i) {
-      ASSERT_EQ(destRowVector->childAt(i)->size(), 0);
+        projectedChildren,
+        srcRowVector,
+        emptyProjection,
+        srcVectorSize,
+        nullptr);
+    for (vector_size_t i = 0; i < projectedChildren.size(); ++i) {
+      ASSERT_EQ(projectedChildren[i], nullptr);
     }
   }
 
@@ -325,17 +328,16 @@ TEST_F(OperatorUtilsTest, projectChildren) {
     for (auto i = 0; i < srcRowType->size(); ++i) {
       identicalProjections.emplace_back(i, i);
     }
-    auto destRowVector =
-        BaseVector::create<RowVector>(srcRowType, srcVectorSize, pool());
+    std::vector<VectorPtr> projectedChildren(srcRowType->size());
     projectChildren(
-        destRowVector,
+        projectedChildren,
         srcRowVector,
         identicalProjections,
         srcVectorSize,
         nullptr);
     for (const auto& projection : identicalProjections) {
       ASSERT_EQ(
-          destRowVector->childAt(projection.outputChannel).get(),
+          projectedChildren[projection.outputChannel].get(),
           srcRowVector->childAt(projection.inputChannel).get());
     }
   }
@@ -348,13 +350,12 @@ TEST_F(OperatorUtilsTest, projectChildren) {
     std::vector<IdentityProjection> projections{};
     projections.emplace_back(2, 0);
     projections.emplace_back(0, 1);
-    auto destRowVector =
-        BaseVector::create<RowVector>(destRowType, srcVectorSize, pool());
+    std::vector<VectorPtr> projectedChildren(srcRowType->size());
     projectChildren(
-        destRowVector, srcRowVector, projections, srcVectorSize, nullptr);
+        projectedChildren, srcRowVector, projections, srcVectorSize, nullptr);
     for (const auto& projection : projections) {
       ASSERT_EQ(
-          destRowVector->childAt(projection.outputChannel).get(),
+          projectedChildren[projection.outputChannel].get(),
           srcRowVector->childAt(projection.inputChannel).get());
     }
   }

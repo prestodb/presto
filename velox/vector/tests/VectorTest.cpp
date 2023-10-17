@@ -1055,6 +1055,10 @@ TEST_F(VectorTest, row) {
       BaseVector::createNullConstant(baseRow->type(), 50, pool_.get());
   testCopy(allNull, numIterations_);
   testSlices(allNull);
+  // created from BaseVector::Create()
+  baseRow = BaseVector::create(baseRow->type(), vectorSize_, pool());
+  testCopy(baseRow, numIterations_);
+  testSlices(baseRow);
 }
 
 TEST_F(VectorTest, array) {
