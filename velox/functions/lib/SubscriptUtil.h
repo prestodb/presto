@@ -222,7 +222,7 @@ class SubscriptImpl : public exec::Subscript {
         const auto adjustedIndex =
             adjustIndex(originalIndex, isZeroSubscriptError);
         if (isZeroSubscriptError) {
-          context.setError(row, zeroSubscriptError());
+          context.setVeloxExceptionError(row, zeroSubscriptError());
           return;
         }
         const auto elementIndex = getIndex(
@@ -286,7 +286,7 @@ class SubscriptImpl : public exec::Subscript {
           index += arraySize;
         }
       } else {
-        context.setError(row, negativeSubscriptError());
+        context.setVeloxExceptionError(row, negativeSubscriptError());
         return -1;
       }
     }
@@ -297,7 +297,7 @@ class SubscriptImpl : public exec::Subscript {
       if constexpr (allowOutOfBound) {
         return -1;
       } else {
-        context.setError(row, badSubscriptError());
+        context.setVeloxExceptionError(row, badSubscriptError());
         return -1;
       }
     }

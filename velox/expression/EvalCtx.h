@@ -81,6 +81,8 @@ class EvalCtx {
 
   void restore(ScopedContextSaver& saver);
 
+  // If exceptionPtr is known to be a VeloxException use setVeloxExceptionError
+  // instead.
   void setError(vector_size_t index, const std::exception_ptr& exceptionPtr);
 
   // Similar to setError but more performant, should be used when the user knows
