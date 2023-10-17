@@ -18,7 +18,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.spark.execution.property.WorkerProperty;
+import com.facebook.presto.spark.execution.property.NativeWorkerConfiguration;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
 import com.google.inject.Inject;
@@ -41,7 +41,7 @@ public class DetachedNativeExecutionProcessFactory
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final TaskManagerConfig taskManagerConfig;
-    private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final NativeWorkerConfiguration workerProperty;
 
     @Inject
     public DetachedNativeExecutionProcessFactory(
@@ -50,14 +50,14 @@ public class DetachedNativeExecutionProcessFactory
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?, ?> workerProperty)
+            NativeWorkerConfiguration nativeWorkerConfiguration)
     {
-        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, taskManagerConfig, workerProperty);
+        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, taskManagerConfig, nativeWorkerConfiguration);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
         this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
-        this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        this.workerProperty = requireNonNull(nativeWorkerConfiguration, "nativeWorkerConfiguration is null");
     }
 
     @Override

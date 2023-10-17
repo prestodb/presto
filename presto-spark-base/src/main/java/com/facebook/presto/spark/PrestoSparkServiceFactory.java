@@ -69,7 +69,7 @@ public class PrestoSparkServiceFactory
         return ImmutableList.of(
                 new PrestoSparkLocalMetadataStorageModule(),
                 // TODO: Need to let NativeExecutionModule addition be controlled by configuration as well.
-                new NativeExecutionModule());
+                new NativeExecutionModule(configuration.getCatalogProperties(), configuration.getConfigProperties()));
     }
 
     protected SqlParserOptions getSqlParserOptions()

@@ -19,7 +19,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.spark.execution.property.WorkerProperty;
+import com.facebook.presto.spark.execution.property.NativeWorkerConfiguration;
 import io.airlift.units.Duration;
 
 import java.io.IOException;
@@ -47,7 +47,7 @@ public class DetachedNativeExecutionProcess
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
             TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?, ?> workerProperty) throws IOException
+            NativeWorkerConfiguration nativeWorkerConfiguration) throws IOException
     {
         super(session,
                 uri,
@@ -56,7 +56,7 @@ public class DetachedNativeExecutionProcess
                 serverInfoCodec,
                 maxErrorDuration,
                 taskManagerConfig,
-                workerProperty);
+                nativeWorkerConfiguration);
     }
 
     @Override

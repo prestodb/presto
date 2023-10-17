@@ -24,7 +24,7 @@ import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpServerClient;
-import com.facebook.presto.spark.execution.property.WorkerProperty;
+import com.facebook.presto.spark.execution.property.NativeWorkerConfiguration;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -55,7 +55,6 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_BINARY_NOT_EXIST;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
@@ -79,7 +78,7 @@ public class NativeExecutionProcess
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final RequestErrorTracker errorTracker;
     private final HttpClient httpClient;
-    private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final NativeWorkerConfiguration nativeWorkerConfiguration;
 
     private Process process;
 
@@ -91,7 +90,7 @@ public class NativeExecutionProcess
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
             TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?, ?> workerProperty)
+            NativeWorkerConfiguration nativeWorkerConfiguration)
             throws IOException
     {
         this.port = getAvailableTcpPort();
@@ -112,7 +111,7 @@ public class NativeExecutionProcess
                 maxErrorDuration,
                 errorRetryScheduledExecutor,
                 "getting native process status");
-        this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        this.nativeWorkerConfiguration = requireNonNull(nativeWorkerConfiguration, "workerProperty is null");
     }
 
     /**
@@ -214,12 +213,6 @@ public class NativeExecutionProcess
         return port;
     }
 
-    private String getNativeExecutionCatalogName(Session session)
-    {
-        checkArgument(session.getCatalog().isPresent(), "Catalog isn't set in the session.");
-        return session.getCatalog().get();
-    }
-
     private void populateConfigurationFiles(String configBasePath)
             throws IOException
     {
@@ -227,12 +220,12 @@ public class NativeExecutionProcess
         // there is no port isolation among all the containers running on the same host, so we have
         // to pick unique port per worker to avoid port collision. This config will be passed down to
         // the native execution process eventually for process initialization.
-        workerProperty.getSystemConfig().setHttpServerPort(port);
-        workerProperty.populateAllProperties(
+        nativeWorkerConfiguration.setConfigProperty("http.server-port", String.valueOf(port));
+        nativeWorkerConfiguration.writeAllPropertyFiles(
                 Paths.get(configBasePath, WORKER_VELOX_CONFIG_FILE),
                 Paths.get(configBasePath, WORKER_CONFIG_FILE),
                 Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
-                Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE, getNativeExecutionCatalogName(session))));
+                Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_FILE).toString());
     }
 
     private void doGetServerInfo(SettableFuture<ServerInfo> future)

@@ -19,7 +19,6 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -134,7 +133,8 @@ public class PrestoSparkNativeQueryRunnerUtils
         return createRunner(
                 "tpchstandard",
                 new NativeExecutionModule(
-                        Optional.of(new NativeExecutionConnectorConfig().setConnectorName("tpch"))));
+                        ImmutableMap.of("tpch", ImmutableMap.of("connector.name", "tpch")),
+                        ImmutableMap.of()));
     }
 
     public static PrestoSparkQueryRunner createRunner(String defaultCatalog, Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
