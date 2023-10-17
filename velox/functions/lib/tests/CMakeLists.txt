@@ -20,7 +20,8 @@ add_executable(
   KllSketchTest.cpp
   MapConcatTest.cpp
   Re2FunctionsTest.cpp
-  ZetaDistributionTest.cpp)
+  ZetaDistributionTest.cpp
+  CheckNestedNullsTest.cpp)
 
 add_test(
   NAME velox_functions_lib_test

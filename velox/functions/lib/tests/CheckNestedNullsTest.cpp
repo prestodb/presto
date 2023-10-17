@@ -17,15 +17,14 @@
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
 
-#include "velox/functions/prestosql/aggregates/Compare.h"
+#include "velox/functions/lib/CheckNestedNulls.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
-namespace facebook::velox::aggregate::prestosql::test {
+namespace facebook::velox::functions::test {
+class CheckNestedNullsTest : public testing::Test,
+                             public facebook::velox::test::VectorTestBase {};
 
-class CompareTest : public testing::Test,
-                    public facebook::velox::test::VectorTestBase {};
-
-TEST_F(CompareTest, array) {
+TEST_F(CheckNestedNullsTest, array) {
   auto baseVector = makeArrayVectorFromJson<int32_t>({
       "null",
       "[6, 7]",
@@ -47,7 +46,7 @@ TEST_F(CompareTest, array) {
   ASSERT_FALSE(checkNestedNulls(decodedVector, indices, 2, false));
 }
 
-TEST_F(CompareTest, map) {
+TEST_F(CheckNestedNullsTest, map) {
   auto baseVector = makeMapVectorFromJson<int32_t, int32_t>({
       "null",
       "{4: 7, 1: 2}",
@@ -69,7 +68,7 @@ TEST_F(CompareTest, map) {
   ASSERT_FALSE(checkNestedNulls(decodedVector, indices, 2, false));
 }
 
-TEST_F(CompareTest, row) {
+TEST_F(CheckNestedNullsTest, row) {
   auto baseVector = makeRowVector(
       {
           makeFlatVector<StringView>({
@@ -99,4 +98,4 @@ TEST_F(CompareTest, row) {
       "ROW comparison not supported for values that contain nulls");
   ASSERT_FALSE(checkNestedNulls(decodedVector, indices, 2, false));
 }
-} // namespace facebook::velox::aggregate::prestosql::test
+} // namespace facebook::velox::functions::test

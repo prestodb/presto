@@ -47,7 +47,6 @@ add_executable(
   ValueListTest.cpp
   VarianceAggregationTest.cpp
   MaxSizeForStatsTest.cpp
-  CompareTest.cpp
   SumDataSizeForStatsTest.cpp)
 
 add_test(

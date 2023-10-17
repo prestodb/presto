@@ -1231,19 +1231,6 @@ TEST_F(MinMaxByComplexTypes, mapGroupBy) {
 }
 
 TEST_F(MinMaxByComplexTypes, arrayCompare) {
-  auto data = makeRowVector({
-      makeArrayVector<int64_t>({
-          {1, 2, 3},
-          {4, 5},
-          {6, 7, 8},
-      }),
-      makeNullableArrayVector<int64_t>({
-          {1, 2, 3},
-          {std::nullopt, 2},
-          {6, 7, 8},
-      }),
-  });
-
   auto expected = makeRowVector({
       makeArrayVector<int64_t>({
           {1, 2, 3},
@@ -1252,12 +1239,7 @@ TEST_F(MinMaxByComplexTypes, arrayCompare) {
           {6, 7, 8},
       }),
   });
-
-  VELOX_ASSERT_THROW(
-      testAggregations(
-          {data}, {}, {"min_by(c0, c1)", "max_by(c0, c1)"}, {expected}),
-      "ARRAY comparison not supported for values that contain nulls");
-  data = makeRowVector({
+  auto data = makeRowVector({
       makeArrayVector<int64_t>({
           {1, 2, 3},
           {4, 5},
@@ -1265,7 +1247,7 @@ TEST_F(MinMaxByComplexTypes, arrayCompare) {
       }),
       makeNullableArrayVector<int64_t>({
           {1, 2, 3},
-          {3, std::nullopt, 4},
+          {3, 4, 5},
           {6, 7, 8},
       }),
   });
@@ -1282,7 +1264,7 @@ TEST_F(MinMaxByComplexTypes, mapCompare) {
       }),
       makeNullableMapVector<int64_t, int64_t>({
           {{{1, 1}, {2, 2}}},
-          {{{1, 1}, {2, std::nullopt}}},
+          {{{1, 1}, {2, 3}}},
           {{{4, 50}}},
       }),
   });
@@ -1296,23 +1278,6 @@ TEST_F(MinMaxByComplexTypes, mapCompare) {
       }),
   });
 
-  VELOX_ASSERT_THROW(
-      testAggregations(
-          {data}, {}, {"min_by(c0, c1)", "max_by(c0, c1)"}, {expected}),
-      "MAP comparison not supported for values that contain nulls");
-
-  data = makeRowVector({
-      makeArrayVector<int64_t>({
-          {1, 2, 3},
-          {4, 5},
-          {6, 7, 8},
-      }),
-      makeNullableMapVector<int64_t, int64_t>({
-          {{{1, 1}, {2, 2}}},
-          {{{1, 1}, {2, 3}}},
-          {{{4, 50}}},
-      }),
-  });
   testAggregations(
       {data}, {}, {"min_by(c0, c1)", "max_by(c0, c1)"}, {expected});
 }
@@ -1324,11 +1289,7 @@ TEST_F(MinMaxByComplexTypes, rowCompare) {
           {4, 5},
           {6, 7, 8},
       }),
-      makeRowVector({makeNullableFlatVector<int32_t>({
-          1,
-          std::nullopt,
-          3,
-      })}),
+      makeRowVector({makeNullableFlatVector<int32_t>({1, 2, 3})}),
   });
 
   auto expected = makeRowVector({
@@ -1340,25 +1301,75 @@ TEST_F(MinMaxByComplexTypes, rowCompare) {
       }),
   });
 
-  VELOX_ASSERT_THROW(
-      testAggregations(
-          {data}, {}, {"min_by(c0, c1)", "max_by(c0, c1)"}, {expected}),
-      "ROW comparison not supported for values that contain nulls");
-
-  data = makeRowVector({
-      makeArrayVector<int64_t>({
-          {1, 2, 3},
-          {4, 5},
-          {6, 7, 8},
-      }),
-      makeRowVector({makeNullableFlatVector<int32_t>({
-          1,
-          2,
-          3,
-      })}),
-  });
   testAggregations(
       {data}, {}, {"min_by(c0, c1)", "max_by(c0, c1)"}, {expected});
+}
+
+TEST_F(MinMaxByComplexTypes, arrayCheckNulls) {
+  auto batch = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3}),
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2]",
+          "[6, 7]",
+          "[2, 3]",
+      }),
+      makeFlatVector<int32_t>({1, 2, 3}),
+  });
+
+  auto batchWithNull = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3}),
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2]",
+          "[6, 7]",
+          "[3, null]",
+      }),
+      makeFlatVector<int32_t>({1, 2, 3}),
+  });
+
+  for (const auto& expr : {"min_by(c0, c1)", "max_by(c0, c1)"}) {
+    testFailingAggregations(
+        {batch, batchWithNull},
+        {},
+        {expr},
+        "ARRAY comparison not supported for values that contain nulls");
+    testFailingAggregations(
+        {batch, batchWithNull},
+        {"c2"},
+        {expr},
+        "ARRAY comparison not supported for values that contain nulls");
+  }
+}
+
+TEST_F(MinMaxByComplexTypes, rowCheckNull) {
+  auto batch = makeRowVector({
+      makeFlatVector<int8_t>({1, 2, 3}),
+      makeRowVector(
+          {makeFlatVector<std::string>({"a", "b", "c"}),
+           makeFlatVector<std::string>({"aa", "bb", "cc"})}),
+      makeFlatVector<int8_t>({1, 2, 3}),
+  });
+
+  auto batchWithNull = makeRowVector({
+      makeFlatVector<int8_t>({1, 2, 3}),
+      makeRowVector({
+          makeFlatVector<std::string>({"a", "b", "c"}),
+          makeNullableFlatVector<std::string>({"aa", std::nullopt, "cc"}),
+      }),
+      makeFlatVector<int8_t>({1, 2, 3}),
+  });
+
+  for (const auto& expr : {"min_by(c0, c1)", "max_by(c0, c1)"}) {
+    testFailingAggregations(
+        {batch, batchWithNull},
+        {},
+        {expr},
+        "ROW comparison not supported for values that contain nulls");
+    testFailingAggregations(
+        {batch, batchWithNull},
+        {"c2"},
+        {expr},
+        "ROW comparison not supported for values that contain nulls");
+  }
 }
 
 class MinMaxByNTest : public AggregationTestBase {

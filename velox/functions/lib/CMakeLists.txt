@@ -29,7 +29,8 @@ add_library(
   MapConcat.cpp
   Re2Functions.cpp
   StringEncodingUtils.cpp
-  SubscriptUtil.cpp)
+  SubscriptUtil.cpp
+  CheckNestedNulls.cpp)
 
 target_link_libraries(velox_functions_lib velox_functions_util velox_vector
                       re2::re2 Folly::folly)

@@ -17,6 +17,7 @@
 
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
+#include "velox/functions/lib/CheckNestedNulls.h"
 #include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 #include "velox/vector/FlatVector.h"
 
@@ -106,8 +107,10 @@ class MinMaxByAggregateBase : public exec::Aggregate {
   using ComparisonAccumulatorType =
       typename AccumulatorTypeTraits<U>::AccumulatorType;
 
-  explicit MinMaxByAggregateBase(TypePtr resultType)
-      : exec::Aggregate(resultType) {}
+  explicit MinMaxByAggregateBase(
+      TypePtr resultType,
+      bool throwOnNestedNulls = false)
+      : exec::Aggregate(resultType), throwOnNestedNulls_(throwOnNestedNulls) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(ValueAccumulatorType) + sizeof(ComparisonAccumulatorType) +
@@ -324,9 +327,12 @@ class MinMaxByAggregateBase : public exec::Aggregate {
         decodedComparison_.isNullAt(0)) {
       return;
     }
+
+    const auto* indices = decodedComparison_.indices();
     if (decodedValue_.mayHaveNulls() || decodedComparison_.mayHaveNulls()) {
       rows.applyToSelected([&](vector_size_t i) {
-        if (decodedComparison_.isNullAt(i)) {
+        if (checkNestedNulls(
+                decodedComparison_, indices, i, throwOnNestedNulls_)) {
           return;
         }
         updateValues(
@@ -339,6 +345,9 @@ class MinMaxByAggregateBase : public exec::Aggregate {
       });
     } else {
       rows.applyToSelected([&](vector_size_t i) {
+        if (throwOnNestedNulls_) {
+          checkNestedNulls(decodedComparison_, indices, i, throwOnNestedNulls_);
+        }
         updateValues(
             groups[i], decodedValue_, decodedComparison_, i, false, mayUpdate);
       });
@@ -401,9 +410,12 @@ class MinMaxByAggregateBase : public exec::Aggregate {
     // the maximum.
     decodedValue_.decode(*args[0], rows);
     decodedComparison_.decode(*args[1], rows);
+    const auto* indices = decodedComparison_.indices();
+
     if (decodedValue_.isConstantMapping() &&
         decodedComparison_.isConstantMapping()) {
-      if (decodedComparison_.isNullAt(0)) {
+      if (checkNestedNulls(
+              decodedComparison_, indices, 0, throwOnNestedNulls_)) {
         return;
       }
       updateValues(
@@ -416,7 +428,8 @@ class MinMaxByAggregateBase : public exec::Aggregate {
     } else if (
         decodedValue_.mayHaveNulls() || decodedComparison_.mayHaveNulls()) {
       rows.applyToSelected([&](vector_size_t i) {
-        if (decodedComparison_.isNullAt(i)) {
+        if (checkNestedNulls(
+                decodedComparison_, indices, i, throwOnNestedNulls_)) {
           return;
         }
         updateValues(
@@ -429,6 +442,9 @@ class MinMaxByAggregateBase : public exec::Aggregate {
       });
     } else {
       rows.applyToSelected([&](vector_size_t i) {
+        if (throwOnNestedNulls_) {
+          checkNestedNulls(decodedComparison_, indices, i, throwOnNestedNulls_);
+        }
         updateValues(
             group, decodedValue_, decodedComparison_, i, false, mayUpdate);
       });
@@ -530,6 +546,7 @@ class MinMaxByAggregateBase : public exec::Aggregate {
         sizeof(ComparisonAccumulatorType));
   }
 
+  const bool throwOnNestedNulls_;
   DecodedVector decodedValue_;
   DecodedVector decodedComparison_;
   DecodedVector decodedIntermediateResult_;
@@ -550,7 +567,8 @@ template <
 std::unique_ptr<exec::Aggregate> create(
     TypePtr resultType,
     TypePtr compareType,
-    const std::string& errorMessage) {
+    const std::string& errorMessage,
+    bool throwOnNestedNulls = false) {
   switch (compareType->kind()) {
     case TypeKind::BOOLEAN:
       return std::make_unique<Aggregate<W, bool, isMaxFunc, Comparator>>(
@@ -587,7 +605,7 @@ std::unique_ptr<exec::Aggregate> create(
       [[fallthrough]];
     case TypeKind::ROW:
       return std::make_unique<Aggregate<W, ComplexType, isMaxFunc, Comparator>>(
-          resultType);
+          resultType, throwOnNestedNulls);
     default:
       VELOX_FAIL("{}", errorMessage);
       return nullptr;
@@ -609,44 +627,45 @@ std::unique_ptr<exec::Aggregate> create(
     TypePtr resultType,
     TypePtr valueType,
     TypePtr compareType,
-    const std::string& errorMessage) {
+    const std::string& errorMessage,
+    bool throwOnNestedNulls = false) {
   switch (valueType->kind()) {
     case TypeKind::BOOLEAN:
       return create<Aggregate, isMaxFunc, Comparator, bool>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::TINYINT:
       return create<Aggregate, isMaxFunc, Comparator, int8_t>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::SMALLINT:
       return create<Aggregate, isMaxFunc, Comparator, int16_t>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::INTEGER:
       return create<Aggregate, isMaxFunc, Comparator, int32_t>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::BIGINT:
       return create<Aggregate, isMaxFunc, Comparator, int64_t>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::REAL:
       return create<Aggregate, isMaxFunc, Comparator, float>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::DOUBLE:
       return create<Aggregate, isMaxFunc, Comparator, double>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::VARCHAR:
       [[fallthrough]];
     case TypeKind::VARBINARY:
       return create<Aggregate, isMaxFunc, Comparator, StringView>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::TIMESTAMP:
       return create<Aggregate, isMaxFunc, Comparator, Timestamp>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     case TypeKind::ARRAY:
       [[fallthrough]];
     case TypeKind::MAP:
       [[fallthrough]];
     case TypeKind::ROW:
       return create<Aggregate, isMaxFunc, Comparator, ComplexType>(
-          resultType, compareType, errorMessage);
+          resultType, compareType, errorMessage, throwOnNestedNulls);
     default:
       VELOX_FAIL(errorMessage);
   }

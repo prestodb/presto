@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/aggregates/Compare.h"
+#include "velox/functions/lib/CheckNestedNulls.h"
 #include "velox/functions/prestosql/aggregates/MapAggregateBase.h"
 
 namespace facebook::velox::aggregate::prestosql {
@@ -47,7 +47,8 @@ class MapAggAggregate : public MapAggregateBase<K> {
       DecodedVector decodedKeys(*keys, rows);
       const auto* indices = decodedKeys.indices();
       rows.applyToSelected([&](vector_size_t i) {
-        checkNestedNulls(decodedKeys, indices, i, throwOnNestedNulls_);
+        velox::functions::checkNestedNulls(
+            decodedKeys, indices, i, throwOnNestedNulls_);
       });
     }
 
@@ -103,7 +104,7 @@ class MapAggAggregate : public MapAggregateBase<K> {
     const auto* indices = Base::decodedKeys_.indices();
 
     rows.applyToSelected([&](vector_size_t row) {
-      if (checkNestedNulls(
+      if (velox::functions::checkNestedNulls(
               Base::decodedKeys_, indices, row, throwOnNestedNulls_)) {
         return;
       }
@@ -129,7 +130,7 @@ class MapAggAggregate : public MapAggregateBase<K> {
 
     auto tracker = Base::trackRowSize(group);
     rows.applyToSelected([&](vector_size_t row) {
-      if (checkNestedNulls(
+      if (velox::functions::checkNestedNulls(
               Base::decodedKeys_, indices, row, throwOnNestedNulls_)) {
         return;
       }

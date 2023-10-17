@@ -1159,31 +1159,11 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
             (argTypes.size() == 1 && argTypes[0]->size() == 3);
 
         if (nAgg) {
-          if (isRawInput) {
-            // Input is: V, C, BIGINT.
-            return createNArg<NAggregate>(
-                resultType, argTypes[0], argTypes[1], errorMessage);
-          } else {
-            // Input is: ROW(BIGINT, ARRAY(C), ARRAY(V)).
-            const auto& rowType = argTypes[0];
-            const auto& compareType = rowType->childAt(1)->childAt(0);
-            const auto& valueType = rowType->childAt(2)->childAt(0);
-            return createNArg<NAggregate>(
-                resultType, valueType, compareType, errorMessage);
-          }
+          return createNArg<NAggregate>(
+              resultType, argTypes[0], argTypes[1], errorMessage);
         } else {
-          if (isRawInput) {
-            // Input is: V, C.
-            return create<Aggregate, Comparator, isMaxFunc>(
-                resultType, argTypes[0], argTypes[1], errorMessage);
-          } else {
-            // Input is: ROW(V, C).
-            const auto& rowType = argTypes[0];
-            const auto& valueType = rowType->childAt(0);
-            const auto& compareType = rowType->childAt(1);
-            return create<Aggregate, Comparator, isMaxFunc>(
-                resultType, valueType, compareType, errorMessage);
-          }
+          return create<Aggregate, Comparator, isMaxFunc>(
+              resultType, argTypes[0], argTypes[1], errorMessage, true);
         }
       });
 }

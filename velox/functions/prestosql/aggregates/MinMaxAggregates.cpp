@@ -17,6 +17,7 @@
 #include <limits>
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregationHook.h"
+#include "velox/functions/lib/CheckNestedNulls.h"
 #include "velox/functions/lib/aggregates/SimpleNumericAggregate.h"
 #include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
@@ -312,7 +313,8 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
       DecodedVector decoded(*input, rows, true);
       auto indices = decoded.indices();
       rows.applyToSelected([&](vector_size_t i) {
-        checkNestedNulls(decoded, indices, i, throwOnNestedNulls_);
+        velox::functions::checkNestedNulls(
+            decoded, indices, i, throwOnNestedNulls_);
       });
     }
 
@@ -388,7 +390,8 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     }
 
     rows.applyToSelected([&](vector_size_t i) {
-      if (checkNestedNulls(decoded, indices, i, throwOnNestedNulls_)) {
+      if (velox::functions::checkNestedNulls(
+              decoded, indices, i, throwOnNestedNulls_)) {
         return;
       }
 
@@ -411,7 +414,8 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     auto baseVector = decoded.base();
 
     if (decoded.isConstantMapping()) {
-      if (checkNestedNulls(decoded, indices, 0, throwOnNestedNulls_)) {
+      if (velox::functions::checkNestedNulls(
+              decoded, indices, 0, throwOnNestedNulls_)) {
         return;
       }
 
@@ -425,7 +429,8 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
 
     auto accumulator = value<SingleValueAccumulator>(group);
     rows.applyToSelected([&](vector_size_t i) {
-      if (checkNestedNulls(decoded, indices, i, throwOnNestedNulls_)) {
+      if (velox::functions::checkNestedNulls(
+              decoded, indices, i, throwOnNestedNulls_)) {
         return;
       }
 

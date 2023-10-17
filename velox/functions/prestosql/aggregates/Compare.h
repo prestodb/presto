@@ -33,14 +33,4 @@ int32_t compare(
     const velox::functions::aggregate::SingleValueAccumulator* accumulator,
     const DecodedVector& decoded,
     vector_size_t index);
-
-/// Checks nested nulls in a complex type vector. Returns true if value at
-/// specified index is null. Throws an exception if the base vector contains
-/// nulls if 'throwOnNestedNulls' is true.
-bool checkNestedNulls(
-    const DecodedVector& decoded,
-    const vector_size_t* indices,
-    vector_size_t index,
-    bool throwOnNestedNulls);
-
 } // namespace facebook::velox::aggregate::prestosql

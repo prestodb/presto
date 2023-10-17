@@ -38,24 +38,4 @@ int32_t compare(
           mapTypeKindToName(decoded.base()->typeKind())));
   return result.value();
 }
-
-bool checkNestedNulls(
-    const DecodedVector& decoded,
-    const vector_size_t* indices,
-    vector_size_t index,
-    bool throwOnNestedNulls) {
-  if (decoded.isNullAt(index)) {
-    return true;
-  }
-
-  if (throwOnNestedNulls) {
-    VELOX_USER_CHECK(
-        !decoded.base()->containsNullAt(indices[index]),
-        "{} comparison not supported for values that contain nulls",
-        mapTypeKindToName(decoded.base()->typeKind()));
-  }
-
-  return false;
-}
-
 } // namespace facebook::velox::aggregate::prestosql
