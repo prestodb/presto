@@ -96,6 +96,10 @@ bool StripeReaderBase::fetchStripe(uint32_t index, bool& preload) {
 
   prefetchedStripes_.wlock()->operator[](index) = prefetchedStripeBase;
 
+  // refresh stripe encryption key if necessary
+  loadEncryptionKeys(index, stripeFooter);
+  lastStripeIndex_ = index;
+
   return true;
 }
 
@@ -119,19 +123,22 @@ StripeInformationWrapper StripeReaderBase::loadStripe(
 
   footer_ = prefetchedStripeBase->footer;
   stripeInput_ = std::move(prefetchedStripeBase->stripeInput);
-  // refresh stripe encryption key if necessary
-  loadEncryptionKeys(index);
-  lastStripeIndex_ = index;
   return stripe;
 }
 
-void StripeReaderBase::loadEncryptionKeys(uint32_t index) {
+void StripeReaderBase::loadEncryptionKeys(
+    uint32_t index,
+    proto::StripeFooter* stripeFooter) {
+  if (stripeFooter == nullptr) {
+    stripeFooter = footer_;
+  }
   if (!handler_->isEncrypted()) {
     return;
   }
 
   DWIO_ENSURE_EQ(
-      footer_->encryptiongroups_size(), handler_->getEncryptionGroupCount());
+      stripeFooter->encryptiongroups_size(),
+      handler_->getEncryptionGroupCount());
   auto& footer = reader_->getFooter();
   DWIO_ENSURE_LT(index, footer.stripesSize(), "invalid stripe index");
 

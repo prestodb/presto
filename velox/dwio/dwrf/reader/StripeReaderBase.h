@@ -125,7 +125,10 @@ class StripeReaderBase {
       folly::F14FastMap<uint32_t, std::shared_ptr<PrefetchedStripeBase>>>
       prefetchedStripes_;
 
-  void loadEncryptionKeys(uint32_t index);
+  // stripeFooter default null arg should only be used for testing.
+  void loadEncryptionKeys(
+      uint32_t index,
+      proto::StripeFooter* stripeFooter = nullptr);
 
   friend class StripeLoadKeysTest;
 };
