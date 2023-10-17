@@ -163,13 +163,14 @@ struct AsJson {
       const BufferPtr& elementToTopLevelRows,
       bool isMapKey = false)
       : decoded_(context) {
+    VELOX_CHECK(rows.hasSelections());
+
     ErrorVectorPtr oldErrors;
     context.swapErrors(oldErrors);
     if (isJsonType(input->type())) {
       json_ = input;
     } else {
-      if (!exec::PeeledEncoding::isPeelable(input->encoding()) ||
-          !rows.hasSelections()) {
+      if (!exec::PeeledEncoding::isPeelable(input->encoding())) {
         doCast(context, input, rows, isMapKey, json_);
       } else {
         exec::ScopedContextSaver saver;
@@ -286,6 +287,22 @@ void castToJsonFromArray(
   auto elements = inputArray->elements();
   auto elementsRows =
       functions::toElementRows(elements->size(), rows, inputArray);
+  if (!elementsRows.hasSelections()) {
+    // All arrays are null or empty.
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
+      if (inputArray->isNullAt(row)) {
+        flatResult.set(row, "null");
+      } else {
+        VELOX_CHECK_EQ(
+            inputArray->sizeAt(row),
+            0,
+            "All arrays are expected to be null or empty");
+        flatResult.set(row, "[]");
+      }
+    });
+    return;
+  }
+
   auto elementToTopLevelRows = functions::getElementToTopLevelRows(
       elements->size(), rows, inputArray, context.pool());
   AsJson elementsAsJson{context, elements, elementsRows, elementToTopLevelRows};
@@ -348,6 +365,22 @@ void castToJsonFromMap(
   auto mapKeys = inputMap->mapKeys();
   auto mapValues = inputMap->mapValues();
   auto elementsRows = functions::toElementRows(mapKeys->size(), rows, inputMap);
+  if (!elementsRows.hasSelections()) {
+    // All maps are null or empty.
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
+      if (inputMap->isNullAt(row)) {
+        flatResult.set(row, "null");
+      } else {
+        VELOX_CHECK_EQ(
+            inputMap->sizeAt(row),
+            0,
+            "All maps are expected to be null or empty");
+        flatResult.set(row, "{}");
+      }
+    });
+    return;
+  }
+
   auto elementToTopLevelRows = functions::getElementToTopLevelRows(
       mapKeys->size(), rows, inputMap, context.pool());
   // Maps with unsupported key types should have already been rejected by
@@ -421,6 +454,7 @@ void castToJsonFromRow(
     const SelectivityVector& rows,
     FlatVector<StringView>& flatResult) {
   // input is guaranteed to be in flat encoding when passed in.
+  VELOX_CHECK_EQ(input.encoding(), VectorEncoding::Simple::ROW);
   auto inputRow = input.as<RowVector>();
   auto childrenSize = inputRow->childrenSize();
 
