@@ -2658,6 +2658,137 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrationFromTableWriter) {
   ASSERT_EQ(arbitrator_->stats().numFailures, 1);
 }
 
+// This test is to reproduce a race condition that memory arbitrator tries to
+// reclaim from a set of hash build operators in which the last hash build
+// operator has finished.
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenRaclaimAndJoinFinish) {
+  const int kMemoryCapacity = 512 << 20;
+  setupMemory(kMemoryCapacity, 0);
+
+  const int numVectors = 5;
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(newVector());
+  }
+  createDuckDbTable(vectors);
+
+  std::shared_ptr<core::QueryCtx> joinQueryCtx = newQueryCtx(kMemoryCapacity);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId planNodeId;
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(vectors, false)
+                  .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(vectors, true)
+                          .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                          .planNode(),
+                      "",
+                      {"t1"},
+                      core::JoinType::kAnti)
+                  .capturePlanNodeId(planNodeId)
+                  .planNode();
+
+  std::atomic<bool> waitForBuildFinishFlag{true};
+  folly::EventCount waitForBuildFinishEvent;
+  std::atomic<Driver*> lastBuildDriver{nullptr};
+  std::atomic<Task*> task{nullptr};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashBuild::finishHashBuild",
+      std::function<void(exec::HashBuild*)>([&](exec::HashBuild* buildOp) {
+        lastBuildDriver = buildOp->testingOperatorCtx()->driver();
+        task = lastBuildDriver.load()->task().get();
+        waitForBuildFinishFlag = false;
+        waitForBuildFinishEvent.notifyAll();
+      }));
+
+  std::atomic<bool> waitForReclaimFlag{true};
+  folly::EventCount waitForReclaimEvent;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal",
+      std::function<void(Driver*)>([&](Driver* driver) {
+        auto* op = driver->findOperator(planNodeId);
+        if (op->operatorType() != "HashBuild" &&
+            op->operatorType() != "HashProbe") {
+          return;
+        }
+
+        // Suspend hash probe driver to wait for the test triggered reclaim to
+        // finish.
+        if (op->operatorType() == "HashProbe") {
+          op->pool()->reclaimer()->enterArbitration();
+          waitForReclaimEvent.await(
+              [&]() { return !waitForReclaimFlag.load(); });
+          op->pool()->reclaimer()->leaveArbitration();
+        }
+
+        // Check if we have reached to the last hash build operator or not. The
+        // testvalue callback will set the last build driver.
+        if (lastBuildDriver == nullptr) {
+          return;
+        }
+
+        // Suspend all the remaining hash build drivers until the test triggered
+        // reclaim finish.
+        op->pool()->reclaimer()->enterArbitration();
+        waitForReclaimEvent.await([&]() { return !waitForReclaimFlag.load(); });
+        op->pool()->reclaimer()->leaveArbitration();
+      }));
+
+  const int numDrivers = 4;
+  std::thread queryThread([&]() {
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .maxDrivers(numDrivers)
+        .queryCtx(joinQueryCtx)
+        .spillDirectory(spillDirectory->path)
+        .config(core::QueryConfig::kSpillEnabled, "true")
+        .config(core::QueryConfig::kJoinSpillEnabled, "true")
+        .assertResults(
+            "SELECT c1 FROM tmp WHERE c0 NOT IN (SELECT c0 FROM tmp)");
+  });
+
+  // Wait for the last hash build operator to start building the hash table.
+  waitForBuildFinishEvent.await([&] { return !waitForBuildFinishFlag.load(); });
+  ASSERT_TRUE(lastBuildDriver != nullptr);
+  ASSERT_TRUE(task != nullptr);
+
+  // Wait until the last build driver gets removed from the task after finishes.
+  while (task.load()->numFinishedDrivers() != 1) {
+    bool foundLastBuildDriver{false};
+    task.load()->testingVisitDrivers([&](Driver* driver) {
+      if (driver == lastBuildDriver) {
+        foundLastBuildDriver = true;
+      }
+    });
+    if (!foundLastBuildDriver) {
+      break;
+    }
+  }
+
+  // Reclaim from the task, and we can't reclaim anything as we don't support
+  // spill after hash table built.
+  memory::MemoryReclaimer::Stats stats;
+  const uint64_t oldCapacity = joinQueryCtx->pool()->capacity();
+  task.load()->pool()->reclaim(1'000, stats);
+  ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+  // Make sure we don't leak memory capacity since we reclaim from task pool
+  // directly.
+  static_cast<MemoryPoolImpl*>(task.load()->pool())
+      ->testingSetCapacity(oldCapacity);
+  waitForReclaimFlag = false;
+  waitForReclaimEvent.notifyAll();
+
+  queryThread.join();
+
+  waitForAllTasksToBeDeleted();
+  ASSERT_EQ(arbitrator_->stats().numFailures, 0);
+  ASSERT_EQ(arbitrator_->stats().numReclaimedBytes, 0);
+}
+
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
   setupMemory(kMemoryCapacity, 0);
   const int numVectors = 10;

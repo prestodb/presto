@@ -28,7 +28,7 @@ namespace {
 BlockingReason fromStateToBlockingReason(HashBuild::State state) {
   switch (state) {
     case HashBuild::State::kRunning:
-      [[fallthrough]];
+      FOLLY_FALLTHROUGH;
     case HashBuild::State::kFinish:
       return BlockingReason::kNotBlocked;
     case HashBuild::State::kWaitForSpill:
@@ -1057,11 +1057,11 @@ void HashBuild::checkStateTransition(State state) {
       }
       break;
     case State::kWaitForBuild:
-      [[fallthrough]];
+      FOLLY_FALLTHROUGH;
     case State::kWaitForSpill:
-      [[fallthrough]];
+      FOLLY_FALLTHROUGH;
     case State::kWaitForProbe:
-      [[fallthrough]];
+      FOLLY_FALLTHROUGH;
     case State::kFinish:
       VELOX_CHECK_EQ(state_, State::kRunning);
       break;
@@ -1097,6 +1097,10 @@ bool HashBuild::testingTriggerSpill() {
       spillConfig()->testSpillPct;
 }
 
+bool HashBuild::canReclaim() const {
+  return Operator::canReclaim() && (spiller_ != nullptr);
+}
+
 void HashBuild::reclaim(
     uint64_t /*unused*/,
     memory::MemoryReclaimer::Stats& stats) {
@@ -1108,13 +1112,14 @@ void HashBuild::reclaim(
 
   // NOTE: a hash build operator is reclaimable if it is in the middle of table
   // build processing and is not under non-reclaimable execution section.
-  if ((state_ != State::kRunning && state_ != State::kWaitForBuild) ||
-      nonReclaimableSection_) {
+  if (nonReclaimableState()) {
     // TODO: reduce the log frequency if it is too verbose.
     ++stats.numNonReclaimableAttempts;
     LOG(WARNING) << "Can't reclaim from hash build operator, state_["
                  << stateName(state_) << "], nonReclaimableSection_["
-                 << nonReclaimableSection_ << "], " << pool()->name();
+                 << nonReclaimableSection_ << "], spiller_["
+                 << (spiller_->finalized() ? "finalized" : "non-finalized")
+                 << "] " << pool()->name();
     return;
   }
 
@@ -1126,15 +1131,14 @@ void HashBuild::reclaim(
     HashBuild* buildOp = dynamic_cast<HashBuild*>(op);
     VELOX_CHECK_NOT_NULL(buildOp);
     VELOX_CHECK(buildOp->canReclaim());
-    if ((buildOp->state_ != State::kRunning &&
-         buildOp->state_ != State::kWaitForBuild) ||
-        buildOp->nonReclaimableSection_) {
+    if (buildOp->nonReclaimableState()) {
       // TODO: reduce the log frequency if it is too verbose.
       ++stats.numNonReclaimableAttempts;
       LOG(WARNING) << "Can't reclaim from hash build operator, state_["
                    << stateName(buildOp->state_) << "], nonReclaimableSection_["
-                   << buildOp->nonReclaimableSection_ << "], "
-                   << buildOp->pool()->name();
+                   << nonReclaimableSection_ << "], spiller_["
+                   << (spiller_->finalized() ? "finalized" : "non-finalized")
+                   << "], " << buildOp->pool()->name();
       return;
     }
   }
@@ -1193,6 +1197,11 @@ void HashBuild::reclaim(
       std::rethrow_exception(result->error);
     }
   }
+}
+
+bool HashBuild::nonReclaimableState() const {
+  return ((state_ != State::kRunning) && (state_ != State::kWaitForBuild)) ||
+      nonReclaimableSection_ || spiller_->finalized();
 }
 
 void HashBuild::abort() {

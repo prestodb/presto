@@ -428,7 +428,6 @@ StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
     std::shared_ptr<BlockingState>& blockingState,
     RowVectorPtr& result) {
-  TestValue::adjust("facebook::velox::exec::Driver::runInternal", self.get());
   const auto now = getCurrentTimeMicro();
   const auto queuedTime = (now - queueTimeStartMicros_) * 1'000;
   // Update the next operator's queueTime.
@@ -450,6 +449,8 @@ StopReason Driver::runInternal(
     }
     return stop;
   }
+
+  TestValue::adjust("facebook::velox::exec::Driver::runInternal", self.get());
 
   // Update the queued time after entering the Task to ensure the stats have not
   // been deleted.

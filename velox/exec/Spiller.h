@@ -210,6 +210,11 @@ class Spiller {
     }
   }
 
+  /// Indicates if this spiller has finalized or not.
+  bool finalized() const {
+    return finalized_;
+  }
+
   SpillStats stats() const;
 
   std::string toString() const;

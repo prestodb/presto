@@ -80,6 +80,8 @@ class HashBuild final : public Operator {
   void reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
       override;
 
+  bool canReclaim() const override;
+
   void abort() override;
 
  private:
@@ -236,6 +238,10 @@ class HashBuild final : public Operator {
 
   // Invoked to check if it needs to trigger spilling for test purpose only.
   bool testingTriggerSpill();
+
+  // Indicates if this hash build operator is under non-reclaimable state or
+  // not.
+  bool nonReclaimableState() const;
 
   const std::shared_ptr<const core::HashJoinNode> joinNode_;
 
