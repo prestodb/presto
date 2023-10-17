@@ -348,6 +348,7 @@ target_link_libraries(
   velox_dwrf_e2e_filter_test
   velox_e2e_filter_test_base
   velox_link_libs
+  velox_test_util
   Folly::folly
   fmt::fmt
   lz4::lz4
