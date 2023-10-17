@@ -195,9 +195,11 @@ public abstract class AbstractTestWriter
                         "CREATE TABLE %s WITH (format = '" + tableFormat + "', " +
                                 "partitioned_by = ARRAY[ 'orderstatus' ], " +
                                 "bucketed_by = ARRAY[ 'custkey' ], " +
-                                "bucket_count = 1) " +
+                                "bucket_count = 2) " +
                                 "AS SELECT custkey, comment, orderstatus FROM orders", bucketedOrdersTableName));
                 assertQuery(String.format("SELECT * FROM %s", bucketedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders");
+                assertQuery(String.format("SELECT * FROM %s where \"$bucket\" = 0", bucketedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders where custkey % 2 = 0");
+                assertQuery(String.format("SELECT * FROM %s where \"$bucket\" = 1", bucketedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders where custkey % 2 = 1");
             }
             finally {
                 dropTableIfExists(bucketedOrdersTableName);
