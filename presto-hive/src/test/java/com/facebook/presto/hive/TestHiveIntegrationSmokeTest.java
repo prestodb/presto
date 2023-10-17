@@ -3256,16 +3256,19 @@ public class TestHiveIntegrationSmokeTest
 
             assertQuery(
                     "SELECT a, a <= 'bbc' FROM test_table_with_char",
-                    "VALUES (cast('aaa' as char(20)), true), " +
-                            "(cast('bbb' as char(20)), true), " +
-                            "(cast('bbc' as char(20)), true), " +
-                            "(cast('bbd' as char(20)), false)");
+                    "VALUES " +
+                            "('aaa                 ', true), " +
+                            "('bbb                 ', true), " +
+                            "('bbc                 ', true), " +
+                            "('bbd                 ', false)");
+
 
             assertQuery(
                     "SELECT a FROM test_table_with_char WHERE a <= 'bbc'",
-                    "VALUES cast('aaa' as char(20)), " +
-                            "cast('bbb' as char(20)), " +
-                            "cast('bbc' as char(20))");
+                    "VALUES " +
+                            "'aaa                 ', " +
+                            "'bbb                 ', " +
+                            "'bbc                 '");
         }
         finally {
             assertUpdate("DROP TABLE test_table_with_char");
@@ -4334,7 +4337,7 @@ public class TestHiveIntegrationSmokeTest
         try {
             assertQuery(session,
                     "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki  '",
-                    "VALUES (CAST('khaki' AS CHAR(7)))");
+                    "VALUES ('khaki  ')");
         }
         finally {
             assertUpdate(session, "DROP TABLE test_table_with_char_rc");

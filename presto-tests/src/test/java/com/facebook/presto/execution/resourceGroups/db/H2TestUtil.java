@@ -116,7 +116,7 @@ class H2TestUtil
 
     public static String getDbConfigUrl()
     {
-        return "jdbc:h2:mem:test_" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt();
+        return "jdbc:h2:mem:test_" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt() + ";NON_KEYWORDS=KEY,VALUE"; // key and value are reserved keywords in H2 2.x
     }
 
     public static H2ResourceGroupsDao getDao(String url)

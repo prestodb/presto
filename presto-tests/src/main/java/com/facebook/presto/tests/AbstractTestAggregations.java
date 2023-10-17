@@ -1277,14 +1277,14 @@ public abstract class AbstractTestAggregations
                         "WHERE orderkey IN (1, 2, 3, 4, 5) " +
                         "GROUP BY GROUPING SETS ((), (orderpriority), (orderpriority, custkey))",
                 "VALUES " +
-                        "(NULL, NULL , ('F', 'O', 'O'))," +
-                        "('5-LOW', NULL , ('F', 'O'))," +
-                        "('1-URGENT', NULL , ('O'))," +
+                        "(NULL, NULL , ARRAY['F', 'O', 'O'])," +
+                        "('5-LOW', NULL , ARRAY['F', 'O'])," +
+                        "('1-URGENT', NULL, ARRAY['O'])," +
                         "('5-LOW', 370 , NULL)," +
-                        "('5-LOW', 1234, ('F'))," +
-                        "('5-LOW', 1369, ('O'))," +
+                        "('5-LOW', 1234, ARRAY['F'])," +
+                        "('5-LOW', 1369, ARRAY['O'])," +
                         "('5-LOW', 445 , NULL)," +
-                        "('1-URGENT', 781 , ('O'))");
+                        "('1-URGENT', 781 , ARRAY['O'])");
     }
 
     /**
