@@ -374,14 +374,14 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures(
   std::vector<std::shared_ptr<exec::FunctionSignature>> signatures = {
       // array(T) -> array(T)
       exec::FunctionSignatureBuilder()
-          .typeVariable("T")
+          .orderableTypeVariable("T")
           .returnType("array(T)")
           .argumentType("array(T)")
           .build(),
       // array(T), function(T,U), boolean -> array(T)
       exec::FunctionSignatureBuilder()
           .typeVariable("T")
-          .typeVariable("U")
+          .orderableTypeVariable("U")
           .returnType("array(T)")
           .argumentType("array(T)")
           .constantArgumentType("function(T,U)")
@@ -398,6 +398,18 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures(
             .constantArgumentType("function(T,T,bigint)")
             .build());
   }
+  return signatures;
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+internalCanonicalizeSignatures() {
+  std::vector<std::shared_ptr<exec::FunctionSignature>> signatures = {
+      // array(T) -> array(T)
+      exec::FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("array(T)")
+          .argumentType("array(T)")
+          .build()};
   return signatures;
 }
 
@@ -436,6 +448,11 @@ core::TypedExprPtr rewriteArraySortCall(
           functions::prestosql::isSimpleComparison(prefix, *lambda)) {
     std::string name = comparison->isLessThen ? prefix + "array_sort"
                                               : prefix + "array_sort_desc";
+
+    if (!comparison->expr->type()->isOrderable()) {
+      return nullptr;
+    }
+
     auto rewritten = std::make_shared<core::CallTypedExpr>(
         call->type(),
         std::vector<core::TypedExprPtr>{
@@ -463,5 +480,13 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_array_sort_desc,
     signatures(false),
     createDesc);
+
+// An internal function to canonicalize an array to allow for comparisons. Used
+// in AggregationFuzzerTest. Details in
+// https://github.com/facebookincubator/velox/issues/6999.
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_$internal$canonicalize,
+    internalCanonicalizeSignatures(),
+    createAsc);
 
 } // namespace facebook::velox::functions

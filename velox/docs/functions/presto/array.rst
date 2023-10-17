@@ -136,8 +136,8 @@ Array Functions
 
 .. function:: array_sort(array(E)) -> array(E)
 
-    Returns an array which has the sorted order of the input array x. The elements of x must
-    be orderable. Null elements will be placed at the end of the returned array.::
+    Returns an array which has the sorted order of the input array x. E must be
+    an orderable type. Null elements will be placed at the end of the returned array.::
 
         SELECT array_sort(ARRAY [1, 2, 3]); -- [1, 2, 3]
         SELECT array_sort(ARRAY [3, 2, 1]); -- [1, 2, 3]
@@ -148,14 +148,15 @@ Array Functions
 .. function:: array_sort(array(T), function(T,U)) -> array(T)
 
     Returns the array sorted by values computed using specified lambda in ascending
-    order. Null elements will be placed at the end of the returned array. ::
+    order. U must be an orderable type. Null elements will be placed at the end of
+    the returned array. ::
 
         SELECT array_sort(ARRAY ['cat', 'leopard', 'mouse'], x -> length(x)); -- ['cat', 'mouse', 'leopard']
 
 .. function:: array_sort_desc(array(E)) -> array(E)
 
-    Returns the array sorted in the descending order. The elements of the array must
-    be orderable. Null elements will be placed at the end of the returned array.::
+    Returns the array sorted in the descending order. E must be an orderable type.
+    Null elements will be placed at the end of the returned array.::
 
         SELECT array_sort_desc(ARRAY [1, 2, 3]); -- [3, 2, 1]
         SELECT array_sort_desc(ARRAY [3, 2, 1]); -- [3, 2, 1]
@@ -166,7 +167,8 @@ Array Functions
 .. function:: array_sort_desc(array(T), function(T,U)) -> array(T)
 
     Returns the array sorted by values computed using specified lambda in descending
-    order. Null elements will be placed at the end of the returned array. ::
+    order. U must be an orderable type. Null elements will be placed at the end of
+    the returned array. ::
 
         SELECT array_sort_desc(ARRAY ['cat', 'leopard', 'mouse'], x -> length(x)); -- ['leopard', 'mouse', 'cat']
 

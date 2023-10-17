@@ -33,6 +33,7 @@ extern void registerURLFunctions(const std::string& prefix);
 extern void registerMapAllowingDuplicates(
     const std::string& name,
     const std::string& prefix);
+extern void registerInternalArrayFunctions();
 
 namespace prestosql {
 void registerArithmeticFunctions(const std::string& prefix) {
@@ -107,6 +108,10 @@ void registerMapAllowingDuplicates(
     const std::string& name,
     const std::string& prefix) {
   functions::registerMapAllowingDuplicates(name, prefix);
+}
+
+void registerInternalFunctions() {
+  functions::registerInternalArrayFunctions();
 }
 } // namespace prestosql
 
