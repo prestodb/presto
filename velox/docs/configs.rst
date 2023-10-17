@@ -27,6 +27,11 @@ Generic Configuration
      - 10000
      - Max number of rows that could be return by operators from Operator::getOutput. It is used when an estimate of
        average row size is known and preferred_output_batch_bytes is used to compute the number of output rows.
+   * - table_scan_getoutput_time_limit_ms
+     - integer
+     - 5000
+     - TableScan operator will exit getOutput() method after this many milliseconds even if it has no data to return yet.
+     - Zero means 'no time limit'.
    * - abandon_partial_aggregation_min_rows
      - integer
      - 100,000

@@ -381,6 +381,80 @@ TEST_F(TableScanTest, timestamp) {
       "SELECT c0 FROM tmp WHERE c1 < timestamp'1970-01-01 01:30:00'");
 }
 
+DEBUG_ONLY_TEST_F(TableScanTest, getOutputTimeLimit) {
+  // Create two different row vectors: with some nulls and with no nulls.
+  vector_size_t numRows = 100;
+  auto tsFunc = [](vector_size_t row) {
+    return Timestamp(row, (row % 10) * Timestamp::kNanosecondsInMillisecond);
+  };
+  auto rowVector = makeRowVector(
+      {makeFlatVector<int64_t>(numRows, [](vector_size_t row) { return row; }),
+       makeFlatVector<Timestamp>(numRows, tsFunc, [](vector_size_t row) {
+         return row % 5 == 0; /* null every 5 rows */
+       })});
+  auto rowVectorNoNulls = makeRowVector(
+      {makeFlatVector<int64_t>(numRows, [](vector_size_t row) { return row; }),
+       makeFlatVector<Timestamp>(numRows, tsFunc)});
+
+  // Prepare the data files and tables with 2/3 of them having no null row
+  // vector.
+  const size_t numFiles{20};
+  std::vector<std::shared_ptr<TempFilePath>> filePaths;
+  std::vector<RowVectorPtr> vectorsForDuckDb;
+  filePaths.reserve(numFiles);
+  vectorsForDuckDb.reserve(numFiles);
+  for (auto i = 0; i < numFiles; ++i) {
+    filePaths.emplace_back(TempFilePath::create());
+    const auto& vec = (i % 3 == 0) ? rowVector : rowVectorNoNulls;
+    writeToFile(filePaths.back()->path, vec);
+    vectorsForDuckDb.emplace_back(vec);
+  }
+  createDuckDbTable(vectorsForDuckDb);
+
+  // Scan with filter. The filter ensures we filter ALL rows from the splits
+  // with no nulls, thus ending up with an empty result set for such splits.
+  auto dataColumns = ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()});
+  const size_t tableScanGetOutputTimeLimitMs{100};
+  auto plan = PlanBuilder(pool_.get())
+                  .tableScan(
+                      ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()}),
+                      {"c1 is null"},
+                      "",
+                      dataColumns)
+                  .planNode();
+
+  // Ensure the getOutput is long enough to trigger the maxGetOutputTimeMs in
+  // TableScan, so we can test early exit (bail) from the TableScan::getOutput.
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::TableScan::getOutput",
+      std::function<void(const TableScan*)>(
+          ([&](const TableScan* /*tableScan*/) {
+            /* sleep override */
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(tableScanGetOutputTimeLimitMs));
+          })));
+
+  // Count how many times we bailed from getOutput.
+  size_t numBailed{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::TableScan::getOutput::bail",
+      std::function<void(const TableScan*)>(
+          ([&](const TableScan* /*tableScan*/) { ++numBailed; })));
+
+  // Ensure query runs correctly with bails.
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .plan(plan)
+      .splits(makeHiveConnectorSplits(filePaths))
+      .config(
+          QueryConfig::kTableScanGetOutputTimeLimitMs,
+          folly::to<std::string>(tableScanGetOutputTimeLimitMs))
+      .assertResults("SELECT c0, c1 FROM tmp WHERE c1 is null");
+
+  // We should have at least 12 splits (20/3*2) producing empty results and
+  // after each of them we should bail thanks to our 'sleep' injection.
+  EXPECT_GE(numBailed, 12);
+}
+
 TEST_F(TableScanTest, subfieldPruningRowType) {
   auto innerType = ROW({"a", "b"}, {BIGINT(), DOUBLE()});
   auto columnType = ROW({"c", "d"}, {innerType, BIGINT()});

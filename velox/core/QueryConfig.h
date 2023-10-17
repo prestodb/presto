@@ -162,6 +162,12 @@ class QueryConfig {
   /// output rows.
   static constexpr const char* kMaxOutputBatchRows = "max_output_batch_rows";
 
+  /// TableScan operator will exit getOutput() method after this many
+  /// milliseconds even if it has no data to return yet. Zero means 'no time
+  /// limit'.
+  static constexpr const char* kTableScanGetOutputTimeLimitMs =
+      "table_scan_getoutput_time_limit_ms";
+
   /// If false, the 'group by' code is forced to use generic hash mode
   /// hashtable.
   static constexpr const char* kHashAdaptivityEnabled =
@@ -376,6 +382,10 @@ class QueryConfig {
 
   uint32_t maxOutputBatchRows() const {
     return get<uint32_t>(kMaxOutputBatchRows, 10'000);
+  }
+
+  uint32_t tableScanGetOutputTimeLimitMs() const {
+    return get<uint64_t>(kTableScanGetOutputTimeLimitMs, 5'000);
   }
 
   bool hashAdaptivityEnabled() const {

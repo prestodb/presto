@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 #include "velox/exec/TableScan.h"
-
+#include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Task.h"
 #include "velox/expression/Expr.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 DEFINE_int32(split_preload_per_driver, 2, "Prefetch split metadata");
 
@@ -44,11 +46,10 @@ TableScan::TableScan(
           driverCtx_->driverId,
           operatorType(),
           tableHandle_->connectorId())),
-      readBatchSize_(driverCtx_->task->queryCtx()
-                         ->queryConfig()
-                         .preferredOutputBatchRows()),
-      maxReadBatchSize_(
-          driverCtx_->task->queryCtx()->queryConfig().maxOutputBatchRows()) {
+      readBatchSize_(driverCtx_->queryConfig().preferredOutputBatchRows()),
+      maxReadBatchSize_(driverCtx_->queryConfig().maxOutputBatchRows()),
+      getOutputTimeLimitMs_(
+          driverCtx_->queryConfig().tableScanGetOutputTimeLimitMs()) {
   connector_ = connector::getConnector(tableHandle_->connectorId());
 }
 
@@ -57,8 +58,26 @@ RowVectorPtr TableScan::getOutput() {
     return nullptr;
   }
 
+  const auto startTimeMs = getCurrentTimeMs();
   for (;;) {
     if (needNewSplit_) {
+      // Check if our task needs us to yield or we've been running for too long
+      // w/o producing a result. In this case we setup a fake blocking reason
+      // and one already fulfilled future.
+      if (this->driverCtx_->task->shouldStop() != StopReason::kNone or
+          (getOutputTimeLimitMs_ != 0 and
+           (getCurrentTimeMs() - startTimeMs) >= getOutputTimeLimitMs_)) {
+        blockingReason_ = BlockingReason::kWaitForSplit;
+        blockingFuture_ = ContinueFuture{folly::Unit{}};
+        // A point for test code injection.
+        TestValue::adjust(
+            "facebook::velox::exec::TableScan::getOutput::bail", this);
+        return nullptr;
+      }
+
+      // A point for test code injection.
+      TestValue::adjust("facebook::velox::exec::TableScan::getOutput", this);
+
       exec::Split split;
       blockingReason_ = driverCtx_->task->getSplitOrFuture(
           driverCtx_->splitGroupId,
