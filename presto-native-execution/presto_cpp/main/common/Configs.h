@@ -284,6 +284,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
+  /// Enable to make immediate buffer memory transfer in the handling IO threads
+  /// as soon as exchange gets its response back. Otherwise the memory transfer
+  /// will happen later in driver thread pool.
+  static constexpr std::string_view kExchangeImmediateBufferTransfer{
+      "exchange.immediate-buffer-transfer"};
+
   static constexpr std::string_view kExchangeRequestTimeout{
       "exchange.http-client.request-timeout"};
 
@@ -461,6 +467,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
   std::chrono::duration<double> exchangeRequestTimeout() const;
+
+  bool exchangeImmediateBufferTransfer() const;
 
   int32_t taskRunTimeSliceMicros() const;
 

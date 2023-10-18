@@ -70,16 +70,15 @@ HttpResponse::HttpResponse(
     : headers_(std::move(headers)),
       pool_(std::move(pool)),
       minResponseAllocBytes_(minResponseAllocBytes),
-      maxResponseAllocBytes_(maxResponseAllocBytes) {
-  VELOX_CHECK_NOT_NULL(pool_);
-}
+      maxResponseAllocBytes_(maxResponseAllocBytes) {}
 
 HttpResponse::~HttpResponse() {
   // Clear out any leftover iobufs if not consumed.
   freeBuffers();
 }
 
-void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
+void HttpResponse::appendWithCopy(std::unique_ptr<folly::IOBuf>&& iobuf) {
+  VELOX_CHECK_NOT_NULL(pool_);
   VELOX_CHECK(!iobuf->isChained());
   VELOX_CHECK(!hasError());
 
@@ -116,10 +115,49 @@ void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
   bodyChain_.back()->trimEnd(roundedSize - dataLength);
 }
 
-void HttpResponse::freeBuffers() {
+void HttpResponse::appendWithoutCopy(std::unique_ptr<folly::IOBuf>&& iobuf) {
+  VELOX_CHECK_NULL(pool_);
+  VELOX_CHECK(!iobuf->isChained());
+  VELOX_CHECK(!hasError());
+  bodyChainBytes_ += iobuf->length();
+  bodyChain_.emplace_back(std::move(iobuf));
+}
+
+void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
+  if (pool_ == nullptr) {
+    appendWithoutCopy(std::move(iobuf));
+  } else {
+    appendWithCopy(std::move(iobuf));
+  }
+}
+
+std::unique_ptr<folly::IOBuf> HttpResponse::consumeBody(
+    velox::memory::MemoryPool* pool) {
+  VELOX_CHECK_NULL(pool_);
+  VELOX_CHECK(!hasError());
+  uint64_t totalBytes{0};
+  for (const auto& iobuf : bodyChain_) {
+    VELOX_CHECK(!iobuf->isChained());
+    totalBytes += iobuf->length();
+  }
+  void* newBuf = pool->allocate(totalBytes);
+  void* curr = newBuf;
   for (auto& iobuf : bodyChain_) {
-    if (iobuf != nullptr) {
-      pool_->free(iobuf->writableData(), iobuf->capacity());
+    const auto length = iobuf->length();
+    ::memcpy(curr, iobuf->data(), length);
+    curr = (char*)curr + length;
+    iobuf.reset();
+  }
+  bodyChain_.clear();
+  return folly::IOBuf::wrapBuffer(newBuf, totalBytes);
+}
+
+void HttpResponse::freeBuffers() {
+  if (pool_ != nullptr) {
+    for (auto& iobuf : bodyChain_) {
+      if (iobuf != nullptr) {
+        pool_->free(iobuf->writableData(), iobuf->capacity());
+      }
     }
   }
   bodyChain_.clear();
@@ -160,13 +198,14 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
       : request_(request),
         body_(body),
         reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
-        minResponseAllocBytes_(velox::memory::AllocationTraits::pageBytes(
-            client->memoryPool()->sizeClasses().front())),
+        minResponseAllocBytes_(
+            client->memoryPool() == nullptr
+                ? 0
+                : velox::memory::AllocationTraits::pageBytes(
+                      client->memoryPool()->sizeClasses().front())),
         maxResponseAllocBytes_(
             std::max(minResponseAllocBytes_, maxResponseAllocBytes)),
-        client_(std::move(client)) {
-    VELOX_CHECK_NOT_NULL(client_->memoryPool().get());
-  }
+        client_(std::move(client)) {}
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>> initialize(
       std::shared_ptr<ResponseHandler> self) {

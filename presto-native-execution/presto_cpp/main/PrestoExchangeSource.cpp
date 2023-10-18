@@ -62,7 +62,9 @@ std::string bodyAsString(
   auto iobufs = response.consumeBody();
   for (auto& body : iobufs) {
     oss << std::string((const char*)body->data(), body->length());
-    pool->free(body->writableData(), body->capacity());
+    if (pool != nullptr) {
+      pool->free(body->writableData(), body->capacity());
+    }
   }
   return oss.str();
 }
@@ -83,6 +85,8 @@ PrestoExchangeSource::PrestoExchangeSource(
       port_(baseUri.port()),
       clientCertAndKeyPath_(clientCertAndKeyPath),
       ciphers_(ciphers),
+      immediateBufferTransfer_(
+          SystemConfig::instance()->exchangeImmediateBufferTransfer()),
       driverExecutor_(driverExecutor),
       httpExecutor_(httpExecutor) {
   folly::SocketAddress address;
@@ -95,12 +99,13 @@ PrestoExchangeSource::PrestoExchangeSource(
       SystemConfig::instance()->exchangeRequestTimeout());
   VELOX_CHECK_NOT_NULL(driverExecutor_);
   VELOX_CHECK_NOT_NULL(httpExecutor_);
+  VELOX_CHECK_NOT_NULL(pool_);
   auto* ioEventBase = httpExecutor_->getEventBase();
   httpClient_ = std::make_shared<http::HttpClient>(
       ioEventBase,
       address,
       timeoutMs,
-      pool_,
+      immediateBufferTransfer_ ? pool_ : nullptr,
       clientCertAndKeyPath_,
       ciphers_,
       [](size_t bufferBytes) {
@@ -192,7 +197,10 @@ void PrestoExchangeSource::doRequest(
                   "Received HTTP {} {} {}",
                   headers->getStatusCode(),
                   headers->getStatusMessage(),
-                  bodyAsString(*response, self->pool_.get())));
+                  bodyAsString(
+                      *response,
+                      self->immediateBufferTransfer_ ? self->pool_.get()
+                                                     : nullptr)));
         } else if (response->hasError()) {
           self->processDataError(
               path, maxBytes, maxWaitSeconds, response->error());
@@ -243,7 +251,12 @@ void PrestoExchangeSource::processDataResponse(
   std::unique_ptr<exec::SerializedPage> page;
   const bool empty = response->empty();
   if (!empty) {
-    auto iobufs = response->consumeBody();
+    std::vector<std::unique_ptr<folly::IOBuf>> iobufs;
+    if (immediateBufferTransfer_) {
+      iobufs = response->consumeBody();
+    } else {
+      iobufs.emplace_back(response->consumeBody(pool_.get()));
+    }
     int64_t totalBytes{0};
     std::unique_ptr<folly::IOBuf> singleChain;
     for (auto& buf : iobufs) {

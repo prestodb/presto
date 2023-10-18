@@ -184,6 +184,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kHeartbeatFrequencyMs, 0),
           STR_PROP(kExchangeMaxErrorDuration, "30s"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
+          BOOL_PROP(kExchangeImmediateBufferTransfer, true),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
           NUM_PROP(kOldTaskCleanUpMs, 60'000),
@@ -458,6 +459,10 @@ std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
 std::chrono::duration<double> SystemConfig::exchangeRequestTimeout() const {
   return velox::core::toDuration(
       optionalProperty(kExchangeRequestTimeout).value());
+}
+
+bool SystemConfig::exchangeImmediateBufferTransfer() const {
+  return optionalProperty<bool>(kExchangeImmediateBufferTransfer).value();
 }
 
 int32_t SystemConfig::taskRunTimeSliceMicros() const {
