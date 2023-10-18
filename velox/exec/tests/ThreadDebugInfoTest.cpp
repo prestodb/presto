@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/process/ThreadDebugInfo.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -59,7 +60,7 @@ struct InduceSegFaultFunction {
 };
 } // namespace
 
-TEST_F(ThreadDebugInfoDeathTest, withinSeperateDriverThread) {
+DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinSeperateDriverThread) {
   auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
   registerFunction<InduceSegFaultFunction, int64_t, int64_t>({"segFault"});
   auto op = PlanBuilder().values({vector}).project({"segFault(c0)"}).planNode();
@@ -68,7 +69,7 @@ TEST_F(ThreadDebugInfoDeathTest, withinSeperateDriverThread) {
       ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor 1.*");
 }
 
-TEST_F(ThreadDebugInfoDeathTest, withinQueryCompilation) {
+DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinQueryCompilation) {
   auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
   registerFunction<InduceSegFaultFunction, int64_t, int64_t>({"segFault"});
   // Call expression with a constant to trigger the constant folding during
@@ -80,7 +81,7 @@ TEST_F(ThreadDebugInfoDeathTest, withinQueryCompilation) {
       ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor 1.*");
 }
 
-TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
+DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
   auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
   registerFunction<InduceSegFaultFunction, int64_t, int64_t>({"segFault"});
   auto plan =
