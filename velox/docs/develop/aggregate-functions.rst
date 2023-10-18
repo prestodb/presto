@@ -109,24 +109,323 @@ accordingly.  Data is stored in the following order:
 .. image:: images/aggregation-layout.png
   :width: 600
 
-Aggregate class
----------------
-
-To add an aggregate function,
+To add an aggregate function, there are two options: implementing it as a
+simple function or as a vector function. The simple-function interface allows
+the author to write methods that process input data one row at a time and not
+handle input vector encodings themselves. However, the simple-function
+interface currently has certain limitations, such as not allowing for advanced
+performance optimization on constant inputs. Aggregation functions that
+require such functionalities can be implemented through the vector-function
+interface. With the vector-function interface, the author writes methods that
+process one vector at a time and handles input vector encodings by themselves.
 
 * Prepare:
     * Figure out what are the input, intermediate and final types.
     * Figure out what are partial and final calculations.
     * Design the accumulator. Make sure the same accumulator can accept both raw
       inputs and intermediate results.
-    * Create a new class that extends velox::exec::Aggregate base class
+    * If implementing a simple function, create a class for the function according
+      to instructions below; If implementing a vector function,
+      create a new class that extends velox::exec::Aggregate base class
       (see velox/exec/Aggregate.h) and implement virtual methods.
 * Register the new function using exec::registerAggregateFunction(...).
 * Add tests.
 * Write documentation.
 
+Simple Function Interface
+-------------------------
+
+This section describes the main concepts and the simple interface of
+aggregation functions. Examples of aggregation functions implemented through
+the simple-function interface can be found at velox/exec/tests/SimpleAverageAggregate.cpp
+and velox/exec/tests/SimpleArrayAggAggregate.cpp.
+
+A simple aggregation function is implemented as a class as the following.
+
+.. code-block:: c++
+
+  // array_agg(T) -> array(T) -> array(T)
+  class ArrayAggAggregate {
+   public:
+    // Type(s) of input vector(s) wrapped in Row.
+    using InputType = Row<Generic<T1>>;
+    using IntermediateType = Array<Generic<T1>>;
+    using OutputType = Array<Generic<T1>>;
+
+    // Optional. Default is true.
+    static constexpr bool default_null_behavior_ = false;
+
+    // Optional.
+    static bool toIntermediate(
+      exec::out_type<Array<Generic<T1>>>& out,
+      exec::optional_arg_type<Generic<T1>> in);
+
+    struct AccumulatorType { ... };
+  };
+
+The author declares the function's input type, intermediate type, and output
+type in the simple aggregation function class. The input type must be the
+function's argument type(s) wrapped in a Row<> even if the function only takes
+one argument. This is needed for the SimpleAggregateAdapter to parse input
+types for arbitrary aggregation functions properly.
+
+The author can define an optional flag `default_null_behavior_` indicating
+whether the aggregation function has default-null behavior. This flag is true
+by default. Next, the class can have an optional method `toIntermediate()`
+that converts the aggregation function's raw input directly to its intermediate
+states. Finally, the author must define a struct named `AccumulatorType` in
+the aggregation function class. We explain each part in more details below.
+
+Default-Null Behavior
+^^^^^^^^^^^^^^^^^^^^^
+
+When adding raw inputs or intermediate states to accumulators, aggregation
+functions of default-null behavior ignore the input values that are nulls. For
+raw inputs that consist of multiple columns, an entire row is ignored if at
+least one column is null at this row. Below is an example.
+
+.. code-block:: sql
+
+  SELECT sum(c0) FROM (values (cast(NULL as bigint), 10), (NULL, 20), (NULL, 30)) AS t(c0, c1); -- NULL
+
+When generating intermediate or final output results from accumulators,
+aggregation functions of default-null behavior produce nulls for groups of no
+input row or only null rows. Another example is given below.
+
+.. code-block:: sql
+
+  SELECT sum(c0) FROM (values (1, 10), (2, 20), (3, 30)) AS t(c0, c1) WHERE c1 > 40; -- NULL
+
+Most aggregation functions have default-null behavior. An example is in
+SimpleAverageAggregate.cpp. On the other hand, SimpleArrayAggAggregate.cpp has
+an example of non-default-null behavior.
+
+This flag affects the C++ function signatures of `toIntermediate()` and methods
+in the `AccumulatorType` struct.
+
+toIntermediate
+^^^^^^^^^^^^^^
+
+The author can optionally define a static method `toIntermediate()` that
+converts a raw input to an intermediate state. If defined, this function is
+used in query plans that abandon the partial aggregation step. If the aggregaiton function has
+default-null behavior, the toIntermediate() function has an out-parameter
+of the type `exec::out_type<IntermediateType>&` followed by in-parameters of
+the type `exec::arg_type<T>` for each `T` wrapped inside InputType . If the
+aggregation function has non-default null behavior, the in-parameters of
+toIntermediate() are of the type `exec::optional_arg_type<T>` instead.
+
+When `T` is a primitive type except Varchar and Varbinary, `exec::arg_type<T>`
+is simply `T` itself and `exec::out_type<T>` is `T&`. `exec::optional_arg_type<T>`
+is `std::optional<T>`.
+
+When `T` is Varchar, Varbinary, or a complex type, `exec::arg_type<T>`,
+`exec::optional_arg_type<T>`, and `exec::out_type<T>` are the corresponding
+view and writer types of `T`. A datailed explanaion can be found in :doc:`view-and-writer-types`.
+
+.. list-table::
+   :widths: 25 25
+   :header-rows: 1
+
+   * - Default-Null Behavior
+     - Non-Default-Null Behavior
+   * - static bool SimpleAverageAggregate::toIntermediate(
+          exec::out_type<Row<double, int64_t>>& out,
+          exec::arg_type<T> in);
+     - static bool SimpleArrayAggAggregate::toIntermediate(
+          exec::out_type<Array<Generic<T1>>>& out,
+          exec::optional_arg_type<Generic<T1>> in);
+
+AccumulatorType of Default-Null Behavior
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For aggregaiton functions of default-null behavior, the author defines an
+`AccumulatorType` struct as follows.
+
+.. code-block:: c++
+
+  struct AccumulatorType {
+    // Author defines data members
+    ...
+
+    // Optional. Default is true.
+    static constexpr bool is_fixed_size_ = false;
+
+    // Optional. Default is false.
+    static constexpr bool use_external_memory_ = true;
+
+    explicit AccumulatorType(HashStringAllocator* allocator);
+
+    void addInput(HashStringAllocator* allocator, exec::arg_type<T1> value1, ...);
+
+    void combine(
+        HashStringAllocator* allocator,
+        exec::arg_type<IntermediateType> other);
+
+    bool writeIntermediateResult(exec::out_type<IntermediateType>& out);
+
+    bool writeFinalResult(exec::out_type<OutputType>& out);
+
+    // Optional. Called during destruction.
+    void destroy(HashStringAllocator* allocator);
+  };
+
+The author defines an optional flag `is_fixed_size_` indicating whether the
+every accumulator takes fixed amount of memory. This flag is true by default.
+Next, the author defines another optional flag `use_external_memory_`
+indicating whether the accumulator uses memory that is not tracked by Velox.
+This flag is false by default.
+
+The author defines a constructor that takes a single argument of
+`HashStringAllocator*`. This constructor is called before aggregation starts to
+initialize all accumulators.
+
+The author can also optionally define a `destroy` function that is called when
+*this* accumulator object is destructed.
+
+addInput
+""""""""
+
+This method adds raw input values to *this* accumulator. It receives a
+`HashStringAllocator*` followed by `exec::arg_type<T1>`-typed values, one for
+each argument type `Ti` wrapped in InputType.
+
+With default-null behavior, raw-input rows where at least one column is null are
+ignored before `addInput` is called. After `addInput` is called, *this*
+accumulator is assumed to be non-null.
+
+combine
+"""""""
+
+This method adds an input intermediate state to *this* accumulator. It receives
+a `HashStringAllocator*` and one `exec::arg_type<IntermediateType>` value. With
+default-null behavior, nulls among the input intermediate states are ignored
+before `combine` is called. After `combine` is called, *this*  accumulator is
+assumed to be non-null.
+
+writeIntermediateResult
+"""""""""""""""""""""""
+
+This method writes *this* accumulator out to an intermediate state vector. It
+has an out-parameter of the type `exec::out_type<IntermediateType>&`. This
+method returns true if it writes a non-null value to `out`, or returns false
+meaning a null should be written to the intermediate state vector. Accumulators
+that are nulls (i.e., no value has been added to them) automatically become
+nulls in the intermediate state vector without `writeIntermediateResult` being
+called.
+
+writeFinalResult
+""""""""""""""""
+
+This method writes *this* accumulator out to a final result vector. It
+has an out-parameter of the type `exec::out_type<OutputType>&`. This
+method returns true if it writes a non-null value to `out`, or returns false
+meaning a null should be written to the final result vector. Accumulators
+that are nulls (i.e., no value has been added to them) automatically become
+nulls in the final result vector without `writeFinalResult` being called.
+
+AccumulatorType of Non-Default-Null Behavior
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For aggregaiton functions of non-default-null behavior, the author defines an
+`AccumulatorType` struct as follows.
+
+.. code-block:: c++
+
+  struct AccumulatorType {
+    // Author defines data members
+    ...
+
+    // Optional. Default is true.
+    static constexpr bool is_fixed_size_ = false;
+
+    // Optional. Default is false.
+    static constexpr bool use_external_memory_ = true;
+
+    explicit AccumulatorType(HashStringAllocator* allocator);
+
+    bool addInput(HashStringAllocator* allocator, exec::optional_arg_type<T1> value1, ...);
+
+    bool combine(
+        HashStringAllocator* allocator,
+        exec::optional_arg_type<IntermediateType> other);
+
+    bool writeIntermediateResult(bool nonNullGroup, exec::out_type<IntermediateType>& out);
+
+    bool writeFinalResult(bool nonNullGroup, exec::out_type<OutputType>& out);
+
+    // Optional.
+    void destroy(HashStringAllocator* allocator);
+  };
+
+The definition of `is_fixed_size_`, `use_external_memory_`, the constructor,
+and the `destroy` method are exactly the same as those for default-null
+behavior.
+
+On the other hand, the C++ function signatures of `addInput`, `combine`,
+`writeIntermediateResult`, and `writeFinalResult` are different.
+
+addInput
+""""""""
+
+This method receives a `HashStringAllocator*` followed by
+`exec::optional_arg_type<T1>` values, one for each argument type `Ti` wrapped
+in InputType.
+
+This method is called on all raw-input rows even if some columns may be null.
+It returns a boolean meaning whether *this* accumulator is non-null after the
+call. All accumulators are initialized to *null* before aggregation starts. An
+accumulator that is originally null can be turned to non-null. But an
+accumulator that's already non-null remains non-null regardless of the return
+value of `addInput`.
+
+combine
+"""""""
+
+This method receives a `HashStringAllocator*` and an
+`exec::optional_arg_type<IntermediateType>` value. This method is called on
+all intermediate states even if some are nulls. Same as `addInput`, this method
+returns a boolean meaning whether *this* accumulator is non-null after the call.
+
+writeIntermediateResult
+"""""""""""""""""""""""
+
+This method has an out-parameter of the type `exec::out_type<IntermediateType>&`
+and a boolean flag `nonNullGroup` indicating whether *this* accumulator is
+non-null. This method returns true if it writes a non-null value to `out`, or
+return false meaning a null should be written to the intermediate state vector.
+
+writeFinalResult
+""""""""""""""""
+
+This method writes *this* accumulator out to a final result vector. It has an
+out-parameter of the type `exec::out_type<OutputType>&` and a boolean flag
+`nonNullGroup` indicating whether *this* accumulator is non-null. This method
+returns true if it writes a non-null value to `out`, or return false meaning a
+null should be written to the final result vector.
+
+Limitations
+^^^^^^^^^^^
+
+The simple aggregation function interface currently has three limitations.
+
+1. All values read or written by the aggrgeaiton function must be part of the
+   accumulators. This means that there cannot be function-level states kept
+   outside of accumulators.
+
+2. Optimizations on constant inputs is not supported. I.e., constant input
+   arguments are processed once per row in the same way as non-constant inputs.
+
+3. Aggregation pushdown to table scan is not supported yet. We're planning to
+   add this support.
+
+Vector Function Interface
+-------------------------
+
+Aggregation functions that cannot use the simple-function interface can be written as vector funcitons.
+
 Accumulator size
-----------------
+^^^^^^^^^^^^^^^^
 
 The implementation of the velox::exec::Aggregate interface can start with *accumulatorFixedWidthSize()* method.
 
@@ -194,7 +493,7 @@ To manipulate the null flags:
       inline bool clearNull(char* group);
 
 Initialization
---------------
+^^^^^^^^^^^^^^
 
 Once you have accumulatorFixedWidthSize(), the next method to implement is initializeNewGroups().
 
@@ -210,7 +509,7 @@ Once you have accumulatorFixedWidthSize(), the next method to implement is initi
 This method is called by the HashAggregation operator every time it encounters new combinations of the grouping keys. This method should initialize the accumulators for the new groups. For example, partial “count” and “sum” aggregates would set the accumulators to zero. Many aggregate functions would set null flags to true by calling the exec::Aggregate::setAllNulls(groups, indices) helper method.
 
 GroupBy aggregation
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 At this point you have accumulatorFixedWidthSize() and initializeNewGroups() methods implemented. Now, we can proceed to implementing the end-to-end group-by aggregation. We need the following pieces:
 
@@ -393,7 +692,7 @@ implement toIntermediate() method which simply returns the input unmodified.
 GroupBy aggregation code path is done. We proceed to global aggregation.
 
 Global aggregation
-------------------
+^^^^^^^^^^^^^^^^^^
 
 Global aggregation is similar to group-by aggregation, but there is only one
 group and one accumulator. After implementing group-by aggregation, the only
@@ -485,11 +784,11 @@ input type and result type.
 
 .. code-block:: c++
 
-        bool registerApproxPercentile(const std::string& name) {
-          std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+        exec::AggregateRegistrationResult registerApproxPercentile(const std::string& name) {
+            std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
           ...
 
-          exec::registerAggregateFunction(
+          return exec::registerAggregateFunction(
               name,
               std::move(signatures),
               [name](
@@ -514,11 +813,37 @@ input type and result type.
                   ...
                 }
               });
-          return true;
         }
 
         static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
             registerApproxPercentile(kApproxPercentile);
+
+If the aggregation function is implemented through the simple-function
+interface, use `SimpleAggregateAdapter<FunctionClassName>` when creating the
+unique pointers. Below is an example.
+
+.. code-block:: c++
+
+  exec::AggregateRegistrationResult registerSimpleArrayAggAggregate(
+      const std::string& name) {
+    ...
+
+    return exec::registerAggregateFunction(
+      name,
+      std::move(signatures),
+      [name](
+          core::AggregationNode::Step /*step*/,
+          const std::vector<TypePtr>& argTypes,
+          const TypePtr& resultType,
+          const core::QueryConfig& /*config*/)
+          -> std::unique_ptr<exec::Aggregate> {
+        VELOX_CHECK_EQ(
+            argTypes.size(), 1, "{} takes at most one argument", name);
+        return std::make_unique<SimpleAggregateAdapter<SimpleArrayAggAggregate>>(
+            resultType);
+      });
+}
+
 
 Use FunctionSignatureBuilder to create FunctionSignature instances which
 describe supported signatures. Each signature includes zero or more input
