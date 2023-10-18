@@ -392,7 +392,9 @@ void RowNumber::setupHashTableSpiller() {
   hashTableSpiller_ = std::make_unique<Spiller>(
       Spiller::Type::kHashJoinBuild,
       table_->rows(),
-      [&](folly::Range<char**> rows) { table_->rows()->eraseRows(rows); },
+      [&](folly::Range<char**> /*rows*/) {
+        // Do nothing. We spill hash table in full and clear it all at once.
+      },
       tableType,
       std::move(hashBits),
       tableType->size() - 1,
