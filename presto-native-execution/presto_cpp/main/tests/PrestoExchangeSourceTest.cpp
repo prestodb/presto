@@ -382,6 +382,7 @@ static std::string getClientCa(bool useHttps) {
 
 struct Params {
   bool useHttps;
+  bool immediateBufferTransfer;
   int exchangeCpuThreadPoolSize;
   int exchangeIoThreadPoolSize;
 };
@@ -405,6 +406,9 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
 
     filesystems::registerLocalFileSystem();
     test::setupMutableSystemConfig();
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kExchangeImmediateBufferTransfer),
+        GetParam().immediateBufferTransfer ? "true" : "false");
   }
 
   void TearDown() override {
@@ -804,14 +808,17 @@ DEBUG_ONLY_TEST_P(
       ASSERT_EQ(toString(receivedPage.get()), payload);
     }
     producer->noMoreData();
-    // Verify that we have retried on memory allocation failure of the http
-    // response data but just fails the query.
-    ASSERT_GE(exchangeSource->testingFailedAttempts(), 1);
+    if (GetParam().immediateBufferTransfer) {
+      // Verify that we have retried on memory allocation failure of the http
+      // response data other than just failing the query.
+      ASSERT_GE(exchangeSource->testingFailedAttempts(), 1);
+    }
     ASSERT_EQ(leafPool->currentBytes(), 0);
   }
 }
 
 TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
+  const bool immediateBufferTransfer = GetParam().immediateBufferTransfer;
   std::vector<bool> resetPeaks = {false, true};
   for (const auto resetPeak : resetPeaks) {
     SCOPED_TRACE(fmt::format("resetPeak {}", resetPeak));
@@ -838,18 +845,24 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     producer->enqueue(smallPayload);
     requestNextPage(queue, exchangeSource);
     auto smallPage = waitForNextPage(queue);
-    ASSERT_EQ(leafPool->stats().numAllocs, 2);
+    if (immediateBufferTransfer) {
+      ASSERT_EQ(leafPool->stats().numAllocs, 2);
+    }
     int64_t currMemoryBytes;
     int64_t peakMemoryBytes;
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2)
+                                : smallPayload.size() + 4,
         currMemoryBytes);
 
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2)
+                                : smallPayload.size() + 4,
         peakMemoryBytes);
     int64_t oldCurrMemoryBytes = currMemoryBytes;
 
@@ -866,8 +879,10 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
 
     if (!resetPeak) {
       ASSERT_EQ(
-          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-              (1 + 2),
+          immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                        pool_->sizeClasses().front()) *
+                  (1 + 2)
+                                  : smallPayload.size() + 4,
           peakMemoryBytes);
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
@@ -887,12 +902,16 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
 
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2 + 4 + 8 + 16 + 16),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2 + 4 + 8 + 16 + 16)
+                                : largePayload.size() + 4,
         currMemoryBytes);
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2 + 4 + 8 + 16 + 16),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2 + 4 + 8 + 16 + 16)
+                                : largePayload.size() + 4,
         peakMemoryBytes);
     oldCurrMemoryBytes = currMemoryBytes;
 
@@ -907,14 +926,18 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(0, currMemoryBytes);
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2 + 4 + 8 + 16 + 16),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2 + 4 + 8 + 16 + 16)
+                                : largePayload.size() + 4,
         peakMemoryBytes);
 
     if (!resetPeak) {
       ASSERT_EQ(
-          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-              (1 + 2 + 4 + 8 + 16 + 16),
+          immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                        pool_->sizeClasses().front()) *
+                  (1 + 2 + 4 + 8 + 16 + 16)
+                                  : largePayload.size() + 4,
           peakMemoryBytes);
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
@@ -932,7 +955,9 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(0, currMemoryBytes);
     if (!resetPeak) {
-      ASSERT_EQ(192512, peakMemoryBytes);
+      ASSERT_EQ(
+          immediateBufferTransfer ? 192512 : largePayload.size() + 4,
+          peakMemoryBytes);
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
       oldCurrMemoryBytes = currMemoryBytes;
@@ -949,7 +974,11 @@ INSTANTIATE_TEST_CASE_P(
     PrestoExchangeSourceTest,
     PrestoExchangeSourceTest,
     ::testing::Values(
-        Params{true, 1, 1},
-        Params{false, 1, 1},
-        Params{true, 2, 10},
-        Params{false, 2, 10}));
+        Params{true, true, 1, 1},
+        Params{true, false, 1, 1},
+        Params{false, true, 1, 1},
+        Params{false, false, 1, 1},
+        Params{true, true, 2, 10},
+        Params{true, false, 2, 10},
+        Params{false, true, 2, 10},
+        Params{false, false, 2, 10}));
