@@ -550,15 +550,34 @@ DwrfRowReader::FetchResult DwrfRowReader::prefetch(uint32_t stripeToFetch) {
 
 // Guarantee stripe we are currently on is available and loaded
 void DwrfRowReader::safeFetchNextStripe() {
+  auto startTime = std::chrono::high_resolution_clock::now();
+  auto fetchResult = fetch(currentStripe);
+  // If result is fetched by this thread or in progress in another thread,
+  // record time spent in this function as time blocked on IO.
+  bool shouldRecordTimeBlocked = fetchResult != FetchResult::kAlreadyFetched;
+
   // Check result of fetch to avoid synchronization if we fetched on this
   // thread.
-  if (fetch(currentStripe) != FetchResult::kFetched) {
+  if (fetchResult != FetchResult::kFetched) {
     // Now we know the stripe was or is being loaded on another thread,
     // Await the baton for this stripe before we return to ensure load is done.
     VLOG(1) << "Waiting on baton for stripe: " << currentStripe;
     stripeLoadBatons_[currentStripe]->wait();
     VLOG(1) << "Acquired baton for stripe " << currentStripe;
   }
+  auto reportBlockedOnIoMetric = options_.getBlockedOnIoCallback();
+  if (reportBlockedOnIoMetric) {
+    if (shouldRecordTimeBlocked) {
+      auto timeBlockedOnIo =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::high_resolution_clock::now() - startTime);
+      reportBlockedOnIoMetric(timeBlockedOnIo.count());
+    } else {
+      // We still want to populate stat if we are not blocking on IO.
+      reportBlockedOnIoMetric(0);
+    };
+  }
+
   DWIO_ENSURE(prefetchedStripeStates_.rlock()->contains(currentStripe));
 }
 
