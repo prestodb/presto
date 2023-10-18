@@ -152,6 +152,8 @@ RowVectorPtr TableScan::getOutput() {
         // unique_ptr will be nullptr if there was a cancellation.
         numReadyPreloadedSplits_ += connectorSplit->dataSource->hasValue();
         auto preparedDataSource = connectorSplit->dataSource->move();
+        stats_.wlock()->getOutputTiming.add(
+            connectorSplit->dataSource->prepareTiming());
         if (!preparedDataSource) {
           // There must be a cancellation.
           VELOX_CHECK(operatorCtx_->task()->isCancelled());

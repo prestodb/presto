@@ -21,6 +21,7 @@
 #include <folly/futures/Future.h>
 #include <functional>
 #include <memory>
+#include "velox/common/time/CpuWallTimer.h"
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Portability.h"
@@ -57,6 +58,7 @@ class AsyncSource {
     }
     std::unique_ptr<Item> item;
     try {
+      CpuWallTimer timer(timing_);
       item = make();
     } catch (std::exception& e) {
       std::lock_guard<std::mutex> l(mutex_);
@@ -135,6 +137,13 @@ class AsyncSource {
     return item_ != nullptr || exception_ != nullptr;
   }
 
+  /// Returns the timing of prepare(). If the item was made on the calling
+  /// thread, the timing is 0 since only off-thread activity needs to be added
+  /// to the caller's timing.
+  const CpuWallTiming& prepareTiming() {
+    return timing_;
+  }
+
  private:
   mutable std::mutex mutex_;
   // True if 'prepare() is making the item.
@@ -143,5 +152,6 @@ class AsyncSource {
   std::unique_ptr<Item> item_;
   std::function<std::unique_ptr<Item>()> make_;
   std::exception_ptr exception_;
+  CpuWallTiming timing_;
 };
 } // namespace facebook::velox

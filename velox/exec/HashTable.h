@@ -290,6 +290,10 @@ class BaseHashTable {
 #endif
   }
 
+  const CpuWallTiming& offThreadBuildTiming() const {
+    return offThreadBuildTiming_;
+  }
+
  protected:
   static FOLLY_ALWAYS_INLINE size_t tableSlotSize() {
     // Each slot is 8 bytes.
@@ -300,6 +304,9 @@ class BaseHashTable {
 
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
   std::unique_ptr<RowContainer> rows_;
+
+  // Time spent in build outside of the calling thread.
+  CpuWallTiming offThreadBuildTiming_;
 };
 
 FOLLY_ALWAYS_INLINE std::ostream& operator<<(

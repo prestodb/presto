@@ -795,6 +795,7 @@ template <typename Source>
 void syncWorkItems(
     std::vector<std::shared_ptr<Source>>& items,
     std::exception_ptr& error,
+    CpuWallTiming time,
     bool log = false) {
   // All items must be synced also in case of error because the items
   // hold references to the table and rows which could be destructed
@@ -802,6 +803,7 @@ void syncWorkItems(
   for (auto& item : items) {
     try {
       item->move();
+      time.add(item->prepareTiming());
     } catch (const std::exception& e) {
       if (log) {
         LOG(ERROR) << "Error in async hash build: " << e.what();
@@ -867,8 +869,8 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     // This is executed on returning path, possibly in unwinding, so must not
     // throw.
     std::exception_ptr error;
-    syncWorkItems(partitionSteps, error, true);
-    syncWorkItems(buildSteps, error, true);
+    syncWorkItems(partitionSteps, error, offThreadBuildTiming_, true);
+    syncWorkItems(buildSteps, error, offThreadBuildTiming_, true);
   });
 
   const auto getTable = [this](size_t i) INLINE_LAMBDA {
@@ -896,7 +898,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     buildExecutor_->add([step = partitionSteps.back()]() { step->prepare(); });
   }
   std::exception_ptr error;
-  syncWorkItems(partitionSteps, error);
+  syncWorkItems(partitionSteps, error, offThreadBuildTiming_);
   if (error) {
     std::rethrow_exception(error);
   }
@@ -912,7 +914,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     VELOX_CHECK(!buildSteps.empty());
     buildExecutor_->add([step = buildSteps.back()]() { step->prepare(); });
   }
-  syncWorkItems(buildSteps, error);
+  syncWorkItems(buildSteps, error, offThreadBuildTiming_);
   if (error) {
     std::rethrow_exception(error);
   }

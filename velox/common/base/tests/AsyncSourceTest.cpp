@@ -39,6 +39,7 @@ TEST(AsyncSourceTest, basic) {
   auto value = gizmo.move();
   EXPECT_FALSE(gizmo.hasValue());
   EXPECT_EQ(11, value->id);
+  EXPECT_EQ(1, gizmo.prepareTiming().count);
 
   AsyncSource<Gizmo> error(
       []() -> std::unique_ptr<Gizmo> { VELOX_USER_FAIL("Testing error"); });

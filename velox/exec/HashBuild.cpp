@@ -958,6 +958,7 @@ void HashBuild::addRuntimeStats() {
   uint64_t asDistinct;
   auto lockedStats = stats_.wlock();
 
+  lockedStats->addInputTiming.add(table_->offThreadBuildTiming());
   for (auto i = 0; i < hashers.size(); i++) {
     hashers[i]->cardinality(0, asRange, asDistinct);
     if (asRange != VectorHasher::kRangeTooLarge) {
