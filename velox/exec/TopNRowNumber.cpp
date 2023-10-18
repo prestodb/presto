@@ -41,7 +41,8 @@ TopNRowNumber::TopNRowNumber(
   const auto numKeys = keys.size();
 
   if (numKeys > 0) {
-    Accumulator accumulator{true, sizeof(TopRows), false, 1, [](auto) {}};
+    Accumulator accumulator{
+        true, sizeof(TopRows), false, 1, [](auto, auto) {}, [](auto) {}};
 
     table_ = std::make_unique<HashTable<false>>(
         createVectorHashers(inputType_, keys),

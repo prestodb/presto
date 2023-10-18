@@ -34,6 +34,8 @@ class Accumulator {
       int32_t fixedSize,
       bool usesExternalMemory,
       int32_t alignment,
+      std::function<void(folly::Range<char**> groups, VectorPtr& result)>
+          extractFunction,
       std::function<void(folly::Range<char**> groups)> destroyFunction);
 
   explicit Accumulator(Aggregate* aggregate);
@@ -48,19 +50,15 @@ class Accumulator {
 
   void destroy(folly::Range<char**> groups);
 
-  /// Used only for spilling. Do not introduce other usages.
-  Aggregate* aggregateForSpill() const {
-    VELOX_CHECK_NOT_NULL(aggregate_);
-    return aggregate_;
-  }
+  void extractForSpill(folly::Range<char**> groups, VectorPtr& result) const;
 
  private:
   const bool isFixedSize_;
   const int32_t fixedSize_;
   const bool usesExternalMemory_;
   const int32_t alignment_;
+  std::function<void(folly::Range<char**>, VectorPtr&)> extractFunction_;
   std::function<void(folly::Range<char**> groups)> destroyFunction_;
-  Aggregate* aggregate_{nullptr};
 };
 
 using normalized_key_t = uint64_t;

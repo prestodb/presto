@@ -189,8 +189,7 @@ void Spiller::extractSpill(folly::Range<char**> rows, RowVectorPtr& resultPtr) {
 
   auto numKeys = types.size();
   for (auto i = 0; i < accumulators.size(); ++i) {
-    accumulators[i].aggregateForSpill()->extractAccumulators(
-        rows.data(), rows.size(), &result->childAt(i + numKeys));
+    accumulators[i].extractForSpill(rows, result->childAt(i + numKeys));
   }
 }
 

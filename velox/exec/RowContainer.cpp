@@ -53,11 +53,15 @@ Accumulator::Accumulator(Aggregate* aggregate)
       fixedSize_{aggregate->accumulatorFixedWidthSize()},
       usesExternalMemory_{aggregate->accumulatorUsesExternalMemory()},
       alignment_{aggregate->accumulatorAlignmentSize()},
+      extractFunction_{
+          [aggregate](folly::Range<char**> groups, VectorPtr& result) {
+            aggregate->extractAccumulators(
+                groups.data(), groups.size(), &result);
+          }},
       destroyFunction_{[aggregate](folly::Range<char**> groups) {
         aggregate->destroy(groups);
-      }},
-      aggregate_{aggregate} {
-  VELOX_CHECK_NOT_NULL(aggregate_);
+      }} {
+  VELOX_CHECK_NOT_NULL(aggregate);
 }
 
 Accumulator::Accumulator(
@@ -65,11 +69,14 @@ Accumulator::Accumulator(
     int32_t fixedSize,
     bool usesExternalMemory,
     int32_t alignment,
+    std::function<void(folly::Range<char**> groups, VectorPtr& result)>
+        extractFunction,
     std::function<void(folly::Range<char**> groups)> destroyFunction)
     : isFixedSize_{isFixedSize},
       fixedSize_{fixedSize},
       usesExternalMemory_{usesExternalMemory},
       alignment_{alignment},
+      extractFunction_{extractFunction},
       destroyFunction_{destroyFunction} {}
 
 bool Accumulator::isFixedSize() const {
@@ -90,6 +97,12 @@ int32_t Accumulator::alignment() const {
 
 void Accumulator::destroy(folly::Range<char**> groups) {
   destroyFunction_(groups);
+}
+
+void Accumulator::extractForSpill(
+    folly::Range<char**> groups,
+    VectorPtr& result) const {
+  extractFunction_(groups, result);
 }
 
 // static
