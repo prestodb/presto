@@ -247,6 +247,39 @@ public class TestDetermineJoinDistributionType
                 .doesNotFire();
     }
 
+    // Replicated join was not created without confidence
+    @Test
+    public void testJoinDeterminationWithNonConfidentStats()
+    {
+        int aRows = 100;
+        int bRows = 10_000;
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .build(), false)
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build(), false)
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
+    }
+
     @Test
     public void testFlipAndReplicateWhenOneTableMuchSmaller()
     {
@@ -1333,9 +1366,11 @@ public class TestDetermineJoinDistributionType
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10)
+                .setConfident(true)
                 .build();
         PlanNodeStatsEstimate sourceStatsEstimate2 = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(20)
+                .setConfident(true)
                 .build();
         assertEquals(
                 getSourceTablesSizeInBytes(
@@ -1405,15 +1440,19 @@ public class TestDetermineJoinDistributionType
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1000)
+                .setConfident(true)
                 .build();
         PlanNodeStatsEstimate sourceStatsEstimate2 = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(2000)
+                .setConfident(true)
                 .build();
         PlanNodeStatsEstimate filterStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(250)
+                .setConfident(true)
                 .build();
         PlanNodeStatsEstimate limitStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(20)
+                .setConfident(true)
                 .build();
         double sourceRowCount = sourceStatsEstimate1.getOutputRowCount() + sourceStatsEstimate2.getOutputRowCount();
         double unionInputRowCount = filterStatsEstimate.getOutputRowCount() + limitStatsEstimate.getOutputRowCount();

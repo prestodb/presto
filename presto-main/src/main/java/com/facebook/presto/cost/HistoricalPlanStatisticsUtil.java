@@ -40,7 +40,10 @@ public class HistoricalPlanStatisticsUtil
         if (lastRunsStatistics.isEmpty()) {
             return PlanStatistics.empty();
         }
-
+        if (inputTableStatistics.stream().anyMatch(stat -> stat.getRowCount().isUnknown())) {
+            // return most recent run stats if input table stats were not found
+            return lastRunsStatistics.get(lastRunsStatistics.size() - 1).getPlanStatistics();
+        }
         Optional<Integer> similarStatsIndex = getSimilarStatsIndex(historicalPlanStatistics, inputTableStatistics, historyMatchingThreshold);
 
         if (similarStatsIndex.isPresent()) {

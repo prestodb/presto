@@ -160,6 +160,10 @@ public class PlanNodeStatsEstimate
         if (!sourceInfo.estimateSizeUsingVariables() && !isNaN(totalSize)) {
             return totalSize;
         }
+        if (!isConfident()) {
+            // If we are not confident ( Non hbo stats + no row count info available) then we should not compute the output size
+            return NaN;
+        }
 
         return getOutputSizeForVariables(planNode.getOutputVariables());
     }
