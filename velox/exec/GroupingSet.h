@@ -305,7 +305,7 @@ class GroupingSet {
   // The row with the current merge state, allocated from 'mergeRow_'.
   char* mergeState_ = nullptr;
 
-  // The currently running spill partition in producing spilld output.
+  // The currently running spill partition in producing spilled output.
   int32_t outputPartition_{-1};
 
   // Intermediate vector for passing arguments to aggregate in merging spill.
@@ -334,7 +334,7 @@ class GroupingSet {
   std::unique_ptr<RowContainer> nonSpilledRowContainer_;
 
   // Counts input batches and triggers spilling if folly hash of this % 100 <=
-  // 'testSpillPct_';.
+  // 'spillConfig_->testSpillPct'.
   uint64_t spillTestCounter_{0};
 
   // True if partial aggregation has been given up as non-productive.

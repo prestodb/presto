@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/RowNumber.h"
+#include "velox/exec/OperatorUtils.h"
 
 namespace facebook::velox::exec {
 
@@ -26,7 +27,10 @@ RowNumber::RowNumber(
           rowNumberNode->outputType(),
           operatorId,
           rowNumberNode->id(),
-          "RowNumber"),
+          "RowNumber",
+          rowNumberNode->canSpill(driverCtx->queryConfig())
+              ? driverCtx->makeSpillConfig(operatorId)
+              : std::nullopt),
       limit_{rowNumberNode->limit()},
       generateRowNumber_{rowNumberNode->generateRowNumber()} {
   const auto& inputType = rowNumberNode->sources()[0]->outputType();
@@ -47,6 +51,8 @@ RowNumber::RowNumber(
 
     const auto numRowsColumn = table_->rows()->columnAt(numKeys);
     numRowsOffset_ = numRowsColumn.offset();
+
+    inputType_ = rowNumberNode->sources()[0]->outputType();
   }
 
   identityProjections_.reserve(inputType->size());
@@ -64,6 +70,15 @@ void RowNumber::addInput(RowVectorPtr input) {
   const auto numInput = input->size();
 
   if (table_) {
+    ensureInputFits(input);
+
+    NonReclaimableSection guard(this);
+
+    if (inputSpiller_ != nullptr) {
+      spillInput(input, pool());
+      return;
+    }
+
     SelectivityVector rows(numInput);
     table_->prepareForProbe(*lookup_, input, rows, false);
     table_->groupProbe(*lookup_);
@@ -75,6 +90,152 @@ void RowNumber::addInput(RowVectorPtr input) {
   }
 
   input_ = std::move(input);
+}
+
+void RowNumber::addSpillInput() {
+  const auto numInput = input_->size();
+  SelectivityVector rows(numInput);
+  table_->prepareForProbe(*lookup_, input_, rows, false);
+  table_->groupProbe(*lookup_);
+
+  // Initialize new partitions with zeros.
+  for (auto i : lookup_->newGroups) {
+    setNumRows(lookup_->hits[i], 0);
+  }
+
+  // TODO Add support for recursive spilling.
+}
+
+void RowNumber::noMoreInput() {
+  Operator::noMoreInput();
+
+  if (inputSpiller_ != nullptr) {
+    inputSpiller_->finishSpill(spillInputPartitionSet_);
+
+    recordSpillStats(hashTableSpiller_->stats());
+    recordSpillStats(inputSpiller_->stats());
+
+    // Remove empty partitions.
+    auto it = spillInputPartitionSet_.begin();
+    while (it != spillInputPartitionSet_.end()) {
+      if (it->second->numFiles() > 0) {
+        ++it;
+      } else {
+        it = spillInputPartitionSet_.erase(it);
+      }
+    }
+
+    restoreNextSpillPartition();
+  }
+}
+
+void RowNumber::restoreNextSpillPartition() {
+  if (spillInputPartitionSet_.empty()) {
+    return;
+  }
+
+  auto it = spillInputPartitionSet_.begin();
+  spillInputReader_ = it->second->createReader();
+
+  // Find matching partition for the hash table.
+  auto hashTableIt = spillHashTablePartitionSet_.find(it->first);
+  if (hashTableIt != spillHashTablePartitionSet_.end()) {
+    spillHashTableReader_ = hashTableIt->second->createReader();
+
+    RowVectorPtr data;
+    while (spillHashTableReader_->nextBatch(data)) {
+      // 'data' contains partition-by keys and count. Transform 'data' to match
+      // 'inputType_' so it can be added to the 'table_'. Move partition-by
+      // columns and leave other columns unset.
+      std::vector<VectorPtr> columns(inputType_->size());
+
+      const auto& hashers = table_->hashers();
+      for (auto i = 0; i < hashers.size(); ++i) {
+        columns[hashers[i]->channel()] = data->childAt(i);
+      }
+
+      auto input = std::make_shared<RowVector>(
+          pool(), inputType_, nullptr, data->size(), std::move(columns));
+
+      const auto numInput = input->size();
+      SelectivityVector rows(numInput);
+      table_->prepareForProbe(*lookup_, input, rows, false);
+      table_->groupProbe(*lookup_);
+
+      auto* counts = data->children().back()->as<FlatVector<int64_t>>();
+
+      for (auto i = 0; i < numInput; ++i) {
+        auto* partition = lookup_->hits[i];
+        setNumRows(partition, counts->valueAt(i));
+      }
+    }
+  }
+
+  spillInputPartitionSet_.erase(it);
+
+  spillInputReader_->nextBatch(input_);
+  addSpillInput();
+}
+
+void RowNumber::ensureInputFits(const RowVectorPtr& input) {
+  if (!spillConfig_.has_value()) {
+    // Spilling is disabled.
+    return;
+  }
+
+  if (table_ == nullptr) {
+    // No hash table. Nothing to spill.
+    return;
+  }
+
+  const auto numDistinct = table_->numDistinct();
+  if (numDistinct == 0) {
+    // Table is empty. Nothing to spill.
+    return;
+  }
+
+  auto* rows = table_->rows();
+  auto [freeRows, outOfLineFreeBytes] = rows->freeSpace();
+  const auto outOfLineBytes =
+      rows->stringAllocator().retainedSize() - outOfLineFreeBytes;
+  const auto outOfLineBytesPerRow = outOfLineBytes / numDistinct;
+
+  // Test-only spill path.
+  if (spillConfig_->testSpillPct > 0) {
+    spill();
+    return;
+  }
+
+  const auto currentUsage = pool()->currentBytes();
+  const auto minReservationBytes =
+      currentUsage * spillConfig_->minSpillableReservationPct / 100;
+  const auto availableReservationBytes = pool()->availableReservation();
+  const auto tableIncrementBytes = table_->hashTableSizeIncrease(input->size());
+  const auto incrementBytes =
+      rows->sizeIncrement(input->size(), outOfLineBytesPerRow * input->size()) +
+      tableIncrementBytes;
+
+  // First to check if we have sufficient minimal memory reservation.
+  if (availableReservationBytes >= minReservationBytes) {
+    if ((tableIncrementBytes == 0) && (freeRows > input->size()) &&
+        (outOfLineBytes == 0 ||
+         outOfLineFreeBytes >= outOfLineBytesPerRow * input->size())) {
+      // Enough free rows for input rows and enough variable length free space.
+      return;
+    }
+  }
+
+  // Check if we can increase reservation. The increment is the largest of twice
+  // the maximum increment from this input and 'spillableReservationGrowthPct_'
+  // of the current memory usage.
+  const auto targetIncrementBytes = std::max<int64_t>(
+      incrementBytes * 2,
+      currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
+  if (pool()->maybeReserve(targetIncrementBytes)) {
+    return;
+  }
+
+  spill();
 }
 
 FlatVector<int64_t>& RowNumber::getOrCreateRowNumberVector(vector_size_t size) {
@@ -96,6 +257,8 @@ RowVectorPtr RowNumber::getOutput() {
     // No partition keys.
     return getOutputForSinglePartition();
   }
+
+  NonReclaimableSection guard(this);
 
   const auto numInput = input_->size();
 
@@ -143,7 +306,18 @@ RowVectorPtr RowNumber::getOutput() {
     output = fillOutput(numInput, nullptr);
   }
 
-  input_ = nullptr;
+  if (spillInputReader_ != nullptr) {
+    if (spillInputReader_->nextBatch(input_)) {
+      addSpillInput();
+    } else {
+      input_ = nullptr;
+      spillInputReader_ = nullptr;
+      restoreNextSpillPartition();
+    }
+  } else {
+    input_ = nullptr;
+  }
+
   return output;
 }
 
@@ -182,4 +356,152 @@ int64_t RowNumber::numRows(char* partition) {
 void RowNumber::setNumRows(char* partition, int64_t numRows) {
   *reinterpret_cast<int64_t*>(partition + numRowsOffset_) = numRows;
 }
+
+void RowNumber::reclaim(
+    uint64_t /*targetBytes*/,
+    memory::MemoryReclaimer::Stats& stats) {
+  if (table_ == nullptr || table_->numDistinct() == 0) {
+    // Nothing to spill.
+    return;
+  }
+
+  if (hashTableSpiller_) {
+    // Already spilled.
+    return;
+  }
+
+  if (nonReclaimableSection_) {
+    ++stats.numNonReclaimableAttempts;
+    return;
+  }
+
+  spill();
+}
+
+void RowNumber::setupHashTableSpiller() {
+  // TODO Replace joinPartitionBits and Spiller::Type::kHashJoinBuild.
+
+  const auto& spillConfig = spillConfig_.value();
+  HashBitRange hashBits(
+      spillConfig.startPartitionBit,
+      spillConfig.startPartitionBit + spillConfig.joinPartitionBits);
+
+  auto columnTypes = table_->rows()->columnTypes();
+  auto tableType = ROW(std::move(columnTypes));
+
+  hashTableSpiller_ = std::make_unique<Spiller>(
+      Spiller::Type::kHashJoinBuild,
+      table_->rows(),
+      [&](folly::Range<char**> rows) { table_->rows()->eraseRows(rows); },
+      tableType,
+      std::move(hashBits),
+      tableType->size() - 1,
+      std::vector<CompareFlags>(),
+      spillConfig.filePath,
+      spillConfig.maxFileSize,
+      spillConfig.writeBufferSize,
+      spillConfig.minSpillRunSize,
+      spillConfig.compressionKind,
+      memory::spillMemoryPool(),
+      spillConfig.executor);
+}
+
+void RowNumber::setupInputSpiller() {
+  const auto& spillConfig = spillConfig_.value();
+  const auto& hashBits = hashTableSpiller_->hashBits();
+
+  // TODO Replace Spiller::Type::kHashJoinProbe.
+  inputSpiller_ = std::make_unique<Spiller>(
+      Spiller::Type::kHashJoinProbe,
+      inputType_,
+      hashBits,
+      spillConfig.filePath,
+      spillConfig.maxFileSize,
+      spillConfig.writeBufferSize,
+      spillConfig.minSpillRunSize,
+      spillConfig.compressionKind,
+      memory::spillMemoryPool(),
+      spillConfig.executor);
+
+  const auto& hashers = table_->hashers();
+
+  std::vector<column_index_t> keyChannels;
+  keyChannels.reserve(hashers.size());
+  for (const auto& hasher : hashers) {
+    keyChannels.push_back(hasher->channel());
+  }
+
+  spillHashFunction_ = std::make_unique<HashPartitionFunction>(
+      inputSpiller_->hashBits(), inputType_, keyChannels);
+}
+
+void RowNumber::spill() {
+  VELOX_CHECK(spillEnabled());
+  VELOX_CHECK_NULL(hashTableSpiller_);
+  VELOX_CHECK_NULL(inputSpiller_);
+
+  setupHashTableSpiller();
+  setupInputSpiller();
+
+  std::vector<Spiller::SpillableStats> spillableStats(
+      hashTableSpiller_->hashBits().numPartitions());
+  hashTableSpiller_->fillSpillRuns(spillableStats);
+  hashTableSpiller_->spill();
+  hashTableSpiller_->finishSpill(spillHashTablePartitionSet_);
+
+  table_->clear();
+  pool()->release();
+
+  inputSpiller_->setPartitionsSpilled(
+      hashTableSpiller_->state().spilledPartitionSet());
+
+  if (input_ != nullptr) {
+    spillInput(input_, memory::spillMemoryPool());
+    input_ = nullptr;
+  }
+}
+
+void RowNumber::spillInput(
+    const RowVectorPtr& input,
+    memory::MemoryPool* pool) {
+  const auto numInput = input->size();
+
+  std::vector<uint32_t> spillPartitions(numInput);
+  const auto singlePartition =
+      spillHashFunction_->partition(*input, spillPartitions);
+
+  const auto numPartitions = spillHashFunction_->numPartitions();
+
+  std::vector<BufferPtr> partitionIndices(numInput);
+  std::vector<vector_size_t*> rawPartitionIndices(numInput);
+
+  for (auto i = 0; i < numPartitions; ++i) {
+    partitionIndices[i] = allocateIndices(numInput, pool);
+    rawPartitionIndices[i] = partitionIndices[i]->asMutable<vector_size_t>();
+  }
+
+  std::vector<vector_size_t> numSpillInputs(numPartitions, 0);
+
+  for (auto row = 0; row < numInput; ++row) {
+    const auto partition = singlePartition.has_value() ? singlePartition.value()
+                                                       : spillPartitions[row];
+    rawPartitionIndices[partition][numSpillInputs[partition]++] = row;
+  }
+
+  // Ensure vector are lazy loaded before spilling.
+  for (auto i = 0; i < input->childrenSize(); ++i) {
+    input->childAt(i)->loadedVector();
+  }
+
+  for (int32_t partition = 0; partition < numSpillInputs.size(); ++partition) {
+    const auto numInputs = numSpillInputs[partition];
+    if (numInputs == 0) {
+      continue;
+    }
+
+    inputSpiller_->spill(
+        partition, wrap(numInputs, partitionIndices[partition], input));
+  }
+}
+
 } // namespace facebook::velox::exec

@@ -191,6 +191,10 @@ class QueryConfig {
   /// OrderBy spilling flag, only applies if "spill_enabled" flag is set.
   static constexpr const char* kOrderBySpillEnabled = "order_by_spill_enabled";
 
+  /// RowNumber spilling flag, only applies if "spill_enabled" flag is set.
+  static constexpr const char* kRowNumberSpillEnabled =
+      "row_number_spill_enabled";
+
   /// The max memory that a final aggregation can use before spilling. If it 0,
   /// then there is no limit.
   static constexpr const char* kAggregationSpillMemoryThreshold =
@@ -463,6 +467,12 @@ class QueryConfig {
   /// spillEnabled()!
   bool orderBySpillEnabled() const {
     return get<bool>(kOrderBySpillEnabled, true);
+  }
+
+  /// Returns 'is row_number spilling enabled' flag. Must also check the
+  /// spillEnabled()!
+  bool rowNumberSpillEnabled() const {
+    return get<bool>(kRowNumberSpillEnabled, true);
   }
 
   // Returns a percentage of aggregation or join input batches that

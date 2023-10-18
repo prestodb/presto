@@ -13,12 +13,57 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/file/FileSystems.h"
+#include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 namespace facebook::velox::exec::test {
 
-class RowNumberTest : public OperatorTestBase {};
+class RowNumberTest : public OperatorTestBase {
+ protected:
+  RowNumberTest() {
+    filesystems::registerLocalFileSystem();
+  }
+};
+
+TEST_F(RowNumberTest, spill) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+  });
+
+  core::PlanNodeId rowNumberId;
+  auto plan = PlanBuilder()
+                  .values({data, data, data})
+                  .rowNumber({"c0"})
+                  .capturePlanNodeId(rowNumberId)
+                  .singleAggregation({"row_number"}, {"count(1)"})
+                  .planNode();
+
+  auto expected = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3}),
+      makeFlatVector<int64_t>({1'000, 1'000, 1'000}),
+  });
+
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+
+  auto task = AssertQueryBuilder(plan)
+                  .config(core::QueryConfig::kTestingSpillPct, "100")
+                  .config(core::QueryConfig::kSpillEnabled, "true")
+                  .config(core::QueryConfig::kRowNumberSpillEnabled, "true")
+                  .spillDirectory(spillDirectory->path)
+                  .assertResults({expected});
+
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  const auto& stats = taskStats.at(rowNumberId);
+
+  ASSERT_GT(stats.spilledBytes, 0);
+  ASSERT_GT(stats.spilledRows, 0);
+  ASSERT_GT(stats.spilledFiles, 0);
+  ASSERT_GT(stats.spilledPartitions, 0);
+} // namespace facebook::velox::exec::test
 
 TEST_F(RowNumberTest, basic) {
   auto data = makeRowVector({

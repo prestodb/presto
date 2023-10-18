@@ -2144,6 +2144,10 @@ class RowNumberNode : public PlanNode {
     return outputType_;
   }
 
+  bool canSpill(const QueryConfig& queryConfig) const override {
+    return !partitionKeys_.empty() && queryConfig.rowNumberSpillEnabled();
+  }
+
   const std::vector<FieldAccessTypedExprPtr>& partitionKeys() const {
     return partitionKeys_;
   }

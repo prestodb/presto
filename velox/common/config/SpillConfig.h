@@ -65,7 +65,7 @@ struct SpillConfig {
   /// its data size exceeds this limit, otherwise it spills the partition with
   /// most data. If the limit is zero, then the spiller always spill a
   /// previously spilled partition if it has any data. This is to avoid spill
-  /// from a partition wigth a small amount of data which might result in
+  /// from a partition with a small amount of data which might result in
   /// generating too many small spilled files.
   uint64_t minSpillRunSize;
 
