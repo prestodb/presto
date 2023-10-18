@@ -414,8 +414,9 @@ void FlatVector<T>::resize(vector_size_t newSize, bool setNotNull) {
   if constexpr (std::is_same_v<T, StringView>) {
     resizeValues(newSize, StringView());
     if (newSize < previousSize) {
-      auto vector = this->template asUnchecked<SimpleVector<StringView>>();
-      vector->invalidateIsAscii();
+      // If we downsize, just invalidate ascii, because we might have become
+      // 'all ascii' from 'not all ascii'.
+      SimpleVector<StringView>::invalidateIsAscii();
     } else {
       // Properly init stringView objects. This is useful when vectors are
       // re-used where the size changes but not the capacity.
@@ -425,6 +426,7 @@ void FlatVector<T>::resize(vector_size_t newSize, bool setNotNull) {
       for (auto index = previousSize; index < newSize; ++index) {
         new (&stringViews[index]) StringView();
       }
+      SimpleVector<StringView>::resizeIsAsciiIfNotEmpty(newSize, false);
     }
     if (newSize == 0) {
       clearStringBuffers();

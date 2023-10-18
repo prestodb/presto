@@ -255,8 +255,12 @@ class ConstantVector final : public SimpleVector<T> {
     return index_;
   }
 
-  void resize(vector_size_t size, bool setNotNull = true) override {
-    BaseVector::length_ = size;
+  void resize(vector_size_t newSize, bool /*setNotNull*/ = true) override {
+    BaseVector::length_ = newSize;
+    if constexpr (std::is_same_v<T, StringView>) {
+      SimpleVector<StringView>::resizeIsAsciiIfNotEmpty(
+          newSize, SimpleVector<StringView>::getAllIsAscii());
+    }
   }
 
   VectorPtr slice(vector_size_t /*offset*/, vector_size_t length)

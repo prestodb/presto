@@ -296,7 +296,7 @@ void FlatVector<StringView>::copy(
       setIsAscii(ascii.value(), rows);
     } else {
       // ASCII-ness for the 'rows' is not known.
-      ensureIsAsciiCapacity(rows.end());
+      ensureIsAsciiCapacity();
       // If we arent All ascii, then invalidate
       // because the remaining selected rows might be ascii
       if (!asciiInfo.isAllAscii()) {

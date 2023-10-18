@@ -21,6 +21,7 @@ add_library(
   LazyVector.cpp
   SelectivityVector.cpp
   SequenceVector.cpp
+  SimpleVector.cpp
   VectorSaver.cpp
   VectorEncoding.cpp
   VectorPool.cpp

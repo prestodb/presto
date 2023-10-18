@@ -388,6 +388,109 @@ TEST_F(SimpleVectorNonParameterizedTest, setAscii) {
   }
 }
 
+TEST_F(SimpleVectorNonParameterizedTest, stringsAsciiResize) {
+  std::vector<std::string> largeStrings = {
+      std::string(20, '.'),
+      std::string(30, '-'),
+      std::string(40, '='),
+  };
+  const size_t numRows{1'000};
+  SelectivityVector allRows(numRows, true);
+  auto stringAt = [&](auto row) {
+    return row % 3 == 0 ? StringView(largeStrings[(row / 3) % 3]) : ""_sv;
+  };
+
+  const AsciiInfo* asciiInfo{nullptr};
+  const AsciiInfo* constAsciiInfo{nullptr};
+
+  // Create a flat and const string vectors. Ensure ascii info is computed.
+  VectorPtr vector = maker_.flatVector<StringView>(numRows, stringAt, nullptr);
+  vector->as<SimpleVector<StringView>>()->computeAndSetIsAscii(allRows);
+  vector->validate();
+
+  VectorPtr constVector = BaseVector::createConstant(
+      VARCHAR(), largeStrings[0], numRows, pool_.get());
+  constVector->as<SimpleVector<StringView>>()->computeAndSetIsAscii(allRows);
+  constVector->validate();
+
+  asciiInfo = &vector->as<SimpleVector<StringView>>()->testGetAsciiInfo();
+  EXPECT_TRUE(asciiInfo->asciiSetRows().hasSelections());
+  EXPECT_EQ(vector->size(), asciiInfo->asciiSetRows().size());
+  EXPECT_TRUE(asciiInfo->isAllAscii());
+
+  constAsciiInfo =
+      &constVector->as<SimpleVector<StringView>>()->testGetAsciiInfo();
+  EXPECT_TRUE(constAsciiInfo->asciiSetRows().hasSelections());
+  EXPECT_EQ(vector->size(), constAsciiInfo->asciiSetRows().size());
+  EXPECT_TRUE(constAsciiInfo->isAllAscii());
+
+  // Now resize the vectors and see that ascii info is correct.
+  vector->resize(numRows * 2);
+  vector->validate();
+  constVector->resize(numRows * 2);
+  constVector->validate();
+
+  asciiInfo = &vector->as<SimpleVector<StringView>>()->testGetAsciiInfo();
+  EXPECT_TRUE(asciiInfo->asciiSetRows().hasSelections());
+  EXPECT_EQ(vector->size(), asciiInfo->asciiSetRows().size());
+  // In a flat vector the new rows will have false asciiness.
+  EXPECT_FALSE(asciiInfo->isAllAscii());
+
+  constAsciiInfo =
+      &constVector->as<SimpleVector<StringView>>()->testGetAsciiInfo();
+  EXPECT_TRUE(constAsciiInfo->asciiSetRows().hasSelections());
+  EXPECT_EQ(constVector->size(), constAsciiInfo->asciiSetRows().size());
+  // In a constant vector the new rows will have the same asciiness.
+  EXPECT_TRUE(constAsciiInfo->isAllAscii());
+
+  // Now tests the prepareForReuse with the same size.
+  allRows.resize(numRows * 2, true);
+  vector->as<SimpleVector<StringView>>()->computeAndSetIsAscii(allRows);
+  constVector->as<SimpleVector<StringView>>()->computeAndSetIsAscii(allRows);
+
+  BaseVector::prepareForReuse(vector, vector->size());
+  vector->validate();
+  // Note that constant vector turns to non-const here, because const cannot be
+  // reused for some reason.
+  BaseVector::prepareForReuse(constVector, constVector->size());
+  vector->validate();
+
+  asciiInfo = &vector->as<SimpleVector<StringView>>()->testGetAsciiInfo();
+  EXPECT_FALSE(asciiInfo->asciiSetRows().hasSelections());
+  EXPECT_EQ(numRows * 2, asciiInfo->asciiSetRows().size());
+  EXPECT_FALSE(asciiInfo->isAllAscii());
+
+  constAsciiInfo =
+      &constVector->as<SimpleVector<StringView>>()->testGetAsciiInfo();
+  EXPECT_FALSE(constAsciiInfo->asciiSetRows().hasSelections());
+  EXPECT_EQ(0, constAsciiInfo->asciiSetRows().size());
+  EXPECT_FALSE(constAsciiInfo->isAllAscii());
+
+  // Now tests the prepareForReuse with the new size
+  constVector = BaseVector::createConstant(
+      VARCHAR(), largeStrings[0], numRows * 2, pool_.get());
+  vector->as<SimpleVector<StringView>>()->computeAndSetIsAscii(allRows);
+  constVector->as<SimpleVector<StringView>>()->computeAndSetIsAscii(allRows);
+
+  BaseVector::prepareForReuse(vector, numRows * 4);
+  vector->validate();
+  // Note that constant vector turns to non-const here, because const cannot be
+  // reused for some reason.
+  BaseVector::prepareForReuse(constVector, numRows * 4);
+  vector->validate();
+
+  asciiInfo = &vector->as<SimpleVector<StringView>>()->testGetAsciiInfo();
+  EXPECT_FALSE(asciiInfo->asciiSetRows().hasSelections());
+  EXPECT_EQ(numRows * 2, asciiInfo->asciiSetRows().size());
+  EXPECT_FALSE(asciiInfo->isAllAscii());
+
+  constAsciiInfo =
+      &constVector->as<SimpleVector<StringView>>()->testGetAsciiInfo();
+  EXPECT_FALSE(constAsciiInfo->asciiSetRows().hasSelections());
+  EXPECT_EQ(0, constAsciiInfo->asciiSetRows().size());
+  EXPECT_FALSE(constAsciiInfo->isAllAscii());
+}
+
 VELOX_TYPED_TEST_SUITE(SimpleVectorTypedTest, SimpleTypes);
 
 TYPED_TEST(SimpleVectorTypedTest, vectorAccessTest) {
