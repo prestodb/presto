@@ -17,8 +17,8 @@
 #include "velox/tpch/gen/DBGenIterator.h"
 
 #include <folly/Singleton.h>
+#include <velox/tpch/gen/dbgen/include/dbgen/dbgen_gunk.hpp>
 #include "velox/common/base/Exceptions.h"
-#include "velox/external/duckdb/tpch/dbgen/include/dbgen/dbgen_gunk.hpp"
 
 namespace facebook::velox::tpch {
 

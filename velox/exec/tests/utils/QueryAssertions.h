@@ -18,7 +18,6 @@
 #include "velox/exec/Operator.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/external/duckdb/duckdb.hpp"
-#include "velox/external/duckdb/tpch/include/tpch-extension.hpp"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec::test {

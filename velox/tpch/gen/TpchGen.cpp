@@ -15,9 +15,7 @@
  */
 
 #include "velox/tpch/gen/TpchGen.h"
-#include "velox/external/duckdb/tpch/dbgen/include/dbgen/dbgen.hpp"
-#include "velox/external/duckdb/tpch/dbgen/include/dbgen/dss.h"
-#include "velox/external/duckdb/tpch/dbgen/include/dbgen/dsstypes.h"
+#include <velox/tpch/gen/dbgen/include/tpch_constants.hpp>
 #include "velox/tpch/gen/DBGenIterator.h"
 #include "velox/vector/FlatVector.h"
 
@@ -752,7 +750,11 @@ RowVectorPtr genTpchRegion(
 }
 
 std::string getQuery(int query) {
-  auto queryString = ::tpch::DBGenWrapper::GetQuery(query);
+  if (query <= 0 || query > TPCH_QUERIES_COUNT) {
+    VELOX_FAIL("Out of range TPC-H query number {}", query);
+  }
+
+  auto queryString = std::string(TPCH_QUERIES[query - 1]);
   // Output of GetQuery() has a new line and a semi-colon. These need to be
   // removed in order to use the query string in a subquery
   queryString.pop_back(); // remove new line

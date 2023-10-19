@@ -13,8 +13,7 @@
 # limitations under the License.
 add_library(velox_duckdb_conversion DuckConversion.cpp DuckWrapper.cpp)
 
-target_link_libraries(velox_duckdb_conversion velox_core velox_vector duckdb
-                      tpch_extension)
+target_link_libraries(velox_duckdb_conversion velox_core velox_vector duckdb)
 
 add_library(velox_duckdb_parser DuckParser.cpp)
 

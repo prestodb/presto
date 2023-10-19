@@ -18,7 +18,6 @@
 #include "gtest/gtest.h"
 
 #include "velox/tpch/gen/TpchGen.h"
-#include "velox/type/StringView.h"
 #include "velox/vector/FlatVector.h"
 
 namespace {

@@ -208,24 +208,6 @@ TEST_F(BaseDuckWrapperTest, types) {
       {false, false, false, true});
 }
 
-TEST_F(BaseDuckWrapperTest, tpchEmpty) {
-  // test TPC-H loading and querying with an empty database
-  execute("CALL dbgen(sf=0)");
-  verifyUnaryResult<int32_t>(
-      "SELECT l_orderkey FROM lineitem WHERE l_orderkey=1", {});
-}
-
-TEST_F(BaseDuckWrapperTest, tpchSF1) {
-  // test TPC-H loading and querying SF0.01
-  execute("CALL dbgen(sf=0.01)");
-  // test conversion of date, decimal and string
-  verifyUnaryResult<int64_t>("SELECT l_discount FROM lineitem LIMIT 1", {4});
-  verifyUnaryResult<int32_t>("SELECT l_shipdate FROM lineitem LIMIT 1", {9568});
-  verifyUnaryResult<StringView>(
-      "SELECT l_comment FROM lineitem LIMIT 1",
-      {StringView("egular courts above the")});
-}
-
 TEST_F(BaseDuckWrapperTest, duckToVeloxDecimal) {
   // Test SMALLINT decimal to UnscaledShortDecimal conversion.
   verifyDuckToVeloxDecimal<int64_t>(
