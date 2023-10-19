@@ -608,9 +608,28 @@ void ArrayVectorBase::copyRangesImpl(
 
 void RowVector::validate(const VectorValidateOptions& options) const {
   BaseVector::validate(options);
+  vector_size_t lastNonNullIndex{size()};
+
+  if (nulls_) {
+    lastNonNullIndex = bits::findLastBit(nulls_->as<uint64_t>(), 0, size());
+  }
+
   for (auto& child : children_) {
+    // TODO: Currently we arent checking for null children on ROWs
+    // since there are cases in SelectiveStructReader/DWIO/Koski where
+    // ROW Vectors with null children are created.
     if (child != nullptr) {
       child->validate(options);
+      if (child->size() < size()) {
+        VELOX_CHECK_NOT_NULL(
+            nulls_,
+            "Child vector has size less than parent and parent has no nulls.");
+
+        VELOX_CHECK_GT(
+            child->size(),
+            lastNonNullIndex,
+            "Child vector has size less than last non null row.");
+      }
     }
   }
 }

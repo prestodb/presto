@@ -239,9 +239,10 @@ class ApproxPercentileAggregate : public exec::Aggregate {
           BaseVector::createNullConstant(BOOLEAN(), numGroups, pool);
       rowResult->childAt(kAccuracy) =
           BaseVector::createNullConstant(DOUBLE(), numGroups, pool);
-      for (auto i = 0; i < numGroups; ++i) {
-        rowResult->setNull(i, true);
-      }
+
+      // Set nulls for all rows.
+      auto rawNulls = rowResult->mutableRawNulls();
+      bits::fillBits(rawNulls, 0, rowResult->size(), bits::kNull);
       return;
     }
     auto& values = percentiles_->values;

@@ -1126,6 +1126,23 @@ void GroupingSet::abandonPartialAggregation() {
   table_.reset();
 }
 
+namespace {
+// Recursive resize all children.
+
+void recursiveResizeChildren(VectorPtr& vector, vector_size_t newSize) {
+  VELOX_CHECK(vector.unique());
+  if (vector->typeKind() == TypeKind::ROW) {
+    auto rowVector = vector->asUnchecked<RowVector>();
+    for (auto& child : rowVector->children()) {
+      recursiveResizeChildren(child, newSize);
+    }
+  } else {
+    vector->resize(newSize);
+  }
+}
+
+} // namespace
+
 void GroupingSet::toIntermediate(
     const RowVectorPtr& input,
     RowVectorPtr& result) {
@@ -1158,8 +1175,7 @@ void GroupingSet::toIntermediate(
   for (auto i = 0; i < aggregates_.size(); ++i) {
     auto& function = aggregates_[i].function;
     auto& aggregateVector = result->childAt(i + keyChannels_.size());
-    VELOX_CHECK(aggregateVector.unique());
-    aggregateVector->resize(input->size());
+    recursiveResizeChildren(aggregateVector, input->size());
     const auto& rows = getSelectivityVector(i);
 
     if (function->supportsToIntermediate()) {
