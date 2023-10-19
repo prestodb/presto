@@ -416,7 +416,9 @@ void writeRowVector(const BaseVector& vector, std::ostream& out) {
   // Nulls buffer.
   writeOptionalBuffer(vector.nulls(), out);
 
-  auto rowVector = vector.as<RowVector>();
+  const auto* rowVector = vector.as<RowVector>();
+  VELOX_CHECK_NOT_NULL(
+      rowVector, "Expected a RowVector, got: {}", vector.toString());
 
   // Child vectors.
   auto numChildren = rowVector->childrenSize();
