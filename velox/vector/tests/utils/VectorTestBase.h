@@ -130,10 +130,10 @@ class VectorTestBase {
     return vectorMaker_.rowVector(rowType, size);
   }
 
-  /// Splits input vector into 2. First half of rows goes to first vector, the
-  /// rest to the second vector. Input vector must have at least 2 rows.
-  /// @return 2 vectors
-  std::vector<RowVectorPtr> split(const RowVectorPtr& vector);
+  /// Splits input vector into 'n' vectors evenly. Input vector must have at
+  /// least 'n' rows.
+  /// @return 'n' vectors
+  std::vector<RowVectorPtr> split(const RowVectorPtr& vector, int32_t n = 2);
 
   // Returns a one element ArrayVector with 'vector' as elements of array at 0.
   VectorPtr asArray(VectorPtr vector) {
