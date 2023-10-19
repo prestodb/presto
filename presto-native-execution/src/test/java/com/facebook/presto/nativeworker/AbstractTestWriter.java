@@ -233,6 +233,63 @@ public abstract class AbstractTestWriter
     }
 
     @Test
+    public void testRecoverableGroupedExecution()
+    {
+        Session session = buildSessionForTableWrite();
+
+        String sourceTable = generateRandomTableName();
+        String sinkTable = generateRandomTableName();
+
+        getQueryRunner().execute(session, String.format(
+                "CREATE TABLE %s WITH (format = '%s', " +
+                        "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                        "bucketed_by=array['custkey'], " +
+                        "bucket_count=17) " +
+                        "AS SELECT custkey, orderkey, orderstatus FROM orders", sourceTable, "DWRF"));
+        assertQuery(
+                String.format("SELECT custkey, orderkey, orderstatus FROM %s", sourceTable),
+                "SELECT custkey, orderkey, orderstatus FROM orders");
+
+        try {
+            for (String tableFormat : TABLE_FORMATS) {
+                try {
+                    String groupBy = String.format(
+                            "SELECT custkey, min(orderkey) orderkey, min(orderstatus) orderstatus " +
+                                    "FROM %s " +
+                                    "GROUP BY custkey", sourceTable);
+
+                    String ctas = String.format(
+                            "CREATE TABLE %s WITH (format = '%s', " +
+                                    "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                                    "bucketed_by=array['custkey'], " +
+                                    "bucket_count=17) " +
+                                    "AS " +
+                                    "%s", sinkTable, tableFormat, groupBy);
+                    String ctasPlan = getQueryRunner().execute(session, "EXPLAIN (TYPE DISTRIBUTED) " + ctas).getOnlyValue().toString();
+                    assertThat(ctasPlan).contains("RECOVERABLE_GROUPED_EXECUTION");
+                    getQueryRunner().execute(session, ctas);
+                    assertQuery(String.format("SELECT * FROM %s", sinkTable), groupBy);
+
+                    getQueryRunner().execute(session, String.format("DELETE FROM %s", sinkTable));
+                    assertQuery(String.format("SELECT count(*) FROM %s", sinkTable), "SELECT BIGINT '0'");
+
+                    String insert = String.format("INSERT INTO %s %s", sinkTable, groupBy);
+                    String insertPlan = getQueryRunner().execute(session, "EXPLAIN (TYPE DISTRIBUTED) " + insert).getOnlyValue().toString();
+                    assertThat(insertPlan).contains("RECOVERABLE_GROUPED_EXECUTION");
+                    getQueryRunner().execute(session, insert);
+                    assertQuery(String.format("SELECT * FROM %s", sinkTable), groupBy);
+                }
+                finally {
+                    dropTableIfExists(sinkTable);
+                }
+            }
+        }
+        finally {
+            dropTableIfExists(sourceTable);
+        }
+    }
+
+    @Test
     public void testScaleWriters()
     {
         Session session = buildSessionForTableWrite();
@@ -403,6 +460,7 @@ public abstract class AbstractTestWriter
                 .setSystemProperty("table_writer_merge_operator_enabled", "true")
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("task_partitioned_writer_count", "2")
+                .setSystemProperty("recoverable_grouped_execution", "true")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
                 .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
                 .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")

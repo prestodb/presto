@@ -2656,12 +2656,9 @@ core::ExecutionStrategy toStrategy(protocol::StageExecutionStrategy strategy) {
         FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
     case protocol::StageExecutionStrategy::
         DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
+    case protocol::StageExecutionStrategy
+        ::RECOVERABLE_GROUPED_EXECUTION:
       return core::ExecutionStrategy::kGrouped;
-
-    case protocol::StageExecutionStrategy::RECOVERABLE_GROUPED_EXECUTION:
-      VELOX_UNSUPPORTED(
-          "RECOVERABLE_GROUPED_EXECUTION "
-          "Stage Execution Strategy is not supported");
   }
   VELOX_UNSUPPORTED("Unknown Stage Execution Strategy type {}", (int)strategy);
 }
