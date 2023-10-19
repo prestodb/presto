@@ -72,8 +72,6 @@ void RowNumber::addInput(RowVectorPtr input) {
   if (table_) {
     ensureInputFits(input);
 
-    NonReclaimableSection guard(this);
-
     if (inputSpiller_ != nullptr) {
       spillInput(input, pool());
       return;
@@ -231,8 +229,11 @@ void RowNumber::ensureInputFits(const RowVectorPtr& input) {
   const auto targetIncrementBytes = std::max<int64_t>(
       incrementBytes * 2,
       currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
-  if (pool()->maybeReserve(targetIncrementBytes)) {
-    return;
+  {
+    Operator::ReclaimableSectionGuard guard(this);
+    if (pool()->maybeReserve(targetIncrementBytes)) {
+      return;
+    }
   }
 
   spill();
@@ -257,8 +258,6 @@ RowVectorPtr RowNumber::getOutput() {
     // No partition keys.
     return getOutputForSinglePartition();
   }
-
-  NonReclaimableSection guard(this);
 
   const auto numInput = input_->size();
 

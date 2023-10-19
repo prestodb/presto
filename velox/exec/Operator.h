@@ -537,6 +537,47 @@ class Operator : public BaseRuntimeStatWriter {
   /// the first one that is not std::nullopt or std::nullopt otherwise.
   static std::optional<uint32_t> maxDrivers(const core::PlanNodePtr& planNode);
 
+  /// The scoped objects to mark an operator is under non-reclaimable execution
+  /// section or not. This prevents the memory arbitrator from reclaiming memory
+  /// from the operator if it happens to be suspended for memory arbitration
+  /// processing. The driver execution framework marks an operator under
+  /// non-reclaimable section when executes any of its method. The spillable
+  /// operator might clear this temporarily during its execution to reserve
+  /// memory from arbitrator to allow memory reclaim from itself.
+  class ReclaimableSectionGuard {
+   public:
+    /// If 'enter' is true, marks 'op' is under non-reclaimable execution,
+    /// otherwise not.
+    ReclaimableSectionGuard(Operator* op)
+        : op_(op), nonReclaimableSection_(op_->nonReclaimableSection_) {
+      op_->nonReclaimableSection_ = false;
+    }
+
+    ~ReclaimableSectionGuard() {
+      op_->nonReclaimableSection_ = nonReclaimableSection_;
+    }
+
+   private:
+    Operator* const op_;
+    const bool nonReclaimableSection_;
+  };
+
+  class NonReclaimableSectionGuard {
+   public:
+    NonReclaimableSectionGuard(Operator* op)
+        : op_(op), nonReclaimableSection_(op_->nonReclaimableSection_) {
+      op_->nonReclaimableSection_ = true;
+    }
+
+    ~NonReclaimableSectionGuard() {
+      op_->nonReclaimableSection_ = nonReclaimableSection_;
+    }
+
+   private:
+    Operator* const op_;
+    const bool nonReclaimableSection_;
+  };
+
   /// Returns the operator context of this operator. This method is only used
   /// for test.
   const OperatorCtx* testingOperatorCtx() const {
@@ -547,6 +588,12 @@ class Operator : public BaseRuntimeStatWriter {
   /// method is only used for test.
   bool testingNoMoreInput() const {
     return noMoreInput_;
+  }
+
+  /// Returns true if this operator is under non-reclaimable section, otherwise
+  /// not. This method is only used for test.
+  bool testingNonReclaimable() const {
+    return nonReclaimableSection_;
   }
 
  protected:
@@ -591,26 +638,6 @@ class Operator : public BaseRuntimeStatWriter {
     }
 
     const std::weak_ptr<Driver> driver_;
-    Operator* const op_;
-  };
-
-  /// The scoped object to mark a reclaimable operator is under non-reclaimable
-  /// execution section. This prevents the memory arbitrator from reclaiming
-  /// memory from the operator if it happens to be suspended for memory
-  /// arbitration processing.
-  class NonReclaimableSection {
-   public:
-    explicit NonReclaimableSection(Operator* op) : op_(op) {
-      VELOX_CHECK(!op_->nonReclaimableSection_);
-      op_->nonReclaimableSection_ = true;
-    }
-
-    ~NonReclaimableSection() {
-      VELOX_CHECK(op_->nonReclaimableSection_);
-      op_->nonReclaimableSection_ = false;
-    }
-
-   private:
     Operator* const op_;
   };
 
@@ -724,6 +751,28 @@ class SourceOperator : public Operator {
   void noMoreInput() override {
     VELOX_FAIL("SourceOperator does not support noMoreInput()");
   }
+};
+
+/// The object is used to clear non-reclaimable section of an operator in the
+/// middle of its execution. It allows the memory arbitrator to reclaim memory
+/// from a running operator which is waiting for memory arbitration.
+/// 'nonReclaimableSection' points to the corresponding flag of the associated
+/// operator.
+class ReclaimableSectionGuard {
+ public:
+  explicit ReclaimableSectionGuard(tsan_atomic<bool>* nonReclaimableSection)
+      : nonReclaimableSection_(nonReclaimableSection),
+        oldMonReclaimableSectionValue_(*nonReclaimableSection_) {
+    *nonReclaimableSection_ = false;
+  }
+
+  ~ReclaimableSectionGuard() {
+    *nonReclaimableSection_ = oldMonReclaimableSectionValue_;
+  }
+
+ private:
+  tsan_atomic<bool>* const nonReclaimableSection_;
+  const bool oldMonReclaimableSectionValue_;
 };
 
 } // namespace facebook::velox::exec

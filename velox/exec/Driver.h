@@ -231,7 +231,7 @@ struct DriverCtx {
   Driver* driver;
   facebook::velox::process::ThreadDebugInfo threadDebugInfo;
 
-  explicit DriverCtx(
+  DriverCtx(
       std::shared_ptr<Task> _task,
       int _driverId,
       int _pipelineId,
@@ -254,6 +254,7 @@ constexpr const char* kOpMethodNeedsInput = "needsInput";
 constexpr const char* kOpMethodGetOutput = "getOutput";
 constexpr const char* kOpMethodAddInput = "addInput";
 constexpr const char* kOpMethodNoMoreInput = "noMoreInput";
+constexpr const char* kOpMethodIsFinished = "isFinished";
 
 /// Same as the structure below, but does not have atomic members.
 /// Used to return the status from the struct with atomics.

@@ -321,10 +321,6 @@ void HashBuild::addInput(RowVectorPtr input) {
 
   TestValue::adjust("facebook::velox::exec::HashBuild::addInput", this);
 
-  // Prevents the memory arbitrator to reclaim memory from this operator during
-  // the execution belowg.
-  NonReclaimableSection guard(this);
-
   activeRows_.resize(input->size());
   activeRows_.setAll();
 
@@ -511,8 +507,11 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
       incrementBytes * 2,
       currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
 
-  if (pool()->maybeReserve(targetIncrementBytes)) {
-    return true;
+  {
+    Operator::ReclaimableSectionGuard guard(this);
+    if (pool()->maybeReserve(targetIncrementBytes)) {
+      return true;
+    }
   }
 
   numSpillRows_ = std::max<int64_t>(
@@ -801,7 +800,6 @@ bool HashBuild::finishHashBuild() {
 
   ensureTableFits(numRows);
 
-  NonReclaimableSection guard(this);
   std::vector<std::unique_ptr<BaseHashTable>> otherTables;
   otherTables.reserve(peers.size());
   SpillPartitionSet spillPartitions;
@@ -875,8 +873,11 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
   // NOTE: reserve a bit more memory to consider the extra memory used for
   // parallel table build operation.
   const uint64_t bytesToReserve = table_->estimateHashTableSize(numRows) * 1.1;
-  if (pool()->maybeReserve(bytesToReserve)) {
-    return;
+  {
+    Operator::ReclaimableSectionGuard guard(this);
+    if (pool()->maybeReserve(bytesToReserve)) {
+      return;
+    }
   }
 
   // TODO: add spilling support here in case of threshold triggered spilling.

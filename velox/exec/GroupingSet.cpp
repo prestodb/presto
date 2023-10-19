@@ -246,14 +246,6 @@ void GroupingSet::addInputForActiveRows(
   }
   ensureInputFits(input);
 
-  // Prevents the memory arbitrator to reclaim memory from this grouping set
-  // during the execution below.
-  //
-  // NOTE: 'nonReclaimableSection_' points to the corresponding flag in the
-  // associated aggregation operator.
-  auto guard = folly::makeGuard([this]() { *nonReclaimableSection_ = false; });
-  *nonReclaimableSection_ = true;
-
   TestValue::adjust(
       "facebook::velox::exec::GroupingSet::addInputForActiveRows", this);
 
@@ -654,9 +646,6 @@ bool GroupingSet::getOutput(
     int32_t maxOutputBytes,
     RowContainerIterator& iterator,
     RowVectorPtr& result) {
-  auto guard = folly::makeGuard([this]() { *nonReclaimableSection_ = false; });
-  *nonReclaimableSection_ = true;
-
   TestValue::adjust("facebook::velox::exec::GroupingSet::getOutput", this);
 
   if (isGlobal_) {
@@ -767,6 +756,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   if (isPartial_ || spillConfig_ == nullptr) {
     return;
   }
+
   const auto numDistinct = table_->numDistinct();
   if (numDistinct == 0) {
     // Table is empty. Nothing to spill.
@@ -841,8 +831,11 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   const auto targetIncrementBytes = std::max<int64_t>(
       incrementBytes * 2,
       currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
-  if (pool_.maybeReserve(targetIncrementBytes)) {
-    return;
+  {
+    ReclaimableSectionGuard guard(nonReclaimableSection_);
+    if (pool_.maybeReserve(targetIncrementBytes)) {
+      return;
+    }
   }
 
   // NOTE: disk spilling use the system disk spilling memory pool instead of
@@ -874,8 +867,11 @@ void GroupingSet::ensureOutputFits() {
 
   const uint64_t outputBufferSizeToReserve =
       queryConfig_->preferredOutputBatchBytes() * 1.2;
-  if (pool_.maybeReserve(outputBufferSizeToReserve)) {
-    return;
+  {
+    ReclaimableSectionGuard guard(nonReclaimableSection_);
+    if (pool_.maybeReserve(outputBufferSizeToReserve)) {
+      return;
+    }
   }
   spill(RowContainerIterator{});
 }
