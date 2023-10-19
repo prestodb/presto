@@ -61,7 +61,6 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Comparator.comparing;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static javax.management.ObjectName.WILDCARD;
