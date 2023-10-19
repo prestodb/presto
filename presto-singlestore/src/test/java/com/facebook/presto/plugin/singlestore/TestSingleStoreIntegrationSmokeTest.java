@@ -63,7 +63,7 @@ public class TestSingleStoreIntegrationSmokeTest
     public void testDescribeTable()
     {
         // we need specific implementation of this tests due to specific Presto<->SingleStore varchar length mapping.
-        MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
+        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
 
         MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")

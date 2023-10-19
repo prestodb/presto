@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -43,7 +42,6 @@ public class JmxHistoricalData
     public JmxHistoricalData(int maxEntries, Set<String> tableNames)
     {
         tables = tableNames.stream()
-                .map(tableName -> tableName.toLowerCase(Locale.ENGLISH))
                 .collect(toSet());
         for (String tableName : tables) {
             tableData.put(tableName, EvictingQueue.create(maxEntries));
@@ -57,18 +55,16 @@ public class JmxHistoricalData
 
     public synchronized void addRow(String tableName, List<Object> row)
     {
-        String lowerCaseTableName = tableName.toLowerCase(Locale.ENGLISH);
-        checkArgument(tableData.containsKey(lowerCaseTableName));
-        tableData.get(lowerCaseTableName).add(row);
+        checkArgument(tableData.containsKey(tableName));
+        tableData.get(tableName).add(row);
     }
 
     public synchronized List<List<Object>> getRows(String objectName, List<Integer> selectedColumns)
     {
-        String lowerCaseObjectName = objectName.toLowerCase(Locale.ENGLISH);
-        if (!tableData.containsKey(lowerCaseObjectName)) {
+        if (!tableData.containsKey(objectName)) {
             return ImmutableList.of();
         }
-        return projectRows(tableData.get(lowerCaseObjectName), selectedColumns);
+        return projectRows(tableData.get(objectName), selectedColumns);
     }
 
     private List<List<Object>> projectRows(Collection<List<Object>> rows, List<Integer> selectedColumns)
