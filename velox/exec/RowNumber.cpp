@@ -473,8 +473,8 @@ void RowNumber::spillInput(
 
   const auto numPartitions = spillHashFunction_->numPartitions();
 
-  std::vector<BufferPtr> partitionIndices(numInput);
-  std::vector<vector_size_t*> rawPartitionIndices(numInput);
+  std::vector<BufferPtr> partitionIndices(numPartitions);
+  std::vector<vector_size_t*> rawPartitionIndices(numPartitions);
 
   for (auto i = 0; i < numPartitions; ++i) {
     partitionIndices[i] = allocateIndices(numInput, pool);

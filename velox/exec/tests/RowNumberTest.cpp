@@ -30,39 +30,46 @@ class RowNumberTest : public OperatorTestBase {
 };
 
 TEST_F(RowNumberTest, spill) {
-  auto data = makeRowVector({
-      makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
-  });
-
-  core::PlanNodeId rowNumberId;
-  auto plan = PlanBuilder()
-                  .values({data, data, data})
-                  .rowNumber({"c0"})
-                  .capturePlanNodeId(rowNumberId)
-                  .singleAggregation({"row_number"}, {"count(1)"})
-                  .planNode();
-
-  auto expected = makeRowVector({
-      makeFlatVector<int64_t>({1, 2, 3}),
-      makeFlatVector<int64_t>({1'000, 1'000, 1'000}),
-  });
-
   auto spillDirectory = exec::test::TempDirectoryPath::create();
 
-  auto task = AssertQueryBuilder(plan)
-                  .config(core::QueryConfig::kTestingSpillPct, "100")
-                  .config(core::QueryConfig::kSpillEnabled, "true")
-                  .config(core::QueryConfig::kRowNumberSpillEnabled, "true")
-                  .spillDirectory(spillDirectory->path)
-                  .assertResults({expected});
+  auto test = [&](int32_t vectorSize) {
+    SCOPED_TRACE(vectorSize);
+    auto data = makeRowVector({
+        makeFlatVector<int32_t>(vectorSize, [](auto row) { return row; }),
+    });
 
-  auto taskStats = exec::toPlanStats(task->taskStats());
-  const auto& stats = taskStats.at(rowNumberId);
+    core::PlanNodeId rowNumberId;
+    auto plan = PlanBuilder()
+                    .values({data, data, data})
+                    .rowNumber({"c0"})
+                    .capturePlanNodeId(rowNumberId)
+                    .singleAggregation({"row_number"}, {"count(1)"})
+                    .planNode();
 
-  ASSERT_GT(stats.spilledBytes, 0);
-  ASSERT_GT(stats.spilledRows, 0);
-  ASSERT_GT(stats.spilledFiles, 0);
-  ASSERT_GT(stats.spilledPartitions, 0);
+    auto expected = makeRowVector({
+        makeFlatVector<int64_t>({1, 2, 3}),
+        makeFlatVector<int64_t>({vectorSize, vectorSize, vectorSize}),
+    });
+
+    auto task = AssertQueryBuilder(plan)
+                    .config(core::QueryConfig::kTestingSpillPct, "100")
+                    .config(core::QueryConfig::kSpillEnabled, "true")
+                    .config(core::QueryConfig::kRowNumberSpillEnabled, "true")
+                    .spillDirectory(spillDirectory->path)
+                    .assertResults({expected});
+
+    auto taskStats = exec::toPlanStats(task->taskStats());
+    const auto& stats = taskStats.at(rowNumberId);
+
+    ASSERT_GT(stats.spilledBytes, 0);
+    ASSERT_GT(stats.spilledRows, 0);
+    ASSERT_GT(stats.spilledFiles, 0);
+    ASSERT_GT(stats.spilledPartitions, 0);
+  };
+
+  test(1);
+  test(100);
+  test(1'000);
 } // namespace facebook::velox::exec::test
 
 TEST_F(RowNumberTest, basic) {
