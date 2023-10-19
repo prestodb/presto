@@ -507,7 +507,7 @@ public class IcebergDistributedSmokeTestBase
                 "   format = 'PARQUET',\n" +
                 "   format_version = '1',\n" +
                 "   location = '%s',\n" +
-                "   partitioning = ARRAY['adate']\n" +
+                "   partitioning = ARRAY['aDate']\n" +
                 ")", getLocation("tpch", "test_create_table_like_original")));
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");

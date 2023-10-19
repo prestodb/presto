@@ -29,7 +29,7 @@ public class JmxConnectorTests
     @Test(groups = {JMX_CONNECTOR, JDBC})
     public void selectFromJavaRuntimeJmxMBean()
     {
-        String sql = "SELECT node, vmname, vmversion FROM jmx.current.\"java.lang:type=runtime\"";
+        String sql = "SELECT node, vmname, vmversion FROM jmx.current.\"java.lang:type=Runtime\"";
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR)
                 .hasAnyRows();
@@ -39,7 +39,7 @@ public class JmxConnectorTests
     public void selectFromJavaOperatingSystemJmxMBean()
     {
         assertThat(query("SELECT openfiledescriptorcount, maxfiledescriptorcount " +
-                "FROM jmx.current.\"java.lang:type=operatingsystem\""))
+                "FROM jmx.current.\"java.lang:type=OperatingSystem\""))
                 .hasColumns(BIGINT, BIGINT)
                 .hasAnyRows();
     }

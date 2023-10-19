@@ -5580,7 +5580,7 @@ public abstract class AbstractTestQueries
     public void testLastValueIgnoreNulls()
     {
         assertQuery(
-                "WITH T AS (" +
+                "WITH t AS (" +
                         "    SELECT" +
                         "        p," +
                         "        v" +
@@ -5589,7 +5589,7 @@ public abstract class AbstractTestQueries
                         "            (2, 2)," +
                         "            (1, 1)," +
                         "            (3, NULL)" +
-                        "    ) T(p, v)" +
+                        "    ) t(p, v)" +
                         ")" +
                         "SELECT" +
                         "    LAST_VALUE(v) IGNORE NULLS OVER (" +
@@ -5597,7 +5597,7 @@ public abstract class AbstractTestQueries
                         "        ORDER BY" +
                         "            p ASC" +
                         "    )" +
-                        "FROM T",
+                        "FROM t",
                 "Values 1, 2, 2");
     }
 

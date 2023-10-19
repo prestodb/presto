@@ -298,7 +298,7 @@ public class TestCassandraIntegrationSmokeTest
          */
         session.execute("CREATE KEYSPACE \"KEYSPACE_2\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_2")
+                .row("KEYSPACE_2")
                 .build(), new Duration(1, MINUTES));
 
         session.execute("CREATE TABLE \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
@@ -328,8 +328,8 @@ public class TestCassandraIntegrationSmokeTest
 
         // Although in Presto all the schema and table names are always displayed as lowercase
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_3")
-                .row("keyspace_3")
+                .row("KeYsPaCe_3")
+                .row("kEySpAcE_3")
                 .build(), new Duration(1, MINUTES));
 
         // There is no way to figure out what the exactly keyspace we want to retrieve tables from
@@ -357,8 +357,8 @@ public class TestCassandraIntegrationSmokeTest
 
         // Although in Presto all the schema and table names are always displayed as lowercase
         assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_4"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_4")
-                .row("table_4")
+                .row("TaBlE_4")
+                .row("tAbLe_4")
                 .build(), new Duration(1, MINUTES));
 
         // There is no way to figure out what the exactly table is being queried
