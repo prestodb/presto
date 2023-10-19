@@ -44,7 +44,13 @@ void generateJsonTyped(
   auto value = input.valueAt(row);
 
   if constexpr (std::is_same_v<T, StringView>) {
-    folly::json::escapeString(value, result, folly::json::serialization_opts{});
+    // TODO Presto escapes Unicode characters using uppercase hex:
+    //  SELECT cast(U&'\+01F64F' as json); -- "\uD83D\uDE4F"
+    //  Folly uses lowercase hex digits: "\ud83d\ude4f".
+    // Figure out how to produce uppercase digits.
+    folly::json::serialization_opts opts;
+    opts.encode_non_ascii = true;
+    folly::json::escapeString(value, result, opts);
   } else if constexpr (std::is_same_v<T, UnknownValue>) {
     VELOX_FAIL(
         "Casting UNKNOWN to JSON: Vectors of UNKNOWN type should not contain non-null rows");

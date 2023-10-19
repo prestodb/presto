@@ -36,6 +36,14 @@ using JsonNativeType = StringView;
 
 class JsonCastTest : public functions::test::CastBaseTest {
  protected:
+  template <typename TFrom>
+  void testCastToJson(
+      const TypePtr& fromType,
+      std::vector<std::optional<TFrom>> input,
+      std::vector<std::optional<JsonNativeType>> expected) {
+    return testCast<TFrom, JsonNativeType>(fromType, JSON(), input, expected);
+  }
+
   template <typename T>
   void testCastFromArray(
       const TypePtr& fromType,
@@ -210,9 +218,8 @@ class JsonCastTest : public functions::test::CastBaseTest {
 };
 
 TEST_F(JsonCastTest, fromInteger) {
-  testCast<int64_t, JsonNativeType>(
+  testCastToJson<int64_t>(
       BIGINT(),
-      JSON(),
       {1, -3, 0, INT64_MAX, INT64_MIN, std::nullopt},
       {"1"_sv,
        "-3"_sv,
@@ -220,57 +227,50 @@ TEST_F(JsonCastTest, fromInteger) {
        "9223372036854775807"_sv,
        "-9223372036854775808"_sv,
        std::nullopt});
-  testCast<int8_t, JsonNativeType>(
+  testCastToJson<int8_t>(
       TINYINT(),
-      JSON(),
       {1, -3, 0, INT8_MAX, INT8_MIN, std::nullopt},
       {"1"_sv, "-3"_sv, "0"_sv, "127"_sv, "-128"_sv, std::nullopt});
-  testCast<int32_t, JsonNativeType>(
+  testCastToJson<int32_t>(
       INTEGER(),
-      JSON(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
 TEST_F(JsonCastTest, fromVarchar) {
-  testCast<StringView, JsonNativeType>(
+  testCastToJson<StringView>(VARCHAR(), {"\U0001F64F"}, {"\"\\ud83d\\ude4f\""});
+  testCastToJson<StringView>(
       VARCHAR(),
-      JSON(),
       {"aaa"_sv, "bbb"_sv, "ccc"_sv},
       {R"("aaa")"_sv, R"("bbb")"_sv, R"("ccc")"_sv});
-  testCast<StringView, JsonNativeType>(
+  testCastToJson<StringView>(
       VARCHAR(),
-      JSON(),
       {""_sv,
        std::nullopt,
        "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\"\\ ."_sv},
       {"\"\""_sv,
        std::nullopt,
        R"("\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f\"\\ .")"_sv});
-  testCast<StringView, JsonNativeType>(
+  testCastToJson<StringView>(
       VARCHAR(),
-      JSON(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
 TEST_F(JsonCastTest, fromBoolean) {
-  testCast<bool, JsonNativeType>(
+  testCastToJson<bool>(
       BOOLEAN(),
-      JSON(),
       {true, false, false, std::nullopt},
       {"true"_sv, "false"_sv, "false"_sv, std::nullopt});
-  testCast<bool, JsonNativeType>(
+  testCastToJson<bool>(
       BOOLEAN(),
-      JSON(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
 TEST_F(JsonCastTest, fromDouble) {
-  testCast<double, JsonNativeType>(
+  testCastToJson<double>(
       DOUBLE(),
-      JSON(),
       {1.1, 2.0001, 10.0, 3.14e0, kNan, kInf, -kInf, std::nullopt},
       {"1.1"_sv,
        "2.0001"_sv,
@@ -280,30 +280,26 @@ TEST_F(JsonCastTest, fromDouble) {
        "Infinity"_sv,
        "-Infinity"_sv,
        std::nullopt});
-  testCast<double, JsonNativeType>(
+  testCastToJson<double>(
       DOUBLE(),
-      JSON(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
 TEST_F(JsonCastTest, fromDate) {
-  testCast<int32_t, JsonNativeType>(
+  testCastToJson<int32_t>(
       DATE(),
-      JSON(),
       {0, 1000, -10000, std::nullopt},
       {"1970-01-01"_sv, "1972-09-27"_sv, "1942-08-16"_sv, std::nullopt});
-  testCast<int32_t, JsonNativeType>(
+  testCastToJson<int32_t>(
       DATE(),
-      JSON(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
 TEST_F(JsonCastTest, fromTimestamp) {
-  testCast<Timestamp, JsonNativeType>(
+  testCastToJson<Timestamp>(
       TIMESTAMP(),
-      JSON(),
       {Timestamp{0, 0},
        Timestamp{10000000, 0},
        Timestamp{-1, 9000},
@@ -312,9 +308,8 @@ TEST_F(JsonCastTest, fromTimestamp) {
        "1970-04-26T17:46:40.000000000"_sv,
        "1969-12-31T23:59:59.000009000"_sv,
        std::nullopt});
-  testCast<Timestamp, JsonNativeType>(
+  testCastToJson<Timestamp>(
       TIMESTAMP(),
-      JSON(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
