@@ -211,6 +211,9 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<TranslateFunction, Varchar, Varchar, Varchar, Varchar>(
       {prefix + "translate"});
 
+  registerFunction<ConvFunction, Varchar, Varchar, int32_t, int32_t>(
+      {prefix + "conv"});
+
   // Register array sort functions.
   exec::registerStatefulVectorFunction(
       prefix + "array_sort", arraySortSignatures(), makeArraySort);

@@ -902,4 +902,144 @@ struct TranslateFunction {
   }
 };
 
+template <typename T>
+struct ConvFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  static constexpr bool is_default_ascii_behavior = true;
+
+  static const uint64_t kMaxUnsignedInt64_ = 0xFFFFFFFFFFFFFFFF;
+  static const int kMinBase = 2;
+  static const int kMaxBase = 36;
+
+  static bool checkInput(StringView input, int32_t fromBase, int32_t toBase) {
+    if (input.empty()) {
+      return false;
+    }
+    // Consistent with spark, only supports fromBase belonging to [2, 36]
+    // and toBase belonging to [2, 36] or [-36, -2].
+    if (fromBase < kMinBase || fromBase > kMaxBase ||
+        std::abs(toBase) < kMinBase || std::abs(toBase) > kMaxBase) {
+      return false;
+    }
+    return true;
+  }
+
+  static int32_t skipLeadingSpaces(StringView input) {
+    // Ignore leading spaces.
+    int i = 0;
+    for (; i < input.size(); i++) {
+      if (input.data()[i] != ' ') {
+        break;
+      }
+    }
+    return i;
+  }
+
+  static uint64_t
+  toUnsigned(StringView input, int32_t start, int32_t fromBase) {
+    uint64_t unsignedValue;
+    auto fromStatus = std::from_chars(
+        input.data() + start,
+        input.data() + input.size(),
+        unsignedValue,
+        fromBase);
+    if (fromStatus.ec == std::errc::invalid_argument) {
+      return 0;
+    }
+    if (fromStatus.ec == std::errc::result_out_of_range) {
+      return kMaxUnsignedInt64_;
+    }
+    return unsignedValue;
+  }
+
+  static void toUpper(char* buffer, const int32_t size) {
+    for (int i = 0; i < size; i++) {
+      buffer[i] = std::toupper(buffer[i]);
+    }
+  }
+
+  // For signed value, toBase is negative.
+  static void
+  toChars(out_type<Varchar>& result, int64_t signedValue, int32_t toBase) {
+    int32_t resultSize =
+        (int32_t)std::floor(
+            std::log(std::abs(signedValue)) / std::log(-toBase)) +
+        1;
+    // Negative symbol is considered.
+    if (signedValue < 0) {
+      ++resultSize;
+    }
+    result.resize(resultSize);
+    auto toStatus = std::to_chars(
+        result.data(), result.data() + result.size(), signedValue, -toBase);
+    result.resize(toStatus.ptr - result.data());
+  }
+
+  // For unsigned value, toBase is positive.
+  static void
+  toChars(out_type<Varchar>& result, uint64_t unsignedValue, int32_t toBase) {
+    int32_t resultSize =
+        (int32_t)std::floor(std::log(unsignedValue) / std::log(toBase)) + 1;
+    result.resize(resultSize);
+    auto toStatus = std::to_chars(
+        result.data(),
+        result.data() + result.size(),
+        unsignedValue,
+        std::abs(toBase));
+    result.resize(toStatus.ptr - result.data());
+  }
+
+  bool call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      int32_t fromBase,
+      int32_t toBase) {
+    if (!checkInput(input, fromBase, toBase)) {
+      return false;
+    }
+
+    auto i = skipLeadingSpaces(input);
+    // All are spaces.
+    if (i == input.size()) {
+      return false;
+    }
+    const bool isNegativeInput = (input.data()[i] == '-');
+    // Skips negative symbol.
+    if (isNegativeInput) {
+      ++i;
+    }
+
+    uint64_t unsignedValue = toUnsigned(input, i, fromBase);
+    if (unsignedValue == 0) {
+      result.append("0");
+      return true;
+    }
+
+    // When toBase is negative, converts to signed value. Otherwise, converts to
+    // unsigned value. Overflow is allowed, consistent with Spark.
+    if (toBase < 0) {
+      int64_t signedValue;
+      if (isNegativeInput) {
+        signedValue = -std::abs((int64_t)unsignedValue);
+      } else {
+        signedValue = (int64_t)unsignedValue;
+      }
+      toChars(result, signedValue, toBase);
+    } else {
+      if (isNegativeInput) {
+        int64_t negativeInput = -std::abs((int64_t)unsignedValue);
+        unsignedValue = (uint64_t)negativeInput;
+      } // Here directly use unsignedValue if isNegativeInput = false.
+      toChars(result, unsignedValue, toBase);
+    }
+
+    // Converts to uppper case, consistent with Spark.
+    if (std::abs(toBase) > 10) {
+      toUpper(result.data(), result.size());
+    }
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql
