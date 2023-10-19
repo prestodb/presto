@@ -131,6 +131,17 @@ std::vector<RowVectorPtr> VectorTestBase::split(
   return vectors;
 }
 
+VectorPtr VectorTestBase::asArray(VectorPtr elements) {
+  auto* pool = elements->pool();
+  auto arrayType = ARRAY(elements->type());
+
+  BufferPtr sizes =
+      AlignedBuffer::allocate<vector_size_t>(1, pool, elements->size());
+  BufferPtr offsets = allocateOffsets(1, pool);
+  return std::make_shared<ArrayVector>(
+      pool, arrayType, nullptr, 1, offsets, sizes, std::move(elements));
+}
+
 void assertEqualVectors(const VectorPtr& expected, const VectorPtr& actual) {
   ASSERT_EQ(expected->size(), actual->size());
   ASSERT_TRUE(expected->type()->equivalent(*actual->type()))

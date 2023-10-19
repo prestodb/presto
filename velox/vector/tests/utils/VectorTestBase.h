@@ -135,22 +135,9 @@ class VectorTestBase {
   /// @return 'n' vectors
   std::vector<RowVectorPtr> split(const RowVectorPtr& vector, int32_t n = 2);
 
-  // Returns a one element ArrayVector with 'vector' as elements of array at 0.
-  VectorPtr asArray(VectorPtr vector) {
-    BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(
-        1, vector->pool(), vector->size());
-    BufferPtr offsets =
-        AlignedBuffer::allocate<vector_size_t>(1, vector->pool(), 0);
-    return std::make_shared<ArrayVector>(
-        vector->pool(),
-        ARRAY(vector->type()),
-        BufferPtr(nullptr),
-        1,
-        offsets,
-        sizes,
-        vector,
-        0);
-  }
+  /// Returns a one element ArrayVector with 'elements' as elements of array at
+  /// 0.
+  VectorPtr asArray(VectorPtr elements);
 
   template <typename T>
   FlatVectorPtr<EvalType<T>> makeFlatVector(
