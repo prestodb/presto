@@ -630,4 +630,36 @@ TEST_F(BinaryFunctionsTest, toIEEE754Bits64) {
       toIEEE754Bits64(std::numeric_limits<double>::infinity()));
 }
 
+TEST_F(BinaryFunctionsTest, toIEEE754Bits32) {
+  const auto toIEEE754Bits32 = [&](std::optional<float> value) {
+    return evaluateOnce<std::string, float>(
+        "to_ieee754_32(cast(c0 as real))", value);
+  };
+
+  EXPECT_EQ(hexToDec("00000000"), toIEEE754Bits32(0.0));
+  EXPECT_EQ(hexToDec("3f800000"), toIEEE754Bits32(1.0));
+  EXPECT_EQ(hexToDec("40490FDA"), toIEEE754Bits32(3.1415926));
+  EXPECT_EQ(hexToDec("7F800000"), toIEEE754Bits32(1.7976931348623157E308));
+  EXPECT_EQ(hexToDec("FF800000"), toIEEE754Bits32(-1.7976931348623157E308));
+  EXPECT_EQ(hexToDec("00000000"), toIEEE754Bits32(4.9E-324));
+  EXPECT_EQ(hexToDec("80000000"), toIEEE754Bits32(-4.9E-324));
+  EXPECT_EQ(toIEEE754Bits32(100.0), toIEEE754Bits32(100));
+  EXPECT_EQ(std::nullopt, toIEEE754Bits32(std::nullopt));
+  EXPECT_EQ(
+      hexToDec("7FC00000"),
+      toIEEE754Bits32(std::numeric_limits<float>::quiet_NaN()));
+  EXPECT_EQ(
+      hexToDec("7F800000"),
+      toIEEE754Bits32(std::numeric_limits<float>::infinity()));
+  EXPECT_EQ(
+      hexToDec("FF800000"),
+      toIEEE754Bits32(-std::numeric_limits<float>::infinity()));
+  EXPECT_EQ(
+      hexToDec("00800000"), toIEEE754Bits32(std::numeric_limits<float>::min()));
+  EXPECT_EQ(
+      hexToDec("7F7FFFFF"), toIEEE754Bits32(std::numeric_limits<float>::max()));
+  EXPECT_EQ(
+      hexToDec("FF7FFFFF"),
+      toIEEE754Bits32(std::numeric_limits<float>::lowest()));
+}
 } // namespace
