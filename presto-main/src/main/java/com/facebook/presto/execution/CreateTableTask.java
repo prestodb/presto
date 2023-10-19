@@ -121,7 +121,7 @@ public class CreateTableTask
                 if (type.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
                 }
-                if (columns.containsKey(name)) {
+                if (columns.keySet().stream().anyMatch(name::equalsIgnoreCase)) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
                 }
                 if (!column.isNullable() && !metadata.getConnectorCapabilities(session, connectorId).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
@@ -171,7 +171,7 @@ public class CreateTableTask
                 likeTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
-                            if (columns.containsKey(column.getName())) {
+                            if (columns.keySet().stream().anyMatch(column.getName()::equalsIgnoreCase)) {
                                 throw new SemanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
                             columns.put(column.getName(), column);

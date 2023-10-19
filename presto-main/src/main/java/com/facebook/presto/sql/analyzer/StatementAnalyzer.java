@@ -1072,7 +1072,7 @@ class StatementAnalyzer
             }
             Set<String> names = new HashSet<>();
             for (Identifier identifier : columnAliases) {
-                if (names.contains(identifier.getValueLowerCase())) {
+                if (names.stream().anyMatch(identifier.getValue()::equalsIgnoreCase)) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getValue());
                 }
                 names.add(identifier.getValueLowerCase());

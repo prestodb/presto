@@ -91,7 +91,7 @@ public class SystemConnectorTests
                 "  start," +
                 "  last_heartbeat," +
                 "  'end' " +
-                "FROM SYSTEM.runtime.tasks";
+                "FROM system.runtime.tasks";
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
                         BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,

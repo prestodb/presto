@@ -438,7 +438,9 @@ public class BaseJdbcClient
                     "ALTER TABLE %s RENAME TO %s",
                     quoted(catalogName, schemaName, tableName),
                     quoted(catalogName, newSchemaName, newTableName));
-            execute(connection, sql);
+            if (!quoted(catalogName, schemaName, tableName).equals(quoted(catalogName, newSchemaName, newTableName))) {
+                execute(connection, sql);
+            }
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);

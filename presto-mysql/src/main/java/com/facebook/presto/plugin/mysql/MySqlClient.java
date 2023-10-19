@@ -56,7 +56,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
 import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 
 public class MySqlClient
         extends BaseJdbcClient
