@@ -121,7 +121,7 @@ by day for each clerk::
 Ranking Functions
 -----------------
 
-.. function:: cume_dist() -> bigint
+.. function:: cume_dist() -> double
 
     Returns the cumulative distribution of a value in a group of values.
     The result is the number of rows preceding or peer with the row in the
