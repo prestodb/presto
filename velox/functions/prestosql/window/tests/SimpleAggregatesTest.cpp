@@ -93,7 +93,6 @@ TEST_P(SimpleAggregatesTest, basic) {
 TEST_P(SimpleAggregatesTest, singlePartition) {
   auto input = {makeSinglePartitionVector(50), makeSinglePartitionVector(40)};
   testWindowFunction(input);
-  testWindowFunction(input, kEmptyFrameClauses);
 }
 
 // Tests function with a dataset where all partitions have a single row.
@@ -129,5 +128,38 @@ TEST_F(StringAggregatesTest, nonFixedWidthAggregate) {
   testWindowFunction(input, "max(c2)", kOverClauses);
 }
 
+class AggregateEmptyFramesTest : public WindowTestBase {};
+
+// Test for aggregates that return NULL as the default value for empty frames
+// against DuckDb.
+TEST_F(AggregateEmptyFramesTest, nullEmptyResult) {
+  auto input = {makeSinglePartitionVector(50), makeSinglePartitionVector(40)};
+  auto aggregateFunctions = kAggregateFunctions;
+  aggregateFunctions.erase(
+      std::remove(
+          aggregateFunctions.begin(), aggregateFunctions.end(), "count(c2)"),
+      aggregateFunctions.end());
+  for (const auto& function : aggregateFunctions) {
+    testWindowFunction(input, function, kOverClauses, kEmptyFrameClauses);
+  }
+}
+
+// Test for count aggregate with empty frames against expectedResult and not
+// DuckDb, since DuckDb returns NULL instead of 0 for such queries.
+TEST_F(AggregateEmptyFramesTest, nonNullEmptyResult) {
+  auto c0 = makeFlatVector<int64_t>({-1, -1, -1, -1, -1, -1, 2, 2, 2, 2});
+  auto c1 = makeFlatVector<double>({-1, -2, -3, -4, -5, -6, -7, -8, -9, -10});
+  auto input = makeRowVector({c0, c1});
+
+  auto expected = makeRowVector(
+      {c0, c1, makeFlatVector<int64_t>({0, 0, 0, 1, 2, 3, 0, 0, 0, 1})});
+  std::string overClause = "partition by c0 order by c1 desc";
+  std::string frameClause = "rows between 6 preceding and 3 preceding";
+  testWindowFunction({input}, "count(c1)", overClause, frameClause, expected);
+
+  expected = makeRowVector({c0, c1, makeConstant<int64_t>(0, c0->size())});
+  frameClause = "rows between 6 following and unbounded following";
+  testWindowFunction({input}, "count(c1)", overClause, frameClause, expected);
+}
 }; // namespace
 }; // namespace facebook::velox::window::test

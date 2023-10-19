@@ -157,6 +157,15 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       bool createTable = true,
       WindowStyle windowStyle = WindowStyle::kRandom);
 
+  /// Tests the window function with the {overClause, frameClause} pair and
+  /// asserts that the result is equal to expectedResult.
+  void testWindowFunction(
+      const std::vector<RowVectorPtr>& input,
+      const std::string& function,
+      const std::string& overClause,
+      const std::string& frameClause,
+      const RowVectorPtr& expectedResult);
+
   /// This function tests the SQL query for the window function and overClause
   /// combination with the input RowVectors. It is expected that query execution
   /// will throw an exception with the errorMessage specified.

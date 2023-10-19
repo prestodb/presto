@@ -177,6 +177,17 @@ void WindowTestBase::testWindowFunction(
   }
 }
 
+void WindowTestBase::testWindowFunction(
+    const std::vector<RowVectorPtr>& input,
+    const std::string& function,
+    const std::string& overClause,
+    const std::string& frameClause,
+    const RowVectorPtr& expectedResult) {
+  auto queryInfo = buildWindowQuery(input, function, overClause, frameClause);
+  SCOPED_TRACE(queryInfo.functionSql);
+  assertQuery(queryInfo.planNode, expectedResult);
+}
+
 void WindowTestBase::assertWindowFunctionError(
     const std::vector<RowVectorPtr>& input,
     const std::string& function,

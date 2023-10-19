@@ -111,10 +111,14 @@ class WindowFunction {
       const core::QueryConfig& config);
 
  protected:
-  // Set result NULL for rows with invalid frames in the input.
-  void setNullEmptyFramesResults(
+  // defaultResult is a vector of size 1 containing the default value to be
+  // returned for rows with empty frames. For aggregate window functions,
+  // defaultResult contains the value returned by the aggregate when there are
+  // no input rows.
+  void setEmptyFramesResult(
       const SelectivityVector& validRows,
       vector_size_t resultOffset,
+      const VectorPtr& defaultResult,
       const VectorPtr& result);
 
   const TypePtr resultType_;
