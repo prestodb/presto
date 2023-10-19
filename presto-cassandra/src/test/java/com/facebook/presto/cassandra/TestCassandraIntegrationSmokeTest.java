@@ -306,7 +306,7 @@ public class TestCassandraIntegrationSmokeTest
                 .row("table_2")
                 .build(), new Duration(1, MINUTES));
         assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_2.table_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                .row("column_2", "bigint", "", "")
+                .row("COLUMN_2", "bigint", "", "")
                 .build());
 
         execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");

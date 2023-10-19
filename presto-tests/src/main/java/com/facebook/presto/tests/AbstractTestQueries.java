@@ -2397,7 +2397,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testCaseInsensitiveAliasedRelation()
     {
-        assertQuery("SELECT A.* FROM orders a");
+        assertQuery("SELECT A.* FROM orders A");
     }
 
     @Test
@@ -2736,7 +2736,7 @@ public abstract class AbstractTestQueries
         result = computeActual("SHOW TABLES FROM " + catalog + "." + schema);
         assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
 
-        assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'unknown' does not exist");
+        assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'UNKNOWN' does not exist");
         assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' does not exist");
     }
 
