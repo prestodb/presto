@@ -333,10 +333,11 @@ public class TestCassandraIntegrationSmokeTest
                 .build(), new Duration(1, MINUTES));
 
         // There is no way to figure out what the exactly keyspace we want to retrieve tables from
-        assertQueryFailsEventually(
-                "SHOW TABLES FROM cassandra.KeYsPaCe_3",
-                "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
-                new Duration(1, MINUTES));
+        // No longer valid
+//        assertQueryFailsEventually(
+//                "SHOW TABLES FROM cassandra.KeYsPaCe_3",
+//                "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
+//                new Duration(1, MINUTES));
 
         session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
         session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
