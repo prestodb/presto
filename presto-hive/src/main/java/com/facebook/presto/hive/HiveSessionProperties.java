@@ -112,7 +112,6 @@ public final class HiveSessionProperties
     private static final String USE_PAGEFILE_FOR_HIVE_UNSUPPORTED_TYPE = "use_pagefile_for_hive_unsupported_type";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String PARQUET_PUSHDOWN_FILTER_ENABLED = "parquet_pushdown_filter_enabled";
-    public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
     public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
@@ -490,11 +489,6 @@ public final class HiveSessionProperties
                         PARQUET_PUSHDOWN_FILTER_ENABLED,
                         "Experimental: enable complex filter pushdown for Parquet",
                         hiveClientConfig.isParquetPushdownFilterEnabled(),
-                        false),
-                booleanProperty(
-                        RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED,
-                        "Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers",
-                        hiveClientConfig.isRangeFiltersOnSubscriptsEnabled(),
                         false),
                 booleanProperty(
                         ADAPTIVE_FILTER_REORDERING_ENABLED,
@@ -1049,11 +1043,6 @@ public final class HiveSessionProperties
     public static boolean isParquetPushdownFilterEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_PUSHDOWN_FILTER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isRangeFiltersOnSubscriptsEnabled(ConnectorSession session)
-    {
-        return session.getProperty(RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED, Boolean.class);
     }
 
     public static boolean isAdaptiveFilterReorderingEnabled(ConnectorSession session)
