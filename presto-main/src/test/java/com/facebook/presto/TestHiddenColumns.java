@@ -53,17 +53,17 @@ public class TestHiddenColumns
                 .row("name", "varchar(25)", "", "")
                 .row("comment", "varchar(152)", "", "")
                 .build();
-        assertEquals(runner.execute("DESC REGION"), expected);
+        assertEquals(runner.execute("DESC region"), expected);
     }
 
     @Test
     public void testSimpleSelect()
     {
-        assertEquals(runner.execute("SELECT * from REGION"), runner.execute("SELECT regionkey, name, comment from REGION"));
-        assertEquals(runner.execute("SELECT *, row_number from REGION"), runner.execute("SELECT regionkey, name, comment, row_number from REGION"));
-        assertEquals(runner.execute("SELECT row_number, * from REGION"), runner.execute("SELECT row_number, regionkey, name, comment from REGION"));
-        assertEquals(runner.execute("SELECT *, row_number, * from REGION"), runner.execute("SELECT regionkey, name, comment, row_number, regionkey, name, comment from REGION"));
-        assertEquals(runner.execute("SELECT row_number, x.row_number from REGION x"), runner.execute("SELECT row_number, row_number from REGION"));
+        assertEquals(runner.execute("SELECT * from region"), runner.execute("SELECT regionkey, name, comment from region"));
+        assertEquals(runner.execute("SELECT *, row_number from region"), runner.execute("SELECT regionkey, name, comment, row_number from region"));
+        assertEquals(runner.execute("SELECT row_number, * from region"), runner.execute("SELECT row_number, regionkey, name, comment from region"));
+        assertEquals(runner.execute("SELECT *, row_number, * from region"), runner.execute("SELECT regionkey, name, comment, row_number, regionkey, name, comment from region"));
+        assertEquals(runner.execute("SELECT row_number, x.row_number from region x"), runner.execute("SELECT row_number, row_number from region"));
     }
 
     @Test

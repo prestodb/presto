@@ -302,17 +302,17 @@ public class TestCassandraIntegrationSmokeTest
                 .build(), new Duration(1, MINUTES));
 
         session.execute("CREATE TABLE \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
-        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_2"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_2")
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.KEYSPACE_2"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("TABLE_2")
                 .build(), new Duration(1, MINUTES));
-        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_2.table_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+        assertContains(execute("SHOW COLUMNS FROM cassandra.KEYSPACE_2.TABLE_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
                 .row("COLUMN_2", "bigint", "", "")
                 .build());
 
         execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");
 
-        assertEquals(execute("SELECT column_2 FROM cassandra.keyspace_2.table_2").getRowCount(), 1);
-        assertUpdate("DROP TABLE cassandra.keyspace_2.table_2");
+        assertEquals(execute("SELECT column_2 FROM cassandra.KEYSPACE_2.TABLE_2").getRowCount(), 1);
+        assertUpdate("DROP TABLE cassandra.KEYSPACE_2.TABLE_2");
 
         // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
         session.execute("DROP KEYSPACE \"KEYSPACE_2\"");
@@ -334,7 +334,7 @@ public class TestCassandraIntegrationSmokeTest
 
         // There is no way to figure out what the exactly keyspace we want to retrieve tables from
         assertQueryFailsEventually(
-                "SHOW TABLES FROM cassandra.keyspace_3",
+                "SHOW TABLES FROM cassandra.KeYsPaCe_3",
                 "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
                 new Duration(1, MINUTES));
 

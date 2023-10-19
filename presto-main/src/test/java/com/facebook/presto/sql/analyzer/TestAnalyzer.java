@@ -866,7 +866,7 @@ public class TestAnalyzer
         analyze("INSERT INTO t6 (a) SELECT a from t6");
         analyze("INSERT INTO t6 (a) SELECT c from t6");
         analyze("INSERT INTO t6 (a,b,c,d) SELECT * from t6");
-        analyze("INSERT INTO t6 (A,B,C,D) SELECT * from t6");
+        analyze("INSERT INTO t6 (a,b,c,d) SELECT * from t6");
         analyze("INSERT INTO t6 (a,b,c,d) SELECT d,b,c,a from t6");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t6 (a) SELECT b from t6");
         assertFails(MISSING_COLUMN, "INSERT INTO t6 (unknown) SELECT * FROM t6");

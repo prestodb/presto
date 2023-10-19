@@ -1167,7 +1167,7 @@ public class TestLogicalPlanner
 
         // Limit query with empty left child.
         assertPlanWithSession(
-                "WITH DT AS (SELECT orderkey FROM (select custkey from orders where 1=0) join orders on 1=1) SELECT * FROM DT LIMIT 2",
+                "WITH dt AS (SELECT orderkey FROM (select custkey from orders where 1=0) join orders on 1=1) SELECT * FROM dt LIMIT 2",
                 applyEmptyJoinOptimization, true,
                 output(values("orderkey_0")));
 
