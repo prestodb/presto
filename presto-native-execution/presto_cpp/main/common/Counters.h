@@ -223,9 +223,15 @@ constexpr folly::StringPiece kCounterMemoryCacheNumEmptyEntries{
 /// Total number of cache entries that are pinned for shared access.
 constexpr folly::StringPiece kCounterMemoryCacheNumSharedEntries{
     "presto_cpp.memory_cache_num_shared_entries"};
+/// Total size of cache entries that are pinned for shared access.
+constexpr folly::StringPiece kCounterMemoryCacheSizeSharedEntries{
+    "presto_cpp.memory_cache_size_shared_entries"};
 /// Total number of cache entries that are pinned for exclusive access.
 constexpr folly::StringPiece kCounterMemoryCacheNumExclusiveEntries{
     "presto_cpp.memory_cache_num_exclusive_entries"};
+/// Total number of cache entries that are pinned for exclusive access.
+constexpr folly::StringPiece kCounterMemoryCacheSizeExclusiveEntries{
+    "presto_cpp.memory_cache_size_exclusive_entries"};
 /// Total number of cache entries that are being or have been prefetched but
 /// have not been hit.
 constexpr folly::StringPiece kCounterMemoryCacheNumPrefetchedEntries{

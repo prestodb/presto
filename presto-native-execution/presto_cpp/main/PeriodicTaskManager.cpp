@@ -261,7 +261,12 @@ void PeriodicTaskManager::updateCacheStats() {
   REPORT_ADD_STAT_VALUE(
       kCounterMemoryCacheNumSharedEntries, memoryCacheStats.numShared);
   REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheSizeSharedEntries, memoryCacheStats.numSharedPinSize);
+  REPORT_ADD_STAT_VALUE(
       kCounterMemoryCacheNumExclusiveEntries, memoryCacheStats.numExclusive);
+  REPORT_ADD_STAT_VALUE(
+      kCounterMemoryCacheSizeExclusiveEntries,
+      memoryCacheStats.numExclusivePinSize);
   REPORT_ADD_STAT_VALUE(
       kCounterMemoryCacheNumPrefetchedEntries, memoryCacheStats.numPrefetch);
   REPORT_ADD_STAT_VALUE(
