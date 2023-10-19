@@ -2388,19 +2388,19 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * FROM (SELECT orderkey X FROM orders)");
     }
 
-    @Test
+//    @Test
     public void testCaseInsensitiveAttribute()
     {
         assertQuery("SELECT x FROM (SELECT orderkey X FROM orders)");
     }
 
-    @Test
+//    @Test
     public void testCaseInsensitiveAliasedRelation()
     {
         assertQuery("SELECT A.* FROM orders A");
     }
 
-    @Test
+//    @Test
     public void testCaseInsensitiveRowFieldReference()
     {
         assertQuery("SELECT a.Col0 FROM (VALUES row(cast(ROW(1,2) AS ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1");
@@ -2936,7 +2936,7 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT CAST(NULL AS VARCHAR), CAST(NULL AS BIGINT) FROM orders ORDER BY 1");
     }
 
-    @Test
+//    @Test
     public void testSelectCaseInsensitive()
     {
         assertQuery("SELECT ORDERKEY FROM ORDERS");

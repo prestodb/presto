@@ -8,7 +8,7 @@ select
   is_nullable,
   column_default,
   comment
-from SYSTEM.information_schema.columns
+from system.information_schema.columns
 where table_schema <> 'jdbc'
 order by
   table_catalog,
