@@ -177,7 +177,6 @@ public class HiveClientConfig
 
     private boolean pushdownFilterEnabled;
     private boolean parquetPushdownFilterEnabled;
-    private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
     private boolean zstdJniDecompressionEnabled;
 
@@ -1523,19 +1522,6 @@ public class HiveClientConfig
     public HiveClientConfig setParquetPushdownFilterEnabled(boolean parquetPushdownFilterEnabled)
     {
         this.parquetPushdownFilterEnabled = parquetPushdownFilterEnabled;
-        return this;
-    }
-
-    public boolean isRangeFiltersOnSubscriptsEnabled()
-    {
-        return rangeFiltersOnSubscriptsEnabled;
-    }
-
-    @Config("hive.range-filters-on-subscripts-enabled")
-    @ConfigDescription("Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers")
-    public HiveClientConfig setRangeFiltersOnSubscriptsEnabled(boolean rangeFiltersOnSubscriptsEnabled)
-    {
-        this.rangeFiltersOnSubscriptsEnabled = rangeFiltersOnSubscriptsEnabled;
         return this;
     }
 
