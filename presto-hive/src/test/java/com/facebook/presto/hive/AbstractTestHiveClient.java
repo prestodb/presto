@@ -67,7 +67,8 @@ import com.facebook.presto.hive.orc.OrcSelectivePageSource;
 import com.facebook.presto.hive.pagefile.PageFilePageSource;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
-import com.facebook.presto.hive.rule.HiveFilterPushdown;
+import com.facebook.presto.hive.rule.BaseSubfieldExtractionRewriter.ConnectorPushdownFilterResult;
+import com.facebook.presto.hive.rule.HiveFilterPushdown.SubfieldExtractionRewriter;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -111,6 +112,7 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -2289,7 +2291,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static HiveFilterPushdown.ConnectorPushdownFilterResult pushdownFilter(
+    private static ConnectorPushdownFilterResult pushdownFilter(
             ConnectorSession session,
             ConnectorMetadata metadata,
             SemiTransactionalHiveMetastore metastore,
@@ -2301,8 +2303,16 @@ public abstract class AbstractTestHiveClient
             RowExpression filter,
             Optional<ConnectorTableLayoutHandle> currentLayoutHandle)
     {
-        HiveFilterPushdown filterPushdown = new HiveFilterPushdown(new HiveTransactionManager(), rowExpressionService, functionResolution, partitionManager, functionMetadataManager);
-        return filterPushdown.pushdownFilter(session, metadata, metastore, tableHandle, filter, currentLayoutHandle);
+        SubfieldExtractionRewriter filterPushdown = new SubfieldExtractionRewriter(
+                session,
+                new PlanNodeIdAllocator(),
+                rowExpressionService,
+                functionResolution,
+                functionMetadataManager,
+                new HiveTransactionManager(),
+                partitionManager);
+
+        return filterPushdown.pushdownFilter(session, metadata, tableHandle, filter, currentLayoutHandle);
     }
 
     private static void assertBucketTableEvolutionResult(MaterializedResult result, List<ColumnHandle> columnHandles, Set<Integer> bucketIds, int rowCount)
