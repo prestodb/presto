@@ -64,6 +64,7 @@ unsigned integer for nanoseconds. Nanoseconds represent the high-precision part 
 the timestamp, which is less than 1 second. Valid range of nanoseconds is [0, 10^9).
 Timestamps before the epoch are specified using negative values for the seconds.
 Examples:
+
 * Timestamp(0, 0) represents 1970-01-0 T00:00:00 (epoch).
 * Timestamp(10*24*60*60 + 125, 0) represents 1970-01-11 00:02:05 (10 days 125 seconds after epoch).
 * Timestamp(19524*24*60*60 + 500, 38726411) represents 2023-06-16 08:08:20.038726411
