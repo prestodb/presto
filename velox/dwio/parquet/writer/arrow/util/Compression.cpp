@@ -190,19 +190,13 @@ Result<std::unique_ptr<Codec>> Codec::Create(
       break;
     }
     case Compression::LZ4:
-#ifdef ARROW_WITH_LZ4
       codec = internal::MakeLz4RawCodec(compression_level);
-#endif
       break;
     case Compression::LZ4_FRAME:
-#ifdef ARROW_WITH_LZ4
       codec = internal::MakeLz4FrameCodec(compression_level);
-#endif
       break;
     case Compression::LZ4_HADOOP:
-#ifdef ARROW_WITH_LZ4
       codec = internal::MakeLz4HadoopRawCodec();
-#endif
       break;
     case Compression::ZSTD:
       codec = internal::MakeZSTDCodec(compression_level);
@@ -248,11 +242,7 @@ bool Codec::IsAvailable(Compression::type codec_type) {
     case Compression::LZ4:
     case Compression::LZ4_FRAME:
     case Compression::LZ4_HADOOP:
-#ifdef ARROW_WITH_LZ4
       return true;
-#else
-      return false;
-#endif
     case Compression::ZSTD:
       return true;
     case Compression::BZ2:

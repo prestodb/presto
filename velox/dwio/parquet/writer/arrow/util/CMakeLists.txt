@@ -14,8 +14,19 @@
 
 add_library(
   velox_dwio_arrow_parquet_writer_util_lib
-  Compression.cpp CompressionSnappy.cpp CompressionZstd.cpp CompressionZlib.cpp
-  Hashing.cpp Crc32.cpp)
+  Compression.cpp
+  CompressionSnappy.cpp
+  CompressionZstd.cpp
+  CompressionZlib.cpp
+  CompressionLZ4.cpp
+  Hashing.cpp
+  Crc32.cpp)
 
-target_link_libraries(velox_dwio_arrow_parquet_writer_util_lib parquet arrow
-                      Snappy::snappy zstd::zstd ZLIB::ZLIB)
+target_link_libraries(
+  velox_dwio_arrow_parquet_writer_util_lib
+  parquet
+  arrow
+  Snappy::snappy
+  zstd::zstd
+  ZLIB::ZLIB
+  lz4::lz4)
