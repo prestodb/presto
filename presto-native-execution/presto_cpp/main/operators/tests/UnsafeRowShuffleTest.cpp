@@ -400,23 +400,36 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
   void testPartitionAndSerialize(
       const core::PlanNodePtr& plan,
-      const RowVectorPtr& expected) {
-    exec::test::CursorParameters params;
-    params.planNode = plan;
-    params.maxDrivers = 2;
-
+      const RowVectorPtr& expected,
+      const exec::test::CursorParameters params,
+      const std::optional<uint32_t> expectedOutputCount = std::nullopt) {
     auto [taskCursor, serializedResults] =
         readCursor(params, [](auto /*task*/) {});
-    EXPECT_EQ(serializedResults.size(), 2);
 
+    RowVectorPtr result =
+        BaseVector::create<RowVector>(expected->type(), 0, pool());
     for (auto& serializedResult : serializedResults) {
       // Verify that serialized data can be deserialized successfully into the
       // original data.
       auto deserialized =
           deserialize(serializedResult, asRowType(expected->type()));
-
-      velox::test::assertEqualVectors(expected, deserialized);
+      if (deserialized != nullptr) {
+        result->append(deserialized.get());
+      }
     }
+    velox::test::assertEqualVectors(expected, result);
+    if (expectedOutputCount) {
+      ASSERT_EQ(expectedOutputCount.value(), serializedResults.size());
+    }
+  }
+
+  void testPartitionAndSerialize(
+      const core::PlanNodePtr& plan,
+      const RowVectorPtr& expected) {
+    exec::test::CursorParameters params;
+    params.planNode = plan;
+    params.maxDrivers = 2;
+    testPartitionAndSerialize(plan, expected, params);
   }
 
   std::pair<std::unique_ptr<exec::test::TaskCursor>, std::vector<RowVectorPtr>>
@@ -658,6 +671,49 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
           inputVectors);
       cleanupDirectory(rootPath);
     }
+  }
+
+  void partitionAndSerializeWithThresholds(
+      vector_size_t outputRowLimit,
+      size_t outputSizeLimit,
+      vector_size_t inputRows,
+      size_t expectedOutputCount) {
+    VectorFuzzer::Options opts;
+    opts.vectorSize = 10;
+    opts.nullRatio = 0;
+    opts.dictionaryHasNulls = false;
+    opts.containerHasNulls = false;
+    opts.stringLength = 10000;
+    opts.containerLength = 10000;
+    opts.stringVariableLength = false;
+    opts.containerVariableLength = false;
+    auto seed = folly::Random::rand32();
+    VectorFuzzer fuzzer(opts, pool_.get(), seed);
+    // Create a deeply nested row, such that each row exceeds the output batch
+    // limit.
+    auto data = makeRowVector({fuzzer.fuzzMap(
+        fuzzer.fuzzConstant(VARCHAR(), 100),
+        fuzzer.fuzzArray(fuzzer.fuzzArray(fuzzer.fuzzFlat(DOUBLE()), 100), 100),
+        inputRows)});
+
+    auto plan = exec::test::PlanBuilder()
+                    .values({data}, false)
+                    .addNode(addPartitionAndSerializeNode(2, true))
+                    .planNode();
+
+    auto properties = std::unordered_map<std::string, std::string>{
+        {core::QueryConfig::kPreferredOutputBatchBytes,
+         std::to_string(outputSizeLimit)},
+        {core::QueryConfig::kPreferredOutputBatchRows,
+         std::to_string(outputRowLimit)}};
+
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        executor_.get(), core::QueryConfig(properties));
+    auto params = exec::test::CursorParameters();
+    params.planNode = plan;
+    params.queryCtx = queryCtx;
+
+    testPartitionAndSerialize(plan, data, params, expectedOutputCount);
   }
 
   void cleanupDirectory(const std::string& rootPath) {
@@ -967,6 +1023,22 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzzWithReplicateNullsAndAny) {
   fuzzerTest(true, 7);
 }
 
+TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOutputByteLimit) {
+  partitionAndSerializeWithThresholds(10'000, 1, 10, 10);
+}
+
+TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOutputRowLimit) {
+  partitionAndSerializeWithThresholds(5, 1'000'000'000, 10, 2);
+}
+
+TEST_F(UnsafeRowShuffleTest, partitionAndSerializeNoLimit) {
+  partitionAndSerializeWithThresholds(1'000, 1'000'000'000, 5, 1);
+}
+
+TEST_F(UnsafeRowShuffleTest, partitionAndSerializeBothLimited) {
+  partitionAndSerializeWithThresholds(1, 1'000'000, 5, 5);
+}
+
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperator) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
@@ -974,8 +1046,20 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperator) {
   });
 
   auto plan = exec::test::PlanBuilder()
-                  .values({data}, true)
+                  .values({data}, false)
                   .addNode(addPartitionAndSerializeNode(4, false))
+                  .planNode();
+
+  testPartitionAndSerialize(plan, data);
+}
+
+TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithLargeInput) {
+  auto data = makeRowVector(
+      {makeFlatVector<int32_t>(20'000, [](auto row) { return row; })});
+
+  auto plan = exec::test::PlanBuilder()
+                  .values({data}, false)
+                  .addNode(addPartitionAndSerializeNode(1, true))
                   .planNode();
 
   testPartitionAndSerialize(plan, data);
@@ -988,7 +1072,7 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
   });
 
   auto plan = exec::test::PlanBuilder()
-                  .values({data}, true)
+                  .values({data}, false)
                   .addNode(addPartitionAndSerializeNode(4, false, {"c1", "c0"}))
                   .planNode();
 
@@ -998,7 +1082,7 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
   // Duplicate some columns.
   plan =
       exec::test::PlanBuilder()
-          .values({data}, true)
+          .values({data}, false)
           .addNode(addPartitionAndSerializeNode(4, false, {"c1", "c0", "c1"}))
           .planNode();
 
@@ -1008,7 +1092,7 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
 
   // Remove one column.
   plan = exec::test::PlanBuilder()
-             .values({data}, true)
+             .values({data}, false)
              .addNode(addPartitionAndSerializeNode(4, false, {"c1"}))
              .planNode();
 
@@ -1023,7 +1107,7 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
   });
 
   auto plan = exec::test::PlanBuilder()
-                  .values({data}, true)
+                  .values({data}, false)
                   .addNode(addPartitionAndSerializeNode(1, false))
                   .planNode();
 
