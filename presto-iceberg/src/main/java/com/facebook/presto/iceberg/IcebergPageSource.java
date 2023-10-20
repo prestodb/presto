@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
@@ -56,6 +57,8 @@ import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class IcebergPageSource
         implements ConnectorPageSource
@@ -84,7 +87,7 @@ public class IcebergPageSource
                 HivePartitionKey icebergPartition = partitionKeys.get(column.getId());
                 Type type = column.getType();
                 Object prefilledValue = deserializePartitionValue(type, icebergPartition.getValue().orElse(null), column.getName(), timeZoneKey);
-                prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(type, prefilledValue);
+                prefilledBlocks[outputIndex] = nativeValueToBlock(type, prefilledValue);
                 delegateIndexes[outputIndex] = -1;
             }
             else {
@@ -241,5 +244,13 @@ public class IcebergPageSource
         }
         // Iceberg tables don't partition by non-primitive-type columns.
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
+    }
+
+    private Block nativeValueToBlock(Type type, Object prefilledValue)
+    {
+        if (prefilledValue != null && type instanceof TimestampType && ((TimestampType) type).getPrecision() == MILLISECONDS) {
+            return Utils.nativeValueToBlock(type, MICROSECONDS.toMillis((long) prefilledValue));
+        }
+        return Utils.nativeValueToBlock(type, prefilledValue);
     }
 }
