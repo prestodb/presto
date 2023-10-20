@@ -38,6 +38,8 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
+import static com.facebook.presto.iceberg.RegisterTableProcedure.METADATA_FOLDER_NAME;
+import static com.facebook.presto.iceberg.TestIcebergRegisterProcedure.getMetadataFileLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -1120,5 +1122,89 @@ public class IcebergDistributedSmokeTestBase
         assertQuery(session, "SELECT * FROM " + tableName + " WHERE hour(c2) = 12", "VALUES (2, '2023-11-02 12:10:31.315')");
 
         dropTable(session, tableName);
+    }
+
+    @Test
+    public void testRegisterTable()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "register";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+        String metadataLocation = getLocation(schemaName, tableName);
+
+        String newTableName = tableName + "_new";
+        assertUpdate("CALL system.register_table('" + schemaName + "', '" + newTableName + "', '" + metadataLocation + "')");
+        assertQuery("SELECT * FROM " + newTableName, "VALUES (1, 1)");
+
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testRegisterTableAndInsert()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "register_insert";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+        String metadataLocation = getLocation(schemaName, tableName);
+
+        String newTableName = tableName + "_new";
+        assertUpdate("CALL system.register_table('" + schemaName + "', '" + newTableName + "', '" + metadataLocation + "')");
+        assertUpdate("INSERT INTO " + newTableName + " VALUES(2, 2)", 1);
+        assertQuery("SELECT * FROM " + newTableName, "VALUES (1, 1), (2, 2)");
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1)");
+
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testRegisterTableWithFileName()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "register_filename";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+        String metadataLocation = getLocation(schemaName, tableName);
+        String metadataFileName = getMetadataFileLocation(getSession().toConnectorSession(), schemaName, tableName, metadataLocation);
+
+        // Register new table with procedure
+        String newTableName = tableName + "_new";
+        assertUpdate("CALL system.register_table('" + schemaName + "', '" + newTableName + "', '" + metadataLocation + "', '" + metadataFileName + "')");
+        assertQuery("SELECT * FROM " + newTableName, "VALUES (1, 1)");
+
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testRegisterTableWithInvalidLocation()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "register_invalid";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+        String metadataLocation = getLocation(schemaName, tableName).replace("//", "/") + "_invalid";
+
+        @Language("RegExp") String errorMessage = format("Unable to find metadata at location %s/%s", metadataLocation, METADATA_FOLDER_NAME);
+        assertQueryFails("CALL system.register_table ('" + schemaName + "', '" + tableName + "', '" + metadataLocation + "')", errorMessage);
+
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testUnregisterTable()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "unregister";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+
+        // Unregister table with procedure
+        assertUpdate("CALL system.unregister_table('" + schemaName + "', '" + tableName + "')");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 }

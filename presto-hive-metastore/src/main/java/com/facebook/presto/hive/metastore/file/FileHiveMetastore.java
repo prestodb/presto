@@ -445,6 +445,20 @@ public class FileHiveMetastore
     }
 
     @Override
+    public synchronized void dropTableFromMetastore(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        requireNonNull(databaseName, "databaseName is null");
+        requireNonNull(tableName, "tableName is null");
+
+        Table table = getRequiredTable(metastoreContext, databaseName, tableName);
+
+        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+
+        deleteSchemaFile("table", tableMetadataDirectory);
+        deleteTablePrivileges(table);
+    }
+
+    @Override
     public synchronized MetastoreOperationResult replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");

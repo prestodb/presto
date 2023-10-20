@@ -62,6 +62,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFiles;
@@ -169,6 +170,10 @@ public abstract class IcebergAbstractMetadata
     protected abstract Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     protected abstract boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName);
+
+    protected abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation);
+
+    protected abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
     /**
      * This class implements the default implementation for getTableLayouts which will be used in the case of a Java Worker
