@@ -319,6 +319,33 @@ const folly::F14FastMap<std::string, uint32_t> createdChildrenIndex(
   }
   return index;
 }
+
+std::string namesAndTypesToString(
+    const std::vector<std::string>& names,
+    const std::vector<TypePtr>& types) {
+  std::stringstream ss;
+  ss << "[names: {";
+  if (!names.empty()) {
+    for (const auto& name : names) {
+      ss << "'" << name << "', ";
+    }
+    ss.seekp(-2, std::ios_base::cur);
+  } else {
+    ss << " ";
+  }
+  ss << "}, types: {";
+  if (!types.empty()) {
+    for (const auto& type : types) {
+      ss << (type ? type->toString() : "NULL") << ", ";
+    }
+    ss.seekp(-2, std::ios_base::cur);
+  } else {
+    ss << " ";
+  }
+  ss << "}]";
+  return ss.str();
+}
+
 } // namespace
 
 RowType::RowType(std::vector<std::string>&& names, std::vector<TypePtr>&& types)
@@ -327,10 +354,16 @@ RowType::RowType(std::vector<std::string>&& names, std::vector<TypePtr>&& types)
       parameters_{createTypeParameters(children_)},
       // TODO: lazily initialize index on first access instead.
       childrenIndices_{createdChildrenIndex(names_)} {
-  VELOX_USER_CHECK_EQ(
-      names_.size(), children_.size(), "Mismatch names/types sizes");
+  VELOX_CHECK_EQ(
+      names_.size(),
+      children_.size(),
+      "Mismatch names/types sizes: {}",
+      namesAndTypesToString(names_, children_));
   for (auto& child : children_) {
-    VELOX_CHECK_NOT_NULL(child, "Child types cannot be null");
+    VELOX_CHECK_NOT_NULL(
+        child,
+        "Child types cannot be null: {}",
+        namesAndTypesToString(names_, children_));
   }
 }
 

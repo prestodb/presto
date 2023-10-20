@@ -32,6 +32,28 @@ void testTypeSerde(const TypePtr& type) {
 }
 } // namespace
 
+TEST(TypeTest, constructorThrow) {
+  EXPECT_NO_THROW(RowType({"a", "b"}, {VARCHAR(), INTEGER()}));
+
+  EXPECT_THROW(RowType({"a"}, {VARCHAR(), INTEGER()}), VeloxRuntimeError);
+  VELOX_ASSERT_THROW(
+      RowType({"a"}, {VARCHAR(), INTEGER()}),
+      "Mismatch names/types sizes: "
+      "[names: {'a'}, types: {VARCHAR, INTEGER}]");
+
+  EXPECT_THROW(RowType({"a", "b"}, {}), VeloxRuntimeError);
+  VELOX_ASSERT_THROW(
+      RowType({"a", "b"}, {}),
+      "Mismatch names/types sizes: "
+      "[names: {'a', 'b'}, types: { }]");
+
+  EXPECT_THROW(RowType({"a", "b"}, {VARCHAR(), nullptr}), VeloxRuntimeError);
+  VELOX_ASSERT_THROW(
+      RowType({"a", "b"}, {VARCHAR(), nullptr}),
+      "Child types cannot be null: "
+      "[names: {'a', 'b'}, types: {VARCHAR, NULL}]");
+}
+
 TEST(TypeTest, array) {
   auto arrayType = ARRAY(ARRAY(ARRAY(INTEGER())));
   EXPECT_EQ("ARRAY<ARRAY<ARRAY<INTEGER>>>", arrayType->toString());
