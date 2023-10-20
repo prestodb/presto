@@ -58,6 +58,11 @@ public final class TimestampType
         }
     }
 
+    public TimeUnit getPrecision()
+    {
+        return this.precision;
+    }
+
     @Override
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
