@@ -148,10 +148,12 @@ public class HistoryBasedPlanStatisticsTracker
                 double outputBytes = adjustedOutputBytes(planNode, planNodeStats);
                 double nullJoinBuildKeyCount = planNodeStats.getPlanNodeNullJoinBuildKeyCount();
                 double joinBuildKeyCount = planNodeStats.getPlanNodeJoinBuildKeyCount();
+                double nullJoinProbeKeyCount = planNodeStats.getPlanNodeNullJoinProbeKeyCount();
+                double joinProbeKeyCount = planNodeStats.getPlanNodeJoinProbeKeyCount();
 
                 JoinNodeStatistics joinNodeStatistics = JoinNodeStatistics.empty();
                 if (planNode instanceof JoinNode) {
-                    joinNodeStatistics = new JoinNodeStatistics(Estimate.of(nullJoinBuildKeyCount), Estimate.of(joinBuildKeyCount));
+                    joinNodeStatistics = new JoinNodeStatistics(Estimate.of(nullJoinBuildKeyCount), Estimate.of(joinBuildKeyCount), Estimate.of(nullJoinProbeKeyCount), Estimate.of(joinProbeKeyCount));
                 }
 
                 TableWriterNodeStatistics tableWriterNodeStatistics = TableWriterNodeStatistics.empty();

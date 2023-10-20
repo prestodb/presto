@@ -257,7 +257,9 @@ public class PlanNodeStatsEstimate
                     planStatistics.getJoinNodeStatistics().isEmpty() ? getJoinNodeStatsEstimate() :
                             new JoinNodeStatsEstimate(
                                     planStatistics.getJoinNodeStatistics().getNullJoinBuildKeyCount().getValue(),
-                                    planStatistics.getJoinNodeStatistics().getJoinBuildKeyCount().getValue()),
+                                    planStatistics.getJoinNodeStatistics().getJoinBuildKeyCount().getValue(),
+                                    planStatistics.getJoinNodeStatistics().getNullJoinProbeKeyCount().getValue(),
+                                    planStatistics.getJoinNodeStatistics().getJoinProbeKeyCount().getValue()),
                     planStatistics.getTableWriterNodeStatistics().isEmpty() ? getTableWriterNodeStatsEstimate() :
                             new TableWriterNodeStatsEstimate(planStatistics.getTableWriterNodeStatistics().getTaskCountIfScaledWriter().getValue()));
         }
@@ -309,7 +311,9 @@ public class PlanNodeStatsEstimate
                         sourceInfo.isConfident() ? 1 : 0,
                         new JoinNodeStatistics(
                                 Estimate.estimateFromDouble(joinNodeStatsEstimate.getNullJoinBuildKeyCount()),
-                                Estimate.estimateFromDouble(joinNodeStatsEstimate.getJoinBuildKeyCount())),
+                                Estimate.estimateFromDouble(joinNodeStatsEstimate.getJoinBuildKeyCount()),
+                                Estimate.estimateFromDouble(joinNodeStatsEstimate.getNullJoinProbeKeyCount()),
+                                Estimate.estimateFromDouble(joinNodeStatsEstimate.getJoinProbeKeyCount())),
                         new TableWriterNodeStatistics(Estimate.estimateFromDouble(tableWriterNodeStatsEstimate.getTaskCountIfScaledWriter()))),
                 sourceInfo);
     }
