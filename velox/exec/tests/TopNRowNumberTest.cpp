@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -164,6 +165,49 @@ TEST_F(TopNRowNumberTest, manyPartitions) {
   testLimit(1);
   testLimit(2);
   testLimit(100);
+}
+
+TEST_F(TopNRowNumberTest, planNodeValidation) {
+  auto data = makeRowVector(
+      ROW({"a", "b", "c", "d", "e"},
+          {
+              BIGINT(),
+              BIGINT(),
+              BIGINT(),
+              BIGINT(),
+              BIGINT(),
+          }),
+      10);
+
+  auto plan = [&](const std::vector<std::string>& partitionKeys,
+                  const std::vector<std::string>& sortingKeys,
+                  int32_t limit = 10) {
+    PlanBuilder()
+        .values({data})
+        .topNRowNumber(partitionKeys, sortingKeys, limit, true)
+        .planNode();
+  };
+
+  VELOX_ASSERT_THROW(
+      plan({"a", "a"}, {"b"}),
+      "Partitioning keys must be unique. Found duplicate key: a");
+
+  VELOX_ASSERT_THROW(
+      plan({"a", "b"}, {"c", "d", "c"}),
+      "Sorting keys must be unique and not overlap with partitioning keys. Found duplicate key: c");
+
+  VELOX_ASSERT_THROW(
+      plan({"a", "b"}, {"c", "b"}),
+      "Sorting keys must be unique and not overlap with partitioning keys. Found duplicate key: b");
+
+  VELOX_ASSERT_THROW(
+      plan({"a", "b"}, {}), "Number of sorting keys must be greater than zero");
+
+  VELOX_ASSERT_THROW(
+      plan({"a", "b"}, {"c"}, -5), "Limit must be greater than zero");
+
+  VELOX_ASSERT_THROW(
+      plan({"a", "b"}, {"c"}, 0), "Limit must be greater than zero");
 }
 
 } // namespace

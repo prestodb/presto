@@ -2237,6 +2237,9 @@ class MarkDistinctNode : public PlanNode {
 class TopNRowNumberNode : public PlanNode {
  public:
   /// @param partitionKeys Partitioning keys. May be empty.
+  /// @param sortingKeys Sorting keys. May not be empty and may not intersect
+  /// with 'partitionKeys'.
+  /// @param sortingOrders Sorting orders, one per sorting key.
   /// @param rowNumberColumnName Optional name of the column containing row
   /// numbers. If not specified, the output doesn't include 'row number' column.
   /// This is used when computing partial results.

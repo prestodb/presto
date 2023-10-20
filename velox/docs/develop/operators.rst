@@ -752,9 +752,9 @@ FilterNode(row_number <= limit), but it uses less memory and CPU.
   * - Property
     - Description
   * - partitionKeys
-    - Partition by columns for the window functions.
+    - Partition by columns for the window functions. May be empty.
   * - sortingKeys
-    - Order by columns for the window functions.
+    - Order by columns for the window functions. Cannot be empty and cannot overlap with 'partitionKeys'.
   * - sortingOrders
     - Sorting order for each sorting key above. The supported sort orders are asc nulls first, asc nulls last, desc nulls first and desc nulls last.
   * - rowNumberColumnName
