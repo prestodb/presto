@@ -618,11 +618,9 @@ TEST_P(
     MinMaxByGlobalByAggregationTest,
     randomMaxByGlobalByWithDistinctCompareValue) {
   if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
-      GetParam().valueType == TypeKind::TIMESTAMP) {
+      GetParam().valueType == TypeKind::TIMESTAMP ||
+      GetParam().comparisonType == TypeKind::BOOLEAN) {
     return;
-  }
-  if (GetParam().comparisonType == TypeKind::BOOLEAN) {
-    GTEST_SKIP() << "Boolean comparison type is not supported in this test.";
   }
 
   // Enable disk spilling test with distinct comparison values.
@@ -1060,11 +1058,9 @@ TEST_P(
     MinMaxByGroupByAggregationTest,
     randomMinMaxByGroupByWithDistinctCompareValue) {
   if (GetParam().comparisonType == TypeKind::TIMESTAMP ||
-      GetParam().valueType == TypeKind::TIMESTAMP) {
+      GetParam().valueType == TypeKind::TIMESTAMP ||
+      GetParam().comparisonType == TypeKind::BOOLEAN) {
     return;
-  }
-  if (GetParam().comparisonType == TypeKind::BOOLEAN) {
-    GTEST_SKIP() << "Boolean comparison type is not supported in this test.";
   }
 
   // Enable disk spilling test with distinct comparison values.

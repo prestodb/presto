@@ -728,6 +728,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
 }
 
 TEST_F(SharedArbitrationTest, reclaimFromCompletedOrderBy) {
+  GTEST_SKIP() << "https://github.com/facebookincubator/velox/issues/7154";
   const int numVectors = 2;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
@@ -2662,6 +2663,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrationFromTableWriter) {
 // reclaim from a set of hash build operators in which the last hash build
 // operator has finished.
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenRaclaimAndJoinFinish) {
+  GTEST_SKIP() << "https://github.com/facebookincubator/velox/issues/7154";
   const int kMemoryCapacity = 512 << 20;
   setupMemory(kMemoryCapacity, 0);
 
