@@ -116,12 +116,20 @@ class RowVector : public BaseVector {
 
   /// Get the child vector at a given offset.
   VectorPtr& childAt(column_index_t index) {
-    VELOX_USER_CHECK_LT(index, childrenSize_);
+    VELOX_CHECK_LT(
+        index,
+        childrenSize_,
+        "Trying to access non-existing child in RowVector: {}",
+        toString());
     return children_[index];
   }
 
   const VectorPtr& childAt(column_index_t index) const {
-    VELOX_USER_CHECK_LT(index, childrenSize_);
+    VELOX_CHECK_LT(
+        index,
+        childrenSize_,
+        "Trying to access non-existing child in RowVector: {}",
+        toString());
     return children_[index];
   }
 

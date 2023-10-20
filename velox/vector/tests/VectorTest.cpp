@@ -1059,6 +1059,21 @@ TEST_F(VectorTest, row) {
   baseRow = BaseVector::create(baseRow->type(), vectorSize_, pool());
   testCopy(baseRow, numIterations_);
   testSlices(baseRow);
+
+  // Check child accessors throws.
+  auto rowVector = baseRow->as<RowVector>();
+  EXPECT_NO_THROW(rowVector->childAt(1)->size());
+  EXPECT_NO_THROW(rowVector->childAt(1)->resize(vectorSize_));
+
+  EXPECT_THROW(rowVector->childAt(3)->size(), VeloxRuntimeError);
+  VELOX_ASSERT_THROW(
+      rowVector->childAt(3)->size(),
+      "Trying to access non-existing child in RowVector:");
+
+  EXPECT_THROW(rowVector->childAt(3)->resize(vectorSize_), VeloxRuntimeError);
+  VELOX_ASSERT_THROW(
+      rowVector->childAt(3)->resize(vectorSize_),
+      "Trying to access non-existing child in RowVector:");
 }
 
 TEST_F(VectorTest, array) {
