@@ -115,11 +115,11 @@ jobs:
       # SQL server image sporadically hangs during the startup
       # TODO: Uncomment it once issue is fixed
       # https://github.com/Microsoft/mssql-docker/issues/76
-      #  - |
-      #    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-      #      presto-product-tests/bin/run_on_docker.sh \
-      #        singlenode-sqlserver -g sqlserver
-      #    fi
+        - |
+          if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+            presto-product-tests/bin/run_on_docker.sh \
+              singlenode-sqlserver -g sqlserver
+          fi
       - name: Product Tests Specific 2.2
         run: presto-product-tests/bin/run_on_docker.sh multinode-tls -g smoke,cli,group-by,join,tls
       - name: Product Tests Specific 2.3

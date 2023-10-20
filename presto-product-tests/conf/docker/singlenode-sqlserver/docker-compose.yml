@@ -3,7 +3,7 @@ services:
 
   sqlserver:
     hostname: sqlserver
-    image: 'microsoft/mssql-server-linux:2017-CU6'
+    image: 'microsoft/mssql-server-linux:2017-CU13'
     ports:
       - '1433:1433'
     environment:
