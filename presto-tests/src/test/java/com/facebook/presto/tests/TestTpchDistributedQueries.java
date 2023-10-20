@@ -72,7 +72,7 @@ public class TestTpchDistributedQueries
 
         boolean sampleSizeFound = false;
         for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
+            int sampleSize = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
             if (sampleSize > 0 && sampleSize < total) {
                 sampleSizeFound = true;
                 break;

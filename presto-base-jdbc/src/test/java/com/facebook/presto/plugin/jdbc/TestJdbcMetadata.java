@@ -68,7 +68,7 @@ public class TestJdbcMetadata
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         jdbcMetadataCache = new JdbcMetadataCache(executor, database.getJdbcClient(), new JdbcMetadataCacheStats(), OptionalLong.of(0), OptionalLong.of(0), 100);
         metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false);
-        tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+        tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("EXAMPLE", "NUMBERS"));
     }
 
     @AfterMethod(alwaysRun = true)
@@ -81,15 +81,15 @@ public class TestJdbcMetadata
     @Test
     public void testListSchemaNames()
     {
-        assertTrue(metadata.listSchemaNames(SESSION).containsAll(ImmutableSet.of("example", "tpch")));
+        assertTrue(metadata.listSchemaNames(SESSION).containsAll(ImmutableSet.of("EXAMPLE", "TPCH")));
     }
 
     @Test
     public void testGetTableHandle()
     {
-        JdbcTableHandle tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
-        assertEquals(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers")), tableHandle);
-        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("example", "unknown")));
+        JdbcTableHandle tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("EXAMPLE", "NUMBERS"));
+        assertEquals(metadata.getTableHandle(SESSION, new SchemaTableName("EXAMPLE", "NUMBERS")), tableHandle);
+        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("EXAMPLE", "unknown")));
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "numbers")));
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown")));
     }
@@ -99,9 +99,9 @@ public class TestJdbcMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(SESSION, tableHandle), ImmutableMap.of(
-                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true, Optional.empty()),
-                "text_short", new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true, Optional.empty()),
-                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true, Optional.empty())));
+                "TEXT", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true, Optional.empty()),
+                "TEXT_SHORT", new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true, Optional.empty()),
+                "VALUE", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true, Optional.empty())));
 
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
@@ -123,19 +123,19 @@ public class TestJdbcMetadata
     {
         // known table
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
-        assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
+        assertEquals(tableMetadata.getTable(), new SchemaTableName("EXAMPLE", "NUMBERS"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
-                new ColumnMetadata("text_short", createVarcharType(32)),
-                new ColumnMetadata("value", BIGINT)));
+                new ColumnMetadata("TEXT", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                new ColumnMetadata("TEXT_SHORT", createVarcharType(32)),
+                new ColumnMetadata("VALUE", BIGINT)));
 
         // escaping name patterns
-        JdbcTableHandle specialTableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("exa_ple", "num_ers"));
+        JdbcTableHandle specialTableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("EXA_PLE", "NUM_ERS"));
         ConnectorTableMetadata specialTableMetadata = metadata.getTableMetadata(SESSION, specialTableHandle);
-        assertEquals(specialTableMetadata.getTable(), new SchemaTableName("exa_ple", "num_ers"));
+        assertEquals(specialTableMetadata.getTable(), new SchemaTableName("EXA_PLE", "NUM_ERS"));
         assertEquals(specialTableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("te_t", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
-                new ColumnMetadata("va%ue", BIGINT)));
+                new ColumnMetadata("TE_T", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                new ColumnMetadata("VA%UE", BIGINT)));
 
         // unknown tables should produce null
         unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
@@ -146,24 +146,24 @@ public class TestJdbcMetadata
     @Test
     public void testListTableColumns()
     {
-        SchemaTableName tpchOrders = new SchemaTableName("tpch", "orders");
+        SchemaTableName tpchOrders = new SchemaTableName("TPCH", "ORDERS");
         ImmutableList<ColumnMetadata> tpchOrdersColumnMetadata = ImmutableList.of(
-                ColumnMetadata.builder().setName("orderkey").setType(BIGINT).setNullable(false).build(),
-                ColumnMetadata.builder().setName("custkey").setType(BIGINT).setNullable(true).build());
+                ColumnMetadata.builder().setName("ORDERKEY").setType(BIGINT).setNullable(false).build(),
+                ColumnMetadata.builder().setName("CUSTKEY").setType(BIGINT).setNullable(true).build());
 
-        SchemaTableName tpchLineItem = new SchemaTableName("tpch", "lineitem");
+        SchemaTableName tpchLineItem = new SchemaTableName("TPCH", "LINEITEM");
         ImmutableList<ColumnMetadata> tpchLineItemColumnMetadata = ImmutableList.of(
-                ColumnMetadata.builder().setName("orderkey").setType(BIGINT).setNullable(false).build(),
-                ColumnMetadata.builder().setName("partkey").setType(BIGINT).setNullable(true).build());
+                ColumnMetadata.builder().setName("ORDERKEY").setType(BIGINT).setNullable(false).build(),
+                ColumnMetadata.builder().setName("PARTKEY").setType(BIGINT).setNullable(true).build());
 
         //List columns for a given schema and table
-        Map<SchemaTableName, List<ColumnMetadata>> tpchOrdersColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("tpch", "orders"));
+        Map<SchemaTableName, List<ColumnMetadata>> tpchOrdersColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("TPCH", "ORDERS"));
         assertThat(tpchOrdersColumns)
                 .containsOnly(
                         entry(tpchOrders, tpchOrdersColumnMetadata));
 
         //List columns for a given schema
-        Map<SchemaTableName, List<ColumnMetadata>> tpchColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("tpch"));
+        Map<SchemaTableName, List<ColumnMetadata>> tpchColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("TPCH"));
         assertThat(tpchColumns)
                 .containsOnly(
                         entry(tpchOrders, tpchOrdersColumnMetadata),
@@ -185,25 +185,25 @@ public class TestJdbcMetadata
     {
         // all schemas
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.empty())), ImmutableSet.of(
-                new SchemaTableName("example", "numbers"),
-                new SchemaTableName("example", "view_source"),
-                new SchemaTableName("example", "view"),
-                new SchemaTableName("tpch", "orders"),
-                new SchemaTableName("tpch", "lineitem"),
-                new SchemaTableName("exa_ple", "table_with_float_col"),
-                new SchemaTableName("exa_ple", "num_ers")));
+                new SchemaTableName("EXAMPLE", "NUMBERS"),
+                new SchemaTableName("EXAMPLE", "VIEW_SOURCE"),
+                new SchemaTableName("EXAMPLE", "VIEW"),
+                new SchemaTableName("TPCH", "ORDERS"),
+                new SchemaTableName("TPCH", "LINEITEM"),
+                new SchemaTableName("EXA_PLE", "TABLE_WITH_FLOAT_COL"),
+                new SchemaTableName("EXA_PLE", "NUM_ERS")));
 
         // specific schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("example"))), ImmutableSet.of(
-                new SchemaTableName("example", "numbers"),
-                new SchemaTableName("example", "view_source"),
-                new SchemaTableName("example", "view")));
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("tpch"))), ImmutableSet.of(
-                new SchemaTableName("tpch", "orders"),
-                new SchemaTableName("tpch", "lineitem")));
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("exa_ple"))), ImmutableSet.of(
-                new SchemaTableName("exa_ple", "num_ers"),
-                new SchemaTableName("exa_ple", "table_with_float_col")));
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("EXAMPLE"))), ImmutableSet.of(
+                new SchemaTableName("EXAMPLE", "NUMBERS"),
+                new SchemaTableName("EXAMPLE", "VIEW_SOURCE"),
+                new SchemaTableName("EXAMPLE", "VIEW")));
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("TPCH"))), ImmutableSet.of(
+                new SchemaTableName("TPCH", "ORDERS"),
+                new SchemaTableName("TPCH", "LINEITEM")));
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("EXA_PLE"))), ImmutableSet.of(
+                new SchemaTableName("EXA_PLE", "NUM_ERS"),
+                new SchemaTableName("EXA_PLE", "TABLE_WITH_FLOAT_COL")));
 
         // unknown schema
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("unknown"))), ImmutableSet.of());
@@ -220,35 +220,35 @@ public class TestJdbcMetadata
     @Test
     public void testCreateAndAlterTable()
     {
-        SchemaTableName table = new SchemaTableName("example", "foo");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), false);
+        SchemaTableName table = new SchemaTableName("EXAMPLE", "FOO");
+        metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new ColumnMetadata("TEXT", VARCHAR))), false);
 
         JdbcTableHandle handle = metadata.getTableHandle(SESSION, table);
 
         ConnectorTableMetadata layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getTable(), table);
         assertEquals(layout.getColumns().size(), 1);
-        assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
+        assertEquals(layout.getColumns().get(0), new ColumnMetadata("TEXT", VARCHAR));
 
-        metadata.addColumn(SESSION, handle, new ColumnMetadata("x", VARCHAR));
+        metadata.addColumn(SESSION, handle, new ColumnMetadata("X", VARCHAR));
         layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getColumns().size(), 2);
-        assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
-        assertEquals(layout.getColumns().get(1), new ColumnMetadata("x", VARCHAR));
+        assertEquals(layout.getColumns().get(0), new ColumnMetadata("TEXT", VARCHAR));
+        assertEquals(layout.getColumns().get(1), new ColumnMetadata("X", VARCHAR));
 
-        JdbcColumnHandle columnHandle = new JdbcColumnHandle(CONNECTOR_ID, "x", JDBC_VARCHAR, VARCHAR, true, Optional.empty());
+        JdbcColumnHandle columnHandle = new JdbcColumnHandle(CONNECTOR_ID, "X", JDBC_VARCHAR, VARCHAR, true, Optional.empty());
         metadata.dropColumn(SESSION, handle, columnHandle);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getColumns().size(), 1);
-        assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
+        assertEquals(layout.getColumns().get(0), new ColumnMetadata("TEXT", VARCHAR));
 
-        SchemaTableName newTableName = new SchemaTableName("example", "bar");
+        SchemaTableName newTableName = new SchemaTableName("EXAMPLE", "BAR");
         metadata.renameTable(SESSION, handle, newTableName);
         handle = metadata.getTableHandle(SESSION, newTableName);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertEquals(layout.getTable(), newTableName);
         assertEquals(layout.getColumns().size(), 1);
-        assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
+        assertEquals(layout.getColumns().get(0), new ColumnMetadata("TEXT", VARCHAR));
     }
 
     @Test

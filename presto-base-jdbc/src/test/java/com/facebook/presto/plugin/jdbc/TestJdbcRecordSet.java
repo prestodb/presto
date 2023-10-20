@@ -51,8 +51,8 @@ public class TestJdbcRecordSet
     {
         database = new TestingDatabase();
         jdbcClient = database.getJdbcClient();
-        split = database.getSplit("example", "numbers");
-        columnHandles = database.getColumnHandles("example", "numbers");
+        split = database.getSplit("EXAMPLE", "NUMBERS");
+        columnHandles = database.getColumnHandles("EXAMPLE", "NUMBERS");
     }
 
     @AfterClass(alwaysRun = true)
@@ -90,9 +90,9 @@ public class TestJdbcRecordSet
     public void testCursorSimple()
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
-                columnHandles.get("text"),
-                columnHandles.get("text_short"),
-                columnHandles.get("value")));
+                columnHandles.get("TEXT"),
+                columnHandles.get("TEXT_SHORT"),
+                columnHandles.get("VALUE")));
 
         try (RecordCursor cursor = recordSet.cursor()) {
             assertEquals(cursor.getType(0), VARCHAR);
@@ -123,9 +123,9 @@ public class TestJdbcRecordSet
     public void testCursorMixedOrder()
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
-                columnHandles.get("value"),
-                columnHandles.get("value"),
-                columnHandles.get("text")));
+                columnHandles.get("VALUE"),
+                columnHandles.get("VALUE"),
+                columnHandles.get("TEXT")));
 
         try (RecordCursor cursor = recordSet.cursor()) {
             assertEquals(cursor.getType(0), BIGINT);
@@ -153,9 +153,9 @@ public class TestJdbcRecordSet
     public void testIdempotentClose()
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
-                columnHandles.get("value"),
-                columnHandles.get("value"),
-                columnHandles.get("text")));
+                columnHandles.get("VALUE"),
+                columnHandles.get("VALUE"),
+                columnHandles.get("TEXT")));
 
         RecordCursor cursor = recordSet.cursor();
         cursor.close();
