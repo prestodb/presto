@@ -711,6 +711,52 @@ Drop the schema ``iceberg.web``::
 
     DROP SCHEMA iceberg.web
 
+Register table
+^^^^^^^^^^^^
+
+Iceberg tables for which table data and metadata already exist in the
+file system can be registered with the catalog using the ``register_table``
+procedure on the catalog's ``system`` schema by supplying the target schema,
+desired table name, and the location of the table metadata::
+
+    CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir')
+
+.. note::
+
+    If multiple metadata files of the same version exist at the specified
+    location, the most recently modified one will be used.
+
+A metadata file can optionally be included as an argument to ``register_table``
+in the case where a specific metadata file contains the targeted table state::
+
+    CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir', '00000-35a08aed-f4b0-4010-95d2-9d73ef4be01c.metadata.json')
+
+.. note::
+
+    When registering a table with the Hive metastore, the user calling the
+    procedure will be set as the owner of the table and will have ``SELECT``,
+    ``INSERT``, ``UPDATE``, and ``DELETE`` privileges for that table. These
+    privileges can be altered using the ``GRANT`` and ``REVOKE`` commands.
+
+.. note::
+
+    When using the Hive catalog, attempts to read registered Iceberg tables
+    using the Hive connector will fail.
+
+Unregister table
+^^^^^^^^^^^^
+
+Iceberg tables can be unregistered from the catalog using the ``unregister_table``
+procedure on the catalog's ``system`` schema::
+
+    CALL iceberg.system.unregister_table('schema_name', 'table_name')
+
+.. note::
+
+    Table data and metadata will remain in the filesystem after a call to
+    ``unregister_table`` only when using the Hive catalog. This is similar to
+    the behavior listed above for the ``DROP TABLE`` command.
+
 Schema Evolution
 -----------------
 
