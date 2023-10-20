@@ -196,7 +196,8 @@ static bool isSequence(
 
 RowVectorPtr Operator::fillOutput(
     vector_size_t size,
-    const BufferPtr& mapping) {
+    const BufferPtr& mapping,
+    const std::vector<VectorPtr>& results) {
   bool wrapResults = true;
   if (size == input_->size() &&
       (!mapping || isSequence(mapping->as<vector_size_t>(), 0, size))) {
@@ -215,7 +216,7 @@ RowVectorPtr Operator::fillOutput(
       wrapResults ? mapping : nullptr);
   projectChildren(
       projectedChildren,
-      results_,
+      results,
       resultProjections_,
       size,
       wrapResults ? mapping : nullptr);
@@ -226,6 +227,12 @@ RowVectorPtr Operator::fillOutput(
       nullptr,
       size,
       std::move(projectedChildren));
+}
+
+RowVectorPtr Operator::fillOutput(
+    vector_size_t size,
+    const BufferPtr& mapping) {
+  return fillOutput(size, mapping, results_);
 }
 
 OperatorStats Operator::stats(bool clear) {

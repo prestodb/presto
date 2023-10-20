@@ -86,9 +86,11 @@ class FilterProject : public Operator {
   // updated.
   vector_size_t filter(EvalCtx& evalCtx, const SelectivityVector& allRows);
 
-  // Evaluate projections on the specified rows and populate results_.
+  // Evaluate projections on the specified rows and return the results.
   // pre-condition: !isIdentityProjection_
-  void project(const SelectivityVector& rows, EvalCtx& evalCtx);
+  std::vector<VectorPtr> project(
+      const SelectivityVector& rows,
+      EvalCtx& evalCtx);
 
   // If true exprs_[0] is a filter and the other expressions are projections
   const bool hasFilter_{false};
