@@ -77,16 +77,9 @@ void VectorHasher::hashValues(
     rows.applyToSelected([&](vector_size_t row) {
       result[row] = mix ? bits::hashMix(result[row], hash) : hash;
     });
-  } else if (decoded_.isIdentityMapping()) {
-    rows.applyToSelected([&](vector_size_t row) {
-      if (decoded_.isNullAt(row)) {
-        result[row] = mix ? bits::hashMix(result[row], kNullHash) : kNullHash;
-        return;
-      }
-      auto hash = hashOne<Kind>(decoded_, row);
-      result[row] = mix ? bits::hashMix(result[row], hash) : hash;
-    });
-  } else {
+  } else if (
+      !decoded_.isIdentityMapping() &&
+      rows.countSelected() > decoded_.base()->size()) {
     cachedHashes_.resize(decoded_.base()->size());
     std::fill(cachedHashes_.begin(), cachedHashes_.end(), kNullHash);
     rows.applyToSelected([&](vector_size_t row) {
@@ -100,6 +93,15 @@ void VectorHasher::hashValues(
         hash = hashOne<Kind>(decoded_, row);
         cachedHashes_[baseIndex] = hash;
       }
+      result[row] = mix ? bits::hashMix(result[row], hash) : hash;
+    });
+  } else {
+    rows.applyToSelected([&](vector_size_t row) {
+      if (decoded_.isNullAt(row)) {
+        result[row] = mix ? bits::hashMix(result[row], kNullHash) : kNullHash;
+        return;
+      }
+      auto hash = hashOne<Kind>(decoded_, row);
       result[row] = mix ? bits::hashMix(result[row], hash) : hash;
     });
   }
