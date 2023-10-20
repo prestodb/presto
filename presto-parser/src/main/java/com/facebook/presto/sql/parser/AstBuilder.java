@@ -949,7 +949,7 @@ class AstBuilder
         return new ShowTables(
                 getLocation(context),
                 Optional.ofNullable(context.qualifiedName())
-                        .map(this::getQualifiedName),
+                        .map(this::getQualifiedNameWithCase),
                 getTextIfPresent(context.pattern)
                         .map(AstBuilder::unquote),
                 getTextIfPresent(context.escape)

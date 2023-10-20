@@ -1178,13 +1178,13 @@ public abstract class AbstractTestQueries
     @Test
     public void testQualifiedWildcardFromAlias()
     {
-        assertQuery("SELECT T.* FROM orders T");
+        assertQuery("SELECT t.* FROM orders t");
     }
 
     @Test
     public void testQualifiedWildcardFromInlineView()
     {
-        assertQuery("SELECT T.* FROM (SELECT orderkey + custkey FROM orders) T");
+        assertQuery("SELECT t.* FROM (SELECT orderkey + custkey FROM orders) t");
     }
 
     @Test
