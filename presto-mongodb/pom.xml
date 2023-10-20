@@ -13,21 +13,33 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <mongo-java.version>3.6.0</mongo-java.version>
-        <mongo-server.version>1.5.0</mongo-server.version>
+        <mongo-java.version>4.11.0</mongo-java.version>
+        <mongo-server.version>1.9.8</mongo-server.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.mongodb</groupId>
-            <artifactId>mongo-java-driver</artifactId>
+            <artifactId>bson</artifactId>
+            <version>${mongo-java.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver-core</artifactId>
             <version>${mongo-java.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>*</artifactId>
+                    <groupId>org.mongodb</groupId>
+                    <artifactId>bson-record-codec</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver-sync</artifactId>
+            <version>${mongo-java.version}</version>
         </dependency>
 
         <dependency>
@@ -176,6 +188,10 @@
                     <groupId>io.netty</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
             </exclusions>
             <scope>test</scope>
         </dependency>
@@ -184,6 +200,12 @@
             <groupId>de.bwaldvogel</groupId>
             <artifactId>mongo-java-server-memory-backend</artifactId>
             <version>${mongo-server.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
             <scope>test</scope>
         </dependency>
 
@@ -191,6 +213,12 @@
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

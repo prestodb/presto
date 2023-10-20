@@ -19,7 +19,9 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import de.bwaldvogel.mongo.MongoServer;
 import org.bson.Document;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -31,7 +33,10 @@ import java.time.LocalTime;
 import java.util.Arrays;
 
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static io.airlift.tpch.TpchTable.CUSTOMER;
+import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.airlift.tpch.TpchTable.REGION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -42,12 +47,14 @@ public class TestMongoIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private MongoQueryRunner mongoQueryRunner;
+    private MongoServer server;
+    private MongoClient client;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMongoQueryRunner(ORDERS);
+        return createMongoQueryRunner(CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @BeforeClass

@@ -18,12 +18,15 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.mongodb.MongoClient;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.ServerAddress;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import de.bwaldvogel.mongo.MongoServer;
 import io.airlift.tpch.TpchTable;
 
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
@@ -47,7 +50,11 @@ public class MongoQueryRunner
 
         server = new MongoServer(new SyncMemoryBackend());
         address = server.bind();
-        client = new MongoClient(new ServerAddress(address));
+        MongoClientSettings settings = MongoClientSettings.builder()
+                .applyToClusterSettings(builder ->
+                        builder.hosts(Arrays.asList(new ServerAddress(address))))
+                .build();
+        client = MongoClients.create(settings);
     }
 
     public static MongoQueryRunner createMongoQueryRunner(TpchTable<?>... tables)
