@@ -233,8 +233,7 @@ followed by the group ID column. The type of group ID column is BIGINT.
    * - Property
      - Description
    * - groupingSets
-     - List of grouping key sets. Keys within each set must be unique, but keys can repeat across the sets.
-     - Grouping keys are specified with their output names.
+     - List of grouping key sets. Keys within each set must be unique, but keys can repeat across the sets. Grouping keys are specified with their output names.
    * - groupingKeyInfos
      - The names and order of the grouping key columns in the output.
    * - aggregationInputs

@@ -34,21 +34,21 @@ These functions support TIMESTAMP and DATE input types.
 
     Returns Returns the day of year of the date/timestamp. ::
 
-    SELECT dayofyear('2016-04-09'); -- 100
+        SELECT dayofyear('2016-04-09'); -- 100
 
 .. spark:function:: dayofmonth(date) -> integer
 
     Returns the day of month of the date/timestamp. ::
 
-    SELECT dayofmonth('2009-07-30'); -- 30
+        SELECT dayofmonth('2009-07-30'); -- 30
 
 .. spark:function:: dayofweek(date/timestamp) -> integer
 
     Returns the day of the week for date/timestamp (1 = Sunday, 2 = Monday, ..., 7 = Saturday).
     We can use `dow` as alias for ::
 
-    SELECT dayofweek('2009-07-30'); -- 5
-    SELECT dayofweek('2023-08-22 11:23:00.100'); -- 3
+        SELECT dayofweek('2009-07-30'); -- 5
+        SELECT dayofweek('2023-08-22 11:23:00.100'); -- 3
 
 .. function:: dow(x) -> integer
 

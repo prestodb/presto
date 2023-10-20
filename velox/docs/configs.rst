@@ -30,8 +30,7 @@ Generic Configuration
    * - table_scan_getoutput_time_limit_ms
      - integer
      - 5000
-     - TableScan operator will exit getOutput() method after this many milliseconds even if it has no data to return yet.
-     - Zero means 'no time limit'.
+     - TableScan operator will exit getOutput() method after this many milliseconds even if it has no data to return yet. Zero means 'no time limit'.
    * - abandon_partial_aggregation_min_rows
      - integer
      - 100,000
@@ -211,9 +210,7 @@ Spilling
    * - aggregation_spill_all
      - boolean
      - false
-     - If true and spilling has been triggered during the input processing, the spiller will spill all the remaining
-     - in-memory state to disk before output processing. This is to simplify the aggregation query OOM prevention in
-     - output processing stage.
+     - If true and spilling has been triggered during the input processing, the spiller will spill all the remaining in-memory state to disk before output processing. This is to simplify the aggregation query OOM prevention in output processing stage.
    * - join_spill_memory_threshold
      - integer
      - 0
