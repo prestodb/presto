@@ -91,6 +91,11 @@ public class NativeExecutionSystemConfig
     // Spilling related configs.
     private static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
     private static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
+    // Tasks are considered old, when they are in not-running state and it ended more than
+    // OLD_TASK_CLEANUP_MS ago or last heartbeat was more than OLD_TASK_CLEANUP_MS ago.
+    // For Presto-On-Spark, this is not relevant as it runs tasks serially, and spark's speculative
+    // execution takes care of zombie tasks.
+    private static final String ENABLE_OLD_TASK_CLEANUP = "enable-old-task-cleanup";
     // Name of exchange client to use
     private static final String SHUFFLE_NAME = "shuffle.name";
     // Feature flag for access log on presto-native http server
@@ -123,6 +128,7 @@ public class NativeExecutionSystemConfig
     private String spillerSpillPath = "";
     private int concurrentLifespansPerTask = 5;
     private int maxDriversPerTask = 15;
+    private boolean enableOldTaskCleanUp; // false;
     private String prestoVersion = "dummy.presto.version";
     private String shuffleName = "local";
     private boolean registerTestFunctions;
@@ -159,6 +165,7 @@ public class NativeExecutionSystemConfig
                 .put(MEMORY_POOL_TRANSFER_CAPACITY, String.valueOf(getMemoryPoolTransferCapacity()))
                 .put(SPILLER_SPILL_PATH, String.valueOf(getSpillerSpillPath()))
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
+                .put(ENABLE_OLD_TASK_CLEANUP, String.valueOf(getOldTaskCleanupMs()))
                 .put(SHUFFLE_NAME, getShuffleName())
                 .put(HTTP_SERVER_ACCESS_LOGS, String.valueOf(isEnableHttpServerAccessLog()))
                 .build();
@@ -498,6 +505,18 @@ public class NativeExecutionSystemConfig
     public int getMaxDriversPerTask()
     {
         return maxDriversPerTask;
+    }
+
+    public boolean getOldTaskCleanupMs()
+    {
+        return enableOldTaskCleanUp;
+    }
+
+    @Config(ENABLE_OLD_TASK_CLEANUP)
+    public NativeExecutionSystemConfig setOldTaskCleanupMs(boolean enableOldTaskCleanUp)
+    {
+        this.enableOldTaskCleanUp = enableOldTaskCleanUp;
+        return this;
     }
 
     @Config(PRESTO_VERSION)
