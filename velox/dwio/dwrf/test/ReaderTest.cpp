@@ -31,6 +31,7 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 #include <fmt/core.h>
 #include <array>
@@ -2848,4 +2849,34 @@ TEST(TestReader, readStringDictionaryAsFlat) {
   stats = {};
   rowReader->updateRuntimeStats(stats);
   ASSERT_EQ(stats.columnReaderStatistics.flattenStringDictionaryValues, 1);
+}
+
+// A primitive subfield is missing in file, and result is not reused.
+TEST(TestReader, missingSubfieldsNoResultReusing) {
+  constexpr int kSize = 10;
+  auto* pool = getDefaultPool().get();
+  VectorMaker maker(pool);
+  auto batch = maker.rowVector({
+      maker.rowVector({
+          maker.flatVector<int64_t>(kSize, folly::identity),
+      }),
+  });
+  auto [writer, reader] = createWriterReader({batch}, *pool);
+  auto schema = ROW({{"c0", ROW({{"c0", BIGINT()}, {"c1", VARCHAR()}})}});
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  auto actual = BaseVector::create(schema, 0, pool);
+  // Hold a second reference to result so it cannot be reused.
+  auto actual2 = actual;
+  ASSERT_EQ(rowReader->next(1024, actual), 10);
+  auto expected = maker.rowVector({
+      maker.rowVector({
+          maker.flatVector<int64_t>(kSize, folly::identity),
+          BaseVector::createNullConstant(VARCHAR(), kSize, pool),
+      }),
+  });
+  assertEqualVectors(expected, actual);
 }

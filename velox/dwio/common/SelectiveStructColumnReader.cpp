@@ -284,12 +284,16 @@ void setConstantField(
   }
 }
 
-void setNullField(vector_size_t size, VectorPtr& field) {
+void setNullField(
+    vector_size_t size,
+    VectorPtr& field,
+    const TypePtr& type,
+    memory::MemoryPool* pool) {
   if (field && field->isConstantEncoding() && field.unique() &&
       field->size() > 0 && field->isNullAt(0)) {
     field->resize(size);
   } else {
-    field = BaseVector::createNullConstant(field->type(), size, field->pool());
+    field = BaseVector::createNullConstant(type, size, pool);
   }
 }
 
@@ -349,7 +353,8 @@ void SelectiveStructColumnReaderBase::getValues(
     // Set missing fields to be null constant, if we're in the top level struct
     // missing columns should already be a null constant from the check above.
     if (index == kConstantChildSpecSubscript) {
-      setNullField(rows.size(), childResult);
+      auto& childType = rowType.childAt(channel);
+      setNullField(rows.size(), childResult, childType, resultRow->pool());
       continue;
     }
     if (childSpec->extractValues() || childSpec->hasFilter() ||
