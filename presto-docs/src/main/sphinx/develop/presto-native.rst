@@ -159,3 +159,26 @@ Async Data Cache and Prefetching
 
     Size of the SSD cache when async data cache is enabled.  Must be zero if
     ``async-data-cache-enabled`` is ``false``.
+
+``enable-old-task-cleanup``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``bool``
+    * **Default value:** ``true``
+    * **Presto on Spark default value:** ``false``
+
+    Enable periodic clean up of old tasks. This is ``true`` for Prestissimo,
+    however for Presto on Spark this defaults to ``false`` as zombie/stuck tasks
+    are handled by spark via speculative execution.
+
+``old-task-cleanup-ms``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``integer``
+    * **Default value:** ``60000``
+
+    Duration after which a task should be considered as old and will be eligible
+    for cleanup. Only applicable when ``enable-old-task-cleanup`` is ``true``.
+    Old task is defined as a PrestoTask which has not received heartbeat for at least
+    ``old-task-cleanup-ms``, or is not running and has an end time more than
+    ``old-task-cleanup-ms`` ago.
