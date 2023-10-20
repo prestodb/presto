@@ -4,19 +4,32 @@ Binary Functions
 
 .. spark:function:: hash(x, ...) -> integer
 
-    Computes the hash of one or more input values using seed value of 42.
+    Computes the hash of one or more input values using seed value of 42. For
+    multiple arguments, their types can be different.
+    Supported types are: BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, VARCHAR,
+    VARBINARY, REAL, DOUBLE, HUGEINT and TIMESTAMP.
+
 
 .. spark:function:: hash_with_seed(seed, x, ...) -> integer
 
-    Computes the hash of one or more input values using specified seed.
+    Computes the hash of one or more input values using specified seed. For
+    multiple arguments, their types can be different.
+    Supported types are: BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, VARCHAR,
+    VARBINARY, REAL, DOUBLE, HUGEINT and TIMESTAMP.
 
 .. spark:function:: xxhash64(x, ...) -> bigint
 
     Computes the xxhash64 of one or more input values using seed value of 42.
+    For multiple arguments, their types can be different.
+    Supported types are: BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, VARCHAR,
+    VARBINARY, REAL, DOUBLE, HUGEINT and TIMESTAMP.
 
 .. spark:function:: xxhash64_with_seed(seed, x, ...) -> bigint
 
-    Computes the xxhash64 of one or more input values using specified seed.
+    Computes the xxhash64 of one or more input values using specified seed. For
+    multiple arguments, their types can be different.
+    Supported types are: BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, VARCHAR,
+    VARBINARY, REAL, DOUBLE, HUGEINT and TIMESTAMP.
 
 .. spark:function:: md5(x) -> varbinary
 
