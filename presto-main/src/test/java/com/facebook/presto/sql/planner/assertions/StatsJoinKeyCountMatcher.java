@@ -18,16 +18,20 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 
-public class StatsJoinBuildKeyCountMatcher
+public class StatsJoinKeyCountMatcher
         implements Matcher
 {
     private final double expectedJoinBuildKeyCount;
     private final double expectedNullJoinBuildKeyCount;
+    private final double expectedJoinProbeKeyCount;
+    private final double expectedNullJoinProbeKeyCount;
 
-    StatsJoinBuildKeyCountMatcher(double expectedJoinBuildKeyCount, double expectedNullJoinBuildKeyCount)
+    StatsJoinKeyCountMatcher(double expectedJoinBuildKeyCount, double expectedNullJoinBuildKeyCount, double expectedJoinProbeKeyCount, double expectedNullJoinProbeKeyCount)
     {
         this.expectedJoinBuildKeyCount = expectedJoinBuildKeyCount;
         this.expectedNullJoinBuildKeyCount = expectedNullJoinBuildKeyCount;
+        this.expectedJoinProbeKeyCount = expectedJoinProbeKeyCount;
+        this.expectedNullJoinProbeKeyCount = expectedNullJoinProbeKeyCount;
     }
 
     @Override
@@ -40,12 +44,15 @@ public class StatsJoinBuildKeyCountMatcher
     public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         return new MatchResult(Double.compare(stats.getStats(node).getJoinNodeStatsEstimate().getJoinBuildKeyCount(), expectedJoinBuildKeyCount) == 0
-                && Double.compare(stats.getStats(node).getJoinNodeStatsEstimate().getNullJoinBuildKeyCount(), expectedNullJoinBuildKeyCount) == 0);
+                && Double.compare(stats.getStats(node).getJoinNodeStatsEstimate().getNullJoinBuildKeyCount(), expectedNullJoinBuildKeyCount) == 0
+                && Double.compare(stats.getStats(node).getJoinNodeStatsEstimate().getJoinProbeKeyCount(), expectedJoinProbeKeyCount) == 0
+                && Double.compare(stats.getStats(node).getJoinNodeStatsEstimate().getNullJoinProbeKeyCount(), expectedNullJoinProbeKeyCount) == 0);
     }
 
     @Override
     public String toString()
     {
-        return "expectedJoinBuildKeyCount(" + expectedJoinBuildKeyCount + ")" + " expectedNullJoinBuildKeyCount(" + expectedNullJoinBuildKeyCount + ")";
+        return "expectedJoinBuildKeyCount(" + expectedJoinBuildKeyCount + ")" + " expectedNullJoinBuildKeyCount(" + expectedNullJoinBuildKeyCount + ")"
+                + " expectedNullJoinProbeKeyCount(" + expectedNullJoinProbeKeyCount + ")" + " expectedNullJoinProbeKeyCount(" + expectedNullJoinProbeKeyCount + ")";
     }
 }

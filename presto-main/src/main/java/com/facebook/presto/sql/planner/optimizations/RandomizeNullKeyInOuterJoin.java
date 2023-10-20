@@ -193,6 +193,7 @@ public class RandomizeNullKeyInOuterJoin
             extends SimplePlanRewriter<Set<VariableReferenceExpression>>
     {
         private static final double NULL_BUILD_KEY_COUNT_THRESHOLD = 100_000;
+        private static final double NULL_PROBE_KEY_COUNT_THRESHOLD = 100_000;
         private static final String LEFT_PREFIX = "l";
         private static final String RIGHT_PREFIX = "r";
         private final Session session;
@@ -286,11 +287,7 @@ public class RandomizeNullKeyInOuterJoin
             PlanNode rewrittenLeft = context.rewrite(joinNode.getLeft(), context.get());
             PlanNode rewrittenRight = context.rewrite(joinNode.getRight(), context.get());
 
-            JoinNodeStatsEstimate joinEstimate = statsProvider.getStats(joinNode).getJoinNodeStatsEstimate();
-            boolean isValidEstimate = !Double.isNaN(joinEstimate.getJoinBuildKeyCount()) && !Double.isNaN(joinEstimate.getNullJoinBuildKeyCount());
-            boolean enabledByCostModel = isValidEstimate && strategy.equals(COST_BASED) && joinEstimate.getNullJoinBuildKeyCount() > NULL_BUILD_KEY_COUNT_THRESHOLD
-                    && joinEstimate.getNullJoinBuildKeyCount() / joinEstimate.getJoinBuildKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session);
-
+            boolean enabledByCostModel = strategy.equals(COST_BASED) && hasNullSkew(statsProvider.getStats(joinNode).getJoinNodeStatsEstimate());
             List<JoinNode.EquiJoinClause> candidateEquiJoinClauses = joinNode.getCriteria().stream()
                     .filter(x -> isSupportedType(x.getLeft()) && isSupportedType(x.getRight()))
                     .filter(x -> enabledByCostModel || strategy.equals(ALWAYS) || enabledForJoinKeyFromOuterJoin(context.get(), x))
@@ -380,6 +377,16 @@ public class RandomizeNullKeyInOuterJoin
                 updateCandidates(newJoinNode, context);
             }
             return newJoinNode;
+        }
+
+        private boolean hasNullSkew(JoinNodeStatsEstimate joinEstimate)
+        {
+            boolean isValidEstimate = !Double.isNaN(joinEstimate.getJoinBuildKeyCount()) && !Double.isNaN(joinEstimate.getNullJoinBuildKeyCount())
+                    && !Double.isNaN(joinEstimate.getJoinProbeKeyCount()) && !Double.isNaN(joinEstimate.getNullJoinProbeKeyCount());
+            return isValidEstimate && ((joinEstimate.getNullJoinBuildKeyCount() > NULL_BUILD_KEY_COUNT_THRESHOLD
+                    && joinEstimate.getNullJoinBuildKeyCount() / joinEstimate.getJoinBuildKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session))
+                    || (joinEstimate.getNullJoinProbeKeyCount() > NULL_PROBE_KEY_COUNT_THRESHOLD
+                    && joinEstimate.getNullJoinProbeKeyCount() / joinEstimate.getJoinProbeKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session)));
         }
 
         private RowExpression randomizeJoinKey(RowExpression keyExpression, String prefix)

@@ -82,6 +82,8 @@ public class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeNullJoinBuildKeyCount = new HashMap<>();
         Map<PlanNodeId, Long> planNodeJoinBuildKeyCount = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeNullJoinProbeKeyCount = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeJoinProbeKeyCount = new HashMap<>();
 
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
@@ -153,6 +155,8 @@ public class PlanNodeStatsSummarizer
 
                 planNodeNullJoinBuildKeyCount.merge(planNodeId, operatorStats.getNullJoinBuildKeyCount(), Long::sum);
                 planNodeJoinBuildKeyCount.merge(planNodeId, operatorStats.getJoinBuildKeyCount(), Long::sum);
+                planNodeNullJoinProbeKeyCount.merge(planNodeId, operatorStats.getNullJoinProbeKeyCount(), Long::sum);
+                planNodeJoinProbeKeyCount.merge(planNodeId, operatorStats.getJoinProbeKeyCount(), Long::sum);
 
                 processedNodes.add(planNodeId);
             }
@@ -212,6 +216,8 @@ public class PlanNodeStatsSummarizer
                         operatorInputStats.get(planNodeId),
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
                         planNodeJoinBuildKeyCount.get(planNodeId),
+                        planNodeNullJoinProbeKeyCount.get(planNodeId),
+                        planNodeJoinProbeKeyCount.get(planNodeId),
                         operatorHashCollisionsStats.get(planNodeId));
             }
             else if (windowNodeStats.containsKey(planNodeId)) {
@@ -228,6 +234,8 @@ public class PlanNodeStatsSummarizer
                         operatorInputStats.get(planNodeId),
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
                         planNodeJoinBuildKeyCount.get(planNodeId),
+                        planNodeNullJoinProbeKeyCount.get(planNodeId),
+                        planNodeJoinProbeKeyCount.get(planNodeId),
                         windowNodeStats.get(planNodeId));
             }
             else {
@@ -243,7 +251,9 @@ public class PlanNodeStatsSummarizer
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
                         operatorInputStats.get(planNodeId),
                         planNodeNullJoinBuildKeyCount.get(planNodeId),
-                        planNodeJoinBuildKeyCount.get(planNodeId));
+                        planNodeJoinBuildKeyCount.get(planNodeId),
+                        planNodeNullJoinProbeKeyCount.get(planNodeId),
+                        planNodeJoinProbeKeyCount.get(planNodeId));
             }
 
             stats.add(nodeStats);

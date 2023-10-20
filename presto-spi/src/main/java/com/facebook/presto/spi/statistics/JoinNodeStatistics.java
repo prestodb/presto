@@ -26,20 +26,28 @@ import static java.util.Objects.requireNonNull;
 @ThriftStruct
 public class JoinNodeStatistics
 {
-    private static final JoinNodeStatistics EMPTY = new JoinNodeStatistics(Estimate.unknown(), Estimate.unknown());
+    private static final JoinNodeStatistics EMPTY = new JoinNodeStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Estimate.unknown());
     // Number of input rows from build side of a join which has at least one join column to be NULL
     private final Estimate nullJoinBuildKeyCount;
     // Number of input rows from build side of a join
     private final Estimate joinBuildKeyCount;
+    // Number of input rows from probe side of a join which has at least one join column to be NULL
+    private final Estimate nullJoinProbeKeyCount;
+    // Number of input rows from probe side of a join
+    private final Estimate joinProbeKeyCount;
 
     @JsonCreator
     @ThriftConstructor
     public JoinNodeStatistics(
             @JsonProperty("nullJoinBuildKeyCount") Estimate nullJoinBuildKeyCount,
-            @JsonProperty("joinBuildKeyCount") Estimate joinBuildKeyCount)
+            @JsonProperty("joinBuildKeyCount") Estimate joinBuildKeyCount,
+            @JsonProperty("nullJoinProbeKeyCount") Estimate nullJoinProbeKeyCount,
+            @JsonProperty("joinProbeKeyCount") Estimate joinProbeKeyCount)
     {
         this.nullJoinBuildKeyCount = requireNonNull(nullJoinBuildKeyCount, "nullJoinBuildKeyCount is null");
         this.joinBuildKeyCount = requireNonNull(joinBuildKeyCount, "joinBuildKeyCount is null");
+        this.nullJoinProbeKeyCount = requireNonNull(nullJoinProbeKeyCount, "nullJoinProbeKeyCount is null");
+        this.joinProbeKeyCount = requireNonNull(joinProbeKeyCount, "joinProbeKeyCount is null");
     }
 
     public static JoinNodeStatistics empty()
@@ -66,6 +74,20 @@ public class JoinNodeStatistics
         return joinBuildKeyCount;
     }
 
+    @JsonProperty
+    @ThriftField(3)
+    public Estimate getNullJoinProbeKeyCount()
+    {
+        return nullJoinProbeKeyCount;
+    }
+
+    @JsonProperty
+    @ThriftField(4)
+    public Estimate getJoinProbeKeyCount()
+    {
+        return joinProbeKeyCount;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -76,13 +98,14 @@ public class JoinNodeStatistics
             return false;
         }
         JoinNodeStatistics that = (JoinNodeStatistics) o;
-        return Objects.equals(nullJoinBuildKeyCount, that.nullJoinBuildKeyCount) && Objects.equals(joinBuildKeyCount, that.joinBuildKeyCount);
+        return Objects.equals(nullJoinBuildKeyCount, that.nullJoinBuildKeyCount) && Objects.equals(joinBuildKeyCount, that.joinBuildKeyCount)
+                && Objects.equals(nullJoinProbeKeyCount, that.nullJoinProbeKeyCount) && Objects.equals(joinProbeKeyCount, that.joinProbeKeyCount);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nullJoinBuildKeyCount, joinBuildKeyCount);
+        return Objects.hash(nullJoinBuildKeyCount, joinBuildKeyCount, nullJoinProbeKeyCount, joinProbeKeyCount);
     }
 
     @Override
@@ -91,6 +114,8 @@ public class JoinNodeStatistics
         return "JoinNodeStatistics{" +
                 "nullJoinBuildKeyCount=" + nullJoinBuildKeyCount +
                 ", joinBuildKeyCount=" + joinBuildKeyCount +
+                ", nullJoinProbeKeyCount=" + nullJoinProbeKeyCount +
+                ", joinProbeKeyCount=" + joinProbeKeyCount +
                 '}';
     }
 }
