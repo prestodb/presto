@@ -29,6 +29,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -219,5 +220,17 @@ public class IcebergNativeMetadata
         TableIdentifier from = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
         TableIdentifier to = toIcebergTableIdentifier(newTable);
         resourceFactory.getCatalog(session).renameTable(from, to);
+    }
+
+    @Override
+    public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation)
+    {
+        resourceFactory.getCatalog(clientSession).registerTable(toIcebergTableIdentifier(schemaTableName), metadataLocation.toString());
+    }
+
+    @Override
+    public void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName)
+    {
+        resourceFactory.getCatalog(clientSession).dropTable(toIcebergTableIdentifier(schemaTableName), false);
     }
 }

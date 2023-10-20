@@ -25,6 +25,7 @@ public enum StandardWarningCode
     MULTIPLE_ORDER_BY(0x0000_0007),
     DEFAULT_SAMPLE_FUNCTION(0x0000_0008),
     SAMPLED_FIELDS(0x0000_0009),
+    MULTIPLE_TABLE_METADATA(0x0000_0010)
     /**/;
     private final WarningCode warningCode;
 

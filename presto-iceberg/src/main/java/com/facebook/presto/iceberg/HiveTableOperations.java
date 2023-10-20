@@ -88,7 +88,7 @@ public class HiveTableOperations
     public static final String PREVIOUS_METADATA_LOCATION = "previous_metadata_location";
     private static final String METADATA_FOLDER_NAME = "metadata";
 
-    private static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
+    public static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
             LazySimpleSerDe.class.getName(),
             FileInputFormat.class.getName(),
             FileOutputFormat.class.getName());

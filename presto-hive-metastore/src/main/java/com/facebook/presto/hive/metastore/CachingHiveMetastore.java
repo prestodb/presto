@@ -571,6 +571,17 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void dropTableFromMetastore(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        try {
+            delegate.dropTableFromMetastore(metastoreContext, databaseName, tableName);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    @Override
     public MetastoreOperationResult replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         try {
