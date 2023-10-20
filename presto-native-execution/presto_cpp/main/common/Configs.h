@@ -273,6 +273,11 @@ class SystemConfig : public ConfigBase {
   /// cleanup.
   static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
 
+  /// Enable periodic old task clean up. Typically enabled for presto (default)
+  /// and disabled for presto-on-spark.
+  static constexpr std::string_view kEnableOldTaskCleanUp{
+      "enable-old-task-cleanup"};
+
   static constexpr std::string_view kAnnouncementMaxFrequencyMs{
       "announcement-max-frequency-ms"};
 
@@ -475,6 +480,8 @@ class SystemConfig : public ConfigBase {
   bool includeNodeInSpillPath() const;
 
   int32_t oldTaskCleanUpMs() const;
+
+  bool enableOldTaskCleanUp() const;
 
   bool internalCommunicationJwtEnabled() const;
 

@@ -86,6 +86,7 @@ public class TestNativeExecutionSystemConfig
                 .setSpillerSpillPath("")
                 .setConcurrentLifespansPerTask(5)
                 .setMaxDriversPerTask(15)
+                .setOldTaskCleanupMs(false)
                 .setPrestoVersion("dummy.presto.version")
                 .setShuffleName("local")
                 .setRegisterTestFunctions(false)
@@ -120,6 +121,7 @@ public class TestNativeExecutionSystemConfig
                 .setMemoryPoolTransferCapacity(1L << 30)
                 .setSpillerSpillPath("dummy.spill.path")
                 .setMaxDriversPerTask(30)
+                .setOldTaskCleanupMs(true)
                 .setShuffleName("custom")
                 .setRegisterTestFunctions(true)
                 .setEnableHttpServerAccessLog(false);
