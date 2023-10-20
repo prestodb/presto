@@ -479,10 +479,10 @@ public class TestSqlParser
     @Test
     public void testDoubleInQuery()
     {
-        assertStatement("SELECT 123.456E7 FROM DUAL",
+        assertStatement("SELECT 123.456E7 FROM dual",
                 simpleQuery(
                         selectList(new DoubleLiteral("123.456E7")),
-                        table(QualifiedName.of("DUAL"))));
+                        table(QualifiedName.of("dual"))));
     }
 
     @Test
