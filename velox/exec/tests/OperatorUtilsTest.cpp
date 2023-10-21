@@ -441,30 +441,4 @@ TEST_F(OperatorUtilsTest, reclaimableSectionGuard) {
     ASSERT_TRUE(mockOp.testingNonReclaimable());
   }
   ASSERT_FALSE(mockOp.testingNonReclaimable());
-
-  {
-    tsan_atomic<bool> nonReclaimableSection{false};
-    {
-      ReclaimableSectionGuard guard(&nonReclaimableSection);
-      ASSERT_FALSE(nonReclaimableSection);
-      {
-        ReclaimableSectionGuard guard(&nonReclaimableSection);
-        ASSERT_FALSE(nonReclaimableSection);
-      }
-    }
-    ASSERT_FALSE(nonReclaimableSection);
-  }
-
-  {
-    tsan_atomic<bool> nonReclaimableSection{true};
-    {
-      ReclaimableSectionGuard guard(&nonReclaimableSection);
-      ASSERT_FALSE(nonReclaimableSection);
-      {
-        ReclaimableSectionGuard guard(&nonReclaimableSection);
-        ASSERT_FALSE(nonReclaimableSection);
-      }
-    }
-    ASSERT_TRUE(nonReclaimableSection);
-  }
 }

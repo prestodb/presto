@@ -1121,7 +1121,8 @@ void HashBuild::reclaim(
                  << stateName(state_) << "], nonReclaimableSection_["
                  << nonReclaimableSection_ << "], spiller_["
                  << (spiller_->finalized() ? "finalized" : "non-finalized")
-                 << "] " << pool()->name();
+                 << "] " << pool()->name()
+                 << ", usage: " << succinctBytes(pool()->currentBytes());
     return;
   }
 
@@ -1140,7 +1141,8 @@ void HashBuild::reclaim(
                    << stateName(buildOp->state_) << "], nonReclaimableSection_["
                    << nonReclaimableSection_ << "], spiller_["
                    << (spiller_->finalized() ? "finalized" : "non-finalized")
-                   << "], " << buildOp->pool()->name();
+                   << "], " << buildOp->pool()->name() << ", usage: "
+                   << succinctBytes(buildOp->pool()->currentBytes());
       return;
     }
   }

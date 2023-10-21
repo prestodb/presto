@@ -27,7 +27,9 @@ void SortingWriter::write(const VectorPtr& data) {
   sortBuffer_->addInput(data);
 }
 
-void SortingWriter::flush() {}
+void SortingWriter::flush() {
+  // TODO: add to support flush by disk spilling.
+}
 
 void SortingWriter::close() {
   sortBuffer_->noMoreInput();

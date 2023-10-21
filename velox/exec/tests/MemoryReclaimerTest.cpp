@@ -112,3 +112,53 @@ TEST_F(MemoryReclaimerTest, abortTest) {
     }
   }
 }
+
+TEST(ReclaimableSectionGuard, basic) {
+  tsan_atomic<bool> nonReclaimableSection{false};
+  {
+    NonReclaimableSectionGuard guard(&nonReclaimableSection);
+    ASSERT_TRUE(nonReclaimableSection);
+    {
+      ReclaimableSectionGuard guard(&nonReclaimableSection);
+      ASSERT_FALSE(nonReclaimableSection);
+      {
+        ReclaimableSectionGuard guard(&nonReclaimableSection);
+        ASSERT_FALSE(nonReclaimableSection);
+        {
+          NonReclaimableSectionGuard guard(&nonReclaimableSection);
+          ASSERT_TRUE(nonReclaimableSection);
+        }
+        ASSERT_FALSE(nonReclaimableSection);
+      }
+      ASSERT_FALSE(nonReclaimableSection);
+    }
+    ASSERT_TRUE(nonReclaimableSection);
+  }
+  ASSERT_FALSE(nonReclaimableSection);
+  nonReclaimableSection = true;
+  {
+    ReclaimableSectionGuard guard(&nonReclaimableSection);
+    ASSERT_FALSE(nonReclaimableSection);
+    {
+      NonReclaimableSectionGuard guard(&nonReclaimableSection);
+      ASSERT_TRUE(nonReclaimableSection);
+      {
+        ReclaimableSectionGuard guard(&nonReclaimableSection);
+        ASSERT_FALSE(nonReclaimableSection);
+        {
+          ReclaimableSectionGuard guard(&nonReclaimableSection);
+          ASSERT_FALSE(nonReclaimableSection);
+        }
+        ASSERT_FALSE(nonReclaimableSection);
+        {
+          NonReclaimableSectionGuard guard(&nonReclaimableSection);
+          ASSERT_TRUE(nonReclaimableSection);
+        }
+        ASSERT_FALSE(nonReclaimableSection);
+      }
+      ASSERT_TRUE(nonReclaimableSection);
+    }
+    ASSERT_FALSE(nonReclaimableSection);
+  }
+  ASSERT_TRUE(nonReclaimableSection);
+}

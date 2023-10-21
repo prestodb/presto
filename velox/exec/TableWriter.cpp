@@ -44,7 +44,7 @@ TableWriter::TableWriter(
       insertTableHandle_(
           tableWriteNode->insertTableHandle()->connectorInsertTableHandle()),
       commitStrategy_(tableWriteNode->commitStrategy()) {
-  setConnectorOrWriterMemoryReclaimer(connectorPool_);
+  setConnectorMemoryReclaimer();
   if (tableWriteNode->outputType()->size() == 1) {
     VELOX_USER_CHECK_NULL(tableWriteNode->aggregationNode());
   } else {
@@ -62,9 +62,6 @@ TableWriter::TableWriter(
       connectorId,
       planNodeId(),
       connectorPool_,
-      [this](memory::MemoryPool* pool) {
-        setConnectorOrWriterMemoryReclaimer(pool);
-      },
       spillConfig_.has_value() ? &(spillConfig_.value()) : nullptr);
 
   auto names = tableWriteNode->columnNames();
@@ -249,6 +246,16 @@ void TableWriter::updateNumWrittenFiles() {
       "numWrittenFiles", RuntimeCounter(dataSink_->numWrittenFiles()));
 }
 
+void TableWriter::abort() {
+  // NOTE: it is not safe to abort table writer which is under memory
+  // arbitration processing. The latter is most likely triggered by memory
+  // allocation from the file writer, and the abort will simply reset the file
+  // writer which might cause unexpected behavior.
+  if (!nonReclaimableSection_) {
+    close();
+  }
+}
+
 void TableWriter::close() {
   if (!closed_) {
     // Abort the data sink if the query has already failed and no need for
@@ -260,43 +267,73 @@ void TableWriter::close() {
   }
 }
 
-void TableWriter::setConnectorOrWriterMemoryReclaimer(
-    memory::MemoryPool* pool) {
-  VELOX_CHECK_NOT_NULL(pool);
-  if (operatorCtx_->pool()->reclaimer() != nullptr) {
-    pool->setReclaimer(
-        TableWriter::MemoryReclaimer::create(operatorCtx_->driverCtx(), this));
+void TableWriter::setConnectorMemoryReclaimer() {
+  VELOX_CHECK_NOT_NULL(connectorPool_);
+  if (connectorPool_->parent()->reclaimer() != nullptr) {
+    connectorPool_->setReclaimer(TableWriter::ConnectorReclaimer::create(
+        operatorCtx_->driverCtx(), this, spillConfig_.has_value()));
   }
 }
 
-std::unique_ptr<memory::MemoryReclaimer> TableWriter::MemoryReclaimer::create(
+std::unique_ptr<memory::MemoryReclaimer>
+TableWriter::ConnectorReclaimer::create(
     DriverCtx* driverCtx,
-    Operator* op) {
+    Operator* op,
+    bool canReclaim) {
   return std::unique_ptr<memory::MemoryReclaimer>(
-      new TableWriter::MemoryReclaimer(
-          driverCtx->driver->shared_from_this(), op));
+      new TableWriter::ConnectorReclaimer(
+          driverCtx->driver->shared_from_this(), op, canReclaim));
 }
 
-bool TableWriter::MemoryReclaimer::reclaimableBytes(
+bool TableWriter::ConnectorReclaimer::reclaimableBytes(
     const memory::MemoryPool& pool,
     uint64_t& reclaimableBytes) const {
-  VELOX_CHECK(!pool.isLeaf());
   reclaimableBytes = 0;
-  return false;
+  if (!canReclaim_) {
+    return false;
+  }
+  std::shared_ptr<Driver> driver = ensureDriver();
+  if (FOLLY_UNLIKELY(driver == nullptr)) {
+    return false;
+  }
+  return memory::MemoryReclaimer::reclaimableBytes(pool, reclaimableBytes);
 }
 
-uint64_t TableWriter::MemoryReclaimer::reclaim(
+uint64_t TableWriter::ConnectorReclaimer::reclaim(
     memory::MemoryPool* pool,
-    uint64_t /*unused*/,
-    memory::MemoryReclaimer::Stats& /*unused*/) {
-  VELOX_CHECK(!pool->isLeaf());
-  return 0;
-}
+    uint64_t targetBytes,
+    memory::MemoryReclaimer::Stats& stats) {
+  if (!canReclaim_) {
+    return 0;
+  }
+  std::shared_ptr<Driver> driver = ensureDriver();
+  if (FOLLY_UNLIKELY(driver == nullptr)) {
+    return 0;
+  }
+  VELOX_CHECK(
+      !driver->state().isOnThread() || driver->state().isSuspended ||
+      driver->state().isTerminated);
+  VELOX_CHECK(driver->task()->pauseRequested());
 
-void TableWriter::MemoryReclaimer::abort(
-    memory::MemoryPool* pool,
-    const std::exception_ptr& /* error */) {
-  VELOX_CHECK(!pool->isLeaf());
+  auto* writer = dynamic_cast<TableWriter*>(op_);
+  if (writer->closed_) {
+    // TODO: reduce the log frequency if it is too verbose.
+    ++stats.numNonReclaimableAttempts;
+    LOG(WARNING) << "Can't reclaim from a closed writer connector pool: "
+                 << pool->name()
+                 << ", memory usage: " << succinctBytes(pool->currentBytes());
+    return 0;
+  }
+  if (writer->dataSink_ == nullptr) {
+    // TODO: reduce the log frequency if it is too verbose.
+    ++stats.numNonReclaimableAttempts;
+    LOG(WARNING)
+        << "Can't reclaim from a writer connector pool which hasn't initialized yet: "
+        << pool->name()
+        << ", memory usage: " << succinctBytes(pool->currentBytes());
+    return 0;
+  }
+  return memory::MemoryReclaimer::reclaim(pool, targetBytes, stats);
 }
 
 // static

@@ -41,7 +41,6 @@ class WriterContext : public CompressionBufferPool {
   WriterContext(
       const std::shared_ptr<const Config>& config,
       std::shared_ptr<memory::MemoryPool> pool,
-      const memory::SetMemoryReclaimer& setReclaimer = nullptr,
       const dwio::common::MetricsLogPtr& metricLogger =
           dwio::common::MetricsLog::voidLog(),
       std::unique_ptr<encryption::EncryptionHandler> handler = nullptr);
@@ -187,6 +186,13 @@ class WriterContext : public CompressionBufferPool {
     return pool_->maxCapacity();
   }
 
+  /// Returns the available memory reservations aggregated from all the memory
+  /// pools.
+  int64_t availableMemoryReservation() const;
+
+  /// Releases unused memory reservation aggregated from all the memory pools.
+  void releaseMemoryReservation();
+
   const encryption::EncryptionHandler& getEncryptionHandler() const {
     return *handler_;
   }
@@ -314,6 +320,18 @@ class WriterContext : public CompressionBufferPool {
   // from encoding to encoding, and thus should be schema aware.
   size_t getEstimatedFlushOverhead(size_t dataRawSize) const {
     return ceil(flushOverheadRatioTracker_.getEstimatedRatio() * dataRawSize);
+  }
+
+  /// We currently use previous stripe raw size as the proxy for the expected
+  /// stripe raw size. For the first stripe, we are more conservative about
+  /// flush overhead memory unless we know otherwise, e.g. perhaps from
+  /// encoding DB work.
+  /// This can be fitted linearly just like flush overhead or perhaps
+  /// figured out from the schema.
+  /// This can be simplified with Slice::estimateMemory().
+  size_t estimateNextWriteSize(size_t numRows) const {
+    // This is 0 for first slice. We are assuming reasonable input for now.
+    return folly::to<size_t>(ceil(getAverageRowSize() * numRows));
   }
 
   bool checkLowMemoryMode() const {
@@ -552,6 +570,8 @@ class WriterContext : public CompressionBufferPool {
 
  private:
   void validateConfigs() const;
+
+  void setMemoryReclaimers();
 
   std::unique_ptr<velox::DecodedVector> getDecodedVector() {
     if (decodedVectorPool_.empty()) {

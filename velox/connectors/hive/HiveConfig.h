@@ -81,31 +81,37 @@ class HiveConfig {
   static constexpr const char* kS3IamRoleSessionName =
       "hive.s3.iam-role-session-name";
 
-  // The GCS storage endpoint server.
+  /// The GCS storage endpoint server.
   static constexpr const char* kGCSEndpoint = "hive.gcs.endpoint";
 
-  // The GCS storage scheme, https for default credentials.
+  /// The GCS storage scheme, https for default credentials.
   static constexpr const char* kGCSScheme = "hive.gcs.scheme";
 
-  // The GCS service account configuration as json string
+  /// The GCS service account configuration as json string
   static constexpr const char* kGCSCredentials = "hive.gcs.credentials";
 
-  // Map table field names to file field names using names, not indices.
+  /// Maps table field names to file field names using names, not indices.
   static constexpr const char* kOrcUseColumnNames = "hive.orc.use-column-names";
 
-  // Read the source file column name as lower case.
+  /// Reads the source file column name as lower case.
   static constexpr const char* kFileColumnNamesReadAsLowerCase =
       "file_column_names_read_as_lower_case";
 
-  // Set the max coalesce bytes for a request.
+  /// Sets the max coalesce bytes for a request.
   static constexpr const char* kMaxCoalescedBytes = "max-coalesced-bytes";
 
-  // Set the max coalesce distance bytes for combining requests.
+  /// Sets the max coalesce distance bytes for combining requests.
   static constexpr const char* kMaxCoalescedDistanceBytes =
       "max-coalesced-distance-bytes";
 
   /// Maximum number of entries in the file handle cache.
   static constexpr const char* kNumCacheFileHandles = "num_cached_file_handles";
+
+  /// The memory arbitrator might flush a file write to reclaim used memory if
+  /// its buffered data size is no less than this minimum threshold. The
+  /// buffered data size is measured by a file writer's memory footprint.
+  static constexpr const char* kFileWriterFlushThresholdBytes =
+      "file_writer_flush_threshold_bytes";
 
   // TODO: Refactor and merge config and session property.
   static constexpr const char* kOrcWriterMaxStripeSize =
@@ -159,11 +165,13 @@ class HiveConfig {
 
   static int32_t numCacheFileHandles(const Config* config);
 
-  static uint64_t const getKOrcWriterMaxStripeSize(
+  static uint64_t fileWriterFlushThresholdBytes(const Config* config);
+
+  static uint64_t getOrcWriterMaxStripeSize(
       const Config* connectorQueryCtxConfig,
       const Config* connectorPropertiesConfig);
 
-  static uint64_t const getKOrcWriterMaxDictionaryMemory(
+  static uint64_t getOrcWriterMaxDictionaryMemory(
       const Config* connectorQueryCtxConfig,
       const Config* connectorPropertiesConfig);
 };

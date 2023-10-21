@@ -235,7 +235,6 @@ class OperatorCtx {
       const std::string& connectorId,
       const std::string& planNodeId,
       memory::MemoryPool* connectorPool,
-      memory::SetMemoryReclaimer setMemoryReclaimer = nullptr,
       const common::SpillConfig* spillConfig = nullptr) const;
 
  private:
@@ -628,7 +627,6 @@ class Operator : public BaseRuntimeStatWriter {
       VELOX_CHECK_NOT_NULL(op_);
     }
 
-   private:
     // Gets the shared pointer to the associated driver to ensure the liveness
     // of the operator during the memory reclaim operation.
     //
@@ -759,27 +757,4 @@ class SourceOperator : public Operator {
     VELOX_FAIL("SourceOperator does not support noMoreInput()");
   }
 };
-
-/// The object is used to clear non-reclaimable section of an operator in the
-/// middle of its execution. It allows the memory arbitrator to reclaim memory
-/// from a running operator which is waiting for memory arbitration.
-/// 'nonReclaimableSection' points to the corresponding flag of the associated
-/// operator.
-class ReclaimableSectionGuard {
- public:
-  explicit ReclaimableSectionGuard(tsan_atomic<bool>* nonReclaimableSection)
-      : nonReclaimableSection_(nonReclaimableSection),
-        oldMonReclaimableSectionValue_(*nonReclaimableSection_) {
-    *nonReclaimableSection_ = false;
-  }
-
-  ~ReclaimableSectionGuard() {
-    *nonReclaimableSection_ = oldMonReclaimableSectionValue_;
-  }
-
- private:
-  tsan_atomic<bool>* const nonReclaimableSection_;
-  const bool oldMonReclaimableSectionValue_;
-};
-
 } // namespace facebook::velox::exec

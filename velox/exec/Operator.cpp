@@ -50,12 +50,10 @@ OperatorCtx::createConnectorQueryCtx(
     const std::string& connectorId,
     const std::string& planNodeId,
     memory::MemoryPool* connectorPool,
-    memory::SetMemoryReclaimer setMemoryReclaimer,
     const common::SpillConfig* spillConfig) const {
   return std::make_shared<connector::ConnectorQueryCtx>(
       pool_,
       connectorPool,
-      std::move(setMemoryReclaimer),
       driverCtx_->task->queryCtx()->getConnectorConfig(connectorId),
       spillConfig,
       std::make_unique<SimpleExpressionEvaluator>(

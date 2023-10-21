@@ -16,6 +16,8 @@
 
 #include <folly/Random.h>
 #include <random>
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/common/TypeWithId.h"
@@ -32,6 +34,7 @@
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace ::testing;
+using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwio::common::encryption;
 using namespace facebook::velox::dwio::common::encryption::test;
@@ -49,8 +52,12 @@ namespace {
 auto defaultPool = memory::addDefaultLeafMemoryPool();
 }
 
-class E2EWriterTests : public Test {
+class E2EWriterTests : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    TestValue::enable();
+  }
+
   E2EWriterTests() {
     rootPool_ = memory::defaultMemoryManager().addRootPool("E2EWriterTests");
     leafPool_ = rootPool_->addLeafChild("leaf");
@@ -1501,5 +1508,107 @@ TEST_F(E2EWriterTests, fuzzFlatmap) {
   auto batches = 20;
   for (auto i = 0; i < iterations; ++i) {
     testWriter(*pool, type, batches, gen, config);
+  }
+}
+
+DEBUG_ONLY_TEST_F(E2EWriterTests, memoryReclaim) {
+  const auto type = ROW(
+      {{"int_val", INTEGER()},
+       {"string_val", VARCHAR()},
+       {"binary_val", VARBINARY()}});
+
+  VectorFuzzer fuzzer(
+      {
+          .vectorSize = 1000,
+          .stringLength = 1'000,
+          .stringVariableLength = false,
+      },
+      leafPool_.get());
+  std::vector<VectorPtr> vectors;
+  for (int i = 0; i < 10; ++i) {
+    vectors.push_back(fuzzer.fuzzInputRow(type));
+  }
+
+  for (bool enableReclaim : {false, true}) {
+    SCOPED_TRACE(fmt::format("enableReclaim {}", enableReclaim));
+
+    auto config = std::make_shared<dwrf::Config>();
+    config->set<uint64_t>(dwrf::Config::STRIPE_SIZE, 1L << 30);
+    config->set<uint64_t>(dwrf::Config::MAX_DICTIONARY_SIZE, 1L << 30);
+
+    dwrf::WriterOptions options;
+    options.schema = type;
+    options.config = std::move(config);
+    if (enableReclaim) {
+      options.memoryReclaimConfig = WriterMemoryReclaimConfig{
+          .minReservationPct = 10, .reservationGrowthPct = 20};
+    }
+    auto writerPool = memory::defaultMemoryManager().addRootPool(
+        "memoryReclaim", 1L << 30, exec::MemoryReclaimer::create());
+    auto dwrfPool = writerPool->addAggregateChild("writer");
+    auto sinkPool =
+        writerPool->addLeafChild("sink", true, exec::MemoryReclaimer::create());
+    auto sink = std::make_unique<MemorySink>(
+        200 * 1024 * 1024, FileSink::Options{.pool = sinkPool.get()});
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::dwrf::Writer::write",
+        std::function<void(dwrf::Writer*)>([&](dwrf::Writer* writer) {
+          VELOX_CHECK(writer->testingNonReclaimableSection());
+          ASSERT_EQ(writer->canReclaim(), enableReclaim);
+          if (!writer->canReclaim()) {
+            return;
+          }
+          auto& context = writer->getContext();
+          const auto memoryUsage = context.getTotalMemoryUsage();
+          const auto availableMemoryUsage =
+              context.availableMemoryReservation();
+          ASSERT_GE(availableMemoryUsage, memoryUsage * 10 / 20);
+        }));
+
+    auto writer =
+        std::make_unique<dwrf::Writer>(std::move(sink), options, dwrfPool);
+
+    std::atomic<bool> reservationCalled{false};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
+        std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool* pool) {
+          ASSERT_TRUE(enableReclaim);
+          reservationCalled = true;
+          // Verify the writer is reclaimable under memory reservation.
+          ASSERT_FALSE(writer->testingNonReclaimableSection());
+        }));
+
+    writer->flush();
+    memory::MemoryReclaimer::Stats stats;
+    const auto oldCapacity = writerPool->capacity();
+    writerPool->reclaim(1L << 30, stats);
+    ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+    if (enableReclaim) {
+      ASSERT_LT(writerPool->capacity(), oldCapacity);
+      static_cast<memory::MemoryPoolImpl*>(writerPool.get())
+          ->testingSetCapacity(oldCapacity);
+    } else {
+      ASSERT_EQ(writerPool->capacity(), oldCapacity);
+    }
+
+    for (size_t i = 0; i < vectors.size(); ++i) {
+      writer->write(vectors[i]);
+    }
+    if (!enableReclaim) {
+      ASSERT_FALSE(reservationCalled);
+      ASSERT_EQ(writerPool->reclaim(1L << 30, stats), 0);
+      ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+    } else {
+      ASSERT_TRUE(reservationCalled);
+      writer->testingNonReclaimableSection() = true;
+      ASSERT_EQ(writerPool->reclaim(1L << 30, stats), 0);
+      ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+      writer->testingNonReclaimableSection() = false;
+      stats.numNonReclaimableAttempts = 0;
+      ASSERT_GT(writerPool->reclaim(1L << 30, stats), 0);
+      ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+    }
+    writer->close();
   }
 }

@@ -72,14 +72,9 @@ class WriterBase {
   void initContext(
       const std::shared_ptr<const Config>& config,
       std::shared_ptr<velox::memory::MemoryPool> pool,
-      const velox::memory::SetMemoryReclaimer& setReclaimer = nullptr,
       std::unique_ptr<encryption::EncryptionHandler> handler = nullptr) {
     context_ = std::make_unique<WriterContext>(
-        config,
-        std::move(pool),
-        setReclaimer,
-        sink_->metricsLog(),
-        std::move(handler));
+        config, std::move(pool), sink_->metricsLog(), std::move(handler));
     writerSink_ = std::make_unique<WriterSink>(
         *sink_,
         context_->getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM),

@@ -203,6 +203,10 @@ Spilling
      - boolean
      - true
      - When `spill_enabled` is true, determines whether RowNumber operator can spill to disk under memory pressure.
+   * - writer_spill_enabled
+     - boolean
+     - true
+     - When `writer_spill_enabled` is true, determines whether TableWriter operator can spill to disk under memory pressure.
    * - aggregation_spill_memory_threshold
      - integer
      - 0
@@ -364,7 +368,10 @@ Hive Connector
      - integer
      - 128MB
      - Maximum distance in bytes between chunks to be fetched that may be coalesced into a single request.
-
+   * - file_writer_flush_threshold_bytes
+     - integer
+     - 96MB
+     - Minimum memory footprint size required to reclaim memory from a file writer by flushing its buffered data to disk.
 
 ``Amazon S3 Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

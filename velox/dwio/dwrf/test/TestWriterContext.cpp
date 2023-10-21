@@ -18,6 +18,7 @@
 
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/writer/WriterContext.h"
+#include "velox/exec/MemoryReclaimer.h"
 
 using namespace ::testing;
 
@@ -138,6 +139,87 @@ TEST(TestWriterContext, BuildPhysicalSizeAggregators) {
   for (const auto nodeId : mapNodes) {
     EXPECT_NO_THROW(dynamic_cast<MapPhysicalSizeAggregator&>(
         context.getPhysicalSizeAggregator(nodeId)));
+  }
+}
+
+TEST(TestWriterContext, memory) {
+  auto config = std::make_shared<Config>();
+  for (bool hasReclaimer : {false, true}) {
+    SCOPED_TRACE(fmt::format("hasReclaimer {}", hasReclaimer));
+
+    auto writerRoot = memory::defaultMemoryManager().addRootPool(
+        "memoryRelease",
+        1L << 30,
+        hasReclaimer ? exec::MemoryReclaimer::create() : nullptr);
+    WriterContext context{config, writerRoot};
+    // The writer context has some initial memory allocation on construction.
+    ASSERT_EQ(context.getTotalMemoryUsage(), 262208);
+    ASSERT_EQ(context.availableMemoryReservation(), 786368);
+
+    auto& generalPool = context.getMemoryPool(MemoryUsageCategory::GENERAL);
+    auto& dictPool = context.getMemoryPool(MemoryUsageCategory::DICTIONARY);
+    auto& outputPool =
+        context.getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM);
+    if (hasReclaimer) {
+      ASSERT_TRUE(generalPool.reclaimer() != nullptr);
+      ASSERT_TRUE(dictPool.reclaimer() != nullptr);
+      ASSERT_TRUE(outputPool.reclaimer() != nullptr);
+    } else {
+      ASSERT_TRUE(generalPool.reclaimer() == nullptr);
+      ASSERT_TRUE(dictPool.reclaimer() == nullptr);
+      ASSERT_TRUE(outputPool.reclaimer() == nullptr);
+    }
+    const int bufferSize{1024};
+    void* generalBuf = generalPool.allocate(bufferSize);
+    void* dictBuf = dictPool.allocate(bufferSize);
+    void* outputBuf = outputPool.allocate(bufferSize);
+    ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
+    ASSERT_EQ(context.availableMemoryReservation(), 2880448);
+
+    ASSERT_EQ(generalPool.currentBytes(), 262208 + bufferSize);
+    ASSERT_EQ(generalPool.reservedBytes(), 1048576);
+    ASSERT_EQ(dictPool.currentBytes(), bufferSize);
+    ASSERT_EQ(dictPool.reservedBytes(), 1048576);
+    ASSERT_EQ(outputPool.currentBytes(), bufferSize);
+    ASSERT_EQ(outputPool.reservedBytes(), 1048576);
+    ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
+    ASSERT_EQ(context.availableMemoryReservation(), 2880448);
+
+    ASSERT_TRUE(generalPool.maybeReserve(4L << 20));
+    ASSERT_TRUE(dictPool.maybeReserve(4L << 20));
+    ASSERT_TRUE(outputPool.maybeReserve(4L << 20));
+    ASSERT_EQ(generalPool.currentBytes(), 262208 + bufferSize);
+    ASSERT_EQ(generalPool.reservedBytes(), 9437184);
+    ASSERT_EQ(dictPool.currentBytes(), bufferSize);
+    ASSERT_EQ(dictPool.reservedBytes(), 9437184);
+    ASSERT_EQ(outputPool.currentBytes(), bufferSize);
+    ASSERT_EQ(outputPool.reservedBytes(), 9437184);
+    ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
+    ASSERT_EQ(context.availableMemoryReservation(), 28046272);
+
+    context.releaseMemoryReservation();
+    ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
+    ASSERT_EQ(generalPool.currentBytes(), 262208 + bufferSize);
+    ASSERT_EQ(generalPool.reservedBytes(), 1048576);
+    ASSERT_EQ(dictPool.currentBytes(), bufferSize);
+    ASSERT_EQ(dictPool.reservedBytes(), 1048576);
+    ASSERT_EQ(outputPool.currentBytes(), bufferSize);
+    ASSERT_EQ(outputPool.reservedBytes(), 1048576);
+    ASSERT_EQ(context.getTotalMemoryUsage(), 262208 + bufferSize * 3);
+    ASSERT_EQ(context.availableMemoryReservation(), 2880448);
+
+    generalPool.free(generalBuf, bufferSize);
+    dictPool.free(dictBuf, bufferSize);
+    outputPool.free(outputBuf, bufferSize);
+    ASSERT_EQ(context.getTotalMemoryUsage(), 262208);
+    ASSERT_EQ(generalPool.currentBytes(), 262208);
+    ASSERT_EQ(generalPool.reservedBytes(), 1048576);
+    ASSERT_EQ(dictPool.currentBytes(), 0);
+    ASSERT_EQ(dictPool.reservedBytes(), 0);
+    ASSERT_EQ(outputPool.currentBytes(), 0);
+    ASSERT_EQ(outputPool.reservedBytes(), 0);
+    ASSERT_EQ(context.getTotalMemoryUsage(), 262208);
+    ASSERT_EQ(context.availableMemoryReservation(), 786368);
   }
 }
 } // namespace facebook::velox::dwrf

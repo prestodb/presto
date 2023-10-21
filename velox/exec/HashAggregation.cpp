@@ -486,16 +486,18 @@ void HashAggregation::reclaim(
     // TODO: reduce the log frequency if it is too verbose.
     ++stats.numNonReclaimableAttempts;
     LOG(WARNING)
-        << "Can't reclaim from aggregation operator which is under non-reclaimable section: "
-        << pool()->toString();
+        << "Can't reclaim from aggregation operator which is under non-reclaimable section, pool["
+        << pool()->toString()
+        << ", usage: " << succinctBytes(pool()->currentBytes()) << "]";
     return;
   }
 
   if (noMoreInput_) {
     if (groupingSet_->hasSpilled()) {
       LOG(WARNING)
-          << "Can't reclaim from aggregation operator which has spilled and is under output processing: "
-          << pool()->toString();
+          << "Can't reclaim from aggregation operator which has spilled and is under output processing, pool["
+          << pool()->toString()
+          << ", usage: " << succinctBytes(pool()->currentBytes()) << "]";
       return;
     }
     // Spill all the rows starting from the next output row pointed by

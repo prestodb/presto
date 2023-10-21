@@ -697,6 +697,10 @@ class TableWriteNode : public PlanNode {
     return aggregationNode_;
   }
 
+  bool canSpill(const QueryConfig& queryConfig) const override {
+    return queryConfig.writerSpillEnabled();
+  }
+
   std::string_view name() const override {
     return "TableWrite";
   }

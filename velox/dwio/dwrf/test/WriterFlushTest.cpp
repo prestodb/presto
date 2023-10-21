@@ -180,12 +180,10 @@ class MockMemoryPool : public velox::memory::MemoryPool {
   }
 
   void setReclaimer(
-      std::unique_ptr<memory::MemoryReclaimer> reclaimer) override {
-    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
-  }
+      std::unique_ptr<memory::MemoryReclaimer> reclaimer) override {}
 
   memory::MemoryReclaimer* reclaimer() const override {
-    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+    return nullptr;
   }
 
   void enterArbitration() override {

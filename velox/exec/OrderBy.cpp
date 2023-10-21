@@ -89,7 +89,8 @@ void OrderBy::reclaim(
     ++stats.numNonReclaimableAttempts;
     LOG(WARNING) << "Can't reclaim from order by operator, noMoreInput_["
                  << noMoreInput_ << "], nonReclaimableSection_["
-                 << nonReclaimableSection_ << "], " << pool()->name();
+                 << nonReclaimableSection_ << "], pool[" << pool()->name()
+                 << ", usage: " << succinctBytes(pool()->currentBytes()) << "]";
     return;
   }
 

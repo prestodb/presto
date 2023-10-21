@@ -243,7 +243,7 @@ class GroupingSet {
   const bool isGlobal_;
   const bool isPartial_;
   const bool isRawInput_;
-  const core::QueryConfig* const queryConfig_;
+  const core::QueryConfig& queryConfig_;
 
   std::vector<AggregateInfo> aggregates_;
   AggregationMasks masks_;

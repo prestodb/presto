@@ -166,7 +166,11 @@ int32_t HiveConfig::numCacheFileHandles(const Config* config) {
   return config->get<int32_t>(kNumCacheFileHandles, 20'000);
 }
 
-uint64_t const HiveConfig::getKOrcWriterMaxStripeSize(
+uint64_t HiveConfig::fileWriterFlushThresholdBytes(const Config* config) {
+  return config->get<int32_t>(kFileWriterFlushThresholdBytes, 96L << 20);
+}
+
+uint64_t HiveConfig::getOrcWriterMaxStripeSize(
     const Config* connectorQueryCtxConfig,
     const Config* connectorPropertiesConfig) {
   if (connectorQueryCtxConfig != nullptr &&
@@ -187,7 +191,7 @@ uint64_t const HiveConfig::getKOrcWriterMaxStripeSize(
   return 64L * 1024L * 1024L;
 }
 
-uint64_t const HiveConfig::getKOrcWriterMaxDictionaryMemory(
+uint64_t HiveConfig::getOrcWriterMaxDictionaryMemory(
     const Config* connectorQueryCtxConfig,
     const Config* connectorPropertiesConfig) {
   if (connectorQueryCtxConfig != nullptr &&

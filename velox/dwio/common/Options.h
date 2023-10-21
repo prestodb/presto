@@ -31,10 +31,7 @@
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/encryption/Encryption.h"
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace common {
+namespace facebook::velox::dwio::common {
 
 enum class FileFormat {
   UNKNOWN = 0,
@@ -539,16 +536,20 @@ class ReaderOptions : public io::ReaderOptions {
   }
 };
 
+struct WriterMemoryReclaimConfig {
+  /// The pct of the minimum free available memory reserved in a file write.
+  int32_t minReservationPct;
+  /// The pct of the memory reservation growth in a file write.
+  int32_t reservationGrowthPct;
+};
+
 struct WriterOptions {
   TypePtr schema;
   velox::memory::MemoryPool* memoryPool;
-  velox::memory::SetMemoryReclaimer setMemoryReclaimer{nullptr};
+  std::optional<WriterMemoryReclaimConfig> memoryReclaimConfig;
   std::optional<velox::common::CompressionKind> compressionKind;
   std::optional<uint64_t> maxStripeSize{std::nullopt};
   std::optional<uint64_t> maxDictionaryMemory{std::nullopt};
 };
 
-} // namespace common
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::dwio::common

@@ -15,6 +15,7 @@
  */
 
 #include "SortBuffer.h"
+#include "velox/exec/MemoryReclaimer.h"
 #include "velox/vector/BaseVector.h"
 
 namespace facebook::velox::exec {
@@ -270,7 +271,7 @@ void SortBuffer::ensureInputFits(const VectorPtr& input) {
       estimatedIncrementalBytes * 2,
       currentMemoryUsage * spillConfig_->spillableReservationGrowthPct / 100);
   {
-    ReclaimableSectionGuard guard(nonReclaimableSection_);
+    exec::ReclaimableSectionGuard guard(nonReclaimableSection_);
     if (pool_->maybeReserve(targetIncrementBytes)) {
       return;
     }

@@ -26,6 +26,7 @@
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/LayoutPlanner.h"
 #include "velox/dwio/dwrf/writer/WriterBase.h"
+#include "velox/exec/MemoryReclaimer.h"
 
 namespace facebook::velox::dwrf {
 
@@ -33,7 +34,7 @@ struct WriterOptions {
   std::shared_ptr<const Config> config = std::make_shared<Config>();
   std::shared_ptr<const Type> schema;
   velox::memory::MemoryPool* memoryPool;
-  velox::memory::SetMemoryReclaimer setMemoryReclaimer{nullptr};
+  std::optional<dwio::common::WriterMemoryReclaimConfig> memoryReclaimConfig;
   /// The default factory allows the writer to construct the default flush
   /// policy with the configs in its ctor.
   std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory;
@@ -59,7 +60,8 @@ class Writer : public dwio::common::Writer {
             std::move(sink),
             options,
             parentPool.addAggregateChild(fmt::format(
-                "writer_node_{}",
+                "{}.dwrf_{}",
+                parentPool.name(),
                 folly::to<std::string>(folly::Random::rand64())))} {}
 
   Writer(
@@ -131,10 +133,56 @@ class Writer : public dwio::common::Writer {
     return writerBase_->getSink();
   }
 
+  /// True if we can reclaim memory from this writer by memory arbitration.
+  bool canReclaim() const;
+
+  tsan_atomic<bool>& testingNonReclaimableSection() {
+    return nonReclaimableSection_;
+  }
+
  protected:
   std::shared_ptr<WriterBase> writerBase_;
 
  private:
+  class MemoryReclaimer : public exec::MemoryReclaimer {
+   public:
+    static std::unique_ptr<memory::MemoryReclaimer> create(Writer* writer);
+
+    bool reclaimableBytes(
+        const memory::MemoryPool& pool,
+        uint64_t& reclaimableBytes) const override;
+
+    uint64_t reclaim(
+        memory::MemoryPool* pool,
+        uint64_t targetBytes,
+        memory::MemoryReclaimer::Stats& stats) override;
+
+   private:
+    explicit MemoryReclaimer(Writer* writer) : writer_(writer) {
+      VELOX_CHECK_NOT_NULL(writer_);
+    }
+
+    Writer* const writer_;
+  };
+
+  // Sets the memory reclaimer for root memory pool used by this writer.
+  void setMemoryReclaimer(const std::shared_ptr<memory::MemoryPool>& pool);
+
+  // Invoked to ensure sufficient memory to process the given size of input by
+  // reserving memory from each of the leaf memory pool. This only applies if we
+  // support memory reclaim on this writer. The memory reservation might trigger
+  // stripe flush by memory arbitration if the query root memory pool doesn't
+  // enough memory capacity.
+  void ensureWriteFits(size_t appendBytes, size_t appendRows);
+
+  // Grows a memory pool size by the specified ratio.
+  bool maybeReserveMemory(
+      MemoryUsageCategory memoryUsageCategory,
+      double estimatedMemoryGrowthRatio);
+
+  // Releases the unused memory reservations after we flush a stripe.
+  void releaseMemory();
+
   // Create a new stripe. No-op if there is no data written.
   void flushInternal(bool close = false);
 
@@ -146,6 +194,9 @@ class Writer : public dwio::common::Writer {
   }
 
   const std::shared_ptr<const dwio::common::TypeWithId> schema_;
+  const std::optional<dwio::common::WriterMemoryReclaimConfig>
+      memoryReclaimConfig_{std::nullopt};
+  tsan_atomic<bool> nonReclaimableSection_{false};
   std::unique_ptr<DWRFFlushPolicy> flushPolicy_;
   std::unique_ptr<LayoutPlanner> layoutPlanner_;
   std::unique_ptr<ColumnWriter> writer_;

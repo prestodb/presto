@@ -28,15 +28,15 @@ class SortingWriter : public Writer {
       std::unique_ptr<Writer> writer,
       std::unique_ptr<exec::SortBuffer> sortBuffer);
 
-  virtual void write(const VectorPtr& data) override;
+  void write(const VectorPtr& data) override;
 
   /// No action because we need to accumulate all data and sort before data can
   /// be flushed
-  virtual void flush() override;
+  void flush() override;
 
-  virtual void close() override;
+  void close() override;
 
-  virtual void abort() override;
+  void abort() override;
 
   const std::unique_ptr<Writer> outputWriter_;
   std::unique_ptr<exec::SortBuffer> sortBuffer_;

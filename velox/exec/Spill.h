@@ -638,7 +638,7 @@ class SpillState {
   /// Appends data to 'partition'. The rows given by 'indices' must be sorted
   /// for a sorted spill and must hash to 'partition'. It is safe to call this
   /// on multiple threads if all threads specify a different partition. Returns
-  /// the size to sppend to partition.
+  /// the size to append to partition.
   uint64_t appendToPartition(int32_t partition, const RowVectorPtr& rows);
 
   /// Finishes a sorted run for 'partition'. If write is called for 'partition'

@@ -654,13 +654,6 @@ bool MemoryPoolImpl::maybeReserve(uint64_t increment) {
 }
 
 void MemoryPoolImpl::reserve(uint64_t size, bool reserveOnly) {
-  if (FOLLY_UNLIKELY(underMemoryArbitration() && !isSpillMemoryPool(this))) {
-    VELOX_FAIL(
-        "Unexpected non-spilling memory reservation from memory pool: {}, arbitration request pool: {}",
-        name(),
-        memoryArbitrationContext()->requestor.name());
-  }
-
   if (FOLLY_LIKELY(trackUsage_)) {
     if (FOLLY_LIKELY(threadSafe_)) {
       reserveThreadSafe(size, reserveOnly);
@@ -779,7 +772,14 @@ bool MemoryPoolImpl::maybeIncrementReservationLocked(uint64_t size) {
       // query should also abort soon.
       VELOX_MEM_POOL_ABORTED("This memory pool has been aborted.");
     }
-    if (reservationBytes_ + size > capacity_) {
+
+    // NOTE: we allow memory pool to overuse its memory during the memory
+    // arbitration process. The memory arbitration process itself needs to
+    // ensure the the memory pool usage of the memory pool is within the
+    // capacity limit after the arbitration operation completes.
+    if (FOLLY_UNLIKELY(
+            (reservationBytes_ + size > capacity_) &&
+            !underMemoryArbitration())) {
       return false;
     }
   }

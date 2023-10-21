@@ -66,7 +66,7 @@ GroupingSet::GroupingSet(
       isGlobal_(hashers_.empty()),
       isPartial_(isPartial),
       isRawInput_(isRawInput),
-      queryConfig_(&operatorCtx->task()->queryCtx()->queryConfig()),
+      queryConfig_(operatorCtx->task()->queryCtx()->queryConfig()),
       aggregates_(std::move(aggregates)),
       masks_(maskChannels(aggregates_)),
       ignoreNullKeys_(ignoreNullKeys),
@@ -78,7 +78,7 @@ GroupingSet::GroupingSet(
       nonReclaimableSection_(nonReclaimableSection),
       stringAllocator_(operatorCtx->pool()),
       rows_(operatorCtx->pool()),
-      isAdaptive_(queryConfig_->hashAdaptivityEnabled()),
+      isAdaptive_(queryConfig_.hashAdaptivityEnabled()),
       pool_(*operatorCtx->pool()) {
   VELOX_CHECK_NOT_NULL(nonReclaimableSection_);
   VELOX_CHECK(pool_.trackUsage());
@@ -866,7 +866,7 @@ void GroupingSet::ensureOutputFits() {
   }
 
   const uint64_t outputBufferSizeToReserve =
-      queryConfig_->preferredOutputBatchBytes() * 1.2;
+      queryConfig_.preferredOutputBatchBytes() * 1.2;
   {
     ReclaimableSectionGuard guard(nonReclaimableSection_);
     if (pool_.maybeReserve(outputBufferSizeToReserve)) {

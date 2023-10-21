@@ -21,6 +21,7 @@
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Writer.h"
 #include "velox/dwio/common/WriterFactory.h"
+#include "velox/exec/MemoryReclaimer.h"
 
 namespace facebook::velox::dwrf {
 class Writer;
@@ -339,10 +340,20 @@ class HiveWriterParameters {
 };
 
 struct HiveWriterInfo {
-  explicit HiveWriterInfo(HiveWriterParameters parameters)
-      : writerParameters(std::move(parameters)) {}
+  HiveWriterInfo(
+      HiveWriterParameters parameters,
+      std::shared_ptr<memory::MemoryPool> _writerPool,
+      std::shared_ptr<memory::MemoryPool> _sinkPool,
+      std::shared_ptr<memory::MemoryPool> _sortPool)
+      : writerParameters(std::move(parameters)),
+        writerPool(std::move(_writerPool)),
+        sinkPool(std::move(_sinkPool)),
+        sortPool(std::move(_sortPool)) {}
 
   const HiveWriterParameters writerParameters;
+  const std::shared_ptr<memory::MemoryPool> writerPool;
+  const std::shared_ptr<memory::MemoryPool> sinkPool;
+  const std::shared_ptr<memory::MemoryPool> sortPool;
   int64_t numWrittenRows = 0;
 };
 
@@ -407,6 +418,42 @@ class HiveDataSink : public DataSink {
   std::vector<std::string> close(bool success) override;
 
  private:
+  class WriterReclaimer : public exec::MemoryReclaimer {
+   public:
+    static std::unique_ptr<memory::MemoryReclaimer> create(
+        bool canReclaim,
+        uint64_t flushThresholdBytes);
+
+    bool reclaimableBytes(
+        const memory::MemoryPool& pool,
+        uint64_t& reclaimableBytes) const override;
+
+    uint64_t reclaim(
+        memory::MemoryPool* pool,
+        uint64_t targetBytes,
+        memory::MemoryReclaimer::Stats& stats) override;
+
+   private:
+    WriterReclaimer(bool canReclaim, uint64_t flushThresholdBytes)
+        : exec::MemoryReclaimer(),
+          canReclaim_(canReclaim),
+          flushThresholdBytes_(flushThresholdBytes) {}
+
+    const bool canReclaim_{false};
+    const uint64_t flushThresholdBytes_;
+  };
+
+  FOLLY_ALWAYS_INLINE bool sortWrite() const {
+    return !sortColumnIndices_.empty();
+  }
+
+  FOLLY_ALWAYS_INLINE bool canReclaim() const {
+    // Currently, we only support memory reclaim on dwrf file writer.
+    return (spillConfig_ != nullptr) && !sortWrite() &&
+        (insertTableHandle_->tableStorageFormat() ==
+         dwio::common::FileFormat::DWRF);
+  }
+
   // Returns true if the table is partitioned.
   FOLLY_ALWAYS_INLINE bool isPartitioned() const {
     return partitionIdGenerator_ != nullptr;
@@ -420,6 +467,9 @@ class HiveDataSink : public DataSink {
   FOLLY_ALWAYS_INLINE bool isCommitRequired() const {
     return commitStrategy_ != CommitStrategy::kNoCommit;
   }
+
+  std::shared_ptr<memory::MemoryPool> createWriterPool(
+      const HiveWriterId& writerId);
 
   // Compute the partition id and bucket id for each row in 'input'.
   void computePartitionAndBucketIds(const RowVectorPtr& input);
@@ -470,6 +520,9 @@ class HiveDataSink : public DataSink {
   FOLLY_ALWAYS_INLINE void checkNotAborted() const {
     VELOX_CHECK(!aborted_, "Hive data sink hash been aborted");
   }
+
+  // Invoked to write 'input' to the specified file writer.
+  void write(size_t index, const VectorPtr& input);
 
   void closeInternal(bool abort);
 
