@@ -203,6 +203,10 @@ Spilling
      - boolean
      - true
      - When `spill_enabled` is true, determines whether RowNumber operator can spill to disk under memory pressure.
+   * - topn_row_number_spill_enabled
+     - boolean
+     - true
+     - When `spill_enabled` is true, determines whether TopNRowNumber operator can spill to disk under memory pressure.
    * - writer_spill_enabled
      - boolean
      - true

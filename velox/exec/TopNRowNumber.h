@@ -59,6 +59,9 @@ class TopNRowNumber : public Operator {
 
   void close() override;
 
+  void reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
+      override;
+
  private:
   // A priority queue to keep track of top 'limit' rows for a given partition.
   struct TopRows {
@@ -102,14 +105,57 @@ class TopNRowNumber : public Operator {
       vector_size_t outputOffset,
       FlatVector<int64_t>* rowNumbers);
 
+  bool spillEnabled() const {
+    return spillConfig_.has_value();
+  }
+
+  void ensureInputFits(const RowVectorPtr& input);
+
+  // Sorts, spills and clears all of 'data_'. Clears 'table_'.
+  void spill();
+
+  void setupSpiller();
+
+  RowVectorPtr getOutputFromSpill();
+
+  RowVectorPtr getOutputFromMemory();
+
+  // Returns true if 'next' row belongs to a different partition then index-1
+  // row of output.
+  bool isNewPartition(
+      const RowVectorPtr& output,
+      vector_size_t index,
+      SpillMergeStream* next);
+
+  // Sets nextRowNumber_ to rowNumber. Checks if next row in 'merge_' belongs to
+  // a different partition than last row in 'output' and if so updates
+  // nextRowNumber_ to 0. Also, checks current partition reached the limit on
+  // number of rows and if so advances 'merge_' to the first row on the next
+  // partition and sets nextRowNumber_ to 0.
+  //
+  // @post 'merge_->next()' is either at end or points to a row that should be
+  // included in the next output batch using 'nextRowNumber_'.
+  void setupNextOutput(const RowVectorPtr& output, int32_t rowNumber);
+
+  // Called in noMoreInput() and spill().
+  void updateEstimatedOutputRowSize();
+
   const int32_t limit_;
   const bool generateRowNumber_;
+  const size_t numPartitionKeys_;
 
   // Input columns in the order of: partition keys, sorting keys, the rest.
   const std::vector<column_index_t> inputChannels_;
 
   // Input column types in 'inputChannels_' order.
   const RowTypePtr inputType_;
+
+  // Compare flags for partition and sorting keys. Compare flags for partition
+  // keys are set to default values. Compare flags for sorting keys match
+  // sorting order specified in the plan node.
+  //
+  // Used to sort 'data_' while spilling.
+  const std::vector<CompareFlags> spillCompareFlags_;
 
   // Hash table to keep track of partitions. Not used if there are no
   // partitioning keys. For each partition, stores an instance of TopRows
@@ -126,6 +172,10 @@ class TopNRowNumber : public Operator {
   // Stores input data. For each partition, only up to 'limit_' rows are stored.
   // Order of columns matches 'inputChannels_': partition keys, sorting keys,
   // the rest.
+  //
+  // Partition and sorting columns are specified as 'keys'. The rest of the
+  // columns are specified as 'dependents'. This enables sorting 'data_' using
+  // 'spillCompareFlags_' when spilling.
   std::unique_ptr<RowContainer> data_;
 
   RowComparator comparator_;
@@ -133,6 +183,11 @@ class TopNRowNumber : public Operator {
   std::vector<DecodedVector> decodedVectors_;
 
   bool finished_{false};
+
+  // Size of a single output row estimated using 'data_->estimateRowSize()'.
+  // If spilling, this value is set to max 'data_->estimateRowSize()' across all
+  // accumulated 'data_'.
+  std::optional<int64_t> estimatedOutputRowSize_;
 
   // Maximum number of rows in the output batch.
   vector_size_t outputBatchSize_;
@@ -147,5 +202,14 @@ class TopNRowNumber : public Operator {
   size_t numPartitions_{0};
   std::optional<int32_t> currentPartition_;
   vector_size_t remainingRowsInPartition_{0};
+
+  // Spiller for contents of the 'data_'.
+  std::unique_ptr<Spiller> spiller_;
+
+  // Used to sort-merge spilled data.
+  std::unique_ptr<TreeOfLosers<SpillMergeStream>> merge_;
+
+  // Row number for the first row in the next output batch.
+  int32_t nextRowNumber_{0};
 };
 } // namespace facebook::velox::exec

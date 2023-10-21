@@ -199,6 +199,10 @@ class QueryConfig {
   static constexpr const char* kRowNumberSpillEnabled =
       "row_number_spill_enabled";
 
+  /// TopNRowNumber spilling flag, only applies if "spill_enabled" flag is set.
+  static constexpr const char* kTopNRowNumberSpillEnabled =
+      "topn_row_number_spill_enabled";
+
   /// The max memory that a final aggregation can use before spilling. If it 0,
   /// then there is no limit.
   static constexpr const char* kAggregationSpillMemoryThreshold =
@@ -479,10 +483,16 @@ class QueryConfig {
     return get<bool>(kWriterSpillEnabled, true);
   }
 
-  /// Returns 'is row_number spilling enabled' flag. Must also check the
-  /// spillEnabled()!
+  /// Returns true if spilling is enabled for RowNumber operator. Must also
+  /// check the spillEnabled()!
   bool rowNumberSpillEnabled() const {
     return get<bool>(kRowNumberSpillEnabled, true);
+  }
+
+  /// Returns true if spilling is enabled for TopNRowNumber operator. Must also
+  /// check the spillEnabled()!
+  bool topNRowNumberSpillEnabled() const {
+    return get<bool>(kTopNRowNumberSpillEnabled, true);
   }
 
   /// Returns a percentage of aggregation or join input batches that will be

@@ -2267,6 +2267,10 @@ class TopNRowNumberNode : public PlanNode {
     return outputType_;
   }
 
+  bool canSpill(const QueryConfig& queryConfig) const override {
+    return !partitionKeys_.empty() && queryConfig.topNRowNumberSpillEnabled();
+  }
+
   const RowTypePtr& inputType() const {
     return sources_[0]->outputType();
   }

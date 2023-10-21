@@ -176,7 +176,7 @@ void RowNumber::restoreNextSpillPartition() {
 }
 
 void RowNumber::ensureInputFits(const RowVectorPtr& input) {
-  if (!spillConfig_.has_value()) {
+  if (!spillEnabled()) {
     // Spilling is disabled.
     return;
   }

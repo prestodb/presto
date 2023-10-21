@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/file/FileSystems.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 using namespace facebook::velox::exec::test;
 
@@ -24,7 +27,12 @@ namespace facebook::velox::exec {
 
 namespace {
 
-class TopNRowNumberTest : public OperatorTestBase {};
+class TopNRowNumberTest : public OperatorTestBase {
+ protected:
+  TopNRowNumberTest() {
+    filesystems::registerLocalFileSystem();
+  }
+};
 
 TEST_F(TopNRowNumberTest, basic) {
   auto data = makeRowVector({
@@ -104,19 +112,42 @@ TEST_F(TopNRowNumberTest, largeOutput) {
 
   createDuckDbTable(data);
 
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+
   auto testLimit = [&](auto limit) {
     SCOPED_TRACE(fmt::format("Limit: {}", limit));
+    core::PlanNodeId topNRowNumberId;
     auto plan = PlanBuilder()
                     .values(data)
                     .topNRowNumber({"p"}, {"s"}, limit, true)
+                    .capturePlanNodeId(topNRowNumberId)
                     .planNode();
 
+    auto sql = fmt::format(
+        "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
+        " WHERE rn <= {}",
+        limit);
     AssertQueryBuilder(plan, duckDbQueryRunner_)
         .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
-        .assertResults(fmt::format(
-            "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
-            " WHERE rn <= {}",
-            limit));
+        .assertResults(sql);
+
+    // Spilling.
+    auto task =
+        AssertQueryBuilder(plan, duckDbQueryRunner_)
+            .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
+            .config(core::QueryConfig::kTestingSpillPct, "100")
+            .config(core::QueryConfig::kSpillEnabled, "true")
+            .config(core::QueryConfig::kTopNRowNumberSpillEnabled, "true")
+            .spillDirectory(spillDirectory->path)
+            .assertResults(sql);
+
+    auto taskStats = exec::toPlanStats(task->taskStats());
+    const auto& stats = taskStats.at(topNRowNumberId);
+
+    ASSERT_GT(stats.spilledBytes, 0);
+    ASSERT_GT(stats.spilledRows, 0);
+    ASSERT_GT(stats.spilledFiles, 0);
+    ASSERT_GT(stats.spilledPartitions, 0);
 
     // No partitioning keys.
     plan = PlanBuilder()
@@ -161,19 +192,40 @@ TEST_F(TopNRowNumberTest, manyPartitions) {
 
   createDuckDbTable(data);
 
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+
   auto testLimit = [&](auto limit) {
     SCOPED_TRACE(fmt::format("Limit: {}", limit));
+    core::PlanNodeId topNRowNumberId;
     auto plan = PlanBuilder()
                     .values(data)
                     .topNRowNumber({"p"}, {"s"}, limit, true)
+                    .capturePlanNodeId(topNRowNumberId)
                     .planNode();
 
-    assertQuery(
-        plan,
-        fmt::format(
-            "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
-            " WHERE rn <= {}",
-            limit));
+    auto sql = fmt::format(
+        "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
+        " WHERE rn <= {}",
+        limit);
+    assertQuery(plan, sql);
+
+    // Spilling.
+    auto task =
+        AssertQueryBuilder(plan, duckDbQueryRunner_)
+            .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
+            .config(core::QueryConfig::kTestingSpillPct, "100")
+            .config(core::QueryConfig::kSpillEnabled, "true")
+            .config(core::QueryConfig::kTopNRowNumberSpillEnabled, "true")
+            .spillDirectory(spillDirectory->path)
+            .assertResults(sql);
+
+    auto taskStats = exec::toPlanStats(task->taskStats());
+    const auto& stats = taskStats.at(topNRowNumberId);
+
+    ASSERT_GT(stats.spilledBytes, 0);
+    ASSERT_GT(stats.spilledRows, 0);
+    ASSERT_GT(stats.spilledFiles, 0);
+    ASSERT_GT(stats.spilledPartitions, 0);
   };
 
   testLimit(1);
