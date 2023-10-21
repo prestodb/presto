@@ -50,7 +50,7 @@ public class PrestoNativeQueryRunnerUtils
 
     private PrestoNativeQueryRunnerUtils() {}
 
-    public static QueryRunner createQueryRunner()
+    public static QueryRunner createQueryRunner(boolean addStorageFormatToPath)
             throws Exception
     {
         int cacheMaxSize = 4096; // 4GB size cache
@@ -60,7 +60,8 @@ public class PrestoNativeQueryRunnerUtils
                 Optional.of(nativeQueryRunnerParameters.dataDirectory),
                 nativeQueryRunnerParameters.workerCount,
                 cacheMaxSize,
-                DEFAULT_STORAGE_FORMAT);
+                DEFAULT_STORAGE_FORMAT,
+                addStorageFormatToPath);
     }
 
     public static QueryRunner createQueryRunner(
@@ -68,10 +69,11 @@ public class PrestoNativeQueryRunnerUtils
             Optional<Path> dataDirectory,
             Optional<Integer> workerCount,
             int cacheMaxSize,
-            String storageFormat)
+            String storageFormat,
+            boolean addStorageFormatToPath)
             throws Exception
     {
-        QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory, storageFormat);
+        QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory, storageFormat, addStorageFormatToPath);
 
         if (!prestoServerPath.isPresent()) {
             return defaultQueryRunner;
@@ -79,28 +81,40 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat);
+        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, Optional.empty(), storageFormat, addStorageFormatToPath);
     }
 
     public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
-        return createJavaQueryRunner(DEFAULT_STORAGE_FORMAT);
+        return createJavaQueryRunner(true);
+    }
+
+    public static QueryRunner createJavaQueryRunner(boolean addStorageFormatToPath)
+            throws Exception
+    {
+        return createJavaQueryRunner(DEFAULT_STORAGE_FORMAT, addStorageFormatToPath);
     }
 
     public static QueryRunner createJavaQueryRunner(String storageFormat)
             throws Exception
     {
-        return createJavaQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat);
+        return createJavaQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat, true);
     }
 
-    public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory, String storageFormat)
+    public static QueryRunner createJavaQueryRunner(String storageFormat, boolean addStorageFormatToPath)
             throws Exception
     {
-        return createJavaQueryRunner(dataDirectory, "sql-standard", storageFormat);
+        return createJavaQueryRunner(Optional.of(getNativeQueryRunnerParameters().dataDirectory), storageFormat, addStorageFormatToPath);
     }
 
-    public static QueryRunner createJavaQueryRunner(Optional<Path> baseDataDirectory, String security, String storageFormat)
+    public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory, String storageFormat, boolean addStorageFormatToPath)
+            throws Exception
+    {
+        return createJavaQueryRunner(dataDirectory, "sql-standard", storageFormat, addStorageFormatToPath);
+    }
+
+    public static QueryRunner createJavaQueryRunner(Optional<Path> baseDataDirectory, String security, String storageFormat, boolean addStorageFormatToPath)
             throws Exception
     {
         ImmutableMap.Builder<String, String> hivePropertiesBuilder = new ImmutableMap.Builder<>();
@@ -112,7 +126,7 @@ public class PrestoNativeQueryRunnerUtils
             hivePropertiesBuilder.put("hive.allow-drop-table", "true");
         }
 
-        Optional<Path> dataDirectory = baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat));
+        Optional<Path> dataDirectory = addStorageFormatToPath ? baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat)) : baseDataDirectory;
         DistributedQueryRunner queryRunner =
                 HiveQueryRunner.createQueryRunner(
                         ImmutableList.of(),
@@ -133,7 +147,8 @@ public class PrestoNativeQueryRunnerUtils
             int cacheMaxSize,
             boolean useThrift,
             Optional<String> remoteFunctionServerUds,
-            String storageFormat)
+            String storageFormat,
+            boolean addStorageFormatToPath)
             throws Exception
     {
         // Make query runner with external workers for tests
@@ -150,7 +165,7 @@ public class PrestoNativeQueryRunnerUtils
                 "legacy",
                 getNativeWorkerHiveProperties(storageFormat),
                 workerCount,
-                Optional.of(Paths.get(dataDirectory + "/" + storageFormat)),
+                Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
                         Path tempDirectoryPath = Files.createTempDirectory(PrestoNativeQueryRunnerUtils.class.getSimpleName());
@@ -238,7 +253,15 @@ public class PrestoNativeQueryRunnerUtils
     {
         int cacheMaxSize = 0;
         NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
-        return createNativeQueryRunner(nativeQueryRunnerParameters.dataDirectory.toString(), nativeQueryRunnerParameters.serverBinary.toString(), nativeQueryRunnerParameters.workerCount, cacheMaxSize, useThrift, remoteFunctionServerUds, storageFormat);
+        return createNativeQueryRunner(
+                nativeQueryRunnerParameters.dataDirectory.toString(),
+                nativeQueryRunnerParameters.serverBinary.toString(),
+                nativeQueryRunnerParameters.workerCount,
+                cacheMaxSize,
+                useThrift,
+                remoteFunctionServerUds,
+                storageFormat,
+                true);
     }
 
     // Start the remote function server. Return the UDS path used to communicate with it.
