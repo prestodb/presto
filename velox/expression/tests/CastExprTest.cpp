@@ -2040,5 +2040,14 @@ TEST_F(CastExprTest, lazyInput) {
 
   evaluate("cast(switch(gt(c0, c1), c1, c0) as double)", data);
 }
+
+TEST_F(CastExprTest, identicalTypes) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(10, folly::identity),
+  });
+  auto result = evaluate("cast(c0 as bigint)", data);
+  ASSERT_EQ(result.get(), data->childAt(0).get());
+}
+
 } // namespace
 } // namespace facebook::velox::test

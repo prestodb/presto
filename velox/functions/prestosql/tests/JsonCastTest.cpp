@@ -704,15 +704,6 @@ TEST_F(JsonCastTest, unsupportedTypes) {
       evaluateCast(
           MAP(JSON(), BIGINT()), JSON(), makeRowVector({invalidJsonKeyMap})),
       "Cannot cast map with null keys to JSON");
-
-  // Not allowing to cast from json to itself.
-  VELOX_ASSERT_THROW(
-      evaluateCast(
-          JSON(),
-          JSON(),
-          makeRowVector({makeNullableFlatVector<JsonNativeType>(
-              {"123"_sv, R"("abc")"_sv, ""_sv, std::nullopt}, JSON())})),
-      "(JSON vs. JSON) Attempting to cast from JSON to itself");
 }
 
 TEST_F(JsonCastTest, toVarchar) {

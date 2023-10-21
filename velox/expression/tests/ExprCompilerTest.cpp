@@ -16,6 +16,7 @@
 #include "gtest/gtest.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/FieldReference.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/parse/Expressions.h"
@@ -300,6 +301,13 @@ TEST_F(ExprCompilerTest, rewrites) {
           makeTypedExpr("c1 + 5", rowType),
       },
       execCtx_.get()));
+}
+
+TEST_F(ExprCompilerTest, eliminateUnnecessaryCast) {
+  auto exprSet =
+      compile(makeTypedExpr("cast(c0 as BIGINT)", ROW({{"c0", BIGINT()}})));
+  ASSERT_EQ(exprSet->size(), 1);
+  ASSERT_TRUE(dynamic_cast<const FieldReference*>(exprSet->expr(0).get()));
 }
 
 } // namespace facebook::velox::exec::test
