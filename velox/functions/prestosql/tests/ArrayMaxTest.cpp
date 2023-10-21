@@ -145,11 +145,24 @@ TEST_F(ArrayMaxTest, longVarcharNoNulls) {
 
 // Test documented example.
 TEST_F(ArrayMaxTest, docs) {
-  auto input = makeNullableArrayVector<int32_t>(
+  auto input1 = makeNullableArrayVector<int32_t>(
       {{1, 2, 3}, {-1, -2, -2}, {-1, -2, std::nullopt}, {}});
-  auto expected =
+  auto expected1 =
       makeNullableFlatVector<int32_t>({3, -1, std::nullopt, std::nullopt});
-  testArrayMax(input, expected);
+  testArrayMax(input1, expected1);
+
+  auto input2 = makeNullableArrayVector<double>(
+      {{std::nullopt, std::numeric_limits<double>::quiet_NaN()},
+       {-1, -2, -3, std::numeric_limits<double>::quiet_NaN()},
+       {-0.0001,
+        std::nullopt,
+        -0.0003,
+        std::numeric_limits<double>::quiet_NaN()}});
+  auto expected2 = makeNullableFlatVector<double>(
+      {std::numeric_limits<double>::quiet_NaN(),
+       std::numeric_limits<double>::quiet_NaN(),
+       std::numeric_limits<double>::quiet_NaN()});
+  testArrayMax(input2, expected2);
 }
 
 template <typename Type>
@@ -238,6 +251,7 @@ class ArrayMaxFloatingPointTest : public FunctionBaseTest {
           -0.0003,
           std::numeric_limits<T>::max()},
          {},
+         {std::nullopt},
          {std::numeric_limits<T>::min(), 1.1, 1.22222, 1.33, std::nullopt},
          {-0.00001, -0.0002, 0.0001}});
 
@@ -245,6 +259,7 @@ class ArrayMaxFloatingPointTest : public FunctionBaseTest {
         {0.00001,
          std::nullopt,
          std::numeric_limits<T>::max(),
+         std::nullopt,
          std::nullopt,
          std::nullopt,
          0.0001});

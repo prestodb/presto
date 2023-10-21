@@ -36,11 +36,25 @@ class ArrayMinTest : public FunctionBaseTest {
   }
 
   void testDocExample() {
-    auto arrayVector = makeNullableArrayVector<int64_t>(
+    auto input1 = makeNullableArrayVector<int64_t>(
         {{1, 2, 3}, {-1, -2, -2}, {-1, -2, std::nullopt}, {}});
-    auto expected =
+    auto expected1 =
         makeNullableFlatVector<int64_t>({1, -2, std::nullopt, std::nullopt});
-    testExpr<int64_t>(expected, "array_min(C0)", {arrayVector});
+    testExpr<int64_t>(expected1, "array_min(C0)", {input1});
+
+    auto input2 = makeNullableArrayVector<float>(
+        {{std::nullopt, std::numeric_limits<double>::quiet_NaN()},
+         {-1, -2, -3, std::numeric_limits<float>::quiet_NaN()},
+         {-0.0001,
+          std::nullopt,
+          -0.0003,
+          std::numeric_limits<float>::quiet_NaN()}});
+    auto expected2 = makeNullableFlatVector<float>(
+        {std::numeric_limits<float>::quiet_NaN(),
+         std::numeric_limits<float>::quiet_NaN(),
+         std::numeric_limits<float>::quiet_NaN()});
+
+    testExpr<float>(expected2, "array_min(C0)", {input2});
   }
 
   template <typename T>
@@ -145,7 +159,7 @@ class ArrayMinTest : public FunctionBaseTest {
 };
 
 } // namespace
-TEST_F(ArrayMinTest, docArrays) {
+TEST_F(ArrayMinTest, docs) {
   testDocExample();
 }
 
