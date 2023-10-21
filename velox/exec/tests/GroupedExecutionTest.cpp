@@ -16,7 +16,7 @@
 #include <velox/type/Timestamp.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/TableScan.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -256,8 +256,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithOutputBuffer) {
 
   // 'Delete results' from output buffer triggers 'set all output consumed',
   // which should finish the task.
-  auto outputBufferManager =
-      exec::PartitionedOutputBufferManager::getInstance().lock();
+  auto outputBufferManager = exec::OutputBufferManager::getInstance().lock();
   outputBufferManager->deleteResults(task->taskId(), 0);
 
   // Task must be finished at this stage.
@@ -410,8 +409,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
 
     // 'Delete results' from output buffer triggers 'set all output consumed',
     // which should finish the task.
-    auto outputBufferManager =
-        exec::PartitionedOutputBufferManager::getInstance().lock();
+    auto outputBufferManager = exec::OutputBufferManager::getInstance().lock();
     outputBufferManager->deleteResults(task->taskId(), 0);
 
     // Task must be finished at this stage.

@@ -128,9 +128,9 @@ class DestinationBuffer {
 
 class Task;
 
-class PartitionedOutputBuffer {
+class OutputBuffer {
  public:
-  PartitionedOutputBuffer(
+  OutputBuffer(
       std::shared_ptr<Task> task,
       core::PartitionedOutputNode::Kind kind,
       int numDestinations,

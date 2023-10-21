@@ -21,7 +21,7 @@
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -523,7 +523,7 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
                         .planNode();
     auto leafTask = makeTask(leafTaskId, leafPlan, 0);
     Task::start(leafTask, 4);
-    auto bufferMgr = PartitionedOutputBufferManager::getInstance().lock();
+    auto bufferMgr = OutputBufferManager::getInstance().lock();
     // Delete the results asynchronously to simulate abort from downstream.
     bufferMgr->deleteResults(leafTaskId, 0);
 
@@ -1422,7 +1422,7 @@ TEST_F(MultiFragmentTest, taskTerminateWithPendingOutputBuffers) {
   Task::start(task, 1);
   addHiveSplits(task, filePaths_);
 
-  auto bufferManager = PartitionedOutputBufferManager::getInstance().lock();
+  auto bufferManager = OutputBufferManager::getInstance().lock();
   const uint64_t maxBytes = std::numeric_limits<uint64_t>::max();
   const int destination = 0;
   std::vector<std::unique_ptr<folly::IOBuf>> receivedIobufs;
@@ -1619,8 +1619,8 @@ class DataFetcher {
  private:
   static constexpr int64_t kInitialSequence = 0;
 
-  std::shared_ptr<PartitionedOutputBufferManager> bufferManager() {
-    return PartitionedOutputBufferManager::getInstance().lock();
+  std::shared_ptr<OutputBufferManager> bufferManager() {
+    return OutputBufferManager::getInstance().lock();
   }
 
   void doFetch(int64_t sequence) {

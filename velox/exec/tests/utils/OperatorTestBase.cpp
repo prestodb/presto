@@ -21,7 +21,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"

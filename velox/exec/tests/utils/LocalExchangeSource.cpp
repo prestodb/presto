@@ -15,7 +15,7 @@
  */
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 
 namespace facebook::velox::exec::test {
 namespace {
@@ -60,8 +60,8 @@ class LocalExchangeSource : public exec::ExchangeSource {
 
     promise_ = std::move(promise);
 
-    auto buffers = PartitionedOutputBufferManager::getInstance().lock();
-    VELOX_CHECK_NOT_NULL(buffers, "invalid PartitionedOutputBufferManager");
+    auto buffers = OutputBufferManager::getInstance().lock();
+    VELOX_CHECK_NOT_NULL(buffers, "invalid OutputBufferManager");
     VELOX_CHECK(requestPending_);
     auto requestedSequence = sequence_;
     auto self = shared_from_this();
@@ -150,7 +150,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
   void close() override {
     checkSetRequestPromise();
 
-    auto buffers = PartitionedOutputBufferManager::getInstance().lock();
+    auto buffers = OutputBufferManager::getInstance().lock();
     buffers->deleteResults(taskId_, destination_);
   }
 

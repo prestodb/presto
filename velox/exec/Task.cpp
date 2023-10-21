@@ -28,7 +28,7 @@
 #include "velox/exec/Merge.h"
 #include "velox/exec/NestedLoopJoinBuild.h"
 #include "velox/exec/OperatorUtils.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/Task.h"
 #if CODEGEN_ENABLED == 1
 #include "velox/experimental/codegen/CodegenLogger.h"
@@ -261,7 +261,7 @@ Task::Task(
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
       splitsStates_(buildSplitStates(planFragment_.planNode)),
-      bufferManager_(PartitionedOutputBufferManager::getInstance()) {}
+      bufferManager_(OutputBufferManager::getInstance()) {}
 
 Task::~Task() {
   TestValue::adjust("facebook::velox::exec::Task::~Task", this);
@@ -625,7 +625,7 @@ void Task::start(
     VELOX_CHECK_NOT_NULL(
         bufferManager,
         "Unable to initialize task. "
-        "PartitionedOutputBufferManager was already destructed");
+        "OutputBufferManager was already destructed");
 
     // In this loop we prepare the global state of pipelines: partitioned output
     // buffer and exchange client(s).
@@ -1376,7 +1376,7 @@ bool Task::updateOutputBuffers(int numBuffers, bool noMoreBuffers) {
   VELOX_CHECK_NOT_NULL(
       bufferManager,
       "Unable to initialize task. "
-      "PartitionedOutputBufferManager was already destructed");
+      "OutputBufferManager was already destructed");
   {
     std::lock_guard<std::mutex> l(mutex_);
     if (noMoreOutputBuffers_) {

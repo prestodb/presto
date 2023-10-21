@@ -17,7 +17,7 @@
 
 #include <folly/Random.h>
 #include "velox/exec/Operator.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
@@ -54,13 +54,13 @@ class Destination {
       uint64_t maxBytes,
       const std::vector<vector_size_t>& sizes,
       const RowVectorPtr& output,
-      PartitionedOutputBufferManager& bufferManager,
+      OutputBufferManager& bufferManager,
       const std::function<void()>& bufferReleaseFn,
       bool* atEnd,
       ContinueFuture* future);
 
   BlockingReason flush(
-      PartitionedOutputBufferManager& bufferManager,
+      OutputBufferManager& bufferManager,
       const std::function<void()>& bufferReleaseFn,
       ContinueFuture* future);
 
@@ -193,7 +193,7 @@ class PartitionedOutput : public Operator {
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
   // Empty if column order in the output is exactly the same as in input.
   const std::vector<column_index_t> outputChannels_;
-  const std::weak_ptr<exec::PartitionedOutputBufferManager> bufferManager_;
+  const std::weak_ptr<exec::OutputBufferManager> bufferManager_;
   const std::function<void()> bufferReleaseFn_;
   const int64_t maxBufferedBytes_;
 

@@ -13,20 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
 
 // static
-std::weak_ptr<PartitionedOutputBufferManager>
-PartitionedOutputBufferManager::getInstance() {
-  static auto kInstance = std::make_shared<PartitionedOutputBufferManager>();
+std::weak_ptr<OutputBufferManager> OutputBufferManager::getInstance() {
+  static auto kInstance = std::make_shared<OutputBufferManager>();
   return kInstance;
 }
 
-std::shared_ptr<PartitionedOutputBuffer>
-PartitionedOutputBufferManager::getBuffer(const std::string& taskId) {
+std::shared_ptr<OutputBuffer> OutputBufferManager::getBuffer(
+    const std::string& taskId) {
   return buffers_.withLock([&](auto& buffers) {
     auto it = buffers.find(taskId);
     VELOX_CHECK(
@@ -35,19 +34,19 @@ PartitionedOutputBufferManager::getBuffer(const std::string& taskId) {
   });
 }
 
-std::shared_ptr<PartitionedOutputBuffer>
-PartitionedOutputBufferManager::getBufferIfExists(const std::string& taskId) {
+std::shared_ptr<OutputBuffer> OutputBufferManager::getBufferIfExists(
+    const std::string& taskId) {
   return buffers_.withLock([&](auto& buffers) {
     auto it = buffers.find(taskId);
     return it == buffers.end() ? nullptr : it->second;
   });
 }
 
-uint64_t PartitionedOutputBufferManager::numBuffers() const {
+uint64_t OutputBufferManager::numBuffers() const {
   return buffers_.lock()->size();
 }
 
-bool PartitionedOutputBufferManager::enqueue(
+bool OutputBufferManager::enqueue(
     const std::string& taskId,
     int destination,
     std::unique_ptr<SerializedPage> data,
@@ -55,20 +54,20 @@ bool PartitionedOutputBufferManager::enqueue(
   return getBuffer(taskId)->enqueue(destination, std::move(data), future);
 }
 
-void PartitionedOutputBufferManager::noMoreData(const std::string& taskId) {
+void OutputBufferManager::noMoreData(const std::string& taskId) {
   getBuffer(taskId)->noMoreData();
 }
 
-bool PartitionedOutputBufferManager::isFinished(const std::string& taskId) {
+bool OutputBufferManager::isFinished(const std::string& taskId) {
   return getBuffer(taskId)->isFinished();
 }
 
-void PartitionedOutputBufferManager::acknowledge(
+void OutputBufferManager::acknowledge(
     const std::string& taskId,
     int destination,
     int64_t sequence) {
-  auto buffer = buffers_.withLock(
-      [&](auto& buffers) -> std::shared_ptr<PartitionedOutputBuffer> {
+  auto buffer =
+      buffers_.withLock([&](auto& buffers) -> std::shared_ptr<OutputBuffer> {
         auto it = buffers.find(taskId);
         if (it == buffers.end()) {
           VLOG(1) << "Receiving ack for non-existent task " << taskId
@@ -82,7 +81,7 @@ void PartitionedOutputBufferManager::acknowledge(
   }
 }
 
-void PartitionedOutputBufferManager::deleteResults(
+void OutputBufferManager::deleteResults(
     const std::string& taskId,
     int destination) {
   if (auto buffer = getBufferIfExists(taskId)) {
@@ -90,7 +89,7 @@ void PartitionedOutputBufferManager::deleteResults(
   }
 }
 
-bool PartitionedOutputBufferManager::getData(
+bool OutputBufferManager::getData(
     const std::string& taskId,
     int destination,
     uint64_t maxBytes,
@@ -103,7 +102,7 @@ bool PartitionedOutputBufferManager::getData(
   return false;
 }
 
-void PartitionedOutputBufferManager::initializeTask(
+void OutputBufferManager::initializeTask(
     std::shared_ptr<Task> task,
     core::PartitionedOutputNode::Kind kind,
     int numDestinations,
@@ -113,7 +112,7 @@ void PartitionedOutputBufferManager::initializeTask(
   buffers_.withLock([&](auto& buffers) {
     auto it = buffers.find(taskId);
     if (it == buffers.end()) {
-      buffers[taskId] = std::make_shared<PartitionedOutputBuffer>(
+      buffers[taskId] = std::make_shared<OutputBuffer>(
           std::move(task), kind, numDestinations, numDrivers);
     } else {
       VELOX_FAIL(
@@ -122,7 +121,7 @@ void PartitionedOutputBufferManager::initializeTask(
   });
 }
 
-bool PartitionedOutputBufferManager::updateOutputBuffers(
+bool OutputBufferManager::updateOutputBuffers(
     const std::string& taskId,
     int numBuffers,
     bool noMoreBuffers) {
@@ -133,15 +132,15 @@ bool PartitionedOutputBufferManager::updateOutputBuffers(
   return false;
 }
 
-void PartitionedOutputBufferManager::updateNumDrivers(
+void OutputBufferManager::updateNumDrivers(
     const std::string& taskId,
     uint32_t newNumDrivers) {
   getBuffer(taskId)->updateNumDrivers(newNumDrivers);
 }
 
-void PartitionedOutputBufferManager::removeTask(const std::string& taskId) {
-  auto buffer = buffers_.withLock(
-      [&](auto& buffers) -> std::shared_ptr<PartitionedOutputBuffer> {
+void OutputBufferManager::removeTask(const std::string& taskId) {
+  auto buffer =
+      buffers_.withLock([&](auto& buffers) -> std::shared_ptr<OutputBuffer> {
         auto it = buffers.find(taskId);
         if (it == buffers.end()) {
           // Already removed.
@@ -156,7 +155,7 @@ void PartitionedOutputBufferManager::removeTask(const std::string& taskId) {
   }
 }
 
-std::string PartitionedOutputBufferManager::toString() {
+std::string OutputBufferManager::toString() {
   return buffers_.withLock([](const auto& buffers) {
     std::stringstream out;
     out << "[BufferManager:" << std::endl;
@@ -168,8 +167,7 @@ std::string PartitionedOutputBufferManager::toString() {
   });
 }
 
-double PartitionedOutputBufferManager::getUtilization(
-    const std::string& taskId) {
+double OutputBufferManager::getUtilization(const std::string& taskId) {
   auto buffer = getBufferIfExists(taskId);
   if (buffer != nullptr) {
     return buffer->getUtilization();
@@ -177,7 +175,7 @@ double PartitionedOutputBufferManager::getUtilization(
   return 0;
 }
 
-bool PartitionedOutputBufferManager::isOverutilized(const std::string& taskId) {
+bool OutputBufferManager::isOverutilized(const std::string& taskId) {
   auto buffer = getBufferIfExists(taskId);
   if (buffer != nullptr) {
     return buffer->isOverutilized();

@@ -5,21 +5,21 @@ Tasks and Drivers which are cleared when Task drops references to Drivers.
 Task::terminate contains catch-all logic to clear things up in case of abnormal
 or early termination.
 
-## PartitionedOutputBufferManager
+## OutputBufferManager
 
-PartitionedOutputBuffer holds a reference to the task. This reference is used to
+OutputBuffer holds a reference to the task. This reference is used to
 notify the task that all output has been consumed by calling
-task->setAllOutputConsumed() from PartitionedOutputBuffer::deleteResults.
+task->setAllOutputConsumed() from OutputBuffer::deleteResults.
 
-This reference is dropped when PartitionedOutputBuffer is destroyed which
-happens in (1) PartitionedOutputBufferManager::deleteResults (happy path) and
-(2) PartitionedOutputBufferManager::removeTask (error path).
+This reference is dropped when OutputBuffer is destroyed which
+happens in (1) OutputBufferManager::deleteResults (happy path) and
+(2) OutputBufferManager::removeTask (error path).
 
-In Prestissimo application, PartitionedOutputBufferManager::deleteResults is called by
+In Prestissimo application, OutputBufferManager::deleteResults is called by
 TaskManager::abortResults which is called by TaskResource::abortResults
 attached to HTTP DELETE /v1/task/(.+)/results/(.+)
 
-PartitionedOutputBufferManager::removeTask is called by Task::terminate.
+OutputBufferManager::removeTask is called by Task::terminate.
 
 ## Operator
 

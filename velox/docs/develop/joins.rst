@@ -197,7 +197,7 @@ the join is executed using broadcast or partitioned strategy has no effect on
 the join execution itself. The only difference is that broadcast execution
 allows for dynamic filter pushdown while partitioned execution does not.
 
-PartitionedOutput operator and PartitionedOutputBufferManager support
+PartitionedOutput operator and OutputBufferManager support
 broadcasting the results of the plan evaluation. This functionality is enabled
 by setting boolean flag "broadcast" in the PartitionedOutputNode to true.
 

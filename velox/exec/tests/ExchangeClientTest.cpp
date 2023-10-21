@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -37,7 +37,7 @@ class ExchangeClientTest : public testing::Test,
       velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
     }
 
-    bufferManager_ = PartitionedOutputBufferManager::getInstance().lock();
+    bufferManager_ = OutputBufferManager::getInstance().lock();
   }
 
   std::unique_ptr<SerializedPage> toSerializedPage(const RowVectorPtr& vector) {
@@ -86,7 +86,7 @@ class ExchangeClientTest : public testing::Test,
     }
   }
 
-  std::shared_ptr<PartitionedOutputBufferManager> bufferManager_;
+  std::shared_ptr<OutputBufferManager> bufferManager_;
 };
 
 TEST_F(ExchangeClientTest, nonVeloxCreateExchangeSourceException) {
