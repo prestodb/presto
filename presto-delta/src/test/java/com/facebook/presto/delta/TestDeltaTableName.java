@@ -14,11 +14,13 @@
 package com.facebook.presto.delta;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.util.Failures;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
@@ -89,6 +91,7 @@ public class TestDeltaTableName
             fail("expected the above call to fail");
         }
         catch (PrestoException exception) {
+            exception = (PrestoException) Failures.toLocalisedPrestoException(exception, Locale.US);
             assertTrue(exception.getMessage().contains(expErrorMessage), exception.getMessage());
         }
     }

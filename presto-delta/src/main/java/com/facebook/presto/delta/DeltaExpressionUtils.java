@@ -46,7 +46,6 @@ import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 
 public final class DeltaExpressionUtils
 {
@@ -241,15 +240,13 @@ public final class DeltaExpressionUtils
                     Boolean booleanValue = Boolean.valueOf(partitionValue);
                     return Domain.create(ValueSet.of(type, booleanValue), false);
                 default:
-                    throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
-                            format("Unsupported data type '%s' for partition column %s", columnHandle.getDataType(), columnHandle.getName()));
+                    throw new PrestoException("DELTA_UNSUPPORTED_COLUMN_TYPE_UNSUPPORTED_DATATYPE_FOR_PARTITION_COLUMN",
+                            DELTA_UNSUPPORTED_COLUMN_TYPE, columnHandle.getDataType(), columnHandle.getName());
             }
         }
         catch (IllegalArgumentException exception) {
-            throw new PrestoException(DELTA_INVALID_PARTITION_VALUE,
-                    format("Can not parse partition value '%s' of type '%s' for partition column '%s' in file '%s'",
-                            partitionValue, columnHandle.getDataType(), columnHandle.getName(), filePath),
-                    exception);
+            throw new PrestoException("DELTA_INVALID_PARTITION_VALUE_CANNOT_PARSE_PARTITION_VALUE_IN_FILE",
+                    DELTA_INVALID_PARTITION_VALUE, exception, partitionValue, columnHandle.getDataType(), columnHandle.getName(), filePath);
         }
     }
 }

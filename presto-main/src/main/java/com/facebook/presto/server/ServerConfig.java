@@ -40,6 +40,7 @@ public class ServerConfig
     private NodePoolType poolType = DEFAULT;
     private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
     private boolean nestedDataSerializationEnabled = true;
+    private boolean isErrorI18nEnabled;
 
     public boolean isResourceManager()
     {
@@ -212,6 +213,18 @@ public class ServerConfig
     public ServerConfig setNestedDataSerializationEnabled(boolean nestedDataSerializationEnabled)
     {
         this.nestedDataSerializationEnabled = nestedDataSerializationEnabled;
+        return this;
+    }
+
+    public boolean isErrorI18nEnabled()
+    {
+        return this.isErrorI18nEnabled;
+    }
+
+    @Config("error.i18n.enabled")
+    public ServerConfig setErrorI18nEnabled(boolean value)
+    {
+        this.isErrorI18nEnabled = value;
         return this;
     }
 }

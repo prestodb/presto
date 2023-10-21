@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.common.ErrorCode;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.error.ErrorRetriever;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
@@ -35,6 +37,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
@@ -51,6 +54,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class Failures
 {
+    private static final Logger log = Logger.get(Failures.class);
     private static final String NODE_CRASHED_ERROR = "The node may have crashed or be under too much load. " +
             "This is probably a transient issue, so please retry your query in a few minutes.";
 
@@ -62,7 +66,7 @@ public final class Failures
 
     public static ExecutionFailureInfo toFailure(Throwable failure)
     {
-        return toFailure(failure, newIdentityHashSet());
+        return toFailure(failure, newIdentityHashSet(), false);
     }
 
     public static void checkArgument(boolean expression, String errorMessage)
@@ -93,10 +97,16 @@ public final class Failures
                 .collect(toImmutableList());
     }
 
-    private static ExecutionFailureInfo toFailure(Throwable throwable, Set<Throwable> seenFailures)
+    private static ExecutionFailureInfo toFailure(Throwable throwable, Set<Throwable> seenFailures, boolean doNotLocaliseException)
     {
         if (throwable == null) {
             return null;
+        }
+
+        // If somehow we got a PrestoException that has an error key and no error message
+        // create a new PrestoException using en_US locale.
+        if (!doNotLocaliseException) {
+            throwable = toLocalisedPrestoException(throwable, Locale.US);
         }
 
         String type;
@@ -117,7 +127,8 @@ public final class Failures
         }
         seenFailures.add(throwable);
 
-        ExecutionFailureInfo cause = toFailure(throwable.getCause(), seenFailures);
+        // Do not need to localise the inner exception
+        ExecutionFailureInfo cause = toFailure(throwable.getCause(), seenFailures, true);
         ErrorCode errorCode = toErrorCode(throwable);
         if (errorCode == null) {
             if (cause == null) {
@@ -133,7 +144,7 @@ public final class Failures
                 throwable.getMessage(),
                 cause,
                 Arrays.stream(throwable.getSuppressed())
-                        .map(failure -> toFailure(failure, seenFailures))
+                        .map(failure -> toFailure(failure, seenFailures, true))
                         .collect(toImmutableList()),
                 Lists.transform(asList(throwable.getStackTrace()), toStringFunction()),
                 getErrorLocation(throwable),
@@ -192,5 +203,19 @@ public final class Failures
         throwIfInstanceOf(t, Error.class);
         throwIfInstanceOf(t, PrestoException.class);
         return new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
+    }
+
+    public static Throwable toLocalisedPrestoException(Throwable t, Locale locale)
+    {
+        if (t.getClass() == PrestoException.class && ((PrestoException) t).getErrorKey() != null) {
+            try {
+                PrestoException ex = (PrestoException) t;
+                return new PrestoException(ex.getErrorCodeSupplier(), String.format(ErrorRetriever.getErrorMessage(ex.getErrorKey(), locale), ex.getArgs()), t);
+            }
+            catch (Exception e) {
+                log.error(e, "Error creating PrestoException");
+            }
+        }
+        return t;
     }
 }

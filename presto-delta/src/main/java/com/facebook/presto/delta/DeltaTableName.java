@@ -107,10 +107,7 @@ public class DeltaTableName
     {
         Matcher match = TABLE_PATTERN.matcher(tableName);
         if (!match.matches()) {
-            throw new PrestoException(NOT_SUPPORTED, "Invalid Delta table name: " + tableName +
-                    ", Expected table name form 'tableName[@v<snapshotId>][@t<snapshotAsOfTimestamp>]'. " +
-                    "The table can have either a particular snapshot identifier or a timestamp of the snapshot. " +
-                    "If timestamp is given the latest snapshot of the table that was generated at or before the given timestamp is read");
+            throw new PrestoException("NOT_SUPPORTED_NOT_THE_EXPECTED_TABLE_NAME_FORMAT", NOT_SUPPORTED, tableName);
         }
 
         String tableNameOrPath = match.group(TABLE_GROUP_NAME);

@@ -41,6 +41,7 @@ import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.util.Failures;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -840,6 +841,7 @@ public class QueryStateMachine
                 @Override
                 public void onFailure(Throwable throwable)
                 {
+                    throwable = Failures.toLocalisedPrestoException(throwable, getSession().getLocale());
                     transitionToFailed(throwable, currentState -> !currentState.isDone());
                 }
             }, directExecutor());

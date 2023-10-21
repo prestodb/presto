@@ -31,6 +31,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
+import com.facebook.presto.util.Failures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
@@ -113,6 +114,8 @@ public class LocalDispatchQuery
         this.queryPrerequisites = requireNonNull(queryPrerequisites, "queryPrerequisites is null");
         this.warningCollector = requireNonNull(stateMachine.getWarningCollector(), "warningCollector is null");
         addExceptionCallback(queryExecutionFuture, throwable -> {
+            throwable = Failures.toLocalisedPrestoException(throwable, getSession().getLocale());
+
             if (stateMachine.transitionToFailed(throwable)) {
                 queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
             }
