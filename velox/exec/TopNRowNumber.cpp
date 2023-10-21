@@ -17,6 +17,60 @@
 
 namespace facebook::velox::exec {
 
+namespace {
+
+std::vector<column_index_t> reorderInputChannels(
+    const RowTypePtr& inputType,
+    const std::vector<core::FieldAccessTypedExprPtr>& partitionKeys,
+    const std::vector<core::FieldAccessTypedExprPtr>& sortingKeys) {
+  const auto size = inputType->size();
+
+  std::vector<column_index_t> channels;
+  channels.reserve(size);
+
+  std::unordered_set<std::string> keyNames;
+
+  for (const auto& key : partitionKeys) {
+    channels.push_back(exprToChannel(key.get(), inputType));
+    keyNames.insert(key->name());
+  }
+
+  for (const auto& key : sortingKeys) {
+    channels.push_back(exprToChannel(key.get(), inputType));
+    keyNames.insert(key->name());
+  }
+
+  for (auto i = 0; i < size; ++i) {
+    if (keyNames.count(inputType->nameOf(i)) == 0) {
+      channels.push_back(i);
+    }
+  }
+
+  return channels;
+}
+
+RowTypePtr reorderInputType(
+    const RowTypePtr& inputType,
+    const std::vector<column_index_t>& channels) {
+  const auto size = inputType->size();
+
+  VELOX_CHECK_EQ(size, channels.size());
+
+  std::vector<std::string> names;
+  names.reserve(size);
+
+  std::vector<TypePtr> types;
+  types.reserve(size);
+
+  for (auto channel : channels) {
+    names.push_back(inputType->nameOf(channel));
+    types.push_back(inputType->childAt(channel));
+  }
+
+  return ROW(std::move(names), std::move(types));
+}
+} // namespace
+
 TopNRowNumber::TopNRowNumber(
     int32_t operatorId,
     DriverCtx* driverCtx,
@@ -29,14 +83,18 @@ TopNRowNumber::TopNRowNumber(
           "TopNRowNumber"),
       limit_{node->limit()},
       generateRowNumber_{node->generateRowNumber()},
-      inputType_{node->sources()[0]->outputType()},
+      inputChannels_{reorderInputChannels(
+          node->inputType(),
+          node->partitionKeys(),
+          node->sortingKeys())},
+      inputType_{reorderInputType(node->inputType(), inputChannels_)},
       data_(std::make_unique<RowContainer>(inputType_->children(), pool())),
       comparator_(
           inputType_,
           node->sortingKeys(),
           node->sortingOrders(),
           data_.get()),
-      decodedVectors_(inputType_->children().size()) {
+      decodedVectors_(inputType_->size()) {
   const auto& keys = node->partitionKeys();
   const auto numKeys = keys.size();
 
@@ -45,7 +103,7 @@ TopNRowNumber::TopNRowNumber(
         true, sizeof(TopRows), false, 1, [](auto, auto) {}, [](auto) {}};
 
     table_ = std::make_unique<HashTable<false>>(
-        createVectorHashers(inputType_, keys),
+        createVectorHashers(node->inputType(), keys),
         std::vector<Accumulator>{accumulator},
         std::vector<TypePtr>{},
         false, // allowDuplicates
@@ -60,13 +118,7 @@ TopNRowNumber::TopNRowNumber(
     singlePartition_ = std::make_unique<TopRows>(allocator_.get(), comparator_);
   }
 
-  identityProjections_.reserve(inputType_->size());
-  for (auto i = 0; i < inputType_->size(); ++i) {
-    identityProjections_.emplace_back(i, i);
-  }
-
   if (generateRowNumber_) {
-    resultProjections_.emplace_back(0, inputType_->size());
     results_.resize(1);
   }
 }
@@ -74,8 +126,8 @@ TopNRowNumber::TopNRowNumber(
 void TopNRowNumber::addInput(RowVectorPtr input) {
   const auto numInput = input->size();
 
-  for (auto i = 0; i < inputType_->size(); ++i) {
-    decodedVectors_[i].decode(*input->childAt(i));
+  for (auto i = 0; i < inputChannels_.size(); ++i) {
+    decodedVectors_[i].decode(*input->childAt(inputChannels_[i]));
   }
 
   if (table_) {
@@ -91,11 +143,11 @@ void TopNRowNumber::addInput(RowVectorPtr input) {
     // if row should replace an existing row or be discarded.
     for (auto i = 0; i < numInput; ++i) {
       auto& partition = partitionAt(lookup_->hits[i]);
-      processInputRow(input, i, partition);
+      processInputRow(i, partition);
     }
   } else {
     for (auto i = 0; i < numInput; ++i) {
-      processInputRow(input, i, *singlePartition_);
+      processInputRow(i, *singlePartition_);
     }
   }
 }
@@ -107,10 +159,7 @@ void TopNRowNumber::initializeNewPartitions() {
   }
 }
 
-void TopNRowNumber::processInputRow(
-    const RowVectorPtr& input,
-    vector_size_t index,
-    TopRows& partition) {
+void TopNRowNumber::processInputRow(vector_size_t index, TopRows& partition) {
   auto& topRows = partition.rows;
 
   char* newRow = nullptr;
@@ -131,7 +180,7 @@ void TopNRowNumber::processInputRow(
     newRow = data_->initializeRow(topRow, true /* reuse */);
   }
 
-  for (auto col = 0; col < input->childrenSize(); ++col) {
+  for (auto col = 0; col < decodedVectors_.size(); ++col) {
     data_->store(decodedVectors_[col], index, newRow, col);
   }
 
@@ -268,8 +317,9 @@ RowVectorPtr TopNRowNumber::getOutput() {
   }
   output->resize(offset);
 
-  for (int i = 0; i < inputType_->size(); ++i) {
-    data_->extractColumn(outputRows_.data(), offset, i, output->childAt(i));
+  for (int i = 0; i < inputChannels_.size(); ++i) {
+    data_->extractColumn(
+        outputRows_.data(), offset, i, output->childAt(inputChannels_[i]));
   }
 
   return output;

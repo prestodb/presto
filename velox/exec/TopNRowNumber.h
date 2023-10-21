@@ -60,7 +60,7 @@ class TopNRowNumber : public Operator {
   void close() override;
 
  private:
-  /// A priority queue to keep track of top 'limit' rows for a given partition.
+  // A priority queue to keep track of top 'limit' rows for a given partition.
   struct TopRows {
     struct Compare {
       RowComparator& comparator;
@@ -83,21 +83,18 @@ class TopNRowNumber : public Operator {
     return *reinterpret_cast<TopRows*>(group + partitionOffset_);
   }
 
-  /// Adds input row to a partition or discards the row.
-  void processInputRow(
-      const RowVectorPtr& input,
-      vector_size_t index,
-      TopRows& partition);
+  // Adds input row to a partition or discards the row.
+  void processInputRow(vector_size_t index, TopRows& partition);
 
-  /// Returns next partition to add to output or nullptr if there are no
-  /// partitions left.
+  // Returns next partition to add to output or nullptr if there are no
+  // partitions left.
   TopRows* nextPartition();
 
-  /// Returns partition that was partially added to the previous output batch.
+  // Returns partition that was partially added to the previous output batch.
   TopRows& currentPartition();
 
-  /// Appends partition rows to outputRows_ and optionally populates row
-  /// numbers.
+  // Appends partition rows to outputRows_ and optionally populates row
+  // numbers.
   void appendPartitionRows(
       TopRows& partition,
       vector_size_t start,
@@ -107,21 +104,28 @@ class TopNRowNumber : public Operator {
 
   const int32_t limit_;
   const bool generateRowNumber_;
+
+  // Input columns in the order of: partition keys, sorting keys, the rest.
+  const std::vector<column_index_t> inputChannels_;
+
+  // Input column types in 'inputChannels_' order.
   const RowTypePtr inputType_;
 
-  /// Hash table to keep track of partitions. Not used if there are no
-  /// partitioning keys. For each partition, stores an instance of TopRows
-  /// struct.
+  // Hash table to keep track of partitions. Not used if there are no
+  // partitioning keys. For each partition, stores an instance of TopRows
+  // struct.
   std::unique_ptr<BaseHashTable> table_;
   std::unique_ptr<HashLookup> lookup_;
   int32_t partitionOffset_;
 
-  /// TopRows struct to keep track of top rows for a single partition, when
-  /// there are no partitioning keys.
+  // TopRows struct to keep track of top rows for a single partition, when
+  // there are no partitioning keys.
   std::unique_ptr<HashStringAllocator> allocator_;
   std::unique_ptr<TopRows> singlePartition_;
 
-  /// Stores row data. For each partition, only up to 'limit' rows are stored.
+  // Stores input data. For each partition, only up to 'limit_' rows are stored.
+  // Order of columns matches 'inputChannels_': partition keys, sorting keys,
+  // the rest.
   std::unique_ptr<RowContainer> data_;
 
   RowComparator comparator_;
@@ -130,12 +134,12 @@ class TopNRowNumber : public Operator {
 
   bool finished_{false};
 
-  /// Maximum number of rows in the output batch.
+  // Maximum number of rows in the output batch.
   vector_size_t outputBatchSize_;
   std::vector<char*> outputRows_;
 
-  /// Number of partitions to fetch from a HashTable in a single listAllRows
-  /// call.
+  // Number of partitions to fetch from a HashTable in a single listAllRows
+  // call.
   static const size_t kPartitionBatchSize = 100;
 
   BaseHashTable::RowsIterator partitionIt_;

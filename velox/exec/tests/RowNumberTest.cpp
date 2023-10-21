@@ -70,7 +70,7 @@ TEST_F(RowNumberTest, spill) {
   test(1);
   test(100);
   test(1'000);
-} // namespace facebook::velox::exec::test
+}
 
 TEST_F(RowNumberTest, basic) {
   auto data = makeRowVector({

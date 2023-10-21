@@ -84,41 +84,50 @@ TEST_F(TopNRowNumberTest, basic) {
 }
 
 TEST_F(TopNRowNumberTest, largeOutput) {
+  // Make 10 vectors. Use different types for partitioning key, sorting key and
+  // data. Use order of columns different from partitioning keys, followed by
+  // sorting keys, followed by data.
   const vector_size_t size = 10'000;
-  auto data = makeRowVector({
-      // Partitioning key.
-      makeFlatVector<int64_t>(size, [](auto row) { return row % 7; }),
-      // Sorting key.
-      makeFlatVector<int64_t>(size, [](auto row) { return (size - row) * 10; }),
-      // Data.
-      makeFlatVector<int64_t>(size, [](auto row) { return row; }),
-  });
+  auto data = split(
+      makeRowVector(
+          {"d", "p", "s"},
+          {
+              // Data.
+              makeFlatVector<float>(size, [](auto row) { return row; }),
+              // Partitioning key.
+              makeFlatVector<int16_t>(size, [](auto row) { return row % 7; }),
+              // Sorting key.
+              makeFlatVector<int32_t>(
+                  size, [](auto row) { return (size - row) * 10; }),
+          }),
+      10);
 
-  createDuckDbTable({data});
+  createDuckDbTable(data);
 
   auto testLimit = [&](auto limit) {
+    SCOPED_TRACE(fmt::format("Limit: {}", limit));
     auto plan = PlanBuilder()
-                    .values({data})
-                    .topNRowNumber({"c0"}, {"c1"}, limit, true)
+                    .values(data)
+                    .topNRowNumber({"p"}, {"s"}, limit, true)
                     .planNode();
 
     AssertQueryBuilder(plan, duckDbQueryRunner_)
         .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
         .assertResults(fmt::format(
-            "SELECT * FROM (SELECT *, row_number() over (partition by c0 order by c1) as rn FROM tmp) "
+            "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
             " WHERE rn <= {}",
             limit));
 
     // No partitioning keys.
     plan = PlanBuilder()
-               .values({data})
-               .topNRowNumber({}, {"c1"}, limit, true)
+               .values(data)
+               .topNRowNumber({}, {"s"}, limit, true)
                .planNode();
 
     AssertQueryBuilder(plan, duckDbQueryRunner_)
         .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
         .assertResults(fmt::format(
-            "SELECT * FROM (SELECT *, row_number() over (order by c1) as rn FROM tmp) "
+            "SELECT * FROM (SELECT *, row_number() over (order by s) as rn FROM tmp) "
             " WHERE rn <= {}",
             limit));
   };
@@ -132,32 +141,37 @@ TEST_F(TopNRowNumberTest, largeOutput) {
 
 TEST_F(TopNRowNumberTest, manyPartitions) {
   const vector_size_t size = 10'000;
-  auto data = makeRowVector({
-      // Partitioning key.
-      makeFlatVector<int64_t>(
-          size, [](auto row) { return row / 2; }, nullEvery(7)),
-      // Sorting key.
-      makeFlatVector<int64_t>(
-          size,
-          [](auto row) { return (size - row) * 10; },
-          [](auto row) { return row == 123; }),
-      // Data.
-      makeFlatVector<int64_t>(
-          size, [](auto row) { return row; }, nullEvery(11)),
-  });
+  auto data = split(
+      makeRowVector(
+          {"d", "s", "p"},
+          {
+              // Data.
+              makeFlatVector<int64_t>(
+                  size, [](auto row) { return row; }, nullEvery(11)),
+              // Sorting key.
+              makeFlatVector<int64_t>(
+                  size,
+                  [](auto row) { return (size - row) * 10; },
+                  [](auto row) { return row == 123; }),
+              // Partitioning key.
+              makeFlatVector<int64_t>(
+                  size, [](auto row) { return row / 2; }, nullEvery(7)),
+          }),
+      10);
 
-  createDuckDbTable({data});
+  createDuckDbTable(data);
 
   auto testLimit = [&](auto limit) {
+    SCOPED_TRACE(fmt::format("Limit: {}", limit));
     auto plan = PlanBuilder()
-                    .values({data})
-                    .topNRowNumber({"c0"}, {"c1"}, limit, true)
+                    .values(data)
+                    .topNRowNumber({"p"}, {"s"}, limit, true)
                     .planNode();
 
     assertQuery(
         plan,
         fmt::format(
-            "SELECT * FROM (SELECT *, row_number() over (partition by c0 order by c1) as rn FROM tmp) "
+            "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
             " WHERE rn <= {}",
             limit));
   };
