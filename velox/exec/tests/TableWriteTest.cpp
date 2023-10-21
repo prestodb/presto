@@ -2030,6 +2030,10 @@ TEST_P(UnpartitionedTableWriterTest, differentCompression) {
 }
 
 TEST_P(UnpartitionedTableWriterTest, runtimeStatsCheck) {
+  // The runtime stats test only applies for dwrf file format.
+  if (fileFormat_ != dwio::common::FileFormat::DWRF) {
+    return;
+  }
   struct {
     int numInputVectors;
     std::string maxStripeSize;

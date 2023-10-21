@@ -136,9 +136,7 @@ class DataPageV1 : public DataPage {
             statistics,
             std::move(first_row_index)),
         definition_level_encoding_(definition_level_encoding),
-        repetition_level_encoding_(repetition_level_encoding) {
-    LOG(ERROR) << "CREATING PAGE: " << encoding;
-  }
+        repetition_level_encoding_(repetition_level_encoding) {}
 
   Encoding::type repetition_level_encoding() const {
     return repetition_level_encoding_;
