@@ -2618,6 +2618,73 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, tableWriteSpillUseMoreMemory) {
   waitForAllTasksToBeDeleted();
 }
 
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, tableFileWriteError) {
+  const uint64_t memoryCapacity = 32 * MB;
+  setupMemory(memoryCapacity);
+  fuzzerOpts_.vectorSize = 1000;
+  fuzzerOpts_.stringLength = 1024;
+  fuzzerOpts_.stringVariableLength = false;
+  VectorFuzzer fuzzer(fuzzerOpts_, pool());
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < 10; ++i) {
+    vectors.push_back(fuzzer.fuzzInputRow(rowType_));
+  }
+
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(memoryCapacity);
+
+  std::atomic<bool> injectWriterErrorOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::write",
+      std::function<void(dwrf::Writer*)>(([&](dwrf::Writer* writer) {
+        auto& context = writer->getContext();
+        auto& pool =
+            context.getMemoryPool(dwrf::MemoryUsageCategory::OUTPUT_STREAM);
+        if (static_cast<MemoryPoolImpl*>(&pool)->testingMinReservationBytes() ==
+            0) {
+          return;
+        }
+        if (!injectWriterErrorOnce.exchange(false)) {
+          return;
+        }
+        VELOX_FAIL("inject writer error");
+      })));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto writerPlan = PlanBuilder()
+                        .values(vectors)
+                        .tableWrite(outputDirectory->path)
+                        .planNode();
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .queryCtx(queryCtx)
+          .maxDrivers(1)
+          .spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, "true")
+          .config(core::QueryConfig::kWriterSpillEnabled, "true")
+          // Set 0 file writer flush threshold to always reclaim memory from
+          // file writer.
+          .connectorConfig(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::kFileWriterFlushThresholdBytes,
+              folly::to<std::string>(0))
+          // Set stripe size to extreme large to avoid writer internal triggered
+          // flush.
+          .connectorConfig(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::kOrcWriterMaxStripeSize,
+              folly::to<std::string>("1GB"))
+          .connectorConfig(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::kOrcWriterMaxDictionaryMemory,
+              folly::to<std::string>("1GB"))
+          .plan(std::move(writerPlan))
+          .copyResults(pool()),
+      "inject writer error");
+
+  waitForAllTasksToBeDeleted();
+}
+
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrationFromTableWriter) {
   VectorFuzzer::Options options;
   const int batchSize = 1'000;

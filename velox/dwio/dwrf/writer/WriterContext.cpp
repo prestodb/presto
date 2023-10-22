@@ -69,6 +69,10 @@ WriterContext::WriterContext(
   }
 }
 
+WriterContext::~WriterContext() {
+  releaseMemoryReservation();
+}
+
 void WriterContext::validateConfigs() const {
   // the writer is implemented with strong assumption that index is enabled.
   // Things like dictionary encoding will fail if not. Before we clean that up,
@@ -140,5 +144,16 @@ void WriterContext::releaseMemoryReservation() {
   dictionaryPool_->release();
   outputStreamPool_->release();
   generalPool_->release();
+}
+
+void WriterContext::abort() {
+  compressionBuffer_.reset();
+  physicalSizeAggregators_.clear();
+  streams_.clear();
+  dictEncoders_.clear();
+  decodedVectorPool_.clear();
+  decodedVectorPool_.shrink_to_fit();
+  selectivityVector_.reset();
+  releaseMemoryReservation();
 }
 } // namespace facebook::velox::dwrf

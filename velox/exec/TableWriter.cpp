@@ -246,16 +246,6 @@ void TableWriter::updateNumWrittenFiles() {
       "numWrittenFiles", RuntimeCounter(dataSink_->numWrittenFiles()));
 }
 
-void TableWriter::abort() {
-  // NOTE: it is not safe to abort table writer which is under memory
-  // arbitration processing. The latter is most likely triggered by memory
-  // allocation from the file writer, and the abort will simply reset the file
-  // writer which might cause unexpected behavior.
-  if (!nonReclaimableSection_) {
-    close();
-  }
-}
-
 void TableWriter::close() {
   if (!closed_) {
     // Abort the data sink if the query has already failed and no need for

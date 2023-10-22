@@ -40,7 +40,9 @@ class WriterBase {
 
   virtual void abort() {
     writerSink_ = nullptr;
-    context_ = nullptr;
+    if (context_ != nullptr) {
+      context_->abort();
+    }
     if (sink_) {
       sink_->close();
       sink_ = nullptr;

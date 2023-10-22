@@ -678,6 +678,10 @@ class MemoryPoolImpl : public MemoryPool {
     return allocator_;
   }
 
+  uint64_t testingMinReservationBytes() const {
+    return minReservationBytes_;
+  }
+
   /// Structure to store allocation details in debug mode.
   struct AllocationRecord {
     uint64_t size;

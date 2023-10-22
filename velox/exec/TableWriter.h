@@ -135,8 +135,6 @@ class TableWriter : public Operator {
     return false;
   }
 
-  void abort() override;
-
  private:
   // The memory reclaimer customized for connector which interface with the
   // memory arbitrator to reclaim memory from the file writers created within

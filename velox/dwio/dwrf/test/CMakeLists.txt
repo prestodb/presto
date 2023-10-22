@@ -163,7 +163,7 @@ target_link_libraries(
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
 
-add_executable(velox_dwio_dwrf_writer_context_test TestWriterContext.cpp)
+add_executable(velox_dwio_dwrf_writer_context_test WriterContextTest.cpp)
 add_test(velox_dwio_dwrf_writer_context_test
          velox_dwio_dwrf_writer_context_test)
 

@@ -65,9 +65,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     VELOX_NYI("{} unsupported", __FUNCTION__);
   }
 
-  void release() override {
-    VELOX_NYI("{} unsupported", __FUNCTION__);
-  }
+  void release() override {}
 
   Stats stats() const override {
     VELOX_NYI("{} unsupported", __FUNCTION__);

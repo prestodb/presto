@@ -45,6 +45,8 @@ class WriterContext : public CompressionBufferPool {
           dwio::common::MetricsLog::voidLog(),
       std::unique_ptr<encryption::EncryptionHandler> handler = nullptr);
 
+  ~WriterContext() override;
+
   bool hasStream(const DwrfStreamIdentifier& stream) const {
     return streams_.find(stream) != streams_.end();
   }
@@ -258,12 +260,12 @@ class WriterContext : public CompressionBufferPool {
   }
 
   void incrementNodeSize(uint32_t node, uint64_t size) {
-    nodeSize[node] += size;
+    nodeSize_[node] += size;
   }
 
   uint64_t getNodeSize(uint32_t node) {
-    if (nodeSize.count(node) > 0) {
-      return nodeSize[node];
+    if (nodeSize_.count(node) > 0) {
+      return nodeSize_[node];
     }
     return 0;
   }
@@ -313,11 +315,11 @@ class WriterContext : public CompressionBufferPool {
         getConfig(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO));
   }
 
-  // The additional memory usage of writers during flush typically comes from
-  // flushing remaining data to output buffer, or all of it in the case of
-  // dictionary encoding. In either case, the maximal memory consumption is
-  // O(k * raw data size). The actual coefficient k can differ
-  // from encoding to encoding, and thus should be schema aware.
+  /// The additional memory usage of writers during flush typically comes from
+  /// flushing remaining data to output buffer, or all of it in the case of
+  /// dictionary encoding. In either case, the maximal memory consumption is
+  /// O(k * raw data size). The actual coefficient k can differ
+  /// from encoding to encoding, and thus should be schema aware.
   size_t getEstimatedFlushOverhead(size_t dataRawSize) const {
     return ceil(flushOverheadRatioTracker_.getEstimatedRatio() * dataRawSize);
   }
@@ -564,6 +566,8 @@ class WriterContext : public CompressionBufferPool {
     return *selectivityVector_;
   }
 
+  void abort();
+
   dwio::common::DataBuffer<char>* testingCompressionBuffer() const {
     return compressionBuffer_.get();
   }
@@ -627,7 +631,7 @@ class WriterContext : public CompressionBufferPool {
   std::unique_ptr<velox::SelectivityVector> selectivityVector_;
 
   std::unique_ptr<encryption::EncryptionHandler> handler_;
-  folly::F14FastMap<uint32_t, uint64_t> nodeSize;
+  folly::F14FastMap<uint32_t, uint64_t> nodeSize_;
   CompressionRatioTracker compressionRatioTracker_;
   FlushOverheadRatioTracker flushOverheadRatioTracker_;
   // This might not be the best idea if client actually sends batches
