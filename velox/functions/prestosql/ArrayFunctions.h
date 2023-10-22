@@ -26,6 +26,8 @@ template <typename TExecCtx, bool isMax>
 struct ArrayMinMaxFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExecCtx);
 
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
   template <typename T>
   void update(T& currentValue, const T& candidateValue) {
     if constexpr (isMax) {
@@ -45,11 +47,7 @@ struct ArrayMinMaxFunction {
   }
 
   void assign(out_type<Varchar>& out, const arg_type<Varchar>& value) {
-    // TODO: reuse strings once support landed.
-    out.resize(value.size());
-    if (value.size() != 0) {
-      std::memcpy(out.data(), value.data(), value.size());
-    }
+    out.setNoCopy(value);
   }
 
   template <typename TReturn, typename TInput>
