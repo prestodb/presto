@@ -214,4 +214,82 @@ public abstract class TestTimeBase
         assertOperator(INDETERMINATE, "cast(null as TIME)", BOOLEAN, true);
         assertOperator(INDETERMINATE, "TIME '00:00:00'", BOOLEAN, false);
     }
+
+    @Test
+    public void testDistinctFrom()
+    {
+        assertFunction("TIME '12:34:56' IS DISTINCT FROM TIME '12:34:56'", BOOLEAN, false);
+        assertFunction("TIME '12:34:56.1' IS DISTINCT FROM TIME '12:34:56.1'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testLessThanOrEquals()
+    {
+        // equality
+        assertFunction("TIME '12:34:56' <= TIME '12:34:56'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.1' <= TIME '12:34:56.1'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.12' <= TIME '12:34:56.12'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.123' <= TIME '12:34:56.123'", BOOLEAN, true);
+
+        // less than
+        assertFunction("TIME '12:34:56' <= TIME '12:34:57'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.1' <= TIME '12:34:56.2'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.12' <= TIME '12:34:56.13'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.123' <= TIME '12:34:56.124'", BOOLEAN, true);
+
+        // false cases
+        assertFunction("TIME '12:34:56' <= TIME '12:34:55'", BOOLEAN, false);
+        assertFunction("TIME '12:34:56.1' <= TIME '12:34:56.0'", BOOLEAN, false);
+        assertFunction("TIME '12:34:56.12' <= TIME '12:34:56.11'", BOOLEAN, false);
+        assertFunction("TIME '12:34:56.123' <= TIME '12:34:56.122'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testGreaterThanOrEquals()
+    {
+        // equality
+        assertFunction("TIME '12:34:56' >= TIME '12:34:56'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.1' >= TIME '12:34:56.1'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.12' >= TIME '12:34:56.12'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.123' >= TIME '12:34:56.123'", BOOLEAN, true);
+
+        // greater than
+        assertFunction("TIME '12:34:56' >= TIME '12:34:57'", BOOLEAN, false);
+        assertFunction("TIME '12:34:56.1' >= TIME '12:34:56.2'", BOOLEAN, false);
+        assertFunction("TIME '12:34:56.12' >= TIME '12:34:56.13'", BOOLEAN, false);
+        assertFunction("TIME '12:34:56.123' >= TIME '12:34:56.124'", BOOLEAN, false);
+
+        // false cases
+        assertFunction("TIME '12:34:56' >= TIME '12:34:55'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.1' >= TIME '12:34:56.0'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.12' >= TIME '12:34:56.11'", BOOLEAN, true);
+        assertFunction("TIME '12:34:56.123' >= TIME '12:34:56.122'", BOOLEAN, true);
+    }
+
+    @Test
+    public void testAddIntervalDayToSecond()
+    {
+        assertFunction("TIME '12:34:56' + INTERVAL '1.123' SECOND", TIME, sqlTimeOf(12, 34, 57, 123, session));
+        assertFunction("TIME '12:34:56.1' + INTERVAL '1.123' SECOND", TIME, sqlTimeOf(12, 34, 57, 223, session));
+
+        assertFunction("INTERVAL '1.123' SECOND + TIME '12:34:56'", TIME, sqlTimeOf(12, 34, 57, 123, session));
+        assertFunction("INTERVAL '1.123' SECOND + TIME '12:34:56.1'", TIME, sqlTimeOf(12, 34, 57, 223, session));
+
+        // carry
+        assertFunction("TIME '12:59:59' + INTERVAL '1' SECOND", TIME, sqlTimeOf(13, 00, 00, 000, session));
+        assertFunction("TIME '12:59:59.999' + INTERVAL '0.001' SECOND", TIME, sqlTimeOf(13, 00, 00, 000, session));
+    }
+
+    @Test
+    public void testSubtractIntervalDayToSecond()
+    {
+        assertFunction("TIME '12:34:56' - INTERVAL '1.123' SECOND", TIME, sqlTimeOf(12, 34, 54, 877, session));
+
+        // borrow
+        assertFunction("TIME '13:00:00' - INTERVAL '1' SECOND", TIME, sqlTimeOf(12, 59, 59, 000, session));
+        assertFunction("TIME '13:00:00' - INTERVAL '0.001' SECOND", TIME, sqlTimeOf(12, 59, 59, 999, session));
+
+        // wrap-around
+        assertFunction("TIME '12:34:56' - INTERVAL '13' HOUR", TIME, sqlTimeOf(23, 34, 56, 000, session));
+    }
 }
