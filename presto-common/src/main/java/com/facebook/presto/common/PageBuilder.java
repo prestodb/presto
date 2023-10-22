@@ -46,7 +46,7 @@ public class PageBuilder
      * therefore it can resize frequently while appending new rows.
      * <p>
      * This constructor should only be used to get the initial PageBuilder.
-     * Once the PageBuilder is full use reset() or createPageBuilderLike() to create a new
+     * Once the PageBuilder is full use reset() or newPageBuilderLike() to create a new
      * PageBuilder instance with its size estimated based on previous data.
      */
     public PageBuilder(List<? extends Type> types)
