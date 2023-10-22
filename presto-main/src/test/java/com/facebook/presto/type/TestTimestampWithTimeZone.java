@@ -13,11 +13,16 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.sql.query.QueryAssertions;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 
@@ -27,6 +32,21 @@ public class TestTimestampWithTimeZone
     public TestTimestampWithTimeZone()
     {
         super(false);
+    }
+
+    private QueryAssertions assertions;
+
+    @BeforeClass
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
@@ -112,5 +132,42 @@ public class TestTimestampWithTimeZone
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321123456 Pacific/Bougainville' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, session));
+    }
+
+    @Test
+    public void testCastInvalidTimestamp()
+    {
+        assertInvalidFunction("CAST('ABC' AS TIMESTAMP WITH TIME ZONE)", INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp with time zone: ABC");
+        assertInvalidFunction("CAST('2022-01-00 00:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)", INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp with time zone: 2022-01-00 00:00:00 UTC");
+        assertInvalidFunction("CAST('AABC' AS TIMESTAMP WITH TIME ZONE)", INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp with time zone: AABC");
+        assertInvalidFunction("CAST('2022-01-00 00:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)", INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp with time zone: 2022-01-00 00:00:00 UTC");
+        assertInvalidFunction("CAST('2022-01-01 00:00:00 ABC' AS TIMESTAMP WITH TIME ZONE)", INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp with time zone: 2022-01-01 00:00:00 ABC");
+    }
+
+    @Test
+    public void testJoin()
+    {
+        // short timestamp
+        assertions.assertQuery("SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00 America/New_York') t(v) " +
+                        "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles') u(v) USING (v)", "VALUES BIGINT '1'");
+
+        // long timestamp
+        assertions.assertQuery("" +
+                "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00.000000 America/New_York') t(v) " +
+                "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles') u(v) USING (v)", "VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testTimeZoneMinute()
+    {
+        assertFunction("timezone_minute(TIMESTAMP '2020-05-01 12:34:56 +07:09')", BIGINT, 9L);
+        assertFunction("timezone_minute(TIMESTAMP '2020-05-01 12:34:56.1 +07:09')", BIGINT, 9L);
+    }
+
+    @Test
+    public void testTimeZoneHour()
+    {
+        assertFunction("timezone_hour(TIMESTAMP '2020-05-01 12:34:56 +07:09')", BIGINT, 7L);
+        assertFunction("timezone_hour(TIMESTAMP '2020-05-01 12:34:56.1 +07:09')", BIGINT, 7L);
     }
 }
