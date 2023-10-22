@@ -53,7 +53,7 @@ public class UseTask
 
         checkAndSetCatalog(statement, metadata, stateMachine, session);
 
-        stateMachine.setSetSchema(statement.getSchema().getValueLowerCase());
+        stateMachine.setSetSchema(statement.getSchema().getValue());
 
         return immediateFuture(null);
     }

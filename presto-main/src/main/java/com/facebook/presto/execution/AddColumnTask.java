@@ -96,7 +96,7 @@ public class AddColumnTask
         if (type.equals(UNKNOWN)) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
-        if (columnHandles.containsKey(element.getName().getValueLowerCase())) {
+        if (columnHandles.containsKey(element.getName().getValue())) {
             if (!statement.isColumnNotExists()) {
                 throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
             }

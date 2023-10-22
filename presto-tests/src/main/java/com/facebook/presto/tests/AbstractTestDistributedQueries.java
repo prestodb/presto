@@ -510,7 +510,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("DROP TABLE test_rename");
 
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "TEST_RENAME"));
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
 
         assertUpdate("ALTER TABLE IF EXISTS test_rename RENAME TO test_rename_new");

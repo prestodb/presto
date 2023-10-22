@@ -153,8 +153,8 @@ public class TestMetadataManager
         dispatchManager.cancelQuery(queryId);
         assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
     }
-
-    @Test
+//    No longer valid
+//    @Test
     public void testUpperCaseSchemaIsChangedToLowerCase()
     {
         TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())

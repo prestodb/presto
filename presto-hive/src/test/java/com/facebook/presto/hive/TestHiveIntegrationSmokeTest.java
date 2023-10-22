@@ -1452,13 +1452,13 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_insert_partitioned_table " +
                 "(" +
-                "  ORDER_KEY BIGINT," +
-                "  SHIP_PRIORITY INTEGER," +
-                "  ORDER_STATUS VARCHAR" +
+                "  order_key BIGINT," +
+                "  ship_priority INTEGER," +
+                "  order_status VARCHAR" +
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
+                "partitioned_by = ARRAY[ 'ship_priority', 'order_status' ]" +
                 ") ";
 
         assertUpdate(session, createTable);
@@ -2011,12 +2011,12 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_metadata_delete " +
                 "(" +
-                "  ORDER_KEY BIGINT," +
-                "  LINE_NUMBER INTEGER," +
-                "  LINE_STATUS VARCHAR" +
+                "  order_key BIGINT," +
+                "  line_number INTEGER," +
+                "  line_status VARCHAR" +
                 ") " +
                 "WITH (" +
-                PARTITIONED_BY_PROPERTY + " = ARRAY[ 'LINE_NUMBER', 'LINE_STATUS' ]" +
+                PARTITIONED_BY_PROPERTY + " = ARRAY[ 'line_number', 'line_status' ]" +
                 ") ";
 
         assertUpdate(createTable);
@@ -2029,25 +2029,25 @@ public class TestHiveIntegrationSmokeTest
 
         // Delete returns number of rows deleted, or null if obtaining the number is hard or impossible.
         // Currently, Hive implementation always returns null.
-        assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' and LINE_NUMBER=CAST(3 AS INTEGER)");
+        assertUpdate("DELETE FROM test_metadata_delete WHERE line_status='F' and line_number=CAST(3 AS INTEGER)");
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'F' or linenumber<>3");
 
         // TODO This use case can be supported
         try {
-            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE lower(LINE_STATUS)='f' and LINE_NUMBER=CAST(4 AS INTEGER)");
+            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE lower(LINE_STATUS)='f' and line_number=CAST(4 AS INTEGER)");
             fail("expected exception");
         }
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
         }
 
-        assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='O'");
+        assertUpdate("DELETE FROM test_metadata_delete WHERE line_status='O'");
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
 
         try {
-            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
+            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE order_key=1");
             fail("expected exception");
         }
         catch (RuntimeException e) {

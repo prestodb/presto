@@ -871,7 +871,7 @@ public class TestAnalyzer
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t6 (a) SELECT b from t6");
         assertFails(MISSING_COLUMN, "INSERT INTO t6 (unknown) SELECT * FROM t6");
         assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, a) SELECT * FROM t6");
-        assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, A) SELECT * FROM t6");
+        assertFails(MISSING_COLUMN, "INSERT INTO t6 (a, A) SELECT * FROM t6");
 
         // b is bigint, while a is double, coercion from b to a is possible
         analyze("INSERT INTO t7 (b) SELECT (a) FROM t7 ");

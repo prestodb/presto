@@ -5683,31 +5683,31 @@ public abstract class AbstractTestQueries
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT LINENUMBER FROM LINEITEM WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'SMALL'");
+                "SELECT linenumber FROM lineitem WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'SMALL'");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT LINENUMBER FROM LINEITEM WHERE 'MEDIUM' = (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END)");
+                "SELECT linenumber FROM lineitem WHERE 'MEDIUM' = (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END)");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT LINENUMBER FROM LINEITEM WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'LARGE'");
+                "SELECT linenumber FROM lineitem WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'LARGE'");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END) = 2");
+                "SELECT SUM(TOTALPRICE) FROM orders WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END) = 2");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE 1 < (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END)");
+                "SELECT SUM(TOTALPRICE) FROM orders WHERE 1 < (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END)");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE 2 END) = 2");
+                "SELECT SUM(TOTALPRICE) FROM orders WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE 2 END) = 2");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT ORDERSTATUS, ORDERPRIORITY, TOTALPRICE FROM ORDERS WHERE (CASE WHEN ORDERSTATUS='F' THEN 1 WHEN (CASE WHEN ORDERPRIORITY = '5-LOW' THEN true ELSE false END) THEN 2 WHEN ORDERSTATUS='O' THEN 3 ELSE -1 END) > 1");
+                "SELECT ORDERSTATUS, ORDERPRIORITY, TOTALPRICE FROM orders WHERE (CASE WHEN ORDERSTATUS='F' THEN 1 WHEN (CASE WHEN ORDERPRIORITY = '5-LOW' THEN true ELSE false END) THEN 2 WHEN ORDERSTATUS='O' THEN 3 ELSE -1 END) > 1");
     }
 
     @Test
