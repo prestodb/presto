@@ -137,7 +137,7 @@ struct TestParam {
 
   CompressionKind compressionKind() const {
     return static_cast<facebook::velox::common::CompressionKind>(
-        (value & ((1L << 48) - 1)) >> 40);
+        (value & ((1L << 56) - 1)) >> 48);
   }
 
   bool multiDrivers() const {
@@ -167,13 +167,14 @@ struct TestParam {
 
   std::string toString() const {
     return fmt::format(
-        "FileFormat[{}] TestMode[{}] commitStrategy[{}] bucketKind[{}] bucketSort[{}] multiDrivers[{}]",
+        "FileFormat[{}] TestMode[{}] commitStrategy[{}] bucketKind[{}] bucketSort[{}] multiDrivers[{}] compression[{}]",
         fileFormat(),
         testMode(),
         commitStrategy(),
         bucketKind(),
         bucketSort(),
-        multiDrivers());
+        multiDrivers(),
+        compressionKindToString(compressionKind()));
   }
 };
 
