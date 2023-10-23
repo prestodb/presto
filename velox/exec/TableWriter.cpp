@@ -158,9 +158,9 @@ RowVectorPtr TableWriter::getOutput() {
   }
 
   finished_ = true;
+  const std::vector<std::string> fragments = closeDataSink();
   updateWrittenBytes();
   updateNumWrittenFiles();
-  const std::vector<std::string> fragments = closeDataSink();
 
   if (outputType_->size() == 1) {
     // NOTE: this is for non-prestissimo use cases.

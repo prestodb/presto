@@ -2829,11 +2829,16 @@ TEST_P(AllTableWriterTest, tableWriterStats) {
   // bucketNum, bucket number is 4
   const int numWrittenFiles =
       bucketProperty_ == nullptr ? numBatches : numBatches * 4;
+  // The size of bytes (ORC_MAGIC_LEN) written when the DWRF writer
+  // initializes a file.
+  const int32_t ORC_HEADER_LEN{3};
+  const auto fixedWrittenBytes =
+      numWrittenFiles * (fileFormat_ == FileFormat::DWRF ? ORC_HEADER_LEN : 0);
   for (int i = 0; i < task->taskStats().pipelineStats.size(); ++i) {
     auto operatorStats = task->taskStats().pipelineStats.at(i).operatorStats;
     for (int j = 0; j < operatorStats.size(); ++j) {
       if (operatorStats.at(j).operatorType == "TableWrite") {
-        ASSERT_GT(operatorStats.at(j).physicalWrittenBytes, 0);
+        ASSERT_GT(operatorStats.at(j).physicalWrittenBytes, fixedWrittenBytes);
         ASSERT_EQ(
             operatorStats.at(j).runtimeStats.at("numWrittenFiles").sum,
             numWrittenFiles);
