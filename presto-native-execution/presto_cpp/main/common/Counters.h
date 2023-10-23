@@ -73,12 +73,12 @@ constexpr folly::StringPiece kCounterNumRunningDrivers{
 constexpr folly::StringPiece kCounterNumBlockedDrivers{
     "presto_cpp.num_blocked_drivers"};
 
-/// Number of total PartitionedOutputBuffer managed by all
-/// PartitionedOutputBufferManager
+/// Number of total OutputBuffer managed by all
+/// OutputBufferManager
 constexpr folly::StringPiece kCounterTotalPartitionedOutputBuffer{
     "presto_cpp.num_partitioned_output_buffer"};
 /// Latency in millisecond of the get data call of a
-/// PartitionedOutputBufferManager.
+/// OutputBufferManager.
 constexpr folly::StringPiece kCounterPartitionedOutputBufferGetDataLatencyMs{
     "presto_cpp.partitioned_output_buffer_get_data_latency_ms"};
 
