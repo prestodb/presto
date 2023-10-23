@@ -16,8 +16,8 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
-public class TestPrestoNativeScaledWriter
-        extends AbstractTestScaledWriter
+public class TestPrestoNativeWriter
+        extends AbstractTestWriter
 {
     @Override
     protected QueryRunner createQueryRunner() throws Exception

@@ -33,6 +33,7 @@ public class IcebergTableHandle
     private final TableType tableType;
     private final Optional<Long> snapshotId;
     private final TupleDomain<IcebergColumnHandle> predicate;
+    private final boolean snapshotSpecified;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -40,12 +41,14 @@ public class IcebergTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
+            @JsonProperty("snapshotSpecified") boolean snapshotSpecified,
             @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.snapshotSpecified = requireNonNull(snapshotSpecified, "specifiedSnapshot is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
     }
 
@@ -71,6 +74,12 @@ public class IcebergTableHandle
     public Optional<Long> getSnapshotId()
     {
         return snapshotId;
+    }
+
+    @JsonProperty
+    public boolean isSnapshotSpecified()
+    {
+        return snapshotSpecified;
     }
 
     @JsonProperty
@@ -104,13 +113,14 @@ public class IcebergTableHandle
                 Objects.equals(tableName, that.tableName) &&
                 tableType == that.tableType &&
                 Objects.equals(snapshotId, that.snapshotId) &&
+                snapshotSpecified == that.snapshotSpecified &&
                 Objects.equals(predicate, that.predicate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableType, snapshotId, predicate);
+        return Objects.hash(schemaName, tableName, tableType, snapshotId, snapshotSpecified, predicate);
     }
 
     @Override

@@ -70,11 +70,23 @@ class HttpResponse {
     return std::move(bodyChain_);
   }
 
+  /// Consumes the response body. The memory of body will be transferred to the
+  /// memory to be allocated from 'pool'.
+  std::unique_ptr<folly::IOBuf> consumeBody(velox::memory::MemoryPool* pool);
+
   void freeBuffers();
 
   std::string dumpBodyChain() const;
 
  private:
+  // The append operation that copies the 'iobuf' to velox memory 'pool_' and
+  // free 'iobuf' immediately.
+  void appendWithCopy(std::unique_ptr<folly::IOBuf>&& iobuf);
+
+  // Appends the 'iobuf' to 'bodyChain_', and copies them all once into a single
+  // large buffer after receives the entire http response payload.
+  void appendWithoutCopy(std::unique_ptr<folly::IOBuf>&& iobuf);
+
   // Invoked to set the error on the first encountered 'exception'.
   void setError(const std::exception& exception) {
     VELOX_CHECK(!hasError())

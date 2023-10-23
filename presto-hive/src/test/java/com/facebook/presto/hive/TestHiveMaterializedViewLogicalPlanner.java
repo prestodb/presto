@@ -530,10 +530,10 @@ public class TestHiveMaterializedViewLogicalPlanner
             MaterializedResult baseTable = computeActual(baseQuery);
             assertEquals(viewTable, baseTable);
 
-            assertPlan(getSession(), viewQuery, anyTree(values("ds", "orderkey"), anyTree(
+            assertPlan(getSession(), viewQuery, anyTree(
                     constrainedTableScan(table2,
                             ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2019-01-02")))),
-                    constrainedTableScan(view, ImmutableMap.of()))));
+                    constrainedTableScan(view, ImmutableMap.of())));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);

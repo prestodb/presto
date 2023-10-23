@@ -18,6 +18,9 @@ add_test(
 
 target_link_libraries(presto_http_test presto_http gtest gtest_main)
 
+set_property(TARGET presto_http_test PROPERTY JOB_POOL_LINK
+                                              presto_link_job_pool)
+
 if(PRESTO_ENABLE_JWT)
   add_executable(presto_http_jwt_test HttpJwtTest.cpp)
 

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.TableWriterNodeStatsEstimate;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResult;
@@ -235,11 +236,14 @@ public class TextRenderer
         for (int i = 0; i < estimateCount; i++) {
             PlanNodeStatsEstimate stats = node.getEstimatedStats().get(i);
             PlanCostEstimate cost = node.getEstimatedCost().get(i);
-            String formatStr = "{source: %s, rows: %s (%s), cpu: %s, memory: %s, network: %s%s%s}";
+            String formatStr = "{source: %s, rows: %s (%s), cpu: %s, memory: %s, network: %s";
             boolean hasHashtableStats = stats.getJoinNodeStatsEstimate().getJoinBuildKeyCount() > 0 || stats.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount() > 0;
-            if (hasHashtableStats) {
-                formatStr = "{source: %s, rows: %s (%s), cpu: %s, memory: %s, network: %s, hashtable size: %s, hashtable null: %s}";
-            }
+            String joinStatsFormatStr = hasHashtableStats ? ", hashtable[size: %s, nulls %s]" : "%s%s";
+            boolean hasTableWriterStats = !stats.getTableWriterNodeStatsEstimate().equals(TableWriterNodeStatsEstimate.unknown());
+            String tableWriterStatsFormatStr = hasTableWriterStats ? ", tablewriter[initial tasks: %s]" : "%s";
+            formatStr += joinStatsFormatStr;
+            formatStr += tableWriterStatsFormatStr;
+            formatStr += "}";
             output.append(format(formatStr,
                     stats.getSourceInfo().getClass().getSimpleName(),
                     formatAsLong(stats.getOutputRowCount()),
@@ -248,7 +252,8 @@ public class TextRenderer
                     formatDouble(cost.getMaxMemory()),
                     formatDouble(cost.getNetworkCost()),
                     hasHashtableStats ? formatDouble(stats.getJoinNodeStatsEstimate().getJoinBuildKeyCount()) : "",
-                    hasHashtableStats ? formatDouble(stats.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount()) : ""));
+                    hasHashtableStats ? formatDouble(stats.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount()) : "",
+                    hasTableWriterStats ? formatAsLong(stats.getTableWriterNodeStatsEstimate().getTaskCountIfScaledWriter()) : ""));
 
             if (i < estimateCount - 1) {
                 output.append("/");
@@ -300,18 +305,21 @@ public class TextRenderer
 
     private String optimizerInfoToText(List<PlanOptimizerInformation> planOptimizerInfo)
     {
-        List<String> applicableOptimizers = planOptimizerInfo.stream()
+        List<String> applicableOptimizerNames = planOptimizerInfo.stream()
                 .filter(x -> !x.getOptimizerTriggered() && x.getOptimizerApplicable().isPresent() && x.getOptimizerApplicable().get())
-                .map(x -> x.getOptimizerName()).collect(toList());
-        List<String> triggeredOptimizers = planOptimizerInfo.stream()
-                .filter(x -> x.getOptimizerTriggered())
-                .map(x -> x.getOptimizerName()).collect(toList());
+                .map(x -> x.getOptimizerName()).distinct().sorted().collect(toList());
+
+        List<String> triggeredOptimizerNames = planOptimizerInfo.stream().filter(x -> x.getOptimizerTriggered()).map(x -> x.getOptimizerName()).distinct().sorted().collect(toList());
+        List<String> costBasedOptimizerNames = planOptimizerInfo.stream().filter(x -> x.getIsCostBased().isPresent() && x.getIsCostBased().get()).map(x -> x.getOptimizerName() + "(" + x.getStatsSource().get() + ")").distinct().sorted().collect(toList());
 
         String triggered = "Triggered optimizers: [" +
-                String.join(", ", triggeredOptimizers) + "]\n";
+                String.join(", ", triggeredOptimizerNames) + "]\n";
         String applicable = "Applicable optimizers: [" +
-                String.join(", ", applicableOptimizers) + "]\n";
-        return triggered + applicable;
+                String.join(", ", applicableOptimizerNames) + "]\n";
+        String costBased = "Cost-based optimizers: [" +
+                String.join(", ", costBasedOptimizerNames) + "]\n";
+
+        return triggered + applicable + costBased;
     }
 
     private String cteInformationToText(List<CTEInformation> cteInformationList)

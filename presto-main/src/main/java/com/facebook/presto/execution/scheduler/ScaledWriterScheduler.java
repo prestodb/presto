@@ -48,6 +48,7 @@ public class ScaledWriterScheduler
 
     private final boolean optimizedScaleWriterProducerBuffer;
     private final long writerMinSizeBytes;
+    private final Optional<Integer> initialTaskCount;
 
     private final Set<InternalNode> scheduledNodes = new HashSet<>();
 
@@ -61,7 +62,8 @@ public class ScaledWriterScheduler
             NodeSelector nodeSelector,
             ScheduledExecutorService executor,
             DataSize writerMinSize,
-            boolean optimizedScaleWriterProducerBuffer)
+            boolean optimizedScaleWriterProducerBuffer,
+            Optional<Integer> initialTaskCount)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.sourceTasksProvider = requireNonNull(sourceTasksProvider, "sourceTasksProvider is null");
@@ -70,6 +72,7 @@ public class ScaledWriterScheduler
         this.executor = requireNonNull(executor, "executor is null");
         this.writerMinSizeBytes = requireNonNull(writerMinSize, "minWriterSize is null").toBytes();
         this.optimizedScaleWriterProducerBuffer = optimizedScaleWriterProducerBuffer;
+        this.initialTaskCount = requireNonNull(initialTaskCount, "initialTaskCount is null");
     }
 
     public void finish()
@@ -93,7 +96,7 @@ public class ScaledWriterScheduler
     private int getNewTaskCount()
     {
         if (scheduledNodes.isEmpty()) {
-            return 1;
+            return initialTaskCount.orElse(1);
         }
 
         double fullTasks = sourceTasksProvider.get().stream()

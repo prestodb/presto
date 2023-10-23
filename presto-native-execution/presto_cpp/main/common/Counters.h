@@ -66,6 +66,8 @@ constexpr folly::StringPiece kCounterNumZombieVeloxTasks{
     "presto_cpp.num_zombie_velox_tasks"};
 constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
     "presto_cpp.num_zombie_presto_tasks"};
+constexpr folly::StringPiece kCounterNumTasksWithStuckOperator{
+    "presto_cpp.num_tasks_with_stuck_operator"};
 constexpr folly::StringPiece kCounterNumRunningDrivers{
     "presto_cpp.num_running_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedDrivers{
@@ -162,6 +164,9 @@ constexpr folly::StringPiece kCounterArbitratorNumReclaimedBytes{
 /// The free memory capacity in bytes.
 constexpr folly::StringPiece kCounterArbitratorFreeCapacityBytes{
     "presto_cpp.arbitrator_free_capacity_bytes"};
+/// The number of non-reclaimable operator reclaim attempts.
+constexpr folly::StringPiece kCounterArbitratorNonReclaimableAttempts{
+    "presto_cpp.arbitrator_non_reclaimable_attempts"};
 
 /// ================== Disk Spilling Counters =================
 
@@ -196,6 +201,10 @@ constexpr folly::StringPiece kCounterSpillFlushTimeUs{
 /// The time spent on writing spilled rows to disk.
 constexpr folly::StringPiece kCounterSpillWriteTimeUs{
     "presto_cpp.spill_write_time_us"};
+/// The number of times that a spillable operator exceeds the max spill level
+/// limit that can't spill.
+constexpr folly::StringPiece kCounterSpillMaxLevelExceeded{
+    "presto_cpp.spill_exceeded_max_level_count"};
 /// The current spilling memory usage in bytes.
 constexpr folly::StringPiece kCounterSpillMemoryBytes{
     "presto_cpp.spill_memory_bytes"};

@@ -86,7 +86,10 @@ void PeriodicTaskManager::start() {
 
   VELOX_CHECK_NOT_NULL(taskManager_);
   addTaskStatsTask();
-  addOldTaskCleanupTask();
+
+  if (SystemConfig::instance()->enableOldTaskCleanUp()) {
+    addOldTaskCleanupTask();
+  }
 
   if (memoryAllocator_ != nullptr) {
     addMemoryAllocatorStatsTask();
@@ -543,6 +546,10 @@ void PeriodicTaskManager::updateArbitratorStatsTask() {
   REPORT_IF_NOT_ZERO(
       kCounterArbitratorFreeCapacityBytes,
       deltaArbitratorStats.freeCapacityBytes);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNonReclaimableAttempts,
+      deltaArbitratorStats.numNonReclaimableAttempts);
+
   if (!deltaArbitratorStats.empty()) {
     LOG(INFO) << "Updated memory arbitrator stats: "
               << updatedArbitratorStats.toString();
@@ -577,6 +584,10 @@ void PeriodicTaskManager::updateSpillStatsTask() {
       kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
   REPORT_IF_NOT_ZERO(
       kCounterSpillWriteTimeUs, deltaSpillStats.spillWriteTimeUs);
+  REPORT_IF_NOT_ZERO(
+      kCounterSpillMaxLevelExceeded,
+      deltaSpillStats.spillMaxLevelExceededCount);
+
   if (!deltaSpillStats.empty()) {
     LOG(INFO) << "Updated spill stats: " << updatedSpillStats.toString();
     LOG(INFO) << "Spill stats change:" << deltaSpillStats.toString();

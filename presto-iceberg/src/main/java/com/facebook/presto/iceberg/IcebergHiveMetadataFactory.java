@@ -19,6 +19,8 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.relation.RowExpressionService;
 
 import javax.inject.Inject;
 
@@ -32,6 +34,8 @@ public class IcebergHiveMetadataFactory
     final TypeManager typeManager;
     final JsonCodec<CommitTaskData> commitTaskCodec;
     final String prestoVersion;
+    final FilterStatsCalculatorService filterStatsCalculatorService;
+    final RowExpressionService rowExpressionService;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -40,7 +44,9 @@ public class IcebergHiveMetadataFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            RowExpressionService rowExpressionService)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -48,11 +54,13 @@ public class IcebergHiveMetadataFactory
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         requireNonNull(nodeVersion, "nodeVersion is null");
         this.prestoVersion = nodeVersion.toString();
+        this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         requireNonNull(config, "config is null");
     }
 
     public ConnectorMetadata create()
     {
-        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec, prestoVersion);
+        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec, prestoVersion, filterStatsCalculatorService, rowExpressionService);
     }
 }

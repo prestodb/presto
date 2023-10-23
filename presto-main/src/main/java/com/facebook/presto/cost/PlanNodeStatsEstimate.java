@@ -25,6 +25,7 @@ import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.SourceInfo;
+import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.facebook.presto.sql.Serialization;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -49,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeStatsEstimate
 {
     private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
-    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, NaN, false, ImmutableMap.of());
+    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, NaN, false, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown());
 
     private final double outputRowCount;
     private final double totalSize;
@@ -58,6 +59,8 @@ public class PlanNodeStatsEstimate
     private final SourceInfo sourceInfo;
 
     private final JoinNodeStatsEstimate joinNodeStatsEstimate;
+
+    private final TableWriterNodeStatsEstimate tableWriterNodeStatsEstimate;
 
     public static PlanNodeStatsEstimate unknown()
     {
@@ -69,9 +72,11 @@ public class PlanNodeStatsEstimate
             @JsonProperty("outputRowCount") double outputRowCount,
             @JsonProperty("totalSize") double totalSize,
             @JsonProperty("confident") boolean confident,
-            @JsonProperty("variableStatistics") Map<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
+            @JsonProperty("variableStatistics") Map<VariableReferenceExpression, VariableStatsEstimate> variableStatistics,
+            @JsonProperty("joinNodeStatsEstimate") JoinNodeStatsEstimate joinNodeStatsEstimate,
+            @JsonProperty("tableWriterNodeStatsEstimate") TableWriterNodeStatsEstimate tableWriterNodeStatsEstimate)
     {
-        this(outputRowCount, totalSize, confident, HashTreePMap.from(requireNonNull(variableStatistics, "variableStatistics is null")));
+        this(outputRowCount, totalSize, HashTreePMap.from(requireNonNull(variableStatistics, "variableStatistics is null")), new CostBasedSourceInfo(confident), joinNodeStatsEstimate, tableWriterNodeStatsEstimate);
     }
 
     private PlanNodeStatsEstimate(double outputRowCount, double totalSize, boolean confident, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
@@ -81,11 +86,11 @@ public class PlanNodeStatsEstimate
 
     public PlanNodeStatsEstimate(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics, SourceInfo sourceInfo)
     {
-        this(outputRowCount, totalSize, variableStatistics, sourceInfo, JoinNodeStatsEstimate.unknown());
+        this(outputRowCount, totalSize, variableStatistics, sourceInfo, JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown());
     }
 
     public PlanNodeStatsEstimate(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics, SourceInfo sourceInfo,
-            JoinNodeStatsEstimate joinNodeStatsEstimate)
+            JoinNodeStatsEstimate joinNodeStatsEstimate, TableWriterNodeStatsEstimate tableWriterNodeStatsEstimate)
     {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
@@ -93,6 +98,7 @@ public class PlanNodeStatsEstimate
         this.variableStatistics = variableStatistics;
         this.sourceInfo = requireNonNull(sourceInfo, "SourceInfo is null");
         this.joinNodeStatsEstimate = requireNonNull(joinNodeStatsEstimate, "joinNodeSpecificStatsEstimate is null");
+        this.tableWriterNodeStatsEstimate = requireNonNull(tableWriterNodeStatsEstimate, "tableWriterNodeStatsEstimate is null");
     }
 
     /**
@@ -122,9 +128,16 @@ public class PlanNodeStatsEstimate
         return sourceInfo;
     }
 
+    @JsonProperty
     public JoinNodeStatsEstimate getJoinNodeStatsEstimate()
     {
         return joinNodeStatsEstimate;
+    }
+
+    @JsonProperty
+    public TableWriterNodeStatsEstimate getTableWriterNodeStatsEstimate()
+    {
+        return tableWriterNodeStatsEstimate;
     }
 
     /**
@@ -241,9 +254,12 @@ public class PlanNodeStatsEstimate
                     planStatistics.getOutputSize().getValue(),
                     variableStatistics,
                     statsSourceInfo,
-                    new JoinNodeStatsEstimate(
-                            planStatistics.getJoinNodeStatistics().getNullJoinBuildKeyCount().getValue(),
-                            planStatistics.getJoinNodeStatistics().getJoinBuildKeyCount().getValue()));
+                    planStatistics.getJoinNodeStatistics().isEmpty() ? getJoinNodeStatsEstimate() :
+                            new JoinNodeStatsEstimate(
+                                    planStatistics.getJoinNodeStatistics().getNullJoinBuildKeyCount().getValue(),
+                                    planStatistics.getJoinNodeStatistics().getJoinBuildKeyCount().getValue()),
+                    planStatistics.getTableWriterNodeStatistics().isEmpty() ? getTableWriterNodeStatsEstimate() :
+                            new TableWriterNodeStatsEstimate(planStatistics.getTableWriterNodeStatistics().getTaskCountIfScaledWriter().getValue()));
         }
         return this;
     }
@@ -293,7 +309,8 @@ public class PlanNodeStatsEstimate
                         sourceInfo.isConfident() ? 1 : 0,
                         new JoinNodeStatistics(
                                 Estimate.estimateFromDouble(joinNodeStatsEstimate.getNullJoinBuildKeyCount()),
-                                Estimate.estimateFromDouble(joinNodeStatsEstimate.getJoinBuildKeyCount()))),
+                                Estimate.estimateFromDouble(joinNodeStatsEstimate.getJoinBuildKeyCount())),
+                        new TableWriterNodeStatistics(Estimate.estimateFromDouble(tableWriterNodeStatsEstimate.getTaskCountIfScaledWriter()))),
                 sourceInfo);
     }
 

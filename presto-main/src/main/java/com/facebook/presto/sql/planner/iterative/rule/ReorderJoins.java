@@ -106,6 +106,7 @@ public class ReorderJoins
     private final Metadata metadata;
     private final FunctionResolution functionResolution;
     private final DeterminismEvaluator determinismEvaluator;
+    private String statsSource;
 
     public ReorderJoins(CostComparator costComparator, Metadata metadata)
     {
@@ -133,6 +134,18 @@ public class ReorderJoins
     }
 
     @Override
+    public boolean isCostBased(Session session)
+    {
+        // when enabled, join order is always cost-based
+        return isEnabled(session);
+    }
+
+    public String getStatsSource()
+    {
+        return statsSource;
+    }
+
+    @Override
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
         MultiJoinNode multiJoinNode = toMultiJoinNode(joinNode, context.getLookup(), getMaxReorderedJoins(context.getSession()), functionResolution, determinismEvaluator);
@@ -147,6 +160,7 @@ public class ReorderJoins
         if (!result.getPlanNode().isPresent()) {
             return Result.empty();
         }
+        statsSource = context.getStatsProvider().getStats(joinNode).getSourceInfo().getSourceInfoName();
         return Result.ofPlanNode(result.getPlanNode().get());
     }
 

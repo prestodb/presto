@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.cost;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -25,7 +28,8 @@ public class JoinNodeStatsEstimate
     private final double nullJoinBuildKeyCount;
     private final double joinBuildKeyCount;
 
-    public JoinNodeStatsEstimate(double nullJoinBuildKeyCount, double joinBuildKeyCount)
+    @JsonCreator
+    public JoinNodeStatsEstimate(@JsonProperty("nullJoinBuildKeyCount") double nullJoinBuildKeyCount, @JsonProperty("joinBuildKeyCount") double joinBuildKeyCount)
     {
         this.nullJoinBuildKeyCount = nullJoinBuildKeyCount;
         this.joinBuildKeyCount = joinBuildKeyCount;
@@ -36,11 +40,13 @@ public class JoinNodeStatsEstimate
         return UNKNOWN;
     }
 
+    @JsonProperty
     public double getNullJoinBuildKeyCount()
     {
         return nullJoinBuildKeyCount;
     }
 
+    @JsonProperty
     public double getJoinBuildKeyCount()
     {
         return joinBuildKeyCount;

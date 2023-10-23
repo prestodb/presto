@@ -138,7 +138,12 @@ public class AbstractVarcharType
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value)
     {
-        writeSlice(blockBuilder, value, 0, value.length());
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else {
+            writeSlice(blockBuilder, value, 0, value.length());
+        }
     }
 
     @Override

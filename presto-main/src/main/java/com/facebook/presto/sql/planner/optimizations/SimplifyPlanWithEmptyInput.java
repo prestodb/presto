@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -71,7 +72,7 @@ import static java.util.function.Function.identity;
  * <pre>
  *     - Empty Values
  * </pre>
- *
+ * <p>
  * For outer join: replace with empty values if outer side is empty and project node if inner side is empty
  * For example:
  * <pre>
@@ -87,7 +88,7 @@ import static java.util.function.Function.identity;
  *          assignments := NULL if output not in Scan, otherwise identity projection
  *          - Scan
  * </pre>
- *
+ * <p>
  * For aggregation: if it has default output for empty input, stop and do not simplify, otherwise convert to empty values node
  * <pre>
  *     - Aggregation
@@ -95,8 +96,9 @@ import static java.util.function.Function.identity;
  *          - Empty Values
  * </pre>
  * No change for this query plan
- *
- * For Union node: if it has only one non-empty input, convert to a project node. If all inputs are empty, convert to empty values node
+ * <p>
+ * For Union node: if it has only one non-empty input, convert to a project node. If all inputs are empty, convert to empty values node. If more than one input is non-empty,
+ * remove the empty inputs and keep the union node and the non-empty inputs.
  */
 
 public class SimplifyPlanWithEmptyInput
@@ -123,7 +125,8 @@ public class SimplifyPlanWithEmptyInput
             Rewriter rewriter = new Rewriter(idAllocator);
             PlanNode rewrittenNode = SimplePlanRewriter.rewriteWith(rewriter, plan);
             if (rewriter.isPlanChanged()) {
-                session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(SimplifyPlanWithEmptyInput.class.getSimpleName(), true, Optional.empty(), Optional.empty()));
+                session.getOptimizerInformationCollector().addInformation(
+                        new PlanOptimizerInformation(SimplifyPlanWithEmptyInput.class.getSimpleName(), true, Optional.empty(), Optional.empty(), Optional.of(false), Optional.empty()));
             }
             return rewrittenNode;
         }
@@ -221,6 +224,13 @@ public class SimplifyPlanWithEmptyInput
                 Assignments.Builder builder = Assignments.builder();
                 builder.putAll(node.getVariableMapping().entrySet().stream().collect(toImmutableMap(entry -> entry.getKey(), entry -> entry.getValue().get(index))));
                 return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenChildren.get(index), builder.build(), LOCAL);
+            }
+            else if (nonEmptyChildIndex.size() < node.getSources().size()) {
+                this.planChanged = true;
+                List<PlanNode> nonEmptyInput = nonEmptyChildIndex.stream().map(x -> node.getSources().get(x)).collect(toImmutableList());
+                Map<VariableReferenceExpression, List<VariableReferenceExpression>> newOutputToInputs = node.getVariableMapping().entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> nonEmptyChildIndex.stream().map(idx -> entry.getValue().get(idx)).collect(toImmutableList())));
+                return new UnionNode(node.getSourceLocation(), idAllocator.getNextId(), nonEmptyInput, node.getOutputVariables(), newOutputToInputs);
             }
             return node.replaceChildren(rewrittenChildren);
         }

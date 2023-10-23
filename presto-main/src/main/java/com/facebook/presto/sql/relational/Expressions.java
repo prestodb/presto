@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
@@ -159,6 +161,14 @@ public final class Expressions
     {
         FunctionHandle functionHandle = functionAndTypeResolver.resolveOperator(operatorType, fromTypes(Arrays.stream(arguments).map(RowExpression::getType).collect(toImmutableList())));
         return call(operatorType.name(), functionHandle, returnType, arguments);
+    }
+
+    public static RowExpression castToBigInt(FunctionAndTypeManager functionAndTypeManager, RowExpression rowExpression)
+    {
+        if (rowExpression.getType().equals(BIGINT)) {
+            return rowExpression;
+        }
+        return call("CAST", functionAndTypeManager.lookupCast(CastType.CAST, rowExpression.getType(), BIGINT), BIGINT, rowExpression);
     }
 
     public static RowExpression searchedCaseExpression(List<RowExpression> whenClauses, Optional<RowExpression> defaultValue)

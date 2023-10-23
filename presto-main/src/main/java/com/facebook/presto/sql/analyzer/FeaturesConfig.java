@@ -281,6 +281,9 @@ public class FeaturesConfig
     private boolean rewriteConstantArrayContainsToIn;
 
     private boolean preProcessMetadataCalls;
+    private boolean useHBOForScaledWriters;
+
+    private boolean removeRedundantCastToVarcharInJoin = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2800,6 +2803,32 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteConstantArrayContainsToInEnabled(boolean rewriteConstantArrayContainsToIn)
     {
         this.rewriteConstantArrayContainsToIn = rewriteConstantArrayContainsToIn;
+        return this;
+    }
+
+    public boolean isUseHBOForScaledWriters()
+    {
+        return this.useHBOForScaledWriters;
+    }
+
+    @Config("optimizer.use-hbo-for-scaled-writers")
+    @ConfigDescription("Enable HBO for setting initial number of tasks for scaled writers")
+    public FeaturesConfig setUseHBOForScaledWriters(boolean useHBOForScaledWriters)
+    {
+        this.useHBOForScaledWriters = useHBOForScaledWriters;
+        return this;
+    }
+
+    public boolean isRemoveRedundantCastToVarcharInJoin()
+    {
+        return removeRedundantCastToVarcharInJoin;
+    }
+
+    @Config("optimizer.remove-redundant-cast-to-varchar-in-join")
+    @ConfigDescription("If both left and right side of join clause are varchar cast from int/bigint, remove the cast")
+    public FeaturesConfig setRemoveRedundantCastToVarcharInJoin(boolean removeRedundantCastToVarcharInJoin)
+    {
+        this.removeRedundantCastToVarcharInJoin = removeRedundantCastToVarcharInJoin;
         return this;
     }
 }

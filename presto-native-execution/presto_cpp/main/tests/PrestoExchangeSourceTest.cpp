@@ -22,6 +22,7 @@
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
@@ -381,6 +382,7 @@ static std::string getClientCa(bool useHttps) {
 
 struct Params {
   bool useHttps;
+  bool immediateBufferTransfer;
   int exchangeCpuThreadPoolSize;
   int exchangeIoThreadPoolSize;
 };
@@ -404,6 +406,9 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
 
     filesystems::registerLocalFileSystem();
     test::setupMutableSystemConfig();
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kExchangeImmediateBufferTransfer),
+        GetParam().immediateBufferTransfer ? "true" : "false");
   }
 
   void TearDown() override {
@@ -747,38 +752,73 @@ TEST_P(PrestoExchangeSourceTest, failedProducer) {
   EXPECT_THROW(waitForNextPage(queue), std::exception);
 }
 
-TEST_P(PrestoExchangeSourceTest, exceedingMemoryCapacityForHttpResponse) {
-  const int64_t memoryCapBytes = 1 << 10;
+DEBUG_ONLY_TEST_P(
+    PrestoExchangeSourceTest,
+    exceedingMemoryCapacityForHttpResponse) {
+  const int64_t memoryCapBytes = 1L << 30;
   const bool useHttps = GetParam().useHttps;
-  auto rootPool = defaultMemoryManager().addRootPool("", memoryCapBytes);
-  auto leafPool =
-      rootPool->addLeafChild("exceedingMemoryCapacityForHttpResponse");
 
-  auto producer = std::make_unique<Producer>();
+  for (bool persistentError : {false, true}) {
+    SCOPED_TRACE(fmt::format("persistentError: {}", persistentError));
 
-  auto producerServer = createHttpServer(useHttps);
-  producer->registerEndpoints(producerServer.get());
+    auto rootPool = defaultMemoryManager().addRootPool("", memoryCapBytes);
+    const std::string leafPoolName("exceedingMemoryCapacityForHttpResponse");
+    auto leafPool = rootPool->addLeafChild(leafPoolName);
 
-  test::HttpServerWrapper serverWrapper(std::move(producerServer));
-  auto producerAddress = serverWrapper.start().get();
+    // Setup to allow exchange source sufficient time to retry.
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kExchangeMaxErrorDuration), "3s");
 
-  auto queue = makeSingleSourceQueue();
-  auto exchangeSource =
-      makeExchangeSource(producerAddress, useHttps, 3, queue, leafPool.get());
+    const std::string injectedErrorMessage{"Inject allocation error"};
+    std::atomic<int> numAllocations{0};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
+        std::function<void(MemoryPool*)>(([&](MemoryPool* pool) {
+          if (pool->name().compare(leafPoolName) != 0) {
+            return;
+          }
+          // For non-consistent error, inject memory allocation failure once.
+          ++numAllocations;
+          if (numAllocations > 1 && !persistentError) {
+            return;
+          }
+          VELOX_FAIL(injectedErrorMessage);
+        })));
 
-  requestNextPage(queue, exchangeSource);
-  const std::string largePayload(2 * memoryCapBytes, 'L');
+    auto producer = std::make_unique<Producer>();
 
-  producer->enqueue(largePayload);
-  ASSERT_ANY_THROW(waitForNextPage(queue));
-  producer->noMoreData();
-  // Verify that we never retry on memory allocation failure of the http
-  // response data but just fails the query.
-  ASSERT_EQ(exchangeSource->testingFailedAttempts(), 1);
-  ASSERT_EQ(leafPool->currentBytes(), 0);
+    auto producerServer = createHttpServer(useHttps);
+    producer->registerEndpoints(producerServer.get());
+
+    test::HttpServerWrapper serverWrapper(std::move(producerServer));
+    auto producerAddress = serverWrapper.start().get();
+
+    auto queue = makeSingleSourceQueue();
+    auto exchangeSource =
+        makeExchangeSource(producerAddress, useHttps, 3, queue, leafPool.get());
+
+    requestNextPage(queue, exchangeSource);
+    const std::string payload(1 << 20, 'L');
+    producer->enqueue(payload);
+
+    if (persistentError) {
+      VELOX_ASSERT_THROW(waitForNextPage(queue), "Failed to fetch data from");
+    } else {
+      const auto receivedPage = waitForNextPage(queue);
+      ASSERT_EQ(toString(receivedPage.get()), payload);
+    }
+    producer->noMoreData();
+    if (GetParam().immediateBufferTransfer) {
+      // Verify that we have retried on memory allocation failure of the http
+      // response data other than just failing the query.
+      ASSERT_GE(exchangeSource->testingFailedAttempts(), 1);
+    }
+    ASSERT_EQ(leafPool->currentBytes(), 0);
+  }
 }
 
 TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
+  const bool immediateBufferTransfer = GetParam().immediateBufferTransfer;
   std::vector<bool> resetPeaks = {false, true};
   for (const auto resetPeak : resetPeaks) {
     SCOPED_TRACE(fmt::format("resetPeak {}", resetPeak));
@@ -805,18 +845,24 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     producer->enqueue(smallPayload);
     requestNextPage(queue, exchangeSource);
     auto smallPage = waitForNextPage(queue);
-    ASSERT_EQ(leafPool->stats().numAllocs, 2);
+    if (immediateBufferTransfer) {
+      ASSERT_EQ(leafPool->stats().numAllocs, 2);
+    }
     int64_t currMemoryBytes;
     int64_t peakMemoryBytes;
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2)
+                                : smallPayload.size() + 4,
         currMemoryBytes);
 
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2)
+                                : smallPayload.size() + 4,
         peakMemoryBytes);
     int64_t oldCurrMemoryBytes = currMemoryBytes;
 
@@ -833,8 +879,10 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
 
     if (!resetPeak) {
       ASSERT_EQ(
-          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-              (1 + 2),
+          immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                        pool_->sizeClasses().front()) *
+                  (1 + 2)
+                                  : smallPayload.size() + 4,
           peakMemoryBytes);
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
@@ -854,12 +902,16 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
 
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2 + 4 + 8 + 16 + 16),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2 + 4 + 8 + 16 + 16)
+                                : largePayload.size() + 4,
         currMemoryBytes);
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2 + 4 + 8 + 16 + 16),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2 + 4 + 8 + 16 + 16)
+                                : largePayload.size() + 4,
         peakMemoryBytes);
     oldCurrMemoryBytes = currMemoryBytes;
 
@@ -874,14 +926,18 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(0, currMemoryBytes);
     ASSERT_EQ(
-        memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-            (1 + 2 + 4 + 8 + 16 + 16),
+        immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                      pool_->sizeClasses().front()) *
+                (1 + 2 + 4 + 8 + 16 + 16)
+                                : largePayload.size() + 4,
         peakMemoryBytes);
 
     if (!resetPeak) {
       ASSERT_EQ(
-          memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
-              (1 + 2 + 4 + 8 + 16 + 16),
+          immediateBufferTransfer ? memory::AllocationTraits::pageBytes(
+                                        pool_->sizeClasses().front()) *
+                  (1 + 2 + 4 + 8 + 16 + 16)
+                                  : largePayload.size() + 4,
           peakMemoryBytes);
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
@@ -899,7 +955,9 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
     ASSERT_EQ(0, currMemoryBytes);
     if (!resetPeak) {
-      ASSERT_EQ(192512, peakMemoryBytes);
+      ASSERT_EQ(
+          immediateBufferTransfer ? 192512 : largePayload.size() + 4,
+          peakMemoryBytes);
     } else {
       ASSERT_EQ(peakMemoryBytes, oldCurrMemoryBytes);
       oldCurrMemoryBytes = currMemoryBytes;
@@ -916,7 +974,11 @@ INSTANTIATE_TEST_CASE_P(
     PrestoExchangeSourceTest,
     PrestoExchangeSourceTest,
     ::testing::Values(
-        Params{true, 1, 1},
-        Params{false, 1, 1},
-        Params{true, 2, 10},
-        Params{false, 2, 10}));
+        Params{true, true, 1, 1},
+        Params{true, false, 1, 1},
+        Params{false, true, 1, 1},
+        Params{false, false, 1, 1},
+        Params{true, true, 2, 10},
+        Params{true, false, 2, 10},
+        Params{false, true, 2, 10},
+        Params{false, false, 2, 10}));

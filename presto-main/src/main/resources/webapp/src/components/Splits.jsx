@@ -48,7 +48,7 @@ export default function Split(): void {
         const groups = new DataSet();
         const items = new DataSet();
         for (const task of tasks) {
-            const [stageId, taskNumberStr] = task.taskId.split('.');
+            const [stageId, _, taskNumberStr] = task.taskId.split('.');
             const taskNumber = parseInt(taskNumberStr);
             if (taskNumber === 0) {
                 groups.add({

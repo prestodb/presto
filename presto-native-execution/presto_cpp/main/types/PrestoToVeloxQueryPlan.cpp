@@ -1760,6 +1760,43 @@ void VeloxQueryPlanConverterBase::toAggregations(
     aggregate.call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
         exprConverter_.toVeloxExpr(prestoAggregation.call));
 
+    if (auto builtin =
+            std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
+                prestoAggregation.functionHandle)) {
+      const auto& signature = builtin->signature;
+      aggregate.rawInputTypes.reserve(signature.argumentTypes.size());
+      for (const auto& argumentType : signature.argumentTypes) {
+        aggregate.rawInputTypes.push_back(stringToType(argumentType));
+      }
+    } else if (
+        auto sqlFunction =
+            std::dynamic_pointer_cast<protocol::SqlFunctionHandle>(
+                prestoAggregation.functionHandle)) {
+      const auto& functionId = sqlFunction->functionId;
+
+      // functionId format is function-name;arg-type1;arg-type2;...
+      // For example: foo;INTEGER;VARCHAR.
+      auto start = functionId.find(";");
+      if (start != std::string::npos) {
+        for (;;) {
+          auto pos = functionId.find(";", start + 1);
+          if (pos == std::string::npos) {
+            auto argumentType = functionId.substr(start + 1);
+            aggregate.rawInputTypes.push_back(stringToType(argumentType));
+            break;
+          }
+
+          auto argumentType = functionId.substr(start + 1, pos - start - 1);
+          aggregate.rawInputTypes.push_back(stringToType(argumentType));
+          pos = start + 1;
+        }
+      }
+    } else {
+      VELOX_USER_FAIL(
+          "Unsupported aggregate function handle: {}",
+          toJsonString(prestoAggregation.functionHandle));
+    }
+
     aggregate.distinct = prestoAggregation.distinct;
 
     if (prestoAggregation.mask != nullptr) {
@@ -1907,33 +1944,35 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::GroupIdNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
-  // protocol::GroupIdNode.groupingSets uses output names for the grouping keys.
-  // protocol::GroupIdNode.groupingColumns maps output name of a grouping key to
-  // its input name.
+  // protocol::GroupIdNode.groupingSets uses output names for the grouping
+  // keys. protocol::GroupIdNode.groupingColumns maps output name of a
+  // grouping key to its input name.
 
   // Example:
-  //  - GroupId[[orderstatus], [orderpriority]] => [orderstatus$gid:varchar(1),
-  //  orderpriority$gid:varchar(15), orderkey:bigint, groupid:bigint]
+  //  - GroupId[[orderstatus], [orderpriority]] =>
+  //  [orderstatus$gid:varchar(1), orderpriority$gid:varchar(15),
+  //  orderkey:bigint, groupid:bigint]
   //      orderstatus$gid := orderstatus (10:20)
   //      orderpriority$gid := orderpriority (10:35)
   //
   //  Here, groupingSets = [[orderstatus$gid], [orderpriority$gid]]
-  //    and groupingColumns = [orderstatus$gid => orderstatus, orderpriority$gid
+  //    and groupingColumns = [orderstatus$gid => orderstatus,
+  //    orderpriority$gid
   //    => orderpriority]
 
-  // core::GroupIdNode.groupingSets is defined using input fields.
-  // core::GroupIdNode.outputGroupingKeyNames maps output name of a
+  // core::GroupIdNode.groupingSets is defined using output field names.
+  // core::GroupIdNode.groupingKeys maps output name of a
   // grouping key to the corresponding input field.
 
-  std::vector<std::vector<core::FieldAccessTypedExprPtr>> groupingSets;
+  std::vector<std::vector<std::string>> groupingSets;
   groupingSets.reserve(node->groupingSets.size());
   for (const auto& groupingSet : node->groupingSets) {
-    std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+    std::vector<std::string> groupingKeys;
     groupingKeys.reserve(groupingSet.size());
+    // Use the output key name in the GroupingSet as there could be
+    // multiple output keys mapping to the same input column.
     for (const auto& groupingKey : groupingSet) {
-      groupingKeys.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
-          stringToType(groupingKey.type),
-          node->groupingColumns.at(groupingKey).name));
+      groupingKeys.emplace_back(groupingKey.name);
     }
     groupingSets.emplace_back(std::move(groupingKeys));
   }
@@ -2407,6 +2446,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     windowFunctions.emplace_back(toVeloxWindowFunction(func.second));
   }
 
+  // TODO(spershin): Supply proper 'inputsSorted' argument to WindowNode
+  // constructor instead of 'false'.
   return std::make_shared<velox::core::WindowNode>(
       node->id,
       partitionFields,
@@ -2414,6 +2455,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       sortOrders,
       windowNames,
       windowFunctions,
+      false,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -2597,8 +2639,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     // since it skips in units of logical segments of data.
     // The sampled splits are correctly passed to the TableScanNode which
     // is the source of this SampleNode.
-    // BERNOULLI sampling is implemented as a filter on the TableScan directly,
-    // and does not have the intermediate SampleNode.
+    // BERNOULLI sampling is implemented as a filter on the TableScan
+    // directly, and does not have the intermediate SampleNode.
     return toVeloxQueryPlan(sampleNode->source, tableWriteInfo, taskId);
   }
   VELOX_UNSUPPORTED("Unknown plan node type {}", node->_type);

@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.cost.CachingStatsProvider;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.JoinNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -173,6 +173,12 @@ public class RandomizeNullKeyInOuterJoin
     }
 
     @Override
+    public boolean isCostBased(Session session)
+    {
+        return getRandomizeOuterJoinNullKeyStrategy(session).equals(COST_BASED);
+    }
+
+    @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
@@ -274,9 +280,14 @@ public class RandomizeNullKeyInOuterJoin
             PlanNode rewrittenLeft = context.rewrite(joinNode.getLeft(), context.get());
             PlanNode rewrittenRight = context.rewrite(joinNode.getRight(), context.get());
 
-            PlanNodeStatsEstimate joinEstimate = statsProvider.getStats(joinNode);
-            boolean enabledByCostModel = strategy.equals(COST_BASED) && joinEstimate.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount() > NULL_BUILD_KEY_COUNT_THRESHOLD
-                    && joinEstimate.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount() / joinEstimate.getJoinNodeStatsEstimate().getJoinBuildKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session);
+            JoinNodeStatsEstimate joinEstimate = statsProvider.getStats(joinNode).getJoinNodeStatsEstimate();
+            boolean isValidEstimate = !Double.isNaN(joinEstimate.getJoinBuildKeyCount()) && !Double.isNaN(joinEstimate.getNullJoinBuildKeyCount());
+            boolean enabledByCostModel = isValidEstimate && strategy.equals(COST_BASED) && joinEstimate.getNullJoinBuildKeyCount() > NULL_BUILD_KEY_COUNT_THRESHOLD
+                    && joinEstimate.getNullJoinBuildKeyCount() / joinEstimate.getJoinBuildKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session);
+            String statsSource = null;
+            if (enabledByCostModel) {
+                statsSource = statsProvider.getStats(joinNode).getSourceInfo().getSourceInfoName();
+            }
             List<JoinNode.EquiJoinClause> candidateEquiJoinClauses = joinNode.getCriteria().stream()
                     .filter(x -> isSupportedType(x.getLeft()) && isSupportedType(x.getRight()))
                     .filter(x -> enabledByCostModel || strategy.equals(ALWAYS) || enabledForJoinKeyFromOuterJoin(context.get(), x))
@@ -348,7 +359,13 @@ public class RandomizeNullKeyInOuterJoin
             joinOutputBuilder.addAll(joinNode.getOutputVariables().stream().filter(x -> newRight.getOutputVariables().contains(x)).collect(toImmutableList()));
 
             session.getOptimizerInformationCollector().addInformation(
-                    new PlanOptimizerInformation(RandomizeNullKeyInOuterJoin.class.getSimpleName(), true, Optional.empty(), Optional.empty()));
+                    new PlanOptimizerInformation(
+                            RandomizeNullKeyInOuterJoin.class.getSimpleName(),
+                            true,
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.of(enabledByCostModel),
+                            statsSource == null ? Optional.empty() : Optional.of(statsSource)));
             JoinNode newJoinNode = new JoinNode(
                     joinNode.getSourceLocation(),
                     joinNode.getId(),

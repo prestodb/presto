@@ -189,6 +189,55 @@ public class TestArraySqlFunctions
     }
 
     @Test
+    public void testArrayLeastFrequent()
+    {
+        // Base Case
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, 3, 3, 3])", new ArrayType(INTEGER), ImmutableList.of(1));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['a', 'b', 'b', 'c', 'c', 'c'])", new ArrayType(createVarcharType(1)), ImmutableList.of("a"));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 1, 2, 2, 3, 3])", new ArrayType(INTEGER), ImmutableList.of(1));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])", new ArrayType(DOUBLE), asList(1.0d));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['abc', 'bc', 'aaa'])", new ArrayType(createVarcharType(3)), ImmutableList.of("aaa"));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['', '', ' '])", new ArrayType(createVarcharType(1)), ImmutableList.of(" "));
+        // Empty Case
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [])", new ArrayType(UNKNOWN), null);
+        // Null Case
+        assertFunction("ARRAY_LEAST_FREQUENT(null)", new ArrayType(UNKNOWN), null);
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [NULL])", new ArrayType(UNKNOWN), null);
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, NULL])", new ArrayType(INTEGER), ImmutableList.of(1));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [NULL, NULL, NULL])", new ArrayType(UNKNOWN), null);
+        // Complex Case
+        RowType rowType = RowType.from(ImmutableList.of(RowType.field(INTEGER), RowType.field(INTEGER)));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [ROW(1, 2), ROW(2, 3), ROW(2, 3)])", new ArrayType(rowType), ImmutableList.of(ImmutableList.of(1, 2)));
+    }
+
+    @Test
+    public void testArrayNLeastFrequent()
+    {
+        // Base Case
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, 3, 3, 3], 2)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['a', 'b', 'b', 'c', 'c', 'c'], 3)", new ArrayType(createVarcharType(1)), ImmutableList.of("a", "b", "c"));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 1, 2, 2, 3, 3], 1)", new ArrayType(INTEGER), ImmutableList.of(1));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], 2)", new ArrayType(DOUBLE), asList(1.0d, 2.0d));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['abc', 'bc', 'aaa'], 3)", new ArrayType(createVarcharType(3)), ImmutableList.of("aaa", "abc", "bc"));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY ['', '', ' '], 1)", new ArrayType(createVarcharType(1)), ImmutableList.of(" "));
+        // Empty Case
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [], 2)", new ArrayType(UNKNOWN), null);
+        // Null Case
+        assertFunction("ARRAY_LEAST_FREQUENT(null, 3)", new ArrayType(UNKNOWN), null);
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [NULL], 0)", new ArrayType(UNKNOWN), null);
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [NULL, NULL, NULL], 1)", new ArrayType(UNKNOWN), null);
+        // N = 0
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, NULL], 0)", new ArrayType(INTEGER), emptyList());
+        // N < 0
+        assertInvalidFunction("ARRAY_LEAST_FREQUENT(ARRAY ['a', 'b', 'b', 'c', 'c', 'c'], -1)", StandardErrorCode.GENERIC_USER_ERROR, "n must be greater than or equal to 0");
+        // N greater distinct non-null elements in the array
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [1, 2, 2, 3, 3, 3, -1], 5)", new ArrayType(INTEGER), ImmutableList.of(-1, 1, 2, 3));
+        // Complex Case
+        RowType rowType = RowType.from(ImmutableList.of(RowType.field(INTEGER), RowType.field(INTEGER)));
+        assertFunction("ARRAY_LEAST_FREQUENT(ARRAY [ROW(1, 2), ROW(2, 3), ROW(2, 3)], 2)", new ArrayType(rowType), ImmutableList.of(ImmutableList.of(1, 2), ImmutableList.of(2, 3)));
+    }
+
+    @Test
     public void testArrayMaxBy()
     {
         assertFunction("ARRAY_MAX_BY(ARRAY [double'1.0', double'2.0'], i -> i)", DOUBLE, 2.0d);

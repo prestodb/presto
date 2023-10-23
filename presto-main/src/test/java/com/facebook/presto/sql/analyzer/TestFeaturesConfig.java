@@ -246,7 +246,9 @@ public class TestFeaturesConfig
                 .setAddPartialNodeForRowNumberWithLimitEnabled(true)
                 .setInferInequalityPredicates(false)
                 .setPullUpExpressionFromLambdaEnabled(false)
-                .setRewriteConstantArrayContainsToInEnabled(false));
+                .setRewriteConstantArrayContainsToInEnabled(false)
+                .setUseHBOForScaledWriters(false)
+                .setRemoveRedundantCastToVarcharInJoin(true));
     }
 
     @Test
@@ -441,6 +443,8 @@ public class TestFeaturesConfig
                 .put("optimizer.infer-inequality-predicates", "true")
                 .put("optimizer.pull-up-expression-from-lambda", "true")
                 .put("optimizer.rewrite-constant-array-contains-to-in", "true")
+                .put("optimizer.use-hbo-for-scaled-writers", "true")
+                .put("optimizer.remove-redundant-cast-to-varchar-in-join", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -632,7 +636,9 @@ public class TestFeaturesConfig
                 .setAddPartialNodeForRowNumberWithLimitEnabled(false)
                 .setInferInequalityPredicates(true)
                 .setPullUpExpressionFromLambdaEnabled(true)
-                .setRewriteConstantArrayContainsToInEnabled(true);
+                .setRewriteConstantArrayContainsToInEnabled(true)
+                .setUseHBOForScaledWriters(true)
+                .setRemoveRedundantCastToVarcharInJoin(false);
         assertFullMapping(properties, expected);
     }
 

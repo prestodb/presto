@@ -73,6 +73,7 @@ BroadcastFileWriter::BroadcastFileWriter(
     : fileSystem_(std::move(fileSystem)),
       filename_(filename),
       numRows_(0),
+      maxSerializedSize_(0),
       pool_(pool),
       serde_(std::make_unique<serializer::presto::PrestoVectorSerde>()),
       inputType_(inputType) {}
@@ -83,21 +84,32 @@ void BroadcastFileWriter::collect(const RowVectorPtr& input) {
 
 void BroadcastFileWriter::noMoreData() {}
 
-// TODO: Add file stats - size, checksum, number of rows.
 RowVectorPtr BroadcastFileWriter::fileStats() {
   // No rows written.
   if (numRows_ == 0) {
     return nullptr;
   }
 
-  auto data = BaseVector::create<FlatVector<StringView>>(VARCHAR(), 1, pool_);
-  data->set(0, StringView(filename_));
+  auto fileNameVector =
+      BaseVector::create<FlatVector<StringView>>(VARCHAR(), 1, pool_);
+  fileNameVector->set(0, StringView(filename_));
+  auto maxSerializedSizeVector =
+      BaseVector::create<FlatVector<int64_t>>(BIGINT(), 1, pool_);
+  maxSerializedSizeVector->set(0, maxSerializedSize_);
+  auto numRowsVector =
+      BaseVector::create<FlatVector<int64_t>>(BIGINT(), 1, pool_);
+  numRowsVector->set(0, numRows_);
+
   return std::make_shared<RowVector>(
       pool_,
-      ROW({"filepath"}, {VARCHAR()}),
+      ROW({"filepath", "maxserializedsize", "numrows"},
+          {VARCHAR(), BIGINT(), BIGINT()}),
       nullptr,
       1,
-      std::vector<VectorPtr>({std::move(data)}));
+      std::vector<VectorPtr>(
+          {std::move(fileNameVector),
+           std::move(maxSerializedSizeVector),
+           std::move(numRowsVector)}));
 }
 
 void BroadcastFileWriter::initializeWriteFile() {
@@ -121,6 +133,7 @@ void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
   auto serializer = serde_->createSerializer(inputType_, numRows, arena.get());
 
   serializer->append(rowVector, folly::Range(&allRows, 1));
+  maxSerializedSize_ += serializer->maxSerializedSize();
   IOBufOutputStream out(*pool_);
   serializer->flush(&out);
   auto iobuf = out.getIOBuf();

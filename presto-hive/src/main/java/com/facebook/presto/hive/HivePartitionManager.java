@@ -57,7 +57,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -137,7 +137,7 @@ public class HivePartitionManager
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.partitionFilteringFromMetastoreEnabled = partitionFilteringFromMetastoreEnabled;
         ExecutorService threadPoolExecutor = new ThreadPoolExecutor(0, maxParallelParsingConcurrency,
-                60L, TimeUnit.SECONDS, new SynchronousQueue<>(), daemonThreadsNamed("partition-value-parser-%s"));
+                60L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), daemonThreadsNamed("partition-value-parser-%s"));
         this.executorService = listeningDecorator(threadPoolExecutor);
         this.executorServiceMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) threadPoolExecutor);
     }

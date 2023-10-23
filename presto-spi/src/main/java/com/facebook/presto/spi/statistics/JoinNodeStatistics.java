@@ -47,6 +47,11 @@ public class JoinNodeStatistics
         return EMPTY;
     }
 
+    public boolean isEmpty()
+    {
+        return this.equals(empty());
+    }
+
     @JsonProperty
     @ThriftField(1)
     public Estimate getNullJoinBuildKeyCount()

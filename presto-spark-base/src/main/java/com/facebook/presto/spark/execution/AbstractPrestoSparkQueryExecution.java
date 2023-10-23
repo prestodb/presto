@@ -38,6 +38,7 @@ import com.facebook.presto.spark.ErrorClassifier;
 import com.facebook.presto.spark.PrestoSparkBroadcastDependency;
 import com.facebook.presto.spark.PrestoSparkMemoryBasedBroadcastDependency;
 import com.facebook.presto.spark.PrestoSparkMetadataStorage;
+import com.facebook.presto.spark.PrestoSparkNativeStorageBasedDependency;
 import com.facebook.presto.spark.PrestoSparkQueryData;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.PrestoSparkQueryStatusInfo;
@@ -120,6 +121,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -882,6 +884,16 @@ public abstract class AbstractPrestoSparkQueryExecution
         if (maxBroadcastMemory == null) {
             maxBroadcastMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryBroadcastMemory().toBytes(), getQueryMaxBroadcastMemory(session).toBytes()), BYTE);
         }
+
+        if (isNativeExecutionEnabled(session)) {
+            return new PrestoSparkNativeStorageBasedDependency(
+                    (RddAndMore<PrestoSparkSerializedPage>) childRdd,
+                    maxBroadcastMemory,
+                    queryCompletionDeadline,
+                    waitTimeMetrics,
+                    pagesSerde);
+        }
+
         if (isStorageBasedBroadcastJoinEnabled(session)) {
             validateStorageCapabilities(tempStorage);
             TempDataOperationContext tempDataOperationContext = new TempDataOperationContext(

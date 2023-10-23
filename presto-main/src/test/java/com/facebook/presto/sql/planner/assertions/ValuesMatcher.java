@@ -107,9 +107,10 @@ public class ValuesMatcher
             return NO_MATCH;
         }
 
-        return match(SymbolAliases.builder()
+        MatchResult result = match(SymbolAliases.builder()
                 .putAll(Maps.transformValues(outputSymbolAliases, index -> createSymbolReference(valuesNode.getOutputVariables().get(index))))
                 .build());
+        return result;
     }
 
     @Override

@@ -215,6 +215,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const uint16_t port_;
   const std::string clientCertAndKeyPath_;
   const std::string ciphers_;
+  const bool immediateBufferTransfer_;
 
   folly::CPUThreadPoolExecutor* const driverExecutor_;
   folly::IOThreadPoolExecutor* const httpExecutor_;

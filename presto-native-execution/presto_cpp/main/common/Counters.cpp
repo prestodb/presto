@@ -71,6 +71,8 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumZombiePrestoTasks, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterNumTasksWithStuckOperator, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumRunningDrivers, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumBlockedDrivers, facebook::velox::StatType::AVG);
@@ -224,6 +226,8 @@ void registerPrestoCppCounters() {
       0,
       20l * 1024 * 1024 * 1024, // max bucket value: 20GB
       100);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSpillMaxLevelExceeded, facebook::velox::StatType::SUM);
   // Memory arbitrator stats.
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterArbitratorNumRequests, facebook::velox::StatType::SUM);
@@ -241,6 +245,8 @@ void registerPrestoCppCounters() {
       kCounterArbitratorNumReclaimedBytes, facebook::velox::StatType::SUM);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterArbitratorFreeCapacityBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterArbitratorNonReclaimableAttempts, facebook::velox::StatType::SUM);
 
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters
