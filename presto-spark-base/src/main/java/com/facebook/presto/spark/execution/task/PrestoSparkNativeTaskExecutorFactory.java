@@ -59,7 +59,6 @@ import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.security.TokenAuthenticator;
@@ -287,11 +286,8 @@ public class PrestoSparkNativeTaskExecutorFactory
 
         boolean isFixedBroadcastDistribution = fragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION);
         // 2.b Populate Shuffle Write info
-        Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor().isPresent()
-                && !findTableWriteNode(fragment.getRoot()).isPresent()
-                && !(fragment.getRoot() instanceof OutputNode)
-                && !isFixedBroadcastDistribution ?
-                Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(session, nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
+        Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor()
+                .map(descriptor -> shuffleInfoTranslator.createShuffleWriteInfo(session, descriptor));
         Optional<String> serializedShuffleWriteInfo = shuffleWriteInfo.map(shuffleInfoTranslator::createSerializedWriteInfo);
 
         // 2.c populate broadcast path
