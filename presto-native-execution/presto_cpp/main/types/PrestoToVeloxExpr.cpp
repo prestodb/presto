@@ -714,7 +714,13 @@ std::shared_ptr<const LambdaTypedExpr> VeloxExprConverter::toVeloxExpr(
     argumentTypes.emplace_back(parseTypeSignature(typeName));
   }
 
-  auto signature = ROW(std::move(lambda->arguments), std::move(argumentTypes));
+  // TODO(spershin): In some cases we can visit this method with the same lambda
+  // more than once and having zero arguments and non-zero types would trigger a
+  // check down the stack.
+  // So, we make sure we don't mutate lambda here, while we investigate how that
+  // can happen and validate such behavior or fix a bug.
+  auto argCopy = lambda->arguments;
+  auto signature = ROW(std::move(argCopy), std::move(argumentTypes));
   return std::make_shared<LambdaTypedExpr>(
       signature, toVeloxExpr(lambda->body));
 }
