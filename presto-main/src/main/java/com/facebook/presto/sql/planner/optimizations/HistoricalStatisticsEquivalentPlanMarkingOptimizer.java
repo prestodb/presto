@@ -74,7 +74,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -83,13 +83,13 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         requireNonNull(idAllocator, "idAllocator is null");
 
         if (!isEnabled(session)) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
         // Only enable history based optimization when plan has a join/aggregation.
         if (restrictHistoryBasedOptimizationToComplexQuery(session) &&
                 !PlanNodeSearcher.searchFrom(plan).where(node -> PRECOMPUTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(node))).matches()) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
         long startTimeInNano = System.nanoTime();
@@ -108,7 +108,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
                 .sum();
 
         if (historiesLimitingPlanNodeLimit > getHistoryCanonicalPlanNodeLimit(session)) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
         // Assign 'statsEquivalentPlanNode' to plan nodes
@@ -116,7 +116,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         // Return original plan if timeout
         if (checkTimeOut(startTimeInNano, timeoutInMilliseconds)) {
             logOptimizerFailure(session);
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
         // Fetch and cache history based statistics of all plan nodes, so no serial network calls happen later.
@@ -124,9 +124,9 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         // Return original plan if timeout or registration not successful
         if (checkTimeOut(startTimeInNano, timeoutInMilliseconds) || !registerSucceed) {
             logOptimizerFailure(session);
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
-        return newPlan;
+        return PlanOptimizerResult.optimizerResult(newPlan, true);
     }
 
     private boolean checkTimeOut(long startTimeInNano, long timeoutInMilliseconds)
