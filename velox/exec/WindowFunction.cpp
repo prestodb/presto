@@ -16,6 +16,7 @@
 
 #include "velox/exec/WindowFunction.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/expression/SignatureBinder.h"
 
 namespace facebook::velox::exec {
 
@@ -66,8 +67,32 @@ std::unique_ptr<WindowFunction> WindowFunction::create(
     const core::QueryConfig& config) {
   // Lookup the function in the new registry first.
   if (auto func = getWindowFunctionEntry(name)) {
-    return func.value()->factory(
-        args, resultType, ignoreNulls, pool, stringAllocator, config);
+    std::vector<TypePtr> argTypes;
+    argTypes.reserve(args.size());
+    for (const auto& arg : args) {
+      argTypes.push_back(arg.type);
+    }
+
+    const auto& signatures = func.value()->signatures;
+    for (auto& signature : signatures) {
+      SignatureBinder binder(*signature, argTypes);
+      if (binder.tryBind()) {
+        auto type = binder.tryResolveType(signature->returnType());
+        VELOX_USER_CHECK(
+            type->equivalent(*resultType),
+            "Unexpected return type for window function {}. Expected {}. Got {}.",
+            toString(name, argTypes),
+            type->toString(),
+            resultType->toString())
+        return func.value()->factory(
+            args, resultType, ignoreNulls, pool, stringAllocator, config);
+      }
+    }
+
+    VELOX_USER_FAIL(
+        "Window function signature is not supported: {}. Supported signatures: {}.",
+        toString(name, argTypes),
+        toString(signatures));
   }
 
   VELOX_USER_FAIL("Window function not registered: {}", name);
