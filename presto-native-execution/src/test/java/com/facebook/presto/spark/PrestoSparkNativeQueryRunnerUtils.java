@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager.StageAndMapId;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spi.security.PrincipalType;
@@ -170,10 +171,10 @@ public class PrestoSparkNativeQueryRunnerUtils
         assertNotNull(SparkEnv.get());
         assertTrue(SparkEnv.get().shuffleManager() instanceof PrestoSparkNativeExecutionShuffleManager);
         PrestoSparkNativeExecutionShuffleManager shuffleManager = (PrestoSparkNativeExecutionShuffleManager) SparkEnv.get().shuffleManager();
-        Set<Integer> partitions = shuffleManager.getAllPartitions();
+        Set<StageAndMapId> partitions = shuffleManager.getAllPartitions();
 
-        for (Integer partition : partitions) {
-            Optional<ShuffleHandle> shuffleHandle = shuffleManager.getShuffleHandle(partition);
+        for (StageAndMapId partition : partitions) {
+            Optional<ShuffleHandle> shuffleHandle = shuffleManager.getShuffleHandle(partition.getStageId(), partition.getMapId());
             assertTrue(shuffleHandle.isPresent());
             assertTrue(shuffleHandle.get() instanceof BypassMergeSortShuffleHandle);
         }

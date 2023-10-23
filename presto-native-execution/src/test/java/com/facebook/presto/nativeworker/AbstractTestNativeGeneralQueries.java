@@ -1240,6 +1240,30 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
+    @Test
+    public void testUnionAllInsert()
+    {
+        String tableName = generateRandomTableName();
+        try {
+            String union = "SELECT orderkey * 2 orderkey " +
+                    "FROM ( " +
+                    "  SELECT orderkey " +
+                    "  FROM orders " +
+                    "  UNION ALL " +
+                    "  SELECT orderkey " +
+                    "  FROM orders " +
+                    ") " +
+                    "UNION ALL " +
+                    "SELECT orderkey " +
+                    "FROM orders";
+            getQueryRunner().execute(format("CREATE TABLE %s AS %s", tableName, union));
+            assertQuery(format("SELECT * FROM %s", tableName), union);
+        }
+        finally {
+            dropTableIfExists(tableName);
+        }
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);
