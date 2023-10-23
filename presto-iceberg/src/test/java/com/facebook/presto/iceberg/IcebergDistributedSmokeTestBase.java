@@ -502,16 +502,16 @@ public class IcebergDistributedSmokeTestBase
     {
         Session session = getSession();
 
-        assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
+        assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, adate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['adate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '1',\n" +
                 "   location = '%s',\n" +
-                "   partitioning = ARRAY['aDate']\n" +
+                "   partitioning = ARRAY['adate']\n" +
                 ")", getLocation("tpch", "test_create_table_like_original")));
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
-        assertUpdate(session, "INSERT INTO test_create_table_like_copy0 (col1, aDate, col2) VALUES (1, CAST('1950-06-28' AS DATE), 3)", 1);
+        assertUpdate(session, "INSERT INTO test_create_table_like_copy0 (col1, adate, col2) VALUES (1, CAST('1950-06-28' AS DATE), 3)", 1);
         assertQuery(session, "SELECT * from test_create_table_like_copy0", "VALUES(1, CAST('1950-06-28' AS DATE), 3)");
         dropTable(session, "test_create_table_like_copy0");
 

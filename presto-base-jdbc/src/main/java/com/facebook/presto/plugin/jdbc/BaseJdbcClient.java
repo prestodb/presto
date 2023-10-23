@@ -115,6 +115,7 @@ public class BaseJdbcClient
     protected final boolean caseInsensitiveNameMatching;
     protected final Cache<JdbcIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
+    private final boolean checkDriverCaseSupport;
 
     public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
     {
@@ -128,6 +129,7 @@ public class BaseJdbcClient
                 .expireAfterWrite(config.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
         this.remoteTableNames = remoteNamesCacheBuilder.build();
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport();
     }
 
     @PreDestroy
@@ -348,12 +350,12 @@ public class BaseJdbcClient
         }
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-//            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-//            if (uppercase) {
-//                tableName = tableName.toUpperCase(ENGLISH);
-//            }
+            if (uppercase && checkDriverCaseSupport) {
+                tableName = tableName.toUpperCase(ENGLISH);
+            }
             String catalog = connection.getCatalog();
 
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
@@ -361,9 +363,9 @@ public class BaseJdbcClient
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 String columnName = column.getName();
-//                if (uppercase) {
-//                    columnName = columnName.toUpperCase(ENGLISH);
-//                }
+                if (uppercase && checkDriverCaseSupport) {
+                    columnName = columnName.toUpperCase(ENGLISH);
+                }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 columnList.add(getColumnString(column, columnName));
@@ -428,19 +430,17 @@ public class BaseJdbcClient
             String tableName = oldTable.getTableName();
             String newSchemaName = newTable.getSchemaName();
             String newTableName = newTable.getTableName();
-//            if (metadata.storesUpperCaseIdentifiers()) {
-//                schemaName = schemaName.toUpperCase(ENGLISH);
-//                tableName = tableName.toUpperCase(ENGLISH);
-//                newSchemaName = newSchemaName.toUpperCase(ENGLISH);
-//                newTableName = newTableName.toUpperCase(ENGLISH);
-//            }
+            if (metadata.storesUpperCaseIdentifiers() && checkDriverCaseSupport) {
+                schemaName = schemaName.toUpperCase(ENGLISH);
+                tableName = tableName.toUpperCase(ENGLISH);
+                newSchemaName = newSchemaName.toUpperCase(ENGLISH);
+                newTableName = newTableName.toUpperCase(ENGLISH);
+            }
             String sql = format(
                     "ALTER TABLE %s RENAME TO %s",
                     quoted(catalogName, schemaName, tableName),
                     quoted(catalogName, newSchemaName, newTableName));
-            if (!quoted(catalogName, schemaName, tableName).equals(quoted(catalogName, newSchemaName, newTableName))) {
-                execute(connection, sql);
-            }
+            execute(connection, sql);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -478,11 +478,11 @@ public class BaseJdbcClient
             String table = handle.getTableName();
             String columnName = column.getName();
             DatabaseMetaData metadata = connection.getMetaData();
-//            if (metadata.storesUpperCaseIdentifiers()) {
-//                schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
-//                table = table.toUpperCase(ENGLISH);
-//                columnName = columnName.toUpperCase(ENGLISH);
-//            }
+            if (metadata.storesUpperCaseIdentifiers() && checkDriverCaseSupport) {
+                schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
+                table = table.toUpperCase(ENGLISH);
+                columnName = columnName.toUpperCase(ENGLISH);
+            }
             String sql = format(
                     "ALTER TABLE %s ADD %s",
                     quoted(handle.getCatalogName(), schema, table),
@@ -499,9 +499,9 @@ public class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-//            if (metadata.storesUpperCaseIdentifiers()) {
-//                newColumnName = newColumnName.toUpperCase(ENGLISH);
-//            }
+            if (metadata.storesUpperCaseIdentifiers() && checkDriverCaseSupport) {
+                newColumnName = newColumnName.toUpperCase(ENGLISH);
+            }
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
                     quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
@@ -638,17 +638,16 @@ public class BaseJdbcClient
             }
         }
 
-//        try {
-//            DatabaseMetaData metadata = connection.getMetaData();
-//            if (metadata.storesUpperCaseIdentifiers()) {
-//                return schemaName.toUpperCase(ENGLISH);
-//            }
-//            return schemaName;
-//        }
-//        catch (SQLException e) {
-//            throw new PrestoException(JDBC_ERROR, e);
-//        }
-        return schemaName;
+        try {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers() && checkDriverCaseSupport) {
+                return schemaName.toUpperCase(ENGLISH);
+            }
+            return schemaName;
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 
     protected Map<String, String> listSchemasByLowerCase(Connection connection)
@@ -684,17 +683,16 @@ public class BaseJdbcClient
             }
         }
 
-//        try {
-//            DatabaseMetaData metadata = connection.getMetaData();
-//            if (metadata.storesUpperCaseIdentifiers()) {
-//                return tableName.toUpperCase(ENGLISH);
-//            }
-//            return tableName;
-//        }
-//        catch (SQLException e) {
-//            throw new PrestoException(JDBC_ERROR, e);
-//        }
-        return tableName;
+        try {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers() && checkDriverCaseSupport) {
+                return tableName.toUpperCase(ENGLISH);
+            }
+            return tableName;
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 
     protected Map<String, String> listTablesByLowerCase(Connection connection, String remoteSchema)

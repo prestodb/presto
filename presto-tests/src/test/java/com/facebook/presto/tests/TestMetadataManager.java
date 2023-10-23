@@ -161,7 +161,7 @@ public class TestMetadataManager
                 .execute(
                         TEST_SESSION,
                         transactionSession -> {
-                            List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
+                            List<String> expectedSchemas = ImmutableList.of("information_schema", "UPPER_CASE_SCHEMA");
                             assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog"), expectedSchemas);
                             return null;
                         });

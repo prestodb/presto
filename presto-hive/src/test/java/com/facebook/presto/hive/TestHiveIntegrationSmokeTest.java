@@ -3817,8 +3817,8 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(
                     session,
                     "CREATE TABLE test_grouped_joinDual\n" +
-                            "WITH (bucket_count = 13, bucketed_by = ARRAY['keyD']) AS\n" +
-                            "SELECT orderkey keyD, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['keyd']) AS\n" +
+                            "SELECT orderkey keyd, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
                     30000);
             assertUpdate(
                     session,

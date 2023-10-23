@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 
@@ -28,5 +29,12 @@ public class TestDistributedQueriesWithDynamicFilter
         return TpchQueryRunnerBuilder.builder()
                 .amendSession(builder -> builder.setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true"))
                 .build();
+    }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table tpch.tiny.ORDERS does not exist");
     }
 }

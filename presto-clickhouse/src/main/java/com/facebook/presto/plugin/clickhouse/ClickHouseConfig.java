@@ -36,6 +36,7 @@ public class ClickHouseConfig
     private boolean mapStringAsVarchar;
     private boolean allowDropTable;
     private int commitBatchSize;
+    private boolean checkDriverCaseSupport;
 
     @NotNull
     public String getConnectionUrl()
@@ -166,6 +167,18 @@ public class ClickHouseConfig
     public ClickHouseConfig setCommitBatchSize(int commitBatchSize)
     {
         this.commitBatchSize = commitBatchSize;
+        return this;
+    }
+
+    public boolean getCheckDriverCaseSupport()
+    {
+        return checkDriverCaseSupport;
+    }
+
+    @Config("clickhouse.check-driver-case-support")
+    public ClickHouseConfig setCheckDriverCaseSupport(boolean ignoreDriverCaseSupport)
+    {
+        this.checkDriverCaseSupport = ignoreDriverCaseSupport;
         return this;
     }
 }

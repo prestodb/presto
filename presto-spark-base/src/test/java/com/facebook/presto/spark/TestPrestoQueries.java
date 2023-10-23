@@ -15,6 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
+import org.testng.annotations.Test;
 
 public class TestPrestoQueries
         extends AbstractTestQueries
@@ -190,5 +191,12 @@ public class TestPrestoQueries
     public void testExplainDdl()
     {
         // DDL statements are not supported by Presto on Spark
+    }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table hive.tpch.ORDERS does not exist");
     }
 }

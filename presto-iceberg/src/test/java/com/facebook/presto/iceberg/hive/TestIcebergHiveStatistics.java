@@ -39,7 +39,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -145,8 +144,8 @@ public class TestIcebergHiveStatistics
         Metadata meta = getQueryRunner().getMetadata();
         TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
         Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
-        Map<String, ColumnHandle> noPartColumns = getColumnHandles("statsnopartitionanalyze", session);
-        Map<String, ColumnHandle> partColumns = getColumnHandles("statswithpartitionanalyze", session);
+        Map<String, ColumnHandle> noPartColumns = getColumnHandles("statsNoPartitionAnalyze", session);
+        Map<String, ColumnHandle> partColumns = getColumnHandles("statsWithPartitionAnalyze", session);
         List<ColumnHandle> noPartColumnHandles = new ArrayList<>(noPartColumns.values());
         List<ColumnHandle> partColumnHandles = new ArrayList<>(partColumns.values());
         // Test that with all columns and no constraints that stats are equivalent
@@ -217,8 +216,8 @@ public class TestIcebergHiveStatistics
         Metadata meta = getQueryRunner().getMetadata();
         TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
         Session s = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
-        Map<String, ColumnHandle> noPartColumns = getColumnHandles("statsnopartition", s);
-        Map<String, ColumnHandle> partColumns = getColumnHandles("statswithpartition", s);
+        Map<String, ColumnHandle> noPartColumns = getColumnHandles("statsNoPartition", s);
+        Map<String, ColumnHandle> partColumns = getColumnHandles("statsWithPartition", s);
         List<ColumnHandle> noPartColumnHandles = new ArrayList<>(noPartColumns.values());
         List<ColumnHandle> partColumnHandles = new ArrayList<>(partColumns.values());
         // Test that with all columns and no constraints that stats are equivalent
@@ -296,14 +295,14 @@ public class TestIcebergHiveStatistics
         Metadata meta = getQueryRunner().getMetadata();
         return meta.getTableHandleForStatisticsCollection(
                 session,
-                new QualifiedObjectName("iceberg", "tpch", tableName.toLowerCase(Locale.US)),
+                new QualifiedObjectName("iceberg", "tpch", tableName),
                 Collections.emptyMap()).get();
     }
 
     private TableHandle getTableHandle(String tableName, Session session)
     {
         MetadataResolver resolver = getQueryRunner().getMetadata().getMetadataResolver(session);
-        return resolver.getTableHandle(new QualifiedObjectName("iceberg", "tpch", tableName.toLowerCase(Locale.US))).get();
+        return resolver.getTableHandle(new QualifiedObjectName("iceberg", "tpch", tableName)).get();
     }
 
     private Map<String, ColumnHandle> getColumnHandles(String tableName, Session session)

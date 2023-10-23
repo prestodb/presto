@@ -26,6 +26,7 @@ import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestParquetDistributedQueries
         extends AbstractTestDistributedQueries
@@ -130,5 +131,44 @@ public class TestParquetDistributedQueries
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+    }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table hive.tpch.ORDERS does not exist");
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        assertUpdate("CREATE TABLE test_rename AS SELECT 123 x", 1);
+
+        assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
+        MaterializedResult materializedRows = computeActual("SELECT x FROM test_rename_new");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+
+        assertUpdate("ALTER TABLE IF EXISTS test_rename_new RENAME TO test_rename");
+        materializedRows = computeActual("SELECT x FROM test_rename");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+
+        assertUpdate("ALTER TABLE IF EXISTS test_rename RENAME TO test_rename_new");
+        materializedRows = computeActual("SELECT x FROM test_rename_new");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+
+        // provide new table name in uppercase
+        assertUpdate("ALTER TABLE test_rename_new RENAME TO TEST_RENAME");
+        materializedRows = computeActual("SELECT x FROM TEST_RENAME");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
+
+        assertUpdate("DROP TABLE TEST_RENAME");
+
+        assertFalse(getQueryRunner().tableExists(getSession(), "TEST_RENAME"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
+
+        assertUpdate("ALTER TABLE IF EXISTS test_rename RENAME TO test_rename_new");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
     }
 }

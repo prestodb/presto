@@ -987,7 +987,7 @@ class AstBuilder
     @Override
     public Node visitShowStats(SqlBaseParser.ShowStatsContext context)
     {
-        return new ShowStats(Optional.of(getLocation(context)), new Table(getQualifiedName(context.qualifiedName())));
+        return new ShowStats(Optional.of(getLocation(context)), new Table(getQualifiedNameWithCase(context.qualifiedName())));
     }
 
     @Override

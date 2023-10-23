@@ -64,7 +64,7 @@ public class TestIcebergParquetMetadataCaching
     @Test
     public void testParquetMetadataCaching()
     {
-        String jmxMetricsQuery = "SELECT sum(size), sum(hitcount), sum(misscount) from jmx.current.\"com.facebook.presto.hive:name=iceberg_parquetmetadata,type=CacheStatsMBean\"";
+        String jmxMetricsQuery = "SELECT sum(size), sum(hitcount), sum(misscount) from jmx.current.\"com.facebook.presto.hive:name=iceberg_ParquetMetadata,type=CacheStatsMBean\"";
         String ordersQuery = "SELECT * FROM iceberg.test_schema.nation";
 
         // Initial cache entries, hitcount, misscount will all be zero
