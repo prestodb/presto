@@ -181,9 +181,7 @@ void PeriodicTaskManager::updateTaskStats() {
       kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
   REPORT_ADD_STAT_VALUE(
       kCounterTotalPartitionedOutputBuffer,
-      velox::exec::PartitionedOutputBufferManager::getInstance()
-          .lock()
-          ->numBuffers());
+      velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
 }
 
 void PeriodicTaskManager::addTaskStatsTask() {

@@ -107,7 +107,7 @@ void getData(
     long destination,
     long token,
     protocol::DataSize maxSize,
-    exec::PartitionedOutputBufferManager& bufferManager) {
+    exec::OutputBufferManager& bufferManager) {
   if (promiseHolder == nullptr) {
     // promise/future is expired.
     return;
@@ -273,10 +273,8 @@ struct ZombieTaskStatsSet {
 } // namespace
 
 TaskManager::TaskManager()
-    : bufferManager_(
-          velox::exec::PartitionedOutputBufferManager::getInstance().lock()) {
-  VELOX_CHECK_NOT_NULL(
-      bufferManager_, "invalid PartitionedOutputBufferManager");
+    : bufferManager_(velox::exec::OutputBufferManager::getInstance().lock()) {
+  VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
 void TaskManager::setBaseUri(const std::string& baseUri) {

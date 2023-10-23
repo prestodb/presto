@@ -19,7 +19,7 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 
 namespace facebook::presto {
 
@@ -176,7 +176,7 @@ class TaskManager {
   std::string nodeId_;
   folly::Synchronized<std::string> baseSpillDir_;
   int32_t oldTaskCleanUpMs_;
-  std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
+  std::shared_ptr<velox::exec::OutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   QueryContextManager queryContextManager_;
 };

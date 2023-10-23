@@ -49,7 +49,7 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/connectors/Connector.h"
 #include "velox/core/Config.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -83,9 +83,8 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  velox::exec::PartitionedOutputBufferManager::getInstance()
-      .lock()
-      ->setListenerFactory([]() {
+  velox::exec::OutputBufferManager::getInstance().lock()->setListenerFactory(
+      []() {
         return std::make_unique<
             serializer::presto::PrestoOutputStreamListener>();
       });
