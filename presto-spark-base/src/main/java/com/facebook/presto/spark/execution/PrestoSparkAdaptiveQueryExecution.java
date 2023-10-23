@@ -330,7 +330,7 @@ public class PrestoSparkAdaptiveQueryExecution
             // Re-optimize plan.
             PlanNode optimizedPlan = planAndFragments.getRemainingPlan().get();
             for (PlanOptimizer optimizer : adaptivePlanOptimizers) {
-                optimizedPlan = optimizer.optimize(optimizedPlan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                optimizedPlan = optimizer.optimize(optimizedPlan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector).getPlanNode();
             }
 
             if (!optimizedPlan.equals(planAndFragments.getRemainingPlan().get())) {

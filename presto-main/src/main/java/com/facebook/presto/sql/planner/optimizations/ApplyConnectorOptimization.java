@@ -79,7 +79,7 @@ public class ApplyConnectorOptimization
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -89,7 +89,7 @@ public class ApplyConnectorOptimization
 
         Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers = connectorOptimizersSupplier.get();
         if (connectorOptimizers.isEmpty()) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
         // retrieve all the connectors
@@ -173,7 +173,7 @@ public class ApplyConnectorOptimization
             }
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, true);
     }
 
     private static void getAllConnectorIds(PlanNode node, ImmutableSet.Builder<ConnectorId> builder)

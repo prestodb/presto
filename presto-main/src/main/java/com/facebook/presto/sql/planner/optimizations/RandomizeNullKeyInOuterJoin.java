@@ -22,7 +22,6 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -42,7 +41,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -83,7 +81,7 @@ import static java.util.function.Function.identity;
  * Randomize the join key of outer joins if the join key has many NULL values so as to mitigate skew.
  * The optimization has three strategies, `DISABLED` to skip the optimization, `ALWAYS` to always enabled for all outer joins, and `KEY_FROM_OUTER_JOIN` to enable only when the
  * join key is from the outer side of a outer join which is likely to have many NULLs.
- *
+ * <p>
  * When Strategy is `KEY_FROM_OUTER_JOIN`:
  * <pre>
  * - LeftJoin
@@ -112,7 +110,7 @@ import static java.util.function.Function.identity;
  *          r.key = COALESCE(T3.k, Randomize(T3.k))
  *          - Scan T3(k)
  * </pre>
- *
+ * <p>
  * When Strategy is `ALWAYS`:
  * <pre>
  * - LeftJoin
@@ -179,14 +177,16 @@ public class RandomizeNullKeyInOuterJoin
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-            return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator, statsProvider), plan, new HashSet<>());
+            Rewriter rewriter = new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator, statsProvider);
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new HashSet<>());
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter
@@ -202,6 +202,7 @@ public class RandomizeNullKeyInOuterJoin
         private final StatsProvider statsProvider;
         private final Map<String, Map<VariableReferenceExpression, VariableReferenceExpression>> keyToRandomKeyMap;
         private final RandomizeOuterJoinNullKeyStrategy strategy;
+        private boolean planChanged;
 
         private Rewriter(Session session,
                 FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator planVariableAllocator, StatsProvider statsProvider)
@@ -223,6 +224,11 @@ public class RandomizeNullKeyInOuterJoin
         private static boolean isPartitionedJoin(JoinNode joinNode)
         {
             return joinNode.getDistributionType().isPresent() && joinNode.getDistributionType().get() == PARTITIONED;
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -284,10 +290,7 @@ public class RandomizeNullKeyInOuterJoin
             boolean isValidEstimate = !Double.isNaN(joinEstimate.getJoinBuildKeyCount()) && !Double.isNaN(joinEstimate.getNullJoinBuildKeyCount());
             boolean enabledByCostModel = isValidEstimate && strategy.equals(COST_BASED) && joinEstimate.getNullJoinBuildKeyCount() > NULL_BUILD_KEY_COUNT_THRESHOLD
                     && joinEstimate.getNullJoinBuildKeyCount() / joinEstimate.getJoinBuildKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session);
-            String statsSource = null;
-            if (enabledByCostModel) {
-                statsSource = statsProvider.getStats(joinNode).getSourceInfo().getSourceInfoName();
-            }
+
             List<JoinNode.EquiJoinClause> candidateEquiJoinClauses = joinNode.getCriteria().stream()
                     .filter(x -> isSupportedType(x.getLeft()) && isSupportedType(x.getRight()))
                     .filter(x -> enabledByCostModel || strategy.equals(ALWAYS) || enabledForJoinKeyFromOuterJoin(context.get(), x))
@@ -358,14 +361,7 @@ public class RandomizeNullKeyInOuterJoin
             joinOutputBuilder.addAll(rightKeyRandomVariableMap.keySet());
             joinOutputBuilder.addAll(joinNode.getOutputVariables().stream().filter(x -> newRight.getOutputVariables().contains(x)).collect(toImmutableList()));
 
-            session.getOptimizerInformationCollector().addInformation(
-                    new PlanOptimizerInformation(
-                            RandomizeNullKeyInOuterJoin.class.getSimpleName(),
-                            true,
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.of(enabledByCostModel),
-                            statsSource == null ? Optional.empty() : Optional.of(statsSource)));
+            planChanged = true;
             JoinNode newJoinNode = new JoinNode(
                     joinNode.getSourceLocation(),
                     joinNode.getId(),
