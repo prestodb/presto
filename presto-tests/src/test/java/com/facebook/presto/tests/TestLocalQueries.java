@@ -144,4 +144,11 @@ public class TestLocalQueries
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(ImmutableSet.of(input), Optional.empty()));
     }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table local.tiny.ORDERS does not exist");
+    }
 }

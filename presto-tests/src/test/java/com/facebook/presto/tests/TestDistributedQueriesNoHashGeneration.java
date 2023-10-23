@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import org.testng.annotations.Test;
 
 public class TestDistributedQueriesNoHashGeneration
         extends AbstractTestQueries
@@ -26,5 +27,12 @@ public class TestDistributedQueriesNoHashGeneration
         return TpchQueryRunnerBuilder.builder()
                 .setSingleCoordinatorProperty("optimizer.optimize-hash-generation", "false")
                 .build();
+    }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table tpch.tiny.ORDERS does not exist");
     }
 }

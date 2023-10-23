@@ -80,4 +80,11 @@ public class TestTpchDistributedQueries
         }
         assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
     }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table tpch.tiny.ORDERS does not exist");
+    }
 }

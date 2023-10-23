@@ -959,13 +959,13 @@ public class TestAnalyzer
 
 //    No longer a valid test case
 //    @Test
-    public void testCaseInsensitiveDuplicateWithQuery()
-    {
-        assertFails(DUPLICATE_RELATION,
-                "WITH a AS (SELECT * FROM t1)," +
-                        "     A AS (SELECT * FROM t1)" +
-                        "SELECT * FROM a");
-    }
+//    public void testCaseInsensitiveDuplicateWithQuery()
+//    {
+//        assertFails(DUPLICATE_RELATION,
+//                "WITH a AS (SELECT * FROM t1)," +
+//                        "     A AS (SELECT * FROM t1)" +
+//                        "SELECT * FROM a");
+//    }
 
     @Test
     public void testWithForwardReference()

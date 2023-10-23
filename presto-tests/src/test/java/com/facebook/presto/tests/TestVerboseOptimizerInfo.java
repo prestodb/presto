@@ -124,6 +124,13 @@ public class TestVerboseOptimizerInfo
         checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections"), ImmutableList.of("PruneUnreferencedOutputs"));
     }
 
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table local.tiny.ORDERS does not exist");
+    }
+
     private void checkOptimizerInfo(String explain, boolean checkTriggered, List<String> optimizers)
     {
         String regex = checkTriggered ? "Triggered optimizers.*" : "Applicable optimizers.*";

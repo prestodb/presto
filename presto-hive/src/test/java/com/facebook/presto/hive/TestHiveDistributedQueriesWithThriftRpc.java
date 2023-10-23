@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import java.util.Optional;
 
@@ -47,6 +48,13 @@ public class TestHiveDistributedQueriesWithThriftRpc
     public void testDelete()
     {
         // Hive connector currently does not support row-by-row delete
+    }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table hive.tiny.ORDERS does not exist");
     }
 
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest

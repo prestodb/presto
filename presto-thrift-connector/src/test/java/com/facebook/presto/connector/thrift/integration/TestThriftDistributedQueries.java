@@ -16,6 +16,7 @@ package com.facebook.presto.connector.thrift.integration;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 
@@ -33,5 +34,12 @@ public class TestThriftDistributedQueries
             throws Exception
     {
         return createThriftQueryRunner(3, 3, false, ImmutableMap.of());
+    }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table thrift.tiny.ORDERS does not exist");
     }
 }

@@ -88,5 +88,12 @@ public class TestHiveDistributedQueries
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
     }
 
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table hive.tiny.ORDERS does not exist");
+    }
+
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
 }
