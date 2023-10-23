@@ -417,6 +417,8 @@ class HiveDataSink : public DataSink {
 
   std::vector<std::string> close(bool success) override;
 
+  bool canReclaim() const;
+
  private:
   class WriterReclaimer : public exec::MemoryReclaimer {
    public:
@@ -445,13 +447,6 @@ class HiveDataSink : public DataSink {
 
   FOLLY_ALWAYS_INLINE bool sortWrite() const {
     return !sortColumnIndices_.empty();
-  }
-
-  FOLLY_ALWAYS_INLINE bool canReclaim() const {
-    // Currently, we only support memory reclaim on dwrf file writer.
-    return (spillConfig_ != nullptr) && !sortWrite() &&
-        (insertTableHandle_->tableStorageFormat() ==
-         dwio::common::FileFormat::DWRF);
   }
 
   // Returns true if the table is partitioned.

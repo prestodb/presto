@@ -353,6 +353,13 @@ HiveDataSink::HiveDataSink(
   }
 }
 
+bool HiveDataSink::canReclaim() const {
+  // Currently, we only support memory reclaim on dwrf file writer.
+  return (spillConfig_ != nullptr) && !sortWrite() &&
+      (insertTableHandle_->tableStorageFormat() ==
+       dwio::common::FileFormat::DWRF);
+}
+
 void HiveDataSink::appendData(RowVectorPtr input) {
   checkNotAborted();
   checkNotClosed();
@@ -544,9 +551,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   options.memoryPool = writerInfo_.back()->writerPool.get();
   options.compressionKind = insertTableHandle_->compressionKind();
   if (canReclaim()) {
-    options.memoryReclaimConfig = dwio::common::WriterMemoryReclaimConfig{
-        .minReservationPct = spillConfig_->minSpillableReservationPct,
-        .reservationGrowthPct = spillConfig_->spillableReservationGrowthPct};
+    options.spillConfig = spillConfig_;
   }
   options.maxStripeSize = std::optional(HiveConfig::getOrcWriterMaxStripeSize(
       connectorQueryCtx_->config(), connectorProperties_.get()));

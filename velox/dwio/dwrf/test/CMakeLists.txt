@@ -412,7 +412,7 @@ target_link_libraries(
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
 
-add_executable(velox_dwrf_e2e_writer_test E2EWriterTests.cpp)
+add_executable(velox_dwrf_e2e_writer_test E2EWriterTest.cpp)
 add_test(velox_dwrf_e2e_writer_test velox_dwrf_e2e_writer_test)
 
 target_link_libraries(

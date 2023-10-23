@@ -34,7 +34,7 @@ struct WriterOptions {
   std::shared_ptr<const Config> config = std::make_shared<Config>();
   std::shared_ptr<const Type> schema;
   velox::memory::MemoryPool* memoryPool;
-  std::optional<dwio::common::WriterMemoryReclaimConfig> memoryReclaimConfig;
+  const velox::common::SpillConfig* spillConfig{nullptr};
   /// The default factory allows the writer to construct the default flush
   /// policy with the configs in its ctor.
   std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory;
@@ -140,6 +140,10 @@ class Writer : public dwio::common::Writer {
     return nonReclaimableSection_;
   }
 
+  bool testingClosed() const {
+    return closed_;
+  }
+
  protected:
   std::shared_ptr<WriterBase> writerBase_;
 
@@ -175,6 +179,10 @@ class Writer : public dwio::common::Writer {
   // enough memory capacity.
   void ensureWriteFits(size_t appendBytes, size_t appendRows);
 
+  // Similar to 'ensureWriteFits' above to ensure sufficient memory to flush
+  // the buffered stripe data to disk.
+  void ensureStripeFlushFits();
+
   // Grows a memory pool size by the specified ratio.
   bool maybeReserveMemory(
       MemoryUsageCategory memoryUsageCategory,
@@ -194,8 +202,9 @@ class Writer : public dwio::common::Writer {
   }
 
   const std::shared_ptr<const dwio::common::TypeWithId> schema_;
-  const std::optional<dwio::common::WriterMemoryReclaimConfig>
-      memoryReclaimConfig_{std::nullopt};
+  const common::SpillConfig* const spillConfig_;
+  // Indicates if this file writer has been closed or aborted.
+  bool closed_{false};
   tsan_atomic<bool> nonReclaimableSection_{false};
   std::unique_ptr<DWRFFlushPolicy> flushPolicy_;
   std::unique_ptr<LayoutPlanner> layoutPlanner_;

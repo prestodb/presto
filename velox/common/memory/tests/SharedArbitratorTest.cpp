@@ -2554,7 +2554,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, tableWriteSpillUseMoreMemory) {
       fakePool->allocate(memoryCapacity * 3 / 4),
       memoryCapacity * 3 / 4};
 
-  std::atomic<bool> aggregationMaybeReserveInjectionOnce{true};
   void* allocatedBuffer;
   TestAllocation injectedWriterAllocation;
   SCOPED_TESTVALUE_SET(
@@ -2614,6 +2613,101 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, tableWriteSpillUseMoreMemory) {
           .plan(std::move(writerPlan))
           .copyResults(pool()),
       "Unexpected memory growth after memory reclaim");
+
+  waitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, tableWriteReclaimOnClose) {
+  const uint64_t memoryCapacity = 512 * MB;
+  setupMemory(memoryCapacity);
+  // Create a large number of vectors to trigger writer spill.
+  fuzzerOpts_.vectorSize = 1000;
+  fuzzerOpts_.stringLength = 1024;
+  fuzzerOpts_.stringVariableLength = false;
+  VectorFuzzer fuzzer(fuzzerOpts_, pool());
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  for (int i = 0; i < 10; ++i) {
+    vectors.push_back(fuzzer.fuzzInputRow(rowType_));
+    numRows += vectors.back()->size();
+  }
+
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(memoryCapacity);
+  std::shared_ptr<core::QueryCtx> fakeQueryCtx = newQueryCtx(memoryCapacity);
+  auto fakePool = fakeQueryCtx->pool()->addLeafChild(
+      "fakePool", true, FakeMemoryReclaimer::create());
+
+  std::atomic<bool> writerNoMoreInput{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "TableWrite") {
+          return;
+        }
+        writerNoMoreInput = true;
+      })));
+
+  std::atomic<bool> maybeReserveInjectOnce{true};
+  TestAllocation fakeAllocation;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
+      std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool* pool) {
+        if (!writerNoMoreInput) {
+          return;
+        }
+        if (!maybeReserveInjectOnce.exchange(false)) {
+          return;
+        }
+        // The injection memory allocation to cause maybeReserve on writer close
+        // to trigger memory arbitration. The latter tries to reclaim memory
+        // from this file writer.
+        const size_t injectAllocationSize =
+            pool->freeBytes() + arbitrator_->stats().freeCapacityBytes;
+        fakeAllocation = TestAllocation{
+            .pool = fakePool.get(),
+            .buffer = fakePool->allocate(injectAllocationSize),
+            .size = injectAllocationSize};
+      }));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::flushStripe",
+      std::function<void(dwrf::Writer*)>(
+          [&](dwrf::Writer* writer) { fakeAllocation.free(); }));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto writerPlan =
+      PlanBuilder()
+          .values(vectors)
+          .tableWrite(outputDirectory->path)
+          .singleAggregation(
+              {},
+              {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())})
+          .planNode();
+
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .queryCtx(queryCtx)
+      .maxDrivers(1)
+      .spillDirectory(spillDirectory->path)
+      .config(core::QueryConfig::kSpillEnabled, "true")
+      .config(core::QueryConfig::kWriterSpillEnabled, "true")
+      // Set 0 file writer flush threshold to always trigger flush in test.
+      .connectorConfig(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kFileWriterFlushThresholdBytes,
+          folly::to<std::string>(0))
+      // Set stripe size to extreme large to avoid writer internal triggered
+      // flush.
+      .connectorConfig(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxStripeSize,
+          folly::to<std::string>("1GB"))
+      .connectorConfig(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxDictionaryMemory,
+          folly::to<std::string>("1GB"))
+      .plan(std::move(writerPlan))
+      .assertResults(fmt::format("SELECT {}", numRows));
 
   waitForAllTasksToBeDeleted();
 }

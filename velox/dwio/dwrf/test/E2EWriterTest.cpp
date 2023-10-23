@@ -17,6 +17,7 @@
 #include <folly/Random.h>
 #include <random>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/config/SpillConfig.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Statistics.h"
@@ -52,14 +53,14 @@ namespace {
 auto defaultPool = memory::addDefaultLeafMemoryPool();
 }
 
-class E2EWriterTests : public testing::Test {
+class E2EWriterTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     TestValue::enable();
   }
 
-  E2EWriterTests() {
-    rootPool_ = memory::defaultMemoryManager().addRootPool("E2EWriterTests");
+  E2EWriterTest() {
+    rootPool_ = memory::defaultMemoryManager().addRootPool("E2EWriterTest");
     leafPool_ = rootPool_->addLeafChild("leaf");
   }
 
@@ -239,6 +240,26 @@ class E2EWriterTests : public testing::Test {
     }
   }
 
+  static common::SpillConfig getSpillConfig(
+      int32_t minSpillableReservationPct,
+      int32_t spillableReservationGrowthPct) {
+    return common::SpillConfig(
+        "fakeSpillConfig",
+        0,
+        0,
+        0,
+        nullptr,
+        minSpillableReservationPct,
+        spillableReservationGrowthPct,
+        0,
+        0,
+        0,
+        false,
+        0,
+        0,
+        "none");
+  }
+
   std::shared_ptr<MemoryPool> rootPool_;
   std::shared_ptr<MemoryPool> leafPool_;
 };
@@ -247,7 +268,7 @@ class E2EWriterTests : public testing::Test {
 // buck test velox/dwio/dwrf/test:velox_dwrf_e2e_writer_tests --
 // DISABLED_TestFileCreation
 // --run-disabled
-TEST_F(E2EWriterTests, DISABLED_TestFileCreation) {
+TEST_F(E2EWriterTest, DISABLED_TestFileCreation) {
   const size_t batchCount = 4;
   const size_t size = 200;
 
@@ -308,7 +329,7 @@ VectorPtr createRowVector(
       0 /*nullCount*/);
 }
 
-TEST_F(E2EWriterTests, E2E) {
+TEST_F(E2EWriterTest, E2E) {
   const size_t batchCount = 4;
   // Start with a size larger than stride to cover splitting into
   // strides. Continue with smaller size for faster test.
@@ -351,7 +372,7 @@ TEST_F(E2EWriterTests, E2E) {
   E2EWriterTestUtil::testWriter(*leafPool_, type, batches, 1, 1, config);
 }
 
-TEST_F(E2EWriterTests, FlatMapDictionaryEncoding) {
+TEST_F(E2EWriterTest, FlatMapDictionaryEncoding) {
   const size_t batchCount = 4;
   // Start with a size larger than stride to cover splitting into
   // strides. Continue with smaller size for faster test.
@@ -388,7 +409,7 @@ TEST_F(E2EWriterTests, FlatMapDictionaryEncoding) {
   E2EWriterTestUtil::testWriter(*pool, type, batches, 1, 1, config);
 }
 
-TEST_F(E2EWriterTests, MaxFlatMapKeys) {
+TEST_F(E2EWriterTest, MaxFlatMapKeys) {
   using keyType = int32_t;
   using valueType = int32_t;
   using b = MapBuilder<keyType, valueType>;
@@ -415,7 +436,7 @@ TEST_F(E2EWriterTests, MaxFlatMapKeys) {
       *pool, type, E2EWriterTestUtil::generateBatches(batch), 1, 1, config);
 }
 
-TEST_F(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
+TEST_F(E2EWriterTest, PresentStreamIsSuppressedOnFlatMap) {
   using keyType = int32_t;
   using valueType = int64_t;
   using b = MapBuilder<keyType, valueType>;
@@ -463,7 +484,7 @@ TEST_F(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
   }
 }
 
-TEST_F(E2EWriterTests, TooManyFlatMapKeys) {
+TEST_F(E2EWriterTest, TooManyFlatMapKeys) {
   using keyType = int32_t;
   using valueType = int32_t;
   using b = MapBuilder<keyType, valueType>;
@@ -492,7 +513,7 @@ TEST_F(E2EWriterTests, TooManyFlatMapKeys) {
       exception::LoggedException);
 }
 
-TEST_F(E2EWriterTests, FlatMapBackfill) {
+TEST_F(E2EWriterTest, FlatMapBackfill) {
   auto pool = memory::addDefaultLeafMemoryPool();
 
   using keyType = int32_t;
@@ -601,7 +622,7 @@ void testFlatMapWithNulls(
       E2EWriterTestUtil::simpleFlushPolicyFactory(false));
 }
 
-TEST_F(E2EWriterTests, FlatMapWithNulls) {
+TEST_F(E2EWriterTest, FlatMapWithNulls) {
   testFlatMapWithNulls(
       /* firstRowNotNull */ false, /* enableFlatmapDictionaryEncoding */ false);
   testFlatMapWithNulls(
@@ -612,7 +633,7 @@ TEST_F(E2EWriterTests, FlatMapWithNulls) {
       /* firstRowNotNull */ true, /* enableFlatmapDictionaryEncoding */ true);
 }
 
-TEST_F(E2EWriterTests, FlatMapWithNullsSharedDict) {
+TEST_F(E2EWriterTest, FlatMapWithNullsSharedDict) {
   testFlatMapWithNulls(
       /* firstRowNotNull */ false,
       /* enableFlatmapDictionaryEncoding */ true,
@@ -623,7 +644,7 @@ TEST_F(E2EWriterTests, FlatMapWithNullsSharedDict) {
       /* shareDictionary */ true);
 }
 
-TEST_F(E2EWriterTests, FlatMapEmpty) {
+TEST_F(E2EWriterTest, FlatMapEmpty) {
   auto pool = memory::addDefaultLeafMemoryPool();
 
   using keyType = int32_t;
@@ -664,7 +685,7 @@ TEST_F(E2EWriterTests, FlatMapEmpty) {
       E2EWriterTestUtil::simpleFlushPolicyFactory(false));
 }
 
-TEST_F(E2EWriterTests, FlatMapConfigSingleColumn) {
+TEST_F(E2EWriterTest, FlatMapConfigSingleColumn) {
   HiveTypeParser parser;
   auto type = parser.parse(
       "struct<"
@@ -675,7 +696,7 @@ TEST_F(E2EWriterTests, FlatMapConfigSingleColumn) {
   testFlatMapConfig(type, {}, {});
 }
 
-TEST_F(E2EWriterTests, FlatMapConfigMixedTypes) {
+TEST_F(E2EWriterTest, FlatMapConfigMixedTypes) {
   HiveTypeParser parser;
   auto type = parser.parse(
       "struct<"
@@ -687,7 +708,7 @@ TEST_F(E2EWriterTests, FlatMapConfigMixedTypes) {
   testFlatMapConfig(type, {}, {});
 }
 
-TEST_F(E2EWriterTests, FlatMapConfigNestedMap) {
+TEST_F(E2EWriterTest, FlatMapConfigNestedMap) {
   HiveTypeParser parser;
   auto type = parser.parse(
       "struct<"
@@ -699,7 +720,7 @@ TEST_F(E2EWriterTests, FlatMapConfigNestedMap) {
   testFlatMapConfig(type, {}, {});
 }
 
-TEST_F(E2EWriterTests, FlatMapConfigMixedMaps) {
+TEST_F(E2EWriterTest, FlatMapConfigMixedMaps) {
   HiveTypeParser parser;
   auto type = parser.parse(
       "struct<"
@@ -713,7 +734,7 @@ TEST_F(E2EWriterTests, FlatMapConfigMixedMaps) {
   testFlatMapConfig(type, {}, {});
 }
 
-TEST_F(E2EWriterTests, FlatMapConfigNotMapColumn) {
+TEST_F(E2EWriterTest, FlatMapConfigNotMapColumn) {
   HiveTypeParser parser;
   auto type = parser.parse(
       "struct<"
@@ -725,7 +746,7 @@ TEST_F(E2EWriterTests, FlatMapConfigNotMapColumn) {
       { testFlatMapConfig(type, {0}, {}); }, exception::LoggedException);
 }
 
-TEST_F(E2EWriterTests, mapStatsSingleStride) {
+TEST_F(E2EWriterTest, mapStatsSingleStride) {
   HiveTypeParser parser;
   auto type = parser.parse(
       "struct<"
@@ -745,7 +766,7 @@ TEST_F(E2EWriterTests, mapStatsSingleStride) {
   testFlatMapFileStats(type, {0, 1, 2, 3, 4, 5});
 }
 
-TEST_F(E2EWriterTests, mapStatsMultiStrides) {
+TEST_F(E2EWriterTest, mapStatsMultiStrides) {
   HiveTypeParser parser;
   auto type = parser.parse(
       "struct<"
@@ -765,7 +786,7 @@ TEST_F(E2EWriterTests, mapStatsMultiStrides) {
   testFlatMapFileStats(type, {0, 1, 2, 3, 4, 5}, /*strideSize=*/1000);
 }
 
-TEST_F(E2EWriterTests, PartialStride) {
+TEST_F(E2EWriterTest, PartialStride) {
   auto type = ROW({"bool_val"}, {INTEGER()});
 
   size_t size = 1'000;
@@ -822,7 +843,7 @@ TEST_F(E2EWriterTests, PartialStride) {
   ASSERT_EQ(true, reader->columnStatistics(1)->hasNull().value());
 }
 
-TEST_F(E2EWriterTests, OversizeRows) {
+TEST_F(E2EWriterTest, OversizeRows) {
   auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
 
   HiveTypeParser parser;
@@ -860,7 +881,7 @@ TEST_F(E2EWriterTests, OversizeRows) {
       false);
 }
 
-TEST_F(E2EWriterTests, OversizeBatches) {
+TEST_F(E2EWriterTest, OversizeBatches) {
   auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
 
   HiveTypeParser parser;
@@ -908,7 +929,7 @@ TEST_F(E2EWriterTests, OversizeBatches) {
       false);
 }
 
-TEST_F(E2EWriterTests, OverflowLengthIncrements) {
+TEST_F(E2EWriterTest, OverflowLengthIncrements) {
   auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
 
   HiveTypeParser parser;
@@ -969,9 +990,9 @@ TEST_F(E2EWriterTests, OverflowLengthIncrements) {
 
 namespace facebook::velox::dwrf {
 
-class E2EEncryptionTest : public E2EWriterTests {
+class E2EEncryptionTest : public E2EWriterTest {
  protected:
-  E2EEncryptionTest() : E2EWriterTests() {}
+  E2EEncryptionTest() : E2EWriterTest() {}
 
   std::unique_ptr<DwrfReader> writeAndRead(
       const std::string& schema,
@@ -1319,7 +1340,7 @@ VectorPtr createKeys(
 
 } // namespace
 
-TEST_F(E2EWriterTests, fuzzSimple) {
+TEST_F(E2EWriterTest, fuzzSimple) {
   auto pool = memory::addDefaultLeafMemoryPool();
   auto type = ROW({
       {"bool_val", BOOLEAN()},
@@ -1368,7 +1389,7 @@ TEST_F(E2EWriterTests, fuzzSimple) {
   }
 }
 
-TEST_F(E2EWriterTests, fuzzComplex) {
+TEST_F(E2EWriterTest, fuzzComplex) {
   auto pool = memory::addDefaultLeafMemoryPool();
   auto type = ROW({
       {"array", ARRAY(REAL())},
@@ -1423,7 +1444,7 @@ TEST_F(E2EWriterTests, fuzzComplex) {
   }
 }
 
-TEST_F(E2EWriterTests, fuzzFlatmap) {
+TEST_F(E2EWriterTest, fuzzFlatmap) {
   auto pool = memory::addDefaultLeafMemoryPool();
   auto type = ROW({
       {"flatmap1", MAP(INTEGER(), REAL())},
@@ -1511,7 +1532,7 @@ TEST_F(E2EWriterTests, fuzzFlatmap) {
   }
 }
 
-DEBUG_ONLY_TEST_F(E2EWriterTests, memoryReclaim) {
+DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
   const auto type = ROW(
       {{"int_val", INTEGER()},
        {"string_val", VARCHAR()},
@@ -1528,7 +1549,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTests, memoryReclaim) {
   for (int i = 0; i < 10; ++i) {
     vectors.push_back(fuzzer.fuzzInputRow(type));
   }
-
+  const common::SpillConfig spillConfig = getSpillConfig(10, 20);
   for (bool enableReclaim : {false, true}) {
     SCOPED_TRACE(fmt::format("enableReclaim {}", enableReclaim));
 
@@ -1540,8 +1561,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTests, memoryReclaim) {
     options.schema = type;
     options.config = std::move(config);
     if (enableReclaim) {
-      options.memoryReclaimConfig = WriterMemoryReclaimConfig{
-          .minReservationPct = 10, .reservationGrowthPct = 20};
+      options.spillConfig = &spillConfig;
     }
     auto writerPool = memory::defaultMemoryManager().addRootPool(
         "memoryReclaim", 1L << 30, exec::MemoryReclaimer::create());
@@ -1563,7 +1583,9 @@ DEBUG_ONLY_TEST_F(E2EWriterTests, memoryReclaim) {
           const auto memoryUsage = context.getTotalMemoryUsage();
           const auto availableMemoryUsage =
               context.availableMemoryReservation();
-          ASSERT_GE(availableMemoryUsage, memoryUsage * 10 / 20);
+          ASSERT_GE(
+              availableMemoryUsage,
+              memoryUsage * spillConfig.minSpillableReservationPct / 100);
         }));
 
     auto writer =
@@ -1610,5 +1632,176 @@ DEBUG_ONLY_TEST_F(E2EWriterTests, memoryReclaim) {
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
     }
     writer->close();
+  }
+}
+
+DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnFlush) {
+  const auto type = ROW(
+      {{"int_val", INTEGER()},
+       {"string_val", VARCHAR()},
+       {"binary_val", VARBINARY()}});
+
+  VectorFuzzer fuzzer(
+      {
+          .vectorSize = 1000,
+          .stringLength = 1'000,
+          .stringVariableLength = false,
+      },
+      leafPool_.get());
+  std::vector<VectorPtr> vectors;
+  for (int i = 0; i < 10; ++i) {
+    vectors.push_back(fuzzer.fuzzInputRow(type));
+  }
+  const common::SpillConfig spillConfig = getSpillConfig(10, 20);
+  for (bool enableReclaim : {false, true}) {
+    SCOPED_TRACE(fmt::format("enableReclaim {}", enableReclaim));
+
+    auto config = std::make_shared<dwrf::Config>();
+    config->set<uint64_t>(dwrf::Config::STRIPE_SIZE, 1L << 30);
+    config->set<uint64_t>(dwrf::Config::MAX_DICTIONARY_SIZE, 1L << 30);
+
+    dwrf::WriterOptions options;
+    options.schema = type;
+    options.config = std::move(config);
+    if (enableReclaim) {
+      options.spillConfig = &spillConfig;
+    }
+    auto writerPool = memory::defaultMemoryManager().addRootPool(
+        "memoryReclaim", 1L << 30, exec::MemoryReclaimer::create());
+    auto dwrfPool = writerPool->addAggregateChild("writer");
+    auto sinkPool =
+        writerPool->addLeafChild("sink", true, exec::MemoryReclaimer::create());
+    auto sink = std::make_unique<MemorySink>(
+        200 * 1024 * 1024, FileSink::Options{.pool = sinkPool.get()});
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::dwrf::Writer::flushStripe",
+        std::function<void(dwrf::Writer*)>([&](dwrf::Writer* writer) {
+          VELOX_CHECK(writer->testingNonReclaimableSection());
+          ASSERT_EQ(writer->canReclaim(), enableReclaim);
+          if (!writer->canReclaim()) {
+            return;
+          }
+          auto& context = writer->getContext();
+          auto& outputPool =
+              context.getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM);
+          const auto memoryUsage = outputPool.currentBytes();
+          const auto availableMemoryUsage = outputPool.availableReservation();
+          ASSERT_GE(
+              availableMemoryUsage,
+              memoryUsage * spillConfig.minSpillableReservationPct / 100);
+        }));
+
+    auto writer =
+        std::make_unique<dwrf::Writer>(std::move(sink), options, dwrfPool);
+
+    std::atomic<bool> reservationCalled{false};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
+        std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool* pool) {
+          ASSERT_TRUE(enableReclaim);
+          reservationCalled = true;
+          // Verify the writer is reclaimable under memory reservation.
+          ASSERT_FALSE(writer->testingNonReclaimableSection());
+        }));
+
+    for (size_t i = 0; i < vectors.size(); ++i) {
+      writer->write(vectors[i]);
+    }
+
+    writer->flush();
+    ASSERT_EQ(reservationCalled, enableReclaim);
+    writer->close();
+  }
+}
+
+TEST_F(E2EWriterTest, memoryReclaimAfterClose) {
+  const auto type = ROW(
+      {{"int_val", INTEGER()},
+       {"string_val", VARCHAR()},
+       {"binary_val", VARBINARY()}});
+
+  VectorFuzzer fuzzer(
+      {
+          .vectorSize = 1000,
+          .stringLength = 1'000,
+          .stringVariableLength = false,
+      },
+      leafPool_.get());
+  std::vector<VectorPtr> vectors;
+  for (int i = 0; i < 10; ++i) {
+    vectors.push_back(fuzzer.fuzzInputRow(type));
+  }
+
+  const common::SpillConfig spillConfig = getSpillConfig(10, 20);
+  struct {
+    bool canReclaim;
+    bool abort;
+    bool expectedNonReclaimableAttempt;
+
+    std::string debugString() const {
+      return fmt::format(
+          "canReclaim: {}, abort: {}, expectedNonReclaimableAttempt: {}",
+          canReclaim,
+          abort,
+          expectedNonReclaimableAttempt);
+    }
+  } testSettings[] = {
+      {true, true, true},
+      {true, false, true},
+      {false, true, false},
+      {false, false, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    auto config = std::make_shared<dwrf::Config>();
+    config->set<uint64_t>(dwrf::Config::STRIPE_SIZE, 1L << 30);
+    config->set<uint64_t>(dwrf::Config::MAX_DICTIONARY_SIZE, 1L << 30);
+
+    dwrf::WriterOptions options;
+    options.schema = type;
+    options.config = std::move(config);
+    if (testData.canReclaim) {
+      options.spillConfig = &spillConfig;
+    }
+    auto writerPool = memory::defaultMemoryManager().addRootPool(
+        "memoryReclaim", 1L << 30, exec::MemoryReclaimer::create());
+    auto dwrfPool = writerPool->addAggregateChild("writer");
+    auto sinkPool =
+        writerPool->addLeafChild("sink", true, exec::MemoryReclaimer::create());
+    auto sink = std::make_unique<MemorySink>(
+        200 * 1024 * 1024, FileSink::Options{.pool = sinkPool.get()});
+
+    auto writer =
+        std::make_unique<dwrf::Writer>(std::move(sink), options, dwrfPool);
+    ASSERT_EQ(writer->canReclaim(), testData.canReclaim);
+
+    writer->flush();
+
+    for (size_t i = 0; i < vectors.size(); ++i) {
+      writer->write(vectors[i]);
+    }
+
+    if (testData.abort) {
+      writer->abort();
+      writer->abort();
+    } else {
+      writer->close();
+      writer->close();
+    }
+    // Verify append or write after close or abort will fail.
+    VELOX_ASSERT_THROW(
+        writer->write(vectors[0]), "write not allowed on a closed writer");
+    VELOX_ASSERT_THROW(writer->flush(), "flush not allowed on a closed writer");
+
+    memory::MemoryReclaimer::Stats stats;
+    const auto oldCapacity = writerPool->capacity();
+    writerPool->reclaim(1L << 30, stats);
+    if (testData.expectedNonReclaimableAttempt) {
+      ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+    } else {
+      ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+    }
   }
 }

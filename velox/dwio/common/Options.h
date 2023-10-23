@@ -21,6 +21,7 @@
 
 #include <folly/Executor.h>
 #include "velox/common/compression/Compression.h"
+#include "velox/common/config/SpillConfig.h"
 #include "velox/common/io/Options.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/ColumnSelector.h"
@@ -536,17 +537,10 @@ class ReaderOptions : public io::ReaderOptions {
   }
 };
 
-struct WriterMemoryReclaimConfig {
-  /// The pct of the minimum free available memory reserved in a file write.
-  int32_t minReservationPct;
-  /// The pct of the memory reservation growth in a file write.
-  int32_t reservationGrowthPct;
-};
-
 struct WriterOptions {
   TypePtr schema;
   velox::memory::MemoryPool* memoryPool;
-  std::optional<WriterMemoryReclaimConfig> memoryReclaimConfig;
+  const velox::common::SpillConfig* spillConfig{nullptr};
   std::optional<velox::common::CompressionKind> compressionKind;
   std::optional<uint64_t> maxStripeSize{std::nullopt};
   std::optional<uint64_t> maxDictionaryMemory{std::nullopt};

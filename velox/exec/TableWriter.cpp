@@ -93,7 +93,7 @@ void TableWriter::createDataSink() {
 
 void TableWriter::abortDataSink() {
   VELOX_CHECK(!closed_);
-  closed_ = true;
+  auto abortGuard = folly::makeGuard([this]() { closed_ = true; });
   if (dataSink_ != nullptr) {
     dataSink_->close(false);
   }
@@ -103,7 +103,7 @@ std::vector<std::string> TableWriter::closeDataSink() {
   // We only expect closeDataSink called once.
   VELOX_CHECK(!closed_);
   VELOX_CHECK_NOT_NULL(dataSink_);
-  closed_ = true;
+  auto closeGuard = folly::makeGuard([this]() { closed_ = true; });
   return dataSink_->close(true);
 }
 
@@ -314,6 +314,7 @@ uint64_t TableWriter::ConnectorReclaimer::reclaim(
                  << ", memory usage: " << succinctBytes(pool->currentBytes());
     return 0;
   }
+
   if (writer->dataSink_ == nullptr) {
     // TODO: reduce the log frequency if it is too verbose.
     ++stats.numNonReclaimableAttempts;
