@@ -146,9 +146,19 @@ General Aggregate Functions
     Take care when designing ``initialState``, ``inputFunction`` and ``combineFunction``.
     These need to support evaluating aggregation in a distributed manner using partial
     aggregation on many nodes, followed by shuffle over group-by keys, followed by
-    final aggregation. Make sure that
+    final aggregation. Given a set of all possible values of state, make sure that
+    combineFunction is `commutative <https://en.wikipedia.org/wiki/Commutative_property>`_
+    and `associative <https://en.wikipedia.org/wiki/Associative_property>`_
+    operation with initialState as the
+    `identity <https://en.wikipedia.org/wiki/Identity_element>`_ value.
 
-     combineFunction(s1, s2) = combineFunction(s2, s1) for any s1 and s2;
+     combineFunction(s, initialState) = s for any s
+
+     combineFunction(s1, s2) = combineFunction(s2, s1) for any s1 and s2
+
+     combineFunction(s1, combineFunction(s2, s3)) = combineFunction(combineFunction(s1, s2), s3) for any s1, s2, s3
+
+    In addition, make sure that the following holds for the inputFunction:
 
      inputFunction(inputFunction(initialState, x), y) = combineFunction(inputFunction(initialState, x), inputFunction(initialState, y)) for any x and y
 
