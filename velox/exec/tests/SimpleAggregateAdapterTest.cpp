@@ -331,9 +331,9 @@ TEST_F(SimpleArrayAggAggregationTest, trackRowSize) {
       }
     }
 
-    VELOX_CHECK_GT(groups[0][rowSizeOffset], 0);
+    VELOX_CHECK_GT(*reinterpret_cast<int32_t*>(groups[0] + rowSizeOffset), 0);
     if (!testGlobal) {
-      VELOX_CHECK_GT(groups[1][rowSizeOffset], 0);
+      VELOX_CHECK_GT(*reinterpret_cast<int32_t*>(groups[1] + rowSizeOffset), 0);
     }
   };
 

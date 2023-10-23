@@ -112,13 +112,20 @@ TEST_F(ValueListTest, integers) {
 
 TEST_F(ValueListTest, arrays) {
   // No nulls.
+  int32_t kSizeCaps[] = {500, 4000, 6000, 50000};
+  int32_t counter = 0;
   for (auto size : kTestSizes) {
     auto data = makeArrayVector<int32_t>(
         size,
         [](auto row) { return row % 7; },
         [](auto row) { return row % 11; });
 
+    auto previousBytes = allocator()->cumulativeBytes();
     testRoundTrip(data);
+    if (counter < sizeof(kSizeCaps) / sizeof(kSizeCaps[0])) {
+      auto cap = kSizeCaps[counter++];
+      EXPECT_GT(cap, allocator()->cumulativeBytes() - previousBytes);
+    }
   }
 
   // Different percentage of nulls.

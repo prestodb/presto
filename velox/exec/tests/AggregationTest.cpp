@@ -1237,7 +1237,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
 
 TEST_F(AggregationTest, spillWithNonSpillingPartition) {
   constexpr int32_t kNumDistinct = 100'000;
-  constexpr int64_t kMaxBytes = 20LL << 20; // 20 MB
+  constexpr int64_t kMaxBytes = 32 << 20; // 32 MB
   rowType_ = ROW({"c0", "a"}, {INTEGER(), VARCHAR()});
   // Used to calculate the aggregation spilling partition number.
   const int kPartitionsBits = 2;
@@ -1337,7 +1337,7 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
               std::to_string(kPartitionsBits))
           // Set to increase the hash table a little bit to only trigger spill
           // on the partition with most spillable data.
-          .config(QueryConfig::kSpillableReservationGrowthPct, "25")
+          .config(QueryConfig::kSpillableReservationGrowthPct, "5")
           .config(QueryConfig::kPreferredOutputBatchBytes, "1024")
           .assertResults(results);
 

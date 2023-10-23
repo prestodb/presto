@@ -65,8 +65,12 @@ void ValueList::appendNonNull(
   allocator->extendWrite(dataCurrent_, stream);
   exec::ContainerRowSerde::serialize(values, index, stream);
   ++size_;
+  bytes_ += stream.size();
 
-  dataCurrent_ = allocator->finishWrite(stream, 1024).second;
+  // Leave space up to the size appended so far, at least 24 but no more
+  // than 1024.
+  dataCurrent_ =
+      allocator->finishWrite(stream, std::clamp(bytes_, 24, 1024)).second;
 }
 
 void ValueList::appendValue(
