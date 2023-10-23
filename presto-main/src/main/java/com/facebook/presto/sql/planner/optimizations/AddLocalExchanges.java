@@ -118,10 +118,11 @@ public class AddLocalExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         PlanWithProperties result = new Rewriter(variableAllocator, idAllocator, session).accept(plan, any());
-        return result.getNode();
+        boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isLocal()).findFirst().isPresent();
+        return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
     }
 
     private class Rewriter

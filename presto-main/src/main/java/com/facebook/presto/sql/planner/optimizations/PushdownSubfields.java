@@ -128,17 +128,19 @@ public class PushdownSubfields
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
 
         if (!isEnabled(session)) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata), plan, new Rewriter.Context());
+        Rewriter rewriter = new Rewriter(session, metadata);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new Rewriter.Context());
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class Rewriter
@@ -150,6 +152,7 @@ public class PushdownSubfields
         private final ExpressionOptimizer expressionOptimizer;
         private final SubfieldExtractor subfieldExtractor;
         private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "arbitrary");
+        private boolean planChanged;
 
         public Rewriter(Session session, Metadata metadata)
         {
@@ -163,6 +166,11 @@ public class PushdownSubfields
                     session.toConnectorSession(),
                     metadata.getFunctionAndTypeManager(),
                     isPushdownSubfieldsFromArrayLambdasEnabled(session));
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -369,6 +377,7 @@ public class PushdownSubfields
                         .map(path -> new Subfield(columnName, path))
                         .collect(toList()));
 
+                planChanged = true;
                 newAssignments.put(variable, entry.getValue().withRequiredSubfields(ImmutableList.copyOf(columnSubfields)));
             }
 

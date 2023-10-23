@@ -41,7 +41,7 @@ public class SetFlatteningOptimizer
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -49,13 +49,22 @@ public class SetFlatteningOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan, false);
+        Rewriter rewriter = new Rewriter();
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, false);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     // TODO: remove expectation that UNION DISTINCT => distinct aggregation directly above union node
     private static class Rewriter
             extends SimplePlanRewriter<Boolean>
     {
+        private boolean planChanged;
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
+        }
+
         @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<Boolean> context)
         {
@@ -95,7 +104,7 @@ public class SetFlatteningOptimizer
             return new ExceptNode(node.getSourceLocation(), node.getId(), flattenedSources.build(), ImmutableList.copyOf(mappings.keySet()), fromListMultimap(mappings));
         }
 
-        private static void flattenSetOperation(
+        private void flattenSetOperation(
                 SetOperationNode node, RewriteContext<Boolean> context,
                 ImmutableList.Builder<PlanNode> flattenedSources,
                 ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> flattenedVariableMap)
@@ -110,6 +119,7 @@ public class SetFlatteningOptimizer
                     // ExceptNodes can only flatten their first source because except is not associative
                     SetOperationNode rewrittenSetOperation = (SetOperationNode) rewrittenSource;
                     flattenedSources.addAll(rewrittenSetOperation.getSources());
+                    planChanged = true;
                     for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getVariableMapping().entrySet()) {
                         VariableReferenceExpression inputVariable = Iterables.get(entry.getValue(), i);
                         flattenedVariableMap.putAll(entry.getKey(), rewrittenSetOperation.getVariableMapping().get(inputVariable));
