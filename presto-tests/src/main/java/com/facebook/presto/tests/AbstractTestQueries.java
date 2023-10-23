@@ -2922,10 +2922,10 @@ public abstract class AbstractTestQueries
                 "SELECT table_name FROM information_schema.tables WHERE table_catalog = 'LOCAL'",
                 "SELECT '' WHERE false");
         assertQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'TINY'",
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'tiny'",
                 "SELECT '' WHERE false");
         assertQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_name = 'ORDERS'",
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders'",
                 "SELECT '' WHERE false");
     }
 

@@ -379,7 +379,7 @@ class AstBuilder
     @Override
     public Node visitDropMaterializedView(SqlBaseParser.DropMaterializedViewContext context)
     {
-        return new DropMaterializedView(Optional.of(getLocation(context)), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
+        return new DropMaterializedView(Optional.of(getLocation(context)), getQualifiedNameWithCase(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
@@ -387,7 +387,7 @@ class AstBuilder
     {
         return new RefreshMaterializedView(
                 getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                new Table(getLocation(context), getQualifiedNameWithCase(context.qualifiedName())),
                 (Expression) visit(context.booleanExpression()));
     }
 
@@ -505,7 +505,7 @@ class AstBuilder
 
         return new CreateMaterializedView(
                 Optional.of(getLocation(context)),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.EXISTS() != null,
                 properties,

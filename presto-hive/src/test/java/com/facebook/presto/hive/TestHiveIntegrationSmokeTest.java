@@ -3968,11 +3968,11 @@ public class TestHiveIntegrationSmokeTest
 
             @Language("SQL") String groupBySingleBucketed =
                     "SELECT\n" +
-                            "  keyD,\n" +
+                            "  keyd,\n" +
                             "  count(valueD)\n" +
                             "FROM\n" +
                             "  test_grouped_joinDual\n" +
-                            "GROUP BY keyD";
+                            "GROUP BY keyd";
             @Language("SQL") String expectedSingleGroupByQuery = "SELECT orderkey, 2 from orders";
             @Language("SQL") String groupByOfUnionBucketed =
                     "SELECT\n" +
@@ -4029,9 +4029,9 @@ public class TestHiveIntegrationSmokeTest
                     "SELECT\n" +
                             "  key, sum(cnt) cnt\n" +
                             "FROM (\n" +
-                            "  SELECT keyD key, count(valueD) cnt\n" +
+                            "  SELECT keyd key, count(valueD) cnt\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             "UNION ALL\n" +
                             "  SELECT keyN key, 1 cnt\n" +
                             "  FROM test_grouped_joinN\n" +
@@ -4057,27 +4057,27 @@ public class TestHiveIntegrationSmokeTest
             @Language("SQL") String joinGroupedWithGrouped =
                     "SELECT key1, count1, count2\n" +
                             "FROM (\n" +
-                            "  SELECT keyD key1, count(valueD) count1\n" +
+                            "  SELECT keyd key1, count(valueD) count1\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             ") JOIN (\n" +
-                            "  SELECT keyD key2, count(valueD) count2\n" +
+                            "  SELECT keyd key2, count(valueD) count2\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             ")\n" +
                             "ON key1 = key2";
             @Language("SQL") String expectedJoinGroupedWithGrouped = "SELECT orderkey, 2, 2 from orders";
             @Language("SQL") String joinGroupedWithUngrouped =
-                    "SELECT keyD, countD, valueN\n" +
+                    "SELECT keyd, countD, valueN\n" +
                             "FROM (\n" +
-                            "  SELECT keyD, count(valueD) countD\n" +
+                            "  SELECT keyd, count(valueD) countD\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             ") JOIN (\n" +
                             "  SELECT keyN, valueN\n" +
                             "  FROM test_grouped_joinN\n" +
                             ")\n" +
-                            "ON keyD = keyN";
+                            "ON keyd = keyN";
             @Language("SQL") String expectedJoinGroupedWithUngrouped = "SELECT orderkey, 2, comment from orders";
             @Language("SQL") String joinUngroupedWithGrouped =
                     "SELECT keyN, valueN, countD\n" +
@@ -4085,20 +4085,20 @@ public class TestHiveIntegrationSmokeTest
                             "  SELECT keyN, valueN\n" +
                             "  FROM test_grouped_joinN\n" +
                             ") JOIN (\n" +
-                            "  SELECT keyD, count(valueD) countD\n" +
+                            "  SELECT keyd, count(valueD) countD\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             ")\n" +
-                            "ON keyN = keyD";
+                            "ON keyN = keyd";
             @Language("SQL") String expectedJoinUngroupedWithGrouped = "SELECT orderkey, comment, 2 from orders";
             @Language("SQL") String groupOnJoinResult =
-                    "SELECT keyD, count(valueD), count(valueN)\n" +
+                    "SELECT keyd, count(valueD), count(valueN)\n" +
                             "FROM\n" +
                             "  test_grouped_joinDual\n" +
                             "JOIN\n" +
                             "  test_grouped_joinN\n" +
-                            "ON keyD=keyN\n" +
-                            "GROUP BY keyD";
+                            "ON keyd=keyN\n" +
+                            "GROUP BY keyd";
             @Language("SQL") String expectedGroupOnJoinResult = "SELECT orderkey, 2, 2 from orders";
 
             @Language("SQL") String groupOnUngroupedJoinResult =
