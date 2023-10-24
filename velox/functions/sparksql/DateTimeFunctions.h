@@ -336,4 +336,40 @@ struct DateDiffFunction {
     result = endDate - startDate;
   }
 };
+
+template <typename T>
+struct AddMonthsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void
+  call(out_type<Date>& result, const arg_type<Date>& date, int32_t numMonths) {
+    const auto dateTime = getDateTime(date);
+    const auto year = getYear(dateTime);
+    const auto month = getMonth(dateTime);
+    const auto day = getDay(dateTime);
+
+    // Similar to handling number in base 12. Here, month - 1 makes it in
+    // [0, 11] range.
+    int64_t monthAdded = (int64_t)month - 1 + numMonths;
+    // Used to adjust month/year when monthAdded is not in [0, 11] range.
+    int64_t yearOffset = (monthAdded >= 0 ? monthAdded : monthAdded - 11) / 12;
+    // Adjusts monthAdded to natural month number in [1, 12] range.
+    auto monthResult = static_cast<int32_t>(monthAdded - yearOffset * 12 + 1);
+    // Adjusts year.
+    auto yearResult = year + yearOffset;
+
+    auto lastDayOfMonth = util::getMaxDayOfMonth(yearResult, monthResult);
+    // Adjusts day to valid one.
+    auto dayResult = lastDayOfMonth < day ? lastDayOfMonth : day;
+    auto daysSinceEpoch =
+        util::daysSinceEpochFromDate(yearResult, monthResult, dayResult);
+    VELOX_USER_CHECK_EQ(
+        daysSinceEpoch,
+        (int32_t)daysSinceEpoch,
+        "Integer overflow in add_months({}, {})",
+        DATE()->toString(date),
+        numMonths);
+    result = daysSinceEpoch;
+  }
+};
 } // namespace facebook::velox::functions::sparksql

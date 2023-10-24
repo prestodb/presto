@@ -240,6 +240,8 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<DateDiffFunction, int32_t, Date, Date>(
       {prefix + "datediff"});
   registerFunction<LastDayFunction, Date, Date>({prefix + "last_day"});
+  registerFunction<AddMonthsFunction, Date, Date, int32_t>(
+      {prefix + "add_months"});
 
   registerFunction<DateAddFunction, Date, Date, int32_t>({prefix + "date_add"});
   registerFunction<DateSubFunction, Date, Date, int32_t>({prefix + "date_sub"});

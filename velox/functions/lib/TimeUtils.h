@@ -68,6 +68,20 @@ std::tm getDateTime(int32_t days) {
   return dateTime;
 }
 
+FOLLY_ALWAYS_INLINE int getYear(const std::tm& time) {
+  // tm_year: years since 1900.
+  return 1900 + time.tm_year;
+}
+
+FOLLY_ALWAYS_INLINE int getMonth(const std::tm& time) {
+  // tm_mon: months since January – [0, 11].
+  return 1 + time.tm_mon;
+}
+
+FOLLY_ALWAYS_INLINE int getDay(const std::tm& time) {
+  return time.tm_mday;
+}
+
 template <typename T>
 struct InitSessionTimezone {
   VELOX_DEFINE_FUNCTION_TYPES(T);
