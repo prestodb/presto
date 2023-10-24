@@ -15,19 +15,13 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.StaticMethodPointer;
 import com.facebook.presto.spi.function.TypeParameter;
 
 @Description("Returns the cardinality (length) of the array")
-@ScalarFunction(value = "cardinality", descriptor = @ScalarFunctionDescriptor(
-        isAccessingInputValues = false,
-        outputToInputTransformationFunction = {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "clearRequiredSubfields")},
-        lambdaDescriptors = {}))
+@ScalarFunction("cardinality")
 public final class ArrayCardinalityFunction
 {
     private ArrayCardinalityFunction() {}

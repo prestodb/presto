@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor.defaultFunctionDescriptor;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
@@ -53,7 +52,6 @@ public class SqlInvokedFunction
     private final SqlFunctionId functionId;
     private final FunctionVersion functionVersion;
     private final Optional<SqlFunctionHandle> functionHandle;
-    private final ComplexTypeFunctionDescriptor descriptor;
 
     /**
      * Metadata required for Aggregation Functions
@@ -79,7 +77,6 @@ public class SqlInvokedFunction
         this.functionVersion = notVersioned();
         this.functionHandle = Optional.empty();
         this.aggregationMetadata = Optional.empty();
-        this.descriptor = defaultFunctionDescriptor();
     }
 
     // This constructor creates a SCALAR SqlInvokedFunction
@@ -92,7 +89,7 @@ public class SqlInvokedFunction
             String body,
             FunctionVersion version)
     {
-        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, version, SCALAR, Optional.empty(), defaultFunctionDescriptor());
+        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, version, SCALAR, Optional.empty());
     }
 
     public SqlInvokedFunction(
@@ -106,9 +103,8 @@ public class SqlInvokedFunction
             FunctionKind kind,
             Optional<AggregationFunctionMetadata> aggregationMetadata)
     {
-        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, version, kind, aggregationMetadata, defaultFunctionDescriptor());
+        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, version, kind, aggregationMetadata);
     }
-
     public SqlInvokedFunction(
             QualifiedObjectName functionName,
             List<Parameter> parameters,
@@ -119,8 +115,7 @@ public class SqlInvokedFunction
             String body,
             FunctionVersion version,
             FunctionKind kind,
-            Optional<AggregationFunctionMetadata> aggregationMetadata,
-            ComplexTypeFunctionDescriptor descriptor)
+            Optional<AggregationFunctionMetadata> aggregationMetadata)
     {
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.description = requireNonNull(description, "description is null");
@@ -135,7 +130,6 @@ public class SqlInvokedFunction
         this.functionId = new SqlFunctionId(functionName, argumentTypes);
         this.functionVersion = requireNonNull(version, "version is null");
         this.functionHandle = version.hasVersion() ? Optional.of(new SqlFunctionHandle(this.functionId, version.toString())) : Optional.empty();
-        this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.aggregationMetadata = requireNonNull(aggregationMetadata, "aggregationMetadata is null");
 
         if ((kind == AGGREGATE && !aggregationMetadata.isPresent()) || (kind != AGGREGATE && aggregationMetadata.isPresent())) {

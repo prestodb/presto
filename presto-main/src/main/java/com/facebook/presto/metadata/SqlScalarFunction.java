@@ -15,10 +15,8 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
-import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Signature;
 
-import static com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor.defaultFunctionDescriptor;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -27,30 +25,17 @@ public abstract class SqlScalarFunction
         extends BuiltInFunction
 {
     private final Signature signature;
-    private final ComplexTypeFunctionDescriptor descriptor;
-
-    protected SqlScalarFunction(Signature signature, ComplexTypeFunctionDescriptor descriptor)
-    {
-        this.signature = requireNonNull(signature, "signature is null");
-        checkArgument(signature.getKind() == SCALAR, "function kind must be SCALAR");
-        this.descriptor = requireNonNull(descriptor, "descriptor is null");
-    }
 
     protected SqlScalarFunction(Signature signature)
     {
-        this(signature, defaultFunctionDescriptor());
+        this.signature = requireNonNull(signature, "signature is null");
+        checkArgument(signature.getKind() == SCALAR, "function kind must be SCALAR");
     }
 
     @Override
     public final Signature getSignature()
     {
         return signature;
-    }
-
-    @Override
-    public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
-    {
-        return descriptor;
     }
 
     public abstract BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager);

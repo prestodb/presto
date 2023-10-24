@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
@@ -30,7 +29,6 @@ import com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
@@ -53,8 +51,6 @@ public final class ArrayConcatFunction
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatFunction.class, "concat", Type.class, Block[].class);
 
-    private final ComplexTypeFunctionDescriptor descriptor;
-
     private ArrayConcatFunction()
     {
         super(new Signature(
@@ -65,12 +61,6 @@ public final class ArrayConcatFunction
                 parseTypeSignature("array(E)"),
                 ImmutableList.of(parseTypeSignature("array(E)")),
                 true));
-        descriptor = new ComplexTypeFunctionDescriptor(
-                false,
-                ImmutableList.of(),
-                Optional.empty(),
-                Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired),
-                getSignature());
     }
 
     @Override
@@ -89,12 +79,6 @@ public final class ArrayConcatFunction
     public String getDescription()
     {
         return DESCRIPTION;
-    }
-
-    @Override
-    public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
-    {
-        return descriptor;
     }
 
     @Override

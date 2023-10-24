@@ -19,9 +19,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
-import com.facebook.presto.spi.function.ScalarFunctionLambdaArgumentDescriptor;
-import com.facebook.presto.spi.function.ScalarFunctionLambdaDescriptor;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
@@ -35,17 +32,7 @@ import java.util.List;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
 
-@ScalarFunction(value = "array_sort", descriptor = @ScalarFunctionDescriptor(
-        lambdaDescriptors = {
-                @ScalarFunctionLambdaDescriptor(
-                        callArgumentIndex = 1,
-                        lambdaArgumentDescriptors = {
-                                @ScalarFunctionLambdaArgumentDescriptor(
-                                        lambdaArgumentIndex = 0,
-                                        callArgumentIndex = 0),
-                                @ScalarFunctionLambdaArgumentDescriptor(
-                                        lambdaArgumentIndex = 1,
-                                        callArgumentIndex = 0)})}))
+@ScalarFunction("array_sort")
 @Description("Sorts the given array with a lambda comparator.")
 public final class ArraySortComparatorFunction
 {
