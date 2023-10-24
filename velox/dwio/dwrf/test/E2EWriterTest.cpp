@@ -1805,3 +1805,71 @@ TEST_F(E2EWriterTest, memoryReclaimAfterClose) {
     }
   }
 }
+
+DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimDuringInit) {
+  const auto type = ROW(
+      {{"int_val", INTEGER()},
+       {"string_val", VARCHAR()},
+       {"binary_val", VARBINARY()}});
+
+  VectorFuzzer fuzzer(
+      {
+          .vectorSize = 1000,
+          .stringLength = 1'000,
+          .stringVariableLength = false,
+      },
+      leafPool_.get());
+
+  const common::SpillConfig spillConfig = getSpillConfig(10, 20);
+  for (const auto& reclaimable : {false, true}) {
+    SCOPED_TRACE(fmt::format("reclaimable {}", reclaimable));
+
+    auto config = std::make_shared<dwrf::Config>();
+    config->set<uint64_t>(dwrf::Config::STRIPE_SIZE, 1L << 30);
+    config->set<uint64_t>(dwrf::Config::MAX_DICTIONARY_SIZE, 1L << 30);
+
+    dwrf::WriterOptions options;
+    options.schema = type;
+    options.config = std::move(config);
+    if (reclaimable) {
+      options.spillConfig = &spillConfig;
+    }
+    auto writerPool = memory::defaultMemoryManager().addRootPool(
+        "memoryReclaimDuringInit", 1L << 30, exec::MemoryReclaimer::create());
+    auto dwrfPool = writerPool->addAggregateChild("writer");
+    auto sinkPool =
+        writerPool->addLeafChild("sink", true, exec::MemoryReclaimer::create());
+    auto sink = std::make_unique<MemorySink>(
+        200 * 1024 * 1024, FileSink::Options{.pool = sinkPool.get()});
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
+        std::function<void(MemoryPool*)>([&](MemoryPool* /*unused*/) {
+          uint64_t reclaimableBytes{0};
+          ASSERT_EQ(
+              writerPool->reclaimableBytes(reclaimableBytes), reclaimable);
+
+          memory::MemoryReclaimer::Stats stats;
+          writerPool->reclaim(1L << 30, stats);
+          if (reclaimable) {
+            ASSERT_GE(reclaimableBytes, 0);
+            // We can't reclaim during writer init.
+            ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+          } else {
+            ASSERT_EQ(reclaimableBytes, 0);
+            ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+          }
+        }));
+
+    std::unique_ptr<dwrf::Writer> writer;
+    std::thread writerThread([&]() {
+      writer =
+          std::make_unique<dwrf::Writer>(std::move(sink), options, dwrfPool);
+    });
+
+    writerThread.join();
+    ASSERT_TRUE(writer != nullptr);
+    ASSERT_EQ(writer->canReclaim(), reclaimable);
+    writer->close();
+  }
+}

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include "velox/dwio/dwrf/common/Compression.h"
 #include "velox/common/base/VeloxException.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/encryption/TestProvider.h"
-#include "velox/dwio/dwrf/common/Compression.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 
@@ -408,6 +408,8 @@ TEST_P(CompressionTest, getCompressionBufferOOM) {
             "oomOnCompression",
             kind_ == facebook::velox::common::CompressionKind_NONE ? 3L << 20
                                                                    : 6L << 20)};
+    context.initBuffer();
+
     DataBufferHolder holder{
         context.getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM),
         context.compressionBlockSize(),

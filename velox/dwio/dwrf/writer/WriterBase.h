@@ -83,6 +83,8 @@ class WriterBase {
         context_->getConfigs());
   }
 
+  void initBuffers();
+
   WriterContext& getContext() {
     DWIO_ENSURE_NOT_NULL(context_);
     return *context_;

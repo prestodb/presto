@@ -46,6 +46,10 @@ class WriterTest : public Test {
     writer_ = std::make_unique<WriterBase>(std::move(sink));
     writer_->initContext(
         config, defaultMemoryManager().addRootPool("WriterTest"));
+    auto& context = writer_->getContext();
+    context.initBuffer();
+    writer_->getSink().init(
+        context.getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM));
     return *writer_;
   }
 

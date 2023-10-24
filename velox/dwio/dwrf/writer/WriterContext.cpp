@@ -53,7 +53,6 @@ WriterContext::WriterContext(
   const bool forceLowMemoryMode{getConfig(Config::FORCE_LOW_MEMORY_MODE)};
   const bool disableLowMemoryMode{getConfig(Config::DISABLE_LOW_MEMORY_MODE)};
   VELOX_CHECK(!(forceLowMemoryMode && disableLowMemoryMode));
-  setMemoryReclaimers();
   checkLowMemoryMode_ = !forceLowMemoryMode && !disableLowMemoryMode;
   if (forceLowMemoryMode) {
     setLowMemoryMode();
@@ -63,10 +62,6 @@ WriterContext::WriterContext(
   }
   validateConfigs();
   VLOG(2) << fmt::format("Compression config: {}", compression_);
-  if (compression_ != common::CompressionKind_NONE) {
-    compressionBuffer_ = std::make_unique<dwio::common::DataBuffer<char>>(
-        *generalPool_, compressionBlockSize_ + PAGE_HEADER_SIZE);
-  }
 }
 
 WriterContext::~WriterContext() {
@@ -91,13 +86,12 @@ void WriterContext::validateConfigs() const {
       dwio::common::MIN_PAGE_GROW_RATIO);
 }
 
-void WriterContext::setMemoryReclaimers() {
-  if (pool_->reclaimer() == nullptr) {
-    return;
+void WriterContext::initBuffer() {
+  VELOX_CHECK_NULL(compressionBuffer_);
+  if (compression_ != common::CompressionKind_NONE) {
+    compressionBuffer_ = std::make_unique<dwio::common::DataBuffer<char>>(
+        *generalPool_, compressionBlockSize_ + PAGE_HEADER_SIZE);
   }
-  generalPool_->setReclaimer(exec::MemoryReclaimer::create());
-  dictionaryPool_->setReclaimer(exec::MemoryReclaimer::create());
-  outputStreamPool_->setReclaimer(exec::MemoryReclaimer::create());
 }
 
 memory::MemoryPool& WriterContext::getMemoryPool(

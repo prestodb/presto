@@ -58,4 +58,18 @@ void WriterSink::addBuffer(dwio::common::DataBuffer<char> buffer) {
     sink_->write(std::move(buffer));
   }
 }
+
+void WriterSink::init(memory::MemoryPool& pool) {
+  VELOX_CHECK(!initialized_);
+  VELOX_CHECK(offsets_.empty());
+  initialized_ = true;
+
+  if (cacheMode_ != StripeCacheMode::NA) {
+    offsets_.push_back(0);
+    cacheBuffer_.reserve(SLICE_SIZE);
+  }
+
+  // initialize the buffer with the orc header
+  addBuffer(pool, ORC_MAGIC.data(), ORC_MAGIC_LEN);
+}
 } // namespace facebook::velox::dwrf

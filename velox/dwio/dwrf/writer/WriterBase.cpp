@@ -90,4 +90,10 @@ void WriterBase::writeUserMetadata(uint32_t writerVersion) {
     item->set_value(pair.second);
   });
 }
+
+void WriterBase::initBuffers() {
+  context_->initBuffer();
+  writerSink_->init(
+      context_->getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM));
+}
 } // namespace facebook::velox::dwrf

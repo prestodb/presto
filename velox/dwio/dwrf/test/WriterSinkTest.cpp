@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
+#include "velox/dwio/dwrf/writer/WriterSink.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "folly/Random.h"
-#include "velox/dwio/dwrf/writer/WriterSink.h"
+#include "velox/common/base/tests/GTestUtils.h"
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
 
-class WriterSinkTests : public Test {
+class WriterSinkTest : public Test {
  protected:
   void SetUp() override {
     for (size_t i = 0; i < data.size(); ++i) {
@@ -45,13 +46,15 @@ class WriterSinkTests : public Test {
   std::array<char, 1024> data;
 };
 
-TEST_F(WriterSinkTests, Checksum) {
+TEST_F(WriterSinkTest, Checksum) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{1024 + 3, {.pool = pool.get()}};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::CRC32);
   config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::NA);
   WriterSink sink{out, *pool, config};
+  sink.init(*pool);
+  VELOX_ASSERT_THROW(sink.init(*pool), "");
   auto offset = out.size();
 
   auto checksum = sink.getChecksum();
@@ -86,13 +89,14 @@ TEST_F(WriterSinkTests, Checksum) {
   ASSERT_EQ(sink.size(), out.size() - offset);
 }
 
-TEST_F(WriterSinkTests, NoChecksum) {
+TEST_F(WriterSinkTest, NoChecksum) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{1024 + 3, {.pool = pool.get()}};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
   config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::NA);
   WriterSink sink{out, *pool, config};
+  sink.init(*pool);
   auto offset = out.size();
 
   ASSERT_EQ(sink.getChecksum(), nullptr);
@@ -102,13 +106,14 @@ TEST_F(WriterSinkTests, NoChecksum) {
   checkOutput(out, offset);
 }
 
-TEST_F(WriterSinkTests, NoCache) {
+TEST_F(WriterSinkTest, NoCache) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{1024, {.pool = pool.get()}};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
   config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::NA);
   WriterSink sink{out, *pool, config};
+  sink.init(*pool);
   auto offset = out.size();
 
   ASSERT_EQ(sink.getCacheMode(), config.get(Config::STRIPE_CACHE_MODE));
@@ -126,13 +131,14 @@ TEST_F(WriterSinkTests, NoCache) {
   ASSERT_EQ(out.size() - offset, 512);
 }
 
-TEST_F(WriterSinkTests, CacheIndex) {
+TEST_F(WriterSinkTest, CacheIndex) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{1024, {.pool = pool.get()}};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
   config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::INDEX);
   WriterSink sink{out, *pool, config};
+  sink.init(*pool);
   auto offset = out.size();
 
   ASSERT_EQ(sink.getCacheMode(), config.get(Config::STRIPE_CACHE_MODE));
@@ -168,13 +174,14 @@ TEST_F(WriterSinkTests, CacheIndex) {
       std::string(out.data() + offset, 128));
 }
 
-TEST_F(WriterSinkTests, CacheFooter) {
+TEST_F(WriterSinkTest, CacheFooter) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{1024, {.pool = pool.get()}};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
   config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::FOOTER);
   WriterSink sink{out, *pool, config};
+  sink.init(*pool);
   auto offset = out.size();
 
   ASSERT_EQ(sink.getCacheMode(), config.get(Config::STRIPE_CACHE_MODE));
@@ -210,13 +217,14 @@ TEST_F(WriterSinkTests, CacheFooter) {
       std::string(out.data() + offset + 384, 128));
 }
 
-TEST_F(WriterSinkTests, CacheBothEmptyIndex) {
+TEST_F(WriterSinkTest, CacheBothEmptyIndex) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{1024, {.pool = pool.get()}};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
   config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::BOTH);
   WriterSink sink{out, *pool, config};
+  sink.init(*pool);
 
   sink.setMode(WriterSink::Mode::Index);
   // don't add any buffer
@@ -238,13 +246,14 @@ TEST_F(WriterSinkTests, CacheBothEmptyIndex) {
   ASSERT_EQ(sink.getCacheSize(), 128);
 }
 
-TEST_F(WriterSinkTests, CacheBoth) {
+TEST_F(WriterSinkTest, CacheBoth) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{1024, {.pool = pool.get()}};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
   config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::BOTH);
   WriterSink sink{out, *pool, config};
+  sink.init(*pool);
   auto offset = out.size();
 
   ASSERT_EQ(sink.getCacheMode(), config.get(Config::STRIPE_CACHE_MODE));
@@ -286,7 +295,7 @@ TEST_F(WriterSinkTests, CacheBoth) {
       std::string(out.data() + offset + 512, 128));
 }
 
-TEST_F(WriterSinkTests, CacheExceedsLimit) {
+TEST_F(WriterSinkTest, CacheExceedsLimit) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{1024, {.pool = pool.get()}};
   Config config;
@@ -296,6 +305,7 @@ TEST_F(WriterSinkTests, CacheExceedsLimit) {
 
   {
     WriterSink sink{out, *pool, config};
+    sink.init(*pool);
     auto offset = out.size();
 
     sink.setMode(WriterSink::Mode::Index);
@@ -318,6 +328,7 @@ TEST_F(WriterSinkTests, CacheExceedsLimit) {
 
   {
     WriterSink sink{out, *pool, config};
+    sink.init(*pool);
     auto offset = out.size();
 
     sink.setMode(WriterSink::Mode::Index);
@@ -347,6 +358,7 @@ TEST_F(WriterSinkTests, CacheExceedsLimit) {
   {
     config.set(Config::STRIPE_CACHE_SIZE, static_cast<uint32_t>(89));
     WriterSink sink{out, *pool, config};
+    sink.init(*pool);
     auto offset = out.size();
 
     sink.setMode(WriterSink::Mode::Index);
@@ -371,6 +383,7 @@ TEST_F(WriterSinkTests, CacheExceedsLimit) {
   {
     config.set(Config::STRIPE_CACHE_SIZE, static_cast<uint32_t>(89));
     WriterSink sink{out, *pool, config};
+    sink.init(*pool);
     auto offset = out.size();
 
     sink.setMode(WriterSink::Mode::Index);
@@ -410,13 +423,14 @@ TEST_F(WriterSinkTests, CacheExceedsLimit) {
   }
 }
 
-TEST_F(WriterSinkTests, CacheLarge) {
+TEST_F(WriterSinkTest, CacheLarge) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{10 * 1024 * 1024 + 3, {.pool = pool.get()}};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
   config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::BOTH);
   WriterSink sink{out, *pool, config};
+  sink.init(*pool);
   auto offset = out.size();
 
   DataBuffer<char> buffer{*pool, 2048};
@@ -436,13 +450,14 @@ TEST_F(WriterSinkTests, CacheLarge) {
   ASSERT_EQ(out.size() - offset, total * 2);
 }
 
-TEST_F(WriterSinkTests, SetModeOutOfOrder) {
+TEST_F(WriterSinkTest, SetModeOutOfOrder) {
   auto pool = addDefaultLeafMemoryPool();
   MemorySink out{1024, {.pool = pool.get()}};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::CRC32);
   config.set(Config::STRIPE_CACHE_MODE, StripeCacheMode::BOTH);
   WriterSink sink{out, *pool, config};
+  sink.init(*pool);
 
   ASSERT_EQ(sink.getCacheSize(), 0);
   ASSERT_EQ(sink.getChecksum()->getDigest(false), 0);

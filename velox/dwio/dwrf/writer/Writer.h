@@ -169,8 +169,8 @@ class Writer : public dwio::common::Writer {
     Writer* const writer_;
   };
 
-  // Sets the memory reclaimer for root memory pool used by this writer.
-  void setMemoryReclaimer(const std::shared_ptr<memory::MemoryPool>& pool);
+  // Sets the memory reclaimers for all the memory pools used by this writer.
+  void setMemoryReclaimers(const std::shared_ptr<memory::MemoryPool>& pool);
 
   // Invoked to ensure sufficient memory to process the given size of input by
   // reserving memory from each of the leaf memory pool. This only applies if we

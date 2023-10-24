@@ -67,7 +67,6 @@ Writer::Writer(
       spillConfig_{options.spillConfig} {
   // Prevent the memory reclaim during writer initialization.
   exec::NonReclaimableSectionGuard guard(&nonReclaimableSection_);
-  setMemoryReclaimer(pool);
   auto handler =
       (options.encryptionSpec ? encryption::EncryptionHandler::create(
                                     schema_,
@@ -75,7 +74,15 @@ Writer::Writer(
                                     options.encrypterFactory.get())
                               : nullptr);
   writerBase_->initContext(options.config, pool, std::move(handler));
+
   auto& context = writerBase_->getContext();
+  VELOX_CHECK_EQ(
+      context.getTotalMemoryUsage(),
+      0,
+      "Unexpected memory usage on dwrf writer construction");
+  setMemoryReclaimers(pool);
+  writerBase_->initBuffers();
+
   context.buildPhysicalSizeAggregators(*schema_);
   if (options.flushPolicyFactory == nullptr) {
     flushPolicy_ = std::make_unique<DefaultFlushPolicy>(
@@ -109,7 +116,7 @@ Writer::Writer(
               options.memoryPool->name(),
               folly::to<std::string>(folly::Random::rand64())))} {}
 
-void Writer::setMemoryReclaimer(
+void Writer::setMemoryReclaimers(
     const std::shared_ptr<memory::MemoryPool>& pool) {
   VELOX_CHECK(
       !pool->isLeaf(),
@@ -120,7 +127,15 @@ void Writer::setMemoryReclaimer(
   if ((pool->parent() == nullptr) || (pool->parent()->reclaimer() == nullptr)) {
     return;
   }
+
   pool->setReclaimer(MemoryReclaimer::create(this));
+  auto& context = getContext();
+  context.getMemoryPool(MemoryUsageCategory::GENERAL)
+      .setReclaimer(exec::MemoryReclaimer::create());
+  context.getMemoryPool(MemoryUsageCategory::DICTIONARY)
+      .setReclaimer(exec::MemoryReclaimer::create());
+  context.getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM)
+      .setReclaimer(exec::MemoryReclaimer::create());
 }
 
 void Writer::write(const VectorPtr& input) {

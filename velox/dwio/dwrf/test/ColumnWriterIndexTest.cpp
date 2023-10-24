@@ -304,6 +304,7 @@ class WriterEncodingIndexTest2 {
         config_,
         velox::memory::defaultMemoryManager().addRootPool(
             "WriterEncodingIndexTest2")};
+    context.initBuffer();
     std::vector<StrictMock<MockIndexBuilder>*> mocks;
     for (auto i = 0; i < recordPositionCount.size(); ++i) {
       mocks.push_back(new StrictMock<MockIndexBuilder>());
@@ -432,9 +433,9 @@ class TimestampWriterIndexTest : public testing::Test,
 TEST_F(TimestampWriterIndexTest, TestIndex) {
   // Present Stream has 4. seconds and nanos are Ints with 3 each.
   // 4+3+3 = 10. There is no backfill.
-  this->runTest(2, 10, 0, 0);
-  this->runTest(2, 10, 0, 1);
-  this->runTest(2, 10, 0, 100);
+  runTest(2, 10, 0, 0);
+  runTest(2, 10, 0, 1);
+  runTest(2, 10, 0, 100);
 }
 
 template <typename Integer>
@@ -523,9 +524,9 @@ TEST_F(BoolColumnWriterEncodingIndexTest, TestIndex) {
   // Boolean Stream uses one Stream for Presence and Other Stream for data
   // Each Stream has compressed size, uncompressed size, ByteRLE numLiterals,
   // Boolean 8-bitsRemaining , so 4+4 =8. It has no back fill streams.
-  this->runTest(2, 8, 0, 0);
-  this->runTest(2, 8, 0, 1);
-  this->runTest(2, 8, 0, 100);
+  runTest(2, 8, 0, 0);
+  runTest(2, 8, 0, 1);
+  runTest(2, 8, 0, 100);
 }
 
 class ByteColumnWriterEncodingIndexTest
@@ -559,9 +560,9 @@ TEST_F(ByteColumnWriterEncodingIndexTest, TestIndex) {
   // Data stream has compressed size, uncompressed size, ByteRLE numLiterals (3)
   // so total Streams(4+3) = 7. It has no back fill streams.
 
-  this->runTest(2, 7, 0, 0);
-  this->runTest(2, 7, 0, 1);
-  this->runTest(2, 7, 0, 100);
+  runTest(2, 7, 0, 0);
+  runTest(2, 7, 0, 1);
+  runTest(2, 7, 0, 100);
 }
 
 class BinaryColumnWriterEncodingIndexTest
@@ -617,9 +618,9 @@ TEST_F(BinaryColumnWriterEncodingIndexTest, TestIndex) {
   // Length stream has compressed size, uncompressed size, RLE numLiterals (3)
   // so total Streams(4+2+3) = 9. It has no back fill streams.
 
-  this->runTest(2, 9, 0, 0);
-  this->runTest(2, 9, 0, 1);
-  this->runTest(2, 9, 0, 100);
+  runTest(2, 9, 0, 0);
+  runTest(2, 9, 0, 1);
+  runTest(2, 9, 0, 100);
 }
 
 template <typename FLOAT>
@@ -706,6 +707,7 @@ class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
         config_,
         velox::memory::defaultMemoryManager().addRootPool(
             "IntegerColumnWriterDirectEncodingIndexTest")};
+    context.initBuffer();
     auto mockIndexBuilder = std::make_unique<StrictMock<MockIndexBuilder>>();
     auto mockIndexBuilderPtr = mockIndexBuilder.get();
     context.indexBuilderFactory_ = [&](auto /* unused */) {
@@ -896,6 +898,7 @@ class StringColumnWriterDictionaryEncodingIndexTest : public testing::Test {
 
   void runTest(size_t pageCount, size_t positionCount, size_t stripeCount) {
     WriterContext context{config_, rootPool_};
+    context.initBuffer();
     auto mockIndexBuilder = std::make_unique<StrictMock<MockIndexBuilder>>();
     auto mockIndexBuilderPtr = mockIndexBuilder.get();
     context.indexBuilderFactory_ = [&](auto /* unused */) {
@@ -1004,6 +1007,7 @@ class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
       size_t stripeCount,
       std::function<bool(size_t, size_t)> callAbandonDict = neverAbandonDict) {
     WriterContext context{config_, rootPool_};
+    context.initBuffer();
     auto mockIndexBuilder = std::make_unique<StrictMock<MockIndexBuilder>>();
     auto mockIndexBuilderPtr = mockIndexBuilder.get();
     context.indexBuilderFactory_ = [&](auto /* unused */) {
@@ -1225,9 +1229,9 @@ TEST_F(ListColumnWriterEncodingIndexTest, TestIndex) {
   // Length stream has compressed size, uncompressed size, RLE numLiterals (3)
   // so total Streams(4+3) = 7. It has no back fill streams.
 
-  this->runTest(2, 7, 0, 0);
-  this->runTest(2, 7, 0, 1);
-  this->runTest(2, 7, 0, 100);
+  runTest(2, 7, 0, 0);
+  runTest(2, 7, 0, 1);
+  runTest(2, 7, 0, 100);
 }
 
 class MapColumnWriterEncodingIndexTest
@@ -1296,9 +1300,9 @@ TEST_F(MapColumnWriterEncodingIndexTest, TestIndex) {
   // Length stream has compressed size, uncompressed size, RLE numLiterals (3)
   // so total Streams(4+3) = 7. It has no back fill streams.
 
-  this->runTest(2, 7, 0, 0);
-  this->runTest(2, 7, 0, 1);
-  this->runTest(2, 7, 0, 100);
+  runTest(2, 7, 0, 0);
+  runTest(2, 7, 0, 1);
+  runTest(2, 7, 0, 100);
 }
 
 class FlatMapColumnWriterEncodingIndexTest
@@ -1385,10 +1389,9 @@ TEST_F(FlatMapColumnWriterEncodingIndexTest, TestIndex) {
   // #4 is float: present 4 + data 2 = 6
 
   // empty flat map doesn't create value writer
-  this->runTest(2, {0, 4}, {0, 0}, 0, true, 1);
-  this->runTest(
-      2, {0, 4, 11, 6, 6, 11, 6, 6}, {0, 0, 0, 0, 0, 0, 0, 0}, 1, true, 1);
-  this->runTest(
+  runTest(2, {0, 4}, {0, 0}, 0, true, 1);
+  runTest(2, {0, 4, 11, 6, 6, 11, 6, 6}, {0, 0, 0, 0, 0, 0, 0, 0}, 1, true, 1);
+  runTest(
       2, {0, 4, 11, 6, 6, 11, 6, 6}, {0, 0, 0, 0, 0, 0, 0, 0}, 100, true, 1);
 }
 
@@ -1442,14 +1445,14 @@ TEST_F(StructColumnWriterEncodingIndexTest, TestIndex) {
   // Struct Stream has present stream
   // Present Stream has compressed size, uncompressed size, ByteRLE numLiterals,
   // Boolean 8-bitsRemaining (4)
-  this->runTest(2, 4, 0, 0, false);
-  this->runTest(2, 4, 0, 1, false);
-  this->runTest(2, 4, 0, 100, false);
+  runTest(2, 4, 0, 0, false);
+  runTest(2, 4, 0, 1, false);
+  runTest(2, 4, 0, 100, false);
 
   // For root, we don't have present stream, so 0
-  this->runTest(2, 0, 0, 0, true);
-  this->runTest(2, 0, 0, 1, true);
-  this->runTest(2, 0, 0, 100, true);
+  runTest(2, 0, 0, 0, true);
+  runTest(2, 0, 0, 1, true);
+  runTest(2, 0, 0, 100, true);
 }
 
 } // namespace facebook::velox::dwrf

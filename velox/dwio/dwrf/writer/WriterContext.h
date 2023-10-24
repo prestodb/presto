@@ -245,6 +245,8 @@ class WriterContext : public CompressionBufferPool {
     }
   }
 
+  void initBuffer();
+
   std::unique_ptr<dwio::common::DataBuffer<char>> getBuffer(
       uint64_t size) override {
     VELOX_CHECK_NOT_NULL(compressionBuffer_);
@@ -574,8 +576,6 @@ class WriterContext : public CompressionBufferPool {
 
  private:
   void validateConfigs() const;
-
-  void setMemoryReclaimers();
 
   std::unique_ptr<velox::DecodedVector> getDecodedVector() {
     if (decodedVectorPool_.empty()) {
