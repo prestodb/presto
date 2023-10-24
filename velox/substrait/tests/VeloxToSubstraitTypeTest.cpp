@@ -32,8 +32,7 @@ class VeloxToSubstraitTypeTest : public ::testing::Test {
 
     google::protobuf::Arena arena;
     auto substraitType = typeConvertor_->toSubstraitType(arena, type);
-    auto sameType =
-        toVeloxType(substraitParser_->parseType(substraitType)->type);
+    auto sameType = substraitParser_->parseType(substraitType);
     ASSERT_TRUE(sameType->kindEquals(type))
         << "Expected: " << type->toString()
         << ", but got: " << sameType->toString();
@@ -66,6 +65,6 @@ TEST_F(VeloxToSubstraitTypeTest, basic) {
   testTypeConversion(
       ROW({"a", "b", "c"},
           {BIGINT(), ROW({"x", "y"}, {BOOLEAN(), VARCHAR()}), REAL()}));
-  ASSERT_ANY_THROW(testTypeConversion(ROW({}, {})));
+  testTypeConversion(ROW({}, {}));
 }
 } // namespace facebook::velox::substrait::test

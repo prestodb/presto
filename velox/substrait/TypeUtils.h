@@ -18,9 +18,6 @@
 
 namespace facebook::velox::substrait {
 
-/// Return the Velox type according to the typename.
-TypePtr toVeloxType(const std::string& typeName);
-
 std::string_view getNameBeforeDelimiter(
     const std::string& compoundName,
     const std::string& delimiter);

@@ -212,3 +212,34 @@ TEST_F(FunctionTest, setVectorFromVariants) {
   ASSERT_EQ(20, resultVec->asFlatVector<int32_t>()->valueAt(0));
   ASSERT_EQ(30, resultVec->asFlatVector<int32_t>()->valueAt(1));
 }
+
+TEST_F(FunctionTest, getFunctionType) {
+  std::vector<std::string> types =
+      SubstraitParser::getSubFunctionTypes("sum:opt_i32");
+  ASSERT_EQ("i32", types[0]);
+
+  types = SubstraitParser::getSubFunctionTypes("sum:i32");
+  ASSERT_EQ("i32", types[0]);
+
+  types = SubstraitParser::getSubFunctionTypes("split:req_str_str");
+  ASSERT_EQ(2, types.size());
+  ASSERT_EQ("str", types[0]);
+  ASSERT_EQ("str", types[1]);
+}
+
+TEST_F(FunctionTest, getInputTypes) {
+  std::vector<TypePtr> types = SubstraitParser::getInputTypes("sum:opt_i32");
+  ASSERT_EQ(types[0]->kind(), TypeKind::INTEGER);
+
+  types = SubstraitParser::getInputTypes("and:opt_bool_bool");
+  ASSERT_EQ(2, types.size());
+  ASSERT_EQ(types[0]->kind(), TypeKind::BOOLEAN);
+  ASSERT_EQ(types[1]->kind(), TypeKind::BOOLEAN);
+
+  types = SubstraitParser::getInputTypes("function:i32_str_ts_date_fp64");
+  ASSERT_EQ(types[0]->kind(), TypeKind::INTEGER);
+  ASSERT_EQ(types[1]->kind(), TypeKind::VARCHAR);
+  ASSERT_EQ(types[2]->kind(), TypeKind::TIMESTAMP);
+  ASSERT_EQ(types[3]->kind(), TypeKind::INTEGER);
+  ASSERT_EQ(types[4]->kind(), TypeKind::DOUBLE);
+}

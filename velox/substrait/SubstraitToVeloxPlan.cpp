@@ -17,7 +17,6 @@
 #include "velox/substrait/SubstraitToVeloxPlan.h"
 #include "velox/substrait/TypeUtils.h"
 #include "velox/substrait/VariantToVectorConverter.h"
-#include "velox/substrait/VeloxSubstraitSignature.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::substrait {
@@ -152,32 +151,11 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       aggParams.emplace_back(
           exprConverter_->toVeloxExpr(arg.value(), inputType));
     }
-    auto aggVeloxType = toVeloxType(
-        substraitParser_->parseType(aggFunction.output_type())->type);
+    auto aggVeloxType = substraitParser_->parseType(aggFunction.output_type());
     auto aggExpr = std::make_shared<const core::CallTypedExpr>(
         aggVeloxType, std::move(aggParams), funcName);
-
-    const auto& functionSpec = findFunction(aggFunction.function_reference());
-
-    std::vector<TypePtr> rawInputTypes;
-
-    size_t pos = functionSpec.find(":");
-    for (;;) {
-      const size_t endPos = functionSpec.find("_", pos + 1);
-      if (endPos == std::string::npos) {
-        std::string typeName = functionSpec.substr(pos + 1);
-        rawInputTypes.push_back(
-            VeloxSubstraitSignature::fromSubstraitSignature(typeName));
-        break;
-      }
-
-      const std::string typeName =
-          functionSpec.substr(pos + 1, endPos - pos - 1);
-      rawInputTypes.push_back(
-          VeloxSubstraitSignature::fromSubstraitSignature(typeName));
-      pos = endPos + 1;
-    }
-
+    std::vector<TypePtr> rawInputTypes = SubstraitParser::getInputTypes(
+        findFunction(aggFunction.function_reference()));
     aggregates.emplace_back(
         core::AggregationNode::Aggregate{aggExpr, rawInputTypes, mask, {}, {}});
   }
@@ -393,11 +371,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     for (const auto& name : baseSchema.names()) {
       colNameList.emplace_back(name);
     }
-    auto substraitTypeList = substraitParser_->parseNamedStruct(baseSchema);
-    veloxTypeList.reserve(substraitTypeList.size());
-    for (const auto& substraitType : substraitTypeList) {
-      veloxTypeList.emplace_back(toVeloxType(substraitType->type));
-    }
+    veloxTypeList = substraitParser_->parseNamedStruct(baseSchema);
   }
 
   // Parse local files

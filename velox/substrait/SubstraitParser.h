@@ -25,25 +25,20 @@
 #include "velox/substrait/proto/substrait/type.pb.h"
 #include "velox/substrait/proto/substrait/type_expressions.pb.h"
 
+#include "velox/type/Type.h"
+
 namespace facebook::velox::substrait {
 
 /// This class contains some common functions used to parse Substrait
 /// components, and convert them into recognizable representations.
 class SubstraitParser {
  public:
-  /// Stores the type name and nullability.
-  struct SubstraitType {
-    std::string type;
-    bool nullable;
-  };
-
   /// Parse Substrait NamedStruct.
-  std::vector<std::shared_ptr<SubstraitParser::SubstraitType>> parseNamedStruct(
+  std::vector<TypePtr> parseNamedStruct(
       const ::substrait::NamedStruct& namedStruct);
 
   /// Parse Substrait Type.
-  std::shared_ptr<SubstraitType> parseType(
-      const ::substrait::Type& substraitType);
+  TypePtr parseType(const ::substrait::Type& substraitType);
 
   /// Parse Substrait ReferenceSegment.
   int32_t parseReferenceSegment(
@@ -70,6 +65,10 @@ class SubstraitParser {
       const std::unordered_map<uint64_t, std::string>& functionMap,
       uint64_t id) const;
 
+  /// This function is used get the types from the compound name.
+  static std::vector<std::string> getSubFunctionTypes(
+      const std::string& substraitFunction);
+
   /// Find the Velox function name according to the function id
   /// from a pre-constructed function map.
   std::string findVeloxFunction(
@@ -78,6 +77,9 @@ class SubstraitParser {
 
   /// Map the Substrait function keyword into Velox function keyword.
   std::string mapToVeloxFunction(const std::string& substraitFunction) const;
+
+  /// Get input types from Substrait function signature.
+  static std::vector<TypePtr> getInputTypes(const std::string& signature);
 
  private:
   /// A map used for mapping Substrait function keywords into Velox functions'
