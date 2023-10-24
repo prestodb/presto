@@ -1873,28 +1873,16 @@ void StructColumnReader::next(
     // children vectors.
     childrenVectorsPtr = &rowVector->children();
     childrenVectors.clear();
-  } else {
-    childrenVectors.resize(children_.size());
-    childrenVectorsPtr = &childrenVectors;
-  }
-
-  for (uint64_t i = 0; i < children_.size(); ++i) {
-    auto& reader = children_[i];
-    if (reader) {
-      reader->next(numValues, (*childrenVectorsPtr)[i], nullsPtr);
-    }
-  }
-
-  if (result) {
     result->setNullCount(nullCount);
   } else {
     // When read-string-as-row flag is on, string readers produce ROW(BIGINT,
     // BIGINT) type instead of VARCHAR or VARBINARY. In these cases,
     // requestedType_->type is not the right type of the final struct.
+    childrenVectors.resize(children_.size());
     std::vector<TypePtr> types;
-    types.reserve(childrenVectorsPtr->size());
-    for (auto i = 0; i < childrenVectorsPtr->size(); i++) {
-      const auto& child = (*childrenVectorsPtr)[i];
+    types.reserve(childrenVectors.size());
+    for (auto i = 0; i < childrenVectors.size(); i++) {
+      const auto& child = childrenVectors[i];
       if (child) {
         types.emplace_back(child->type());
       } else {
@@ -1902,13 +1890,22 @@ void StructColumnReader::next(
       }
     }
 
-    result = std::make_shared<RowVector>(
+    auto rowResult = std::make_shared<RowVector>(
         &memoryPool_,
         ROW(std::move(types)),
         nulls,
         numValues,
         std::move(childrenVectors),
         nullCount);
+    childrenVectorsPtr = &rowResult->children();
+    result = std::move(rowResult);
+  }
+
+  for (uint64_t i = 0; i < children_.size(); ++i) {
+    auto& reader = children_[i];
+    if (reader) {
+      reader->next(numValues, (*childrenVectorsPtr)[i], nullsPtr);
+    }
   }
 }
 
