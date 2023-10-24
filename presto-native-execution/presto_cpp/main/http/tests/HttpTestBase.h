@@ -191,7 +191,8 @@ class HttpClientFactory {
 
   std::shared_ptr<http::HttpClient> newClient(
       const folly::SocketAddress& address,
-      const std::chrono::milliseconds& timeout,
+      const std::chrono::milliseconds& transactionTimeout,
+      const std::chrono::milliseconds& connectTimeout,
       bool useHttps,
       std::shared_ptr<MemoryPool> pool,
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr) {
@@ -201,7 +202,8 @@ class HttpClientFactory {
       return std::make_shared<http::HttpClient>(
           eventBase_.get(),
           address,
-          timeout,
+          transactionTimeout,
+          connectTimeout,
           pool,
           clientCaPath,
           ciphers,
@@ -210,7 +212,8 @@ class HttpClientFactory {
       return std::make_shared<http::HttpClient>(
           eventBase_.get(),
           address,
-          timeout,
+          transactionTimeout,
+          connectTimeout,
           pool,
           "",
           "",
@@ -234,18 +237,23 @@ folly::SemiFuture<std::unique_ptr<http::HttpResponse>> sendGet(
       .send(client, body, sendDelay);
 }
 
-static std::unique_ptr<http::HttpServer> getServer(bool useHttps) {
+static std::unique_ptr<http::HttpServer> getServer(
+    bool useHttps,
+    uint32_t numThreads = 8) {
   if (useHttps) {
     std::string certPath = getCertsPath("test_cert1.pem");
     std::string keyPath = getCertsPath("test_key1.pem");
     std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
     auto httpsConfig = std::make_unique<http::HttpsConfig>(
         folly::SocketAddress("127.0.0.1", 0), certPath, keyPath, ciphers);
-    return std::make_unique<http::HttpServer>(nullptr, std::move(httpsConfig));
+    return std::make_unique<http::HttpServer>(
+        nullptr, std::move(httpsConfig), numThreads);
   } else {
     return std::make_unique<http::HttpServer>(
         std::make_unique<http::HttpConfig>(
-            folly::SocketAddress("127.0.0.1", 0)));
+            folly::SocketAddress("127.0.0.1", 0)),
+        nullptr,
+        numThreads);
   }
 }
 
@@ -262,6 +270,7 @@ struct AsyncMsgRequestState {
   uint64_t maxWaitMillis{0};
   std::weak_ptr<StringPromise> msgPromise;
   RequestStatus requestStatus{kStatusUnknown};
+  std::function<void()> customFunc;
 };
 
 http::EndpointRequestHandlerFactory asyncMsg(
@@ -281,7 +290,9 @@ http::EndpointRequestHandlerFactory asyncMsg(
           if (maxWaitMillis == 0) {
             maxWaitMillis = 1'000'000'000;
           }
-
+          if (request->customFunc != nullptr) {
+            request->customFunc();
+          }
           std::move(future)
               .via(eventBase)
               .onTimeout(
