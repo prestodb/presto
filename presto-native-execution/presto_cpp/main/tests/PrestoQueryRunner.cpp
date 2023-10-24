@@ -460,6 +460,7 @@ std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
       eventBaseThread_.getEventBase(),
       coordinatorUri_,
       std::chrono::milliseconds(10'000),
+      std::chrono::milliseconds(0),
       pool_);
 
   auto response = ServerResponse(startQuery(sql, *client));

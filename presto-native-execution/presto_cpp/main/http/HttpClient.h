@@ -116,7 +116,8 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   HttpClient(
       folly::EventBase* FOLLY_NONNULL eventBase,
       const folly::SocketAddress& address,
-      std::chrono::milliseconds timeout,
+      std::chrono::milliseconds transactionTimeout,
+      std::chrono::milliseconds connectTimeout,
       std::shared_ptr<velox::memory::MemoryPool> pool,
       const std::string& clientCertAndKeyPath = "",
       const std::string& ciphers = "",
@@ -137,7 +138,8 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
  private:
   folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
-  const folly::HHWheelTimer::UniquePtr timer_;
+  const folly::HHWheelTimer::UniquePtr transactionTimer_;
+  const std::chrono::milliseconds connectTimeout_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   // clientCertAndKeyPath_ Points to a file (usually with pem extension) which
   // contains certificate and key concatenated together

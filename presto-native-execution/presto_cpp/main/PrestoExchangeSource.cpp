@@ -95,8 +95,12 @@ PrestoExchangeSource::PrestoExchangeSource(
   } else {
     address = folly::SocketAddress(host_, port_, true);
   }
-  auto timeoutMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-      SystemConfig::instance()->exchangeRequestTimeout());
+  const auto requestTimeoutMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          SystemConfig::instance()->exchangeRequestTimeoutMs());
+  const auto connectTimeoutMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          SystemConfig::instance()->exchangeConnectTimeoutMs());
   VELOX_CHECK_NOT_NULL(driverExecutor_);
   VELOX_CHECK_NOT_NULL(httpExecutor_);
   VELOX_CHECK_NOT_NULL(pool_);
@@ -104,7 +108,8 @@ PrestoExchangeSource::PrestoExchangeSource(
   httpClient_ = std::make_shared<http::HttpClient>(
       ioEventBase,
       address,
-      timeoutMs,
+      requestTimeoutMs,
+      connectTimeoutMs,
       immediateBufferTransfer_ ? pool_ : nullptr,
       clientCertAndKeyPath_,
       ciphers_,

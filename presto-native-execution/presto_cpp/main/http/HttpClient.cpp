@@ -24,18 +24,20 @@ namespace facebook::presto::http {
 HttpClient::HttpClient(
     folly::EventBase* eventBase,
     const folly::SocketAddress& address,
-    std::chrono::milliseconds timeout,
+    std::chrono::milliseconds transactionTimeout,
+    std::chrono::milliseconds connectTimeout,
     std::shared_ptr<velox::memory::MemoryPool> pool,
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
       address_(address),
-      timer_(folly::HHWheelTimer::newTimer(
+      transactionTimer_(folly::HHWheelTimer::newTimer(
           eventBase_,
           std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
           folly::AsyncTimeout::InternalEnum::NORMAL,
-          timeout)),
+          transactionTimeout)),
+      connectTimeout_(connectTimeout),
       pool_(std::move(pool)),
       clientCertAndKeyPath_(clientCertAndKeyPath),
       ciphers_(ciphers),
@@ -285,19 +287,36 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   std::shared_ptr<HttpClient> client_;
 };
 
+// Responsible for making an HTTP request. The request will be made in 2
+// phases:
+// 1. Connection establishment: An RTT(HTTP) or a series of RTTs(HTTPS) that
+// establishes a connection with the server side. This phase will be timed out
+// by 'connectTimeout_'
+// 2. Transaction: The phase where actual application request is sent to server
+// and response received from server. This phase will be timed out by
+// 'transactionTimer_', also known as request timeout.
+//
+// NOTE: HTTP connection establishment on the proxygen::HTTPServer side can be
+// handled directly in kernel. Whereas HTTPS connection establishment needs to
+// be handled by proxygen::HTTPServer's request handling thread pool. So for
+// HTTPS, connections will not be established if server's request handling
+// thread pool is fully occupied, resulting in long connect time. This needs to
+// be taken into consideration when setting timeouts.
 class ConnectionHandler : public proxygen::HTTPConnector::Callback {
  public:
   ConnectionHandler(
       const std::shared_ptr<ResponseHandler>& responseHandler,
       proxygen::SessionPool* sessionPool,
-      folly::HHWheelTimer* timer,
+      folly::HHWheelTimer* transactionTimeout,
+      std::chrono::milliseconds connectTimeout,
       folly::EventBase* eventBase,
       const folly::SocketAddress& address,
       const std::string& clientCertAndKeyPath,
       const std::string& ciphers)
       : responseHandler_(responseHandler),
         sessionPool_(sessionPool),
-        timer_(timer),
+        transactionTimer_(transactionTimeout),
+        connectTimeout_(connectTimeout),
         eventBase_(eventBase),
         address_(address),
         clientCertAndKeyPath_(clientCertAndKeyPath),
@@ -308,15 +327,17 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   }
 
   void connect() {
-    connector_ = std::make_unique<proxygen::HTTPConnector>(this, timer_);
+    connector_ =
+        std::make_unique<proxygen::HTTPConnector>(this, transactionTimer_);
     if (useHttps()) {
       auto context = std::make_shared<folly::SSLContext>();
       context->loadCertKeyPairFromFiles(
           clientCertAndKeyPath_.c_str(), clientCertAndKeyPath_.c_str());
       context->setCiphersOrThrow(ciphers_);
-      connector_->connectSSL(eventBase_, address_, context);
+      connector_->connectSSL(
+          eventBase_, address_, context, nullptr, connectTimeout_);
     } else {
-      connector_->connect(eventBase_, address_);
+      connector_->connect(eventBase_, address_, connectTimeout_);
     }
   }
 
@@ -336,14 +357,19 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   }
 
  private:
-  std::shared_ptr<ResponseHandler> responseHandler_;
-  proxygen::SessionPool* sessionPool_;
-  std::unique_ptr<proxygen::HTTPConnector> connector_;
-  folly::HHWheelTimer* timer_;
-  folly::EventBase* eventBase_;
+  const std::shared_ptr<ResponseHandler> responseHandler_;
+  proxygen::SessionPool* const sessionPool_;
+  // The request processing timer after the connection succeeds.
+  folly::HHWheelTimer* const transactionTimer_;
+  // The connect timeout used to timeout the duration from starting connection
+  // to connect success
+  const std::chrono::milliseconds connectTimeout_;
+  folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
   const std::string clientCertAndKeyPath_;
   const std::string ciphers_;
+
+  std::unique_ptr<proxygen::HTTPConnector> connector_;
 };
 
 folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
@@ -368,7 +394,8 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
     auto connectionHandler = new ConnectionHandler(
         responseHandler,
         sessionPool_.get(),
-        timer_.get(),
+        transactionTimer_.get(),
+        connectTimeout_,
         eventBase_,
         address_,
         clientCertAndKeyPath_,
