@@ -233,6 +233,44 @@ public class IcebergDistributedTestBase
         assertQuerySucceeds("drop table test_partition_columns");
     }
 
+    @Test
+    public void testPartitionedByVarbinaryType()
+    {
+        // create iceberg table partitioned by column of VarbinaryType, and insert some data
+        assertQuerySucceeds("drop table if exists test_partition_columns_varbinary");
+        assertQuerySucceeds("create table test_partition_columns_varbinary(a bigint, b varbinary) with (partitioning = ARRAY['b'])");
+        assertQuerySucceeds("insert into test_partition_columns_varbinary values(1, X'bcd1'), (2, X'e3bcd1')");
+
+        // validate return data of VarbinaryType
+        List<Object> varbinaryColumnDatas = getQueryRunner().execute("select b from test_partition_columns_varbinary order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(varbinaryColumnDatas.size(), 2);
+        assertEquals(varbinaryColumnDatas.get(0), new byte[]{(byte) 0xbc, (byte) 0xd1});
+        assertEquals(varbinaryColumnDatas.get(1), new byte[]{(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+
+        // validate column of VarbinaryType exists in query filter
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns_varbinary where b = X'bcd1'").getOnlyValue(),
+                new byte[]{(byte) 0xbc, (byte) 0xd1});
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns_varbinary where b = X'e3bcd1'").getOnlyValue(),
+                new byte[]{(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+
+        // validate column of VarbinaryType in system table "partitions"
+        assertEquals(getQueryRunner().execute("select count(*) FROM \"test_partition_columns_varbinary$partitions\"").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_varbinary$partitions\" where b = X'bcd1'").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_varbinary$partitions\" where b = X'e3bcd1'").getOnlyValue(), 1L);
+
+        // validate column of VarbinaryType exists in delete filter
+        assertUpdate("delete from test_partition_columns_varbinary WHERE b = X'bcd1'", 1);
+        varbinaryColumnDatas = getQueryRunner().execute("select b from test_partition_columns_varbinary order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(varbinaryColumnDatas.size(), 1);
+        assertEquals(varbinaryColumnDatas.get(0), new byte[]{(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+        assertEquals(getQueryRunner().execute("select b FROM test_partition_columns_varbinary where b = X'e3bcd1'").getOnlyValue(),
+                new byte[]{(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns_varbinary$partitions\"").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_varbinary$partitions\" where b = X'e3bcd1'").getOnlyValue(), 1L);
+
+        assertQuerySucceeds("drop table test_partition_columns_varbinary");
+    }
+
     @Override
     public void testDescribeOutput()
     {
