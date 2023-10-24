@@ -94,6 +94,7 @@ import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
+import com.facebook.presto.secretsManager.SecretsManagerHandler;
 import com.facebook.presto.server.ConnectorMetadataUpdateHandleJsonSerde;
 import com.facebook.presto.server.ForJsonMetadataUpdateHandle;
 import com.facebook.presto.server.NodeStatusNotificationManager;
@@ -308,6 +309,9 @@ public class PrestoSparkModule
 
         // handle resolver
         binder.install(new HandleJsonModule());
+
+        // secrets manager handler
+        binder.bind(SecretsManagerHandler.class).in(Scopes.SINGLETON);
 
         // plugin manager
         configBinder(binder).bindConfig(PluginManagerConfig.class);

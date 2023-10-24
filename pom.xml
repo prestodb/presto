@@ -190,6 +190,7 @@
         <module>presto-open-telemetry</module>
         <module>redis-hbo-provider</module>
         <module>presto-singlestore</module>
+        <module>presto-vault</module>
     </modules>
 
     <dependencyManagement>

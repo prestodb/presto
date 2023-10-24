@@ -133,6 +133,7 @@ import com.facebook.presto.resourcemanager.ResourceManagerClusterStatusSender;
 import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
+import com.facebook.presto.secretsManager.SecretsManagerHandler;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
@@ -589,6 +590,9 @@ public class ServerMainModule
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);
         binder.bind(PageSinkProvider.class).to(PageSinkManager.class).in(Scopes.SINGLETON);
+
+        // secrets manager handler
+        binder.bind(SecretsManagerHandler.class).in(Scopes.SINGLETON);
 
         // metadata
         binder.bind(StaticCatalogStore.class).in(Scopes.SINGLETON);

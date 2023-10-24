@@ -23,6 +23,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
+import com.facebook.presto.spi.secretsManager.SecretsManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
@@ -136,4 +137,9 @@ public interface Plugin
     {
         return emptyList();
     }
+
+    default Iterable<SecretsManagerFactory> getSecretsManagerFactories()
+    {
+        return emptyList();
+    };
 }

@@ -25,6 +25,7 @@ import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.secretsManager.SecretsManagerHandler;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.Plugin;
@@ -36,6 +37,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
+import com.facebook.presto.spi.secretsManager.SecretsManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
@@ -125,6 +127,7 @@ public class PluginManager
     private final TracerProviderManager tracerProviderManager;
     private final AnalyzerProviderManager analyzerProviderManager;
     private final NodeStatusNotificationManager nodeStatusNotificationManager;
+    private final SecretsManagerHandler secretsManagerHandler;
 
     @Inject
     public PluginManager(
@@ -145,7 +148,8 @@ public class PluginManager
             ClusterTtlProviderManager clusterTtlProviderManager,
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
             TracerProviderManager tracerProviderManager,
-            NodeStatusNotificationManager nodeStatusNotificationManager)
+            NodeStatusNotificationManager nodeStatusNotificationManager,
+            SecretsManagerHandler secretsManagerHandler)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -176,6 +180,7 @@ public class PluginManager
         this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
         this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
         this.nodeStatusNotificationManager = requireNonNull(nodeStatusNotificationManager, "nodeStatusNotificationManager is null");
+        this.secretsManagerHandler = requireNonNull(secretsManagerHandler, "secretsManagerHandler is null");
     }
 
     public void loadPlugins()
@@ -325,6 +330,11 @@ public class PluginManager
         for (NodeStatusNotificationProviderFactory nodeStatusNotificationProviderFactory : plugin.getNodeStatusNotificationProviderFactory()) {
             log.info("Registering node status notification provider %s", nodeStatusNotificationProviderFactory.getName());
             nodeStatusNotificationManager.addNodeStatusNotificationProviderFactory(nodeStatusNotificationProviderFactory);
+        }
+
+        for (SecretsManagerFactory secretsManagerFactory : plugin.getSecretsManagerFactories()) {
+            log.info("Registering secretsManager factory %s", secretsManagerFactory.getName());
+            secretsManagerHandler.addSecretsManagerFactory(secretsManagerFactory);
         }
     }
 
