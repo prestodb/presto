@@ -68,6 +68,7 @@ void PeriodicServiceInventoryManager::sendRequest() {
           eventBaseThread_.getEventBase(),
           serviceAddress_,
           std::chrono::milliseconds(10'000),
+          std::chrono::milliseconds(0),
           pool_,
           clientCertAndKeyPath_,
           ciphers_);

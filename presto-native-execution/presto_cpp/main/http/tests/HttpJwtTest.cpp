@@ -89,7 +89,11 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
     HttpClientFactory clientFactory;
     // Make sure client doesn't timeout for a delayed request.
     auto client = clientFactory.newClient(
-        serverAddress, std::chrono::milliseconds(1'000), useHttps, memoryPool);
+        serverAddress,
+        std::chrono::milliseconds(1'000),
+        std::chrono::milliseconds(0),
+        useHttps,
+        memoryPool);
 
     auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
     request->requestPromise = std::move(reqPromise);

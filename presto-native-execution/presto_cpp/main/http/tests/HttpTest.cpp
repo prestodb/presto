@@ -64,7 +64,11 @@ TEST_P(HttpTestSuite, basic) {
 
   HttpClientFactory clientFactory;
   auto client = clientFactory.newClient(
-      serverAddress, std::chrono::milliseconds(1'000), useHttps, memoryPool);
+      serverAddress,
+      std::chrono::milliseconds(1'000),
+      std::chrono::milliseconds(0),
+      useHttps,
+      memoryPool);
 
   {
     auto response = sendGet(client.get(), "/ping").get();
@@ -120,7 +124,11 @@ TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
 
   HttpClientFactory clientFactory;
   auto client = clientFactory.newClient(
-      serverAddress, std::chrono::milliseconds(1'000), useHttps, leafPool);
+      serverAddress,
+      std::chrono::milliseconds(1'000),
+      std::chrono::milliseconds(0),
+      useHttps,
+      leafPool);
 
   {
     const std::string echoMessage(memoryCapBytes * 4, 'C');
@@ -146,7 +154,11 @@ TEST_P(HttpTestSuite, serverRestart) {
 
   HttpClientFactory clientFactory;
   auto client = clientFactory.newClient(
-      serverAddress, std::chrono::milliseconds(1'000), useHttps, memoryPool);
+      serverAddress,
+      std::chrono::milliseconds(1'000),
+      std::chrono::milliseconds(0),
+      useHttps,
+      memoryPool);
 
   auto response = sendGet(client.get(), "/ping").get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
@@ -161,7 +173,11 @@ TEST_P(HttpTestSuite, serverRestart) {
 
   serverAddress = wrapper->start().get();
   client = clientFactory.newClient(
-      serverAddress, std::chrono::milliseconds(1'000), useHttps, memoryPool);
+      serverAddress,
+      std::chrono::milliseconds(1'000),
+      std::chrono::milliseconds(0),
+      useHttps,
+      memoryPool);
   response = sendGet(client.get(), "/ping").get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
   wrapper->stop();
@@ -181,7 +197,11 @@ TEST_P(HttpTestSuite, asyncRequests) {
 
   HttpClientFactory clientFactory;
   auto client = clientFactory.newClient(
-      serverAddress, std::chrono::milliseconds(1'000), useHttps, memoryPool);
+      serverAddress,
+      std::chrono::milliseconds(1'000),
+      std::chrono::milliseconds(0),
+      useHttps,
+      memoryPool);
 
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
@@ -216,7 +236,11 @@ TEST_P(HttpTestSuite, timedOutRequests) {
 
   HttpClientFactory clientFactory;
   auto client = clientFactory.newClient(
-      serverAddress, std::chrono::milliseconds(1'000), useHttps, memoryPool);
+      serverAddress,
+      std::chrono::milliseconds(1'000),
+      std::chrono::milliseconds(0),
+      useHttps,
+      memoryPool);
 
   request->maxWaitMillis = 100;
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
@@ -226,12 +250,135 @@ TEST_P(HttpTestSuite, timedOutRequests) {
 
   // Wait until the request reaches to the server.
   std::move(reqFuture).wait();
+
   auto response = std::move(responseFuture).get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
   ASSERT_EQ(bodyAsString(*response, memoryPool.get()), "Timedout");
 
   ASSERT_EQ(request->requestStatus, kStatusValid);
   wrapper.stop();
+}
+
+TEST_P(HttpTestSuite, httpConnectTimeout) {
+  const bool useHttps = GetParam();
+  if (!useHttps) {
+    // Cannot test connect timeout for HTTP as HTTP connection establishment is
+    // handled in kernel.
+    return;
+  }
+  auto memoryPool = defaultMemoryManager().addLeafPool("httpTimeouts");
+
+  auto server = getServer(useHttps, 1);
+
+  auto requestState1 = std::make_shared<AsyncMsgRequestState>();
+  auto requestState2 = std::make_shared<AsyncMsgRequestState>();
+
+  server->registerGet("/async/msg1", asyncMsg(requestState1));
+  server->registerGet("/async/msg2", asyncMsg(requestState2));
+
+  HttpServerWrapper wrapper(std::move(server));
+  auto serverAddress = wrapper.start().get();
+
+  HttpClientFactory clientFactory;
+  auto client1 = clientFactory.newClient(
+      serverAddress,
+      std::chrono::milliseconds(10'000),
+      std::chrono::milliseconds(0),
+      useHttps,
+      memoryPool);
+  auto client2 = clientFactory.newClient(
+      serverAddress,
+      std::chrono::milliseconds(10'000),
+      std::chrono::milliseconds(2'000),
+      useHttps,
+      memoryPool);
+  requestState1->customFunc = []() {
+    // Holds the thread for 3s to fully occupy the server io pool (size 1), so
+    // that the second request shall wait in io pool queue for at least 3s
+    std::this_thread::sleep_for(std::chrono::milliseconds(3'000));
+  };
+
+  auto promisePair1 = folly::makePromiseContract<bool>();
+  requestState1->requestPromise = std::move(promisePair1.first);
+  auto promisePair2 = folly::makePromiseContract<bool>();
+  requestState2->requestPromise = std::move(promisePair2.first);
+
+  std::thread thread1([&]() {
+    auto responseFuture = sendGet(client1.get(), "/async/msg1");
+    try {
+      std::move(promisePair1.second).wait();
+      requestState1->msgPromise.lock()->promise.setValue("Success");
+      auto response = std::move(responseFuture).get();
+      ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+      ASSERT_EQ(bodyAsString(*response, memoryPool.get()), "Success");
+      ASSERT_EQ(requestState1->requestStatus, kStatusValid);
+    } catch (...) {
+      FAIL();
+    }
+  });
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  std::thread thread2([&]() {
+    // Time 00:00.300
+    auto responseFuture = sendGet(client2.get(), "/async/msg2");
+    try {
+      auto response = std::move(responseFuture).get();
+    } catch (std::exception& ex) {
+      // Connect TIMEOUT happens here.
+      ASSERT_TRUE(
+          std::string_view(ex.what()).find(
+              "AsyncSocketException: SSL connect timed out after") !=
+          std::string::npos);
+      return;
+    }
+    FAIL();
+  });
+
+  thread1.join();
+  thread2.join();
+
+  // Wait until the both reaches to the server.
+  wrapper.stop();
+}
+
+TEST_P(HttpTestSuite, httpRequestTimeout) {
+  auto memoryPool = defaultMemoryManager().addLeafPool("httpRequestTimeout");
+
+  const bool useHttps = GetParam();
+  auto server = getServer(useHttps, 1);
+
+  auto requestState = std::make_shared<AsyncMsgRequestState>();
+
+  server->registerGet("/async/msg", asyncMsg(requestState));
+
+  HttpServerWrapper wrapper(std::move(server));
+  auto serverAddress = wrapper.start().get();
+
+  HttpClientFactory clientFactory;
+  auto client = clientFactory.newClient(
+      serverAddress,
+      std::chrono::milliseconds(1'000),
+      std::chrono::milliseconds(0),
+      useHttps,
+      memoryPool);
+
+  requestState->maxWaitMillis = 1500;
+
+  auto promisePair = folly::makePromiseContract<bool>();
+  requestState->requestPromise = std::move(promisePair.first);
+
+  auto responseFuture = sendGet(client.get(), "/async/msg");
+  try {
+    std::move(promisePair.second).wait();
+    auto response = std::move(responseFuture).get();
+  } catch (std::exception& ex) {
+    // Request TIMEOUT happens here.
+    ASSERT_TRUE(
+        std::string_view(ex.what()).find("ingress timeout") !=
+        std::string::npos);
+    wrapper.stop();
+    return;
+  }
+  FAIL();
 }
 
 // TODO: Enabled it when fixed.
@@ -252,7 +399,11 @@ TEST_P(HttpTestSuite, DISABLED_outstandingRequests) {
 
   HttpClientFactory clientFactory;
   auto client = clientFactory.newClient(
-      serverAddress, std::chrono::milliseconds(10'000), useHttps, memoryPool);
+      serverAddress,
+      std::chrono::milliseconds(10'000),
+      std::chrono::milliseconds(0),
+      useHttps,
+      memoryPool);
 
   request->maxWaitMillis = 0;
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
@@ -287,6 +438,7 @@ TEST_P(HttpTestSuite, testReportOnBodyStatsFunc) {
   auto client = clientFactory.newClient(
       serverAddress,
       std::chrono::milliseconds(1'000),
+      std::chrono::milliseconds(0),
       useHttps,
       memoryPool,
       [&](size_t bufferBytes) { reportedCount.fetch_add(bufferBytes); });

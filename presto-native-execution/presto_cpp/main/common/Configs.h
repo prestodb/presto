@@ -297,8 +297,15 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeImmediateBufferTransfer{
       "exchange.immediate-buffer-transfer"};
 
+  /// Specifies the timeout duration from exchange client's http connect
+  /// success to response reception.
   static constexpr std::string_view kExchangeRequestTimeout{
       "exchange.http-client.request-timeout"};
+
+  /// Specifies the timeout duration from exchange client's http connect
+  /// initiation to connect success. Set to 0 to have no timeout.
+  static constexpr std::string_view kExchangeConnectTimeout{
+      "exchange.http-client.connect-timeout"};
 
   /// The maximum timeslice for a task on thread if there are threads queued.
   static constexpr std::string_view kTaskRunTimeSliceMicros{
@@ -479,7 +486,9 @@ class SystemConfig : public ConfigBase {
 
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
-  std::chrono::duration<double> exchangeRequestTimeout() const;
+  std::chrono::duration<double> exchangeRequestTimeoutMs() const;
+
+  std::chrono::duration<double> exchangeConnectTimeoutMs() const;
 
   bool exchangeImmediateBufferTransfer() const;
 

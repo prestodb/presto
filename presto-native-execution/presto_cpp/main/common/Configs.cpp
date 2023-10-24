@@ -184,6 +184,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kHeartbeatFrequencyMs, 0),
           STR_PROP(kExchangeMaxErrorDuration, "30s"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
+          STR_PROP(kExchangeConnectTimeout, "0s"),
           BOOL_PROP(kExchangeImmediateBufferTransfer, true),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
@@ -458,9 +459,14 @@ std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
       optionalProperty(kExchangeMaxErrorDuration).value());
 }
 
-std::chrono::duration<double> SystemConfig::exchangeRequestTimeout() const {
+std::chrono::duration<double> SystemConfig::exchangeRequestTimeoutMs() const {
   return velox::core::toDuration(
       optionalProperty(kExchangeRequestTimeout).value());
+}
+
+std::chrono::duration<double> SystemConfig::exchangeConnectTimeoutMs() const {
+  return velox::core::toDuration(
+      optionalProperty(kExchangeConnectTimeout).value());
 }
 
 bool SystemConfig::exchangeImmediateBufferTransfer() const {
