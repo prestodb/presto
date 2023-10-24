@@ -105,6 +105,32 @@ class ContainerRowSerdeTest : public testing::Test,
     }
   }
 
+  void testCompareByteStreamWithNulls(
+      const std::vector<HashStringAllocator::Position>& leftPositions,
+      const std::vector<HashStringAllocator::Position>& rightPositions,
+      const std::vector<std::optional<int32_t>>& expected,
+      const TypePtr& type,
+      bool equalsOnly,
+      CompareFlags::NullHandlingMode mode) {
+    CompareFlags compareFlags{
+        true, // nullsFirst
+        true, // ascending
+        equalsOnly,
+        mode};
+
+    for (auto i = 0; i < expected.size(); ++i) {
+      ByteStream leftStream;
+      HashStringAllocator::prepareRead(leftPositions.at(i).header, leftStream);
+      ByteStream rightStream;
+      HashStringAllocator::prepareRead(
+          rightPositions.at(i).header, rightStream);
+      ASSERT_EQ(
+          expected.at(i),
+          ContainerRowSerde::compareWithNulls(
+              leftStream, rightStream, type.get(), compareFlags));
+    }
+  }
+
   void testCompare(const VectorPtr& vector) {
     auto positions = serializeWithPositions(vector);
 
@@ -288,19 +314,9 @@ TEST_F(ContainerRowSerdeTest, compareNullsInMapVector) {
 }
 
 TEST_F(ContainerRowSerdeTest, compareNullsInRowVector) {
-  auto data = makeRowVector({makeFlatVector<int32_t>({
-      1,
-      2,
-      3,
-      4,
-  })});
+  auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3, 4})});
   auto positions = serializeWithPositions(data);
-  auto someNulls = makeNullableFlatVector<int32_t>({
-      1,
-      3,
-      2,
-      std::nullopt,
-  });
+  auto someNulls = makeNullableFlatVector<int32_t>({1, 3, 2, std::nullopt});
   auto rowVector = makeRowVector({someNulls});
   DecodedVector decodedVector(*rowVector);
 
@@ -315,6 +331,122 @@ TEST_F(ContainerRowSerdeTest, compareNullsInRowVector) {
       positions,
       {{0}, {-1}, {1}, {1}},
       false,
+      CompareFlags::NullHandlingMode::NoStop);
+
+  allocator_.clear();
+}
+
+TEST_F(ContainerRowSerdeTest, compareNullsInArrayByteStream) {
+  auto left = makeNullableArrayVector<int64_t>({
+      {1, 2},
+      {1, 5},
+      {1, 3, 5},
+      {1, 2, 3, 4},
+      {1, 2, std::nullopt, 4},
+      {1, std::nullopt, 5},
+  });
+  auto leftPositions = serializeWithPositions(left);
+
+  auto right = makeNullableArrayVector<int64_t>({
+      {1, 2},
+      {1, 3},
+      {1, 5},
+      {std::nullopt, 1},
+      {1, 2, std::nullopt, 4},
+      {1, 5},
+  });
+  auto rightPositions = serializeWithPositions(right);
+
+  testCompareByteStreamWithNulls(
+      leftPositions,
+      rightPositions,
+      {{0}, {1}, {-1}, std::nullopt, std::nullopt, std::nullopt},
+      ARRAY(BIGINT()),
+      false,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareByteStreamWithNulls(
+      leftPositions,
+      rightPositions,
+      {{0}, {1}, {1}, {1}, std::nullopt, {1}},
+      ARRAY(BIGINT()),
+      true,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareByteStreamWithNulls(
+      leftPositions,
+      rightPositions,
+      {{0}, {1}, {-1}, {1}, {0}, {-1}},
+      ARRAY(BIGINT()),
+      false,
+      CompareFlags::NullHandlingMode::NoStop);
+
+  allocator_.clear();
+}
+
+TEST_F(ContainerRowSerdeTest, compareNullsInRowByteStream) {
+  auto left = makeRowVector(
+      {makeFlatVector<int32_t>({1, 2, 3, 4}),
+       makeFlatVector<int32_t>({1, 2, 3, 4})});
+  auto leftPositions = serializeWithPositions(left);
+  auto right = makeRowVector(
+      {makeNullableFlatVector<int32_t>({1, 3, 2, std::nullopt}),
+       makeFlatVector<int32_t>({1, 2, 3, 4})});
+  auto rightPositions = serializeWithPositions(right);
+
+  testCompareByteStreamWithNulls(
+      leftPositions,
+      rightPositions,
+      {{0}, {-1}, {1}, std::nullopt},
+      ROW({INTEGER(), INTEGER()}),
+      false,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareByteStreamWithNulls(
+      leftPositions,
+      rightPositions,
+      {{0}, {-1}, {1}, {1}},
+      ROW({INTEGER(), INTEGER()}),
+      false,
+      CompareFlags::NullHandlingMode::NoStop);
+
+  allocator_.clear();
+}
+
+TEST_F(ContainerRowSerdeTest, compareNullsInMapByteStream) {
+  auto left = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 10}, {4, 30}, {2, 3}}},
+      {{{2, 20}}},
+      {{{3, 50}}},
+      {{{4, std::nullopt}}},
+  });
+  auto leftPositions = serializeWithPositions(left);
+
+  auto right = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 10}, {3, 20}}},
+      {{{2, 20}}},
+      {{{3, 40}}},
+      {{{4, std::nullopt}}},
+  });
+  auto rightPositions = serializeWithPositions(right);
+
+  testCompareByteStreamWithNulls(
+      leftPositions,
+      rightPositions,
+      {{-1}, {0}, {1}, std::nullopt},
+      MAP(BIGINT(), BIGINT()),
+      false,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareByteStreamWithNulls(
+      leftPositions,
+      rightPositions,
+      {{1}, {0}, {1}, std::nullopt},
+      MAP(BIGINT(), BIGINT()),
+      true,
+      CompareFlags::NullHandlingMode::StopAtNull);
+  testCompareByteStreamWithNulls(
+      leftPositions,
+      rightPositions,
+      {{1}, {0}, {1}, {0}},
+      MAP(BIGINT(), BIGINT()),
+      true,
       CompareFlags::NullHandlingMode::NoStop);
 
   allocator_.clear();

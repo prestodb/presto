@@ -15,7 +15,6 @@
  */
 
 #include "velox/exec/ContainerRowSerde.h"
-#include "velox/common/base/Exceptions.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -558,14 +557,14 @@ StringView readStringView(ByteStream& stream, std::string& storage) {
 }
 
 // Comparison of two serializations.
-int32_t compareSwitch(
+std::optional<int32_t> compareSwitch(
     ByteStream& left,
     ByteStream& right,
     const Type* type,
     CompareFlags flags);
 
 template <TypeKind Kind>
-int32_t compare(
+std::optional<int32_t> compare(
     ByteStream& left,
     ByteStream& right,
     const Type* /*type*/,
@@ -578,7 +577,7 @@ int32_t compare(
 }
 
 template <>
-int32_t compare<TypeKind::VARCHAR>(
+std::optional<int32_t> compare<TypeKind::VARCHAR>(
     ByteStream& left,
     ByteStream& right,
     const Type* /*type*/,
@@ -592,7 +591,7 @@ int32_t compare<TypeKind::VARCHAR>(
 }
 
 template <>
-int32_t compare<TypeKind::VARBINARY>(
+std::optional<int32_t> compare<TypeKind::VARBINARY>(
     ByteStream& left,
     ByteStream& right,
     const Type* /*type*/,
@@ -605,7 +604,7 @@ int32_t compare<TypeKind::VARBINARY>(
                          : rightValue.compare(leftValue);
 }
 
-int32_t compareArrays(
+std::optional<int32_t> compareArrays(
     ByteStream& left,
     ByteStream& right,
     const Type* elementType,
@@ -621,25 +620,25 @@ int32_t compareArrays(
   for (auto i = 0; i < compareSize; ++i) {
     bool leftNull = bits::isBitSet(leftNulls.data(), i);
     bool rightNull = bits::isBitSet(rightNulls.data(), i);
-    if (leftNull && rightNull) {
-      continue;
-    }
-    if (leftNull) {
-      return flags.nullsFirst ? -1 : 1;
-    }
-    if (rightNull) {
-      return flags.nullsFirst ? 1 : -1;
-    }
-    auto result = compareSwitch(left, right, elementType, flags);
-    if (result) {
+    if (leftNull || rightNull) {
+      auto result = BaseVector::compareNulls(leftNull, rightNull, flags);
+      if (result.has_value() && result.value() == 0) {
+        continue;
+      }
       return result;
     }
+
+    auto result = compareSwitch(left, right, elementType, flags);
+    if (result.has_value() && result.value() == 0) {
+      continue;
+    }
+    return result;
   }
   return flags.ascending ? (leftSize - rightSize) : (rightSize - leftSize);
 }
 
 template <>
-int32_t compare<TypeKind::ROW>(
+std::optional<int32_t> compare<TypeKind::ROW>(
     ByteStream& left,
     ByteStream& right,
     const Type* type,
@@ -651,25 +650,25 @@ int32_t compare<TypeKind::ROW>(
   for (auto i = 0; i < size; ++i) {
     bool leftNull = bits::isBitSet(leftNulls.data(), i);
     bool rightNull = bits::isBitSet(rightNulls.data(), i);
-    if (leftNull && rightNull) {
-      continue;
-    }
-    if (leftNull) {
-      return flags.nullsFirst ? -1 : 1;
-    }
-    if (rightNull) {
-      return flags.nullsFirst ? 1 : -1;
-    }
-    auto result = compareSwitch(left, right, rowType.childAt(i).get(), flags);
-    if (result) {
+    if (leftNull || rightNull) {
+      auto result = BaseVector::compareNulls(leftNull, rightNull, flags);
+      if (result.has_value() && result.value() == 0) {
+        continue;
+      }
       return result;
     }
+
+    auto result = compareSwitch(left, right, rowType.childAt(i).get(), flags);
+    if (result.has_value() && result.value() == 0) {
+      continue;
+    }
+    return result;
   }
   return 0;
 }
 
 template <>
-int32_t compare<TypeKind::ARRAY>(
+std::optional<int32_t> compare<TypeKind::ARRAY>(
     ByteStream& left,
     ByteStream& right,
     const Type* type,
@@ -678,19 +677,19 @@ int32_t compare<TypeKind::ARRAY>(
 }
 
 template <>
-int32_t compare<TypeKind::MAP>(
+std::optional<int32_t> compare<TypeKind::MAP>(
     ByteStream& left,
     ByteStream& right,
     const Type* type,
     CompareFlags flags) {
   auto result = compareArrays(left, right, type->childAt(0).get(), flags);
-  if (result) {
-    return result;
+  if (result.has_value() && result.value() == 0) {
+    return compareArrays(left, right, type->childAt(1).get(), flags);
   }
-  return compareArrays(left, right, type->childAt(1).get(), flags);
+  return result;
 }
 
-int32_t compareSwitch(
+std::optional<int32_t> compareSwitch(
     ByteStream& left,
     ByteStream& right,
     const Type* type,
@@ -811,7 +810,7 @@ int32_t ContainerRowSerde::compare(
     CompareFlags flags) {
   VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
-  return compareSwitch(left, right, type, flags);
+  return compareSwitch(left, right, type, flags).value();
 }
 
 std::optional<int32_t> ContainerRowSerde::compareWithNulls(
@@ -822,6 +821,14 @@ std::optional<int32_t> ContainerRowSerde::compareWithNulls(
   VELOX_DCHECK(
       !right.isNullAt(index), "Null top-level values are not supported");
   return compareSwitch(left, *right.base(), right.index(index), flags);
+}
+
+std::optional<int32_t> ContainerRowSerde::compareWithNulls(
+    ByteStream& left,
+    ByteStream& right,
+    const Type* type,
+    CompareFlags flags) {
+  return compareSwitch(left, right, type, flags);
 }
 
 // static

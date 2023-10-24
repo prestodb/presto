@@ -63,6 +63,17 @@ class ContainerRowSerde {
       vector_size_t index,
       CompareFlags flags);
 
+  /// Returns < 0 if 'left' is less than 'right' at 'index', 0 if
+  /// equal and > 0 otherwise. If flags.nullHandlingMode is StopAtNull,
+  /// returns std::nullopt if either 'left' or 'right' value is null or contains
+  /// a null. If flags.nullHandlingMode is NoStop then NULL is considered equal
+  /// to NULL.
+  static std::optional<int32_t> compareWithNulls(
+      ByteStream& left,
+      ByteStream& right,
+      const Type* type,
+      CompareFlags flags);
+
   static uint64_t hash(ByteStream& data, const Type* type);
 };
 
