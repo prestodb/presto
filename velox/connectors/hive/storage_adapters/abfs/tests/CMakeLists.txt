@@ -12,7 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(s3fs)
-add_subdirectory(hdfs)
-add_subdirectory(gcs)
-add_subdirectory(abfs)
+add_executable(velox_abfs_test AbfsFileSystemTest.cpp AbfsUtilTest.cpp
+                               AzuriteServer.cpp)
+add_test(velox_abfs_test velox_abfs_test)
+target_link_libraries(
+  velox_abfs_test
+  PRIVATE velox_file
+          velox_abfs
+          velox_core
+          velox_exec_test_lib
+          velox_hive_connector
+          velox_dwio_common_exception
+          velox_exec
+          gtest
+          gtest_main
+          Azure::azure-storage-blobs)

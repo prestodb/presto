@@ -52,7 +52,7 @@ void getFreePortsImpl(int numPorts, int* ports) {
 
 } // namespace
 
-std::vector<int> getFreePorts(size_t numPorts) {
+std::vector<int> getFreePorts(std::size_t numPorts) {
   std::vector<int> ports;
   ports.resize(numPorts);
   getFreePortsImpl(numPorts, &ports[0]);

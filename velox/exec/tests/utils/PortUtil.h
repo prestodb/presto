@@ -31,6 +31,6 @@ namespace facebook::velox::exec::test {
 /// port multiple times, unless you started listening to the provided port
 /// before calling the function again.
 int getFreePort();
-std::vector<int> getFreePorts(size_t numPorts);
+std::vector<int> getFreePorts(std::size_t numPorts);
 
 } // namespace facebook::velox::exec::test

@@ -397,6 +397,7 @@ jobs:
               "-DVELOX_ENABLE_HDFS=ON"
               "-DVELOX_ENABLE_S3=ON"
               "-DVELOX_ENABLE_GCS=ON"
+              "-DVELOX_ENABLE_ABFS=ON"
               "-DVELOX_ENABLE_SUBSTRAIT=ON"
               "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
             )
@@ -417,6 +418,12 @@ jobs:
             export LIBHDFS3_CONF=$(pwd)/.circleci/hdfs-client.xml
             export HADOOP_HOME='/usr/local/hadoop'
             export PATH=~/adapter-deps/install/bin:/usr/local/hadoop/bin:${PATH}
+            # The following is used to install Azurite in the CI for running Abfs Hive Connector unit tests.
+            # Azurite is an emulator for local Azure Storage development, and it is a required component for running Abfs Hive Connector unit tests. 
+            # It can be installed using npm. The following is used to install Node.js and npm for Azurite installation.
+            curl -sL https://rpm.nodesource.com/setup_10.x | bash -
+            yum install -y nodejs
+            npm install -g azurite
             cd _build/release && ctest -j 16 -VV --output-on-failure
           no_output_timeout: 1h
       - post-steps

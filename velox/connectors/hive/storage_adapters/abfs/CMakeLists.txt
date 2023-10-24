@@ -12,7 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(s3fs)
-add_subdirectory(hdfs)
-add_subdirectory(gcs)
-add_subdirectory(abfs)
+# for generated headers
+
+add_library(velox_abfs RegisterAbfsFileSystem.cpp)
+
+if(VELOX_ENABLE_ABFS)
+  target_sources(velox_abfs PRIVATE AbfsFileSystem.cpp AbfsUtils.cpp)
+  target_link_libraries(
+    velox_abfs
+    PUBLIC velox_file
+           velox_core
+           velox_hive_connector
+           velox_dwio_common_exception
+           Azure::azure-storage-blobs
+           Folly::folly
+           glog::glog
+           fmt::fmt)
+
+  if(${VELOX_BUILD_TESTING})
+    add_subdirectory(tests)
+  endif()
+endif()

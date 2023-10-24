@@ -93,3 +93,6 @@ are `hdfs://`.
 GCS is supported using the
 `Google Cloud Platform C++ Client Libraries <https://github.com/googleapis/google-cloud-cpp>`_. GCS supported schemes
 are `gs://`.
+
+ABS (Azure Blob Storage) is supported using the
+`Azure SDK for C++ <https://github.com/Azure/azure-sdk-for-cpp>`_ library. ABS supported schemes are `abfs(s)://`.
