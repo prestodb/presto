@@ -120,7 +120,7 @@ public class IcebergDistributedSmokeTestBase
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'PARQUET',\n" +
-                        "   format_version = '1',\n" +
+                        "   format_version = '2',\n" +
                         "   location = '%s'\n" +
                         ")", getLocation("tpch", "orders")));
     }
@@ -369,7 +369,7 @@ public class IcebergDistributedSmokeTestBase
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + fileFormat + "',\n" +
-                        "   format_version = '1',\n" +
+                        "   format_version = '2',\n" +
                         "   location = '%s',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
@@ -415,7 +415,7 @@ public class IcebergDistributedSmokeTestBase
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
                 "   format = 'ORC',\n" +
-                "   format_version = '1'\n" +
+                "   format_version = '2'\n" +
                 ")";
 
         assertUpdate(format(createTable, "test table comment"));
@@ -427,7 +427,7 @@ public class IcebergDistributedSmokeTestBase
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
                 "   format = 'ORC',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", getLocation("tpch", "test_table_comments"));
@@ -514,7 +514,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", getLocation("tpch", "test_create_table_like_original")));
@@ -527,7 +527,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s'\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
@@ -535,7 +535,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s'\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
@@ -543,7 +543,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
@@ -554,7 +554,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
         assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
                 "   format = 'ORC',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
