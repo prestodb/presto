@@ -928,6 +928,54 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT orderkey, quantity, quantity_ordinality FROM orders_ex CROSS JOIN UNNEST (quantities) WITH ORDINALITY as t(quantity, quantity_ordinality)");
         assertQuery("SELECT orderkey, linenumber, quantity, quantity_ordinality FROM orders_ex CROSS JOIN UNNEST (quantity_by_linenumber) WITH ORDINALITY as t(linenumber, quantity, quantity_ordinality)");
         assertQuery("SELECT orderkey, linenumber, quantity, numbers, ordinal FROM orders_ex CROSS JOIN UNNEST (quantity_by_linenumber, array[20, 10]) WITH ORDINALITY as t(linenumber, quantity, numbers, ordinal)");
+
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[2, 3], ARRAY[2, 3]) AS r(r1, r2)", "VALUES (1, 2, 2), (1, 3, 3)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[2, 3], ARRAY[2, 3], ARRAY[2, 3]) AS r(r1, r2, r3)", "VALUES (1, 2, 2, 2), (1, 3, 3, 3)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[2, 3], ARRAY[10,11,12], ARRAY[2, 3]) AS r(r1, r2, r3)", "VALUES (1, 2, 10, 2), (1, 3, 11, 3), (1, NULL, 12, NULL)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[2, 3], ARRAY[2, 3], ARRAY[10,11,12]) AS r(r1, r2, r3)", "VALUES (1, 2, 2, 10), (1, 3, 3, 11), (1, NULL, NULL, 12)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(MAP(ARRAY[2, 3], ARRAY['a', 'b']), MAP(ARRAY[2, 3], ARRAY['a', 'b'])) AS r(r1, r2, r3, r4)", "VALUES (1, 2, 'a', 2, 'a'), (1, 3, 'b', 3, 'b')");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(MAP(ARRAY[2, 3], ARRAY['a', 'b']), MAP(ARRAY[1, 2, 3], ARRAY['a', 'b', 'c']), MAP(ARRAY[2, 3], ARRAY['a', 'b'])) AS r(r1, r2, r3, r4, r5, r6)",
+                "VALUES (1, 2, 'a', 1, 'a', 2, 'a'), (1, 3, 'b', 2, 'b', 3, 'b'), (1, NULL, NULL, 3, 'c', NULL, NULL)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(MAP(ARRAY[2, 3], ARRAY['a', 'b']), MAP(ARRAY[2, 3], ARRAY['a', 'b']), MAP(ARRAY[1, 2, 3], ARRAY['a', 'b', 'c'])) AS r(r1, r2, r3, r4, r5, r6)",
+                "VALUES (1, 2, 'a', 2, 'a', 1, 'a'), (1, 3, 'b', 3, 'b', 2, 'b'), (1, NULL, NULL, NULL, NULL, 3, 'c')");
+        assertQuery("SELECT * from ( SELECT ARRAY[1] AS kv FROM (select 1)) CROSS JOIN UNNEST( kv, kv )", "VALUES (ARRAY[1], 1, 1)");
+
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[2, 3], ARRAY[2, 3]) WITH ORDINALITY AS r(r1, r2, ord)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[2, 3], ARRAY[2, 3], ARRAY[2, 3]) WITH ORDINALITY AS r(r1, r2, r3, ord)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[2, 3], ARRAY[10,11,12], ARRAY[2, 3]) WITH ORDINALITY AS r(r1, r2, r3, ord)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[2, 3], ARRAY[2, 3], ARRAY[10,11,12]) WITH ORDINALITY AS r(r1, r2, r3, ord)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(MAP(ARRAY[2, 3], ARRAY['a', 'b']), MAP(ARRAY[2, 3], ARRAY['a', 'b'])) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(MAP(ARRAY[2, 3], ARRAY['a', 'b']), MAP(ARRAY[1, 2, 3], ARRAY['a', 'b', 'c']), MAP(ARRAY[2, 3], ARRAY['a', 'b'])) WITH ORDINALITY AS r(r1, r2, r3, r4, r5, r6, ord)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(MAP(ARRAY[2, 3], ARRAY['a', 'b']), MAP(ARRAY[2, 3], ARRAY['a', 'b']), MAP(ARRAY[1, 2, 3], ARRAY['a', 'b', 'c'])) WITH ORDINALITY AS r(r1, r2, r3, r4, r5, r6, ord)");
+        assertQuery("SELECT * from ( SELECT ARRAY[1] AS kv FROM (select 1)) CROSS JOIN UNNEST( kv, kv ) WITH ORDINALITY AS t(r1, r2, ord)");
+
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3, r4, r5, r6, r7)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) WITH ORDINALITY AS r(r1, r2, r3, r4, r5, r6, r7, ord)");
+    }
+
+    @Test
+    public void testLegacyUnnest()
+    {
+        // Check how to set legacy_unnest in QueryConfig from current session.
+        assertQuery("SELECT k, cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)) from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2)",
+                "VALUES (1, row(2, 3), row(2, 3)), (1, row(3, 5), row(3, 5))");
+        assertQuery("SELECT k, cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)), cast(r3 as row(x int, y int, z int)) from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3)",
+                "VALUES (1, row(2, 3), row(2, 3), row(10, 13, 15)), (1, row(3, 5), row(3, 5), row(23, 25, 20))");
+        assertQuery("SELECT k, cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)), ord from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, ord)",
+                "VALUES (1, row(2, 3), row(2, 3), 1), (1, row(3, 5), row(3, 5), 2)");
+        assertQuery("SELECT k, cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)), cast(r3 as row(x int, y int, z int)), ord from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) WITH ORDINALITY AS r(r1, r2, r3, ord)",
+                "VALUES (1, row(2, 3), row(2, 3), row(10, 13, 15), 1), (1, row(3, 5), row(3, 5), row(23, 25, 20), 2)");
+
+        assertQuery("SELECT cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)) from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2)",
+                "VALUES (row(2, 3), row(2, 3)), (row(3, 5), row(3, 5))");
+        assertQuery("SELECT cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)), cast(r3 as row(x int, y int, z int)) from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3)",
+                "VALUES (row(2, 3), row(2, 3), row(10, 13, 15)), (row(3, 5), row(3, 5), row(23, 25, 20))");
+        assertQuery("SELECT cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)), ord from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, ord)",
+                "VALUES (row(2, 3), row(2, 3), 1), (row(3, 5), row(3, 5), 2)");
+        assertQuery("SELECT cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)), cast(r3 as row(x int, y int, z int)), ord from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) WITH ORDINALITY AS r(r1, r2, r3, ord)",
+                "VALUES (row(2, 3), row(2, 3), row(10, 13, 15), 1), (row(3, 5), row(3, 5), row(23, 25, 20), 2)");
     }
 
     @Test
