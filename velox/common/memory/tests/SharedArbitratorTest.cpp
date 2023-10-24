@@ -2864,11 +2864,11 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrationFromTableWriter) {
 
     ASSERT_EQ(arbitrator_->stats().numFailures, writerSpillEnabled ? 0 : 1);
     ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 0);
+    waitForAllTasksToBeDeleted(3'000'000);
   }
 }
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, writerFlushThreshold) {
-  GTEST_SKIP() << "https://github.com/facebookincubator/velox/issues/7154";
   VectorFuzzer::Options options;
   const int batchSize = 1'000;
   options.vectorSize = batchSize;
@@ -2952,6 +2952,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, writerFlushThreshold) {
     ASSERT_EQ(
         arbitrator_->stats().numNonReclaimableAttempts,
         writerFlushThreshold == 0 ? 0 : 1);
+    waitForAllTasksToBeDeleted(3'000'000);
   }
 }
 
