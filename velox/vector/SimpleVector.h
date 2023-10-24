@@ -329,6 +329,20 @@ class SimpleVector : public BaseVector {
     return asciiInfo;
   }
 
+  static int comparePrimitiveAsc(const T& left, const T& right) {
+    if constexpr (std::is_floating_point<T>::value) {
+      bool isLeftNan = std::isnan(left);
+      bool isRightNan = std::isnan(right);
+      if (isLeftNan) {
+        return isRightNan ? 0 : 1;
+      }
+      if (isRightNan) {
+        return -1;
+      }
+    }
+    return left < right ? -1 : left == right ? 0 : 1;
+  }
+
  protected:
   template <typename U = T>
   typename std::enable_if_t<std::is_same_v<U, StringView>, void>
@@ -374,21 +388,6 @@ class SimpleVector : public BaseVector {
         "Vector created with element size {} and used with size {}",
         elementSize_,
         sizeof(T));
-  }
-
- protected:
-  int comparePrimitiveAsc(const T& left, const T& right) const {
-    if constexpr (std::is_floating_point<T>::value) {
-      bool isLeftNan = std::isnan(left);
-      bool isRightNan = std::isnan(right);
-      if (isLeftNan) {
-        return isRightNan ? 0 : 1;
-      }
-      if (isRightNan) {
-        return -1;
-      }
-    }
-    return left < right ? -1 : left == right ? 0 : 1;
   }
 
   virtual void resetDataDependentFlags(const SelectivityVector* rows) override {

@@ -953,7 +953,7 @@ class RowContainer {
     }
     if (Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
         Kind == TypeKind::MAP) {
-      return compareComplexType(row, column.offset(), decoded, index);
+      return compareComplexType(row, column.offset(), decoded, index, flags);
     }
     if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       auto result = compareStringAsc(
@@ -962,7 +962,7 @@ class RowContainer {
     }
     auto left = valueAt<T>(row, column.offset());
     auto right = decoded.valueAt<T>(index);
-    auto result = comparePrimitiveAsc(left, right);
+    auto result = SimpleVector<T>::comparePrimitiveAsc(left, right);
     return flags.ascending ? result : result * -1;
   }
 
@@ -1002,7 +1002,7 @@ class RowContainer {
 
     auto leftValue = valueAt<T>(left, leftOffset);
     auto rightValue = valueAt<T>(right, rightOffset);
-    auto result = comparePrimitiveAsc(leftValue, rightValue);
+    auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
     return flags.ascending ? result : result * -1;
   }
 
@@ -1014,21 +1014,6 @@ class RowContainer {
       RowColumn column,
       CompareFlags flags) {
     return compare<Kind>(left, right, type, column, column, flags);
-  }
-
-  template <typename T>
-  static inline int comparePrimitiveAsc(const T& left, const T& right) {
-    if constexpr (std::is_floating_point<T>::value) {
-      bool isLeftNan = std::isnan(left);
-      bool isRightNan = std::isnan(right);
-      if (isLeftNan) {
-        return isRightNan ? 0 : 1;
-      }
-      if (isRightNan) {
-        return -1;
-      }
-    }
-    return left < right ? -1 : left == right ? 0 : 1;
   }
 
   void storeComplexType(

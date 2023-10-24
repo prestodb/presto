@@ -341,7 +341,7 @@ std::optional<int32_t> compare(
   using T = typename TypeTraits<Kind>::NativeType;
   auto rightValue = right.asUnchecked<SimpleVector<T>>()->valueAt(index);
   auto leftValue = left.read<T>();
-  auto result = leftValue < rightValue ? -1 : leftValue == rightValue ? 0 : 1;
+  auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
   return flags.ascending ? result : result * -1;
 }
 
@@ -573,7 +573,7 @@ int32_t compare(
   using T = typename TypeTraits<Kind>::NativeType;
   T leftValue = left.read<T>();
   T rightValue = right.read<T>();
-  auto result = leftValue == rightValue ? 0 : leftValue < rightValue ? -1 : 1;
+  auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
   return flags.ascending ? result : result * -1;
 }
 
