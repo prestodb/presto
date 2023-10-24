@@ -1201,6 +1201,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToAggregation) {
 }
 
 TEST_F(SharedArbitrationTest, reclaimFromCompletedAggregation) {
+  GTEST_SKIP() << "https://github.com/facebookincubator/velox/issues/7154";
   const int numVectors = 2;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
@@ -2867,6 +2868,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrationFromTableWriter) {
 }
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, writerFlushThreshold) {
+  GTEST_SKIP() << "https://github.com/facebookincubator/velox/issues/7154";
   VectorFuzzer::Options options;
   const int batchSize = 1'000;
   options.vectorSize = batchSize;

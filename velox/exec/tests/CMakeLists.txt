@@ -72,6 +72,7 @@ add_executable(
   TableScanTest.cpp
   TableWriteTest.cpp
   TaskListenerTest.cpp
+  ThreadDebugInfoTest.cpp
   TopNTest.cpp
   TopNRowNumberTest.cpp
   UnorderedStreamReaderTest.cpp
