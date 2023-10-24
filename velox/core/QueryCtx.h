@@ -34,18 +34,6 @@ class QueryCtx {
   /// mode, executor is not needed. Hence, we don't require executor to always
   /// be passed in here, but instead, ensure that executor exists when actually
   /// being used.
-  // TODO(jtan6): Deprecate this constructor after external dependencies are
-  //   migrated
-  QueryCtx(
-      folly::Executor* executor,
-      std::unordered_map<std::string, std::string> queryConfigValues,
-      std::unordered_map<std::string, std::shared_ptr<Config>>
-          connectorConfigs = {},
-      cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
-      std::shared_ptr<memory::MemoryPool> pool = nullptr,
-      std::shared_ptr<folly::Executor> spillExecutor = nullptr,
-      const std::string& queryId = "");
-
   QueryCtx(
       folly::Executor* executor = nullptr,
       QueryConfig&& queryConfig = QueryConfig{{}},
