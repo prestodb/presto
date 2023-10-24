@@ -1684,7 +1684,7 @@ VeloxQueryPlanConverterBase::generateAggregationNode(
         statisticsAggregation,
     core::AggregationNode::Step step,
     const protocol::PlanNodeId& id,
-    const std::shared_ptr<protocol::PlanNode>& source,
+    const core::PlanNodePtr& sourceVeloxPlan,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   if (statisticsAggregation == nullptr) {
@@ -1713,7 +1713,7 @@ VeloxQueryPlanConverterBase::generateAggregationNode(
       aggregateNames,
       aggregates,
       false, // ignoreNullKeys
-      toVeloxQueryPlan(source, tableWriteInfo, taskId));
+      sourceVeloxPlan);
 }
 
 std::vector<protocol::VariableReferenceExpression>
@@ -2275,12 +2275,14 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
        node->fragmentVariable,
        node->tableCommitContextVariable},
       node->statisticsAggregation));
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
   std::shared_ptr<core::AggregationNode> aggregationNode =
       generateAggregationNode(
           node->statisticsAggregation,
           core::AggregationNode::Step::kPartial,
           node->id,
-          node->source,
+          sourceVeloxPlan,
           tableWriteInfo,
           taskId);
   return std::make_shared<core::TableWriteNode>(
@@ -2292,7 +2294,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->partitioningScheme != nullptr,
       outputType,
       getCommitStrategy(),
-      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+      sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::TableWriteMergeNode>
@@ -2305,20 +2307,19 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
        node->fragmentVariable,
        node->tableCommitContextVariable},
       node->statisticsAggregation));
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
   std::shared_ptr<core::AggregationNode> aggregationNode =
       generateAggregationNode(
           node->statisticsAggregation,
           core::AggregationNode::Step::kIntermediate,
           node->id,
-          node->source,
+          sourceVeloxPlan,
           tableWriteInfo,
           taskId);
 
   return std::make_shared<core::TableWriteMergeNode>(
-      node->id,
-      outputType,
-      aggregationNode,
-      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+      node->id, outputType, aggregationNode, sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::UnnestNode>
