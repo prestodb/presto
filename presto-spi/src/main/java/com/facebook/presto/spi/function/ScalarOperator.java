@@ -27,6 +27,4 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface ScalarOperator
 {
     OperatorType value();
-
-    ScalarFunctionDescriptor descriptor() default @ScalarFunctionDescriptor;
 }

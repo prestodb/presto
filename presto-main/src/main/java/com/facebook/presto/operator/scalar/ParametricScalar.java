@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.annotations.VisibleForTesting;
@@ -39,7 +38,6 @@ public class ParametricScalar
 {
     private final ScalarHeader details;
     private final ParametricImplementationsGroup<ParametricScalarImplementation> implementations;
-    private final ComplexTypeFunctionDescriptor descriptor;
 
     public ParametricScalar(
             Signature signature,
@@ -49,12 +47,6 @@ public class ParametricScalar
         super(signature);
         this.details = requireNonNull(details);
         this.implementations = requireNonNull(implementations);
-        this.descriptor = new ComplexTypeFunctionDescriptor(
-                details.getFunctionDescriptor().isAccessingInputValues(),
-                details.getFunctionDescriptor().getLambdaDescriptors(),
-                details.getFunctionDescriptor().getArgumentIndicesContainingMapOrArray(),
-                details.getFunctionDescriptor().getOutputToInputTransformationFunction(),
-                signature);
     }
 
     @Override
@@ -121,11 +113,5 @@ public class ParametricScalar
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundVariables, getSignature()));
-    }
-
-    @Override
-    public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
-    {
-        return descriptor;
     }
 }

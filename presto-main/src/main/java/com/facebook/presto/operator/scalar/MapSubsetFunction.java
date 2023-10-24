@@ -1,4 +1,4 @@
- /*
+/*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,12 +19,9 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-@ScalarFunction(value = "map_subset", descriptor = @ScalarFunctionDescriptor(
-        isAccessingInputValues = false,
-        lambdaDescriptors = {}))
+@ScalarFunction("map_subset")
 @Description("returns a map where the keys are a subset of the given array of keys")
 public final class MapSubsetFunction
 {
