@@ -80,7 +80,7 @@ Generic Configuration
      - integer
      - 32MB
      - The target size for a Task's buffered output. The producer Drivers are blocked when the buffered size exceeds this.
-       The Drivers are resumed when the buffered size goes below PartitionedOutputBufferManager::kContinuePct (90)% of this.
+       The Drivers are resumed when the buffered size goes below OutputBufferManager::kContinuePct (90)% of this.
    * - min_table_rows_for_parallel_join_build
      - integer
      - 1000
