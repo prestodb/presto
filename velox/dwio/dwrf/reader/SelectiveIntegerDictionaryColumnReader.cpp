@@ -23,7 +23,7 @@ using namespace dwio::common;
 
 SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
     const std::shared_ptr<const TypeWithId>& requestedType,
-    std::shared_ptr<const TypeWithId> dataType,
+    std::shared_ptr<const TypeWithId> fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec,
     uint32_t numBytes)
@@ -31,7 +31,7 @@ SelectiveIntegerDictionaryColumnReader::SelectiveIntegerDictionaryColumnReader(
           requestedType->type(),
           params,
           scanSpec,
-          std::move(dataType)) {
+          std::move(fileType)) {
   EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   auto encoding = stripe.getEncoding(encodingKey);

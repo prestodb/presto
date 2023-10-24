@@ -20,10 +20,10 @@ namespace facebook::velox::dwrf {
 
 template <typename DataT>
 SelectiveDecimalColumnReader<DataT>::SelectiveDecimalColumnReader(
-    const std::shared_ptr<const TypeWithId>& nodeType,
+    const std::shared_ptr<const TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec)
-    : SelectiveColumnReader(nodeType->type(), params, scanSpec, nodeType) {
+    : SelectiveColumnReader(fileType->type(), fileType, params, scanSpec) {
   EncodingKey encodingKey{fileType_->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   if constexpr (std::is_same_v<DataT, std::int64_t>) {

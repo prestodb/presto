@@ -43,14 +43,14 @@ void ScanState::updateRawState() {
 
 SelectiveColumnReader::SelectiveColumnReader(
     const TypePtr& requestedType,
+    std::shared_ptr<const dwio::common::TypeWithId> fileType,
     dwio::common::FormatParams& params,
-    velox::common::ScanSpec& scanSpec,
-    std::shared_ptr<const dwio::common::TypeWithId> type)
+    velox::common::ScanSpec& scanSpec)
     : memoryPool_(params.pool()),
-      fileType_(type),
-      formatData_(params.toFormatData(type, scanSpec)),
-      scanSpec_(&scanSpec),
-      requestedType_(requestedType) {}
+      requestedType_(requestedType),
+      fileType_(fileType),
+      formatData_(params.toFormatData(fileType, scanSpec)),
+      scanSpec_(&scanSpec) {}
 
 void SelectiveColumnReader::filterRowGroups(
     uint64_t rowGroupSize,

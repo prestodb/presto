@@ -24,20 +24,20 @@ namespace facebook::velox::dwrf {
 
 struct DropValues;
 
-template <typename TData, typename TRequested>
+template <typename TFile, typename TRequested>
 class FloatingPointDecoder {
  public:
   FloatingPointDecoder(
       std::unique_ptr<dwio::common::SeekableInputStream>&& input)
       : input_(std::move(input)) {}
 
-  TData readValue() {
-    if (bufferEnd_ - bufferStart_ >= sizeof(TData)) {
-      TData value = *reinterpret_cast<const TData*>(bufferStart_);
-      bufferStart_ += sizeof(TData);
+  TFile readValue() {
+    if (bufferEnd_ - bufferStart_ >= sizeof(TFile)) {
+      TFile value = *reinterpret_cast<const TFile*>(bufferStart_);
+      bufferStart_ += sizeof(TFile);
       return value;
     }
-    TData temp;
+    TFile temp;
     readBytes(sizeof(temp), input_.get(), &temp, bufferStart_, bufferEnd_);
     return temp;
   }
@@ -49,7 +49,7 @@ class FloatingPointDecoder {
 
   void skip(uint64_t numValues) {
     skipBytes(
-        numValues * sizeof(TData), input_.get(), bufferStart_, bufferEnd_);
+        numValues * sizeof(TFile), input_.get(), bufferStart_, bufferEnd_);
   }
 
   template <bool hasNulls>
@@ -58,12 +58,12 @@ class FloatingPointDecoder {
       numValues = bits::countNonNulls(nulls, current, current + numValues);
     }
     skipBytes(
-        numValues * sizeof(TData), input_.get(), bufferStart_, bufferEnd_);
+        numValues * sizeof(TFile), input_.get(), bufferStart_, bufferEnd_);
   }
 
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
-    if (std::is_same_v<TData, TRequested> &&
+    if (std::is_same_v<TFile, TRequested> &&
         dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
       fastPath<hasNulls>(nulls, visitor);
       return;
@@ -141,7 +141,7 @@ class FloatingPointDecoder {
           return;
         }
       }
-      dwio::common::fixedWidthScan<TData, filterOnly, true>(
+      dwio::common::fixedWidthScan<TFile, filterOnly, true>(
           innerVector ? folly::Range<const int32_t*>(*innerVector)
                       : folly::Range<const int32_t*>(rows, outerVector->size()),
           outerVector->data(),
@@ -155,7 +155,7 @@ class FloatingPointDecoder {
           visitor.hook());
       skip<false>(tailSkip, 0, nullptr);
     } else {
-      dwio::common::fixedWidthScan<TData, filterOnly, false>(
+      dwio::common::fixedWidthScan<TFile, filterOnly, false>(
           folly::Range<const int32_t*>(rows, numRows),
           hasHook ? velox::iota(numRows, visitor.innerNonNullRows()) : nullptr,
           visitor.rawValues(numRows),

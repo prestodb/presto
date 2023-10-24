@@ -25,7 +25,7 @@ class StringColumnReader : public dwio::common::SelectiveColumnReader {
  public:
   using ValueType = StringView;
   StringColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       ParquetParams& params,
       common::ScanSpec& scanSpec);
 

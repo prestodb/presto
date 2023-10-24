@@ -21,21 +21,21 @@ namespace facebook::velox::parquet {
 
 StructColumnReader::StructColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-    const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+    const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     ParquetParams& params,
     common::ScanSpec& scanSpec)
-    : SelectiveStructColumnReader(requestedType, dataType, params, scanSpec) {
+    : SelectiveStructColumnReader(requestedType, fileType, params, scanSpec) {
   auto& childSpecs = scanSpec_->stableChildren();
   for (auto i = 0; i < childSpecs.size(); ++i) {
     auto childSpec = childSpecs[i];
     if (childSpecs[i]->isConstant()) {
       continue;
     }
-    auto childDataType = fileType_->childByName(childSpec->fieldName());
+    auto childFileType = fileType_->childByName(childSpec->fieldName());
     auto childRequestedType =
         requestedType_->childByName(childSpec->fieldName());
     addChild(ParquetColumnReader::build(
-        childRequestedType, childDataType, params, *childSpec));
+        childRequestedType, childFileType, params, *childSpec));
     childSpecs[i]->setSubscript(children_.size() - 1);
   }
   auto type = reinterpret_cast<const ParquetTypeWithId*>(fileType_.get());

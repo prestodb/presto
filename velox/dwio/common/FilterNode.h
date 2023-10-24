@@ -166,7 +166,7 @@ class FilterType {
   // request type in the filter tree node
   std::shared_ptr<const velox::Type> requestType_;
   // data type in the filter tree node
-  std::shared_ptr<const velox::Type> dataType_;
+  std::shared_ptr<const velox::Type> fileType_;
   // sequence filter for given node - empty if no filter
   SeqFilter seqFilter_;
 
@@ -191,7 +191,7 @@ class FilterType {
         read_{node.node == 0},
         inContent_{inContent},
         requestType_{std::move(type)},
-        dataType_{std::move(contentType)},
+        fileType_{std::move(contentType)},
         seqFilter_{std::make_shared<std::unordered_set<size_t>>()} {}
 
   FilterType(
@@ -236,11 +236,11 @@ class FilterType {
   }
 
   inline const std::shared_ptr<const velox::Type>& getDataType() const {
-    return dataType_;
+    return fileType_;
   }
 
-  inline void setDataType(const std::shared_ptr<const velox::Type>& dataType) {
-    dataType_ = dataType;
+  inline void setDataType(const std::shared_ptr<const velox::Type>& fileType) {
+    fileType_ = fileType;
   }
 
   inline bool valid() const {

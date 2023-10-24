@@ -38,7 +38,7 @@ class ColumnReader {
       memory::MemoryPool& memoryPool,
       const std::shared_ptr<const dwio::common::TypeWithId>& type)
       : notNullDecoder_{},
-        nodeType_{type},
+        fileType_{type},
         memoryPool_{memoryPool},
         flatMapContext_{} {}
 
@@ -60,7 +60,7 @@ class ColumnReader {
       const uint64_t* incomingNulls);
 
   std::unique_ptr<ByteRleDecoder> notNullDecoder_;
-  const std::shared_ptr<const dwio::common::TypeWithId> nodeType_;
+  const std::shared_ptr<const dwio::common::TypeWithId> fileType_;
   memory::MemoryPool& memoryPool_;
   FlatMapContext flatMapContext_;
 
@@ -111,7 +111,7 @@ class ColumnReader {
    */
   static std::unique_ptr<ColumnReader> build(
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-      const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
       FlatMapContext flatMapContext = {});
@@ -122,13 +122,13 @@ class ColumnReaderFactory {
   virtual ~ColumnReaderFactory() = default;
   virtual std::unique_ptr<ColumnReader> build(
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-      const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
       FlatMapContext flatMapContext = {}) {
     return ColumnReader::build(
         requestedType,
-        dataType,
+        fileType,
         stripe,
         streamLabels,
         std::move(flatMapContext));

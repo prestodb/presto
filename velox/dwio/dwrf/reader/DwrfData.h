@@ -34,7 +34,7 @@ namespace facebook::velox::dwrf {
 class DwrfData : public dwio::common::FormatData {
  public:
   DwrfData(
-      std::shared_ptr<const dwio::common::TypeWithId> nodeType,
+      std::shared_ptr<const dwio::common::TypeWithId> fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
       FlatMapContext flatMapContext);
@@ -101,7 +101,7 @@ class DwrfData : public dwio::common::FormatData {
   }
 
   memory::MemoryPool& memoryPool_;
-  const std::shared_ptr<const dwio::common::TypeWithId> nodeType_;
+  const std::shared_ptr<const dwio::common::TypeWithId> fileType_;
   FlatMapContext flatMapContext_;
   std::unique_ptr<ByteRleDecoder> notNullDecoder_;
   std::unique_ptr<dwio::common::SeekableInputStream> indexStream_;

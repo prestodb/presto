@@ -482,7 +482,7 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
 
   auto scanSpec = options_.getScanSpec().get();
   auto requestedType = getColumnSelector().getSchemaWithId();
-  auto dataType = getReader().getSchemaWithId();
+  auto fileType = getReader().getSchemaWithId();
   FlatMapContext flatMapContext;
   flatMapContext.keySelectionCallback = options_.getKeySelectionCallback();
   memory::AllocationPool pool(&getReader().getMemoryPool());
@@ -492,7 +492,7 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
   if (scanSpec) {
     stripeState.selectiveColumnReader = SelectiveDwrfReader::build(
         requestedType,
-        dataType,
+        fileType,
         stripeStreams,
         streamLabels,
         columnReaderStatistics_,
@@ -503,7 +503,7 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
   } else {
     stripeState.columnReader = ColumnReader::build( // enqueue streams
         requestedType,
-        dataType,
+        fileType,
         stripeStreams,
         streamLabels,
         flatMapContext);

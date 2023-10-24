@@ -102,11 +102,11 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
 
   SelectiveStructColumnReaderBase(
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-      const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       FormatParams& params,
       velox::common::ScanSpec& scanSpec,
       bool isRoot = false)
-      : SelectiveColumnReader(dataType->type(), params, scanSpec, dataType),
+      : SelectiveColumnReader(fileType->type(), fileType, params, scanSpec),
         requestedType_(requestedType),
         debugString_(
             getExceptionContext().message(VeloxException::Type::kSystem)),

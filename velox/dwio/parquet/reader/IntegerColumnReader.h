@@ -25,14 +25,14 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
  public:
   IntegerColumnReader(
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-      std::shared_ptr<const dwio::common::TypeWithId> dataType,
+      std::shared_ptr<const dwio::common::TypeWithId> fileType,
       ParquetParams& params,
       common::ScanSpec& scanSpec)
       : SelectiveIntegerColumnReader(
             requestedType->type(),
             params,
             scanSpec,
-            std::move(dataType)) {}
+            std::move(fileType)) {}
 
   bool hasBulkPath() const override {
     return !this->fileType().type()->isLongDecimal() &&

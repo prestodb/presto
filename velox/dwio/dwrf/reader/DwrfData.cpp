@@ -21,16 +21,16 @@
 namespace facebook::velox::dwrf {
 
 DwrfData::DwrfData(
-    std::shared_ptr<const dwio::common::TypeWithId> nodeType,
+    std::shared_ptr<const dwio::common::TypeWithId> fileType,
     StripeStreams& stripe,
     const StreamLabels& streamLabels,
     FlatMapContext flatMapContext)
     : memoryPool_(stripe.getMemoryPool()),
-      nodeType_(std::move(nodeType)),
+      fileType_(std::move(fileType)),
       flatMapContext_(std::move(flatMapContext)),
       stripeRows_{stripe.stripeRows()},
       rowsPerRowGroup_{stripe.rowsPerRowGroup()} {
-  EncodingKey encodingKey{nodeType_->id(), flatMapContext_.sequence};
+  EncodingKey encodingKey{fileType_->id(), flatMapContext_.sequence};
   std::unique_ptr<dwio::common::SeekableInputStream> stream = stripe.getStream(
       encodingKey.forKind(proto::Stream_Kind_PRESENT),
       streamLabels.label(),
@@ -164,7 +164,7 @@ void DwrfData::filterRowGroups(
         buildColumnStatisticsFromProto(entry.statistics(), *dwrfContext);
     if (filter &&
         !testFilter(
-            filter, columnStats.get(), rowGroupSize, nodeType_->type())) {
+            filter, columnStats.get(), rowGroupSize, fileType_->type())) {
       VLOG(1) << "Drop stride " << i << " on " << scanSpec.toString();
       bits::setBit(result.filterResult.data(), i);
       continue;
@@ -175,7 +175,7 @@ void DwrfData::filterRowGroups(
               metadataFilter,
               columnStats.get(),
               rowGroupSize,
-              nodeType_->type())) {
+              fileType_->type())) {
         bits::setBit(
             result.metadataFilterResults[metadataFiltersStartIndex + j]
                 .second.data(),

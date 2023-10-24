@@ -197,14 +197,14 @@ void SelectiveRepeatedColumnReader::setResultNulls(BaseVector& result) {
 
 SelectiveListColumnReader::SelectiveListColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-    const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+    const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     FormatParams& params,
     velox::common::ScanSpec& scanSpec)
     : SelectiveRepeatedColumnReader(
-          dataType->type(),
+          fileType->type(),
           params,
           scanSpec,
-          dataType),
+          fileType),
       requestedType_{requestedType} {}
 
 uint64_t SelectiveListColumnReader::skip(uint64_t numValues) {
@@ -261,14 +261,14 @@ void SelectiveListColumnReader::getValues(RowSet rows, VectorPtr* result) {
 
 SelectiveMapColumnReader::SelectiveMapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-    const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+    const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     FormatParams& params,
     velox::common::ScanSpec& scanSpec)
     : SelectiveRepeatedColumnReader(
-          dataType->type(),
+          fileType->type(),
           params,
           scanSpec,
-          dataType),
+          fileType),
       requestedType_{requestedType} {}
 
 uint64_t SelectiveMapColumnReader::skip(uint64_t numValues) {

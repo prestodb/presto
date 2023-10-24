@@ -28,7 +28,7 @@ class SelectiveTimestampColumnReader
   using ValueType = int64_t;
 
   SelectiveTimestampColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       DwrfParams& params,
       common::ScanSpec& scanSpec);
 

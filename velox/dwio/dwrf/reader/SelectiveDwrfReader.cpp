@@ -35,21 +35,21 @@ using namespace facebook::velox::dwio::common;
 
 std::unique_ptr<SelectiveColumnReader> buildIntegerReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-    const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+    const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     uint32_t numBytes,
     common::ScanSpec& scanSpec) {
-  EncodingKey ek{dataType->id(), params.flatMapContext().sequence};
+  EncodingKey ek{fileType->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
     case proto::ColumnEncoding_Kind_DICTIONARY:
     case proto::ColumnEncoding_Kind_DICTIONARY_V2:
       return std::make_unique<SelectiveIntegerDictionaryColumnReader>(
-          requestedType, dataType, params, scanSpec, numBytes);
+          requestedType, fileType, params, scanSpec, numBytes);
     case proto::ColumnEncoding_Kind_DIRECT:
     case proto::ColumnEncoding_Kind_DIRECT_V2:
       return std::make_unique<SelectiveIntegerDirectColumnReader>(
-          requestedType, dataType, params, numBytes, scanSpec);
+          requestedType, fileType, params, numBytes, scanSpec);
     default:
       DWIO_RAISE("buildReader unhandled integer encoding");
   }
@@ -58,85 +58,85 @@ std::unique_ptr<SelectiveColumnReader> buildIntegerReader(
 // static
 std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-    const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+    const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec,
     bool isRoot) {
   DWIO_ENSURE(
-      !isRoot || dataType->type()->kind() == TypeKind::ROW,
+      !isRoot || fileType->type()->kind() == TypeKind::ROW,
       "The root object can only be a row.");
   dwio::common::typeutils::checkTypeCompatibility(
-      *dataType->type(), *requestedType->type());
-  EncodingKey ek{dataType->id(), params.flatMapContext().sequence};
+      *fileType->type(), *requestedType->type());
+  EncodingKey ek{fileType->id(), params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
-  switch (dataType->type()->kind()) {
+  switch (fileType->type()->kind()) {
     case TypeKind::INTEGER:
       return buildIntegerReader(
-          requestedType, dataType, params, INT_BYTE_SIZE, scanSpec);
+          requestedType, fileType, params, INT_BYTE_SIZE, scanSpec);
     case TypeKind::BIGINT:
-      if (dataType->type()->isDecimal()) {
+      if (fileType->type()->isDecimal()) {
         return std::make_unique<SelectiveDecimalColumnReader<int64_t>>(
             requestedType, params, scanSpec);
       } else {
         return buildIntegerReader(
-            requestedType, dataType, params, LONG_BYTE_SIZE, scanSpec);
+            requestedType, fileType, params, LONG_BYTE_SIZE, scanSpec);
       }
     case TypeKind::SMALLINT:
       return buildIntegerReader(
-          requestedType, dataType, params, SHORT_BYTE_SIZE, scanSpec);
+          requestedType, fileType, params, SHORT_BYTE_SIZE, scanSpec);
     case TypeKind::ARRAY:
       return std::make_unique<SelectiveListColumnReader>(
-          requestedType, dataType, params, scanSpec);
+          requestedType, fileType, params, scanSpec);
     case TypeKind::MAP:
       if (stripe.getEncoding(ek).kind() ==
           proto::ColumnEncoding_Kind_MAP_FLAT) {
         return createSelectiveFlatMapColumnReader(
-            requestedType, dataType, params, scanSpec);
+            requestedType, fileType, params, scanSpec);
       }
       return std::make_unique<SelectiveMapColumnReader>(
-          requestedType, dataType, params, scanSpec);
+          requestedType, fileType, params, scanSpec);
     case TypeKind::REAL:
       if (requestedType->type()->kind() == TypeKind::REAL) {
         return std::make_unique<
             SelectiveFloatingPointColumnReader<float, float>>(
-            requestedType->type(), dataType, params, scanSpec);
+            requestedType->type(), fileType, params, scanSpec);
       } else {
         return std::make_unique<
             SelectiveFloatingPointColumnReader<float, double>>(
-            requestedType->type(), dataType, params, scanSpec);
+            requestedType->type(), fileType, params, scanSpec);
       }
     case TypeKind::DOUBLE:
       return std::make_unique<
           SelectiveFloatingPointColumnReader<double, double>>(
-          requestedType->type(), dataType, params, scanSpec);
+          requestedType->type(), fileType, params, scanSpec);
     case TypeKind::ROW:
       return std::make_unique<SelectiveStructColumnReader>(
-          requestedType, dataType, params, scanSpec, isRoot);
+          requestedType, fileType, params, scanSpec, isRoot);
     case TypeKind::BOOLEAN:
       return std::make_unique<SelectiveByteRleColumnReader>(
-          requestedType, dataType, params, scanSpec, true);
+          requestedType, fileType, params, scanSpec, true);
     case TypeKind::TINYINT:
       return std::make_unique<SelectiveByteRleColumnReader>(
-          requestedType, dataType, params, scanSpec, false);
+          requestedType, fileType, params, scanSpec, false);
     case TypeKind::VARBINARY:
     case TypeKind::VARCHAR:
       switch (static_cast<int64_t>(stripe.getEncoding(ek).kind())) {
         case proto::ColumnEncoding_Kind_DIRECT:
         case proto::ColumnEncoding_Kind_DIRECT_V2:
           return std::make_unique<SelectiveStringDirectColumnReader>(
-              dataType, params, scanSpec);
+              fileType, params, scanSpec);
         case proto::ColumnEncoding_Kind_DICTIONARY:
         case proto::ColumnEncoding_Kind_DICTIONARY_V2:
           return std::make_unique<SelectiveStringDictionaryColumnReader>(
-              dataType, params, scanSpec);
+              fileType, params, scanSpec);
         default:
           DWIO_RAISE("buildReader string unknown encoding");
       }
     case TypeKind::TIMESTAMP:
       return std::make_unique<SelectiveTimestampColumnReader>(
-          dataType, params, scanSpec);
+          fileType, params, scanSpec);
     case TypeKind::HUGEINT:
-      if (dataType->type()->isDecimal()) {
+      if (fileType->type()->isDecimal()) {
         return std::make_unique<SelectiveDecimalColumnReader<int128_t>>(
             requestedType, params, scanSpec);
       }
@@ -144,7 +144,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     default:
       DWIO_RAISE(
           "buildReader unhandled type: " +
-          mapTypeKindToName(dataType->type()->kind()));
+          mapTypeKindToName(fileType->type()->kind()));
   }
 }
 

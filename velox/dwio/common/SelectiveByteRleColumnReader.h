@@ -24,14 +24,14 @@ class SelectiveByteRleColumnReader : public SelectiveColumnReader {
  public:
   SelectiveByteRleColumnReader(
       const TypePtr& requestedType,
+      std::shared_ptr<const dwio::common::TypeWithId> fileType,
       dwio::common::FormatParams& params,
-      velox::common::ScanSpec& scanSpec,
-      std::shared_ptr<const dwio::common::TypeWithId> type)
+      velox::common::ScanSpec& scanSpec)
       : SelectiveColumnReader(
             requestedType,
+            std::move(fileType),
             params,
-            scanSpec,
-            std::move(type)) {}
+            scanSpec) {}
 
   bool hasBulkPath() const override {
     return false;

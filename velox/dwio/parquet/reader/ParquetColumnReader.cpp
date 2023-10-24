@@ -35,51 +35,51 @@ namespace facebook::velox::parquet {
 // static
 std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-    const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+    const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     ParquetParams& params,
     common::ScanSpec& scanSpec) {
   auto colName = scanSpec.fieldName();
 
-  switch (dataType->type()->kind()) {
+  switch (fileType->type()->kind()) {
     case TypeKind::INTEGER:
     case TypeKind::BIGINT:
     case TypeKind::SMALLINT:
     case TypeKind::TINYINT:
     case TypeKind::HUGEINT:
       return std::make_unique<IntegerColumnReader>(
-          requestedType, dataType, params, scanSpec);
+          requestedType, fileType, params, scanSpec);
 
     case TypeKind::REAL:
       return std::make_unique<FloatingPointColumnReader<float, float>>(
-          requestedType->type(), dataType, params, scanSpec);
+          requestedType->type(), fileType, params, scanSpec);
     case TypeKind::DOUBLE:
       return std::make_unique<FloatingPointColumnReader<double, double>>(
-          requestedType->type(), dataType, params, scanSpec);
+          requestedType->type(), fileType, params, scanSpec);
 
     case TypeKind::ROW:
       return std::make_unique<StructColumnReader>(
-          requestedType, dataType, params, scanSpec);
+          requestedType, fileType, params, scanSpec);
 
     case TypeKind::VARBINARY:
     case TypeKind::VARCHAR:
-      return std::make_unique<StringColumnReader>(dataType, params, scanSpec);
+      return std::make_unique<StringColumnReader>(fileType, params, scanSpec);
 
     case TypeKind::ARRAY:
       return std::make_unique<ListColumnReader>(
-          requestedType, dataType, params, scanSpec);
+          requestedType, fileType, params, scanSpec);
 
     case TypeKind::MAP:
       return std::make_unique<MapColumnReader>(
-          requestedType, dataType, params, scanSpec);
+          requestedType, fileType, params, scanSpec);
 
     case TypeKind::BOOLEAN:
       return std::make_unique<BooleanColumnReader>(
-          requestedType, dataType, params, scanSpec);
+          requestedType, fileType, params, scanSpec);
 
     default:
       VELOX_FAIL(
           "buildReader unhandled type: " +
-          mapTypeKindToName(dataType->type()->kind()));
+          mapTypeKindToName(fileType->type()->kind()));
   }
 }
 

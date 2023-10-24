@@ -38,12 +38,12 @@ class PageReader {
   PageReader(
       std::unique_ptr<dwio::common::SeekableInputStream> stream,
       memory::MemoryPool& pool,
-      ParquetTypeWithIdPtr nodeType,
+      ParquetTypeWithIdPtr fileType,
       thrift::CompressionCodec::type codec,
       int64_t chunkSize)
       : pool_(pool),
         inputStream_(std::move(stream)),
-        type_(std::move(nodeType)),
+        type_(std::move(fileType)),
         maxRepeat_(type_->maxRepeat_),
         maxDefine_(type_->maxDefine_),
         isTopLevel_(maxRepeat_ == 0 && maxDefine_ <= 1),

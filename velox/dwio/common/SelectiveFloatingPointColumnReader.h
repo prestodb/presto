@@ -26,14 +26,14 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
   using ValueType = TRequested;
   SelectiveFloatingPointColumnReader(
       const TypePtr& requestedType,
-      std::shared_ptr<const dwio::common::TypeWithId> dataType,
+      std::shared_ptr<const dwio::common::TypeWithId> fileType,
       FormatParams& params,
       velox::common::ScanSpec& scanSpec)
       : SelectiveColumnReader(
             requestedType,
+            std::move(fileType),
             params,
-            scanSpec,
-            std::move(dataType)) {}
+            scanSpec) {}
 
   // Offers fast path only if data and result widths match.
   bool hasBulkPath() const override {
