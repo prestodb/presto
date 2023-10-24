@@ -58,6 +58,10 @@ class SortBuffer {
   /// the rows from 'data_'.
   void spill(int64_t targetRows, int64_t targetBytes);
 
+  memory::MemoryPool* pool() const {
+    return pool_;
+  }
+
   /// Returns the spiller stats including total bytes and rows spilled so far.
   std::optional<SpillStats> spilledStats() const {
     if (spiller_ == nullptr) {

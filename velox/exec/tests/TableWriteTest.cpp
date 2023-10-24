@@ -2247,6 +2247,39 @@ TEST_P(BucketedTableOnlyWriteTest, mismatchedBucketTypes) {
           bucketProperty_->bucketedTypes()[0]));
 }
 
+DEBUG_ONLY_TEST_P(BucketedTableOnlyWriteTest, spillingCheck) {
+  if (!testParam_.bucketSort()) {
+    // This test only applies for bucket sort.
+    return;
+  }
+  SCOPED_TRACE(testParam_.toString());
+  auto input = makeVectors(10, 100);
+  createDuckDbTable(input);
+
+  for (const auto& writerSpillEnabled : {false, true}) {
+    SCOPED_TRACE(fmt::format("writerSpillEnabled: {}", writerSpillEnabled));
+    auto outputDirectory = TempDirectoryPath::create();
+    auto plan = createInsertPlan(
+        PlanBuilder().values({input}),
+        rowType_,
+        outputDirectory->path,
+        partitionedBy_,
+        bucketProperty_,
+        compressionKind_,
+        getNumWriters(),
+        connector::hive::LocationHandle::TableType::kNew,
+        commitStrategy_);
+    std::atomic<bool> memoryReserved{false};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
+        std::function<void(memory::MemoryPool*)>(
+            [&](memory::MemoryPool* pool) { memoryReserved = true; }));
+    assertQueryWithWriterConfigs(plan, "SELECT count(*) FROM tmp");
+    // We don't expect memory reservation has been triggered.
+    ASSERT_FALSE(memoryReserved);
+  }
+}
+
 TEST_P(AllTableWriterTest, tableWriteOutputCheck) {
   SCOPED_TRACE(testParam_.toString());
   if (!testParam_.multiDrivers() ||

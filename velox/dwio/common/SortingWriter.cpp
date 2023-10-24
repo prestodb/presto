@@ -39,6 +39,8 @@ void SortingWriter::close() {
     output = sortBuffer_->getOutput();
   }
   outputWriter_->close();
+
+  sortBuffer_->pool()->release();
 }
 
 void SortingWriter::abort() {

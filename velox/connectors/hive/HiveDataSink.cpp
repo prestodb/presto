@@ -595,7 +595,8 @@ HiveDataSink::maybeCreateBucketSortWriter(
       sortPool,
       &nonReclaimableSection_,
       &numSpillRuns_,
-      spillConfig_);
+      // TODO: enable spillling on sort buffer write later.
+      nullptr);
   return std::make_unique<dwio::common::SortingWriter>(
       std::move(writer), std::move(sortBuffer));
 }
