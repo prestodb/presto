@@ -29,11 +29,13 @@ class WindowPartition {
   /// objects to access the underlying data and columns of a partition of rows.
   /// The WindowPartition is constructed by WindowBuild from the input data.
   /// 'data' : Underlying RowContainer of the WindowBuild.
+  /// 'rows' : Pointers to rows in the RowContainer belonging to this partition.
   /// 'columns' : Input rows of 'data' used for accessing column data from it.
   /// 'sortKeyInfo' : Order by columns used by the the Window operator. Used to
   /// get peer rows from the input partition.
   WindowPartition(
       RowContainer* data,
+      const folly::Range<char**>& rows,
       const std::vector<exec::RowColumn>& columns,
       const std::vector<std::pair<column_index_t, core::SortOrder>>&
           sortKeyInfo);
@@ -42,8 +44,6 @@ class WindowPartition {
   vector_size_t numRows() const {
     return partition_.size();
   }
-
-  void resetPartition(const folly::Range<char**>& rows);
 
   /// Copies the values at 'columnIndex' into 'result' (starting at
   /// 'resultOffset') for the rows at positions in the 'rowNumbers'
@@ -114,6 +114,12 @@ class WindowPartition {
   // It is owned by the WindowBuild that creates the partition.
   RowContainer* data_;
 
+  // folly::Range is for the partition rows iterator provided by the
+  // Window operator. The pointers are to rows from a RowContainer owned
+  // by the operator. We can assume these are valid values for the lifetime
+  // of WindowPartition.
+  folly::Range<char**> partition_;
+
   // Copy of the input RowColumn objects that are used for
   // accessing the partition row columns. These RowColumn objects
   // index into RowContainer data_ above and can retrieve the column values.
@@ -122,12 +128,6 @@ class WindowPartition {
   // corresponding indexes of their input arguments into this vector.
   // They will request for column vector values at the respective index.
   std::vector<exec::RowColumn> columns_;
-
-  // folly::Range is for the partition rows iterator provided by the
-  // Window operator. The pointers are to rows from a RowContainer owned
-  // by the operator. We can assume these are valid values for the lifetime
-  // of WindowPartition.
-  folly::Range<char**> partition_;
 
   // ORDER BY column info for this partition.
   const std::vector<std::pair<column_index_t, core::SortOrder>> sortKeyInfo_;

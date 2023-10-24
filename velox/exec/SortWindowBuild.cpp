@@ -110,17 +110,14 @@ std::unique_ptr<WindowPartition> SortWindowBuild::nextPartition() {
       currentPartition_ <= partitionStartRows_.size() - 2,
       "All window partitions consumed");
 
-  auto windowPartition = std::make_unique<WindowPartition>(
-      data_.get(), inputColumns_, sortKeyInfo_);
   // There is partition data available now.
   auto partitionSize = partitionStartRows_[currentPartition_ + 1] -
       partitionStartRows_[currentPartition_];
   auto partition = folly::Range(
       sortedRows_.data() + partitionStartRows_[currentPartition_],
       partitionSize);
-  windowPartition->resetPartition(partition);
-
-  return windowPartition;
+  return std::make_unique<WindowPartition>(
+      data_.get(), partition, inputColumns_, sortKeyInfo_);
 }
 
 bool SortWindowBuild::hasNextPartition() {

@@ -81,16 +81,14 @@ std::unique_ptr<WindowPartition> StreamingWindowBuild::nextPartition() {
     }
   }
 
-  auto windowPartition = std::make_unique<WindowPartition>(
-      data_.get(), inputColumns_, sortKeyInfo_);
   auto partitionSize = partitionStartRows_[currentPartition_ + 1] -
       partitionStartRows_[currentPartition_];
   auto partition = folly::Range(
       sortedRows_.data() + partitionStartRows_[currentPartition_],
       partitionSize);
-  windowPartition->resetPartition(partition);
 
-  return windowPartition;
+  return std::make_unique<WindowPartition>(
+      data_.get(), partition, inputColumns_, sortKeyInfo_);
 }
 
 bool StreamingWindowBuild::hasNextPartition() {

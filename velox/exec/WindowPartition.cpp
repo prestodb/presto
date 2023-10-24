@@ -19,13 +19,13 @@ namespace facebook::velox::exec {
 
 WindowPartition::WindowPartition(
     RowContainer* data,
+    const folly::Range<char**>& rows,
     const std::vector<exec::RowColumn>& columns,
     const std::vector<std::pair<column_index_t, core::SortOrder>>& sortKeyInfo)
-    : data_(data), columns_(columns), sortKeyInfo_(sortKeyInfo) {}
-
-void WindowPartition::resetPartition(const folly::Range<char**>& rows) {
-  partition_ = rows;
-}
+    : data_(data),
+      partition_(rows),
+      columns_(columns),
+      sortKeyInfo_(sortKeyInfo) {}
 
 void WindowPartition::extractColumn(
     int32_t columnIndex,
