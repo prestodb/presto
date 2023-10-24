@@ -27,6 +27,8 @@ class NestedLoopJoinProbe : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode);
 
+  void initialize() override;
+
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override;
@@ -121,6 +123,7 @@ class NestedLoopJoinProbe : public Operator {
  private:
   // Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
+  std::shared_ptr<const core::NestedLoopJoinNode> joinNode_;
   const core::JoinType joinType_;
 
   ProbeOperatorState state_{ProbeOperatorState::kWaitForBuild};

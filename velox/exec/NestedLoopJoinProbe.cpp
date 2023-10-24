@@ -55,18 +55,26 @@ NestedLoopJoinProbe::NestedLoopJoinProbe(
           joinNode->id(),
           "NestedLoopJoinProbe"),
       outputBatchSize_{outputBatchRows()},
-      joinType_(joinNode->joinType()) {
-  auto probeType = joinNode->sources()[0]->outputType();
-  auto buildType = joinNode->sources()[1]->outputType();
+      joinNode_(joinNode),
+      joinType_(joinNode_->joinType()) {
+  auto probeType = joinNode_->sources()[0]->outputType();
+  auto buildType = joinNode_->sources()[1]->outputType();
   identityProjections_ = extractProjections(probeType, outputType_);
   buildProjections_ = extractProjections(buildType, outputType_);
+}
 
-  if (joinNode->joinCondition() != nullptr) {
+void NestedLoopJoinProbe::initialize() {
+  Operator::initialize();
+
+  VELOX_CHECK(joinNode_ != nullptr);
+  if (joinNode_->joinCondition() != nullptr) {
     initializeFilter(
-        joinNode->joinCondition(),
-        joinNode->sources()[0]->outputType(),
-        joinNode->sources()[1]->outputType());
+        joinNode_->joinCondition(),
+        joinNode_->sources()[0]->outputType(),
+        joinNode_->sources()[1]->outputType());
   }
+
+  joinNode_.reset();
 }
 
 BlockingReason NestedLoopJoinProbe::isBlocked(ContinueFuture* future) {
