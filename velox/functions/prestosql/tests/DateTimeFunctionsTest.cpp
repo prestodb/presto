@@ -325,7 +325,7 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeRountTrip) {
   };
 
   testRoundTrip(Timestamp(0, 0));
-  testRoundTrip(Timestamp(-1, 9000));
+  testRoundTrip(Timestamp(-1, 9000000));
   testRoundTrip(Timestamp(4000000000, 0));
   testRoundTrip(Timestamp(4000000000, 123000000));
   testRoundTrip(Timestamp(-9999999999, 100000000));
@@ -404,12 +404,11 @@ TEST_F(DateTimeFunctionsTest, fromUnixtime) {
   static const double kNan = std::numeric_limits<double>::quiet_NaN();
 
   EXPECT_EQ(Timestamp(0, 0), fromUnixtime(0));
-  EXPECT_EQ(Timestamp(-1, 9000), fromUnixtime(-0.999991));
+  EXPECT_EQ(Timestamp(-1, 9000000), fromUnixtime(-0.991));
   EXPECT_EQ(Timestamp(4000000000, 0), fromUnixtime(4000000000));
   EXPECT_EQ(
       Timestamp(9'223'372'036'854'775, 807'000'000), fromUnixtime(3.87111e+37));
-  // double(123000000) to uint64_t conversion returns 123000144.
-  EXPECT_EQ(Timestamp(4000000000, 123000144), fromUnixtime(4000000000.123));
+  EXPECT_EQ(Timestamp(4000000000, 123000000), fromUnixtime(4000000000.123));
   EXPECT_EQ(Timestamp(9'223'372'036'854'775, 807'000'000), fromUnixtime(kInf));
   EXPECT_EQ(
       Timestamp(-9'223'372'036'854'776, 192'000'000), fromUnixtime(-kInf));
@@ -3666,4 +3665,29 @@ TEST_F(DateTimeFunctionsTest, lastDayOfMonthTimestampWithTimezone) {
       parseDate("2008-01-31"),
       evaluateWithTimestampWithTimezone<int32_t>(
           "last_day_of_month(c0)", 1201795200000, "-02:00"));
+}
+
+TEST_F(DateTimeFunctionsTest, fromUnixtimeDouble) {
+  auto input = makeFlatVector<double>(
+      {1623748302.,
+       1623748302.0,
+       1623748302.02,
+       1623748302.023,
+       1623748303.123,
+       1623748304.009,
+       1623748304.001,
+       1623748304.999});
+  auto actual =
+      evaluate("cast(from_unixtime(c0) as varchar)", makeRowVector({input}));
+  auto expected = makeFlatVector<StringView>({
+      "2021-06-15T09:11:42.000",
+      "2021-06-15T09:11:42.000",
+      "2021-06-15T09:11:42.020",
+      "2021-06-15T09:11:42.023",
+      "2021-06-15T09:11:43.123",
+      "2021-06-15T09:11:44.009",
+      "2021-06-15T09:11:44.001",
+      "2021-06-15T09:11:44.999",
+  });
+  assertEqualVectors(expected, actual);
 }
