@@ -197,7 +197,7 @@ class VeloxQueryPlanConverterBase {
           statisticsAggregation,
       velox::core::AggregationNode::Step step,
       const protocol::PlanNodeId& id,
-      const std::shared_ptr<protocol::PlanNode>& source,
+      const velox::core::PlanNodePtr& sourceVeloxPlan,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
