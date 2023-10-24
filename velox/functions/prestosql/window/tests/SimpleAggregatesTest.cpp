@@ -113,7 +113,13 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     SimpleAggregatesTest,
     testing::ValuesIn(getAggregateTestParams()));
 
-class WindowTest : public WindowTestBase {};
+class WindowTest : public WindowTestBase {
+ protected:
+  void SetUp() override {
+    WindowTestBase::SetUp();
+    window::prestosql::registerAllWindowFunctions();
+  }
+};
 
 // Test for an aggregate function with strings that needs out of line storage.
 TEST_F(WindowTest, variableWidthAggregate) {
@@ -187,6 +193,48 @@ TEST_F(WindowTest, missingFunctionSignature) {
   VELOX_ASSERT_THROW(
       runWindow(callExpr),
       "Unexpected return type for window function sum(BIGINT). Expected BIGINT. Got VARCHAR.");
+}
+
+TEST_F(WindowTest, duplicateOrOverlappingKeys) {
+  auto data = makeRowVector(
+      ROW({"a", "b", "c", "d", "e"},
+          {
+              BIGINT(),
+              BIGINT(),
+              BIGINT(),
+              BIGINT(),
+              BIGINT(),
+          }),
+      10);
+
+  auto plan = [&](const std::vector<std::string>& partitionKeys,
+                  const std::vector<std::string>& sortingKeys) {
+    std::ostringstream sql;
+    sql << "row_number() over (";
+    if (!partitionKeys.empty()) {
+      sql << " partition by ";
+      sql << folly::join(", ", partitionKeys);
+    }
+    if (!sortingKeys.empty()) {
+      sql << " order by ";
+      sql << folly::join(", ", sortingKeys);
+    }
+    sql << ")";
+
+    PlanBuilder().values({data}).window({sql.str()}).planNode();
+  };
+
+  VELOX_ASSERT_THROW(
+      plan({"a", "a"}, {"b"}),
+      "Partitioning keys must be unique. Found duplicate key: a");
+
+  VELOX_ASSERT_THROW(
+      plan({"a", "b"}, {"c", "d", "c"}),
+      "Sorting keys must be unique and not overlap with partitioning keys. Found duplicate key: c");
+
+  VELOX_ASSERT_THROW(
+      plan({"a", "b"}, {"c", "b"}),
+      "Sorting keys must be unique and not overlap with partitioning keys. Found duplicate key: b");
 }
 
 class AggregateEmptyFramesTest : public WindowTestBase {};

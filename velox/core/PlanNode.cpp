@@ -1142,6 +1142,21 @@ WindowNode::WindowNode(
       sortingKeys_.size(),
       sortingOrders_.size(),
       "Number of sorting keys must be equal to the number of sorting orders");
+
+  std::unordered_set<std::string> keyNames;
+  for (const auto& key : partitionKeys_) {
+    VELOX_USER_CHECK(
+        keyNames.insert(key->name()).second,
+        "Partitioning keys must be unique. Found duplicate key: {}",
+        key->name());
+  }
+
+  for (const auto& key : sortingKeys_) {
+    VELOX_USER_CHECK(
+        keyNames.insert(key->name()).second,
+        "Sorting keys must be unique and not overlap with partitioning keys. Found duplicate key: {}",
+        key->name());
+  }
 }
 
 void WindowNode::addDetails(std::stringstream& stream) const {
