@@ -233,6 +233,54 @@ TEST_F(TopNRowNumberTest, manyPartitions) {
   testLimit(100);
 }
 
+TEST_F(TopNRowNumberTest, abandonPartialEarly) {
+  auto data = makeRowVector(
+      {"p", "s"},
+      {
+          makeFlatVector<int64_t>(1'000, [](auto row) { return row % 10; }),
+          makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+      });
+
+  createDuckDbTable({data});
+
+  core::PlanNodeId topNRowNumberId;
+  auto runPlan = [&](int32_t minRows) {
+    auto plan = PlanBuilder()
+                    .values(split(data, 10))
+                    .topNRowNumber({"p"}, {"s"}, 99, false)
+                    .capturePlanNodeId(topNRowNumberId)
+                    .topNRowNumber({"p"}, {"s"}, 99, true)
+                    .planNode();
+    auto task =
+        AssertQueryBuilder(plan, duckDbQueryRunner_)
+            .config(
+                core::QueryConfig::kAbandonPartialTopNRowNumberMinRows,
+                fmt::format("{}", minRows))
+            .config(core::QueryConfig::kAbandonPartialTopNRowNumberMinPct, "80")
+            .assertResults(
+                "SELECT * FROM (SELECT *, row_number() over (partition by p order by s) as rn FROM tmp) "
+                "WHERE rn <= 99");
+
+    return exec::toPlanStats(task->taskStats());
+  };
+
+  // Partial operator is abandoned after 2 input batches.
+  {
+    auto taskStats = runPlan(100);
+    const auto& stats = taskStats.at(topNRowNumberId);
+    ASSERT_EQ(stats.outputRows, 1'000);
+    ASSERT_EQ(stats.customStats.at("abandonedPartial").sum, 1);
+  }
+
+  // Partial operator continues for all of input.
+  {
+    auto taskStats = runPlan(100'000);
+    const auto& stats = taskStats.at(topNRowNumberId);
+    ASSERT_EQ(stats.outputRows, 990);
+    ASSERT_EQ(stats.customStats.count("abandonedPartial"), 0);
+  }
+}
+
 TEST_F(TopNRowNumberTest, planNodeValidation) {
   auto data = makeRowVector(
       ROW({"a", "b", "c", "d", "e"},

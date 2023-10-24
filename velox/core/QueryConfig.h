@@ -140,6 +140,12 @@ class QueryConfig {
   static constexpr const char* kAbandonPartialAggregationMinPct =
       "abandon_partial_aggregation_min_pct";
 
+  static constexpr const char* kAbandonPartialTopNRowNumberMinRows =
+      "abandon_partial_topn_row_number_min_rows";
+
+  static constexpr const char* kAbandonPartialTopNRowNumberMinPct =
+      "abandon_partial_topn_row_number_min_pct";
+
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "max_page_partitioning_buffer_size";
 
@@ -347,6 +353,14 @@ class QueryConfig {
 
   int32_t abandonPartialAggregationMinPct() const {
     return get<int32_t>(kAbandonPartialAggregationMinPct, 80);
+  }
+
+  int32_t abandonPartialTopNRowNumberMinRows() const {
+    return get<int32_t>(kAbandonPartialTopNRowNumberMinRows, 100'000);
+  }
+
+  int32_t abandonPartialTopNRowNumberMinPct() const {
+    return get<int32_t>(kAbandonPartialTopNRowNumberMinPct, 80);
   }
 
   uint64_t aggregationSpillMemoryThreshold() const {

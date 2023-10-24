@@ -34,13 +34,19 @@ Generic Configuration
    * - abandon_partial_aggregation_min_rows
      - integer
      - 100,000
-     - Min number of rows when we check if a partial aggregation is not reducing the cardinality well and might be
-       a subject to being abandoned.
+     - Number of input rows to receive before starting to check whether to abandon partial aggregation.
    * - abandon_partial_aggregation_min_pct
      - integer
      - 80
-     - If a partial aggregation's number of output rows constitues this or highler percentage of the number of input rows,
-       then this partial aggregation will be a subject to being abandoned.
+     - Abandons partial aggregation if number of groups equals or exceeds this percentage of the number of input rows.
+   * - abandon_partial_topn_row_number_min_rows
+     - integer
+     - 100,000
+     - Number of input rows to receive before starting to check whether to abandon partial TopNRowNumber.
+   * - abandon_partial_topn_row_number_min_pct
+     - integer
+     - 80
+     - Abandons partial TopNRowNumber if number of output rows equals or exceeds this percentage of the number of input rows.
    * - session_timezone
      - string
      -

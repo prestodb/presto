@@ -124,6 +124,10 @@ TopNRowNumber::TopNRowNumber(
       inputType_{reorderInputType(node->inputType(), inputChannels_)},
       spillCompareFlags_{
           makeSpillCompareFlags(numPartitionKeys_, node->sortingOrders())},
+      abandonPartialMinRows_(
+          driverCtx->queryConfig().abandonPartialTopNRowNumberMinRows()),
+      abandonPartialMinPct_(
+          driverCtx->queryConfig().abandonPartialTopNRowNumberMinPct()),
       data_(std::make_unique<RowContainer>(
           slice(inputType_->children(), 0, spillCompareFlags_.size()),
           slice(
@@ -171,6 +175,11 @@ TopNRowNumber::TopNRowNumber(
 }
 
 void TopNRowNumber::addInput(RowVectorPtr input) {
+  if (abandonedPartial_) {
+    input_ = std::move(input);
+    return;
+  }
+
   const auto numInput = input->size();
 
   for (auto i = 0; i < inputChannels_.size(); ++i) {
@@ -194,11 +203,34 @@ void TopNRowNumber::addInput(RowVectorPtr input) {
       auto& partition = partitionAt(lookup_->hits[i]);
       processInputRow(i, partition);
     }
+
+    if (abandonPartialEarly()) {
+      abandonedPartial_ = true;
+      addRuntimeStat("abandonedPartial", RuntimeCounter(1));
+
+      updateEstimatedOutputRowSize();
+      outputBatchSize_ = outputBatchRows(estimatedOutputRowSize_);
+      outputRows_.resize(outputBatchSize_);
+    }
   } else {
     for (auto i = 0; i < numInput; ++i) {
       processInputRow(i, *singlePartition_);
     }
   }
+}
+
+bool TopNRowNumber::abandonPartialEarly() const {
+  if (table_ == nullptr || generateRowNumber_ || spiller_ != nullptr) {
+    return false;
+  }
+
+  const auto numInput = stats_.rlock()->inputPositions;
+  if (numInput < abandonPartialMinRows_) {
+    return false;
+  }
+
+  const auto numOutput = data_->numRows();
+  return (100 * numOutput / numInput) >= abandonPartialMinPct_;
 }
 
 void TopNRowNumber::initializeNewPartitions() {
@@ -240,7 +272,6 @@ void TopNRowNumber::noMoreInput() {
   Operator::noMoreInput();
 
   updateEstimatedOutputRowSize();
-
   outputBatchSize_ = outputBatchRows(estimatedOutputRowSize_);
 
   if (spiller_ != nullptr) {
@@ -337,18 +368,50 @@ void TopNRowNumber::appendPartitionRows(
 }
 
 RowVectorPtr TopNRowNumber::getOutput() {
-  if (finished_ || !noMoreInput_) {
+  if (finished_) {
     return nullptr;
   }
 
-  if (merge_ != nullptr) {
-    return getOutputFromSpill();
+  if (abandonedPartial_) {
+    if (input_ != nullptr) {
+      auto output = std::move(input_);
+      input_.reset();
+      return output;
+    }
+
+    // We may have input accumulated in 'data_'.
+    if (data_->numRows() > 0) {
+      return getOutputFromMemory();
+    }
+
+    if (noMoreInput_) {
+      finished_ = true;
+    }
+
+    return nullptr;
   }
 
-  return getOutputFromMemory();
+  if (!noMoreInput_) {
+    return nullptr;
+  }
+
+  RowVectorPtr output;
+  if (merge_ != nullptr) {
+    output = getOutputFromSpill();
+  } else {
+    output = getOutputFromMemory();
+  }
+
+  if (output == nullptr) {
+    finished_ = true;
+  }
+
+  return output;
 }
 
 RowVectorPtr TopNRowNumber::getOutputFromMemory() {
+  VELOX_CHECK_GT(outputBatchSize_, 0);
+
   // Loop over partitions and emit sorted rows along with row numbers.
   auto output =
       BaseVector::create<RowVector>(outputType_, outputBatchSize_, pool());
@@ -392,7 +455,11 @@ RowVectorPtr TopNRowNumber::getOutputFromMemory() {
   }
 
   if (offset == 0) {
-    finished_ = true;
+    data_->clear();
+    if (table_ != nullptr) {
+      table_->clear();
+    }
+    pool()->release();
     return nullptr;
   }
 
@@ -573,6 +640,10 @@ void TopNRowNumber::reclaim(
 
   if (noMoreInput_) {
     // TODO Add support for spilling after noMoreInput().
+    return;
+  }
+
+  if (abandonedPartial_) {
     return;
   }
 

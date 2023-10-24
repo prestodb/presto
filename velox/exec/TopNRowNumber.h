@@ -42,6 +42,12 @@ class TopNRowNumber : public Operator {
       const std::shared_ptr<const core::TopNRowNumberNode>& node);
 
   bool needsInput() const override {
+    if (abandonedPartial_ && (data_->numRows() > 0 || input_ != nullptr)) {
+      // This operator switched to a pass-through and needs to produce output
+      // before receiving more input.
+      return false;
+    }
+
     return true;
   }
 
@@ -140,6 +146,10 @@ class TopNRowNumber : public Operator {
   // Called in noMoreInput() and spill().
   void updateEstimatedOutputRowSize();
 
+  // Return true if this operator runs a 'partial' stage and doesn't not reduce
+  // cardinality sufficiently. Returns false if spilling was triggered earlier.
+  bool abandonPartialEarly() const;
+
   const int32_t limit_;
   const bool generateRowNumber_;
   const size_t numPartitionKeys_;
@@ -156,6 +166,13 @@ class TopNRowNumber : public Operator {
   //
   // Used to sort 'data_' while spilling.
   const std::vector<CompareFlags> spillCompareFlags_;
+
+  const vector_size_t abandonPartialMinRows_;
+  const int32_t abandonPartialMinPct_;
+
+  // True if this operator runs a 'partial' stage without sufficient reduction
+  // in cardinality. In this case, it becomes a pass-through.
+  bool abandonedPartial_{false};
 
   // Hash table to keep track of partitions. Not used if there are no
   // partitioning keys. For each partition, stores an instance of TopRows
