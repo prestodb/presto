@@ -25,6 +25,7 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.Ar
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.CodegenScalarFunction;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.IsNull;
@@ -56,6 +57,7 @@ import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationCh
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.annotations.FunctionDescriptorParser.parseFunctionDescriptor;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -121,8 +123,13 @@ public class CodegenScalarFromAnnotationsParser
                 parseTypeSignature(method.getAnnotation(SqlType.class).value()),
                 Arrays.stream(method.getParameters()).map(p -> parseTypeSignature(p.getAnnotation(SqlType.class).value())).collect(toImmutableList()),
                 false);
-
-        return new SqlScalarFunction(signature)
+        ComplexTypeFunctionDescriptor functionDescriptor = parseFunctionDescriptor(codegenScalarFunction.descriptor());
+        return new SqlScalarFunction(signature, new ComplexTypeFunctionDescriptor(
+                functionDescriptor.isAccessingInputValues(),
+                functionDescriptor.getLambdaDescriptors(),
+                functionDescriptor.getArgumentIndicesContainingMapOrArray(),
+                functionDescriptor.getOutputToInputTransformationFunction(),
+                signature))
         {
             @Override
             public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)

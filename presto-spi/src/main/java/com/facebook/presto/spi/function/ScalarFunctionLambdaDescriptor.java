@@ -16,23 +16,21 @@ package com.facebook.presto.spi.function;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 @Retention(RUNTIME)
-@Target(METHOD)
-public @interface CodegenScalarFunction
+@Target({METHOD, TYPE})
+public @interface ScalarFunctionLambdaDescriptor
 {
-    String value() default "";
+    /**
+     * Index of the argument in the Call expression of the lambda function that this LambdaDescriptor represents
+     */
+    int callArgumentIndex();
 
-    String[] alias() default {};
-
-    SqlFunctionVisibility visibility() default PUBLIC;
-
-    boolean deterministic() default true;
-
-    boolean calledOnNullInput() default false;
-
-    ScalarFunctionDescriptor descriptor() default @ScalarFunctionDescriptor;
+    /**
+     * Map of lambda argument descriptors where the key corresponds to the index in the list of lambda argument and value is the descriptor of the argument.
+     */
+    ScalarFunctionLambdaArgumentDescriptor[] lambdaArgumentDescriptors();
 }
