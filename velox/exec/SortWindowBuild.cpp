@@ -31,8 +31,8 @@ SortWindowBuild::SortWindowBuild(
 }
 
 void SortWindowBuild::addInput(RowVectorPtr input) {
-  for (auto col = 0; col < input->childrenSize(); ++col) {
-    decodedInputVectors_[col].decode(*input->childAt(col));
+  for (auto i = 0; i < inputChannels_.size(); ++i) {
+    decodedInputVectors_[i].decode(*input->childAt(inputChannels_[i]));
   }
 
   // Add all the rows into the RowContainer.

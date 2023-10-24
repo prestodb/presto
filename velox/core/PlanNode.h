@@ -2075,6 +2075,10 @@ class WindowNode : public PlanNode {
     return outputType_;
   }
 
+  const RowTypePtr& inputType() const {
+    return sources_[0]->outputType();
+  }
+
   const std::vector<FieldAccessTypedExprPtr>& partitionKeys() const {
     return partitionKeys_;
   }

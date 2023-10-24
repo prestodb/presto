@@ -158,12 +158,16 @@ void WindowTestBase::testWindowFunction(
   std::mt19937 gen(rd());
   std::uniform_int_distribution<int> dis(0, 1);
 
+  int n = 0;
   for (const auto& overClause : overClauses) {
-    WindowTestBase::QueryInfo queryInfo;
     for (const auto& frameClause : frameClauses) {
+      ++n;
+
       auto resolvedWindowStyle = windowStyle == WindowStyle::kRandom
           ? static_cast<int>(dis(gen))
           : static_cast<int>(windowStyle);
+
+      WindowTestBase::QueryInfo queryInfo;
       if (resolvedWindowStyle == static_cast<int>(WindowStyle::kSort)) {
         queryInfo = buildWindowQuery(input, function, overClause, frameClause);
       } else {
@@ -171,7 +175,7 @@ void WindowTestBase::testWindowFunction(
             buildStreamingWindowQuery(input, function, overClause, frameClause);
       }
 
-      SCOPED_TRACE(queryInfo.functionSql);
+      SCOPED_TRACE(fmt::format("Query #{}: {}", n, queryInfo.functionSql));
       assertQuery(queryInfo.planNode, queryInfo.querySql);
     }
   }

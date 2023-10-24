@@ -30,8 +30,8 @@ void StreamingWindowBuild::buildNextPartition() {
 }
 
 void StreamingWindowBuild::addInput(RowVectorPtr input) {
-  for (auto col = 0; col < input->childrenSize(); ++col) {
-    decodedInputVectors_[col].decode(*input->childAt(col));
+  for (auto i = 0; i < inputChannels_.size(); ++i) {
+    decodedInputVectors_[i].decode(*input->childAt(inputChannels_[i]));
   }
 
   for (auto row = 0; row < input->size(); ++row) {

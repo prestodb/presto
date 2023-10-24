@@ -82,7 +82,11 @@ class WindowBuild {
   std::vector<std::pair<column_index_t, core::SortOrder>> partitionKeyInfo_;
   std::vector<std::pair<column_index_t, core::SortOrder>> sortKeyInfo_;
 
-  const vector_size_t numInputColumns_;
+  // Input columns in the order of: partition keys, sorting keys, the rest.
+  const std::vector<column_index_t> inputChannels_;
+
+  // Input column types in 'inputChannels_' order.
+  const RowTypePtr inputType_;
 
   // The RowContainer holds all the input rows in WindowBuild.
   std::unique_ptr<RowContainer> data_;

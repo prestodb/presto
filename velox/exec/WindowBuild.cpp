@@ -21,47 +21,83 @@
 namespace facebook::velox::exec {
 
 namespace {
-void initKeyInfo(
-    const RowTypePtr& type,
-    const std::vector<core::FieldAccessTypedExprPtr>& keys,
-    const std::vector<core::SortOrder>& orders,
-    std::vector<std::pair<column_index_t, core::SortOrder>>& keyInfo) {
-  const core::SortOrder defaultPartitionSortOrder(true, true);
+std::vector<column_index_t> reorderInputChannels(
+    const RowTypePtr& inputType,
+    const std::vector<core::FieldAccessTypedExprPtr>& partitionKeys,
+    const std::vector<core::FieldAccessTypedExprPtr>& sortingKeys) {
+  const auto size = inputType->size();
 
-  keyInfo.reserve(keys.size());
-  for (auto i = 0; i < keys.size(); ++i) {
-    auto channel = exprToChannel(keys[i].get(), type);
-    VELOX_CHECK(
-        channel != kConstantChannel,
-        "Window doesn't allow constant partition or sort keys");
-    if (i < orders.size()) {
-      keyInfo.push_back(std::make_pair(channel, orders[i]));
-    } else {
-      keyInfo.push_back(std::make_pair(channel, defaultPartitionSortOrder));
+  std::vector<column_index_t> channels;
+  channels.reserve(size);
+
+  std::unordered_set<std::string> keyNames;
+
+  for (const auto& key : partitionKeys) {
+    channels.push_back(exprToChannel(key.get(), inputType));
+    keyNames.insert(key->name());
+  }
+
+  for (const auto& key : sortingKeys) {
+    channels.push_back(exprToChannel(key.get(), inputType));
+    keyNames.insert(key->name());
+  }
+
+  for (auto i = 0; i < size; ++i) {
+    if (keyNames.count(inputType->nameOf(i)) == 0) {
+      channels.push_back(i);
     }
   }
+
+  return channels;
+}
+
+RowTypePtr reorderInputType(
+    const RowTypePtr& inputType,
+    const std::vector<column_index_t>& channels) {
+  const auto size = inputType->size();
+
+  VELOX_CHECK_EQ(size, channels.size());
+
+  std::vector<std::string> names;
+  names.reserve(size);
+
+  std::vector<TypePtr> types;
+  types.reserve(size);
+
+  for (auto channel : channels) {
+    names.push_back(inputType->nameOf(channel));
+    types.push_back(inputType->childAt(channel));
+  }
+
+  return ROW(std::move(names), std::move(types));
 }
 }; // namespace
 
 WindowBuild::WindowBuild(
     const std::shared_ptr<const core::WindowNode>& windowNode,
     velox::memory::MemoryPool* pool)
-    : numInputColumns_(windowNode->sources()[0]->outputType()->size()),
-      data_(std::make_unique<RowContainer>(
-          windowNode->sources()[0]->outputType()->children(),
-          pool)),
-      decodedInputVectors_(windowNode->sources()[0]->outputType()->size()) {
-  auto inputType = windowNode->sources()[0]->outputType();
-  for (int i = 0; i < inputType->children().size(); i++) {
-    inputColumns_.push_back(data_->columnAt(i));
+    : inputChannels_{reorderInputChannels(
+          windowNode->inputType(),
+          windowNode->partitionKeys(),
+          windowNode->sortingKeys())},
+      inputType_{reorderInputType(windowNode->inputType(), inputChannels_)},
+      data_(std::make_unique<RowContainer>(inputType_->children(), pool)),
+      decodedInputVectors_(inputType_->size()) {
+  for (int i = 0; i < windowNode->inputType()->size(); i++) {
+    const auto index =
+        inputType_->getChildIdx(windowNode->inputType()->nameOf(i));
+    inputColumns_.emplace_back(data_->columnAt(index));
   }
 
-  initKeyInfo(inputType, windowNode->partitionKeys(), {}, partitionKeyInfo_);
-  initKeyInfo(
-      inputType,
-      windowNode->sortingKeys(),
-      windowNode->sortingOrders(),
-      sortKeyInfo_);
+  const auto numPartitionKeys = windowNode->partitionKeys().size();
+  for (auto i = 0; i < numPartitionKeys; ++i) {
+    partitionKeyInfo_.push_back(std::make_pair(i, core::SortOrder{true, true}));
+  }
+
+  for (auto i = 0; i < windowNode->sortingKeys().size(); ++i) {
+    sortKeyInfo_.push_back(
+        std::make_pair(numPartitionKeys + i, windowNode->sortingOrders()[i]));
+  }
 }
 
 bool WindowBuild::compareRowsWithKeys(

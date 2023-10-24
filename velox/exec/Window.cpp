@@ -31,7 +31,7 @@ Window::Window(
           operatorId,
           windowNode->id(),
           "Window"),
-      numInputColumns_(windowNode->sources()[0]->outputType()->size()),
+      numInputColumns_(windowNode->inputType()->size()),
       windowNode_(windowNode),
       currentPartition_(nullptr),
       stringAllocator_(pool()) {
@@ -501,14 +501,8 @@ RowVectorPtr Window::getOutput() {
   }
 
   auto numOutputRows = std::min(numRowsPerOutput_, numRowsLeft);
-  auto result = std::dynamic_pointer_cast<RowVector>(
-      BaseVector::create(outputType_, numOutputRows, operatorCtx_->pool()));
-
-  for (int i = numInputColumns_; i < outputType_->size(); i++) {
-    auto output = BaseVector::create(
-        outputType_->childAt(i), numOutputRows, operatorCtx_->pool());
-    result->childAt(i) = output;
-  }
+  auto result = BaseVector::create<RowVector>(
+      outputType_, numOutputRows, operatorCtx_->pool());
 
   // Compute the output values of window functions.
   auto numResultRows = callApplyLoop(numOutputRows, result);
