@@ -17,9 +17,7 @@
 #pragma once
 
 #include "velox/common/compression/Compression.h"
-#include "velox/dwio/common/OutputStream.h"
 #include "velox/dwio/common/SeekableInputStream.h"
-#include "velox/dwio/common/compression/CompressionBufferPool.h"
 #include "velox/dwio/common/encryption/Encryption.h"
 
 namespace facebook::velox::dwio::common::compression {
@@ -111,18 +109,10 @@ std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
 /**
  * Create a compressor for the given compression kind.
  * @param kind The compression type to implement
- * @param bufferPool Pool for compression buffer
- * @param bufferHolder Buffer holder that handles buffer allocation and
- * collection
- * @param pageHeaderSize Header size of compressed block
  * @param options The compression options to use
  */
-std::unique_ptr<BufferedOutputStream> createCompressor(
+std::unique_ptr<Compressor> createCompressor(
     facebook::velox::common::CompressionKind kind,
-    CompressionBufferPool& bufferPool,
-    DataBufferHolder& bufferHolder,
-    uint8_t pageHeaderSize,
-    const CompressionOptions& options,
-    const dwio::common::encryption::Encrypter* encrypter = nullptr);
+    const CompressionOptions& options);
 
 } // namespace facebook::velox::dwio::common::compression

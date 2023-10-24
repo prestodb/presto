@@ -37,5 +37,4 @@ target_link_libraries(
   arrow
   Snappy::snappy
   thrift
-  zstd::zstd
-  ${Protobuf_LIBRARIES})
+  zstd::zstd)

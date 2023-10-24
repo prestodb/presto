@@ -16,7 +16,9 @@
 
 #pragma once
 
+#include "velox/dwio/common/OutputStream.h"
 #include "velox/dwio/common/compression/Compression.h"
+#include "velox/dwio/common/compression/CompressionBufferPool.h"
 
 namespace facebook::velox::dwio::common::compression {
 

@@ -17,8 +17,11 @@
 #pragma once
 
 #include "velox/common/compression/Compression.h"
+#include "velox/dwio/common/OutputStream.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/compression/Compression.h"
+#include "velox/dwio/common/compression/CompressionBufferPool.h"
+#include "velox/dwio/common/compression/PagedOutputStream.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/Config.h"
 #include "velox/dwio/dwrf/common/Decryption.h"
@@ -66,13 +69,18 @@ static std::unique_ptr<dwio::common::BufferedOutputStream> createCompressor(
       config.get(Config::COMPRESSION_THRESHOLD),
       config.get(Config::ZLIB_COMPRESSION_LEVEL),
       config.get(Config::ZSTD_COMPRESSION_LEVEL));
-
-  return createCompressor(
-      kind,
+  auto compressor = createCompressor(kind, dwrfOrcCompressionOptions);
+  if (!compressor) {
+    if (!encrypter && kind == common::CompressionKind::CompressionKind_NONE) {
+      return std::make_unique<dwio::common::BufferedOutputStream>(bufferHolder);
+    }
+  }
+  return std::make_unique<PagedOutputStream>(
       bufferPool,
       bufferHolder,
+      dwrfOrcCompressionOptions.compressionThreshold,
       PAGE_HEADER_SIZE,
-      dwrfOrcCompressionOptions,
+      std::move(compressor),
       encrypter);
 }
 
