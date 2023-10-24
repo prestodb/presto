@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 
 import java.util.Optional;
@@ -23,13 +24,15 @@ public class ScalarHeader
     private final SqlFunctionVisibility visibility;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
+    private final ComplexTypeFunctionDescriptor functionDescriptor;
 
-    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput)
+    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput, ComplexTypeFunctionDescriptor functionDescriptor)
     {
         this.description = description;
         this.visibility = visibility;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
+        this.functionDescriptor = functionDescriptor;
     }
 
     public Optional<String> getDescription()
@@ -50,5 +53,10 @@ public class ScalarHeader
     public boolean isCalledOnNullInput()
     {
         return calledOnNullInput;
+    }
+
+    public ComplexTypeFunctionDescriptor getFunctionDescriptor()
+    {
+        return functionDescriptor;
     }
 }

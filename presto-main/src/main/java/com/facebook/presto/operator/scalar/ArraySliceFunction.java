@@ -19,13 +19,14 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
 
-@ScalarFunction("slice")
+@ScalarFunction(value = "slice", descriptor = @ScalarFunctionDescriptor(isAccessingInputValues = false))
 @Description("Subsets an array given an offset (1-indexed) and length")
 public final class ArraySliceFunction
 {
