@@ -2880,3 +2880,31 @@ TEST(TestReader, missingSubfieldsNoResultReusing) {
   });
   assertEqualVectors(expected, actual);
 }
+
+// Ensure there is enough data before switching to fast path.
+TEST(TestReader, selectiveStringDirectFastPath) {
+  auto* pool = getDefaultPool().get();
+  VectorMaker maker(pool);
+  auto genStr = [](auto i) {
+    return i == 0 ? "x" : i < 8 ? "" : "xxxxxxxxxxx";
+  };
+  auto batch = maker.rowVector({
+      maker.flatVector<int64_t>(17, [](auto i) { return i != 8; }),
+      maker.flatVector<StringView>(17, genStr),
+  });
+  auto [writer, reader] = createWriterReader({batch}, *pool);
+  auto schema = asRowType(batch->type());
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+  spec->childByName("c0")->setFilter(common::createBigintValues({1}, false));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  auto actual = BaseVector::create(schema, 0, pool);
+  ASSERT_EQ(rowReader->next(1024, actual), batch->size());
+  auto expected = maker.rowVector({
+      std::make_shared<ConstantVector<int64_t>>(pool, 16, false, BIGINT(), 1),
+      maker.flatVector<StringView>(16, genStr),
+  });
+  assertEqualVectors(expected, actual);
+}

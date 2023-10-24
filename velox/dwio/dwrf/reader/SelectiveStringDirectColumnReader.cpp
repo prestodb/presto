@@ -230,7 +230,8 @@ inline bool SelectiveStringDirectColumnReader::try8Consecutive(
   // If we haven't read in a buffer yet, or there is not enough data left.  This
   // check is important to make sure the subsequent fast path will have enough
   // data to read.
-  if (!bufferStart_ || bufferEnd_ - bufferStart_ - bytesToSkip_ < 8 * 12) {
+  if (!bufferStart_ ||
+      bufferEnd_ - bufferStart_ - bytesToSkip_ < start + 8 * 12) {
     return false;
   }
   const char* data = bufferStart_ + start + bytesToSkip_;
@@ -240,6 +241,7 @@ inline bool SelectiveStringDirectColumnReader::try8Consecutive(
     bool gt4;
     if (allSmallEnough(lengths, offsets, gt4)) {
       if (gt4) {
+        VELOX_DCHECK_LE(data + offsets[7] + 12, bufferEnd_);
         return try8ConsecutiveSmall<scatter, true>(data, offsets, row);
       } else {
         return try8ConsecutiveSmall<scatter, false>(data, offsets, row);
