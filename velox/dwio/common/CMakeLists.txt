@@ -33,6 +33,7 @@ add_library(
   DecoderUtil.cpp
   DirectDecoder.cpp
   DwioMetricsLog.cpp
+  ExecutorBarrier.cpp
   FileSink.cpp
   FlatMapHelper.cpp
   InputStream.cpp

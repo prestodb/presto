@@ -22,6 +22,7 @@ add_executable(
   ColumnSelectorTests.cpp
   DataBufferTests.cpp
   DecoderUtilTest.cpp
+  ExecutorBarrierTest.cpp
   LocalFileSinkTest.cpp
   LoggedExceptionTest.cpp
   RangeTests.cpp
