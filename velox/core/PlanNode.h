@@ -2045,26 +2045,6 @@ class WindowNode : public PlanNode {
       bool inputsSorted,
       PlanNodePtr source);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  WindowNode(
-      PlanNodeId id,
-      std::vector<FieldAccessTypedExprPtr> partitionKeys,
-      std::vector<FieldAccessTypedExprPtr> sortingKeys,
-      std::vector<SortOrder> sortingOrders,
-      std::vector<std::string> windowColumnNames,
-      std::vector<Function> windowFunctions,
-      PlanNodePtr source)
-      : WindowNode(
-            id,
-            partitionKeys,
-            sortingKeys,
-            sortingOrders,
-            windowColumnNames,
-            windowFunctions,
-            false,
-            source){};
-#endif
-
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
