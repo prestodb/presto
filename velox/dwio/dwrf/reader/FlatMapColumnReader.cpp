@@ -327,6 +327,9 @@ void FlatMapColumnReader<T>::next(
   std::vector<const BaseVector*> nodeBatches;
   size_t totalChildren = 0;
   if (nonNullMaps > 0) {
+    auto keyNodes_sz = keyNodes_.size();
+    nodeBatches.reserve(keyNodes_sz);
+    nodes.reserve(keyNodes_sz);
     for (auto& node : keyNodes_) {
       // if the node has value filled into key-value batch
       // future optimization - enable batch to be sortable on row index
