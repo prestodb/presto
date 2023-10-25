@@ -331,35 +331,6 @@ TEST_F(MinMaxTest, array) {
   testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected});
 }
 
-TEST_F(MinMaxTest, map) {
-  auto data = makeRowVector({
-      makeNullableMapVector<int64_t, int64_t>({
-          {{{1, 1}, {2, 2}}},
-          {{{2, std::nullopt}, {2, 3}}},
-          {{{4, 50}}},
-      }),
-  });
-
-  auto expected = makeRowVector({
-      makeMapVector<int64_t, int64_t>({{{1, 1}, {2, 2}}}),
-      makeMapVector<int64_t, int64_t>({{{4, 50}}}),
-  });
-
-  VELOX_ASSERT_THROW(
-      testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected}),
-      "MAP comparison not supported for values that contain nulls");
-
-  data = makeRowVector({
-      makeNullableMapVector<int64_t, int64_t>({
-          {{{1, 1}, {2, 2}}},
-          {{{1, 1}, {2, 3}}},
-          {{{4, 50}}},
-      }),
-  });
-
-  testAggregations({data}, {}, {"min(c0)", "max(c0)"}, {expected});
-}
-
 TEST_F(MinMaxTest, row) {
   auto data = makeRowVector({
       makeRowVector({
@@ -491,6 +462,28 @@ TEST_F(MinMaxTest, rowCheckNull) {
         {"c1"},
         {expr},
         "ROW comparison not supported for values that contain nulls");
+  }
+}
+
+TEST_F(MinMaxTest, failOnUnorderableType) {
+  auto data = makeRowVector({
+      makeAllNullMapVector(5, VARCHAR(), BIGINT()),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5}),
+  });
+
+  static const std::string kErrorMessage =
+      "Aggregate function signature is not supported";
+  for (const auto& expr : {"min(c0)", "max(c0)"}) {
+    {
+      auto builder = PlanBuilder().values({data});
+      VELOX_ASSERT_THROW(builder.singleAggregation({}, {expr}), kErrorMessage);
+    }
+
+    {
+      auto builder = PlanBuilder().values({data});
+      VELOX_ASSERT_THROW(
+          builder.singleAggregation({"c1"}, {expr}), kErrorMessage);
+    }
   }
 }
 

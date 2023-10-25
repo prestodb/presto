@@ -1107,7 +1107,7 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
   // V, C -> row(V, C) -> V.
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                            .typeVariable("V")
-                           .typeVariable("C")
+                           .orderableTypeVariable("C")
                            .returnType("V")
                            .intermediateType("row(V,C)")
                            .argumentType("V")

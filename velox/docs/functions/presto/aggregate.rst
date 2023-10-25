@@ -91,6 +91,7 @@ General Aggregate Functions
 .. function:: max_by(x, y) -> [same as x]
 
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
+    ``y`` must be an orderable type.
 
 .. function:: max_by(x, y, n) -> array([same as x])
     :noindex:
@@ -100,6 +101,7 @@ General Aggregate Functions
 .. function:: min_by(x, y) -> [same as x]
 
     Returns the value of ``x`` associated with the minimum value of ``y`` over all input values.
+    ``y`` must be an orderable type.
 
 .. function:: min_by(x, y, n) -> array([same as x])
     :noindex:
@@ -110,6 +112,7 @@ General Aggregate Functions
 
     Returns the maximum value of all input values.
     ``x`` must not contain nulls when it is complex type.
+    ``x`` must be an orderable type.
 
 .. function:: max(x, n) -> array<[same as x]>
     :noindex:
@@ -121,6 +124,7 @@ General Aggregate Functions
 
     Returns the minimum value of all input values.
     ``x`` must not contain nulls when it is complex type.
+    ``x`` must be an orderable type.
 
 .. function:: min(x, n) -> array<[same as x]>
     :noindex:
