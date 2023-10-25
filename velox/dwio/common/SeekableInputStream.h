@@ -57,6 +57,12 @@ class SeekableInputStream : public google::protobuf::io::ZeroCopyInputStream {
   // ORC/DWRF stream address.
   virtual size_t positionSize() = 0;
 
+  virtual bool skip(int64_t count) = 0;
+
+  bool Skip(int32_t count) final override {
+    return skip(count);
+  }
+
   void readFully(char* buffer, size_t bufferSize);
 };
 
@@ -96,7 +102,7 @@ class SeekableArrayInputStream : public SeekableInputStream {
   ~SeekableArrayInputStream() override = default;
   virtual bool Next(const void** data, int32_t* size) override;
   virtual void BackUp(int32_t count) override;
-  virtual bool Skip(int32_t count) override;
+  virtual bool skip(int64_t count) override;
   virtual google::protobuf::int64 ByteCount() const override;
   virtual void seekToPosition(PositionProvider& position) override;
   virtual std::string getName() const override;
@@ -130,7 +136,7 @@ class SeekableFileInputStream : public SeekableInputStream {
 
   virtual bool Next(const void** data, int32_t* size) override;
   virtual void BackUp(int32_t count) override;
-  virtual bool Skip(int32_t count) override;
+  virtual bool skip(int64_t count) override;
   virtual google::protobuf::int64 ByteCount() const override;
   virtual void seekToPosition(PositionProvider& position) override;
   virtual std::string getName() const override;

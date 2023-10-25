@@ -1014,11 +1014,13 @@ class TestingSeekableInputStream : public SeekableInputStream {
     VELOX_CHECK_LE(count, lastSize_);
     position_ -= count;
   }
-  bool Skip(int32_t count) override {
+
+  bool skip(int64_t count) override {
     VELOX_CHECK_LE(count + position_, length_);
     position_ += count;
     return true;
   }
+
   google::protobuf::int64 ByteCount() const override {
     return position_;
   }

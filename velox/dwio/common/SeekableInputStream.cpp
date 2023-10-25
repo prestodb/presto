@@ -147,7 +147,7 @@ void SeekableArrayInputStream::BackUp(int32_t count) {
   }
 }
 
-bool SeekableArrayInputStream::Skip(int32_t count) {
+bool SeekableArrayInputStream::skip(int64_t count) {
   loadIfAvailable();
 
   if (count >= 0) {
@@ -230,7 +230,7 @@ void SeekableFileInputStream::BackUp(int32_t signedCount) {
   position -= pushBack;
 }
 
-bool SeekableFileInputStream::Skip(int32_t signedCount) {
+bool SeekableFileInputStream::skip(int64_t signedCount) {
   if (signedCount < 0) {
     return false;
   }

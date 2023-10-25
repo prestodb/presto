@@ -105,7 +105,7 @@ void CacheInputStream::BackUp(int32_t count) {
   position_ -= unsignedCount;
 }
 
-bool CacheInputStream::Skip(int32_t count) {
+bool CacheInputStream::skip(int64_t count) {
   if (count < 0) {
     return false;
   }

@@ -258,7 +258,7 @@ bool PagedInputStream::skipAllPending() {
   return true;
 }
 
-bool PagedInputStream::Skip(int32_t count) {
+bool PagedInputStream::skip(int64_t count) {
   VELOX_CHECK_GE(count, 0);
   pendingSkip_ += count;
   // We never use the return value of this function so this is OK.
