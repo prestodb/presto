@@ -28,9 +28,19 @@ class StreamingWindowBuild : public WindowBuild {
  public:
   StreamingWindowBuild(
       const std::shared_ptr<const core::WindowNode>& windowNode,
-      velox::memory::MemoryPool* pool);
+      velox::memory::MemoryPool* pool,
+      const common::SpillConfig* spillConfig,
+      tsan_atomic<bool>* nonReclaimableSection);
 
   void addInput(RowVectorPtr input) override;
+
+  void spill() override {
+    VELOX_UNREACHABLE();
+  }
+
+  std::optional<SpillStats> spilledStats() const override {
+    return std::nullopt;
+  }
 
   void noMoreInput() override;
 

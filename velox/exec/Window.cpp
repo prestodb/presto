@@ -30,15 +30,22 @@ Window::Window(
           windowNode->outputType(),
           operatorId,
           windowNode->id(),
-          "Window"),
+          "Window",
+          windowNode->canSpill(driverCtx->queryConfig())
+              ? driverCtx->makeSpillConfig(operatorId)
+              : std::nullopt),
       numInputColumns_(windowNode->inputType()->size()),
       windowNode_(windowNode),
       currentPartition_(nullptr),
       stringAllocator_(pool()) {
+  auto* spillConfig =
+      spillConfig_.has_value() ? &spillConfig_.value() : nullptr;
   if (windowNode->inputsSorted()) {
-    windowBuild_ = std::make_unique<StreamingWindowBuild>(windowNode, pool());
+    windowBuild_ = std::make_unique<StreamingWindowBuild>(
+        windowNode, pool(), spillConfig, &nonReclaimableSection_);
   } else {
-    windowBuild_ = std::make_unique<SortWindowBuild>(windowNode, pool());
+    windowBuild_ = std::make_unique<SortWindowBuild>(
+        windowNode, pool(), spillConfig, &nonReclaimableSection_);
   }
 }
 
@@ -141,6 +148,27 @@ void Window::addInput(RowVectorPtr input) {
   numRows_ += input->size();
 }
 
+void Window::reclaim(
+    uint64_t targetBytes,
+    memory::MemoryReclaimer::Stats& stats) {
+  if (!spillConfig_.has_value()) {
+    // Spilling not enabled.
+    return;
+  }
+
+  if (nonReclaimableSection_) {
+    ++stats.numNonReclaimableAttempts;
+    return;
+  }
+
+  if (noMoreInput_) {
+    // TODO Add support for spilling after noMoreInput().
+    return;
+  }
+
+  windowBuild_->spill();
+}
+
 void Window::createPeerAndFrameBuffers() {
   // TODO: This computation needs to be revised. It only takes into account
   // the input columns size. We need to also account for the output columns.
@@ -170,6 +198,10 @@ void Window::createPeerAndFrameBuffers() {
 void Window::noMoreInput() {
   Operator::noMoreInput();
   windowBuild_->noMoreInput();
+
+  if (auto spillStats = windowBuild_->spilledStats()) {
+    recordSpillStats(spillStats.value());
+  }
 }
 
 void Window::callResetPartition() {

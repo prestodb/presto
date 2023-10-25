@@ -20,8 +20,10 @@ namespace facebook::velox::exec {
 
 StreamingWindowBuild::StreamingWindowBuild(
     const std::shared_ptr<const core::WindowNode>& windowNode,
-    velox::memory::MemoryPool* pool)
-    : WindowBuild(windowNode, pool) {}
+    velox::memory::MemoryPool* pool,
+    const common::SpillConfig* spillConfig,
+    tsan_atomic<bool>* nonReclaimableSection)
+    : WindowBuild(windowNode, pool, spillConfig, nonReclaimableSection) {}
 
 void StreamingWindowBuild::buildNextPartition() {
   partitionStartRows_.push_back(sortedRows_.size());

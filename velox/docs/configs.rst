@@ -194,17 +194,18 @@ Spilling
      - boolean
      - true
      - When `spill_enabled` is true, determines whether HashAggregation operator can spill to disk under memory pressure.
-       memory limits for the query.
    * - join_spill_enabled
      - boolean
      - true
      - When `spill_enabled` is true, determines whether HashBuild and HashProbe operators can spill to disk under memory pressure.
-       limits for the query.
    * - order_by_spill_enabled
      - boolean
      - true
      - When `spill_enabled` is true, determines whether OrderBy operator can spill to disk under memory pressure.
-       limits for the query.
+   * - window_spill_enabled
+     - boolean
+     - true
+     - When `spill_enabled` is true, determines whether Window operator can spill to disk under memory pressure.
    * - row_number_spill_enabled
      - boolean
      - true

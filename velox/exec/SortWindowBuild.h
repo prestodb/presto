@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/exec/Spiller.h"
 #include "velox/exec/WindowBuild.h"
 
 namespace facebook::velox::exec {
@@ -26,8 +27,10 @@ namespace facebook::velox::exec {
 class SortWindowBuild : public WindowBuild {
  public:
   SortWindowBuild(
-      const std::shared_ptr<const core::WindowNode>& windowNode,
-      velox::memory::MemoryPool* pool);
+      const std::shared_ptr<const core::WindowNode>& node,
+      velox::memory::MemoryPool* pool,
+      const common::SpillConfig* spillConfig,
+      tsan_atomic<bool>* nonReclaimableSection);
 
   bool needsInput() override {
     // No partitions are available yet, so can consume input rows.
@@ -36,6 +39,15 @@ class SortWindowBuild : public WindowBuild {
 
   void addInput(RowVectorPtr input) override;
 
+  void spill() override;
+
+  std::optional<SpillStats> spilledStats() const override {
+    if (spiller_ == nullptr) {
+      return std::nullopt;
+    }
+    return spiller_->stats();
+  }
+
   void noMoreInput() override;
 
   bool hasNextPartition() override;
@@ -43,6 +55,10 @@ class SortWindowBuild : public WindowBuild {
   std::unique_ptr<WindowPartition> nextPartition() override;
 
  private:
+  void ensureInputFits(const RowVectorPtr& input);
+
+  void setupSpiller();
+
   // Main sorting function loop done after all input rows are received
   // by WindowBuild.
   void sortPartitions();
@@ -52,6 +68,18 @@ class SortWindowBuild : public WindowBuild {
   // of each partition in the data. This is an auxiliary
   // structure that helps simplify the window function computations.
   void computePartitionStartRows();
+
+  // Reads next partition from spilled data into 'data_' and 'sortedRows_'.
+  void loadNextPartitionFromSpill();
+
+  const size_t numPartitionKeys_;
+
+  // Compare flags for partition and sorting keys. Compare flags for partition
+  // keys are set to default values. Compare flags for sorting keys match
+  // sorting order specified in the plan node.
+  //
+  // Used to sort 'data_' while spilling.
+  const std::vector<CompareFlags> spillCompareFlags_;
 
   // allKeyInfo_ is a combination of (partitionKeyInfo_ and sortKeyInfo_).
   // It is used to perform a full sorting of the input rows to be able to
@@ -73,6 +101,12 @@ class SortWindowBuild : public WindowBuild {
   // Current partition being output. Used to construct WindowPartitions
   // during resetPartition.
   vector_size_t currentPartition_ = -1;
+
+  // Spiller for contents of the 'data_'.
+  std::unique_ptr<Spiller> spiller_;
+
+  // Used to sort-merge spilled data.
+  std::unique_ptr<TreeOfLosers<SpillMergeStream>> merge_;
 };
 
 } // namespace facebook::velox::exec

@@ -71,30 +71,51 @@ RowTypePtr reorderInputType(
 
   return ROW(std::move(names), std::move(types));
 }
+
+// Returns a [start, end) slice of the 'types' vector.
+std::vector<TypePtr>
+slice(const std::vector<TypePtr>& types, int32_t start, int32_t end) {
+  std::vector<TypePtr> result;
+  result.reserve(end - start);
+  for (auto i = start; i < end; ++i) {
+    result.push_back(types[i]);
+  }
+  return result;
+}
 }; // namespace
 
 WindowBuild::WindowBuild(
     const std::shared_ptr<const core::WindowNode>& windowNode,
-    velox::memory::MemoryPool* pool)
+    velox::memory::MemoryPool* pool,
+    const common::SpillConfig* spillConfig,
+    tsan_atomic<bool>* nonReclaimableSection)
     : inputChannels_{reorderInputChannels(
           windowNode->inputType(),
           windowNode->partitionKeys(),
           windowNode->sortingKeys())},
       inputType_{reorderInputType(windowNode->inputType(), inputChannels_)},
-      data_(std::make_unique<RowContainer>(inputType_->children(), pool)),
+      spillConfig_{spillConfig},
+      nonReclaimableSection_{nonReclaimableSection},
       decodedInputVectors_(inputType_->size()) {
-  for (int i = 0; i < windowNode->inputType()->size(); i++) {
-    const auto index =
-        inputType_->getChildIdx(windowNode->inputType()->nameOf(i));
+  const auto numPartitionKeys = windowNode->partitionKeys().size();
+  const auto numSortingKeys = windowNode->sortingKeys().size();
+  const auto numKeys = numPartitionKeys + numSortingKeys;
+  data_ = std::make_unique<RowContainer>(
+      slice(inputType_->children(), 0, numKeys),
+      slice(inputType_->children(), numKeys, inputType_->size()),
+      pool);
+
+  const auto& inputType = windowNode->inputType();
+  for (int i = 0; i < inputType->size(); i++) {
+    const auto index = inputType_->getChildIdx(inputType->nameOf(i));
     inputColumns_.emplace_back(data_->columnAt(index));
   }
 
-  const auto numPartitionKeys = windowNode->partitionKeys().size();
   for (auto i = 0; i < numPartitionKeys; ++i) {
     partitionKeyInfo_.push_back(std::make_pair(i, core::SortOrder{true, true}));
   }
 
-  for (auto i = 0; i < windowNode->sortingKeys().size(); ++i) {
+  for (auto i = 0; i < numSortingKeys; ++i) {
     sortKeyInfo_.push_back(
         std::make_pair(numPartitionKeys + i, windowNode->sortingOrders()[i]));
   }

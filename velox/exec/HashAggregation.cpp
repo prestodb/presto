@@ -71,27 +71,6 @@ void populateAggregateInputs(
   }
 }
 
-void verifyIntermediateInputs(
-    const std::string& name,
-    const std::vector<TypePtr>& types) {
-  VELOX_USER_CHECK_GE(
-      types.size(),
-      1,
-      "Intermediate aggregates must have at least one argument: {}",
-      name);
-  VELOX_USER_CHECK_NE(
-      types[0]->kind(),
-      TypeKind::FUNCTION,
-      "First argument of an intermediate aggregate cannot be a lambda: {}",
-      name);
-  for (auto i = 1; i < types.size(); ++i) {
-    VELOX_USER_CHECK_EQ(
-        types[i]->kind(),
-        TypeKind::FUNCTION,
-        "Non-first argument of an intermediate aggregate must be a lambda: {}",
-        name);
-  }
-}
 } // namespace
 
 HashAggregation::HashAggregation(
