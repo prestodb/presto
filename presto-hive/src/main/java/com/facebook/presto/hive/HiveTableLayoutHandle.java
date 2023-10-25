@@ -40,7 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
-import static com.facebook.presto.hive.HiveMetadata.createPredicate;
+import static com.facebook.presto.hive.MetadataUtils.createPredicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;

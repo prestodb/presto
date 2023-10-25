@@ -37,13 +37,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
-import static com.facebook.presto.hive.HiveMetadata.createPredicate;
 import static com.facebook.presto.hive.HiveMetadata.decodePreferredOrderingColumnsFromStorage;
 import static com.facebook.presto.hive.HiveMetadata.encodePreferredOrderingColumns;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTableProperties.PREFERRED_ORDERING_COLUMNS;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.MetadataUtils.createPredicate;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
