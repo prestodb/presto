@@ -196,12 +196,40 @@ TEST_F(PrestoHasherTest, date) {
 
 TEST_F(PrestoHasherTest, unscaledShortDecimal) {
   assertHash<int64_t>(
-      {0, 1000, std::nullopt}, {0, 2343331593029422743, 0}, DECIMAL(10, 5));
+      {0,
+       1000,
+       -1000,
+       std::nullopt,
+       DecimalUtil::kShortDecimalMax,
+       DecimalUtil::kShortDecimalMin},
+      {0,
+       1000,
+       -1000,
+       0,
+       DecimalUtil::kShortDecimalMax,
+       DecimalUtil::kShortDecimalMin},
+      DECIMAL(18, 0));
 }
 
 TEST_F(PrestoHasherTest, unscaledLongDecimal) {
   assertHash<int128_t>(
-      {0, 1000, std::nullopt}, {0, 2343331593029422743, 0}, DECIMAL(20, 5));
+      {0,
+       1000,
+       -1000,
+       HugeInt::build(0, 6223891681234568000UL),
+       HugeInt::build(9223372036854775805UL, 6898690891216455152UL),
+       std::nullopt,
+       DecimalUtil::kLongDecimalMax,
+       DecimalUtil::kLongDecimalMin},
+      {0,
+       -3317384982385163790,
+       -3317384982385163790,
+       -2440068372815350100,
+       8392582729122626937,
+       0,
+       3027397587645285649,
+       3027397587645285649},
+      DECIMAL(38, 0));
 }
 
 TEST_F(PrestoHasherTest, doubles) {

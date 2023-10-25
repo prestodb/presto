@@ -35,14 +35,16 @@ class ChecksumAggregateTest : public AggregationTestBase {
   void assertSingleGroupChecksum(
       const std::vector<std::optional<T>>& data,
       const std::string& checksum,
-      const TypePtr& type = CppToType<T>::create()) {
+      const TypePtr& type = CppToType<T>::create(),
+      bool testWithTableScan = true) {
     auto inputVector = makeNullableFlatVector<T>(data, type);
-    assertChecksum(inputVector, checksum);
+    assertChecksum(inputVector, checksum, testWithTableScan);
   }
 
   void assertChecksum(
       VectorPtr inputVector,
-      const std::string& expectedChecksum) {
+      const std::string& expectedChecksum,
+      bool testWithTableScan = true) {
     auto rowVectors = std::vector{makeRowVector({inputVector})};
 
     // DuckDB doesn't have checksum aggregation, so we will just pass in
@@ -51,7 +53,13 @@ class ChecksumAggregateTest : public AggregationTestBase {
         fmt::format("VALUES (CAST(\'{}\' AS VARCHAR))", expectedChecksum);
 
     testAggregations(
-        rowVectors, {}, {"checksum(c0)"}, {"to_base64(a0)"}, expectedDuckDbSql);
+        rowVectors,
+        {},
+        {"checksum(c0)"},
+        {"to_base64(a0)"},
+        expectedDuckDbSql,
+        /*config*/ {},
+        testWithTableScan);
   }
 
   template <typename G, typename T>
@@ -160,6 +168,98 @@ TEST_F(ChecksumAggregateTest, varchars) {
   assertSingleGroupChecksum<StringView>({"abcd"_sv}, "lGFxgnIYgPw=");
   assertSingleGroupChecksum<StringView>(
       {"Thanks \u0020\u007F"_sv}, "oEh7YyEV+dM=");
+}
+
+TEST_F(ChecksumAggregateTest, shortDecimals) {
+  assertSingleGroupChecksum<int64_t>({{}}, "h8rrhbF5N54=", DECIMAL(10, 5));
+  assertSingleGroupChecksum<int64_t>({0}, "AAAAAAAAAAA=", DECIMAL(10, 5));
+  // cast(1 as decimal(10, 5))
+  assertSingleGroupChecksum<int64_t>({100000}, "YD7o6fiAEGY=", DECIMAL(10, 5));
+  // cast(-1 as decimal(10, 5))
+  assertSingleGroupChecksum<int64_t>({-100000}, "oMEXFgd/75k=", DECIMAL(10, 5));
+  // max ShortDecimal: cast(999999999999999999 as DECIMAL(18, 0))
+  assertSingleGroupChecksum<int64_t>(
+      {DecimalUtil::kShortDecimalMax}, "eTXQp+w9eBA=", DECIMAL(18, 0));
+  // min ShortDecimal: cast(-999999999999999999 as DECIMAL(18, 0))
+  assertSingleGroupChecksum<int64_t>(
+      {DecimalUtil::kShortDecimalMin}, "h8ovWBPCh+8=", DECIMAL(18, 0));
+
+  assertSingleGroupChecksum<int64_t>(
+      {DecimalUtil::kShortDecimalMin, DecimalUtil::kShortDecimalMax},
+      "AAAAAAAAAAA=",
+      DECIMAL(18, 0));
+  assertSingleGroupChecksum<int64_t>(
+      {DecimalUtil::kShortDecimalMin, DecimalUtil::kShortDecimalMin},
+      "DpVfsCaED98=",
+      DECIMAL(18, 0));
+  assertSingleGroupChecksum<int64_t>(
+      {DecimalUtil::kShortDecimalMax, DecimalUtil::kShortDecimalMax},
+      "8mqgT9l78CA=",
+      DECIMAL(18, 0));
+  assertSingleGroupChecksum<int64_t>(
+      {DecimalUtil::kShortDecimalMax,
+       DecimalUtil::kShortDecimalMax,
+       std::nullopt},
+      "eTWM1Yr1J78=",
+      DECIMAL(18, 0));
+}
+
+TEST_F(ChecksumAggregateTest, longDecimals) {
+  assertSingleGroupChecksum<int128_t>(
+      {{}}, "h8rrhbF5N54=", DECIMAL(20, 5), false);
+  assertSingleGroupChecksum<int128_t>(
+      {0}, "AAAAAAAAAAA=", DECIMAL(20, 5), false);
+  // cast(1 as decimal(20, 5))
+  assertSingleGroupChecksum<int128_t>(
+      {100000}, "H2CwmSkDuAo=", DECIMAL(20, 5), false);
+  // cast(622389231123451.12345 as decimal(20,5))
+  assertSingleGroupChecksum<int128_t>(
+      {HugeInt::build(3, 6898690891216455152)},
+      "HGy5nQVxVXk=",
+      DECIMAL(20, 5),
+      false);
+  // cast(-622389231123451.12345 as decimal(20,5))
+  assertSingleGroupChecksum<int128_t>(
+      {HugeInt::build(18446744073709551612UL, 11548053182493096464UL)},
+      "HGy5nQVxVXk=",
+      DECIMAL(20, 5),
+      false);
+
+  // max longDecimal: cast('99999999999999999999999999999999999999'
+  // as DECIMAL(38, 0))
+  assertSingleGroupChecksum<int128_t>(
+      {DecimalUtil::kLongDecimalMax}, "91XKQU7AXNk=", DECIMAL(38, 0), false);
+
+  // min longDecimal: cast('-99999999999999999999999999999999999999'
+  // as DECIMAL(38, 0))
+  assertSingleGroupChecksum<int128_t>(
+      {DecimalUtil::kLongDecimalMin}, "91XKQU7AXNk=", DECIMAL(38, 0), false);
+
+  assertSingleGroupChecksum<int128_t>(
+      {DecimalUtil::kLongDecimalMin, DecimalUtil::kLongDecimalMax},
+      "7quUg5yAubI=",
+      DECIMAL(38, 0),
+      false);
+
+  assertSingleGroupChecksum<int128_t>(
+      {DecimalUtil::kLongDecimalMin, DecimalUtil::kLongDecimalMin},
+      "7quUg5yAubI=",
+      DECIMAL(38, 0),
+      false);
+
+  assertSingleGroupChecksum<int128_t>(
+      {DecimalUtil::kLongDecimalMax, DecimalUtil::kLongDecimalMax},
+      "7quUg5yAubI=",
+      DECIMAL(38, 0),
+      false);
+
+  assertSingleGroupChecksum<int128_t>(
+      {DecimalUtil::kLongDecimalMax,
+       DecimalUtil::kLongDecimalMax,
+       std::nullopt},
+      "dXaACU768FA=",
+      DECIMAL(38, 0),
+      false);
 }
 
 TEST_F(ChecksumAggregateTest, arrays) {

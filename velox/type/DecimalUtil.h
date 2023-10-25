@@ -79,6 +79,9 @@ class DecimalUtil {
   static constexpr int128_t kShortDecimalMax =
       kPowersOfTen[ShortDecimalType::kMaxPrecision] - 1;
 
+  static constexpr uint64_t kInt64Mask = ~(static_cast<uint64_t>(1) << 63);
+  static constexpr uint128_t kInt128Mask = (static_cast<uint128_t>(1) << 127);
+
   FOLLY_ALWAYS_INLINE static void valueInRange(int128_t value) {
     VELOX_CHECK(
         (value >= kLongDecimalMin && value <= kLongDecimalMax),

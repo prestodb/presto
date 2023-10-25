@@ -100,11 +100,54 @@ FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::BOOLEAN>(
 }
 
 template <>
+FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::BIGINT>(
+    const SelectivityVector& rows,
+    BufferPtr& hashes) {
+  if (vector_->base()->type()->isShortDecimal()) {
+    applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) {
+      // The Presto java ShortDecimal hash implementation
+      // returns the corresponding value directly.
+      return vector_->valueAt<int64_t>(row);
+    });
+  } else {
+    applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) {
+      return hashInteger(vector_->valueAt<int64_t>(row));
+    });
+  }
+}
+
+FOLLY_ALWAYS_INLINE uint64_t updateTail(uint64_t hash, uint64_t value) {
+  auto mix = XXH_rotl64(value * XXH_PRIME64_2, 31) * XXH_PRIME64_1;
+  auto temp = hash ^ mix;
+  return XXH_rotl64(temp, 27) * XXH_PRIME64_1 + XXH_PRIME64_4;
+}
+
+FOLLY_ALWAYS_INLINE uint64_t hashLongDecimalPart(const uint64_t value) {
+  auto hash = XXH_PRIME64_5 + sizeof(uint64_t);
+  hash = updateTail(hash, value);
+  hash = XXH64_avalanche(hash);
+  return hash;
+}
+
+// The implementation of Presto LongDecimal hash can be found in
+// https://github.com/prestodb/presto/blob/master/presto-common/src/main/java/com/facebook/presto/common/type/LongDecimalType.java#L91-L96.
+template <>
 FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::HUGEINT>(
     const SelectivityVector& rows,
     BufferPtr& hashes) {
   applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) {
-    return hashInteger(vector_->valueAt<int128_t>(row));
+    auto value = vector_->valueAt<int128_t>(row);
+    // Presto Java UnscaledDecimal128 representation uses signed magnitude
+    // representation. Only negative values differ in this representation.
+    // The processing here is mainly for the convenience of hash computation.
+    if (value < 0) {
+      value *= -1;
+      value |= DecimalUtil::kInt128Mask;
+    }
+    auto lower = HugeInt::lower(value);
+    auto high = HugeInt::upper(value);
+    return hashLongDecimalPart(lower) ^
+        hashLongDecimalPart(high & DecimalUtil::kInt64Mask);
   });
 }
 

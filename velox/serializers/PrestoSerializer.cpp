@@ -257,7 +257,6 @@ void readLosslessTimestampValues(
 }
 
 int128_t readJavaDecimal(ByteStream* source) {
-  constexpr int64_t kInt64DeserializeMask = ~(static_cast<int64_t>(1) << 63);
   // ByteStream does not support reading int128_t values.
   auto low = source->read<int64_t>();
   auto high = source->read<int64_t>();
@@ -265,7 +264,7 @@ int128_t readJavaDecimal(ByteStream* source) {
   if (high < 0) {
     // Remove the sign bit before building the int128 value.
     // Negate the value.
-    return -1 * HugeInt::build(high & kInt64DeserializeMask, low);
+    return -1 * HugeInt::build(high & DecimalUtil::kInt64Mask, low);
   }
   return HugeInt::build(high, low);
 }
@@ -1208,12 +1207,11 @@ void VectorStream::append(folly::Range<const bool*> values) {
 }
 
 FOLLY_ALWAYS_INLINE int128_t toJavaDecimalValue(int128_t value) {
-  constexpr int128_t kInt128SerializeMask = (static_cast<int128_t>(1) << 127);
   // Presto Java UnscaledDecimal128 representation uses signed magnitude
   // representation. Only negative values differ in this representation.
   if (value < 0) {
     value *= -1;
-    value |= kInt128SerializeMask;
+    value |= DecimalUtil::kInt128Mask;
   }
   return value;
 }
