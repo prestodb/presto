@@ -32,6 +32,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/HashBuild.h"
+#include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -3134,7 +3135,6 @@ DEBUG_ONLY_TEST_F(
 // reclaim from a set of hash build operators in which the last hash build
 // operator has finished.
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenRaclaimAndJoinFinish) {
-  GTEST_SKIP() << "https://github.com/facebookincubator/velox/issues/7154";
   const int kMemoryCapacity = 512 << 20;
   setupMemory(kMemoryCapacity, 0);
 
@@ -3169,10 +3169,24 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenRaclaimAndJoinFinish) {
   folly::EventCount waitForBuildFinishEvent;
   std::atomic<Driver*> lastBuildDriver{nullptr};
   std::atomic<Task*> task{nullptr};
+  std::atomic<bool> isLastBuildFirstChildPool{false};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::HashBuild::finishHashBuild",
       std::function<void(exec::HashBuild*)>([&](exec::HashBuild* buildOp) {
         lastBuildDriver = buildOp->testingOperatorCtx()->driver();
+        // Checks if the last build memory pool is the first build pool in its
+        // parent node pool. It is used to check the test result.
+        int buildPoolIndex{0};
+        buildOp->pool()->parent()->visitChildren([&](memory::MemoryPool* pool) {
+          if (pool == buildOp->pool()) {
+            return false;
+          }
+          if (isHashBuildMemoryPool(*pool)) {
+            ++buildPoolIndex;
+          }
+          return true;
+        });
+        isLastBuildFirstChildPool = (buildPoolIndex == 0);
         task = lastBuildDriver.load()->task().get();
         waitForBuildFinishFlag = false;
         waitForBuildFinishEvent.notifyAll();
@@ -3247,7 +3261,16 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenRaclaimAndJoinFinish) {
   memory::MemoryReclaimer::Stats stats;
   const uint64_t oldCapacity = joinQueryCtx->pool()->capacity();
   task.load()->pool()->reclaim(1'000, stats);
-  ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+  // If the last build memory pool is first child of its parent memory pool,
+  // then memory arbitration (or join node memory pool) will reclaim from the
+  // last build operator first which simply quits as the driver has gone. If
+  // not, we expect to get numNonReclaimableAttempts from any one of the
+  // remaining hash build operator.
+  if (isLastBuildFirstChildPool) {
+    ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+  } else {
+    ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+  }
   // Make sure we don't leak memory capacity since we reclaim from task pool
   // directly.
   static_cast<MemoryPoolImpl*>(task.load()->pool())

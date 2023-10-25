@@ -14,18 +14,9 @@
  * limitations under the License.
  */
 
-#include <re2/re2.h>
-
 #include "velox/exec/HashJoinBridge.h"
 
 namespace facebook::velox::exec {
-namespace {
-bool isHashBuildMemoryPool(const memory::MemoryPool& pool) {
-  static const std::string re(".*HashBuild");
-  return RE2::FullMatch(pool.name(), re);
-}
-} // namespace
-
 void HashJoinBridge::start() {
   std::lock_guard<std::mutex> l(mutex_);
   started_ = true;
@@ -197,5 +188,9 @@ uint64_t HashJoinMemoryReclaimer::reclaim(
         return false;
       });
   return reclaimedBytes;
+}
+
+bool isHashBuildMemoryPool(const memory::MemoryPool& pool) {
+  return folly::StringPiece(pool.name()).endsWith("HashBuild");
 }
 } // namespace facebook::velox::exec

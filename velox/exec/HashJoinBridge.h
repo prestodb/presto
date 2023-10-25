@@ -151,4 +151,8 @@ class HashJoinMemoryReclaimer final : public MemoryReclaimer {
  private:
   HashJoinMemoryReclaimer() : MemoryReclaimer() {}
 };
+
+/// Returns true if 'pool' is a hash build operator's memory pool. The check is
+/// currently based on the pool name.
+bool isHashBuildMemoryPool(const memory::MemoryPool& pool);
 } // namespace facebook::velox::exec

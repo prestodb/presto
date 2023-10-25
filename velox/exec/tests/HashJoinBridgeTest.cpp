@@ -486,6 +486,33 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
   }
 }
 
+TEST(HashJoinBridgeTest, isHashBuildMemoryPool) {
+  auto root =
+      memory::defaultMemoryManager().addRootPool("isHashBuildMemoryPool");
+  struct {
+    std::string poolName;
+    bool expectedHashBuildPool;
+
+    std::string debugString() const {
+      return fmt::format(
+          "poolName: {}, expectedHashBuildPool: {}",
+          poolName,
+          expectedHashBuildPool);
+    }
+  } testSettings[] = {
+      {"HashBuild", true},
+      {"HashBuildd", false},
+      {"hHashBuild", true},
+      {"hHashProbe", false},
+      {"HashProbe", false},
+      {"HashProbeh", false}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const auto pool = root->addLeafChild(testData.poolName);
+    ASSERT_EQ(isHashBuildMemoryPool(*pool), testData.expectedHashBuildPool);
+  }
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     HashJoinBridgeTest,
     HashJoinBridgeTest,
