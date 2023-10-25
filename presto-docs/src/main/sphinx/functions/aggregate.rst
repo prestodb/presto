@@ -113,7 +113,29 @@ General Aggregate Functions
     for each input value. In addition to taking the input value, ``inputFunction``
     takes the current state, initially ``initialState``, and returns the new state.
     ``combineFunction`` will be invoked to combine two states into a new state.
-    The final state is returned::
+    The final state is returned. Throws an error if ``initialState`` is NULL.
+    The behavior is undefined if ``inputFunction`` or ``combineFunction`` return a NULL.
+
+    Take care when designing ``initialState``, ``inputFunction`` and ``combineFunction``.
+    These must support evaluating aggregation in a distributed manner using partial
+    aggregation on many nodes, followed by shuffle over group-by keys, followed by
+    final aggregation. Consider all possible values of state to ensure that
+    ``combineFunction`` is `commutative <https://en.wikipedia.org/wiki/Commutative_property>`_
+    and `associative <https://en.wikipedia.org/wiki/Associative_property>`_
+    operation with ``initialState`` as the
+    `identity <https://en.wikipedia.org/wiki/Identity_element>`_ value.
+
+     combineFunction(s, initialState) = s for any s
+
+     combineFunction(s1, s2) = combineFunction(s2, s1) for any s1 and s2
+
+     combineFunction(s1, combineFunction(s2, s3)) = combineFunction(combineFunction(s1, s2), s3) for any s1, s2, s3
+
+    In addition, make sure that the following holds for the inputFunction:
+
+     inputFunction(inputFunction(initialState, x), y) = combineFunction(inputFunction(initialState, x), inputFunction(initialState, y)) for any x and y
+
+    ::
 
         SELECT id, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b)
         FROM (
