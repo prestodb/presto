@@ -1136,9 +1136,8 @@ void recursiveResizeChildren(VectorPtr& vector, vector_size_t newSize) {
     for (auto& child : rowVector->children()) {
       recursiveResizeChildren(child, newSize);
     }
-  } else {
-    vector->resize(newSize);
   }
+  vector->resize(newSize);
 }
 
 } // namespace
