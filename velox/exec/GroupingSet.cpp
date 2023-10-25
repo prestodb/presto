@@ -559,11 +559,8 @@ void GroupingSet::addGlobalAggregationInput(
 }
 
 bool GroupingSet::getGlobalAggregationOutput(
-    int32_t batchSize,
-    bool isPartial,
     RowContainerIterator& iterator,
     RowVectorPtr& result) {
-  VELOX_CHECK_EQ(batchSize, 1);
   if (iterator.allocationIndex != 0) {
     return false;
   }
@@ -577,7 +574,7 @@ bool GroupingSet::getGlobalAggregationOutput(
     }
 
     auto& function = aggregates_[i].function;
-    if (isPartial) {
+    if (isPartial_) {
       function->extractAccumulators(groups, 1, &result->childAt(i));
     } else {
       function->extractValues(groups, 1, &result->childAt(i));
@@ -649,8 +646,7 @@ bool GroupingSet::getOutput(
   TestValue::adjust("facebook::velox::exec::GroupingSet::getOutput", this);
 
   if (isGlobal_) {
-    return getGlobalAggregationOutput(
-        maxOutputRows, isPartial_, iterator, result);
+    return getGlobalAggregationOutput(iterator, result);
   }
   if (hasSpilled()) {
     return getOutputWithSpill(maxOutputRows, maxOutputBytes, result);

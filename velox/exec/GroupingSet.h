@@ -152,8 +152,6 @@ class GroupingSet {
   void addGlobalAggregationInput(const RowVectorPtr& input, bool mayPushdown);
 
   bool getGlobalAggregationOutput(
-      int32_t batchSize,
-      bool isPartial,
       RowContainerIterator& iterator,
       RowVectorPtr& result);
 
