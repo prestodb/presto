@@ -668,9 +668,20 @@ void FlatMapStructEncodingColumnReader<T>::next(
     // children vectors.
     childrenPtr = &rowVector->children();
     children.clear();
+    result->setNullCount(nullCount);
   } else {
     children.resize(keyNodes_.size());
-    childrenPtr = &children;
+    auto rowResult = std::make_shared<RowVector>(
+        &memoryPool_,
+        ROW(std::vector<std::string>(keyNodes_.size()),
+            std::vector<std::shared_ptr<const Type>>(
+                keyNodes_.size(), requestedType_->type()->asMap().valueType())),
+        nulls,
+        numValues,
+        std::move(children),
+        nullCount);
+    childrenPtr = &rowResult->children();
+    result = std::move(rowResult);
   }
 
   for (size_t i = 0; i < keyNodes_.size(); ++i) {
@@ -682,20 +693,6 @@ void FlatMapStructEncodingColumnReader<T>::next(
     } else {
       nullColumnReader_->next(numValues, child, nullsPtr);
     }
-  }
-
-  if (result) {
-    result->setNullCount(nullCount);
-  } else {
-    result = std::make_shared<RowVector>(
-        &memoryPool_,
-        ROW(std::vector<std::string>(keyNodes_.size()),
-            std::vector<std::shared_ptr<const Type>>(
-                keyNodes_.size(), requestedType_->type()->asMap().valueType())),
-        nulls,
-        numValues,
-        std::move(children),
-        nullCount);
   }
 }
 
