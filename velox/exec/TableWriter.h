@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "OperatorUtils.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/Operator.h"
@@ -133,6 +134,15 @@ class TableWriter : public Operator {
   /// created inside the connector.
   bool canReclaim() const override {
     return false;
+  }
+
+  OperatorStats stats(bool clear) override {
+    auto stats = Operator::stats(clear);
+    // NOTE: file writers allocates memory through 'connectorPool_', not from
+    // the table writer operator pool. So we report the memory usage from
+    // 'connectorPool_'.
+    stats.memoryStats = MemoryStats::memStatsFromPool(connectorPool_);
+    return stats;
   }
 
  private:

@@ -234,14 +234,17 @@ RowVectorPtr Operator::fillOutput(
 }
 
 OperatorStats Operator::stats(bool clear) {
+  OperatorStats stats;
   if (!clear) {
-    return *stats_.rlock();
+    stats = *stats_.rlock();
+  } else {
+    auto lockedStats = stats_.wlock();
+    stats = *lockedStats;
+    lockedStats->clear();
   }
 
-  auto lockedStats = stats_.wlock();
-  OperatorStats ret{*lockedStats};
-  lockedStats->clear();
-  return ret;
+  stats.memoryStats = MemoryStats::memStatsFromPool(pool());
+  return stats;
 }
 
 uint32_t Operator::outputBatchRows(

@@ -769,7 +769,6 @@ void Driver::closeOperators() {
   // Add operator stats to the task.
   for (auto& op : operators_) {
     auto stats = op->stats(true);
-    stats.memoryStats.update(op->pool());
     stats.numDrivers = 1;
     task()->addOperatorStats(stats);
   }

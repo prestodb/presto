@@ -46,16 +46,6 @@ struct MemoryStats {
   uint64_t peakTotalMemoryReservation{0};
   uint64_t numMemoryAllocations{0};
 
-  void update(memory::MemoryPool* pool) {
-    const memory::MemoryPool::Stats stats = pool->stats();
-    userMemoryReservation = stats.currentBytes;
-    systemMemoryReservation = 0;
-    peakUserMemoryReservation = stats.peakBytes;
-    peakSystemMemoryReservation = 0;
-    peakTotalMemoryReservation = stats.peakBytes;
-    numMemoryAllocations = stats.numAllocs;
-  }
-
   void add(const MemoryStats& other) {
     userMemoryReservation += other.userMemoryReservation;
     revocableMemoryReservation += other.revocableMemoryReservation;
@@ -77,6 +67,18 @@ struct MemoryStats {
     peakSystemMemoryReservation = 0;
     peakTotalMemoryReservation = 0;
     numMemoryAllocations = 0;
+  }
+
+  static MemoryStats memStatsFromPool(const memory::MemoryPool* pool) {
+    const auto poolStats = pool->stats();
+    MemoryStats memStats;
+    memStats.userMemoryReservation = poolStats.currentBytes;
+    memStats.systemMemoryReservation = 0;
+    memStats.peakUserMemoryReservation = poolStats.peakBytes;
+    memStats.peakSystemMemoryReservation = 0;
+    memStats.peakTotalMemoryReservation = poolStats.peakBytes;
+    memStats.numMemoryAllocations = poolStats.numAllocs;
+    return memStats;
   }
 };
 
@@ -153,6 +155,8 @@ struct OperatorStats {
   std::unordered_map<std::string, RuntimeMetric> runtimeStats;
 
   int numDrivers = 0;
+
+  OperatorStats() {}
 
   OperatorStats(
       int32_t _operatorId,
@@ -434,7 +438,7 @@ class Operator : public BaseRuntimeStatWriter {
 
   /// Returns copy of operator stats. If 'clear' is true, the function also
   /// clears the operator stats after retrieval.
-  OperatorStats stats(bool clear);
+  virtual OperatorStats stats(bool clear);
 
   /// Add a single runtime stat to the operator stats under the write lock.
   /// This member overrides BaseRuntimeStatWriter's member.

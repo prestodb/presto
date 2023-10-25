@@ -2091,6 +2091,11 @@ TEST_P(UnpartitionedTableWriterTest, runtimeStatsCheck) {
                 testData.maxStripeSize)
             .assertResults("SELECT count(*) FROM tmp");
     auto stats = task->taskStats().pipelineStats.front().operatorStats;
+    if (testData.maxStripeSize == "1GB") {
+      ASSERT_GT(
+          stats[1].memoryStats.peakTotalMemoryReservation,
+          testData.numInputVectors * options.stringLength);
+    }
     ASSERT_EQ(
         stats[1].runtimeStats["stripeSize"].count, testData.expectedNumStripes);
     ASSERT_EQ(stats[1].runtimeStats["numWrittenFiles"].sum, 1);
@@ -2275,7 +2280,7 @@ DEBUG_ONLY_TEST_P(BucketedTableOnlyWriteTest, spillingCheck) {
         std::function<void(memory::MemoryPool*)>(
             [&](memory::MemoryPool* pool) { memoryReserved = true; }));
     assertQueryWithWriterConfigs(plan, "SELECT count(*) FROM tmp");
-    // We don't expect memory reservation has been triggered.
+    // We don't expect memory reservation to be triggered.
     ASSERT_FALSE(memoryReserved);
   }
 }
