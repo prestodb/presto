@@ -14,25 +14,19 @@
  * limitations under the License.
  */
 
-#include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
+#include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 #include "velox/common/base/tests/GTestUtils.h"
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/AggregateCompanionSignatures.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 #include "velox/expression/SignatureBinder.h"
-
-#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-#include "velox/connectors/hive/HiveConnectorSplit.h"
-#else
-#include "velox/vector/tests/utils/VectorMaker.h"
-#endif
 
 using facebook::velox::exec::Spiller;
 using facebook::velox::exec::test::AssertQueryBuilder;

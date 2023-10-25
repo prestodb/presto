@@ -17,7 +17,7 @@
 #include "velox/exec/SimpleAggregateAdapter.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/tests/SimpleAggregateFunctionsRegistration.h"
-#include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
+#include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
