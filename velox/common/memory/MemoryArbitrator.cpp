@@ -197,12 +197,15 @@ MemoryReclaimer::reclaim(MemoryPool* pool, uint64_t targetBytes, Stats& stats) {
     int64_t reservedBytes;
   };
   std::vector<Candidate> candidates;
-  candidates.reserve(pool->children_.size());
-  for (auto& entry : pool->children_) {
-    auto child = entry.second.lock();
-    if (child != nullptr) {
-      const int64_t reservedBytes = child->reservedBytes();
-      candidates.push_back(Candidate{std::move(child), reservedBytes});
+  {
+    folly::SharedMutex::ReadHolder guard{pool->poolMutex_};
+    candidates.reserve(pool->children_.size());
+    for (auto& entry : pool->children_) {
+      auto child = entry.second.lock();
+      if (child != nullptr) {
+        const int64_t reservedBytes = child->reservedBytes();
+        candidates.push_back(Candidate{std::move(child), reservedBytes});
+      }
     }
   }
 

@@ -729,7 +729,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
 }
 
 TEST_F(SharedArbitrationTest, reclaimFromCompletedOrderBy) {
-  GTEST_SKIP() << "https://github.com/facebookincubator/velox/issues/7154";
   const int numVectors = 2;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
@@ -1201,7 +1200,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToAggregation) {
 }
 
 TEST_F(SharedArbitrationTest, reclaimFromCompletedAggregation) {
-  GTEST_SKIP() << "https://github.com/facebookincubator/velox/issues/7154";
   const int numVectors = 2;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
