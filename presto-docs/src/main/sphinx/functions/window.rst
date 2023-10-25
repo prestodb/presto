@@ -190,16 +190,18 @@ null for all rows, the ``default_value`` is returned, or if it is not specified,
 
 .. function:: lead(x[, offset [, default_value]]) -> [same as input]
 
-    Returns the value at ``offset`` rows after the current row in the window.
+    Returns the value at ``offset`` rows after the current row in the window partition.
     Offsets start at ``0``, which is the current row. The
     offset can be any scalar expression. The default ``offset`` is ``1``. If the
-    offset is null or larger than the window, the ``default_value`` is returned,
-    or if it is not specified ``null`` is returned.
+    offset is null, null is returned. If the offset refers to a row that is not
+    within the partition, the ``default_value`` is returned, or if it is not specified
+    ``null`` is returned.
 
 .. function:: lag(x[, offset [, default_value]]) -> [same as input]
 
-    Returns the value at ``offset`` rows before the current row in the window
+    Returns the value at ``offset`` rows before the current row in the window partition.
     Offsets start at ``0``, which is the current row. The
     offset can be any scalar expression. The default ``offset`` is ``1``. If the
-    offset is null or larger than the window, the ``default_value`` is returned,
-    or if it is not specified ``null`` is returned.
+    offset is null, null is returned. If the offset refers to a row that is not
+    within the partition, the ``default_value`` is returned, or if it is not specified
+    ``null`` is returned.
