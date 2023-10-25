@@ -660,7 +660,8 @@ void JoinFuzzer::verify(core::JoinType joinType) {
   // Verify results against DuckDB.
   if (auto duckDbResult = computeDuckDbResult(probeInput, buildInput, plan)) {
     VELOX_CHECK(
-        assertEqualResults(duckDbResult.value(), {expected}),
+        assertEqualResults(
+            duckDbResult.value(), plan->outputType(), {expected}),
         "Velox and DuckDB results don't match");
   }
 

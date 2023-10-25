@@ -1122,7 +1122,9 @@ void AggregationFuzzer::verifyWindow(
           ++stats_.numVerified;
           VELOX_CHECK(
               assertEqualResults(
-                  expectedResult.value(), {resultOrError.result}),
+                  expectedResult.value(),
+                  plan->outputType(),
+                  {resultOrError.result}),
               "Velox and reference DB results don't match");
         }
       }
@@ -1283,8 +1285,11 @@ void AggregationFuzzer::verifyAggregation(
     if (expectedResult && resultOrError.result) {
       ++stats_.numVerified;
       VELOX_CHECK(
-          assertEqualResults(expectedResult.value(), {resultOrError.result}),
-          "Velox and reference DB results don't match");
+          assertEqualResults(
+              expectedResult.value(),
+              firstPlan->outputType(),
+              {resultOrError.result}),
+          "Velox and DuckDB results don't match");
     }
 
     testPlans(plans, verifyResults, resultOrError);
@@ -1375,8 +1380,9 @@ void AggregationFuzzer::verifyAggregation(
   if (expectedResult && resultOrError.result) {
     ++stats_.numVerified;
     VELOX_CHECK(
-        assertEqualResults(expectedResult.value(), {resultOrError.result}),
-        "Velox and reference DB results don't match");
+        assertEqualResults(
+            expectedResult.value(), plan->outputType(), {resultOrError.result}),
+        "Velox and DuckDB results don't match");
   }
 
   // Test all plans.
