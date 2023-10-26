@@ -58,7 +58,7 @@ class TestEncryption {
 
  private:
   std::string key_;
-  mutable size_t count_;
+  mutable std::atomic<size_t> count_;
 };
 
 class TestEncrypter : public TestEncryption, public Encrypter {
