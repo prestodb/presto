@@ -22,7 +22,11 @@
 
 namespace facebook::velox::functions::aggregate {
 
-template <typename TInput, typename TAccumulator, typename ResultType>
+template <
+    typename TInput,
+    typename TAccumulator,
+    typename ResultType,
+    bool Overflow>
 class SumAggregateBase
     : public SimpleNumericAggregate<TInput, TAccumulator, ResultType> {
   using BaseAggregate =
@@ -150,6 +154,7 @@ class SumAggregateBase
   template <typename TData>
   static void updateSingleValue(TData& result, TData value) {
     if constexpr (
+        (std::is_same_v<TData, int64_t> && Overflow) ||
         std::is_same_v<TData, double> || std::is_same_v<TData, float>) {
       result += value;
     } else {
@@ -160,6 +165,7 @@ class SumAggregateBase
   template <typename TData>
   static void updateDuplicateValues(TData& result, TData value, int n) {
     if constexpr (
+        (std::is_same_v<TData, int64_t> && Overflow) ||
         std::is_same_v<TData, double> || std::is_same_v<TData, float>) {
       result += n * value;
     } else {

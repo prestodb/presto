@@ -20,6 +20,8 @@ using namespace facebook::velox::functions::aggregate;
 
 namespace facebook::velox::aggregate::prestosql {
 namespace {
+template <typename TInput, typename TAccumulator, typename ResultType>
+using SumAggregate = SumAggregateBase<TInput, TAccumulator, ResultType, false>;
 
 template <template <typename U, typename V, typename W> class T>
 exec::AggregateRegistrationResult registerSum(const std::string& name) {
@@ -110,7 +112,7 @@ exec::AggregateRegistrationResult registerSum(const std::string& name) {
 } // namespace
 
 void registerSumAggregate(const std::string& prefix) {
-  registerSum<SumAggregateBase>(prefix + kSum);
+  registerSum<SumAggregate>(prefix + kSum);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

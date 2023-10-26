@@ -69,16 +69,59 @@ General Aggregate Functions
 
     Returns the last non-null value of `x`.
 
-.. spark:function:: max_by(x, y) -> x
+.. spark:function:: max_by(x, y) -> [same as x]
 
     Returns the value of `x` associated with the maximum value of `y`.
     Note: Spark provides a non-strictly comparator which is greater than or equals to.
-    Eg. SELECT max_by(x, y) FROM VALUES (('a', 10)), (('b', 50)), (('c', 50)) AS tab(x, y);
-        > c
 
-.. spark:function:: min_by(x, y) -> x
+    Example::
+
+        SELECT max_by(x, y)
+        FROM (
+            VALUES
+                ('a', 10),
+                ('b', 50),
+                ('c', 50)
+        ) AS t(x, y);
+
+    Returns c
+
+.. spark:function:: min_by(x, y) -> [same as x]
 
     Returns the value of `x` associated with the minimum value of `y`.
     Note: Spark provides a non-strictly comparator which is less than or equals to.
-    Eg. SELECT min_by(x, y) FROM VALUES (('a', 10)), (('b', 10)), (('c', 50)) AS tab(x, y);
-        > b
+
+    Example::
+
+        SELECT min_by(x, y)
+        FROM (
+            VALUES
+                ('a', 10),
+                ('b', 10),
+                ('c', 50)
+        ) AS t(x, y);
+
+    Returns b
+
+.. spark:function:: sum(x) -> bigint|double|real
+
+    Returns the sum of `x`.
+
+    Supported types are TINYINT, SMALLINT, INTEGER, BIGINT, REAL and DOUBLE.
+
+    When x is of type DOUBLE, the result type is DOUBLE.
+    When x is of type REAL, the result type is REAL.
+    For all other input types, the result type is BIGINT.
+
+    Note: When the sum of BIGINT values exceeds its limit, it cycles to the overflowed value rather than raising an error.
+
+    Example::
+
+        SELECT SUM(x)
+        FROM (
+            VALUES
+                (9223372036854775807L),
+                (1L)
+        ) AS t(x);
+
+    Returns -9223372036854775808

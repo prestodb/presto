@@ -20,7 +20,8 @@ add_executable(
   LastAggregateTest.cpp
   AverageAggregationTest.cpp
   Main.cpp
-  MinMaxByAggregationTest.cpp)
+  MinMaxByAggregationTest.cpp
+  SumAggregationTest.cpp)
 
 add_test(velox_functions_spark_aggregates_test
          velox_functions_spark_aggregates_test)

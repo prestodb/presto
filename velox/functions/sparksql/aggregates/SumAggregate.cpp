@@ -19,6 +19,11 @@ using namespace facebook::velox::functions::aggregate;
 
 namespace facebook::velox::functions::aggregate::sparksql {
 
+namespace {
+template <typename TInput, typename TAccumulator, typename ResultType>
+using SumAggregate = SumAggregateBase<TInput, TAccumulator, ResultType, true>;
+}
+
 void registerSum(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
@@ -54,37 +59,37 @@ void registerSum(const std::string& name) {
         auto inputType = argTypes[0];
         switch (inputType->kind()) {
           case TypeKind::TINYINT:
-            return std::make_unique<SumAggregateBase<int8_t, int64_t, int64_t>>(
+            return std::make_unique<SumAggregate<int8_t, int64_t, int64_t>>(
                 BIGINT());
           case TypeKind::SMALLINT:
-            return std::make_unique<
-                SumAggregateBase<int16_t, int64_t, int64_t>>(BIGINT());
+            return std::make_unique<SumAggregate<int16_t, int64_t, int64_t>>(
+                BIGINT());
           case TypeKind::INTEGER:
-            return std::make_unique<
-                SumAggregateBase<int32_t, int64_t, int64_t>>(BIGINT());
+            return std::make_unique<SumAggregate<int32_t, int64_t, int64_t>>(
+                BIGINT());
           case TypeKind::BIGINT: {
             if (inputType->isShortDecimal()) {
               VELOX_NYI();
             }
-            return std::make_unique<
-                SumAggregateBase<int64_t, int64_t, int64_t>>(BIGINT());
+            return std::make_unique<SumAggregate<int64_t, int64_t, int64_t>>(
+                BIGINT());
           }
           case TypeKind::HUGEINT: {
             VELOX_NYI();
           }
           case TypeKind::REAL:
             if (resultType->kind() == TypeKind::REAL) {
-              return std::make_unique<SumAggregateBase<float, double, float>>(
+              return std::make_unique<SumAggregate<float, double, float>>(
                   resultType);
             }
-            return std::make_unique<SumAggregateBase<float, double, double>>(
+            return std::make_unique<SumAggregate<float, double, double>>(
                 DOUBLE());
           case TypeKind::DOUBLE:
             if (resultType->kind() == TypeKind::REAL) {
-              return std::make_unique<SumAggregateBase<double, double, float>>(
+              return std::make_unique<SumAggregate<double, double, float>>(
                   resultType);
             }
-            return std::make_unique<SumAggregateBase<double, double, double>>(
+            return std::make_unique<SumAggregate<double, double, double>>(
                 DOUBLE());
           default:
             VELOX_CHECK(

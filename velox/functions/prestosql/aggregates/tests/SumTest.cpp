@@ -18,7 +18,7 @@
 #include "velox/exec/AggregationHook.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/lib/aggregates/tests/SumTestBase.h"
 
 using facebook::velox::exec::test::PlanBuilder;
 using namespace facebook::velox::exec::test;
@@ -28,152 +28,19 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
-class SumTest : public AggregationTestBase {
- protected:
-  void SetUp() override {
-    AggregationTestBase::SetUp();
-    allowInputShuffle();
-  }
-
+class SumTest : public SumTestBase {
+ public:
   template <
       typename InputType,
       typename ResultType,
       typename IntermediateType = ResultType>
   void testAggregateOverflow(
       bool expectOverflow = false,
-      const TypePtr& type = CppToType<InputType>::create());
-};
-
-template <typename ResultType>
-void verifyAggregates(
-    const std::vector<std::pair<core::PlanNodePtr, ResultType>>& aggsToTest,
-    bool expectOverflow) {
-  for (const auto& [agg, expectedResult] : aggsToTest) {
-    if (expectOverflow) {
-      VELOX_ASSERT_THROW(readSingleValue(agg), "overflow");
-    } else {
-      auto result = readSingleValue(agg);
-      if constexpr (std::is_same_v<ResultType, float>) {
-        ASSERT_FLOAT_EQ(
-            result.template value<TypeKind::REAL>(), expectedResult);
-      } else if constexpr (std::is_same_v<ResultType, double>) {
-        ASSERT_FLOAT_EQ(
-            result.template value<TypeKind::DOUBLE>(), expectedResult);
-      } else {
-        ASSERT_EQ(result, expectedResult);
-      }
-    }
+      const TypePtr& type = CppToType<InputType>::create()) {
+    SumTestBase::testAggregateOverflow<InputType, ResultType, IntermediateType>(
+        "sum", expectOverflow, type);
   }
-}
-
-template <typename InputType, typename ResultType, typename IntermediateType>
-#if defined(__has_feature)
-#if __has_feature(__address_sanitizer__)
-__attribute__((no_sanitize("integer")))
-#endif
-#endif
-void SumTest::testAggregateOverflow(
-    bool expectOverflow,
-    const TypePtr& type) {
-  const InputType maxLimit = std::numeric_limits<InputType>::max();
-  const InputType overflow = InputType(1);
-  const InputType zero = InputType(0);
-
-  // Intermediate type size is always >= result type size. Hence, use
-  // intermediate type to calculate the expected output.
-  IntermediateType limitResult = IntermediateType(maxLimit);
-  IntermediateType overflowResult = IntermediateType(overflow);
-
-  // Single max limit value. 0's to induce dummy calculations.
-  auto limitVector =
-      makeRowVector({makeFlatVector<InputType>({maxLimit, zero, zero}, type)});
-
-  // Test code path for single values with possible overflow hit in add.
-  auto overflowFlatVector =
-      makeRowVector({makeFlatVector<InputType>({maxLimit, overflow}, type)});
-  IntermediateType expectedFlatSum = limitResult + overflowResult;
-
-  // Test code path for duplicate values with possible overflow hit in
-  // multiply.
-  auto overflowConstantVector =
-      makeRowVector({makeConstant<InputType>(maxLimit / 3, 4, type)});
-  IntermediateType expectedConstantSum = (limitResult / 3) * 4;
-
-  // Test code path for duplicate values with possible overflow hit in add.
-  auto overflowHybridVector = {limitVector, overflowConstantVector};
-  IntermediateType expectedHybridSum = limitResult + expectedConstantSum;
-
-  // Vector with element pairs of a partial aggregate node, expected result.
-  std::vector<std::pair<core::PlanNodePtr, IntermediateType>> partialAggsToTest;
-  // Partial Aggregation (raw input in - partial result out).
-  partialAggsToTest.push_back(
-      {PlanBuilder()
-           .values({overflowFlatVector})
-           .partialAggregation({}, {"sum(c0)"})
-           .planNode(),
-       expectedFlatSum});
-  partialAggsToTest.push_back(
-      {PlanBuilder()
-           .values({overflowConstantVector})
-           .partialAggregation({}, {"sum(c0)"})
-           .planNode(),
-       expectedConstantSum});
-  partialAggsToTest.push_back(
-      {PlanBuilder()
-           .values(overflowHybridVector)
-           .partialAggregation({}, {"sum(c0)"})
-           .planNode(),
-       expectedHybridSum});
-
-  // Vector with element pairs of a full aggregate node, expected result.
-  std::vector<std::pair<core::PlanNodePtr, ResultType>> aggsToTest;
-  // Single Aggregation (raw input in - final result out).
-  aggsToTest.push_back(
-      {PlanBuilder()
-           .values({overflowFlatVector})
-           .singleAggregation({}, {"sum(c0)"})
-           .planNode(),
-       expectedFlatSum});
-  aggsToTest.push_back(
-      {PlanBuilder()
-           .values({overflowConstantVector})
-           .singleAggregation({}, {"sum(c0)"})
-           .planNode(),
-       expectedConstantSum});
-  aggsToTest.push_back(
-      {PlanBuilder()
-           .values(overflowHybridVector)
-           .singleAggregation({}, {"sum(c0)"})
-           .planNode(),
-       expectedHybridSum});
-  // Final Aggregation (partial result in - final result out):
-  // To make sure that the overflow occurs in the final aggregation step, we
-  // create 2 plan fragments and plugging their partially aggregated
-  // output into a final aggregate plan node. Each of those input fragments
-  // only have a single input value under the max limit which when added in
-  // the final step causes a potential overflow.
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  aggsToTest.push_back(
-      {PlanBuilder(planNodeIdGenerator)
-           .localPartition(
-               {},
-               {PlanBuilder(planNodeIdGenerator)
-                    .values({limitVector})
-                    .partialAggregation({}, {"sum(c0)"})
-                    .planNode(),
-                PlanBuilder(planNodeIdGenerator)
-                    .values({limitVector})
-                    .partialAggregation({}, {"sum(c0)"})
-                    .planNode()})
-           .finalAggregation()
-           .planNode(),
-       limitResult + limitResult});
-
-  // Verify all partial aggregates.
-  verifyAggregates<IntermediateType>(partialAggsToTest, expectOverflow);
-  // Verify all aggregates.
-  verifyAggregates<ResultType>(aggsToTest, expectOverflow);
-}
+};
 
 TEST_F(SumTest, sumTinyint) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), TINYINT()});
