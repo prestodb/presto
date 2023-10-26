@@ -30,7 +30,6 @@ class SubfieldTokenizer
     private static final char CLOSE_BRACKET = ']';
     private static final char UNICODE_CARET = '\u2038';
     private static final char WILDCARD = '*';
-    private static final char DOLLAR = '$';
 
     private final String path;
     private State state = State.NOT_READY;
@@ -100,7 +99,7 @@ class SubfieldTokenizer
         }
 
         if (tryMatch(DOT)) {
-            Subfield.PathElement token = tryMatch(DOLLAR) ? matchDollarPathElement() : matchPathSegment();
+            Subfield.PathElement token = matchPathSegment();
             firstSegment = false;
             return token;
         }
@@ -144,11 +143,6 @@ class SubfieldTokenizer
     private Subfield.PathElement matchWildcardSubscript()
     {
         return Subfield.allSubscripts();
-    }
-
-    private Subfield.PathElement matchDollarPathElement()
-    {
-        return Subfield.noSubfield();
     }
 
     private static boolean isUnquotedPathCharacter(char c)
