@@ -29,7 +29,7 @@ class ConfigBase {
   /// Reads configuration properties from the specified file. Must be called
   /// before calling any of the getters below.
   /// @param filePath Path to configuration file.
-  void initialize(const std::string& filePath);
+  virtual void initialize(const std::string& filePath);
 
   /// Uses a config object already materialized.
   void initialize(std::unique_ptr<velox::Config>&& config) {
@@ -129,6 +129,8 @@ class ConfigBase {
   std::unordered_map<std::string, std::string> values() const {
     return config_->valuesCopy();
   }
+
+  virtual ~ConfigBase() = default;
 
  protected:
   ConfigBase();
@@ -339,7 +341,13 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kInternalCommunicationJwtExpirationSeconds{
       "internal-communication.jwt.expiration-seconds"};
 
+  /// Uses legacy version of array_agg which ignores nulls.
+  static constexpr std::string_view kUseLegacyArrayAgg{
+      "deprecated.legacy-array-agg"};
+
   SystemConfig();
+
+  virtual ~SystemConfig() = default;
 
   static SystemConfig* instance();
 
@@ -488,6 +496,8 @@ class SystemConfig : public ConfigBase {
   std::string internalCommunicationSharedSecret() const;
 
   int32_t internalCommunicationJwtExpirationSeconds() const;
+
+  bool useLegacyArrayAgg() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
@@ -503,6 +513,8 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeMemoryGb{"node.memory_gb"};
 
   NodeConfig();
+
+  virtual ~NodeConfig() = default;
 
   static NodeConfig* instance();
 
@@ -526,7 +538,15 @@ class BaseVeloxQueryConfig : public ConfigBase {
  public:
   BaseVeloxQueryConfig();
 
+  virtual ~BaseVeloxQueryConfig() = default;
+
+  void initialize(const std::string& filePath) override;
+
   static BaseVeloxQueryConfig* instance();
+
+ private:
+  /// Update velox config with values from presto system config.
+  void update(const SystemConfig& config);
 };
 
 } // namespace facebook::presto
