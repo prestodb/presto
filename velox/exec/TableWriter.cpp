@@ -95,7 +95,12 @@ void TableWriter::abortDataSink() {
   VELOX_CHECK(!closed_);
   auto abortGuard = folly::makeGuard([this]() { closed_ = true; });
   if (dataSink_ != nullptr) {
-    dataSink_->close(false);
+    try {
+      dataSink_->close(false);
+    } catch (const std::exception& e) {
+      LOG(WARNING) << "Failed to abort data sink from table writer: "
+                   << toString() << ", error: " << e.what();
+    }
   }
 }
 

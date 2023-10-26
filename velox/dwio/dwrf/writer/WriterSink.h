@@ -54,7 +54,8 @@ class WriterSink {
 
   ~WriterSink() {
     if (!buffers_.empty() || size_ != 0) {
-      LOG(WARNING) << "Unflushed data in writer sink!";
+      LOG(WARNING) << "Unflushed data in writer sink: " << succinctBytes(size_)
+                   << ", " << buffers_.size() << " buffers";
     }
   }
 

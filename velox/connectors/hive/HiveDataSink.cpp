@@ -17,19 +17,20 @@
 #include "velox/connectors/hive/HiveDataSink.h"
 
 #include "velox/common/base/Fs.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/dwio/common/SortingWriter.h"
-#include "velox/exec/SortBuffer.h"
-
-#include "velox/connectors/hive/TableHandle.h"
 #include "velox/exec/OperatorUtils.h"
+#include "velox/exec/SortBuffer.h"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::connector::hive {
 
 namespace {
@@ -444,6 +445,8 @@ std::shared_ptr<memory::MemoryPool> HiveDataSink::createWriterPool(
 }
 
 std::vector<std::string> HiveDataSink::close(bool success) {
+  TestValue::adjust(
+      "facebook::velox::connector::hive::HiveDataSink::close", this);
   closeInternal(!success);
   if (!success) {
     VELOX_CHECK(aborted_);
