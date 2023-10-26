@@ -2408,7 +2408,8 @@ std::pair<
     std::vector<core::SortOrder>>
 toSortFieldsAndOrders(
     const protocol::OrderingScheme* orderingScheme,
-    VeloxExprConverter& exprConverter) {
+    VeloxExprConverter& exprConverter,
+    const std::unordered_set<std::string>& partitionKeys) {
   std::vector<core::FieldAccessTypedExprPtr> sortFields;
   std::vector<core::SortOrder> sortOrders;
   if (orderingScheme != nullptr) {
@@ -2416,8 +2417,11 @@ toSortFieldsAndOrders(
     sortFields.reserve(nodeSpecOrdering.size());
     sortOrders.reserve(nodeSpecOrdering.size());
     for (const auto& spec : nodeSpecOrdering) {
-      sortFields.emplace_back(exprConverter.toVeloxExpr(spec.variable));
-      sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+      // Drop sorting keys that are present in partitioning keys.
+      if (partitionKeys.count(spec.variable.name) == 0) {
+        sortFields.emplace_back(exprConverter.toVeloxExpr(spec.variable));
+        sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+      }
     }
   }
   return {sortFields, sortOrders};
@@ -2431,12 +2435,16 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   std::vector<core::FieldAccessTypedExprPtr> partitionFields;
   partitionFields.reserve(node->specification.partitionBy.size());
+  std::unordered_set<std::string> partitionFieldNames;
   for (const auto& entry : node->specification.partitionBy) {
     partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
+    partitionFieldNames.emplace(partitionFields.back()->name());
   }
 
   auto [sortFields, sortOrders] = toSortFieldsAndOrders(
-      node->specification.orderingScheme.get(), exprConverter_);
+      node->specification.orderingScheme.get(),
+      exprConverter_,
+      partitionFieldNames);
 
   std::vector<std::string> windowNames;
   std::vector<core::WindowNode::Function> windowFunctions;
@@ -2514,12 +2522,16 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   std::vector<core::FieldAccessTypedExprPtr> partitionFields;
   partitionFields.reserve(node->specification.partitionBy.size());
+  std::unordered_set<std::string> partitionFieldNames;
   for (const auto& entry : node->specification.partitionBy) {
     partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
+    partitionFieldNames.emplace(partitionFields.back()->name());
   }
 
   auto [sortFields, sortOrders] = toSortFieldsAndOrders(
-      node->specification.orderingScheme.get(), exprConverter_);
+      node->specification.orderingScheme.get(),
+      exprConverter_,
+      partitionFieldNames);
 
   std::optional<std::string> rowNumberColumnName;
   if (!node->partial) {
