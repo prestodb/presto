@@ -86,6 +86,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
+import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
+import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
@@ -352,7 +354,7 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
         }
 
-        org.apache.iceberg.types.Type columnType = toIcebergType(column.getType());
+        Type columnType = toIcebergType(column.getType());
 
         if (columnType.equals(Types.TimestampType.withZone())) {
             throw new PrestoException(NOT_SUPPORTED, format("Iceberg column type %s is not supported", columnType));
@@ -360,7 +362,14 @@ public abstract class IcebergAbstractMetadata
 
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        icebergTable.updateSchema().addColumn(column.getName(), columnType, column.getComment()).commit();
+        Transaction transaction = icebergTable.newTransaction();
+        transaction.updateSchema().addColumn(column.getName(), columnType, column.getComment()).commit();
+        if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
+            String transform = (String) column.getProperties().get(PARTITIONING_PROPERTY);
+            transaction.updateSpec().addField(getPartitionColumnName(column.getName(), transform),
+                    getTransformTerm(column.getName(), transform)).commit();
+        }
+        transaction.commitTransaction();
     }
 
     @Override

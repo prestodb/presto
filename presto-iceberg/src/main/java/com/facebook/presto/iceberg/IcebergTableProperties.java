@@ -38,6 +38,7 @@ public class IcebergTableProperties
     public static final String FORMAT_VERSION = "format_version";
 
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> columnProperties;
 
     @Inject
     public IcebergTableProperties(IcebergConfig icebergConfig)
@@ -74,11 +75,22 @@ public class IcebergTableProperties
                         null,
                         false))
                 .build();
+
+        columnProperties = ImmutableList.of(stringProperty(
+                PARTITIONING_PROPERTY,
+                "This column's partition transform",
+                null,
+                false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    public List<PropertyMetadata<?>> getColumnProperties()
+    {
+        return columnProperties;
     }
 
     public static FileFormat getFileFormat(Map<String, Object> tableProperties)
