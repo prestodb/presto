@@ -249,6 +249,25 @@ VectorPtr BaseVector::wrapInConstant(
       addConstant, kind, length, index, std::move(vector), copyBase);
 }
 
+std::optional<bool> BaseVector::equalValueAt(
+    const BaseVector* other,
+    vector_size_t index,
+    vector_size_t otherIndex,
+    CompareFlags::NullHandlingMode nullHandlingMode) const {
+  const CompareFlags compareFlags = {
+      .nullsFirst = false,
+      .ascending = false,
+      .equalsOnly = true,
+      .nullHandlingMode = nullHandlingMode};
+  std::optional<int32_t> result =
+      compare(other, index, otherIndex, compareFlags);
+  if (result.has_value()) {
+    return result.value() == 0;
+  }
+
+  return std::nullopt;
+}
+
 template <TypeKind kind>
 static VectorPtr createEmpty(
     vector_size_t size,

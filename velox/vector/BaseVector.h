@@ -267,6 +267,16 @@ class BaseVector {
     return compare(other, index, otherIndex, kEqualValueAtFlags).value() == 0;
   }
 
+  /// Returns true if this vector has the same value at the given index as the
+  /// other vector at the other vector's index (including if both are null when
+  /// nullHandlingMode is NoStop), false otherwise. If nullHandlingMode is
+  /// StopAtNull, returns std::nullopt if null encountered.
+  virtual std::optional<bool> equalValueAt(
+      const BaseVector* other,
+      vector_size_t index,
+      vector_size_t otherIndex,
+      CompareFlags::NullHandlingMode nullHandlingMode) const;
+
   int32_t compare(
       const BaseVector* other,
       vector_size_t index,
