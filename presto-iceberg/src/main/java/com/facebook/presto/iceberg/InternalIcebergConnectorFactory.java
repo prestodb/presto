@@ -123,6 +123,7 @@ public final class InternalIcebergConnectorFactory
                     icebergSessionProperties.getSessionProperties(),
                     IcebergSchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
+                    icebergTableProperties.getColumnProperties(),
                     new AllowAllAccessControl(),
                     procedures,
                     ImmutableSet.of(planOptimizer, parquetDereferencePushDown));
