@@ -1666,7 +1666,7 @@ uint64_t StringDirectColumnReader::skip(uint64_t numValues) {
     totalBytes += computeSize(buffer.data(), nullptr, step);
     done += step;
   }
-  blobStream->skip(static_cast<int64_t>(totalBytes));
+  blobStream->SkipInt64(static_cast<int64_t>(totalBytes));
   return numValues;
 }
 

@@ -1015,7 +1015,7 @@ class TestingSeekableInputStream : public SeekableInputStream {
     position_ -= count;
   }
 
-  bool skip(int64_t count) override {
+  bool SkipInt64(int64_t count) override {
     VELOX_CHECK_LE(count + position_, length_);
     position_ += count;
     return true;
