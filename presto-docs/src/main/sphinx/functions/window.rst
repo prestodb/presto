@@ -193,7 +193,7 @@ null for all rows, the ``default_value`` is returned, or if it is not specified,
     Returns the value at ``offset`` rows after the current row in the window partition.
     Offsets start at ``0``, which is the current row. The
     offset can be any scalar expression. The default ``offset`` is ``1``. If the
-    offset is null, null is returned. If the offset refers to a row that is not
+    offset is ``null``, ``null`` is returned. If the offset refers to a row that is not
     within the partition, the ``default_value`` is returned, or if it is not specified
     ``null`` is returned.
 
@@ -202,6 +202,6 @@ null for all rows, the ``default_value`` is returned, or if it is not specified,
     Returns the value at ``offset`` rows before the current row in the window partition.
     Offsets start at ``0``, which is the current row. The
     offset can be any scalar expression. The default ``offset`` is ``1``. If the
-    offset is null, null is returned. If the offset refers to a row that is not
+    offset is ``null``, ``null`` is returned. If the offset refers to a row that is not
     within the partition, the ``default_value`` is returned, or if it is not specified
     ``null`` is returned.
