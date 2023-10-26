@@ -81,6 +81,9 @@ void TableWriter::initialize() {
   Operator::initialize();
   VELOX_CHECK_NULL(dataSink_);
   createDataSink();
+  if (aggregation_ != nullptr) {
+    aggregation_->initialize();
+  }
 }
 
 void TableWriter::createDataSink() {

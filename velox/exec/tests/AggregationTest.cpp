@@ -3050,4 +3050,25 @@ TEST_F(AggregationTest, noAggregationsNoGroupingKeys) {
   // Zero columns.
   ASSERT_EQ(result->type()->size(), 0);
 }
+
+// Trigger memory pool allocation at HashAggregation::populateAggregateInputs by
+// aggregating null constant. Ensure the allocation happens outside of
+// HashAggregation's constructor.
+TEST_F(AggregationTest, memoryPoolAllocationAtInit) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2}),
+  });
+  createDuckDbTable({data});
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .aggregation(
+                      {"c0"},
+                      {"sum(cast(NULL as INT))"},
+                      {},
+                      core::AggregationNode::Step::kPartial,
+                      false)
+                  .planNode();
+
+  assertQuery(plan, "SELECT c0, cast(NULL as INT) FROM tmp GROUP BY c0");
+}
 } // namespace facebook::velox::exec::test

@@ -27,6 +27,8 @@ class HashAggregation : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::AggregationNode>& aggregationNode);
 
+  void initialize() override;
+
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override;
@@ -73,6 +75,8 @@ class HashAggregation : public Operator {
   // Invoked to record the spilling stats in operator stats after processing all
   // the inputs.
   void recordSpillStats();
+
+  std::shared_ptr<const core::AggregationNode> aggregationNode_;
 
   const bool isPartialOutput_;
   const bool isGlobal_;

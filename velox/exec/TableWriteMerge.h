@@ -31,6 +31,8 @@ class TableWriteMerge : public Operator {
       const std::shared_ptr<const core::TableWriteMergeNode>&
           tableWriteMergeNode);
 
+  void initialize() override;
+
   BlockingReason isBlocked(ContinueFuture* /* future */) override {
     return BlockingReason::kNotBlocked;
   }

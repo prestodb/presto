@@ -64,6 +64,13 @@ TableWriteMerge::TableWriteMerge(
   }
 }
 
+void TableWriteMerge::initialize() {
+  Operator::initialize();
+  if (aggregation_ != nullptr) {
+    aggregation_->initialize();
+  }
+}
+
 void TableWriteMerge::addInput(RowVectorPtr input) {
   VELOX_CHECK(!noMoreInput_);
   VELOX_CHECK_GT(input->size(), 0);
