@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/dwio/common/tests/utils/BatchMaker.h"
+
 #include "velox/exec/tests/SimpleAggregateFunctionsRegistration.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
@@ -33,6 +33,13 @@ class ArrayAggTest : public AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     registerSimpleArrayAggAggregate("simple_array_agg");
+  }
+
+  RowVectorPtr fuzzFlat(const RowTypePtr& rowType, size_t size) {
+    VectorFuzzer::Options options;
+    options.vectorSize = size;
+    VectorFuzzer fuzzer(options, pool());
+    return fuzzer.fuzzInputFlatRow(rowType);
   }
 };
 
@@ -53,16 +60,20 @@ TEST_F(ArrayAggTest, groupBy) {
     // expected result is that there is, for each key, an array of 100
     // elements with, for key k, batch[k[, batch[k + 10], ... batch[k +
     // 90], repeated 10 times.
-    batches.push_back(std::static_pointer_cast<RowVector>(
-        velox::test::BatchMaker::createBatch(
-            ROW({"c0", "a"}, {INTEGER(), ARRAY(VARCHAR())}), 100, *pool_)));
+    batches.push_back(
+        fuzzFlat(ROW({"c0", "a"}, {INTEGER(), ARRAY(VARCHAR())}), 100));
     // We divide the rows into 10 groups.
     auto keys = batches[0]->childAt(0)->as<FlatVector<int32_t>>();
+    auto values = batches[0]->childAt(1)->as<ArrayVector>();
     for (auto i = 0; i < keys->size(); ++i) {
       if (i % 10 == 0) {
         keys->setNull(i, true);
       } else {
         keys->set(i, i % kNumGroups);
+      }
+
+      if (i % 7 == 0) {
+        values->setNull(i, true);
       }
     }
     // We make 10 repeats of the first batch.

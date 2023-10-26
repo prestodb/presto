@@ -31,7 +31,8 @@ BufferPtr sortElements(
     const ArrayVector& inputArray,
     const BaseVector& inputElements,
     bool ascending,
-    exec::EvalCtx& context) {
+    exec::EvalCtx& context,
+    bool throwOnNestedNull) {
   const SelectivityVector inputElementRows =
       toElementRows(inputElements.size(), rows, &inputArray);
   exec::LocalDecodedVector decodedElements(
@@ -42,20 +43,27 @@ BufferPtr sortElements(
   BufferPtr indices = allocateIndices(inputElements.size(), context.pool());
   vector_size_t* rawIndices = indices->asMutable<vector_size_t>();
 
-  const CompareFlags flags{.nullsFirst = false, .ascending = ascending};
-  auto decodedIndices = decodedElements->indices();
+  CompareFlags flags{.nullsFirst = false, .ascending = ascending};
+  if (throwOnNestedNull) {
+    flags.nullHandlingMode = CompareFlags::NullHandlingMode::StopAtNull;
+  }
 
-  rows.applyToSelected([&](vector_size_t row) {
+  auto decodedIndices = decodedElements->indices();
+  context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
     const auto size = inputArray.sizeAt(row);
     const auto offset = inputArray.offsetAt(row);
 
     for (auto i = offset; i < offset + size; ++i) {
       rawIndices[i] = i;
     }
+
     std::sort(
         rawIndices + offset,
         rawIndices + offset + size,
         [&](vector_size_t& a, vector_size_t& b) {
+          if (a == b) {
+            return false;
+          }
           bool aNull = decodedElements->isNullAt(a);
           bool bNull = decodedElements->isNullAt(b);
           if (aNull) {
@@ -64,11 +72,16 @@ BufferPtr sortElements(
           if (bNull) {
             return true;
           }
-          return baseElementsVector->compare(
-                     baseElementsVector,
-                     decodedIndices[a],
-                     decodedIndices[b],
-                     flags) < 0;
+
+          std::optional<int32_t> result = baseElementsVector->compare(
+              baseElementsVector, decodedIndices[a], decodedIndices[b], flags);
+
+          if (!result.has_value()) {
+            VELOX_USER_FAIL(
+                "array_sort contains nested nulls not supported for comparison");
+          }
+
+          return result.value() < 0;
         });
   });
 
@@ -80,10 +93,11 @@ void applyComplexType(
     ArrayVector* inputArray,
     bool ascending,
     exec::EvalCtx& context,
-    VectorPtr& resultElements) {
+    VectorPtr& resultElements,
+    bool throwOnNestedNull) {
   auto inputElements = inputArray->elements();
-  auto indices =
-      sortElements(rows, *inputArray, *inputElements, ascending, context);
+  auto indices = sortElements(
+      rows, *inputArray, *inputElements, ascending, context, throwOnNestedNull);
   resultElements = BaseVector::transpose(indices, std::move(inputElements));
 }
 
@@ -193,7 +207,8 @@ class ArraySortFunction : public exec::VectorFunction {
   /// and 'offsets' vectors that control where output arrays start and end
   /// remain the same in the output ArrayVector.
 
-  explicit ArraySortFunction(bool ascending) : ascending_{ascending} {}
+  explicit ArraySortFunction(bool ascending, bool throwOnNestedNull)
+      : ascending_{ascending}, throwOnNestedNull_(throwOnNestedNull) {}
 
   // Execute function.
   void apply(
@@ -244,7 +259,13 @@ class ArraySortFunction : public exec::VectorFunction {
           resultElements);
 
     } else {
-      applyComplexType(rows, inputArray, ascending_, context, resultElements);
+      applyComplexType(
+          rows,
+          inputArray,
+          ascending_,
+          context,
+          resultElements,
+          throwOnNestedNull_);
     }
 
     return std::make_shared<ArrayVector>(
@@ -259,11 +280,13 @@ class ArraySortFunction : public exec::VectorFunction {
   }
 
   const bool ascending_;
+  const bool throwOnNestedNull_;
 };
 
 class ArraySortLambdaFunction : public exec::VectorFunction {
  public:
-  explicit ArraySortLambdaFunction(bool ascending) : ascending_{ascending} {}
+  explicit ArraySortLambdaFunction(bool ascending, bool throwOnNestedNull)
+      : ascending_{ascending}, throwOnNestedNull_(throwOnNestedNull) {}
 
   void apply(
       const SelectivityVector& rows,
@@ -309,8 +332,13 @@ class ArraySortLambdaFunction : public exec::VectorFunction {
     }
 
     // Sort 'newElements'.
-    auto indices =
-        sortElements(rows, *flatArray, *newElements, ascending_, context);
+    auto indices = sortElements(
+        rows,
+        *flatArray,
+        *newElements,
+        ascending_,
+        context,
+        throwOnNestedNull_);
     auto sortedElements = BaseVector::wrapInDictionary(
         nullptr, indices, newNumElements, flatArray->elements());
 
@@ -330,42 +358,51 @@ class ArraySortLambdaFunction : public exec::VectorFunction {
 
  private:
   const bool ascending_;
+  const bool throwOnNestedNull_;
 };
 
 // Create function template based on type.
 template <TypeKind kind>
 std::shared_ptr<exec::VectorFunction> createTyped(
     const std::vector<exec::VectorFunctionArg>& inputArgs,
-    bool ascending) {
+    bool ascending,
+    bool throwOnNestedNull = true) {
   VELOX_CHECK_EQ(inputArgs.size(), 1);
-  return std::make_shared<ArraySortFunction<kind>>(ascending);
+  return std::make_shared<ArraySortFunction<kind>>(
+      ascending, throwOnNestedNull);
 }
 
 // Create function.
 std::shared_ptr<exec::VectorFunction> create(
     const std::vector<exec::VectorFunctionArg>& inputArgs,
-    bool ascending) {
+    bool ascending,
+    bool throwOnNestedNull = true) {
   if (inputArgs.size() == 2) {
-    return std::make_shared<ArraySortLambdaFunction>(ascending);
+    return std::make_shared<ArraySortLambdaFunction>(
+        ascending, throwOnNestedNull);
   }
 
   auto elementType = inputArgs.front().type->childAt(0);
   return VELOX_DYNAMIC_TYPE_DISPATCH(
-      createTyped, elementType->kind(), inputArgs, ascending);
+      createTyped,
+      elementType->kind(),
+      inputArgs,
+      ascending,
+      throwOnNestedNull);
 }
 
 std::shared_ptr<exec::VectorFunction> createAsc(
     const std::string& /* name */,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& /*config*/) {
-  return create(inputArgs, true);
+  return create(inputArgs, true, true);
 }
 
 std::shared_ptr<exec::VectorFunction> createDesc(
     const std::string& /* name */,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& /*config*/) {
-  return create(inputArgs, false);
+  return create(inputArgs, false, true);
 }
 
 // Define function signature.
@@ -411,6 +448,13 @@ internalCanonicalizeSignatures() {
           .argumentType("array(T)")
           .build()};
   return signatures;
+}
+
+std::shared_ptr<exec::VectorFunction> createAscNoThrowOnNestedNull(
+    const std::string& /* name */,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& /*config*/) {
+  return create(inputArgs, true, false);
 }
 
 core::CallTypedExprPtr asArraySortCall(
@@ -487,6 +531,6 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_$internal$canonicalize,
     internalCanonicalizeSignatures(),
-    createAsc);
+    createAscNoThrowOnNestedNull);
 
 } // namespace facebook::velox::functions
