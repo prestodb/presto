@@ -192,6 +192,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kInternalCommunicationJwtEnabled, "false"),
           STR_PROP(kInternalCommunicationSharedSecret, ""),
           NUM_PROP(kInternalCommunicationJwtExpirationSeconds, 300),
+          BOOL_PROP(kUseLegacyArrayAgg, false),
       };
 }
 
@@ -497,6 +498,10 @@ int32_t SystemConfig::internalCommunicationJwtExpirationSeconds() const {
       .value();
 }
 
+bool SystemConfig::useLegacyArrayAgg() const {
+  return optionalProperty<bool>(kUseLegacyArrayAgg).value();
+}
+
 NodeConfig::NodeConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
@@ -650,14 +655,24 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
               QueryConfig::kSpillableReservationGrowthPct,
               c.spillableReservationGrowthPct()),
           BOOL_PROP(
-              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull()),
-      };
+              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull())};
+  update(*SystemConfig::instance());
 }
 
 BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
   static std::unique_ptr<BaseVeloxQueryConfig> instance =
       std::make_unique<BaseVeloxQueryConfig>();
   return instance.get();
+}
+
+void BaseVeloxQueryConfig::initialize(const std::string& filePath) {
+  ConfigBase::initialize(filePath);
+  update(*SystemConfig::instance());
+}
+
+void BaseVeloxQueryConfig::update(const SystemConfig& systemConfig) {
+  registeredProps_[velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls] =
+      bool2String(systemConfig.useLegacyArrayAgg());
 }
 
 } // namespace facebook::presto
