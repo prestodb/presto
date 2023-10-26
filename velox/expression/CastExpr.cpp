@@ -497,18 +497,29 @@ void CastExpr::applyPeeled(
     const TypePtr& fromType,
     const TypePtr& toType,
     VectorPtr& result) {
-  if (castFromOperator_ || castToOperator_) {
-    VELOX_CHECK_NE(
-        fromType,
-        toType,
+  auto castFromOperator = getCastOperator(fromType);
+  if (castFromOperator && !castFromOperator->isSupportedToType(toType)) {
+    VELOX_USER_FAIL(
+        "Cannot cast {} to {}.", fromType->toString(), toType->toString());
+  }
+
+  auto castToOperator = getCastOperator(toType);
+  if (castToOperator && !castToOperator->isSupportedFromType(fromType)) {
+    VELOX_USER_FAIL(
+        "Cannot cast {} to {}.", fromType->toString(), toType->toString());
+  }
+
+  if (castFromOperator || castToOperator) {
+    VELOX_USER_CHECK(
+        *fromType != *toType,
         "Attempting to cast from {} to itself.",
         fromType->toString());
 
     auto applyCustomCast = [&]() {
-      if (castToOperator_) {
-        castToOperator_->castTo(input, context, rows, toType, result);
+      if (castToOperator) {
+        castToOperator->castTo(input, context, rows, toType, result);
       } else {
-        castFromOperator_->castFrom(input, context, rows, toType, result);
+        castFromOperator->castFrom(input, context, rows, toType, result);
       }
     };
 
@@ -707,6 +718,23 @@ std::string CastExpr::toSql(std::vector<VectorPtr>* complexConstants) const {
   toTypeSql(type_, out);
   out << ")";
   return out.str();
+}
+
+CastOperatorPtr CastExpr::getCastOperator(const TypePtr& type) {
+  const auto key = type->toString();
+
+  auto it = castOperators_.find(key);
+  if (it != castOperators_.end()) {
+    return it->second;
+  }
+
+  auto castOperator = getCustomTypeCastOperator(key);
+  if (castOperator == nullptr) {
+    return nullptr;
+  }
+
+  castOperators_.emplace(key, castOperator);
+  return castOperator;
 }
 
 TypePtr CastCallToSpecialForm::resolveType(

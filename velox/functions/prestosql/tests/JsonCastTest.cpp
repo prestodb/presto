@@ -321,6 +321,26 @@ TEST_F(JsonCastTest, fromUnknown) {
   evaluateAndVerify(UNKNOWN(), JSON(), makeRowVector({input}), expected);
 }
 
+TEST_F(JsonCastTest, toArrayOfJson) {
+  auto arrays = makeArrayVectorFromJson<int64_t>({
+      "[1, 2, 3]",
+      "[4, 5]",
+      "[6, 7, 8]",
+  });
+
+  auto from = makeArrayVector({0, 2}, arrays);
+
+  auto to = makeArrayVector<JsonNativeType>(
+      {
+          {"[1,2,3]", "[4,5]"},
+          {"[6,7,8]"},
+      },
+      JSON());
+
+  testCast(ARRAY(ARRAY(BIGINT())), ARRAY(JSON()), from, to);
+  testCast(ARRAY(JSON()), ARRAY(ARRAY(BIGINT())), to, from);
+}
+
 TEST_F(JsonCastTest, fromArray) {
   TwoDimVector<StringView> array{
       {"red"_sv, "blue"_sv}, {std::nullopt, std::nullopt, "purple"_sv}, {}};
