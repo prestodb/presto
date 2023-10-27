@@ -1501,3 +1501,50 @@ TEST_F(RowContainerTest, unknown) {
         return rowContainer->compareRows(l.second, r.second) < 0;
       }));
 }
+
+TEST_F(RowContainerTest, toString) {
+  std::vector<TypePtr> keyTypes = {BIGINT(), VARCHAR()};
+  std::vector<TypePtr> dependentTypes = {TINYINT(), REAL(), ARRAY(BIGINT())};
+  auto rowContainer =
+      std::make_unique<RowContainer>(keyTypes, dependentTypes, pool_.get());
+
+  EXPECT_EQ(
+      rowContainer->toString(),
+      "Keys: BIGINT, VARCHAR Dependents: TINYINT, REAL, ARRAY<BIGINT> Num rows: 0");
+
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3}),
+      makeFlatVector<std::string>({"summer", "fall", "winter", "spring"}),
+      makeFlatVector<int16_t>({11, 12, 13}),
+      makeFlatVector<float>({0.1, 2.34, 123.003}),
+      makeArrayVectorFromJson<int64_t>({"[1, 2, 3]", "[4, 5]", "null"}),
+  });
+
+  std::vector<DecodedVector> decoded;
+  for (auto i = 0; i < data->childrenSize(); ++i) {
+    decoded.emplace_back(*data->childAt(i));
+  }
+
+  const auto numRows = data->size();
+  std::vector<char*> rows(numRows);
+  for (auto row = 0; row < numRows; ++row) {
+    rows[row] = rowContainer->newRow();
+    for (auto i = 0; i < decoded.size(); ++i) {
+      rowContainer->store(decoded[i], row, rows[row], i);
+    }
+  }
+
+  EXPECT_EQ(
+      rowContainer->toString(),
+      "Keys: BIGINT, VARCHAR Dependents: TINYINT, REAL, ARRAY<BIGINT> Num rows: 3");
+
+  EXPECT_EQ(
+      rowContainer->toString(rows[0]),
+      "{1, summer, 11, 0.10000000149011612, 3 elements starting at 0 {1, 2, 3}}");
+  EXPECT_EQ(
+      rowContainer->toString(rows[1]),
+      "{2, fall, 0, 2.3399999141693115, 2 elements starting at 0 {4, 5}}");
+  EXPECT_EQ(
+      rowContainer->toString(rows[2]),
+      "{3, winter, 12, 123.00299835205078, null}");
+}

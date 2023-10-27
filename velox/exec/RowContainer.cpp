@@ -840,6 +840,46 @@ int32_t RowContainer::listPartitionRows(
   return numResults;
 }
 
+std::string RowContainer::toString() const {
+  std::stringstream out;
+  out << "Keys: ";
+  for (auto i = 0; i < keyTypes_.size(); ++i) {
+    if (i > 0) {
+      out << ", ";
+    }
+    out << keyTypes_[i]->toString();
+  }
+
+  if (types_.size() > keyTypes_.size()) {
+    out << " Dependents: ";
+    for (auto i = keyTypes_.size(); i < types_.size(); ++i) {
+      if (i > keyTypes_.size()) {
+        out << ", ";
+      }
+      out << types_[i]->toString();
+    }
+  }
+
+  if (!accumulators_.empty()) {
+    out << " Num accumulators: " << accumulators_.size();
+  }
+
+  out << " Num rows: " << numRows_;
+  return out.str();
+}
+
+std::string RowContainer::toString(const char* row) const {
+  auto types = types_;
+  auto rowType = ROW(std::move(types));
+  auto vector = BaseVector::create<RowVector>(rowType, 1, pool());
+
+  for (auto i = 0; i < rowType->size(); ++i) {
+    extractColumn(&row, 1, columnAt(i), 0, vector->childAt(i));
+  }
+
+  return vector->toString(0);
+}
+
 RowPartitions::RowPartitions(int32_t numRows, memory::MemoryPool& pool)
     : capacity_(numRows) {
   const auto numPages = memory::AllocationTraits::numPages(capacity_);

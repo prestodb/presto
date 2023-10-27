@@ -689,6 +689,14 @@ class RowContainer {
     return checkFree_;
   }
 
+  /// Returns a summary of the container: key types, dependent types, number of
+  /// accumulators and number of rows.
+  std::string toString() const;
+
+  /// Returns a string representation of the specified row in the same format as
+  /// BaseVector::toString(index).
+  std::string toString(const char* row) const;
+
  private:
   // Offset of the pointer to the next free row on a free row.
   static constexpr int32_t kNextFreeOffset = 0;
