@@ -113,6 +113,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
+import static com.facebook.presto.iceberg.IcebergUtil.tryGetSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
 import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
@@ -623,13 +624,19 @@ public abstract class IcebergAbstractMetadata
                 })
                 .orElseGet(() -> resolveSnapshotIdByName(table, name));
 
+        // Get Iceberg tables schema with missing filesystem metadata will fail.
+        // See https://github.com/prestodb/presto/pull/21181
+        Optional<Schema> tableSchema = tryGetSchema(table);
+        Optional<String> tableSchemaJson = tableSchema.map(SchemaParser::toJson);
+
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
                 name.getTableName(),
                 name.getTableType(),
                 tableSnapshotId,
                 name.getSnapshotId().isPresent(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                tableSchemaJson);
     }
 
     @Override

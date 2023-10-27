@@ -132,7 +132,8 @@ public class IcebergPlanOptimizer
                     oldTableHandle.getTableType(),
                     oldTableHandle.getSnapshotId(),
                     oldTableHandle.isSnapshotSpecified(),
-                    simplifiedColumnDomain);
+                    simplifiedColumnDomain,
+                    oldTableHandle.getTableSchemaJson());
             TableScanNode newTableScan = new TableScanNode(
                     tableScan.getSourceLocation(),
                     tableScan.getId(),

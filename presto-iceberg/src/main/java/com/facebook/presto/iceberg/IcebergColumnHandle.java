@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.types.Types;
@@ -36,6 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 
 public class IcebergColumnHandle
         implements BaseHiveColumnHandle
@@ -106,6 +108,12 @@ public class IcebergColumnHandle
     public List<Subfield> getRequiredSubfields()
     {
         return requiredSubfields;
+    }
+
+    @JsonIgnore
+    public boolean isRowPositionColumn()
+    {
+        return columnIdentity.getId() == ROW_POSITION.fieldId();
     }
 
     @Override

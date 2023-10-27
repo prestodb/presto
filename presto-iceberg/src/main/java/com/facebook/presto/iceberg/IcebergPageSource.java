@@ -17,46 +17,23 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.VarbinaryType;
-import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Supplier;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.Decimals.isLongDecimal;
-import static com.facebook.presto.common.type.Decimals.isShortDecimal;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.TimeType.TIME;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
-import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.iceberg.IcebergUtil.deserializePartitionValue;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
-import static java.lang.Double.parseDouble;
-import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.parseFloat;
-import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -67,15 +44,19 @@ public class IcebergPageSource
     private final Block[] prefilledBlocks;
     private final int[] delegateIndexes;
     private final ConnectorPageSource delegate;
+    private final Supplier<Optional<RowPredicate>> deletePredicate;
 
     public IcebergPageSource(
             List<IcebergColumnHandle> columns,
             Map<Integer, HivePartitionKey> partitionKeys,
-            ConnectorPageSource delegate)
+            ConnectorPageSource delegate,
+            Supplier<Optional<RowPredicate>> deletePredicate)
     {
         int size = requireNonNull(columns, "columns is null").size();
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
+
+        this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
 
         prefilledBlocks = new Block[size];
         delegateIndexes = new int[size];
@@ -130,6 +111,12 @@ public class IcebergPageSource
             if (dataPage == null) {
                 return null;
             }
+
+            Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
+            if (deleteFilterPredicate.isPresent()) {
+                dataPage = deleteFilterPredicate.get().filterPage(dataPage);
+            }
+
             int batchSize = dataPage.getPositionCount();
             Block[] blocks = new Block[prefilledBlocks.length];
             for (int i = 0; i < prefilledBlocks.length; i++) {
@@ -184,66 +171,6 @@ public class IcebergPageSource
                 throwable.addSuppressed(e);
             }
         }
-    }
-
-    private static Object deserializePartitionValue(Type type, String valueString, String name)
-    {
-        if (valueString == null) {
-            return null;
-        }
-
-        try {
-            if (type.equals(BOOLEAN)) {
-                if (valueString.equalsIgnoreCase("true")) {
-                    return true;
-                }
-                if (valueString.equalsIgnoreCase("false")) {
-                    return false;
-                }
-                throw new IllegalArgumentException();
-            }
-            if (type.equals(INTEGER)) {
-                return parseLong(valueString);
-            }
-            if (type.equals(BIGINT)) {
-                return parseLong(valueString);
-            }
-            if (type.equals(REAL)) {
-                return (long) floatToRawIntBits(parseFloat(valueString));
-            }
-            if (type.equals(DOUBLE)) {
-                return parseDouble(valueString);
-            }
-            if (type.equals(DATE) || type.equals(TIME) || type.equals(TIMESTAMP)) {
-                return parseLong(valueString);
-            }
-            if (type instanceof VarcharType) {
-                Slice value = utf8Slice(valueString);
-                return value;
-            }
-            if (type.equals(VarbinaryType.VARBINARY)) {
-                return wrappedBuffer(Base64.getDecoder().decode(valueString));
-            }
-            if (isShortDecimal(type) || isLongDecimal(type)) {
-                DecimalType decimalType = (DecimalType) type;
-                BigDecimal decimal = new BigDecimal(valueString);
-                decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
-                if (decimal.precision() > decimalType.getPrecision()) {
-                    throw new IllegalArgumentException();
-                }
-                BigInteger unscaledValue = decimal.unscaledValue();
-                return isShortDecimal(type) ? unscaledValue.longValue() : Decimals.encodeUnscaledValue(unscaledValue);
-            }
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(ICEBERG_INVALID_PARTITION_VALUE, format(
-                    "Invalid partition value '%s' for %s partition key: %s",
-                    valueString,
-                    type.getDisplayName(),
-                    name));
-        }
-        // Iceberg tables don't partition by non-primitive-type columns.
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
     }
 
     private Block nativeValueToBlock(Type type, Object prefilledValue)

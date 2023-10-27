@@ -47,7 +47,7 @@ public class TestIcebergConfig
                 .setMaxPartitionsPerWriter(100)
                 .setMinimumAssignedSplitWeight(0.05)
                 .setParquetDereferencePushdownEnabled(true)
-                .setMergeOnReadModeEnabled(false)
+                .setMergeOnReadModeEnabled(true)
                 .setPushdownFilterEnabled(false));
     }
 
@@ -64,7 +64,7 @@ public class TestIcebergConfig
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .put("iceberg.enable-parquet-dereference-pushdown", "false")
-                .put("iceberg.enable-merge-on-read-mode", "true")
+                .put("iceberg.enable-merge-on-read-mode", "false")
                 .put("iceberg.statistic-snapshot-record-difference-weight", "1.0")
                 .put("iceberg.hive-statistics-merge-strategy", "USE_NDV")
                 .put("iceberg.pushdown-filter-enabled", "true")
@@ -81,7 +81,7 @@ public class TestIcebergConfig
                 .setMinimumAssignedSplitWeight(0.01)
                 .setStatisticSnapshotRecordDifferenceWeight(1.0)
                 .setParquetDereferencePushdownEnabled(false)
-                .setMergeOnReadModeEnabled(true)
+                .setMergeOnReadModeEnabled(false)
                 .setHiveStatisticsMergeStrategy(USE_NDV)
                 .setPushdownFilterEnabled(true);
 
