@@ -108,7 +108,7 @@ Map Functions
 .. function:: subscript(map(K, V), key) -> V
    :noindex:
 
-    Returns value for given ``key``. Throws if the key is not contained in the map.
+    Returns value for given ``key``. Return null if the key is not contained in the map.
     Corresponds to SQL subscript operator [].
 
     SELECT name_to_age_map['Bob'] AS bob_age;
