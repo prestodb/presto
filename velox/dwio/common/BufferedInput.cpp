@@ -97,7 +97,13 @@ std::unique_ptr<SeekableInputStream> BufferedInput::enqueue(
       // Save "i", the position in which this region was enqueued. This will
       // help faster lookup using enqueuedToBufferOffset_ later.
       [region, this, i = regions_.size() - 1]() {
-        return readInternal(region.offset, region.length, i);
+        auto result = readInternal(region.offset, region.length, i);
+        VELOX_CHECK(
+            std::get<1>(result) != MAX_UINT64,
+            "Fail to read region offset={} length={}",
+            region.offset,
+            region.length);
+        return result;
       });
 }
 

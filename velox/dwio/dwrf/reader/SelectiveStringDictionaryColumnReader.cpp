@@ -65,8 +65,6 @@ SelectiveStringDictionaryColumnReader::SelectiveStringDictionaryColumnReader(
       params.streamLabels().label(),
       false);
   if (inDictStream) {
-    formatData_->as<DwrfData>().ensureRowGroupIndex();
-
     inDictionaryReader_ =
         createBooleanRleDecoder(std::move(inDictStream), encodingKey);
 
