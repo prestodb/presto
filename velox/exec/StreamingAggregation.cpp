@@ -32,28 +32,33 @@ StreamingAggregation::StreamingAggregation(
               ? "PartialAggregation"
               : "Aggregation"),
       outputBatchSize_{outputBatchRows()},
-      step_{aggregationNode->step()} {
-  auto numKeys = aggregationNode->groupingKeys().size();
+      aggregationNode_{aggregationNode},
+      step_{aggregationNode->step()} {}
+
+void StreamingAggregation::initialize() {
+  Operator::initialize();
+
+  auto numKeys = aggregationNode_->groupingKeys().size();
   decodedKeys_.resize(numKeys);
 
-  auto inputType = aggregationNode->sources()[0]->outputType();
+  auto inputType = aggregationNode_->sources()[0]->outputType();
 
   std::vector<TypePtr> groupingKeyTypes;
   groupingKeyTypes.reserve(numKeys);
 
   groupingKeys_.reserve(numKeys);
-  for (const auto& key : aggregationNode->groupingKeys()) {
+  for (const auto& key : aggregationNode_->groupingKeys()) {
     auto channel = exprToChannel(key.get(), inputType);
     groupingKeys_.push_back(channel);
     groupingKeyTypes.push_back(inputType->childAt(channel));
   }
 
-  auto numAggregates = aggregationNode->aggregates().size();
+  auto numAggregates = aggregationNode_->aggregates().size();
   aggregates_.reserve(numAggregates);
   std::vector<std::optional<column_index_t>> maskChannels;
   maskChannels.reserve(numAggregates);
   for (auto i = 0; i < numAggregates; i++) {
-    const auto& aggregate = aggregationNode->aggregates()[i];
+    const auto& aggregate = aggregationNode_->aggregates()[i];
 
     std::vector<column_index_t> channels;
     std::vector<VectorPtr> constants;
@@ -77,17 +82,17 @@ StreamingAggregation::StreamingAggregation(
     const auto& aggResultType = outputType_->childAt(numKeys + i);
     aggregates_.push_back(Aggregate::create(
         aggregate.call->name(),
-        isPartialOutput(aggregationNode->step())
+        isPartialOutput(aggregationNode_->step())
             ? core::AggregationNode::Step::kPartial
             : core::AggregationNode::Step::kSingle,
         aggregate.rawInputTypes,
         aggResultType,
-        driverCtx->queryConfig()));
+        operatorCtx_->driverCtx()->queryConfig()));
     args_.push_back(channels);
     constantArgs_.push_back(constants);
   }
 
-  if (aggregationNode->ignoreNullKeys()) {
+  if (aggregationNode_->ignoreNullKeys()) {
     VELOX_NYI("Streaming aggregation doesn't support ignoring null keys yet");
   }
 
@@ -101,7 +106,7 @@ StreamingAggregation::StreamingAggregation(
 
   rows_ = std::make_unique<RowContainer>(
       groupingKeyTypes,
-      !aggregationNode->ignoreNullKeys(),
+      !aggregationNode_->ignoreNullKeys(),
       accumulators,
       std::vector<TypePtr>{},
       false,
@@ -120,6 +125,8 @@ StreamingAggregation::StreamingAggregation(
         rowColumn.nullMask(),
         rows_->rowSizeOffset());
   }
+
+  aggregationNode_.reset();
 }
 
 void StreamingAggregation::close() {

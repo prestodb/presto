@@ -52,6 +52,7 @@ class StreamingAggregationTest : public OperatorTestBase {
                          "max(c1)",
                          "sum(c1)",
                          "sumnonpod(1)",
+                         "sum(cast(NULL as INT))",
                          "approx_percentile(c1, 0.95)"})
                     .finalAggregation()
                     .planNode();
@@ -61,7 +62,7 @@ class StreamingAggregationTest : public OperatorTestBase {
             core::QueryConfig::kPreferredOutputBatchRows,
             std::to_string(outputBatchSize))
         .assertResults(
-            "SELECT c0, count(1), min(c1), max(c1), sum(c1), sum(1)"
+            "SELECT c0, count(1), min(c1), max(c1), sum(c1), sum(1), sum(cast(NULL as INT))"
             "     , approx_quantile(c1, 0.95) "
             "FROM tmp GROUP BY 1");
 

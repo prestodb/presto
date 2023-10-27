@@ -30,6 +30,8 @@ class StreamingAggregation : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::AggregationNode>& aggregationNode);
 
+  void initialize() override;
+
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override;
@@ -70,6 +72,9 @@ class StreamingAggregation : public Operator {
 
   /// Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
+
+  // Used at initialize() and gets reset() afterward.
+  std::shared_ptr<const core::AggregationNode> aggregationNode_;
 
   const core::AggregationNode::Step step_;
 
