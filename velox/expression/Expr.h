@@ -239,6 +239,13 @@ class Expr {
   // sameAsParentDistinctFields_.
   void computeMetadata();
 
+  // Utility function to add fields to both distinct and multiply referenced
+  // fields.
+  static void mergeFields(
+      std::vector<FieldReference*>& distinctFields,
+      std::unordered_set<FieldReference*>& multiplyReferencedFields,
+      const std::vector<FieldReference*>& fieldsToAdd);
+
   virtual void reset() {
     sharedSubexprResults_.clear();
   }
@@ -536,6 +543,11 @@ class Expr {
     return trackCpuUsage_ ? std::make_unique<CpuWallTimer>(stats_.timing)
                           : nullptr;
   }
+
+  // Should be called only after computeMetadata() has been called on 'inputs_'.
+  // Computes distinctFields for this expression. Also updates any multiply
+  // referenced fields.
+  virtual void computeDistinctFields();
 
   const TypePtr type_;
   const std::vector<std::shared_ptr<Expr>> inputs_;

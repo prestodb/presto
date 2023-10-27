@@ -20,6 +20,16 @@
 
 namespace facebook::velox::exec {
 
+void FieldReference::computeDistinctFields() {
+  SpecialForm::computeDistinctFields();
+  if (inputs_.empty()) {
+    mergeFields(
+        distinctFields_,
+        multiplyReferencedFields_,
+        {this->as<FieldReference>()});
+  }
+}
+
 // Fast path to avoid copying result.  An alternative way to do this is to
 // ensure that children has null if parent has nulls on corresponding rows,
 // whenever the RowVector is constructed or mutated (eager propagation of

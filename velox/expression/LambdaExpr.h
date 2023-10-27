@@ -42,11 +42,7 @@ class LambdaExpr : public SpecialForm {
             trackCpuUsage),
         signature_(std::move(signature)),
         body_(std::move(body)),
-        capture_(std::move(capture)) {
-    for (auto& field : capture_) {
-      distinctFields_.push_back(field.get());
-    }
-  }
+        capture_(std::move(capture)) {}
 
   bool isConstant() const override {
     return false;
@@ -61,6 +57,9 @@ class LambdaExpr : public SpecialForm {
       const SelectivityVector& rows,
       EvalCtx& context,
       VectorPtr& result) override;
+
+ protected:
+  void computeDistinctFields() override;
 
  private:
   /// Used to initialize captureChannels_ and typeWithCapture_ on first use.

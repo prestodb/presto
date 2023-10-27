@@ -79,6 +79,9 @@ class FieldReference : public SpecialForm {
   std::string toSql(
       std::vector<VectorPtr>* complexConstants = nullptr) const override;
 
+ protected:
+  void computeDistinctFields() override;
+
  private:
   void
   apply(const SelectivityVector& rows, EvalCtx& context, VectorPtr& result);

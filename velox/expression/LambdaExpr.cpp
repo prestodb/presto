@@ -132,6 +132,15 @@ class ExprCallable : public Callable {
 
 } // namespace
 
+void LambdaExpr::computeDistinctFields() {
+  SpecialForm::computeDistinctFields();
+  std::vector<FieldReference*> capturedFields;
+  for (auto& field : capture_) {
+    capturedFields.push_back(field.get());
+  }
+  mergeFields(distinctFields_, multiplyReferencedFields_, capturedFields);
+}
+
 std::string LambdaExpr::toString(bool recursive) const {
   if (!recursive) {
     return name_;

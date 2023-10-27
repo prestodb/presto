@@ -99,19 +99,6 @@ bool isMember(
   return std::find(fields.begin(), fields.end(), &field) != fields.end();
 }
 
-void mergeFields(
-    std::vector<FieldReference*>& distinctFields,
-    std::unordered_set<FieldReference*>& multiplyReferencedFields,
-    const std::vector<FieldReference*>& moreFields) {
-  for (auto* newField : moreFields) {
-    if (isMember(distinctFields, *newField)) {
-      multiplyReferencedFields.insert(newField);
-    } else {
-      distinctFields.emplace_back(newField);
-    }
-  }
-}
-
 // Returns true if input expression or any sub-expression is an IF, AND or OR.
 bool hasConditionals(Expr* expr) {
   if (expr->isConditional()) {
@@ -216,6 +203,26 @@ void Expr::clearMetaData() {
   sameAsParentDistinctFields_ = false;
 }
 
+void Expr::mergeFields(
+    std::vector<FieldReference*>& distinctFields,
+    std::unordered_set<FieldReference*>& multiplyReferencedFields,
+    const std::vector<FieldReference*>& moreFields) {
+  for (auto* newField : moreFields) {
+    if (isMember(distinctFields, *newField)) {
+      multiplyReferencedFields.insert(newField);
+    } else {
+      distinctFields.emplace_back(newField);
+    }
+  }
+}
+
+void Expr::computeDistinctFields() {
+  for (auto& input : inputs_) {
+    mergeFields(
+        distinctFields_, multiplyReferencedFields_, input->distinctFields_);
+  }
+}
+
 void Expr::computeMetadata() {
   if (metaDataComputed_) {
     return;
@@ -241,15 +248,7 @@ void Expr::computeMetadata() {
   }
 
   // (2) Compute distinctFields_ and multiplyReferencedFields_.
-  for (auto& input : inputs_) {
-    mergeFields(
-        distinctFields_, multiplyReferencedFields_, input->distinctFields_);
-  }
-
-  if (is<FieldReference>() && inputs_.empty()) {
-    distinctFields_.resize(1);
-    distinctFields_[0] = this->as<FieldReference>();
-  }
+  computeDistinctFields();
 
   // (3) Compute propagatesNulls_.
   // propagatesNulls_ is true iff a null in any of the columns this
@@ -1698,7 +1697,7 @@ ExprSet::ExprSet(
   exprs_ = compileExpressions(sources, execCtx, this, enableConstantFolding);
   std::vector<FieldReference*> allDistinctFields;
   for (auto& expr : exprs_) {
-    mergeFields(
+    Expr::mergeFields(
         distinctFields_, multiplyReferencedFields_, expr->distinctFields());
   }
 }
