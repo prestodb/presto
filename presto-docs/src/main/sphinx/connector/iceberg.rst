@@ -211,10 +211,8 @@ Property Name                                      Description                  
                                                    improve performance for queries with highly skewed
                                                    aggregations or joins.
 
-``iceberg.enable-merge-on-read-mode``              Enable reading base tables that use merge-on-read for          ``false``
-                                                   updates. The Iceberg connector currently does not read
-                                                   delete lists, which means any updates will not be
-                                                   reflected in the table.
+``iceberg.enable-merge-on-read-mode``              Enable reading base tables that use merge-on-read for          ``true``
+                                                   updates.
 ================================================== ============================================================= ============
 
 Table Properties
@@ -817,8 +815,10 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
             30 | mexico        |         3 | comment
     (3 rows)
 
-Iceberg Connector Limitations
------------------------------
+Table with delete files
+-----------------------
 
-* The ``SELECT`` operations on Iceberg Tables with format version 2 do not read the delete files
-  and remove the deleted rows as of now (:issue:`20492`).
+Iceberg V2 tables support row-level deletion. For more information see
+`Row-level deletes <https://iceberg.apache.org/spec/#row-level-deletes>`_ in the Iceberg Table Spec.
+Presto supports reading delete files, including Position Delete Files and Equality Delete Files.
+When reading, Presto merges these delete files to read the latest results.
