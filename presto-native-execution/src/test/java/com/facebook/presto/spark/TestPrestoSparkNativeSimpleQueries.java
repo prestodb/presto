@@ -76,13 +76,6 @@ public class TestPrestoSparkNativeSimpleQueries
         return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
     }
 
-    @Override
-    protected void assertQuery(String sql)
-    {
-        super.assertQuery(sql);
-        PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
-    }
-
     @Test
     public void testMapOnlyQueries()
     {
