@@ -34,6 +34,7 @@ public class IcebergTableHandle
     private final Optional<Long> snapshotId;
     private final TupleDomain<IcebergColumnHandle> predicate;
     private final boolean snapshotSpecified;
+    private final Optional<String> tableSchemaJson;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -42,7 +43,8 @@ public class IcebergTableHandle
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
             @JsonProperty("snapshotSpecified") boolean snapshotSpecified,
-            @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate)
+            @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate,
+            @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -50,6 +52,7 @@ public class IcebergTableHandle
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.snapshotSpecified = requireNonNull(snapshotSpecified, "specifiedSnapshot is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
+        this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
     }
 
     @JsonProperty
@@ -88,6 +91,12 @@ public class IcebergTableHandle
         return predicate;
     }
 
+    @JsonProperty
+    public Optional<String> getTableSchemaJson()
+    {
+        return tableSchemaJson;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -114,13 +123,14 @@ public class IcebergTableHandle
                 tableType == that.tableType &&
                 Objects.equals(snapshotId, that.snapshotId) &&
                 snapshotSpecified == that.snapshotSpecified &&
-                Objects.equals(predicate, that.predicate);
+                Objects.equals(predicate, that.predicate) &&
+                Objects.equals(tableSchemaJson, that.tableSchemaJson);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableType, snapshotId, snapshotSpecified, predicate);
+        return Objects.hash(schemaName, tableName, tableType, snapshotId, snapshotSpecified, predicate, tableSchemaJson);
     }
 
     @Override

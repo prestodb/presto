@@ -336,7 +336,7 @@ public class IcebergPageSink
         return ((Transform<Object, Object>) transform).bind(icebergType).apply(value);
     }
 
-    private static Object getIcebergValue(Block block, int position, Type type)
+    public static Object getIcebergValue(Block block, int position, Type type)
     {
         if (block.isNull(position)) {
             return null;

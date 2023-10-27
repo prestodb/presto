@@ -19,7 +19,10 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
@@ -54,11 +57,12 @@ import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.LocationProvider;
-import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -78,10 +82,13 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.Decimals.isLongDecimal;
+import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -107,11 +114,14 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
+import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -119,7 +129,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.parseFloat;
+import static java.lang.Long.parseLong;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
@@ -520,7 +535,7 @@ public final class IcebergUtil
 
                 fieldToIndex.forEach((field, index) -> {
                     int id = field.sourceId();
-                    Type type = spec.schema().findType(id);
+                    org.apache.iceberg.types.Type type = spec.schema().findType(id);
                     Class<?> javaClass = type.typeId().javaClass();
                     Object value = partition.get(index, javaClass);
                     String partitionStringValue;
@@ -576,5 +591,81 @@ public final class IcebergUtil
         }
 
         return new ArrayList<>(partitions);
+    }
+
+    public static Optional<Schema> tryGetSchema(Table table)
+    {
+        try {
+            return Optional.ofNullable(table.schema());
+        }
+        catch (TableNotFoundException e) {
+            log.warn(String.format("Unable to fetch schema for table %s: %s", table.name(), e.getMessage()));
+            return Optional.empty();
+        }
+    }
+
+    public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
+    {
+        List<Types.NestedField> icebergColumns = columns.stream()
+                .map(column -> Types.NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType())))
+                .collect(toImmutableList());
+        return new Schema(Types.StructType.of(icebergColumns).asStructType().fields());
+    }
+
+    public static Object deserializePartitionValue(Type type, String valueString, String name)
+    {
+        if (valueString == null) {
+            return null;
+        }
+
+        try {
+            if (type.equals(BOOLEAN)) {
+                if (valueString.equalsIgnoreCase("true")) {
+                    return true;
+                }
+                if (valueString.equalsIgnoreCase("false")) {
+                    return false;
+                }
+                throw new IllegalArgumentException();
+            }
+            if (type.equals(INTEGER)) {
+                return parseLong(valueString);
+            }
+            if (type.equals(BIGINT)) {
+                return parseLong(valueString);
+            }
+            if (type.equals(REAL)) {
+                return (long) floatToRawIntBits(parseFloat(valueString));
+            }
+            if (type.equals(DOUBLE)) {
+                return parseDouble(valueString);
+            }
+            if (type.equals(DATE) || type.equals(TIME) || type.equals(TIMESTAMP)) {
+                return parseLong(valueString);
+            }
+            if (type instanceof VarcharType) {
+                return utf8Slice(valueString);
+            }
+            if (type.equals(VarbinaryType.VARBINARY)) {
+                return wrappedBuffer(Base64.getDecoder().decode(valueString));
+            }
+            if (isShortDecimal(type) || isLongDecimal(type)) {
+                DecimalType decimalType = (DecimalType) type;
+                BigDecimal decimal = new BigDecimal(valueString);
+                decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
+                checkArgument(decimal.precision() <= decimalType.getPrecision());
+                BigInteger unscaledValue = decimal.unscaledValue();
+                return isShortDecimal(type) ? unscaledValue.longValue() : Decimals.encodeUnscaledValue(unscaledValue);
+            }
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(ICEBERG_INVALID_PARTITION_VALUE, format(
+                    "Invalid partition value '%s' for %s partition key: %s",
+                    valueString,
+                    type.getDisplayName(),
+                    name));
+        }
+        // Iceberg tables don't partition by non-primitive-type columns.
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
     }
 }
