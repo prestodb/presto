@@ -25,6 +25,7 @@
 namespace facebook::presto {
 
 folly::CPUThreadPoolExecutor* driverCPUExecutor();
+folly::CPUThreadPoolExecutor* httpProcessingExecutorPtr();
 folly::IOThreadPoolExecutor* spillExecutorPtr();
 
 class QueryContextCache {

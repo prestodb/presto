@@ -31,6 +31,13 @@ static std::shared_ptr<folly::CPUThreadPoolExecutor>& executor() {
   return executor;
 }
 
+std::shared_ptr<folly::CPUThreadPoolExecutor>& httpProcessingExecutor() {
+  static auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(
+      SystemConfig::instance()->numQueryThreads(),
+      std::make_shared<folly::NamedThreadFactory>("HttpProcessing"));
+  return executor;
+}
+
 std::shared_ptr<folly::IOThreadPoolExecutor> spillExecutor() {
   const int32_t numSpillThreads = SystemConfig::instance()->numSpillThreads();
   if (numSpillThreads <= 0) {
@@ -44,6 +51,10 @@ std::shared_ptr<folly::IOThreadPoolExecutor> spillExecutor() {
 
 folly::CPUThreadPoolExecutor* driverCPUExecutor() {
   return executor().get();
+}
+
+folly::CPUThreadPoolExecutor* httpProcessingExecutorPtr() {
+  return httpProcessingExecutor().get();
 }
 
 folly::IOThreadPoolExecutor* spillExecutorPtr() {

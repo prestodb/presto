@@ -179,6 +179,7 @@ class TaskManager {
   std::shared_ptr<velox::exec::OutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   QueryContextManager queryContextManager_;
+  folly::Executor* httpProcessingExecutor_{httpProcessingExecutorPtr()};
 };
 
 } // namespace facebook::presto
