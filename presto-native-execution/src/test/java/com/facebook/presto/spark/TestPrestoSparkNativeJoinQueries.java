@@ -34,13 +34,6 @@ public class TestPrestoSparkNativeJoinQueries
     }
 
     @Override
-    protected void assertQuery(String sql)
-    {
-        super.assertQuery(sql);
-        PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
-    }
-
-    @Override
     public Object[][] joinTypeProviderImpl()
     {
         return new Object[][] {{partitionedJoin()}};

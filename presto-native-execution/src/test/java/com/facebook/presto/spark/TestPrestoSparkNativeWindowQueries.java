@@ -32,11 +32,4 @@ public class TestPrestoSparkNativeWindowQueries
     {
         return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
     }
-
-    @Override
-    protected void assertQuery(String sql)
-    {
-        super.assertQuery(sql);
-        PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
-    }
 }
