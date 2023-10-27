@@ -432,19 +432,31 @@ class FlatVector final : public SimpleVector<T> {
   // of its children recursively. The function throws if input encoding is lazy.
   void acquireSharedStringBuffersRecursive(const BaseVector* source);
 
-  Buffer* getBufferWithSpace(vector_size_t /* unused */) {
+  /// This API is available only for string vectors (T = StringView).
+  /// Prefer getRawStringBufferWithSpace(bytes) API as it is easier to use
+  /// safely.
+  ///
+  /// Returns a string buffer with enough capacity to fit 'size' more bytes.
+  /// This could be an existing or newly allocated buffer. The caller must not
+  /// assume that the buffer is empty and must use Buffer::size() API to find
+  /// the start of the writable memory. The caller must also call
+  /// Buffer::setSize(n) to update the size of the buffer to include newly
+  /// written content ('n' cannot exceed 'size', but can be less than 'size').
+  /// The caller must ensure not to write more then 'size' bytes.
+  Buffer* getBufferWithSpace(int32_t /* size */) {
     return nullptr;
   }
 
-  // Finds an existing string buffer that's singly-referenced (not shared) and
-  // have enough unused capacity to fit 'size' bytes. If found, resizes the
-  // buffer to add 'size' bytes and returns a pointer to the start of writable
-  // memory. If not found, allocates new buffer, adds it to 'stringBuffers',
-  // sets buffer size to 'size' and returns a pointer to the start of writable
-  // memory.
-  // The caller needs to make sure not to write more then 'size' bytes.
-
-  char* getRawStringBufferWithSpace(vector_size_t /* size */) {
+  /// This API is available only for string vectors (T = StringView).
+  ///
+  /// Finds an existing string buffer that's singly-referenced (not shared) and
+  /// have enough unused capacity to fit 'size' bytes. If found, resizes the
+  /// buffer to add 'size' bytes and returns a pointer to the start of writable
+  /// memory. If not found, allocates new buffer, adds it to 'stringBuffers',
+  /// sets buffer size to 'size' and returns a pointer to the start of writable
+  /// memory.
+  /// The caller must ensure not to write more then 'size' bytes.
+  char* getRawStringBufferWithSpace(int32_t /* size */) {
     return nullptr;
   }
 
@@ -533,10 +545,10 @@ void FlatVector<StringView>::validate(
     const VectorValidateOptions& options) const;
 
 template <>
-Buffer* FlatVector<StringView>::getBufferWithSpace(vector_size_t size);
+Buffer* FlatVector<StringView>::getBufferWithSpace(int32_t size);
 
 template <>
-char* FlatVector<StringView>::getRawStringBufferWithSpace(vector_size_t size);
+char* FlatVector<StringView>::getRawStringBufferWithSpace(int32_t size);
 
 template <>
 void FlatVector<StringView>::prepareForReuse();
