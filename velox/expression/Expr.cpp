@@ -1401,19 +1401,6 @@ void Expr::evalAllImpl(
   releaseInputValues(context);
 }
 
-namespace {
-void setPeeledArg(
-    VectorPtr arg,
-    int32_t index,
-    int32_t numArgs,
-    std::vector<VectorPtr>& peeledArgs) {
-  if (peeledArgs.empty()) {
-    peeledArgs.resize(numArgs);
-  }
-  peeledArgs[index] = arg;
-}
-} // namespace
-
 bool Expr::applyFunctionWithPeeling(
     const SelectivityVector& applyRows,
     EvalCtx& context,
