@@ -929,7 +929,7 @@ TEST_F(TaskTest, updateBroadCastOutputBuffers) {
     auto task = Task::create(
         "t0", plan, 0, std::make_shared<core::QueryCtx>(driverExecutor_.get()));
 
-    task->start(task, 1, 1);
+    task->start(1, 1);
 
     ASSERT_TRUE(task->updateOutputBuffers(10, true /*noMoreBuffers*/));
 
@@ -943,7 +943,7 @@ TEST_F(TaskTest, updateBroadCastOutputBuffers) {
     auto task = Task::create(
         "t1", plan, 0, std::make_shared<core::QueryCtx>(driverExecutor_.get()));
 
-    task->start(task, 1, 1);
+    task->start(1, 1);
 
     ASSERT_TRUE(task->updateOutputBuffers(5, false));
     ASSERT_TRUE(task->updateOutputBuffers(10, false));
@@ -1308,7 +1308,7 @@ TEST_F(TaskTest, driverCreationMemoryAllocationCheck) {
         std::make_shared<core::QueryCtx>());
     if (singleThreadExecution) {
       VELOX_ASSERT_THROW(
-          Task::start(badTask, 1), "Unexpected memory pool allocations");
+          badTask->start(1), "Unexpected memory pool allocations");
     } else {
       VELOX_ASSERT_THROW(badTask->next(), "Unexpected memory pool allocations");
     }

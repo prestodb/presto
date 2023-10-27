@@ -265,7 +265,7 @@ class DriverTest : public OperatorTestBase {
         [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
           return exec::BlockingReason::kNotBlocked;
         });
-    task->start(task, numDrivers, 1);
+    task->start(numDrivers, 1);
     return task;
   }
 

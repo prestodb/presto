@@ -127,10 +127,16 @@ class Task : public std::enable_shared_from_this<Task> {
   /// nodes require splits and there are not enough of these.
   /// @param concurrentSplitGroups In grouped execution, maximum number of
   /// splits groups processed concurrently.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   static void start(
       std::shared_ptr<Task> self,
       uint32_t maxDrivers,
-      uint32_t concurrentSplitGroups = 1);
+      uint32_t concurrentSplitGroups = 1) {
+    self->start(maxDrivers, concurrentSplitGroups);
+  }
+#endif
+
+  void start(uint32_t maxDrivers, uint32_t concurrentSplitGroups = 1);
 
   /// If this returns true, this Task supports the single-threaded execution API
   /// next().
@@ -657,8 +663,12 @@ class Task : public std::enable_shared_from_this<Task> {
       const core::PlanNodeId& planNodeId,
       uint32_t pipelineId);
 
-  /// Returns task execution error message or empty string if not error
-  /// occurred. This should only be called inside mutex_ protection.
+  // Invoked to remove this task from the output buffer manager if it has set
+  // output buffer.
+  void maybeRemoveFromOutputBufferManager();
+
+  // Returns task execution error message or empty string if not error
+  // occurred. This should only be called inside mutex_ protection.
   std::string errorMessageLocked() const;
 
   class MemoryReclaimer : public exec::MemoryReclaimer {

@@ -543,13 +543,9 @@ RowVectorPtr Task::next(ContinueFuture* future) {
   }
 }
 
-// static
-void Task::start(
-    std::shared_ptr<Task> self,
-    uint32_t maxDrivers,
-    uint32_t concurrentSplitGroups) {
+void Task::start(uint32_t maxDrivers, uint32_t concurrentSplitGroups) {
   facebook::velox::process::ThreadDebugInfo threadDebugInfo{
-      self->queryCtx()->queryId(), self->taskId_, nullptr};
+      queryCtx()->queryId(), taskId_, nullptr};
   facebook::velox::process::ScopedThreadDebugInfo scopedInfo(threadDebugInfo);
 
   try {
@@ -563,19 +559,39 @@ void Task::start(
         "concurrentSplitGroups parameter must be greater then or equal to 1");
 
     {
-      std::unique_lock<std::mutex> l(self->mutex_);
-      self->taskStats_.executionStartTimeMs = getCurrentTimeMs();
-      self->createDriverFactoriesLocked(maxDrivers);
+      std::unique_lock<std::mutex> l(mutex_);
+      taskStats_.executionStartTimeMs = getCurrentTimeMs();
+      if (!isRunningLocked()) {
+        LOG(WARNING) << "Task " << taskId_
+                     << " has already been terminated before start: "
+                     << errorMessageLocked();
+        return;
+      }
+      createDriverFactoriesLocked(maxDrivers);
     }
-    self->initializePartitionOutput();
-    self->createAndStartDrivers(concurrentSplitGroups);
+    initializePartitionOutput();
+    createAndStartDrivers(concurrentSplitGroups);
   } catch (const std::exception& e) {
-    self->setError(std::current_exception());
+    if (isRunning()) {
+      setError(std::current_exception());
+    } else {
+      maybeRemoveFromOutputBufferManager();
+      {
+        // NOTE: the async task error might be triggered in the middle of task
+        // start processing, and we need to mark all the drivers have been
+        // finished.
+        std::unique_lock<std::mutex> l(mutex_);
+        VELOX_CHECK_EQ(numRunningDrivers_, 0);
+        VELOX_CHECK_EQ(numFinishedDrivers_, 0);
+        numFinishedDrivers_ = numTotalDrivers_;
+      }
+    }
     throw;
   }
 }
 
 void Task::createDriverFactoriesLocked(uint32_t maxDrivers) {
+  VELOX_CHECK(isRunningLocked());
   VELOX_CHECK(driverFactories_.empty());
 
   // Create driver factories.
@@ -605,12 +621,17 @@ void Task::createDriverFactoriesLocked(uint32_t maxDrivers) {
 
 void Task::createAndStartDrivers(uint32_t concurrentSplitGroups) {
   std::unique_lock<std::mutex> l(mutex_);
+  VELOX_CHECK(
+      isRunningLocked(),
+      "Task {} has already been terminated before start: {}",
+      taskId_,
+      errorMessageLocked());
   VELOX_CHECK(!driverFactories_.empty());
   VELOX_CHECK_EQ(concurrentSplitGroups_, 1);
   VELOX_CHECK(drivers_.empty());
 
   concurrentSplitGroups_ = concurrentSplitGroups;
-  // Preallocates slots for maximum possible number of drivers.
+  // Pre-allocates slots for maximum possible number of drivers.
   if (numDriversPerSplitGroup_ > 0) {
     drivers_.resize(numDriversPerSplitGroup_ * concurrentSplitGroups_);
   }
@@ -672,6 +693,12 @@ void Task::createAndStartDrivers(uint32_t concurrentSplitGroups) {
 }
 
 void Task::initializePartitionOutput() {
+  VELOX_CHECK(
+      isRunningLocked(),
+      "Task {} has already been terminated before start: {}",
+      taskId_,
+      errorMessageLocked());
+
   auto bufferManager = bufferManager_.lock();
   VELOX_CHECK_NOT_NULL(
       bufferManager,
@@ -1692,11 +1719,7 @@ ContinueFuture Task::terminate(TaskState terminalState) {
   // Task. The Drivers are now detached from Task and therefore will
   // not go on thread. The reference in the future callback is
   // typically the last one.
-  if (hasPartitionedOutput()) {
-    if (auto bufferManager = bufferManager_.lock()) {
-      bufferManager->removeTask(taskId_);
-    }
-  }
+  maybeRemoveFromOutputBufferManager();
 
   for (auto& exchangeClient : exchangeClients) {
     if (exchangeClient != nullptr) {
@@ -1779,6 +1802,14 @@ ContinueFuture Task::terminate(TaskState terminalState) {
   }
 
   return makeFinishFuture("Task::terminate");
+}
+
+void Task::maybeRemoveFromOutputBufferManager() {
+  if (hasPartitionedOutput()) {
+    if (auto bufferManager = bufferManager_.lock()) {
+      bufferManager->removeTask(taskId_);
+    }
+  }
 }
 
 ContinueFuture Task::makeFinishFutureLocked(const char* comment) {

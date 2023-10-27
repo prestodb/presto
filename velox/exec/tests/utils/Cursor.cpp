@@ -206,7 +206,7 @@ TaskCursor::TaskCursor(const CursorParameters& params)
 void TaskCursor::start() {
   if (!started_) {
     started_ = true;
-    exec::Task::start(task_, maxDrivers_, numConcurrentSplitGroups_);
+    task_->start(maxDrivers_, numConcurrentSplitGroups_);
     queue_->setNumProducers(numSplitGroups_ * task_->numOutputDrivers());
   }
 }
