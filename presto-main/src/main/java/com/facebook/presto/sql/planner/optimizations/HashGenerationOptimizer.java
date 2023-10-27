@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -65,6 +66,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.skipHashGenerationForJoinWithTableScanInput;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
@@ -121,7 +123,7 @@ public class HashGenerationOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (isEnabled(session)) {
-            PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, functionAndTypeManager).accept(plan, new HashComputationSet());
+            PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, functionAndTypeManager, session).accept(plan, new HashComputationSet());
             return PlanOptimizerResult.optimizerResult(result.getNode(), true);
         }
         return PlanOptimizerResult.optimizerResult(plan, false);
@@ -133,12 +135,14 @@ public class HashGenerationOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
         private final FunctionAndTypeManager functionAndTypeManager;
+        private final Session session;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+        private Rewriter(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager, Session session)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -315,6 +319,11 @@ public class HashGenerationOptimizer
                     child.getHashVariables());
         }
 
+        private boolean skipHashComputeForJoinInput(PlanNode node, Optional<HashComputation> hashComputation, HashComputationSet parentPreference)
+        {
+            return node instanceof TableScanNode && hashComputation.isPresent() && hashComputation.get().isSingleBigIntVariable() && !parentPreference.getHashes().contains(hashComputation.get());
+        }
+
         @Override
         public PlanWithProperties visitJoin(JoinNode node, HashComputationSet parentPreference)
         {
@@ -333,13 +342,19 @@ public class HashGenerationOptimizer
             // join does not pass through preferred hash variables since they take more memory and since
             // the join node filters, may take more compute
             Optional<HashComputation> leftHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft), functionAndTypeManager);
+            if (skipHashGenerationForJoinWithTableScanInput(session) && skipHashComputeForJoinInput(node.getLeft(), leftHashComputation, parentPreference)) {
+                leftHashComputation = Optional.empty();
+            }
             PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(leftHashComputation), true, new HashComputationSet(leftHashComputation));
-            VariableReferenceExpression leftHashVariable = left.getRequiredHashVariable(leftHashComputation.get());
+            Optional<VariableReferenceExpression> leftHashVariable = leftHashComputation.isPresent() ? Optional.of(left.getRequiredHashVariable(leftHashComputation.get())) : Optional.empty();
 
             Optional<HashComputation> rightHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getRight), functionAndTypeManager);
+            if (skipHashGenerationForJoinWithTableScanInput(session) && skipHashComputeForJoinInput(node.getRight(), rightHashComputation, parentPreference)) {
+                rightHashComputation = Optional.empty();
+            }
             // drop undesired hash variables from build to save memory
             PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(rightHashComputation), true, new HashComputationSet(rightHashComputation));
-            VariableReferenceExpression rightHashVariable = right.getRequiredHashVariable(rightHashComputation.get());
+            Optional<VariableReferenceExpression> rightHashVariable = rightHashComputation.isPresent() ? Optional.of(right.getRequiredHashVariable(rightHashComputation.get())) : Optional.empty();
 
             // build map of all hash variables
             // NOTE: Full outer join doesn't use hash variables
@@ -351,7 +366,7 @@ public class HashGenerationOptimizer
                 allHashVariables.putAll(right.getHashVariables());
             }
 
-            return buildJoinNodeWithPreferredHashes(node, left, right, allHashVariables, parentPreference, Optional.of(leftHashVariable), Optional.of(rightHashVariable));
+            return buildJoinNodeWithPreferredHashes(node, left, right, allHashVariables, parentPreference, leftHashVariable, rightHashVariable);
         }
 
         private PlanWithProperties buildJoinNodeWithPreferredHashes(
@@ -927,6 +942,11 @@ public class HashGenerationOptimizer
         public boolean canComputeWith(Set<VariableReferenceExpression> availableFields)
         {
             return availableFields.containsAll(fields);
+        }
+
+        public boolean isSingleBigIntVariable()
+        {
+            return fields.size() == 1 && Iterables.getOnlyElement(fields).getType().equals(BIGINT);
         }
 
         private RowExpression getHashExpression()
