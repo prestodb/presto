@@ -17,8 +17,6 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager.StageAndMapId;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spi.security.PrincipalType;
@@ -26,9 +24,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
-import org.apache.spark.SparkEnv;
-import org.apache.spark.shuffle.ShuffleHandle;
-import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -37,7 +32,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.hive.HiveTestUtils.getProperty;
@@ -46,8 +40,6 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeW
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static java.nio.file.Files.createTempDirectory;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 /**
  * Following JVM argument is needed to run Spark native tests.
@@ -164,20 +156,6 @@ public class PrestoSparkNativeQueryRunnerUtils
             throws Exception
     {
         return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy", DEFAULT_STORAGE_FORMAT);
-    }
-
-    public static void assertShuffleMetadata()
-    {
-        assertNotNull(SparkEnv.get());
-        assertTrue(SparkEnv.get().shuffleManager() instanceof PrestoSparkNativeExecutionShuffleManager);
-        PrestoSparkNativeExecutionShuffleManager shuffleManager = (PrestoSparkNativeExecutionShuffleManager) SparkEnv.get().shuffleManager();
-        Set<StageAndMapId> partitions = shuffleManager.getAllPartitions();
-
-        for (StageAndMapId partition : partitions) {
-            Optional<ShuffleHandle> shuffleHandle = shuffleManager.getShuffleHandle(partition.getStageId(), partition.getMapId());
-            assertTrue(shuffleHandle.isPresent());
-            assertTrue(shuffleHandle.get() instanceof BypassMergeSortShuffleHandle);
-        }
     }
 
     public static void customizeLogging()
