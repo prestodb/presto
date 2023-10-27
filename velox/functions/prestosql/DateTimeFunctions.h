@@ -646,7 +646,6 @@ inline std::optional<DateTimeUnit> fromDateTimeUnitString(
   if (unit == kYear) {
     return DateTimeUnit::kYear;
   }
-  // TODO Add support for "week".
   if (throwIfInvalid) {
     VELOX_UNSUPPORTED("Unsupported datetime unit: {}", unitString);
   }
@@ -1017,7 +1016,7 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Varchar>& unitString,
       const arg_type<Timestamp>& timestamp1,
@@ -1046,10 +1045,9 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
     } else {
       result = diffTimestamp(unit, timestamp1, timestamp2);
     }
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Varchar>& unitString,
       const arg_type<Date>& date1,
@@ -1059,15 +1057,14 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
         : getDateUnit(unitString, true).value();
 
     result = diffDate(unit, date1, date2);
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<Varchar>& unitString,
       const arg_type<TimestampWithTimezone>& timestamp1,
       const arg_type<TimestampWithTimezone>& timestamp2) {
-    return call(
+    call(
         result,
         unitString,
         this->toTimestamp(timestamp1),

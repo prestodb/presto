@@ -174,8 +174,10 @@ FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
       outTimestamp = inTimestamp + std::chrono::milliseconds(value);
       break;
     }
+    case DateTimeUnit::kWeek:
+      VELOX_UNSUPPORTED("Unsupported datetime unit: week")
     default:
-      VELOX_UNREACHABLE();
+      VELOX_UNREACHABLE("Unsupported datetime unit");
   }
 
   Timestamp milliTimestamp =
@@ -195,7 +197,7 @@ FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
     return 0;
   }
 
-  int8_t sign = fromTimestamp < toTimestamp ? 1 : -1;
+  const int8_t sign = fromTimestamp < toTimestamp ? 1 : -1;
 
   // fromTimepoint is less than or equal to toTimepoint
   const std::chrono::
@@ -238,6 +240,8 @@ FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
           std::chrono::duration_cast<date::days>(toTimepoint - fromTimepoint)
               .count();
     }
+    case DateTimeUnit::kWeek:
+      VELOX_UNSUPPORTED("Unsupported datetime unit: week")
     default:
       break;
   }
@@ -267,9 +271,8 @@ FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
   const uint8_t toLastYearMonthDay =
       static_cast<unsigned>(toCalLastYearMonthDay.day());
 
-  int64_t diff;
   if (unit == DateTimeUnit::kMonth || unit == DateTimeUnit::kQuarter) {
-    diff = (int(toCalDate.year()) - int(fromCalDate.year())) * 12 +
+    int64_t diff = (int(toCalDate.year()) - int(fromCalDate.year())) * 12 +
         int(toMonth) - int(fromMonth);
 
     if ((toDay != toLastYearMonthDay && fromDay > toDay) ||
@@ -282,7 +285,7 @@ FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
   }
 
   if (unit == DateTimeUnit::kYear) {
-    diff = (toCalDate.year() - fromCalDate.year()).count();
+    int64_t diff = (toCalDate.year() - fromCalDate.year()).count();
 
     if (fromMonth > toMonth ||
         (fromMonth == toMonth && fromDay > toDay &&
@@ -294,7 +297,7 @@ FOLLY_ALWAYS_INLINE int64_t diffTimestamp(
     return sign * diff;
   }
 
-  VELOX_UNREACHABLE();
+  VELOX_UNREACHABLE("Unsupported datetime unit");
 }
 
 FOLLY_ALWAYS_INLINE

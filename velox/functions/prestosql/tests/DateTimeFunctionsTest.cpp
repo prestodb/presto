@@ -1703,7 +1703,11 @@ TEST_F(DateTimeFunctionsTest, dateAddTimestamp) {
   EXPECT_EQ(std::nullopt, dateAdd("month", std::nullopt, Timestamp(0, 0)));
 
   // Check invalid units
-  EXPECT_THROW(dateAdd("invalid_unit", 1, Timestamp(0, 0)), VeloxUserError);
+  auto ts = Timestamp(0, 0);
+  VELOX_ASSERT_THROW(
+      dateAdd("invalid_unit", 1, ts),
+      "Unsupported datetime unit: invalid_unit");
+  VELOX_ASSERT_THROW(dateAdd("week", 1, ts), "Unsupported datetime unit: week");
 
   // Simple tests
   EXPECT_EQ(
@@ -2145,9 +2149,12 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestamp) {
   EXPECT_EQ(std::nullopt, dateDiff("month", std::nullopt, Timestamp(0, 0)));
 
   // Check invalid units
-  EXPECT_THROW(
+  VELOX_ASSERT_THROW(
       dateDiff("invalid_unit", Timestamp(1, 0), Timestamp(0, 0)),
-      VeloxUserError);
+      "Unsupported datetime unit: invalid_unit");
+  VELOX_ASSERT_THROW(
+      dateDiff("week", Timestamp(1, 0), Timestamp(0, 0)),
+      "Unsupported datetime unit: week");
 
   // Simple tests
   EXPECT_EQ(
@@ -2444,8 +2451,10 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
   EXPECT_EQ(std::nullopt, parseDatetime(std::nullopt, std::nullopt));
 
   // Ensure it throws.
-  EXPECT_THROW(parseDatetime("", ""), VeloxUserError);
-  EXPECT_THROW(parseDatetime("1234", "Y Y"), VeloxUserError);
+  VELOX_ASSERT_THROW(parseDatetime("", ""), "Invalid pattern specification");
+  VELOX_ASSERT_THROW(
+      parseDatetime("1234", "Y Y"),
+      "Invalid format: \"1234\" is malformed at \"\"");
 
   // Simple tests. More exhaustive tests are provided as part of Joda's
   // implementation.
