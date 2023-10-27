@@ -217,7 +217,8 @@ Spilling
    * - writer_spill_enabled
      - boolean
      - true
-     - When `writer_spill_enabled` is true, determines whether TableWriter operator can spill to disk under memory pressure.
+     - When `writer_spill_enabled` is true, determines whether TableWriter operator can flush the buffered data to disk
+       under memory pressure.
    * - aggregation_spill_memory_threshold
      - integer
      - 0
@@ -225,7 +226,9 @@ Spilling
    * - aggregation_spill_all
      - boolean
      - false
-     - If true and spilling has been triggered during the input processing, the spiller will spill all the remaining in-memory state to disk before output processing. This is to simplify the aggregation query OOM prevention in output processing stage.
+     - If true and spilling has been triggered during the input processing, the spiller will spill all the remaining
+       in-memory state to disk before output processing. This is to simplify the aggregation query OOM prevention in
+       output processing stage.
    * - join_spill_memory_threshold
      - integer
      - 0

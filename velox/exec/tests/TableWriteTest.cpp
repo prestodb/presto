@@ -2949,6 +2949,8 @@ DEBUG_ONLY_TEST_P(
 
 DEBUG_ONLY_TEST_P(UnpartitionedTableWriterTest, dataSinkAbortError) {
   if (fileFormat_ != FileFormat::DWRF) {
+    // NOTE: only test on dwrf writer format as we inject write error in dwrf
+    // writer.
     return;
   }
   VectorFuzzer::Options options;
@@ -2979,19 +2981,12 @@ DEBUG_ONLY_TEST_P(UnpartitionedTableWriterTest, dataSinkAbortError) {
           }));
 
   auto outputDirectory = TempDirectoryPath::create();
-  auto op = createInsertPlan(
-      PlanBuilder().values({vector}),
-      rowType_,
-      outputDirectory->path,
-      partitionedBy_,
-      bucketProperty_,
-      compressionKind_,
-      getNumWriters(),
-      connector::hive::LocationHandle::TableType::kNew,
-      commitStrategy_);
-
+  auto plan = PlanBuilder()
+                  .values({vector})
+                  .tableWrite(outputDirectory->path, fileFormat_)
+                  .planNode();
   VELOX_ASSERT_THROW(
-      assertQuery(op, fmt::format("SELECT {}", 100)), "inject writer error");
+      AssertQueryBuilder(plan).copyResults(pool()), "inject writer error");
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

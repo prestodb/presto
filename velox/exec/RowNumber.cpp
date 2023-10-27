@@ -359,6 +359,9 @@ void RowNumber::setNumRows(char* partition, int64_t numRows) {
 void RowNumber::reclaim(
     uint64_t /*targetBytes*/,
     memory::MemoryReclaimer::Stats& stats) {
+  VELOX_CHECK(canReclaim());
+  VELOX_CHECK(!nonReclaimableSection_);
+
   if (table_ == nullptr || table_->numDistinct() == 0) {
     // Nothing to spill.
     return;
@@ -366,11 +369,6 @@ void RowNumber::reclaim(
 
   if (hashTableSpiller_) {
     // Already spilled.
-    return;
-  }
-
-  if (nonReclaimableSection_) {
-    ++stats.numNonReclaimableAttempts;
     return;
   }
 

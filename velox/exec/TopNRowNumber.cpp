@@ -628,18 +628,22 @@ void TopNRowNumber::close() {
 void TopNRowNumber::reclaim(
     uint64_t /*targetBytes*/,
     memory::MemoryReclaimer::Stats& stats) {
+  VELOX_CHECK(canReclaim());
+  VELOX_CHECK(!nonReclaimableSection_);
+
   if (data_->numRows() == 0) {
     // Nothing to spill.
     return;
   }
 
-  if (nonReclaimableSection_) {
-    ++stats.numNonReclaimableAttempts;
-    return;
-  }
-
   if (noMoreInput_) {
+    ++stats.numNonReclaimableAttempts;
     // TODO Add support for spilling after noMoreInput().
+    LOG(WARNING)
+        << "Can't reclaim from topNRowNumber operator which has started producing output: "
+        << pool()->name()
+        << ", usage: " << succinctBytes(pool()->currentBytes())
+        << ", reservation: " << succinctBytes(pool()->reservedBytes());
     return;
   }
 

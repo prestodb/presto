@@ -74,26 +74,28 @@ class MemoryArbitrator {
   using Factory = std::function<std::unique_ptr<MemoryArbitrator>(
       const MemoryArbitrator::Config& config)>;
 
-  /// Register factory for a specific 'kind' of memory arbitrator
+  /// Registers factory for a specific 'kind' of memory arbitrator
   /// MemoryArbitrator::Create looks up the registry to find the factory to
   /// create arbitrator instance based on the kind specified in arbitrator
   /// config.
   ///
   /// NOTE: we only allow the same 'kind' of memory arbitrator to be registered
-  /// once. The function throws an error if 'kind' is already registered.
-  static void registerFactory(const std::string& kind, Factory factory);
+  /// once. The function returns false if 'kind' is already registered.
+  static bool registerFactory(const std::string& kind, Factory factory);
 
-  /// Unregister the registered factory for a specifc kind.
+  /// Unregisters the registered factory for a specifc kind.
   ///
   /// NOTE: the function throws if the specified arbitrator 'kind' is not
   /// registered.
   static void unregisterFactory(const std::string& kind);
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   /// Register all the supported memory arbitrator kinds.
-  static void registerAllFactories();
+  static void registerAllFactories() {}
 
   /// Unregister all the supported memory arbitrator kinds.
-  static void unregisterAllFactories();
+  static void unregisterAllFactories() {}
+#endif
 
   /// Invoked by the memory manager to create an instance of memory arbitrator
   /// based on the kind specified in 'config'. The arbitrator kind must be
@@ -345,4 +347,12 @@ MemoryArbitrationContext* memoryArbitrationContext();
 
 /// Returns true if the running thread is under memory arbitration or not.
 bool underMemoryArbitration();
+
+#define VELOX_REGISTER_MEMORY_ARBITRATION_FACTORY(kind, factory)  \
+  namespace {                                                     \
+  static bool FB_ANONYMOUS_VARIABLE(g_MemoryArbitrationFactory) = \
+      facebook::velox::memory::MemoryArbitrator::registerFactory( \
+          kind,                                                   \
+          (factory));                                             \
+  }
 } // namespace facebook::velox::memory

@@ -40,10 +40,6 @@ MemoryManager& toMemoryManager(MemoryManager& manager) {
 
 class MemoryManagerTest : public testing::Test {
  protected:
-  static void SetUpTestCase() {
-    MemoryArbitrator::registerAllFactories();
-  }
-
   inline static const std::string arbitratorKind_{"SHARED"};
 };
 

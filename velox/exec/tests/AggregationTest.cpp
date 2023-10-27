@@ -2377,20 +2377,14 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
 
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
-      const auto usedMemory = op->pool()->currentBytes();
-      op->reclaim(
-          folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
-          reclaimerStats_);
-      // No reclaim as the operator is under non-reclaimable section.
-      ASSERT_EQ(usedMemory, op->pool()->currentBytes());
     } else {
       ASSERT_EQ(reclaimableBytes, 0);
-      VELOX_ASSERT_THROW(
-          op->reclaim(
-              folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
-              reclaimerStats_),
-          "");
     }
+    VELOX_ASSERT_THROW(
+        op->reclaim(
+            folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+            reclaimerStats_),
+        "");
 
     driverWait.notify();
     Task::resume(task);
@@ -2402,7 +2396,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
     ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
     OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   }
-  ASSERT_EQ(reclaimerStats_, memory::MemoryReclaimer::Stats{1});
+  ASSERT_EQ(reclaimerStats_, memory::MemoryReclaimer::Stats{0});
 }
 
 DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
@@ -2684,20 +2678,15 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringNonReclaimableSection) {
     ASSERT_EQ(reclaimable, testData.enableSpilling);
     if (testData.enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
-      const auto usedMemory = op->pool()->currentBytes();
-      op->reclaim(
-          folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
-          reclaimerStats_);
-      ASSERT_EQ(usedMemory, op->pool()->currentBytes());
-      ASSERT_EQ(reclaimerStats_.numNonReclaimableAttempts, 1);
     } else {
       ASSERT_EQ(reclaimableBytes, 0);
-      VELOX_ASSERT_THROW(
-          op->reclaim(
-              folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
-              reclaimerStats_),
-          "");
     }
+    VELOX_ASSERT_THROW(
+        op->reclaim(
+            folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
+            reclaimerStats_),
+        "");
+    ASSERT_EQ(reclaimerStats_.numNonReclaimableAttempts, 0);
 
     driverWaitFlag = false;
     driverWait.notifyAll();

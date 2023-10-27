@@ -25,7 +25,6 @@ add_executable(
   MemoryManagerTest.cpp
   MemoryPoolTest.cpp
   MockSharedArbitratorTest.cpp
-  SharedArbitratorTest.cpp
   StreamArenaTest.cpp)
 
 target_link_libraries(

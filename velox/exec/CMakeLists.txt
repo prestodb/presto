@@ -59,6 +59,7 @@ add_library(
   ProbeOperatorState.cpp
   RowContainer.cpp
   RowNumber.cpp
+  SharedArbitrator.cpp
   SortBuffer.cpp
   SortedAggregations.cpp
   SortWindowBuild.cpp

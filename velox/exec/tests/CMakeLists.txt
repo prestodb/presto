@@ -63,6 +63,7 @@ add_executable(
   RowContainerTest.cpp
   RowNumberTest.cpp
   MarkDistinctTest.cpp
+  SharedArbitratorTest.cpp
   SpillTest.cpp
   SpillOperatorGroupTest.cpp
   SpillerTest.cpp

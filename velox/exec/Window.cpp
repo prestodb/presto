@@ -151,18 +151,17 @@ void Window::addInput(RowVectorPtr input) {
 void Window::reclaim(
     uint64_t targetBytes,
     memory::MemoryReclaimer::Stats& stats) {
-  if (!spillConfig_.has_value()) {
-    // Spilling not enabled.
-    return;
-  }
-
-  if (nonReclaimableSection_) {
-    ++stats.numNonReclaimableAttempts;
-    return;
-  }
+  VELOX_CHECK(canReclaim());
+  VELOX_CHECK(!nonReclaimableSection_);
 
   if (noMoreInput_) {
+    ++stats.numNonReclaimableAttempts;
     // TODO Add support for spilling after noMoreInput().
+    LOG(WARNING)
+        << "Can't reclaim from window operator which has started producing output: "
+        << pool()->name()
+        << ", usage: " << succinctBytes(pool()->currentBytes())
+        << ", reservation: " << succinctBytes(pool()->reservedBytes());
     return;
   }
 

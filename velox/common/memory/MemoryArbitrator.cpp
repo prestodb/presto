@@ -19,22 +19,21 @@
 #include <utility>
 
 #include "velox/common/memory/Memory.h"
-#include "velox/common/memory/SharedArbitrator.h"
 
 namespace facebook::velox::memory {
 
 namespace {
 class FactoryRegistry {
  public:
-  void registerFactory(
+  bool registerFactory(
       const std::string& kind,
       MemoryArbitrator::Factory factory) {
     std::lock_guard<std::mutex> l(mutex_);
-    VELOX_USER_CHECK(
-        map_.find(kind) == map_.end(),
-        "Arbitrator factory for kind {} already registered",
-        kind)
+    if (map_.find(kind) != map_.end()) {
+      return false;
+    }
     map_[kind] = std::move(factory);
+    return true;
   }
 
   MemoryArbitrator::Factory& getFactory(const std::string& kind) {
@@ -144,22 +143,14 @@ std::unique_ptr<MemoryArbitrator> MemoryArbitrator::create(
   return factory(config);
 }
 
-void MemoryArbitrator::registerFactory(
+bool MemoryArbitrator::registerFactory(
     const std::string& kind,
     MemoryArbitrator::Factory factory) {
-  arbitratorFactories().registerFactory(kind, std::move(factory));
+  return arbitratorFactories().registerFactory(kind, std::move(factory));
 }
 
 void MemoryArbitrator::unregisterFactory(const std::string& kind) {
   arbitratorFactories().unregisterFactory(kind);
-}
-
-void MemoryArbitrator::registerAllFactories() {
-  SharedArbitrator::registerFactory();
-}
-
-void MemoryArbitrator::unregisterAllFactories() {
-  SharedArbitrator::unregisterFactory();
 }
 
 std::unique_ptr<MemoryReclaimer> MemoryReclaimer::create() {

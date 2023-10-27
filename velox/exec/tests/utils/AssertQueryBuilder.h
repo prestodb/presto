@@ -129,7 +129,7 @@ class AssertQueryBuilder {
 
   /// Run the query and collect all results into a single vector. Throws if
   /// query returns empty result.
-  RowVectorPtr copyResults(memory::MemoryPool* FOLLY_NONNULL pool);
+  RowVectorPtr copyResults(memory::MemoryPool* pool);
 
  private:
   std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>>

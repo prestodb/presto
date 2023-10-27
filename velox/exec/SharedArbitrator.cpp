@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/common/memory/SharedArbitrator.h"
+#include "velox/exec/SharedArbitrator.h"
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/testutil/TestValue.h"
@@ -22,7 +22,7 @@
 
 using facebook::velox::common::testutil::TestValue;
 
-namespace facebook::velox::memory {
+namespace facebook::velox::exec {
 
 namespace {
 
@@ -58,6 +58,10 @@ std::string memoryPoolAbortMessage(
   return out.str();
 }
 
+std::unique_ptr<MemoryArbitrator> createSharedArbitrator(
+    const MemoryArbitrator::Config& config) {
+  return std::make_unique<SharedArbitrator>(config);
+}
 } // namespace
 
 SharedArbitrator::SharedArbitrator(const MemoryArbitrator::Config& config)
@@ -586,14 +590,6 @@ std::string SharedArbitrator::kind() const {
   return kind_;
 }
 
-void SharedArbitrator::registerFactory() {
-  MemoryArbitrator::registerFactory(
-      kind_, [](const MemoryArbitrator::Config& config) {
-        return std::make_unique<SharedArbitrator>(config);
-      });
-}
+VELOX_REGISTER_MEMORY_ARBITRATION_FACTORY("SHARED", createSharedArbitrator);
 
-void SharedArbitrator::unregisterFactory() {
-  MemoryArbitrator::unregisterFactory(kind_);
-}
-} // namespace facebook::velox::memory
+} // namespace facebook::velox::exec

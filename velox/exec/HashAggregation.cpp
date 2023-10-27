@@ -465,18 +465,7 @@ void HashAggregation::reclaim(
     uint64_t targetBytes,
     memory::MemoryReclaimer::Stats& stats) {
   VELOX_CHECK(canReclaim());
-
-  // NOTE: an aggregation operator is reclaimable if it hasn't started output
-  // processing and is not under non-reclaimable execution section.
-  if (nonReclaimableSection_) {
-    // TODO: reduce the log frequency if it is too verbose.
-    ++stats.numNonReclaimableAttempts;
-    LOG(WARNING)
-        << "Can't reclaim from aggregation operator which is under non-reclaimable section, pool["
-        << pool()->toString()
-        << ", usage: " << succinctBytes(pool()->currentBytes()) << "]";
-    return;
-  }
+  VELOX_CHECK(!nonReclaimableSection_);
 
   if (noMoreInput_) {
     if (groupingSet_->hasSpilled()) {

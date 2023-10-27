@@ -80,17 +80,19 @@ void OrderBy::reclaim(
     uint64_t targetBytes,
     memory::MemoryReclaimer::Stats& stats) {
   VELOX_CHECK(canReclaim());
+  VELOX_CHECK(!nonReclaimableSection_);
   auto* driver = operatorCtx_->driver();
 
   // NOTE: an order by operator is reclaimable if it hasn't started output
   // processing and is not under non-reclaimable execution section.
-  if (noMoreInput_ || nonReclaimableSection_) {
+  if (noMoreInput_) {
     // TODO: reduce the log frequency if it is too verbose.
     ++stats.numNonReclaimableAttempts;
-    LOG(WARNING) << "Can't reclaim from order by operator, noMoreInput_["
-                 << noMoreInput_ << "], nonReclaimableSection_["
-                 << nonReclaimableSection_ << "], pool[" << pool()->name()
-                 << ", usage: " << succinctBytes(pool()->currentBytes()) << "]";
+    LOG(WARNING)
+        << "Can't reclaim from order by operator which has started producing output: "
+        << pool()->name()
+        << ", usage: " << succinctBytes(pool()->currentBytes())
+        << ", reservation: " << succinctBytes(pool()->reservedBytes());
     return;
   }
 

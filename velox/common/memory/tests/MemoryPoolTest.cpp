@@ -73,7 +73,6 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
  protected:
   static constexpr uint64_t kDefaultCapacity = 8 * GB; // 8GB
   static void SetUpTestCase() {
-    MemoryArbitrator::registerAllFactories();
     FLAGS_velox_memory_leak_check_enabled = true;
     TestValue::enable();
   }

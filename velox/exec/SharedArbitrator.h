@@ -21,7 +21,9 @@
 #include "velox/common/future/VeloxPromise.h"
 #include "velox/common/memory/Memory.h"
 
-namespace facebook::velox::memory {
+using namespace facebook::velox::memory;
+
+namespace facebook::velox::exec {
 
 /// Used to achieve dynamic memory sharing among running queries. When a
 /// memory pool exceeds its current memory capacity, the arbitrator tries to
@@ -31,12 +33,8 @@ namespace facebook::velox::memory {
 /// aborting a query. For Prestissimo-on-Spark, we can configure it to
 /// reclaim from a running query through techniques such as disk-spilling,
 /// partial aggregation or persistent shuffle data flushes.
-class SharedArbitrator : public MemoryArbitrator {
+class SharedArbitrator : public memory::MemoryArbitrator {
  public:
-  static void registerFactory();
-
-  static void unregisterFactory();
-
   explicit SharedArbitrator(const Config& config);
 
   ~SharedArbitrator() override;
@@ -202,4 +200,4 @@ class SharedArbitrator : public MemoryArbitrator {
   tsan_atomic<uint64_t> reclaimTimeUs_{0};
   tsan_atomic<uint64_t> numNonReclaimableAttempts_{0};
 };
-} // namespace facebook::velox::memory
+} // namespace facebook::velox::exec

@@ -1109,6 +1109,7 @@ void HashBuild::reclaim(
   VELOX_CHECK(canReclaim());
   auto* driver = operatorCtx_->driver();
   VELOX_CHECK_NOT_NULL(driver);
+  VELOX_CHECK(!nonReclaimableSection_);
 
   TestValue::adjust("facebook::velox::exec::HashBuild::reclaim", this);
 

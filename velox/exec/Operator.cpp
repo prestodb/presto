@@ -593,6 +593,18 @@ uint64_t Operator::MemoryReclaimer::reclaim(
   TestValue::adjust(
       "facebook::velox::exec::Operator::MemoryReclaimer::reclaim", pool);
 
+  // NOTE: we can't reclaim memory from an operator which is under
+  // non-reclaimable section.
+  if (op_->nonReclaimableSection_) {
+    // TODO: reduce the log frequency if it is too verbose.
+    ++stats.numNonReclaimableAttempts;
+    LOG(WARNING) << "Can't reclaim from memory pool " << pool->name()
+                 << " which is under non-reclaimable section, memory usage: "
+                 << succinctBytes(pool->currentBytes())
+                 << ", reservation: " << succinctBytes(pool->reservedBytes());
+    return 0;
+  }
+
   op_->reclaim(targetBytes, stats);
   return pool->shrink(targetBytes);
 }
