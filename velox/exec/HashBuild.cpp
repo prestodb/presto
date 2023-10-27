@@ -63,7 +63,8 @@ HashBuild::HashBuild(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
       spillMemoryThreshold_(
-          operatorCtx_->driverCtx()->queryConfig().joinSpillMemoryThreshold()) {
+          operatorCtx_->driverCtx()->queryConfig().joinSpillMemoryThreshold()),
+      keyChannelMap_(joinNode_->rightKeys().size()) {
   VELOX_CHECK(pool()->trackUsage());
   VELOX_CHECK_NOT_NULL(joinBridge_);
 
@@ -76,18 +77,17 @@ HashBuild::HashBuild(
 
   auto inputType = joinNode_->sources()[1]->outputType();
 
-  auto numKeys = joinNode_->rightKeys().size();
+  const auto numKeys = joinNode_->rightKeys().size();
   keyChannels_.reserve(numKeys);
-  folly::F14FastMap<column_index_t, column_index_t> keyChannelMap(numKeys);
   std::vector<std::string> names;
   names.reserve(inputType->size());
   std::vector<TypePtr> types;
   types.reserve(inputType->size());
 
-  for (int i = 0; i < joinNode_->rightKeys().size(); ++i) {
+  for (int i = 0; i < numKeys; ++i) {
     auto& key = joinNode_->rightKeys()[i];
     auto channel = exprToChannel(key.get(), inputType);
-    keyChannelMap[channel] = i;
+    keyChannelMap_[channel] = i;
     keyChannels_.emplace_back(channel);
     names.emplace_back(inputType->nameOf(channel));
     types.emplace_back(inputType->childAt(channel));
@@ -105,7 +105,7 @@ HashBuild::HashBuild(
     decoders_.reserve(numDependents);
   }
   for (auto i = 0; i < inputType->size(); ++i) {
-    if (keyChannelMap.find(i) == keyChannelMap.end()) {
+    if (keyChannelMap_.find(i) == keyChannelMap_.end()) {
       dependentChannels_.emplace_back(i);
       decoders_.emplace_back(std::make_unique<DecodedVector>());
       names.emplace_back(inputType->nameOf(i));
@@ -116,9 +116,13 @@ HashBuild::HashBuild(
   tableType_ = ROW(std::move(names), std::move(types));
   setupTable();
   setupSpiller();
+}
+
+void HashBuild::initialize() {
+  Operator::initialize();
 
   if (isAntiJoin(joinType_) && joinNode_->filter()) {
-    setupFilterForAntiJoins(keyChannelMap);
+    setupFilterForAntiJoins(keyChannelMap_);
   }
 }
 

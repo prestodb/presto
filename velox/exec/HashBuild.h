@@ -61,6 +61,8 @@ class HashBuild final : public Operator {
       DriverCtx* FOLLY_NONNULL driverCtx,
       std::shared_ptr<const core::HashJoinNode> joinNode);
 
+  void initialize() override;
+
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override {
@@ -323,6 +325,9 @@ class HashBuild final : public Operator {
   std::vector<column_index_t> keyFilterChannels_;
   // Indices of dependent columns used by the filter in 'decoders_'.
   std::vector<column_index_t> dependentFilterChannels_;
+
+  // Maps key channel in 'input_' to channel in key.
+  folly::F14FastMap<column_index_t, column_index_t> keyChannelMap_;
 };
 
 inline std::ostream& operator<<(std::ostream& os, HashBuild::State state) {
