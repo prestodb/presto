@@ -31,8 +31,7 @@ using facebook::velox::functions::test::FunctionBaseTest;
 class ArraySortTest : public SparkFunctionBaseTest {
  protected:
   void testArraySort(const VectorPtr& input, const VectorPtr& expected) {
-    auto result =
-        evaluate<ArrayVector>("array_sort(c0)", makeRowVector({input}));
+    auto result = evaluate("array_sort(c0)", makeRowVector({input}));
     assertEqualVectors(expected, result);
   }
 

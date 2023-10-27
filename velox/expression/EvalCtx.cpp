@@ -279,6 +279,29 @@ VectorPtr EvalCtx::ensureFieldLoaded(
   return field;
 }
 
+// Utility function used to extend the size of a complex Vector by wrapping it
+// in a dictionary with identity mapping for existing rows.
+// Note: If targetSize < the current size of the vector, then the result will
+// have the same size as the input vector.
+VectorPtr extendSizeByWrappingInDictionary(
+    VectorPtr& vector,
+    vector_size_t targetSize,
+    EvalCtx& context) {
+  auto currentSize = vector->size();
+  targetSize = std::max(targetSize, currentSize);
+  VELOX_DCHECK(
+      !vector->type()->isPrimitiveType(), "Only used for complex types.");
+  BufferPtr indices = allocateIndices(targetSize, context.pool());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  // Only fill in indices for existing rows in the vector.
+  std::iota(rawIndices, rawIndices + currentSize, 0);
+  // A nulls buffer is required otherwise wrapInDictionary() can return a
+  // constant. Moreover, nulls will eventually be added, so it's not wasteful.
+  auto nulls = allocateNulls(targetSize, context.pool());
+  return BaseVector::wrapInDictionary(
+      std::move(nulls), std::move(indices), targetSize, std::move(vector));
+}
+
 // static
 void EvalCtx::addNulls(
     const SelectivityVector& rows,
@@ -306,21 +329,36 @@ void EvalCtx::addNulls(
     return;
   }
 
+  auto currentSize = result->size();
+  auto targetSize = rows.end();
   if (!result.unique() || !result->isNullsWritable()) {
-    BaseVector::ensureWritable(
-        SelectivityVector::empty(), type, context.pool(), result);
-  }
-
-  if (result->size() < rows.end()) {
-    BaseVector::ensureWritable(
-        SelectivityVector::empty(), type, context.pool(), result);
-    if (result->encoding() == VectorEncoding::Simple::ROW) {
-      // Avoid calling resize on all children by adding top level nulls only.
-      // We know from the check above that result is unique and isNullsWritable.
-      result->asUnchecked<RowVector>()->appendNulls(
-          rows.end() - result->size());
+    if (result->type()->isPrimitiveType()) {
+      if (currentSize < targetSize) {
+        LocalSelectivityVector extraRows(context, targetSize);
+        extraRows->setValidRange(0, currentSize, false);
+        extraRows->setValidRange(currentSize, targetSize, true);
+        extraRows->updateBounds();
+        BaseVector::ensureWritable(*extraRows, type, context.pool(), result);
+      } else {
+        BaseVector::ensureWritable(
+            SelectivityVector::empty(), type, context.pool(), result);
+      }
     } else {
-      result->resize(rows.end());
+      result = extendSizeByWrappingInDictionary(result, targetSize, context);
+    }
+  } else if (currentSize < targetSize) {
+    VELOX_DCHECK(
+        !result->isConstantEncoding(),
+        "Should have been handled in code-path for !isNullsWritable()");
+    if (result->type()->isPrimitiveType()) {
+      result->resize(targetSize);
+    } else {
+      if (VectorEncoding::isDictionary(result->encoding())) {
+        // We can just resize the dictionary layer in-place.
+        result->resize(targetSize);
+      } else {
+        result = extendSizeByWrappingInDictionary(result, targetSize, context);
+      }
     }
   }
 

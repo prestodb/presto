@@ -101,7 +101,7 @@ TEST_F(ZipTest, nullEmptyArray) {
       {5, 5},
   });
 
-  auto result = evaluate<ArrayVector>(
+  auto result = evaluate(
       "zip(c0, c1)",
       makeRowVector({
           firstVector,
@@ -138,7 +138,7 @@ TEST_F(ZipTest, arity) {
        {S("b"), S("b"), S("b")},
        {S("c"), S("c")}});
 
-  auto result = evaluate<ArrayVector>(
+  auto result = evaluate(
       "zip(c0, c1, c2, c3)",
       makeRowVector({firstVector, secondVector, thirdVector, fourthVector}));
 

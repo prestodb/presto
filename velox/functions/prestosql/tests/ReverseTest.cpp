@@ -23,9 +23,8 @@ using namespace facebook::velox::functions::test;
 namespace {
 class ReverseTest : public FunctionBaseTest {
  protected:
-  template <typename T>
   void testExpr(const VectorPtr& expected, const VectorPtr& input) {
-    auto result = evaluate<T>("reverse(C0)", makeRowVector({input}));
+    auto result = evaluate("reverse(C0)", makeRowVector({input}));
     assertEqualVectors(expected, result);
   }
 };
@@ -44,7 +43,7 @@ TEST_F(ReverseTest, intsArrays) {
        {std::nullopt, 8, 3},
        {8, 1},
        {}});
-  testExpr<ArrayVector>(expected, array1);
+  testExpr(expected, array1);
 }
 
 TEST_F(ReverseTest, doublesArrays) {
@@ -59,7 +58,7 @@ TEST_F(ReverseTest, doublesArrays) {
       {std::nullopt, 8, 3},
       {8, 1},
   });
-  testExpr<ArrayVector>(expected, input);
+  testExpr(expected, input);
 }
 
 TEST_F(ReverseTest, stringsArrays) {
@@ -74,7 +73,7 @@ TEST_F(ReverseTest, stringsArrays) {
        {std::nullopt, S("xyz"), S("mnoasda asasd aqqerewqe")},
        {}});
 
-  testExpr<ArrayVector>(expected, input);
+  testExpr(expected, input);
 }
 
 TEST_F(ReverseTest, constant) {
@@ -86,7 +85,7 @@ TEST_F(ReverseTest, constant) {
 
   auto expected = makeNullableArrayVector<int32_t>({{3, 2, 1}, {3, 2, 1}});
 
-  testExpr<SimpleVector<ComplexType>>(expected, constant);
+  testExpr(expected, constant);
 }
 
 TEST_F(ReverseTest, nestedArray) {
@@ -140,18 +139,18 @@ TEST_F(ReverseTest, nestedArray) {
        O({4, 3}),
        O({1, 2})});
 
-  testExpr<ArrayVector>(expected, arrayOfArrays);
+  testExpr(expected, arrayOfArrays);
 
   arrayOfArrays =
       createArrayOfArrays({O({1, 2, 3, 4}), O({4, 5, std::nullopt})});
   expected = createArrayOfArrays({O({4, 5, std::nullopt}), O({1, 2, 3, 4})});
 
-  testExpr<ArrayVector>(expected, arrayOfArrays);
+  testExpr(expected, arrayOfArrays);
 
   arrayOfArrays = createArrayOfArrays({std::nullopt, O({4, 5, std::nullopt})});
   expected = createArrayOfArrays({O({4, 5, std::nullopt}), std::nullopt});
 
-  testExpr<ArrayVector>(expected, arrayOfArrays);
+  testExpr(expected, arrayOfArrays);
 }
 
 TEST_F(ReverseTest, nullArray) {
@@ -164,6 +163,6 @@ TEST_F(ReverseTest, nullArray) {
   auto reverseNullArray =
       makeNullableArrayVector<int32_t>({reverseNullVec, std::nullopt});
 
-  testExpr<ArrayVector>(reverseNullArray, nullArray);
+  testExpr(reverseNullArray, nullArray);
 }
 } // namespace

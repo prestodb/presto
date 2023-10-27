@@ -178,12 +178,10 @@ class ArraySortTest : public FunctionBaseTest,
     };
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
-      auto actualResult =
-          evaluate<ArrayVector>("array_sort(c0)", testData.inputVector);
+      auto actualResult = evaluate("array_sort(c0)", testData.inputVector);
       assertEqualVectors(testData.expectedResult, actualResult);
 
-      auto descResult =
-          evaluate<ArrayVector>("array_sort_desc(c0)", testData.inputVector);
+      auto descResult = evaluate("array_sort_desc(c0)", testData.inputVector);
       assertEqualVectors(testData.expectedDescResult, descResult);
     }
   }

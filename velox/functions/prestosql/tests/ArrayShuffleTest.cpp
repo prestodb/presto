@@ -81,8 +81,7 @@ class ArrayShuffleTest : public FunctionBaseTest {
     DecodedVector decodedExpected(*input.get());
     exec::VectorReader<Array<T>> readerExpected(&decodedExpected);
 
-    auto actualVector =
-        evaluate<ArrayVector>("shuffle(C0)", makeRowVector({input}));
+    auto actualVector = evaluate("shuffle(C0)", makeRowVector({input}));
     // Validate each row from the actual decoded ArrayVector is a permutation
     // of the corresponding row from the expected decoded ArrayVector.
     DecodedVector decodedActual(*actualVector.get());
@@ -172,8 +171,7 @@ class ArrayShuffleTest : public FunctionBaseTest {
         typename exec::ArrayView<false, int32_t>::materialize_t;
     folly::F14FastSet<materialize_t> distinctValueSet;
 
-    auto actualVector =
-        evaluate<ArrayVector>("shuffle(C0)", makeRowVector({inputVector}));
+    auto actualVector = evaluate("shuffle(C0)", makeRowVector({inputVector}));
 
     DecodedVector decodedActual(*actualVector.get());
     exec::VectorReader<Array<int32_t>> readerActual(&decodedActual);
@@ -248,8 +246,8 @@ TEST_F(ArrayShuffleTest, sortAndShuffle) {
         2,
         std::nullopt}});
   auto inputVector = makeRowVector({input});
-  auto result1 = evaluate<ArrayVector>("array_sort(C0)", inputVector);
-  auto result2 = evaluate<ArrayVector>("array_sort(shuffle(C0))", inputVector);
+  auto result1 = evaluate("array_sort(C0)", inputVector);
+  auto result2 = evaluate("array_sort(shuffle(C0))", inputVector);
 
   assertEqualVectors(result1, result2);
 }

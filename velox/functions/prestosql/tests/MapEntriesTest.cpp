@@ -43,22 +43,27 @@ TEST_F(MapEntriesTest, basic) {
       [](vector_size_t row) { return row % 11; },
       nullEvery(13));
 
-  auto result = evaluate<ArrayVector>("map_entries(C0)", makeRowVector({map}));
+  auto result = evaluate("map_entries(C0)", makeRowVector({map}));
   ASSERT_EQ(size, result->size());
-
-  auto resultKeys = result->elements()->as<RowVector>()->childAt(0);
-  auto resultValues = result->elements()->as<RowVector>()->childAt(1);
+  DecodedVector decodedArray(*result);
+  auto base = decodedArray.base()->as<ArrayVector>();
+  auto resultKeys = base->elements()->as<RowVector>()->childAt(0);
+  auto resultValues = base->elements()->as<RowVector>()->childAt(1);
   for (auto i = 0; i < size; i++) {
     auto isNull = map->isNullAt(i);
     ASSERT_EQ(isNull, result->isNullAt(i)) << "at " << i;
     if (!isNull) {
       auto mapSize = map->sizeAt(i);
-      ASSERT_EQ(mapSize, result->sizeAt(i)) << "at " << i;
+      ASSERT_EQ(mapSize, base->sizeAt(decodedArray.index(i))) << "at " << i;
       for (auto j = 0; j < mapSize; j++) {
         ASSERT_TRUE(map->mapKeys()->equalValueAt(
-            resultKeys.get(), map->offsetAt(i) + j, result->offsetAt(i) + j));
+            resultKeys.get(),
+            map->offsetAt(i) + j,
+            base->offsetAt(decodedArray.index(i)) + j));
         ASSERT_TRUE(map->mapValues()->equalValueAt(
-            resultValues.get(), map->offsetAt(i) + j, result->offsetAt(i) + j));
+            resultValues.get(),
+            map->offsetAt(i) + j,
+            base->offsetAt(decodedArray.index(i)) + j));
       }
     }
   }

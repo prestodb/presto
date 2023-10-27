@@ -29,15 +29,16 @@ class MapKeysAndValuesTest : public FunctionBaseTest {
       MapVectorPtr mapVector,
       VectorPtr mapKeys,
       vector_size_t row,
-      ArrayVectorPtr result,
+      DecodedVector& decodedArray,
+      const ArrayVector* result,
       VectorPtr resultElements) {
     auto size = mapVector->sizeAt(row);
-    EXPECT_EQ(size, result->sizeAt(row)) << "at " << row;
+    EXPECT_EQ(size, result->sizeAt(decodedArray.index(row))) << "at " << row;
     for (vector_size_t j = 0; j < size; j++) {
       EXPECT_TRUE(mapKeys->equalValueAt(
           resultElements->wrappedVector(),
           mapVector->offsetAt(row) + j,
-          result->offsetAt(row) + j));
+          result->offsetAt(decodedArray.index(row)) + j));
     }
   }
 
@@ -49,50 +50,22 @@ class MapKeysAndValuesTest : public FunctionBaseTest {
     auto mapVector = makeMapVector<int32_t, int64_t>(
         numRows_, sizeAt, keyAt, valueAt, isNullAt);
 
-    auto result = evaluate<ArrayVector>(expression, makeRowVector({mapVector}));
+    auto result = evaluate(expression, makeRowVector({mapVector}));
+    DecodedVector decodedArray(*result);
+    auto baseArray = decodedArray.base()->as<ArrayVector>();
     ASSERT_EQ(result->typeKind(), TypeKind::ARRAY);
 
     auto expected = expectedFunc(mapVector);
 
-    auto resultElements = result->elements();
-    ASSERT_TRUE(resultElements->type()->kindEquals(expected->type()));
+    auto baseArrayElements = baseArray->elements();
+    ASSERT_TRUE(baseArrayElements->type()->kindEquals(expected->type()));
 
-    EXPECT_EQ(numRows_, result->size());
+    EXPECT_EQ(numRows_, decodedArray.size());
     for (vector_size_t i = 0; i < numRows_; ++i) {
-      EXPECT_EQ(result->isNullAt(i), mapVector->isNullAt(i)) << "at " << i;
+      EXPECT_EQ(decodedArray.isNullAt(i), mapVector->isNullAt(i)) << "at " << i;
       if (!mapVector->isNullAt(i)) {
-        checkResult(mapVector, expected, i, result, resultElements);
-      }
-    }
-  }
-
-  void testConstantMap(
-      const std::string& expression,
-      std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
-      std::function<bool(vector_size_t /*row */)> isNullAt,
-      std::function<VectorPtr(MapVectorPtr /*mapVector*/)> expectedFunc) {
-    auto mapVector = makeMapVector<int32_t, int64_t>(
-        numRows_, sizeAt, keyAt, valueAt, isNullAt);
-
-    auto result = evaluate<ConstantVector<ComplexType>>(
-        expression, makeRowVector({mapVector}));
-    ASSERT_EQ(result->typeKind(), TypeKind::ARRAY);
-
-    auto expected = expectedFunc(mapVector);
-    if (result->isNullAt(0)) {
-      EXPECT_EQ(0, expected->size());
-      return;
-    }
-    auto array = std::dynamic_pointer_cast<ArrayVector>(
-        result->as<ConstantVector<ComplexType>>()->valueVector());
-    auto elements = array->elements();
-    ASSERT_TRUE(elements->type()->kindEquals(expected->type()));
-
-    EXPECT_EQ(numRows_, result->size());
-    for (vector_size_t i = 0; i < elements->size(); ++i) {
-      EXPECT_EQ(result->isNullAt(i), mapVector->isNullAt(i)) << "at " << i;
-      if (!mapVector->isNullAt(i)) {
-        checkResult(mapVector, expected, i, array, elements);
+        checkResult(
+            mapVector, expected, i, decodedArray, baseArray, baseArrayElements);
       }
     }
   }
@@ -109,26 +82,30 @@ class MapKeysAndValuesTest : public FunctionBaseTest {
     auto c =
         makeFlatVector<int32_t>(numRows_, [](vector_size_t i) { return i; });
 
-    auto result = evaluate<ArrayVector>(expression, makeRowVector({c, a, b}));
+    auto result = evaluate(expression, makeRowVector({c, a, b}));
+    DecodedVector decodedArray(*result);
+    auto baseArray = decodedArray.base()->as<ArrayVector>();
     ASSERT_EQ(result->typeKind(), TypeKind::ARRAY);
 
     auto aExpected = expectedFunc(a);
     auto bExpected = expectedFunc(b);
 
-    auto resultElements = result->elements();
-    ASSERT_TRUE(result->type()->childAt(0)->kindEquals(aExpected->type()));
+    auto baseArrayElements = baseArray->elements();
+    ASSERT_TRUE(baseArray->type()->childAt(0)->kindEquals(aExpected->type()));
 
-    EXPECT_EQ(numRows_, result->size());
+    EXPECT_EQ(numRows_, decodedArray.size());
     for (vector_size_t i = 0; i < numRows_; ++i) {
       if (i % 2 == 0) {
-        EXPECT_EQ(result->isNullAt(i), a->isNullAt(i)) << "at " << i;
-        if (!result->isNullAt(i)) {
-          checkResult(a, aExpected, i, result, resultElements);
+        EXPECT_EQ(decodedArray.isNullAt(i), a->isNullAt(i)) << "at " << i;
+        if (!decodedArray.isNullAt(i)) {
+          checkResult(
+              a, aExpected, i, decodedArray, baseArray, baseArrayElements);
         }
       } else {
-        EXPECT_EQ(result->isNullAt(i), b->isNullAt(i)) << "at " << i;
-        if (!result->isNullAt(i)) {
-          checkResult(b, bExpected, i, result, resultElements);
+        EXPECT_EQ(decodedArray.isNullAt(i), b->isNullAt(i)) << "at " << i;
+        if (!decodedArray.isNullAt(i)) {
+          checkResult(
+              b, bExpected, i, decodedArray, baseArray, baseArrayElements);
         }
       }
     }
@@ -157,7 +134,7 @@ class MapKeysTest : public MapKeysAndValuesTest {
   void testConstantMapKeys(
       std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
       std::function<bool(vector_size_t /*row */)> isNullAt) {
-    testConstantMap("map_keys(C0)", sizeAt, isNullAt, mapKeys);
+    testMap("map_keys(C0)", sizeAt, isNullAt, mapKeys);
   }
 
   void testMapKeysPartiallyPopulated(
@@ -187,7 +164,7 @@ class MapValuesTest : public MapKeysAndValuesTest {
   void testConstantMapValues(
       std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
       std::function<bool(vector_size_t /*row */)> isNullAt) {
-    testConstantMap("map_values(C0)", sizeAt, isNullAt, mapValues);
+    testMap("map_values(C0)", sizeAt, isNullAt, mapValues);
   }
 
   void testMapValuesPartiallyPopulated(

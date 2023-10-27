@@ -3351,12 +3351,16 @@ TEST_P(ParameterizedExprTest, addNulls) {
     // We do not set null to row three.
     localRows.setValid(4, true);
     localRows.updateBounds();
+    auto nulls = allocateNulls(5, pool());
+    auto* rawNulls = nulls->asMutable<uint64_t>();
+    bits::setNull(rawNulls, 4, true);
     exec::EvalCtx::addNulls(
-        localRows, nullptr, context, rowVector->type(), rowVector);
+        localRows, rawNulls, context, rowVector->type(), rowVector);
     ASSERT_EQ(rowVector->size(), 5);
 
     rowVector->validate();
-    ASSERT_TRUE(rowVector->isNullAt(3));
+    // Unselected row does not need to be marked null, just has to be valid.
+    ASSERT_FALSE(rowVector->isNullAt(3));
   };
 
   {

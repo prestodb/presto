@@ -50,7 +50,7 @@ class SortArrayTest : public SparkFunctionBaseTest {
       const VectorPtr& input,
       const VectorPtr& expected) {
     SCOPED_TRACE(expr);
-    auto result = evaluate<ArrayVector>(expr, makeRowVector({input}));
+    auto result = evaluate(expr, makeRowVector({input}));
     assertEqualVectors(expected, result);
   }
 

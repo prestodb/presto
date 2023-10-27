@@ -30,8 +30,7 @@ class ArrayNormalizeTest : public FunctionBaseTest {
   void testExpr(
       const VectorPtr& expected,
       const std::vector<VectorPtr>& input) {
-    auto result =
-        evaluate<ArrayVector>("array_normalize(C0, C1)", makeRowVector(input));
+    auto result = evaluate("array_normalize(C0, C1)", makeRowVector(input));
     assertEqualVectors(expected, result);
   }
 
