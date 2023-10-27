@@ -122,18 +122,13 @@ class MapFromEntriesFunction : public exec::VectorFunction {
     auto rowVector = decodedRowVector->base()->as<RowVector>();
     auto keyVector = rowVector->childAt(0);
 
-    BufferPtr changedSizes = nullptr;
-    vector_size_t* mutableSizes = nullptr;
-    auto resetSize = [&](vector_size_t row) {
-      if (!mutableSizes) {
-        changedSizes = allocateSizes(rows.end(), context.pool());
-        mutableSizes = changedSizes->asMutable<vector_size_t>();
-        rows.applyToSelected([&](vector_size_t row) {
-          mutableSizes[row] = inputArray->rawSizes()[row];
-        });
-      }
-      mutableSizes[row] = 0;
-    };
+    BufferPtr sizes = allocateSizes(rows.end(), context.pool());
+    vector_size_t* mutableSizes = sizes->asMutable<vector_size_t>();
+    rows.applyToSelected([&](vector_size_t row) {
+      mutableSizes[row] = inputArray->rawSizes()[row];
+    });
+
+    auto resetSize = [&](vector_size_t row) { mutableSizes[row] = 0; };
 
     // Validate all map entries and map keys are not null.
     if (decodedRowVector->mayHaveNulls() || keyVector->mayHaveNulls() ||
@@ -232,7 +227,7 @@ class MapFromEntriesFunction : public exec::VectorFunction {
         inputArray->nulls(),
         rows.end(),
         inputArray->offsets(),
-        changedSizes ? changedSizes : inputArray->sizes(),
+        sizes,
         wrappedKeys,
         wrappedValues);
 

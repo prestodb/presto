@@ -440,3 +440,34 @@ TEST_F(MapFromEntriesTest, nullRowEntriesWithSmallerChildren) {
       BaseVector::createNullConstant(MAP(INTEGER(), INTEGER()), 1, pool()),
       result);
 }
+
+TEST_F(MapFromEntriesTest, allTopLevelNullsCornerCase) {
+  // Test a corner case where the input of mapFromEntries is an array with
+  // array at row 0 : [(null), (null)]
+  // array at row 1 : []
+  // And the function is evaluated only at row 1.
+
+  auto keys = makeNullableFlatVector<int32_t>({});
+  auto values = makeNullableFlatVector<int32_t>({});
+  auto rowVector = makeRowVector({keys, values});
+
+  EXPECT_EQ(rowVector->size(), 0);
+  rowVector->appendNulls(2);
+
+  EXPECT_EQ(rowVector->size(), 2);
+  EXPECT_EQ(rowVector->childAt(0)->size(), 0);
+  EXPECT_EQ(rowVector->childAt(1)->size(), 0);
+
+  // Array at row 0 is [(null), (null)]
+  // Array at row 1 is []
+  auto arrayVector = makeArrayVector({0, 2}, rowVector);
+
+  SelectivityVector rows(2);
+  rows.setValid(0, false);
+
+  auto result =
+      evaluate("map_from_entries(c0)", makeRowVector({arrayVector}), rows);
+  result->validate();
+  auto expected = makeMapVectorFromJson<int32_t, int32_t>({"{}", "{}"});
+  assertEqualVectors(expected, result);
+}
