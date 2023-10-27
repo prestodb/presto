@@ -1763,6 +1763,7 @@ class StructColumnReader : public ColumnReader {
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
   std::vector<std::unique_ptr<ColumnReader>> children_;
+  folly::Executor* FOLLY_NULLABLE executor_;
 
  public:
   StructColumnReader(
@@ -1770,6 +1771,7 @@ class StructColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
+      folly::Executor* FOLLY_NULLABLE executor,
       FlatMapContext flatMapContext);
   ~StructColumnReader() override = default;
 
@@ -1796,9 +1798,11 @@ StructColumnReader::StructColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     StripeStreams& stripe,
     const StreamLabels& streamLabels,
+    folly::Executor* executor,
     FlatMapContext flatMapContext)
     : ColumnReader(fileType, stripe, streamLabels, std::move(flatMapContext)),
-      requestedType_{requestedType} {
+      requestedType_{requestedType},
+      executor_{executor} {
   DWIO_ENSURE_EQ(
       fileType_->id(),
       fileType->id(),
@@ -1825,6 +1829,7 @@ StructColumnReader::StructColumnReader(
             fileType_->childAt(i),
             stripe,
             streamLabels.append(folly::to<std::string>(i)),
+            executor,
             makeCopyWithNullDecoder(flatMapContext_)));
       } else {
         children_.push_back(
@@ -1904,7 +1909,15 @@ void StructColumnReader::next(
   for (uint64_t i = 0; i < children_.size(); ++i) {
     auto& reader = children_[i];
     if (reader) {
-      reader->next(numValues, (*childrenVectorsPtr)[i], nullsPtr);
+      if (executor_) {
+        executor_->add(
+            [&reader,
+             numValues,
+             child = &(*childrenVectorsPtr)[i],
+             nullsPtr]() { reader->next(numValues, *child, nullsPtr); });
+      } else {
+        reader->next(numValues, (*childrenVectorsPtr)[i], nullsPtr);
+      }
     }
   }
 }
@@ -1921,7 +1934,8 @@ class ListColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
-      FlatMapContext flatMapContext);
+      FlatMapContext flatMapContext,
+      folly::Executor* FOLLY_NULLABLE executor);
   ~ListColumnReader() override = default;
 
   uint64_t skip(uint64_t numValues) override;
@@ -1935,7 +1949,8 @@ ListColumnReader::ListColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     StripeStreams& stripe,
     const StreamLabels& streamLabels,
-    FlatMapContext flatMapContext)
+    FlatMapContext flatMapContext,
+    folly::Executor* executor)
     : ColumnReader(fileType, stripe, streamLabels, std::move(flatMapContext)),
       requestedType_{requestedType} {
   DWIO_ENSURE_EQ(fileType_->id(), fileType->id(), "working on the same node");
@@ -1960,6 +1975,7 @@ ListColumnReader::ListColumnReader(
         fileType_->childAt(0),
         stripe,
         streamLabels,
+        executor,
         makeCopyWithNullDecoder(flatMapContext_));
   }
 }
@@ -2086,7 +2102,8 @@ class MapColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
-      FlatMapContext flatMapContext);
+      FlatMapContext flatMapContext,
+      folly::Executor* FOLLY_NULLABLE executor);
   ~MapColumnReader() override = default;
 
   uint64_t skip(uint64_t numValues) override;
@@ -2100,7 +2117,8 @@ MapColumnReader::MapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     StripeStreams& stripe,
     const StreamLabels& streamLabels,
-    FlatMapContext flatMapContext)
+    FlatMapContext flatMapContext,
+    folly::Executor* executor)
     : ColumnReader(fileType, stripe, streamLabels, std::move(flatMapContext)),
       requestedType_{requestedType} {
   DWIO_ENSURE_EQ(fileType_->id(), fileType->id(), "working on the same node");
@@ -2125,6 +2143,7 @@ MapColumnReader::MapColumnReader(
         fileType_->childAt(0),
         stripe,
         streamLabels,
+        executor,
         makeCopyWithNullDecoder(flatMapContext_));
   }
 
@@ -2135,6 +2154,7 @@ MapColumnReader::MapColumnReader(
         fileType_->childAt(1),
         stripe,
         streamLabels,
+        executor,
         makeCopyWithNullDecoder(flatMapContext_));
   }
 
@@ -2405,6 +2425,7 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     StripeStreams& stripe,
     const StreamLabels& streamLabels,
+    folly::Executor* executor,
     FlatMapContext flatMapContext) {
   dwio::common::typeutils::checkTypeCompatibility(
       *fileType->type(), *requestedType->type());
@@ -2487,7 +2508,8 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
           fileType,
           stripe,
           streamLabels,
-          std::move(flatMapContext));
+          std::move(flatMapContext),
+          executor);
     case TypeKind::MAP:
       if (stripe.getEncoding(ek).kind() ==
           proto::ColumnEncoding_Kind_MAP_FLAT) {
@@ -2496,6 +2518,7 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
             fileType,
             stripe,
             streamLabels,
+            executor,
             std::move(flatMapContext));
       }
       return std::make_unique<MapColumnReader>(
@@ -2503,13 +2526,15 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
           fileType,
           stripe,
           streamLabels,
-          std::move(flatMapContext));
+          std::move(flatMapContext),
+          executor);
     case TypeKind::ROW:
       return std::make_unique<StructColumnReader>(
           requestedType,
           fileType,
           stripe,
           streamLabels,
+          executor,
           std::move(flatMapContext));
     case TypeKind::REAL:
       if (requestedType->type()->kind() == TypeKind::REAL) {

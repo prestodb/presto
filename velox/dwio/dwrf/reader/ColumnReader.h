@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "folly/Executor.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/TypeWithId.h"
@@ -114,6 +115,7 @@ class ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
+      folly::Executor* FOLLY_NULLABLE executor,
       FlatMapContext flatMapContext = {});
 };
 
@@ -125,12 +127,14 @@ class ColumnReaderFactory {
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
+      folly::Executor* FOLLY_NULLABLE executor,
       FlatMapContext flatMapContext = {}) {
     return ColumnReader::build(
         requestedType,
         fileType,
         stripe,
         streamLabels,
+        executor,
         std::move(flatMapContext));
   }
 

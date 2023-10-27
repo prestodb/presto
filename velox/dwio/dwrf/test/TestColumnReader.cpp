@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include "folly/executors/CPUThreadPoolExecutor.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/encode/Coding.h"
-#include "velox/dwio/common/Adaptor.h"
+#include "velox/dwio/common/ExecutorBarrier.h"
 #include "velox/dwio/common/exception/Exceptions.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
@@ -121,6 +122,10 @@ class ColumnReaderTestBase {
       common::ScanSpec* scanSpec = nullptr) {
     const std::shared_ptr<const RowType>& rowType =
         std::dynamic_pointer_cast<const RowType>(requestedType);
+    if (parallelDecoding()) {
+      barrier_ = std::make_unique<ExecutorBarrier>(
+          std::make_shared<folly::CPUThreadPoolExecutor>(2));
+    }
     ColumnSelector cs(rowType, nodes, true);
     auto options = RowReaderOptions();
     options.setReturnFlatVector(returnFlatVector());
@@ -152,7 +157,11 @@ class ColumnReaderTestBase {
       columnReader_ = nullptr;
     } else {
       columnReader_ = ColumnReader::build(
-          cs.getSchemaWithId(), fileTypeWithId, streams_, labels_);
+          cs.getSchemaWithId(),
+          fileTypeWithId,
+          streams_,
+          labels_,
+          barrier_.get());
       selectiveColumnReader_ = nullptr;
     }
   }
@@ -162,6 +171,9 @@ class ColumnReaderTestBase {
       columnReader_->next(numValues, result);
     } else {
       selectiveColumnReader_->next(numValues, result, nullptr);
+    }
+    if (barrier_) {
+      barrier_->waitAll();
     }
   }
 
@@ -189,6 +201,9 @@ class ColumnReaderTestBase {
     } else {
       selectiveColumnReader_->next(readSize, batch, nullptr);
     }
+    if (barrier_) {
+      barrier_->waitAll();
+    }
 
     ASSERT_EQ(readSize, batch->size());
     ASSERT_EQ(nullCount, BaseVector::countNulls(batch->nulls(), batch->size()));
@@ -203,16 +218,22 @@ class ColumnReaderTestBase {
     } else {
       selectiveColumnReader_.reset(nullptr);
     }
+    if (barrier_) {
+      barrier_->waitAll();
+      barrier_.reset();
+    }
   }
 
   virtual bool useSelectiveReader() const = 0;
   virtual bool returnFlatVector() const = 0;
+  virtual bool parallelDecoding() const = 0;
 
   MockStripeStreams streams_;
   memory::AllocationPool pool_;
   StreamLabels labels_;
   std::unique_ptr<ColumnReader> columnReader_;
   std::unique_ptr<SelectiveColumnReader> selectiveColumnReader_;
+  std::unique_ptr<ExecutorBarrier> barrier_;
 
  private:
   std::unique_ptr<common::ScanSpec> scanSpec_;
@@ -223,12 +244,14 @@ struct StringReaderTestParams {
   const bool useSelectiveReader;
   const bool returnFlatVector;
   const bool expectMemoryReuse;
+  const bool parallelDecoding;
 
   std::string toString() const {
     std::ostringstream out;
     out << (useSelectiveReader ? "selective" : "") << "_"
         << (returnFlatVector ? "as_flat" : "") << "_"
-        << (expectMemoryReuse ? "reuse" : "");
+        << (expectMemoryReuse ? "reuse" : "") << "_"
+        << (parallelDecoding ? "parallel" : "");
     return out.str();
   }
 };
@@ -238,8 +261,10 @@ class StringReaderTests
       public ColumnReaderTestBase {
  protected:
   StringReaderTests()
-      : expectMemoryReuse_{GetParam().expectMemoryReuse},
-        returnFlatVector_{GetParam().returnFlatVector} {}
+      : useSelectiveReader_{GetParam().useSelectiveReader},
+        returnFlatVector_{GetParam().returnFlatVector},
+        expectMemoryReuse_{GetParam().expectMemoryReuse},
+        parallelDecoding_{GetParam().parallelDecoding} {}
 
   VectorPtr newBatch(const TypePtr& rowType) const {
     return useSelectiveReader()
@@ -255,26 +280,34 @@ class StringReaderTests
     }
   }
 
-  const bool expectMemoryReuse_;
+  const bool useSelectiveReader_;
   const bool returnFlatVector_;
+  const bool expectMemoryReuse_;
+  const bool parallelDecoding_;
 
   bool useSelectiveReader() const override {
-    return GetParam().useSelectiveReader;
+    return useSelectiveReader_;
   }
 
   bool returnFlatVector() const override {
     return returnFlatVector_;
+  }
+
+  bool parallelDecoding() const override {
+    return parallelDecoding_;
   }
 };
 
 struct ReaderTestParams {
   const bool useSelectiveReader;
   const bool expectMemoryReuse;
+  const bool parallelDecoding;
 
   std::string toString() const {
     std::ostringstream out;
     out << (useSelectiveReader ? "selective" : "") << "_"
-        << (expectMemoryReuse ? "reuse" : "");
+        << (expectMemoryReuse ? "reuse" : "") << "_"
+        << (parallelDecoding ? "parallel" : "");
     return out.str();
   }
 };
@@ -282,7 +315,10 @@ struct ReaderTestParams {
 class TestColumnReader : public testing::TestWithParam<ReaderTestParams>,
                          public ColumnReaderTestBase {
  protected:
-  TestColumnReader() : expectMemoryReuse_{GetParam().expectMemoryReuse} {}
+  TestColumnReader()
+      : useSelectiveReader_{GetParam().useSelectiveReader},
+        expectMemoryReuse_{GetParam().expectMemoryReuse},
+        parallelDecoding_{GetParam().parallelDecoding} {}
 
   VectorPtr newBatch(const TypePtr& rowType) const {
     return useSelectiveReader()
@@ -302,22 +338,43 @@ class TestColumnReader : public testing::TestWithParam<ReaderTestParams>,
     }
   }
 
+  const bool useSelectiveReader_;
+  const bool expectMemoryReuse_;
+  const bool parallelDecoding_;
+
   bool useSelectiveReader() const override {
-    return GetParam().useSelectiveReader;
+    return useSelectiveReader_;
   }
 
   bool returnFlatVector() const override {
     return false;
   }
 
-  const bool expectMemoryReuse_;
+  bool parallelDecoding() const override {
+    return parallelDecoding_;
+  }
+};
+
+struct NonSelectiveReaderTestParams {
+  const bool expectMemoryReuse;
+  const bool parallelDecoding;
+
+  std::string toString() const {
+    std::ostringstream out;
+    out << (expectMemoryReuse ? "reuse" : "") << "_"
+        << (parallelDecoding ? "parallel" : "");
+    return out.str();
+  }
 };
 
 // For test cases where SelectiveColumnReader does not have support.
-class TestNonSelectiveColumnReader : public testing::TestWithParam<bool>,
-                                     public ColumnReaderTestBase {
+class TestNonSelectiveColumnReader
+    : public testing::TestWithParam<NonSelectiveReaderTestParams>,
+      public ColumnReaderTestBase {
  protected:
-  TestNonSelectiveColumnReader() : expectMemoryReuse_{GetParam()} {}
+  TestNonSelectiveColumnReader()
+      : expectMemoryReuse_{GetParam().expectMemoryReuse},
+        parallelDecoding_{GetParam().parallelDecoding} {}
 
   VectorPtr newBatch(const TypePtr& rowType) const {
     return nullptr;
@@ -339,24 +396,52 @@ class TestNonSelectiveColumnReader : public testing::TestWithParam<bool>,
     return false;
   }
 
+  bool parallelDecoding() const override {
+    return parallelDecoding_;
+  }
+
   const bool expectMemoryReuse_;
+  const bool parallelDecoding_;
 };
 
-class SchemaMismatchTest : public TestWithParam<bool>,
+struct SchemaMismatchTestParam {
+  const bool useSelectiveReader;
+  const bool parallelDecoding;
+
+  std::string toString() const {
+    std::ostringstream out;
+    out << (useSelectiveReader ? "selective" : "") << "_"
+        << (parallelDecoding ? "parallel" : "");
+    return out.str();
+  }
+};
+
+class SchemaMismatchTest : public TestWithParam<SchemaMismatchTestParam>,
                            public ColumnReaderTestBase {
  protected:
+  SchemaMismatchTest()
+      : useSelectiveReader_{GetParam().useSelectiveReader},
+        parallelDecoding_{GetParam().parallelDecoding} {}
+
   VectorPtr newBatch(const TypePtr& rowType) {
     return useSelectiveReader()
         ? BaseVector::create(rowType, 0, &streams_.getMemoryPool())
         : nullptr;
   }
 
+  const bool useSelectiveReader_;
+  const bool parallelDecoding_;
+
   bool useSelectiveReader() const override {
-    return GetParam();
+    return useSelectiveReader_;
   }
 
   bool returnFlatVector() const override {
     return false;
+  }
+
+  bool parallelDecoding() const override {
+    return parallelDecoding_;
   }
 
   template <typename From, typename To>
@@ -374,6 +459,9 @@ class SchemaMismatchTest : public TestWithParam<bool>,
     } else {
       asIsSelectiveColumnReader_->next(size, asIsBatch, nullptr);
     }
+    if (barrier_) {
+      barrier_->waitAll();
+    }
 
     // build columnReader_ and selectiveColumnReader_. They are used as
     // mismatch ColumnReaders
@@ -384,6 +472,9 @@ class SchemaMismatchTest : public TestWithParam<bool>,
       columnReader_->next(size, mismatchBatch, nullptr);
     } else {
       selectiveColumnReader_->next(size, mismatchBatch, nullptr);
+    }
+    if (barrier_) {
+      barrier_->waitAll();
     }
 
     ASSERT_EQ(asIsBatch->size(), mismatchBatch->size());
@@ -819,6 +910,9 @@ TEST_P(TestColumnReader, testIntegerRLEv2) {
         std::make_unique<common::BigintRange>(11, 20, false));
     buildReader(rowType, nullptr, {}, scanSpec.get());
     selectiveColumnReader_->next(size, batch, nullptr);
+    if (barrier_) {
+      barrier_->waitAll();
+    }
 
     auto rowVector = std::dynamic_pointer_cast<RowVector>(batch);
     ASSERT_NE(rowVector->childAt(0)->encoding(), VectorEncoding::Simple::LAZY);
@@ -1329,6 +1423,9 @@ TEST_P(StringReaderTests, testStringDictSkipNoNulls) {
       columnReader_->next(rowsRead, batch);
     } else {
       selectiveColumnReader_->next(rowsRead, batch, nullptr);
+    }
+    if (barrier_) {
+      barrier_->waitAll();
     }
 
     ASSERT_EQ(rowsRead, batch->size());
@@ -5027,64 +5124,113 @@ TEST_P(SchemaMismatchTest, testFloat) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TestColumnReaderNoReuse,
     TestColumnReader,
-    ::testing::Values(ReaderTestParams{false, false}));
+    ::testing::Values(ReaderTestParams{false, false, false}));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TestColumnReaderNoReuseParallel,
+    TestColumnReader,
+    ::testing::Values(ReaderTestParams{false, false, true}));
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TestColumnReaderReuse,
     TestColumnReader,
-    ::testing::Values(ReaderTestParams{false, true}));
+    ::testing::Values(ReaderTestParams{false, true, false}));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TestColumnReaderReuseParallel,
+    TestColumnReader,
+    ::testing::Values(ReaderTestParams{false, true, true}));
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TestSelectiveColumnReader,
     TestColumnReader,
-    ::testing::Values(ReaderTestParams{true, false}));
+    ::testing::Values(ReaderTestParams{true, false, false}));
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TestNonSelectiveColumnReaderNoReuse,
     TestNonSelectiveColumnReader,
-    ::testing::Values(false));
+    ::testing::Values(NonSelectiveReaderTestParams{false, false}));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TestNonSelectiveColumnReaderNoReuseParallel,
+    TestNonSelectiveColumnReader,
+    ::testing::Values(NonSelectiveReaderTestParams{false, true}));
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TestNonSelectiveColumnReaderReuse,
     TestNonSelectiveColumnReader,
-    ::testing::Values(true));
+    ::testing::Values(NonSelectiveReaderTestParams{true, false}));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TestNonSelectiveColumnReaderReuseParallel,
+    TestNonSelectiveColumnReader,
+    ::testing::Values(NonSelectiveReaderTestParams{true, true}));
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     StringViewReaderNoReuse,
     StringReaderTests,
-    ::testing::Values(StringReaderTestParams{false, false, false}),
+    ::testing::Values(StringReaderTestParams{false, false, false, false}),
+    [](auto p) { return p.param.toString(); });
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    StringViewReaderNoReuseParallel,
+    StringReaderTests,
+    ::testing::Values(StringReaderTestParams{false, false, false, true}),
     [](auto p) { return p.param.toString(); });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     StringViewReaderReuse,
     StringReaderTests,
-    ::testing::Values(StringReaderTestParams{false, false, true}),
+    ::testing::Values(StringReaderTestParams{false, false, true, false}),
+    [](auto p) { return p.param.toString(); });
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    StringViewReaderReuseParallel,
+    StringReaderTests,
+    ::testing::Values(StringReaderTestParams{false, false, true, true}),
     [](auto p) { return p.param.toString(); });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     FlatStringViewReaderNoReuse,
     StringReaderTests,
-    ::testing::Values(StringReaderTestParams{false, true, false}),
+    ::testing::Values(StringReaderTestParams{false, true, false, false}),
+    [](auto p) { return p.param.toString(); });
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    FlatStringViewReaderNoReuseParallel,
+    StringReaderTests,
+    ::testing::Values(StringReaderTestParams{false, true, false, true}),
     [](auto p) { return p.param.toString(); });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     FlatStringViewReaderReuse,
     StringReaderTests,
-    ::testing::Values(StringReaderTestParams{false, true, true}),
+    ::testing::Values(StringReaderTestParams{false, true, true, false}),
+    [](auto p) { return p.param.toString(); });
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    FlatStringViewReaderReuseParallel,
+    StringReaderTests,
+    ::testing::Values(StringReaderTestParams{false, true, true, true}),
     [](auto p) { return p.param.toString(); });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SelectiveStringViewReader,
     StringReaderTests,
-    ::testing::Values(StringReaderTestParams{true, false, false}),
+    ::testing::Values(StringReaderTestParams{true, false, false, false}),
     [](auto p) { return p.param.toString(); });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SchemaMismatch,
     SchemaMismatchTest,
-    Values(false));
+    Values(SchemaMismatchTestParam{false, false}));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    SchemaMismatchParallel,
+    SchemaMismatchTest,
+    Values(SchemaMismatchTestParam{false, true}));
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SelectiveSchemaMismatch,
     SchemaMismatchTest,
-    Values(true));
+    Values(SchemaMismatchTestParam{true, false}));

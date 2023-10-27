@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <folly/Executor.h>
 #include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/FlatMapHelper.h"
@@ -176,6 +177,7 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
+      folly::Executor* FOLLY_NULLABLE executor,
       FlatMapContext flatMapContext);
   ~FlatMapStructEncodingColumnReader() override = default;
 
@@ -190,6 +192,7 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes_;
   std::unique_ptr<NullColumnReader> nullColumnReader_;
+  folly::Executor* FOLLY_NULLABLE executor_;
   BufferPtr mergedNulls_;
 };
 
@@ -200,6 +203,7 @@ class FlatMapColumnReaderFactory {
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
+      folly::Executor* FOLLY_NULLABLE executor,
       FlatMapContext flatMapContext);
 };
 

@@ -350,6 +350,7 @@ void testDataTypeWriter(
         reqType,
         streams,
         labels,
+        nullptr,
         FlatMapContext{
             .sequence = sequence,
             .inMapDecoder = nullptr,
@@ -934,8 +935,8 @@ void testMapWriter(
       auto pool = addDefaultLeafMemoryPool();
       memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
-      const auto reader =
-          ColumnReader::build(dataTypeWithId, dataTypeWithId, streams, labels);
+      const auto reader = ColumnReader::build(
+          dataTypeWithId, dataTypeWithId, streams, labels, nullptr);
       VectorPtr out;
 
       // Read map/row
@@ -1070,8 +1071,8 @@ void testMapWriterRow(
       auto pool = addDefaultLeafMemoryPool();
       memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
-      const auto reader =
-          ColumnReader::build(dataTypeWithId, dataTypeWithId, streams, labels);
+      const auto reader = ColumnReader::build(
+          dataTypeWithId, dataTypeWithId, streams, labels, nullptr);
       VectorPtr out;
 
       // Read map/row
@@ -2080,7 +2081,7 @@ struct IntegerColumnWriterTypedTestCase {
       memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       auto columnReader =
-          ColumnReader::build(reqType, reqType, streams, labels);
+          ColumnReader::build(reqType, reqType, streams, labels, nullptr);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
         // TODO Make reuse work
@@ -3317,7 +3318,7 @@ struct StringColumnWriterTestCase {
       memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       auto columnReader =
-          ColumnReader::build(reqType, reqType, streams, labels);
+          ColumnReader::build(reqType, reqType, streams, labels, nullptr);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
         if (!writeDirect) {
@@ -4393,7 +4394,8 @@ struct DictColumnWriterTestCase {
     auto reqType = rowTypeWithId->childAt(0);
     memory::AllocationPool allocPool(pool.get());
     StreamLabels labels(allocPool);
-    auto reader = ColumnReader::build(reqType, reqType, streams, labels);
+    auto reader =
+        ColumnReader::build(reqType, reqType, streams, labels, nullptr);
     VectorPtr out;
     reader->next(batch->size(), out);
     compareResults(batch, out);

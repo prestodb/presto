@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <velox/buffer/Buffer.h>
 #include "folly/Random.h"
+#include "folly/executors/CPUThreadPoolExecutor.h"
 #include "folly/lang/Assume.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/FileSink.h"
@@ -79,6 +80,22 @@ const std::shared_ptr<const RowType>& getFlatmapSchema() {
       memo:string>"));
   return schema_;
 }
+
+class TestReaderP
+    : public testing::TestWithParam</* parallel decoding = */ bool> {
+ protected:
+  ExecutorBarrier* barrier() {
+    if (GetParam() && !barrier_) {
+      barrier_ = std::make_unique<ExecutorBarrier>(
+          std::make_shared<folly::CPUThreadPoolExecutor>(2));
+    }
+    return barrier_.get();
+  }
+
+ private:
+  std::unique_ptr<ExecutorBarrier> barrier_;
+};
+
 } // namespace
 
 TEST(TestReader, testWriterVersions) {
@@ -1720,7 +1737,7 @@ TEST(TestReader, fileColumnNamesReadAsLowerCaseComplexStruct) {
   EXPECT_EQ(col0_1_1_0_0->childByName("ccint3"), col0_1_1_0_0_0);
 }
 
-TEST(TestReader, testUpcastBoolean) {
+TEST_P(TestReaderP, testUpcastBoolean) {
   MockStripeStreams streams;
 
   // set getEncoding
@@ -1756,10 +1773,14 @@ TEST(TestReader, testUpcastBoolean) {
       TypeWithId::create(reqType),
       TypeWithId::create(rowType),
       streams,
-      labels);
+      labels,
+      barrier());
 
   VectorPtr batch;
   reader->next(104, batch);
+  if (barrier()) {
+    barrier()->waitAll();
+  }
 
   auto lv = std::dynamic_pointer_cast<FlatVector<int32_t>>(
       std::dynamic_pointer_cast<RowVector>(batch)->childAt(0));
@@ -1769,7 +1790,7 @@ TEST(TestReader, testUpcastBoolean) {
   }
 }
 
-TEST(TestReader, testUpcastIntDirect) {
+TEST_P(TestReaderP, testUpcastIntDirect) {
   MockStripeStreams streams;
 
   // set getEncoding
@@ -1805,10 +1826,14 @@ TEST(TestReader, testUpcastIntDirect) {
       TypeWithId::create(reqType),
       TypeWithId::create(rowType),
       streams,
-      labels);
+      labels,
+      barrier());
 
   VectorPtr batch;
   reader->next(100, batch);
+  if (barrier()) {
+    barrier()->waitAll();
+  }
 
   auto lv = std::dynamic_pointer_cast<FlatVector<int64_t>>(
       std::dynamic_pointer_cast<RowVector>(batch)->childAt(0));
@@ -1819,7 +1844,7 @@ TEST(TestReader, testUpcastIntDirect) {
   }
 }
 
-TEST(TestReader, testUpcastIntDict) {
+TEST_P(TestReaderP, testUpcastIntDict) {
   MockStripeStreams streams;
 
   // set getEncoding
@@ -1871,10 +1896,14 @@ TEST(TestReader, testUpcastIntDict) {
       TypeWithId::create(reqType),
       TypeWithId::create(rowType),
       streams,
-      labels);
+      labels,
+      barrier());
 
   VectorPtr batch;
   reader->next(100, batch);
+  if (barrier()) {
+    barrier()->waitAll();
+  }
 
   auto lv = std::dynamic_pointer_cast<FlatVector<int64_t>>(
       std::dynamic_pointer_cast<RowVector>(batch)->childAt(0));
@@ -1883,7 +1912,7 @@ TEST(TestReader, testUpcastIntDict) {
   }
 }
 
-TEST(TestReader, testUpcastFloat) {
+TEST_P(TestReaderP, testUpcastFloat) {
   MockStripeStreams streams;
 
   // set getEncoding
@@ -1925,10 +1954,14 @@ TEST(TestReader, testUpcastFloat) {
       TypeWithId::create(reqType),
       TypeWithId::create(rowType),
       streams,
-      labels);
+      labels,
+      barrier());
 
   VectorPtr batch;
   reader->next(100, batch);
+  if (barrier()) {
+    barrier()->waitAll();
+  }
 
   auto lv = std::dynamic_pointer_cast<FlatVector<double>>(
       std::dynamic_pointer_cast<RowVector>(batch)->childAt(0));
@@ -1936,6 +1969,16 @@ TEST(TestReader, testUpcastFloat) {
     EXPECT_EQ(lv->valueAt(i), static_cast<double>(i));
   }
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TestReaderSerialDecoding,
+    TestReaderP,
+    Values(false));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TestReaderParallelDecoding,
+    TestReaderP,
+    Values(true));
 
 TEST(TestReader, testEmptyFile) {
   auto pool = memory::addDefaultLeafMemoryPool();
