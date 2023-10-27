@@ -2253,6 +2253,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         "Bucketed table must be partitioned: {}",
         toJsonString(*hiveInsertTableHandle));
 
+    const auto table = hiveInsertTableHandle->pageSinkMetadata.table;
+    VELOX_USER_CHECK_NOT_NULL(table, "Table must not be null for insert query");
     hiveTableHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
         inputColumns,
         toLocationHandle(hiveInsertTableHandle->locationHandle),
@@ -2260,7 +2262,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         toHiveBucketProperty(
             inputColumns, hiveInsertTableHandle->bucketProperty),
         std::optional(
-            toFileCompressionKind(hiveInsertTableHandle->compressionCodec)));
+            toFileCompressionKind(hiveInsertTableHandle->compressionCodec)),
+        std::unordered_map<std::string, std::string>(
+            table->storage.serdeParameters.begin(),
+            table->storage.serdeParameters.end()));
   } else {
     VELOX_UNSUPPORTED(
         "Unsupported table writer handle: {}",
