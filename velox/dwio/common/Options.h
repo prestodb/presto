@@ -544,6 +544,7 @@ struct WriterOptions {
   std::optional<velox::common::CompressionKind> compressionKind;
   std::optional<uint64_t> maxStripeSize{std::nullopt};
   std::optional<uint64_t> maxDictionaryMemory{std::nullopt};
+  std::map<std::string, std::string> serdeParameters;
 };
 
 } // namespace facebook::velox::dwio::common

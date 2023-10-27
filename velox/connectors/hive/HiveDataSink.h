@@ -196,12 +196,14 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
       dwio::common::FileFormat tableStorageFormat =
           dwio::common::FileFormat::DWRF,
       std::shared_ptr<HiveBucketProperty> bucketProperty = nullptr,
-      std::optional<common::CompressionKind> compressionKind = {})
+      std::optional<common::CompressionKind> compressionKind = {},
+      const std::unordered_map<std::string, std::string>& serdeParameters = {})
       : inputColumns_(std::move(inputColumns)),
         locationHandle_(std::move(locationHandle)),
         tableStorageFormat_(tableStorageFormat),
         bucketProperty_(std::move(bucketProperty)),
-        compressionKind_(compressionKind) {
+        compressionKind_(compressionKind),
+        serdeParameters_(serdeParameters) {
     if (compressionKind.has_value()) {
       VELOX_CHECK(
           compressionKind.value() != common::CompressionKind_MAX,
@@ -226,6 +228,10 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
 
   dwio::common::FileFormat tableStorageFormat() const {
     return tableStorageFormat_;
+  }
+
+  const std::unordered_map<std::string, std::string>& serdeParameters() const {
+    return serdeParameters_;
   }
 
   bool supportsMultiThreading() const override {
@@ -254,6 +260,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
   const dwio::common::FileFormat tableStorageFormat_;
   const std::shared_ptr<HiveBucketProperty> bucketProperty_;
   const std::optional<common::CompressionKind> compressionKind_;
+  const std::unordered_map<std::string, std::string> serdeParameters_;
 };
 
 /// Parameters for Hive writers.
