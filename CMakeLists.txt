@@ -28,6 +28,22 @@ endif()
 # set the project name
 project(velox)
 
+# If we are in an active conda env disable search in system paths and add env to
+# prefix path
+if(DEFINED ENV{CONDA_PREFIX})
+  if(NOT DEFINED ENV{VELOX_DEPENDENCY_SOURCE} OR "$ENV{VELOX_DEPENDENCY_SOURCE}"
+                                                 STREQUAL "CONDA")
+    message(STATUS "Using Conda environment: $ENV{CONDA_PREFIX}")
+    set(CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH FALSE)
+    list(APPEND CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
+    # Override in case it was set to CONDA
+    set(ENV{VELOX_DEPENDENCY_SOURCE} AUTO)
+  elseif(DEFINED ENV{VELOX_DEPENDENCY_SOURCE}
+         AND NOT "$ENV{VELOX_DEPENDENCY_SOURCE}" STREQUAL "CONDA")
+    message(STATUS "Overriding Conda environment: $ENV{CONDA_PREFIX}")
+  endif()
+endif()
+
 list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/CMake"
      "${PROJECT_SOURCE_DIR}/CMake/third-party")
 
@@ -231,17 +247,6 @@ if(VELOX_ENABLE_REMOTE_FUNCTIONS)
   find_package(fizz CONFIG REQUIRED)
   find_package(wangle CONFIG REQUIRED)
   find_package(FBThrift CONFIG REQUIRED)
-endif()
-
-# Turn on Codegen only for Clang and non Mac systems.
-if((NOT DEFINED VELOX_CODEGEN_SUPPORT)
-   AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-   AND NOT (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))
-  message(STATUS "Enabling Codegen")
-  set(VELOX_CODEGEN_SUPPORT True)
-else()
-  message(STATUS "Disabling Codegen")
-  set(VELOX_CODEGEN_SUPPORT False)
 endif()
 
 # define processor variable for conditional compilation
@@ -511,7 +516,7 @@ include_directories(SYSTEM velox/external/duckdb/tpch/dbgen/include)
 
 # these were previously vendored in third-party/
 if(NOT VELOX_DISABLE_GOOGLETEST)
-  set(gtest_SOURCE BUNDLED)
+  set(gtest_SOURCE AUTO)
   resolve_dependency(gtest)
   set(VELOX_GTEST_INCUDE_DIR
       "${gtest_SOURCE_DIR}/googletest/include"
