@@ -15,6 +15,7 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
@@ -24,14 +25,32 @@ using facebook::presto::protocol::TaskId;
 
 namespace facebook::presto {
 namespace {
-std::string maybeRemoveNativePrefix(const std::string& name) {
-  static const std::string kNativePrefix = "native_";
-  const auto result =
-      ::strncmp(name.c_str(), kNativePrefix.c_str(), kNativePrefix.size());
-  if (result == 0) {
-    return name.substr(kNativePrefix.length());
-  }
-  return name;
+// Utility function to translate a config name in Presto to its equivalent in
+// Velox. Returns 'name' as is if there is no mapping.
+std::string toVeloxConfig(const std::string& name) {
+  using velox::core::QueryConfig;
+  static const folly::F14FastMap<std::string, std::string>
+      kPrestoToVeloxMapping = {
+          {"native_aggregation_spill_memory_threshold",
+           QueryConfig::kAggregationSpillMemoryThreshold},
+          {"native_simplified_expression_evaluation_enabled",
+           QueryConfig::kExprEvalSimplified},
+          {"native_aggregation_spill_all", QueryConfig::kAggregationSpillAll},
+          {"native_join_spill_memory_threshold",
+           QueryConfig::kJoinSpillMemoryThreshold},
+          {"native_order_by_spill_memory_threshold",
+           QueryConfig::kOrderBySpillMemoryThreshold},
+          {"native_max_spill_level", QueryConfig::kMaxSpillLevel},
+          {"native_max_spill_file_size", QueryConfig::kMaxSpillFileSize},
+          {"native_spill_compression_codec",
+           QueryConfig::kSpillCompressionKind},
+          {"native_spill_write_buffer_size",
+           QueryConfig::kSpillWriteBufferSize},
+          {"native_join_spill_enabled", QueryConfig::kJoinSpillEnabled},
+          {"native_debug.validate_output_from_operators",
+           QueryConfig::kValidateOutputFromOperators}};
+  auto it = kPrestoToVeloxMapping.find(name);
+  return it == kPrestoToVeloxMapping.end() ? name : it->second;
 }
 
 std::unordered_map<std::string, std::string> toConfigs(
@@ -40,7 +59,7 @@ std::unordered_map<std::string, std::string> toConfigs(
   // properties on top of it.
   auto configs = BaseVeloxQueryConfig::instance()->values();
   for (const auto& it : session.systemProperties) {
-    configs[maybeRemoveNativePrefix(it.first)] = it.second;
+    configs[toVeloxConfig(it.first)] = it.second;
   }
 
   // If there's a timeZoneKey, convert to timezone name and add to the
