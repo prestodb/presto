@@ -347,12 +347,4 @@ MemoryArbitrationContext* memoryArbitrationContext();
 
 /// Returns true if the running thread is under memory arbitration or not.
 bool underMemoryArbitration();
-
-#define VELOX_REGISTER_MEMORY_ARBITRATION_FACTORY(kind, factory)  \
-  namespace {                                                     \
-  static bool FB_ANONYMOUS_VARIABLE(g_MemoryArbitrationFactory) = \
-      facebook::velox::memory::MemoryArbitrator::registerFactory( \
-          kind,                                                   \
-          (factory));                                             \
-  }
 } // namespace facebook::velox::memory

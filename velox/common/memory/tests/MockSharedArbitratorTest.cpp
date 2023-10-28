@@ -383,6 +383,7 @@ MockTask::~MockTask() {
 class MockSharedArbitrationTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
+    exec::SharedArbitrator::registerFactory();
     FLAGS_velox_memory_leak_check_enabled = true;
     TestValue::enable();
   }

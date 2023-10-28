@@ -57,11 +57,6 @@ std::string memoryPoolAbortMessage(
       << victim->treeMemoryUsage();
   return out.str();
 }
-
-std::unique_ptr<MemoryArbitrator> createSharedArbitrator(
-    const MemoryArbitrator::Config& config) {
-  return std::make_unique<SharedArbitrator>(config);
-}
 } // namespace
 
 SharedArbitrator::SharedArbitrator(const MemoryArbitrator::Config& config)
@@ -590,6 +585,14 @@ std::string SharedArbitrator::kind() const {
   return kind_;
 }
 
-VELOX_REGISTER_MEMORY_ARBITRATION_FACTORY("SHARED", createSharedArbitrator);
+void SharedArbitrator::registerFactory() {
+  MemoryArbitrator::registerFactory(
+      kind_, [](const MemoryArbitrator::Config& config) {
+        return std::make_unique<SharedArbitrator>(config);
+      });
+}
 
+void SharedArbitrator::unregisterFactory() {
+  MemoryArbitrator::unregisterFactory(kind_);
+}
 } // namespace facebook::velox::exec

@@ -39,6 +39,10 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   ~SharedArbitrator() override;
 
+  static void registerFactory();
+
+  static void unregisterFactory();
+
   void reserveMemory(MemoryPool* pool, uint64_t /*unused*/) final;
 
   void releaseMemory(MemoryPool* pool) final;
