@@ -3340,6 +3340,43 @@ TEST_P(ParameterizedExprTest, addNulls) {
     EXPECT_EQ(mutableIndices[2], 1);
   }
 
+  // Make sure we dont overwrite the shared values_ buffer of a flatVector
+  {
+    // When the buffer needs to be reduced in size.
+    auto otherVector =
+        makeFlatVector<int64_t>(2 * kSize, [](auto row) { return row; });
+    auto valuesBufferCurrentSize = otherVector->values()->size();
+    VectorPtr input = std::make_shared<FlatVector<int64_t>>(
+        context.pool(),
+        BIGINT(),
+        nullptr,
+        kSize - 1,
+        otherVector->values(),
+        std::vector<BufferPtr>{});
+    exec::EvalCtx::addNulls(rows, rawNulls, context, BIGINT(), input);
+    checkResult(input);
+    ASSERT_EQ(valuesBufferCurrentSize, otherVector->values()->size());
+    ASSERT_NE(input->values(), otherVector->values());
+  }
+
+  {
+    // When the buffer needs to be increased in size.
+    auto otherVector =
+        makeFlatVector<int64_t>(kSize - 1, [](auto row) { return row; });
+    auto valuesBufferCurrentSize = otherVector->values()->size();
+    VectorPtr input = std::make_shared<FlatVector<int64_t>>(
+        context.pool(),
+        BIGINT(),
+        nullptr,
+        kSize - 1,
+        otherVector->values(),
+        std::vector<BufferPtr>{});
+    exec::EvalCtx::addNulls(rows, rawNulls, context, BIGINT(), input);
+    checkResult(input);
+    ASSERT_EQ(valuesBufferCurrentSize, otherVector->values()->size());
+    ASSERT_NE(input->values(), otherVector->values());
+  }
+
   // Verify that when adding nulls to a RowVector outside of its initial size,
   // we ensure that newly added rows outside of the initial size that are not
   // marked as null are still accessible.

@@ -302,6 +302,23 @@ VectorPtr extendSizeByWrappingInDictionary(
       std::move(nulls), std::move(indices), targetSize, std::move(vector));
 }
 
+// Utility function used to resize a primitive type vector while ensuring that
+// the result has all unique and writable buffers.
+void resizePrimitiveTypeVectors(
+    VectorPtr& vector,
+    vector_size_t targetSize,
+    EvalCtx& context) {
+  VELOX_DCHECK(
+      vector->type()->isPrimitiveType(), "Only used for primitive types.");
+  auto currentSize = vector->size();
+  LocalSelectivityVector extraRows(context, targetSize);
+  extraRows->setValidRange(0, currentSize, false);
+  extraRows->setValidRange(currentSize, targetSize, true);
+  extraRows->updateBounds();
+  BaseVector::ensureWritable(
+      *extraRows, vector->type(), context.pool(), vector);
+}
+
 // static
 void EvalCtx::addNulls(
     const SelectivityVector& rows,
@@ -334,11 +351,7 @@ void EvalCtx::addNulls(
   if (!result.unique() || !result->isNullsWritable()) {
     if (result->type()->isPrimitiveType()) {
       if (currentSize < targetSize) {
-        LocalSelectivityVector extraRows(context, targetSize);
-        extraRows->setValidRange(0, currentSize, false);
-        extraRows->setValidRange(currentSize, targetSize, true);
-        extraRows->updateBounds();
-        BaseVector::ensureWritable(*extraRows, type, context.pool(), result);
+        resizePrimitiveTypeVectors(result, targetSize, context);
       } else {
         BaseVector::ensureWritable(
             SelectivityVector::empty(), type, context.pool(), result);
@@ -350,12 +363,15 @@ void EvalCtx::addNulls(
     VELOX_DCHECK(
         !result->isConstantEncoding(),
         "Should have been handled in code-path for !isNullsWritable()");
-    if (result->type()->isPrimitiveType()) {
+    if (VectorEncoding::isDictionary(result->encoding())) {
+      // We can just resize the dictionary layer in-place. It also ensures
+      // indices buffer is unique after resize.
       result->resize(targetSize);
     } else {
-      if (VectorEncoding::isDictionary(result->encoding())) {
-        // We can just resize the dictionary layer in-place.
-        result->resize(targetSize);
+      if (result->type()->isPrimitiveType()) {
+        // A flat vector can still have a shared values_ buffer so we ensure all
+        // its buffers are unique while resizing.
+        resizePrimitiveTypeVectors(result, targetSize, context);
       } else {
         result = extendSizeByWrappingInDictionary(result, targetSize, context);
       }
