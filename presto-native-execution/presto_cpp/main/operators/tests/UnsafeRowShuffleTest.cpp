@@ -484,7 +484,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
     auto writerTaskId = makeTaskId("leaf", 0);
     auto writerTask = makeTask(writerTaskId, writerPlan, 0);
-    exec::Task::start(writerTask, numMapDrivers);
+    writerTask->start(numMapDrivers);
 
     ASSERT_TRUE(exec::test::waitForTaskCompletion(writerTask.get(), 5'000'000));
 

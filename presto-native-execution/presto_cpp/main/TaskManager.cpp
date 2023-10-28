@@ -499,7 +499,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       LOG(INFO) << "Starting task " << taskId << " with " << maxDrivers
                 << " max drivers.";
     }
-    exec::Task::start(execTask, maxDrivers, concurrentLifespans);
+    execTask->start(maxDrivers, concurrentLifespans);
 
     prestoTask->taskStarted = true;
     resultRequests = std::move(prestoTask->resultRequests);

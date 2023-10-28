@@ -50,6 +50,7 @@
 #include "velox/connectors/Connector.h"
 #include "velox/core/Config.h"
 #include "velox/exec/OutputBufferManager.h"
+#include "velox/exec/SharedArbitrator.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -817,7 +818,7 @@ void PrestoServer::registerFileSystems() {
 }
 
 void PrestoServer::registerMemoryArbitrators() {
-  velox::memory::MemoryArbitrator::registerAllFactories();
+  velox::exec::SharedArbitrator::registerFactory();
 }
 
 void PrestoServer::registerStatsCounters() {
