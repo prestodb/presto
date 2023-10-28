@@ -130,6 +130,7 @@ class RowReaderOptions {
   // (in dwrf row reader). todo: encapsulate this and keySelectionCallBack_ in a
   // struct
   std::function<void(uint64_t)> blockedOnIoCallback_;
+  std::function<void(uint64_t)> decodingTimeMsCallback_;
   bool eagerFirstStripeLoad = true;
   uint64_t skipRows_ = 0;
 
@@ -341,6 +342,14 @@ class RowReaderOptions {
 
   const std::function<void(int64_t)> getBlockedOnIoCallback() const {
     return blockedOnIoCallback_;
+  }
+
+  void setDecodingTimeMsCallback(std::function<void(int64_t)> decodingTimeMs) {
+    decodingTimeMsCallback_ = std::move(decodingTimeMs);
+  }
+
+  const std::function<void(int64_t)> getDecodingTimeMsCallback() const {
+    return decodingTimeMsCallback_;
   }
 
   void setSkipRows(uint64_t skipRows) {

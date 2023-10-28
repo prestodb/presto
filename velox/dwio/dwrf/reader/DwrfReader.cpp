@@ -258,6 +258,7 @@ void DwrfRowReader::readNext(
     const dwio::common::Mutation* mutation,
     VectorPtr& result) {
   if (!selectiveColumnReader_) {
+    const auto startTime = std::chrono::high_resolution_clock::now();
     // TODO: Move row number appending logic here.  Currently this is done in
     // the wrapper reader.
     VELOX_CHECK(
@@ -266,6 +267,12 @@ void DwrfRowReader::readNext(
     columnReader_->next(rowsToRead, result);
     if (executorBarrier_) {
       executorBarrier_->waitAll();
+    }
+    auto reportDecodingTimeMsMetric = options_.getDecodingTimeMsCallback();
+    if (reportDecodingTimeMsMetric) {
+      auto decodingTime = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::high_resolution_clock::now() - startTime);
+      reportDecodingTimeMsMetric(decodingTime.count());
     }
     return;
   }
