@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_parquet_writer_sink_test SinkTests.cpp
-                                              ParquetWriterTestBase.cpp)
+add_executable(velox_parquet_writer_sink_test SinkTests.cpp)
 
 add_test(
   NAME velox_parquet_writer_sink_test
@@ -25,8 +24,6 @@ target_link_libraries(
   velox_dwio_parquet_writer
   velox_dwio_common_test_utils
   velox_vector_fuzzer
-  velox_exec_test_lib
-  velox_temp_path
   Boost::regex
   velox_link_libs
   Folly::folly
