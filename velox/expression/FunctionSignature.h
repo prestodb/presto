@@ -274,11 +274,6 @@ class FunctionSignatureBuilder {
     return *this;
   }
 
-  FunctionSignatureBuilder& variable(const SignatureVariable& variable) {
-    addVariable(variables_, variable);
-    return *this;
-  }
-
   FunctionSignatureBuilder& knownTypeVariable(const std::string& name);
 
   /// Orderable implies comparable, this method would enable

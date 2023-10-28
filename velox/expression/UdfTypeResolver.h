@@ -143,8 +143,8 @@ struct resolver<Variadic<T>> {
   // Variadic cannot be used as an out_type
 };
 
-template <typename T, bool comparable, bool orderable>
-struct resolver<Generic<T, comparable, orderable>> {
+template <typename T>
+struct resolver<Generic<T>> {
   using in_type = GenericView;
   using null_free_in_type = in_type;
   using out_type = GenericWriter;
