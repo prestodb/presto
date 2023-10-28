@@ -1614,6 +1614,70 @@ TEST_F(AggregationTest, groupingSetsSameKey) {
       "select o_key, o_key as o_key_1, o_status FROM tmp) GROUP BY GROUPING SETS ((o_key, o_key_1), (o_key), (o_key_1), ())");
 }
 
+TEST_F(AggregationTest, groupingSetsEmptyInput) {
+  auto data = makeRowVector(
+      {"c1", "c2"},
+      {makeFlatVector<int64_t>({0, 1, 2, 3, 4}),
+       makeFlatVector<std::string>({"", "x", "xx", "xxx", "xxxx"})});
+
+  createDuckDbTable({data});
+
+  auto plan =
+      PlanBuilder()
+          .values({data})
+          .filter("c1 < 0")
+          .groupId({"c1"}, {{"c1"}, {}}, {"c2"})
+          .singleAggregation({"c1", "group_id"}, {"count(c2) as count_c2"}, {})
+          .project({"count_c2"})
+          .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT count(c2) as count_c2 FROM tmp WHERE c1 < 0 GROUP BY GROUPING SETS ((c1), ())");
+
+  plan =
+      PlanBuilder()
+          .values({data})
+          .filter("c1 < 0")
+          .groupId({"c1"}, {{"c1"}, {}}, {"c2"})
+          .partialAggregation({"c1", "group_id"}, {"count(c2) as count_c2"}, {})
+          .finalAggregation()
+          .project({"count_c2"})
+          .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT count(c2) as count_c2 FROM tmp WHERE c1 < 0 GROUP BY GROUPING SETS ((c1), ())");
+
+  plan =
+      PlanBuilder()
+          .values({data})
+          .filter("c1 < 0")
+          .groupId({"c1"}, {{"c1"}, {}}, {"c2"})
+          .partialAggregation({"c1", "group_id"}, {"count(c2) as count_c2"}, {})
+          .intermediateAggregation()
+          .finalAggregation()
+          .project({"count_c2"})
+          .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT count(c2) as count_c2 FROM tmp WHERE c1 < 0 GROUP BY GROUPING SETS ((c1), ())");
+
+  plan =
+      PlanBuilder()
+          .values({data})
+          .filter("c1 < 0")
+          .groupId({"c1"}, {{}, {}}, {"c2"})
+          .partialAggregation({"c1", "group_id"}, {"count(c2) as count_c2"}, {})
+          .intermediateAggregation()
+          .finalAggregation()
+          .project({"count_c2"})
+          .planNode();
+
+  assertQuery(plan, makeRowVector({makeFlatVector<int64_t>({0, 0})}));
+}
+
 TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
   const int numVectors = 5;
   const int vectorSize = 20;

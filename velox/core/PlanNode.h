@@ -532,6 +532,27 @@ class AggregationNode : public PlanNode {
       bool ignoreNullKeys,
       PlanNodePtr source);
 
+  /// @param globalGroupingSets Group IDs of the global grouping sets produced
+  /// by the preceding GroupId node
+  /// @param groupId Group ID key produced by the preceding GroupId node. Must
+  /// be set if globalGroupingSets is not empty. Must not be set otherwise. Must
+  /// be one of the groupingKeys.
+
+  /// GlobalGroupingSets and groupId trigger special handling when the input
+  /// data set is empty (no rows). In that case, aggregation generates a single
+  /// row with the default global aggregate value per global grouping set.
+  AggregationNode(
+      const PlanNodeId& id,
+      Step step,
+      const std::vector<FieldAccessTypedExprPtr>& groupingKeys,
+      const std::vector<FieldAccessTypedExprPtr>& preGroupedKeys,
+      const std::vector<std::string>& aggregateNames,
+      const std::vector<Aggregate>& aggregates,
+      const std::vector<vector_size_t>& globalGroupingSets,
+      const std::optional<FieldAccessTypedExprPtr>& groupId,
+      bool ignoreNullKeys,
+      PlanNodePtr source);
+
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }
@@ -562,6 +583,14 @@ class AggregationNode : public PlanNode {
 
   bool ignoreNullKeys() const {
     return ignoreNullKeys_;
+  }
+
+  const std::vector<vector_size_t>& globalGroupingSets() const {
+    return globalGroupingSets_;
+  }
+
+  std::optional<FieldAccessTypedExprPtr> groupId() const {
+    return groupId_;
   }
 
   std::string_view name() const override {
@@ -598,6 +627,10 @@ class AggregationNode : public PlanNode {
   const std::vector<std::string> aggregateNames_;
   const std::vector<Aggregate> aggregates_;
   const bool ignoreNullKeys_;
+
+  std::optional<FieldAccessTypedExprPtr> groupId_;
+  std::vector<vector_size_t> globalGroupingSets_;
+
   const std::vector<PlanNodePtr> sources_;
   const RowTypePtr outputType_;
 };

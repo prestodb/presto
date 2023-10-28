@@ -249,6 +249,28 @@ TEST_F(PlanNodeToStringTest, aggregation) {
   ASSERT_EQ(
       "-- Aggregation[SINGLE [c0] a0 := array_agg(ROW[\"c1\"]) ORDER BY c2 DESC NULLS LAST] -> c0:BIGINT, a0:ARRAY<INTEGER>\n",
       plan->toString(true, false));
+
+  // Aggregation over GroupId with global grouping sets.
+  plan = PlanBuilder()
+             .values({data_})
+             .groupId({"c0"}, {{"c0"}, {}}, {"c1"})
+             .singleAggregation({"c0", "group_id"}, {"sum(c1) as sum_c1"}, {})
+             .planNode();
+  ASSERT_EQ("-- Aggregation\n", plan->toString());
+  ASSERT_EQ(
+      "-- Aggregation[SINGLE [c0, group_id] sum_c1 := sum(ROW[\"c1\"]) global group IDs: [ 1 ] Group Id key: group_id] -> c0:SMALLINT, group_id:BIGINT, sum_c1:BIGINT\n",
+      plan->toString(true, false));
+
+  // Aggregation over GroupId with > 1 global grouping sets.
+  plan = PlanBuilder()
+             .values({data_})
+             .groupId({"c0"}, {{"c0"}, {}, {}}, {"c1"})
+             .singleAggregation({"c0", "group_id"}, {"sum(c1) as sum_c1"}, {})
+             .planNode();
+  ASSERT_EQ("-- Aggregation\n", plan->toString());
+  ASSERT_EQ(
+      "-- Aggregation[SINGLE [c0, group_id] sum_c1 := sum(ROW[\"c1\"]) global group IDs: [ 1, 2 ] Group Id key: group_id] -> c0:SMALLINT, group_id:BIGINT, sum_c1:BIGINT\n",
+      plan->toString(true, false));
 }
 
 TEST_F(PlanNodeToStringTest, groupId) {

@@ -57,6 +57,8 @@ GroupingSet::GroupingSet(
     bool ignoreNullKeys,
     bool isPartial,
     bool isRawInput,
+    const std::vector<vector_size_t>& globalGroupingSets,
+    const std::optional<column_index_t>& groupIdChannel,
     const common::SpillConfig* spillConfig,
     uint32_t* numSpillRuns,
     tsan_atomic<bool>* nonReclaimableSection,
@@ -73,6 +75,8 @@ GroupingSet::GroupingSet(
       spillMemoryThreshold_(operatorCtx->driverCtx()
                                 ->queryConfig()
                                 .aggregationSpillMemoryThreshold()),
+      globalGroupingSets_(globalGroupingSets),
+      groupIdChannel_(groupIdChannel),
       spillConfig_(spillConfig),
       numSpillRuns_(numSpillRuns),
       nonReclaimableSection_(nonReclaimableSection),
@@ -151,6 +155,8 @@ std::unique_ptr<GroupingSet> GroupingSet::createForMarkDistinct(
       /*ignoreNullKeys*/ false,
       /*isPartial*/ false,
       /*isRawInput*/ false,
+      /*globalGroupingSets*/ std::vector<vector_size_t>{},
+      /*groupIdColumn*/ std::nullopt,
       /*spillConfig*/ nullptr,
       /*numSpillRuns*/ nullptr,
       nonReclaimableSection,
@@ -181,6 +187,7 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
   }
 
   auto numRows = input->size();
+  numInputRows_ += numRows;
   if (!preGroupedKeyChannels_.empty()) {
     if (remainingInput_) {
       addRemainingInput();
@@ -595,6 +602,70 @@ bool GroupingSet::getGlobalAggregationOutput(
   return true;
 }
 
+bool GroupingSet::getDefaultGlobalGroupingSetOutput(
+    RowContainerIterator& iterator,
+    RowVectorPtr& result) {
+  if (iterator.allocationIndex != 0) {
+    return false;
+  }
+  // Global aggregates don't have grouping keys. But global grouping sets
+  // have null values in grouping keys and a groupId column as well. These
+  // key fields precede the aggregate columns in the result.
+  // This logic builds a row with just aggregate fields to reuse the global
+  // aggregate computation from the regular GroupingSet code-path.
+  auto outputType = asRowType(result->type());
+  auto firstAggregateCol = outputType->size() - aggregates_.size();
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+  names.reserve(aggregates_.size());
+  types.reserve(aggregates_.size());
+  for (auto i = firstAggregateCol; i < outputType->size(); i++) {
+    names.push_back(outputType->nameOf(i));
+    types.push_back(outputType->childAt(i));
+  }
+  auto aggregatesType = ROW(std::move(names), std::move(types));
+  auto globalAggregatesRow =
+      BaseVector::create<RowVector>(aggregatesType, 1, &pool_);
+
+  VELOX_CHECK(getGlobalAggregationOutput(iterator, globalAggregatesRow));
+
+  // There is one output row for each global GroupingSet.
+  result->resize(globalGroupingSets_.size());
+  VELOX_CHECK(groupIdChannel_.has_value());
+  // These first columns are for grouping keys (which could include the
+  // GroupId column). For a global grouping set row :
+  // i) Non-groupId grouping keys are null.
+  // ii) GroupId column is populated with the global grouping set number.
+  for (auto i = 0; i < firstAggregateCol; i++) {
+    auto column = result->childAt(i);
+    if (i == groupIdChannel_.value()) {
+      column->resize(globalGroupingSets_.size());
+      auto* groupIdVector = column->asFlatVector<int64_t>();
+      for (auto j = 0; j < globalGroupingSets_.size(); j++) {
+        groupIdVector->set(j, globalGroupingSets_.at(j));
+      }
+    } else {
+      column->resize(globalGroupingSets_.size(), false);
+      for (auto j = 0; j < globalGroupingSets_.size(); j++) {
+        column->setNull(j, true);
+      }
+    }
+  }
+
+  // The remaining aggregate columns are filled from the computed global
+  // aggregates.
+  for (auto i = firstAggregateCol; i < outputType->size(); i++) {
+    auto resultAggregateColumn = result->childAt(i);
+    auto sourceAggregateColumn =
+        globalAggregatesRow->childAt(i - firstAggregateCol);
+    for (auto j = 0; j < globalGroupingSets_.size(); j++) {
+      resultAggregateColumn->copy(sourceAggregateColumn.get(), j, 0, 1);
+    }
+  }
+
+  return true;
+}
+
 void GroupingSet::destroyGlobalAggregations() {
   if (!globalAggregationInitialized_) {
     return;
@@ -648,6 +719,13 @@ bool GroupingSet::getOutput(
   if (isGlobal_) {
     return getGlobalAggregationOutput(iterator, result);
   }
+
+  bool defaultGlobalGroupingSetOutput = noMoreInput_ && numInputRows_ == 0 &&
+      !globalGroupingSets_.empty() && (isRawInput_ || isPartial_);
+  if (defaultGlobalGroupingSetOutput) {
+    return getDefaultGlobalGroupingSetOutput(iterator, result);
+  }
+
   if (hasSpilled()) {
     return getOutputWithSpill(maxOutputRows, maxOutputBytes, result);
   }

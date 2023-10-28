@@ -87,6 +87,16 @@ TEST_F(PlanNodeSerdeTest, aggregation) {
              .planNode();
 
   testSerde(plan);
+
+  // Aggregation over GroupId with global grouping sets.
+  plan = PlanBuilder()
+             .values({data_})
+             .groupId({"c0"}, {{"c0"}, {}}, {"c1"})
+             .singleAggregation({"c0", "group_id"}, {"sum(c1) as sum_c1"}, {})
+             .project({"sum_c1"})
+             .planNode();
+
+  testSerde(plan);
 }
 
 TEST_F(PlanNodeSerdeTest, assignUniqueId) {

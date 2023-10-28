@@ -717,6 +717,25 @@ PlanBuilder& PlanBuilder::aggregation(
     const std::vector<std::vector<TypePtr>>& rawInputTypes) {
   auto aggregatesAndNames = createAggregateExpressionsAndNames(
       aggregates, masks, step, rawInputTypes);
+
+  // If the aggregationNode is over a GroupId, then global grouping sets
+  // need to be populated.
+  std::vector<vector_size_t> globalGroupingSets;
+  std::optional<core::FieldAccessTypedExprPtr> groupId;
+  if (auto groupIdNode =
+          dynamic_cast<const core::GroupIdNode*>(planNode_.get())) {
+    for (auto i = 0; i < groupIdNode->groupingSets().size(); i++) {
+      if (groupIdNode->groupingSets().at(i).empty()) {
+        globalGroupingSets.push_back(i);
+      }
+    }
+
+    if (!globalGroupingSets.empty()) {
+      // GroupId is the last column of the GroupIdNode.
+      groupId = field(groupIdNode->outputType()->names().back());
+    }
+  }
+
   planNode_ = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
@@ -724,6 +743,8 @@ PlanBuilder& PlanBuilder::aggregation(
       fields(preGroupedKeys),
       aggregatesAndNames.names,
       aggregatesAndNames.aggregates,
+      globalGroupingSets,
+      groupId,
       ignoreNullKeys,
       planNode_);
   return *this;

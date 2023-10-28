@@ -90,6 +90,7 @@ RowTypePtr getAggregationOutputType(
 
   return std::make_shared<RowType>(std::move(names), std::move(types));
 }
+
 } // namespace
 
 AggregationNode::AggregationNode(
@@ -99,6 +100,8 @@ AggregationNode::AggregationNode(
     const std::vector<FieldAccessTypedExprPtr>& preGroupedKeys,
     const std::vector<std::string>& aggregateNames,
     const std::vector<Aggregate>& aggregates,
+    const std::vector<vector_size_t>& globalGroupingSets,
+    const std::optional<FieldAccessTypedExprPtr>& groupId,
     bool ignoreNullKeys,
     PlanNodePtr source)
     : PlanNode(id),
@@ -108,6 +111,8 @@ AggregationNode::AggregationNode(
       aggregateNames_(aggregateNames),
       aggregates_(aggregates),
       ignoreNullKeys_(ignoreNullKeys),
+      groupId_(groupId),
+      globalGroupingSets_(globalGroupingSets),
       sources_{source},
       outputType_(getAggregationOutputType(
           groupingKeys_,
@@ -134,7 +139,46 @@ AggregationNode::AggregationNode(
         "Pre-grouped key must be one of the grouping keys: {}.",
         key->name());
   }
+
+  if (groupId_.has_value()) {
+    VELOX_USER_CHECK_GT(
+        groupingKeyNames.count(groupId_.value()->name()),
+        0,
+        "GroupId key {} must be one of the grouping keys",
+        groupId_.value()->name());
+
+    VELOX_USER_CHECK(
+        !globalGroupingSets_.empty(),
+        "GroupId key {} must have global grouping sets",
+        groupId_.value()->name());
+  }
+
+  if (!globalGroupingSets_.empty()) {
+    VELOX_USER_CHECK(
+        groupId_.has_value(), "Global grouping sets require GroupId key");
+  }
 }
+
+AggregationNode::AggregationNode(
+    const PlanNodeId& id,
+    Step step,
+    const std::vector<FieldAccessTypedExprPtr>& groupingKeys,
+    const std::vector<FieldAccessTypedExprPtr>& preGroupedKeys,
+    const std::vector<std::string>& aggregateNames,
+    const std::vector<Aggregate>& aggregates,
+    bool ignoreNullKeys,
+    PlanNodePtr source)
+    : AggregationNode(
+          id,
+          step,
+          groupingKeys,
+          preGroupedKeys,
+          aggregateNames,
+          aggregates,
+          {},
+          std::nullopt,
+          ignoreNullKeys,
+          source) {}
 
 namespace {
 void addFields(
@@ -208,6 +252,15 @@ void AggregationNode::addDetails(std::stringstream& stream) const {
       addSortingKeys(aggregate.sortingKeys, aggregate.sortingOrders, stream);
     }
   }
+
+  if (!globalGroupingSets_.empty()) {
+    stream << " global group IDs: [ " << folly::join(", ", globalGroupingSets_)
+           << " ]";
+  }
+
+  if (groupId_.has_value()) {
+    stream << " Group Id key: " << groupId_.value()->name();
+  }
 }
 
 namespace {
@@ -253,6 +306,14 @@ folly::dynamic AggregationNode::serialize() const {
     obj["aggregates"].push_back(aggregate.serialize());
   }
 
+  obj["globalGroupingSets"] = folly::dynamic::array;
+  for (const auto& globalGroup : globalGroupingSets_) {
+    obj["globalGroupingSets"].push_back(globalGroup);
+  }
+
+  if (groupId_.has_value()) {
+    obj["groupId"] = ISerializable::serialize(groupId_.value());
+  }
   obj["ignoreNullKeys"] = ignoreNullKeys_;
   return obj;
 }
@@ -342,6 +403,17 @@ PlanNodePtr AggregationNode::create(const folly::dynamic& obj, void* context) {
     aggregates.push_back(Aggregate::deserialize(aggregate, context));
   }
 
+  std::vector<vector_size_t> globalGroupingSets;
+  for (const auto& globalSet : obj["globalGroupingSets"]) {
+    globalGroupingSets.push_back(globalSet.asInt());
+  }
+
+  std::optional<FieldAccessTypedExprPtr> groupId;
+  if (obj.count("groupId")) {
+    groupId = ISerializable::deserialize<FieldAccessTypedExpr>(
+        obj["groupId"], context);
+  }
+
   return std::make_shared<AggregationNode>(
       deserializePlanNodeId(obj),
       stepFromName(obj["step"].asString()),
@@ -349,6 +421,8 @@ PlanNodePtr AggregationNode::create(const folly::dynamic& obj, void* context) {
       preGroupedKeys,
       aggregateNames,
       aggregates,
+      globalGroupingSets,
+      groupId,
       obj["ignoreNullKeys"].asBool(),
       deserializeSingleSource(obj, context));
 }

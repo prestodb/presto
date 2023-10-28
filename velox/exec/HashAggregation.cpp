@@ -196,6 +196,13 @@ void HashAggregation::initialize() {
     }
   }
 
+  std::optional<column_index_t> groupIdChannel;
+  if (aggregationNode_->groupId().has_value()) {
+    groupIdChannel = outputType_->getChildIdxIfExists(
+        aggregationNode_->groupId().value()->name());
+    VELOX_CHECK(groupIdChannel.has_value());
+  }
+
   groupingSet_ = std::make_unique<GroupingSet>(
       inputType,
       std::move(hashers),
@@ -204,6 +211,8 @@ void HashAggregation::initialize() {
       aggregationNode_->ignoreNullKeys(),
       isPartialOutput_,
       isRawInput(aggregationNode_->step()),
+      aggregationNode_->globalGroupingSets(),
+      groupIdChannel,
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
       &numSpillRuns_,
       &nonReclaimableSection_,
