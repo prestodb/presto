@@ -91,6 +91,6 @@ public class RollbackToSnapshotProcedure
             ExtendedHiveMetastore metastore = ((IcebergHiveMetadata) metadata).getMetastore();
             icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, clientSession, schemaTableName);
         }
-        icebergTable.manageSnapshots().rollbackTo(snapshotId).commit();
+        icebergTable.manageSnapshots().setCurrentSnapshot(snapshotId).commit();
     }
 }
