@@ -115,6 +115,7 @@ import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
+import static com.facebook.presto.SystemSessionProperties.usePartitionedJoinIfProbeInSingleNode;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
 import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
@@ -818,6 +819,9 @@ public class AddExchanges
                 if (!node.getCriteria().isEmpty()
                         && isNodePartitionedOn(left.getProperties(), leftVariables) && !left.getProperties().isSingleNode()) {
                     return planPartitionedJoin(node, leftVariables, rightVariables, left);
+                }
+                else if (!node.getCriteria().isEmpty() && usePartitionedJoinIfProbeInSingleNode(session) && left.getProperties().isSingleNode()) {
+                    return planPartitionedJoin(node, leftVariables, rightVariables);
                 }
 
                 return planReplicatedJoin(node, left);

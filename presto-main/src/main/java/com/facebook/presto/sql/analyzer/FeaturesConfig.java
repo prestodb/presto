@@ -285,6 +285,7 @@ public class FeaturesConfig
     private boolean useHBOForScaledWriters;
 
     private boolean removeRedundantCastToVarcharInJoin = true;
+    private boolean partitionJoinIfProbeInSingleNode = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2843,6 +2844,19 @@ public class FeaturesConfig
     public FeaturesConfig setHandleComplexEquiJoins(boolean handleComplexEquiJoins)
     {
         this.handleComplexEquiJoins = handleComplexEquiJoins;
+        return this;
+    }
+
+    public boolean isPartitionJoinIfProbeInSingleNode()
+    {
+        return partitionJoinIfProbeInSingleNode;
+    }
+
+    @Config("optimizer.partition-join-if-probe-in-single-node")
+    @ConfigDescription("If probe side is in single node, use partitioned join instead of broadcast join")
+    public FeaturesConfig setPartitionJoinIfProbeInSingleNode(boolean partitionJoinIfProbeInSingleNode)
+    {
+        this.partitionJoinIfProbeInSingleNode = partitionJoinIfProbeInSingleNode;
         return this;
     }
 }

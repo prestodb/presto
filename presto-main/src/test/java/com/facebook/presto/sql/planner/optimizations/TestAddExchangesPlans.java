@@ -37,11 +37,13 @@ import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATI
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.PARTITION_JOIN_IF_PROBE_IN_SINGLE_NODE;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT;
 import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING;
@@ -61,6 +63,7 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static org.testng.Assert.assertEquals;
@@ -490,6 +493,53 @@ public class TestAddExchangesPlans
                                                                                 "orderkey", "orderkey",
                                                                                 "clerk", "clerk",
                                                                                 "orderdate", "orderdate"))))))))));
+    }
+
+    @Test
+    public void testBroadcastJoinWithSingleNodeProbe()
+    {
+        Session enableOptimization = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .setSystemProperty(PARTITION_JOIN_IF_PROBE_IN_SINGLE_NODE, "true")
+                .build();
+        assertPlanWithSession("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
+                enableOptimization,
+                false,
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        values()))),
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+
+        Session disableOptimization = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .setSystemProperty(PARTITION_JOIN_IF_PROBE_IN_SINGLE_NODE, "false")
+                .build();
+        assertPlanWithSession("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
+                disableOptimization,
+                false,
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
+                                anyTree(
+                                        anyTree(
+                                                values()),
+                                        exchange(REMOTE_STREAMING, GATHER,
+                                                anyTree(
+                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))),
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, GATHER,
+                                                anyTree(
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
     void assertMaterializedWithStreamingMarkDistinctDistributedPlan(String sql, PlanMatchPattern pattern)

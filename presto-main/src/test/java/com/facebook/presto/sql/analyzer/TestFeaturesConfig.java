@@ -249,6 +249,7 @@ public class TestFeaturesConfig
                 .setRewriteConstantArrayContainsToInEnabled(false)
                 .setUseHBOForScaledWriters(false)
                 .setRemoveRedundantCastToVarcharInJoin(true)
+                .setPartitionJoinIfProbeInSingleNode(true)
                 .setHandleComplexEquiJoins(false));
     }
 
@@ -446,6 +447,7 @@ public class TestFeaturesConfig
                 .put("optimizer.rewrite-constant-array-contains-to-in", "true")
                 .put("optimizer.use-hbo-for-scaled-writers", "true")
                 .put("optimizer.remove-redundant-cast-to-varchar-in-join", "false")
+                .put("optimizer.partition-join-if-probe-in-single-node", "false")
                 .put("optimizer.handle-complex-equi-joins", "true")
                 .build();
 
@@ -641,6 +643,7 @@ public class TestFeaturesConfig
                 .setRewriteConstantArrayContainsToInEnabled(true)
                 .setUseHBOForScaledWriters(true)
                 .setRemoveRedundantCastToVarcharInJoin(false)
+                .setPartitionJoinIfProbeInSingleNode(false)
                 .setHandleComplexEquiJoins(true);
         assertFullMapping(properties, expected);
     }

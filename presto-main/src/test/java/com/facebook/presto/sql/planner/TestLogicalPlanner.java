@@ -65,6 +65,7 @@ import static com.facebook.presto.SystemSessionProperties.LEAF_NODE_LIMIT_ENABLE
 import static com.facebook.presto.SystemSessionProperties.MAX_LEAF_NODES_IN_PLAN;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.PARTITION_JOIN_IF_PROBE_IN_SINGLE_NODE;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
@@ -1003,6 +1004,15 @@ public class TestLogicalPlanner
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.toString(false))
                 .build();
 
+        Session disablePartitionedJoinIfProbeInSingleNode =
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.toString())
+                        .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
+                        .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
+                        .setSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.toString(false))
+                        .setSystemProperty(PARTITION_JOIN_IF_PROBE_IN_SINGLE_NODE, Boolean.toString(false))
+                        .build();
+
         // replicated join with naturally partitioned and distributed probe side is rewritten to partitioned join
         assertPlanWithSession(
                 "SELECT r1.regionkey FROM (SELECT regionkey FROM region GROUP BY regionkey) r1, region r2 WHERE r2.regionkey = r1.regionkey",
@@ -1029,7 +1039,7 @@ public class TestLogicalPlanner
         // replicated join is preserved if probe side is single node
         assertPlanWithSession(
                 "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a",
-                broadcastJoin,
+                disablePartitionedJoinIfProbeInSingleNode,
                 false,
                 anyTree(
                         node(JoinNode.class,
@@ -1037,6 +1047,18 @@ public class TestLogicalPlanner
                                         node(ValuesNode.class)),
                                 anyTree(
                                         exchange(REMOTE_STREAMING, GATHER,
+                                                node(TableScanNode.class))))));
+
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a",
+                broadcastJoin,
+                false,
+                anyTree(
+                        node(JoinNode.class,
+                                exchange(REMOTE_STREAMING, REPARTITION,
+                                        project(node(ValuesNode.class))),
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
                                                 node(TableScanNode.class))))));
 
         // replicated join is preserved if there are no equality criteria
