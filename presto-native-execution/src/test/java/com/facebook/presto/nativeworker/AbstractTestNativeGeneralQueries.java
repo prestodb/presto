@@ -14,6 +14,10 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -21,10 +25,18 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
@@ -45,6 +57,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableS
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -1271,6 +1284,50 @@ public abstract class AbstractTestNativeGeneralQueries
         }
         finally {
             dropTableIfExists(tableName);
+        }
+    }
+
+    @Test
+    public void testSelectFieldsWithCapitalLetters()
+    {
+        Session session = Session.builder(getSession())
+                // This is needed for Spark.
+                .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
+                .build();
+        String tmpTableName = generateRandomTableName();
+        try {
+            QueryRunner queryRunner = getQueryRunner();
+            // We have to create the table through metadata, rather than
+            // through Presto SQL since, if we use the latter, Presto will
+            // convert the field names to lower case.
+            SchemaTableName table = new SchemaTableName(session.getSchema().get(), tmpTableName);
+            Map<String, Object> tableProperties = ImmutableMap.<String, Object>builder()
+                    .put(STORAGE_FORMAT_PROPERTY, DWRF)
+                    .put(PARTITIONED_BY_PROPERTY, ImmutableList.of())
+                    .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
+                    .put(BUCKET_COUNT_PROPERTY, 0)
+                    .put(SORTED_BY_PROPERTY, ImmutableList.of())
+                    .build();
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(table, ImmutableList.of(
+                    new ColumnMetadata("col", RowType.from(ImmutableList.of(
+                        new RowType.Field(Optional.of("NationKey"), BIGINT),
+                        new RowType.Field(Optional.of("NAME"), VARCHAR),
+                        new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
+                        new RowType.Field(Optional.of("commenT"), VARCHAR))))),
+                    tableProperties);
+            transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                    .singleStatement()
+                    .execute(session, s -> {
+                        queryRunner.getMetadata().createTable(s, s.getCatalog().get(), tableMetadata, false);
+                    });
+
+            // Write some data so we can read it back.
+            queryRunner.execute(session, String.format("INSERT INTO %s SELECT cast(row(nationkey, name, regionkey, comment) as row(nationkey bigint, name varchar, regionkey bigint, comment varchar)) FROM nation", tmpTableName));
+            // This should work since Presto is case insensitive.
+            assertQuery(String.format("SELECT col.nationkey, col.name, col.regionkey, col.comment FROM %s", tmpTableName), "SELECT nationkey, name, regionkey, comment FROM nation");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
         }
     }
 

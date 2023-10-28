@@ -35,6 +35,7 @@
 #include "velox/common/compression/Compression.h"
 // clang-format on
 
+#include <folly/String.h>
 #include <folly/container/F14Set.h>
 
 using namespace facebook::velox;
@@ -803,6 +804,56 @@ std::unique_ptr<common::Filter> toFilter(
   VELOX_UNSUPPORTED("Unsupported filter found.");
 }
 
+template <TypeKind KIND>
+TypePtr fieldNamesToLowerCase(const TypePtr& type) {
+  return type;
+}
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::ARRAY>(const TypePtr& type);
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::MAP>(const TypePtr& type);
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::ROW>(const TypePtr& type);
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::ARRAY>(const TypePtr& type) {
+  auto& elementType = type->childAt(0);
+  return std::make_shared<ArrayType>(VELOX_DYNAMIC_TYPE_DISPATCH(
+      fieldNamesToLowerCase, elementType->kind(), elementType));
+}
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::MAP>(const TypePtr& type) {
+  auto& keyType = type->childAt(0);
+  auto& valueType = type->childAt(1);
+  return std::make_shared<MapType>(
+      VELOX_DYNAMIC_TYPE_DISPATCH(
+          fieldNamesToLowerCase, keyType->kind(), keyType),
+      VELOX_DYNAMIC_TYPE_DISPATCH(
+          fieldNamesToLowerCase, valueType->kind(), valueType));
+}
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::ROW>(const TypePtr& type) {
+  auto& rowType = type->asRow();
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+  names.reserve(type->size());
+  types.reserve(type->size());
+  for (int i = 0; i < rowType.size(); i++) {
+    std::string name = rowType.nameOf(i);
+    folly::toLowerAscii(name);
+    names.push_back(std::move(name));
+    auto& childType = rowType.childAt(i);
+    types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+        fieldNamesToLowerCase, childType->kind(), childType));
+  }
+  return std::make_shared<RowType>(std::move(names), std::move(types));
+}
+
 std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
@@ -844,8 +895,15 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
       names.reserve(hiveLayout->dataColumns.size());
       types.reserve(hiveLayout->dataColumns.size());
       for (auto& column : hiveLayout->dataColumns) {
-        names.push_back(column.name);
-        types.push_back(typeParser.parse(column.type));
+        std::string name = column.name;
+        folly::toLowerAscii(name);
+        names.emplace_back(std::move(name));
+        auto parsedType = typeParser.parse(column.type);
+        // The type from the metastore may have upper case letters
+        // in field names, convert them all to lower case to be
+        // compatible with Presto.
+        types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+            fieldNamesToLowerCase, parsedType->kind(), parsedType));
       }
       dataColumns = ROW(std::move(names), std::move(types));
     }
