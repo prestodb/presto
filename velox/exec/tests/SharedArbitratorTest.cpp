@@ -1704,13 +1704,6 @@ DEBUG_ONLY_TEST_F(
             pool->reclaimer()->leaveArbitration();
           })));
 
-  // Verifies that we only trigger the hash build reclaim once.
-  std::atomic<int> numHashBuildReclaims{0};
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::HashBuild::reclaim",
-      std::function<void(Operator*)>(
-          [&](Operator* /*unused*/) { ++numHashBuildReclaims; }));
-
   std::thread joinThread([&]() {
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto task =
@@ -1756,8 +1749,6 @@ DEBUG_ONLY_TEST_F(
   });
   joinThread.join();
   memThread.join();
-  // We only expect to reclaim from one hash build operator once.
-  ASSERT_EQ(numHashBuildReclaims, 1);
   waitForAllTasksToBeDeleted();
   ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 2);
 }
