@@ -1680,9 +1680,12 @@ class DataFetcher {
 /// sizes to no more than 1MB give and take 30%.
 TEST_F(MultiFragmentTest, maxBytes) {
   std::string s(25, 'x');
+  // Keep the row count under 7000 to avoid hitting the row limit in the
+  // operator instead.
   auto data = makeRowVector({
-      makeFlatVector<int64_t>(10'000, [](auto row) { return row; }),
-      makeConstant(StringView(s), 10'000),
+      makeFlatVector<int64_t>(5'000, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(5'000, [](auto row) { return row; }),
+      makeConstant(StringView(s), 5'000),
   });
 
   auto plan = PlanBuilder()
