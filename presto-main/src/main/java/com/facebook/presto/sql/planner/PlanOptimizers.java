@@ -402,6 +402,12 @@ public class PlanOptimizers
                                 new ImplementBernoulliSampleAsFilter(metadata.getFunctionAndTypeManager()),
                                 new ImplementOffset(metadata.getFunctionAndTypeManager()))),
                 simplifyRowExpressionOptimizer,
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RemoveTrivialFilters())),
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
                         metadata,
