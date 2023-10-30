@@ -242,6 +242,12 @@ class RowContainerSpillMergeStream : public SpillMergeStream {
     }
   }
 
+  uint32_t id() const override {
+    // Returns the max uint32_t as the special id for in-memory spill merge
+    // stream.
+    return std::numeric_limits<uint32_t>::max();
+  }
+
  private:
   int32_t numSortingKeys() const override {
     return numSortingKeys_;

@@ -94,10 +94,12 @@ class HashJoinBridgeTest : public testing::Test,
   }
 
   SpillFiles makeFakeSpillFiles(int32_t numFiles) {
+    static uint32_t fakeFileId{0};
     SpillFiles files;
     files.reserve(numFiles);
     for (int32_t i = 0; i < numFiles; ++i) {
       files.push_back(std::make_unique<SpillFile>(
+          fakeFileId++,
           rowType_,
           1,
           std::vector<CompareFlags>({}),

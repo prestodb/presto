@@ -304,6 +304,14 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
         prevGStats.spillSortTimeUs + stats.spillSortTimeUs,
         newGStats.spillSortTimeUs);
 
+    // Verifies the spill file id
+    for (auto& partitionNum : state_->spilledPartitionSet()) {
+      const auto spilledFileIds = state_->testingSpilledFileIds(partitionNum);
+      uint32_t expectedFileId{0};
+      for (auto spilledFileId : spilledFileIds) {
+        ASSERT_EQ(spilledFileId, expectedFileId++);
+      }
+    }
     std::vector<std::string> spilledFiles = state_->testingSpilledFilePaths();
     std::unordered_set<std::string> spilledFileSet(
         spilledFiles.begin(), spilledFiles.end());

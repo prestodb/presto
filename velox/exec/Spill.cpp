@@ -96,13 +96,15 @@ int32_t SpillMergeStream::compare(const MergeStream& other) const {
 }
 
 SpillFile::SpillFile(
+    uint32_t id,
     RowTypePtr type,
     int32_t numSortingKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool)
-    : type_(std::move(type)),
+    : id_(id),
+      type_(std::move(type)),
       numSortingKeys_(numSortingKeys),
       sortCompareFlags_(sortCompareFlags),
       ordinal_(ordinalCounter_++),
@@ -178,6 +180,7 @@ WriteFile& SpillFileList::currentOutput() {
       updateSpilledFiles(files_.back()->size());
     }
     files_.push_back(std::make_unique<SpillFile>(
+        nextFileId_++,
         type_,
         numSortingKeys_,
         sortCompareFlags_,
@@ -289,6 +292,14 @@ std::vector<std::string> SpillFileList::testingSpilledFilePaths() const {
     spilledFiles.push_back(file->testingFilePath());
   }
   return spilledFiles;
+}
+
+std::vector<uint32_t> SpillFileList::testingSpilledFileIds() const {
+  std::vector<uint32_t> fileIds;
+  for (auto& file : files_) {
+    fileIds.push_back(file->id());
+  }
+  return fileIds;
 }
 
 SpillState::SpillState(
@@ -405,6 +416,11 @@ std::vector<std::string> SpillState::testingSpilledFilePaths() const {
   return spilledFiles;
 }
 
+std::vector<uint32_t> SpillState::testingSpilledFileIds(
+    int32_t partitionNum) const {
+  return files_[partitionNum]->testingSpilledFileIds();
+}
+
 SpillPartitionNumSet SpillState::testingNonEmptySpilledPartitionSet() const {
   SpillPartitionNumSet partitionSet;
   for (uint32_t partition = 0; partition < maxPartitions_; ++partition) {
@@ -451,6 +467,19 @@ SpillPartition::createReader() {
   files_.clear();
   return std::make_unique<UnorderedStreamReader<BatchStream>>(
       std::move(streams));
+}
+
+uint32_t FileSpillMergeStream::id() const {
+  return spillFile_->id();
+}
+
+void FileSpillMergeStream::nextBatch() {
+  index_ = 0;
+  if (!spillFile_->nextBatch(rowVector_)) {
+    size_ = 0;
+    return;
+  }
+  size_ = rowVector_->size();
 }
 
 SpillStats::SpillStats(

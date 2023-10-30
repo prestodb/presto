@@ -65,12 +65,17 @@ class SpillInput : public ByteStream {
 class SpillFile {
  public:
   SpillFile(
+      uint32_t id,
       RowTypePtr type,
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool);
+
+  uint32_t id() const {
+    return id_;
+  }
 
   int32_t numSortingKeys() const {
     return numSortingKeys_;
@@ -125,6 +130,9 @@ class SpillFile {
  private:
   static std::atomic<int32_t> ordinalCounter_;
 
+  // The spill file id which is monotonically increasing and unique for each
+  // associated spill partition.
+  const uint32_t id_;
   // Type of 'rowVector_'. Needed for setting up writing.
   const RowTypePtr type_;
   const int32_t numSortingKeys_;
@@ -263,6 +271,8 @@ class SpillFileList {
 
   std::vector<std::string> testingSpilledFilePaths() const;
 
+  std::vector<uint32_t> testingSpilledFileIds() const;
+
  private:
   // Returns the current file to write to and creates one if needed.
   WriteFile& currentOutput();
@@ -291,6 +301,7 @@ class SpillFileList {
   const common::CompressionKind compressionKind_;
   memory::MemoryPool* const pool_;
   folly::Synchronized<SpillStats>* const stats_;
+  uint32_t nextFileId_{0};
   std::unique_ptr<VectorStreamGroup> batch_;
   SpillFiles files_;
 };
@@ -300,6 +311,9 @@ class SpillMergeStream : public MergeStream {
  public:
   SpillMergeStream() = default;
   virtual ~SpillMergeStream() = default;
+
+  /// Returns the id of a spill merge stream which is unique in the merge set.
+  virtual uint32_t id() const = 0;
 
   bool hasData() const final {
     return index_ < size_;
@@ -398,6 +412,8 @@ class FileSpillMergeStream : public SpillMergeStream {
     return std::unique_ptr<SpillMergeStream>(spillStream);
   }
 
+  uint32_t id() const override;
+
  private:
   explicit FileSpillMergeStream(std::unique_ptr<SpillFile> spillFile)
       : spillFile_(std::move(spillFile)) {
@@ -412,14 +428,7 @@ class FileSpillMergeStream : public SpillMergeStream {
     return spillFile_->sortCompareFlags();
   }
 
-  void nextBatch() override {
-    index_ = 0;
-    if (!spillFile_->nextBatch(rowVector_)) {
-      size_ = 0;
-      return;
-    }
-    size_ = rowVector_->size();
-  }
+  void nextBatch() override;
 
   std::unique_ptr<SpillFile> spillFile_;
 };
@@ -665,10 +674,14 @@ class SpillState {
     return partition < files_.size() && files_[partition];
   }
 
-  /// Return the spilled partition number set.
+  /// Returns the spilled partition number set.
   const SpillPartitionNumSet& spilledPartitionSet() const;
 
+  /// Returns the spilled file paths from all the partitions.
   std::vector<std::string> testingSpilledFilePaths() const;
+
+  /// Returns the file ids from a given partition.
+  std::vector<uint32_t> testingSpilledFileIds(int32_t partitionNum) const;
 
   /// Returns the set of partitions that have spilled data.
   SpillPartitionNumSet testingNonEmptySpilledPartitionSet() const;
