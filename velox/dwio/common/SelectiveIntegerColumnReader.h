@@ -179,7 +179,13 @@ void SelectiveIntegerColumnReader::processValueHook(
       readHelper<Reader, velox::common::AlwaysTrue, isDense>(
           &alwaysTrue(),
           rows,
-          ExtractToHook<aggregate::SumHook<int64_t, int64_t>>(hook));
+          ExtractToHook<aggregate::SumHook<int64_t, int64_t, false>>(hook));
+      break;
+    case aggregate::AggregationHook::kSumBigintToBigintOverflow:
+      readHelper<Reader, velox::common::AlwaysTrue, isDense>(
+          &alwaysTrue(),
+          rows,
+          ExtractToHook<aggregate::SumHook<int64_t, int64_t, true>>(hook));
       break;
     case aggregate::AggregationHook::kBigintMax:
       readHelper<Reader, velox::common::AlwaysTrue, isDense>(

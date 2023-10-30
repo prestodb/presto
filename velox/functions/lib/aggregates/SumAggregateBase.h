@@ -133,7 +133,7 @@ class SumAggregateBase
 
     if (mayPushdown && arg->isLazy()) {
       BaseAggregate::template pushdown<
-          facebook::velox::aggregate::SumHook<TValue, TData>>(
+          facebook::velox::aggregate::SumHook<TValue, TData, Overflow>>(
           groups, rows, arg);
       return;
     }

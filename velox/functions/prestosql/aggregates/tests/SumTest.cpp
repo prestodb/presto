@@ -404,12 +404,6 @@ TEST_F(SumTest, nulls) {
       "SELECT c0, sum(c1) as sum_c1 FROM tmp GROUP BY 1");
 }
 
-template <typename Type>
-struct SumRow {
-  char nulls;
-  Type sum;
-};
-
 TEST_F(SumTest, hook) {
   SumRow<int64_t> sumRow;
   sumRow.nulls = 1;
@@ -429,41 +423,6 @@ TEST_F(SumTest, hook) {
   EXPECT_EQ(0, sumRow.nulls);
   EXPECT_EQ(0, numNulls);
   EXPECT_EQ(value, sumRow.sum);
-}
-
-template <typename InputType, typename ResultType>
-void testHookLimits(bool expectOverflow = false) {
-  // Pair of <limit, value to overflow>.
-  std::vector<std::pair<InputType, InputType>> limits = {
-      {std::numeric_limits<InputType>::min(), -1},
-      {std::numeric_limits<InputType>::max(), 1}};
-
-  for (const auto& [limit, overflow] : limits) {
-    SumRow<ResultType> sumRow;
-    sumRow.sum = 0;
-    ResultType expected = 0;
-    char* row = reinterpret_cast<char*>(&sumRow);
-    uint64_t numNulls = 0;
-    aggregate::SumHook<InputType, ResultType> hook(
-        offsetof(SumRow<ResultType>, sum),
-        offsetof(SumRow<ResultType>, nulls),
-        0,
-        &row,
-        &numNulls);
-
-    // Adding limit should not overflow.
-    ASSERT_NO_THROW(hook.addValue(0, &limit));
-    expected += limit;
-    EXPECT_EQ(expected, sumRow.sum);
-    // Adding overflow based on the ResultType should throw.
-    if (expectOverflow) {
-      VELOX_ASSERT_THROW(hook.addValue(0, &overflow), "overflow");
-    } else {
-      ASSERT_NO_THROW(hook.addValue(0, &overflow));
-      expected += overflow;
-      EXPECT_EQ(expected, sumRow.sum);
-    }
-  }
 }
 
 TEST_F(SumTest, hookLimits) {

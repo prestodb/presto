@@ -34,5 +34,9 @@ TEST_F(SumAggregationTest, overflow) {
   SumTestBase::testAggregateOverflow<int64_t, int64_t, int64_t>("spark_sum");
 }
 
+TEST_F(SumAggregationTest, hookLimits) {
+  testHookLimits<int64_t, int64_t, true>();
+}
+
 } // namespace
 } // namespace facebook::velox::functions::aggregate::sparksql::test

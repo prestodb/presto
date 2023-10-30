@@ -35,6 +35,7 @@ class AggregationHook : public ValueHook {
   static constexpr Kind kFloatMin = 8;
   static constexpr Kind kDoubleMax = 9;
   static constexpr Kind kDoubleMin = 10;
+  static constexpr Kind kSumBigintToBigintOverflow = 11;
 
   // Make null behavior known at compile time. This is useful when
   // templating a column decoding loop with a hook.
@@ -97,9 +98,10 @@ class AggregationHook : public ValueHook {
 };
 
 namespace {
-template <typename TValue>
+template <typename TValue, bool Overflow>
 inline void updateSingleValue(TValue& result, TValue value) {
   if constexpr (
+      (std::is_same_v<TValue, int64_t> && Overflow) ||
       std::is_same_v<TValue, double> || std::is_same_v<TValue, float>) {
     result += value;
   } else {
@@ -108,7 +110,7 @@ inline void updateSingleValue(TValue& result, TValue value) {
 }
 } // namespace
 
-template <typename TValue, typename TAggregate>
+template <typename TValue, typename TAggregate, bool Overflow = false>
 class SumHook final : public AggregationHook {
  public:
   SumHook(
@@ -132,6 +134,9 @@ class SumHook final : public AggregationHook {
         return kSumIntegerToBigint;
       }
       if (std::is_same_v<TValue, int64_t>) {
+        if (Overflow) {
+          return kSumBigintToBigintOverflow;
+        }
         return kSumBigintToBigint;
       }
     }
@@ -141,7 +146,7 @@ class SumHook final : public AggregationHook {
   void addValue(vector_size_t row, const void* value) override {
     auto group = findGroup(row);
     clearNull(group);
-    updateSingleValue(
+    updateSingleValue<TAggregate, Overflow>(
         *reinterpret_cast<TAggregate*>(group + offset_),
         TAggregate(*reinterpret_cast<const TValue*>(value)));
   }
