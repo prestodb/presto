@@ -439,6 +439,7 @@ public class TestDynamicFilter
                 "SELECT 1 FROM part t0, part t1, part t2 " +
                         "WHERE t0.partkey = t1.partkey AND t0.partkey = t2.partkey " +
                         "AND t0.size + t1.size = t2.size",
+                noJoinReordering(),
                 anyTree(
                         join(
                                 INNER,
