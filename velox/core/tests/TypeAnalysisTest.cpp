@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/core/SimpleFunctionMetadata.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/type/Type.h"
 
 // Test for simple function type analysis.
@@ -70,10 +71,11 @@ class TypeAnalysisTest : public testing::Test {
   }
 
   template <typename... Args>
-  void testVariables(const std::set<std::string>& expected) {
+  void testVariables(
+      const std::map<std::string, exec::SignatureVariable>& expected) {
     TypeAnalysisResults results;
     (TypeAnalysis<Args>().run(results), ...);
-    ASSERT_EQ(expected, results.variables);
+    ASSERT_EQ(expected, results.variablesInformation);
   }
 
   template <typename... Args>
@@ -99,6 +101,11 @@ TEST_F(TypeAnalysisTest, hasGeneric) {
 
   testHasGeneric<Map<Array<Any>, Array<int32_t>>>(true);
   testHasGeneric<Map<Array<Generic<T1>>, Array<int32_t>>>(true);
+  testHasGeneric<Map<Array<Generic<T1, true, true>>, Array<int32_t>>>(true);
+  testHasGeneric<Map<Array<Generic<T1, true, false>>, Array<int32_t>>>(true);
+  testHasGeneric<Map<Array<Comparable<T1>>, Array<int32_t>>>(true);
+  testHasGeneric<Map<Array<Orderable<T1>>, Array<int32_t>>>(true);
+
   testHasGeneric<Map<Array<int32_t>, Any>>(true);
   testHasGeneric<Variadic<Any>>(true);
   testHasGeneric<Any>(true);
@@ -130,6 +137,9 @@ TEST_F(TypeAnalysisTest, hasVariadicOfGeneric) {
   testHasVariadicOfGeneric<Any, Variadic<int32_t>>(false);
 
   testHasVariadicOfGeneric<Variadic<Any>>(true);
+  testHasVariadicOfGeneric<Variadic<Comparable<T2>>>(true);
+  testHasVariadicOfGeneric<Variadic<Generic<T2, true, false>>>(true);
+
   testHasVariadicOfGeneric<Variadic<Any>, int32_t>(true);
   testHasVariadicOfGeneric<int32_t, Variadic<Array<Any>>>(true);
   testHasVariadicOfGeneric<int32_t, Variadic<Map<int64_t, Array<Generic<T1>>>>>(
@@ -143,6 +153,9 @@ TEST_F(TypeAnalysisTest, countConcrete) {
   testCountConcrete<int32_t, int32_t, double>(3);
   testCountConcrete<Any>(0);
   testCountConcrete<Generic<T1>>(0);
+  testCountConcrete<Generic<T1, true, false>>(0);
+  testCountConcrete<Orderable<T1>>(0);
+
   testCountConcrete<Variadic<Any>>(0);
   testCountConcrete<Variadic<int32_t>>(1);
   testCountConcrete<Variadic<Array<Any>>>(1);
@@ -179,8 +192,21 @@ TEST_F(TypeAnalysisTest, testStringType) {
       "integer",
       "bigint",
       "map(array(integer), __user_T2)",
+
   });
 
+  testStringType<int32_t, int64_t, Map<Array<int32_t>, Orderable<T2>>>({
+      "integer",
+      "bigint",
+      "map(array(integer), __user_T2)",
+
+  });
+  testStringType<int32_t, int64_t, Map<Array<int32_t>, Comparable<T2>>>({
+      "integer",
+      "bigint",
+      "map(array(integer), __user_T2)",
+
+  });
   testStringType<Array<int32_t>>({"array(integer)"});
   testStringType<Map<int64_t, double>>({"map(bigint, double)"});
   testStringType<Row<Any, double, Generic<T1>>>(
@@ -191,11 +217,66 @@ TEST_F(TypeAnalysisTest, testVariables) {
   testVariables<int32_t>({});
   testVariables<Array<int32_t>>({});
   testVariables<Any>({});
-  testVariables<Generic<T1>>({"__user_T1"});
+
+  testVariables<Generic<T1>>(
+      {{"__user_T1",
+        exec::SignatureVariable(
+            "__user_T1",
+            std::nullopt,
+            exec::ParameterType::kTypeParameter,
+            false,
+            false,
+            false)}});
+
+  testVariables<Orderable<T1>>(
+      {{"__user_T1",
+        exec::SignatureVariable(
+            "__user_T1",
+            std::nullopt,
+            exec::ParameterType::kTypeParameter,
+            false,
+            true /*orderableTypesOnly*/,
+            true)}});
+
+  testVariables<Generic<T1, true, true>>(
+      {{"__user_T1",
+        exec::SignatureVariable(
+            "__user_T1",
+            std::nullopt,
+            exec::ParameterType::kTypeParameter,
+            false,
+            true /*orderableTypesOnly*/,
+            true /*comparableTypesOnly*/)}});
+
+  testVariables<Comparable<T1>>(
+      {{"__user_T1",
+        exec::SignatureVariable(
+            "__user_T1",
+            std::nullopt,
+            exec::ParameterType::kTypeParameter,
+            false,
+            false /*orderableTypesOnly*/,
+            true /*comparableTypesOnly*/)}});
+
   testVariables<Map<Any, int32_t>>({});
   testVariables<Variadic<int32_t>>({});
-  testVariables<int32_t, Generic<T5>, Map<Array<int32_t>, Generic<T2>>>(
-      {"__user_T2", "__user_T5"});
+  testVariables<int32_t, Generic<T5>, Map<Array<int32_t>, Orderable<T2>>>(
+      {{"__user_T5",
+        exec::SignatureVariable(
+            "__user_T5",
+            std::nullopt,
+            exec::ParameterType::kTypeParameter,
+            false,
+            false /*orderableTypesOnly*/,
+            false /*comparableTypesOnly*/)},
+       {"__user_T2",
+        exec::SignatureVariable(
+            "__user_T2",
+            std::nullopt,
+            exec::ParameterType::kTypeParameter,
+            false,
+            true /*orderableTypesOnly*/,
+            true /*comparableTypesOnly*/)}});
 }
 
 TEST_F(TypeAnalysisTest, testRank) {
@@ -210,12 +291,15 @@ TEST_F(TypeAnalysisTest, testRank) {
   testRank<Any>(3);
   testRank<Array<int32_t>, Any, Variadic<int32_t>>(3);
   testRank<Array<int32_t>, Generic<T2>>(3);
+  testRank<Array<int32_t>, Comparable<T2>>(3);
+
   testRank<Array<Any>, Generic<T2>>(3);
   testRank<Array<Any>, int32_t>(3);
   testRank<Array<int32_t>, Any, Any>(3);
 
   testRank<Variadic<Any>>(4);
   testRank<Array<int32_t>, Any, Variadic<Array<Any>>>(4);
+  testRank<Array<int32_t>, Any, Variadic<Array<Generic<T2, true, true>>>>(4);
 }
 
 TEST_F(TypeAnalysisTest, testPriority) {

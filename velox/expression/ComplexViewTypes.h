@@ -1004,8 +1004,8 @@ struct HasGeneric {
   }
 };
 
-template <typename T>
-struct HasGeneric<Generic<T>> {
+template <typename T, bool comparable, bool orderable>
+struct HasGeneric<Generic<T, comparable, orderable>> {
   static constexpr bool value() {
     return true;
   }

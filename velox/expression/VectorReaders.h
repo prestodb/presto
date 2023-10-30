@@ -632,16 +632,18 @@ struct VectorReader<Variadic<T>> {
   std::vector<std::unique_ptr<VectorReader<T>>> childReaders_;
 };
 
-template <typename T>
-struct VectorReader<Generic<T>> {
+template <typename T, bool comparable, bool orderable>
+struct VectorReader<Generic<T, comparable, orderable>> {
   using exec_in_t = GenericView;
   using exec_null_free_in_t = exec_in_t;
 
   explicit VectorReader(const DecodedVector* decoded) : decoded_(*decoded) {}
 
-  explicit VectorReader(const VectorReader<Generic<T>>&) = delete;
+  explicit VectorReader(
+      const VectorReader<Generic<T, comparable, orderable>>&) = delete;
 
-  VectorReader<Generic<T>>& operator=(const VectorReader<Generic<T>>&) = delete;
+  VectorReader<Generic<T, comparable, orderable>>& operator=(
+      const VectorReader<Generic<T, comparable, orderable>>&) = delete;
 
   bool isSet(vector_size_t offset) const {
     return !decoded_.isNullAt(offset);

@@ -487,12 +487,14 @@ struct VectorWriter<std::shared_ptr<T>> : public VectorWriterBase {
   vector_t* vector_;
 };
 
-template <typename T>
-struct VectorWriter<Generic<T>> : public VectorWriterBase {
+template <typename T, bool comparable, bool orderable>
+struct VectorWriter<Generic<T, comparable, orderable>>
+    : public VectorWriterBase {
   using exec_out_t = GenericWriter;
   using vector_t = BaseVector;
 
-  VectorWriter<Generic<T>>() : writer_{castWriter_, castType_, offset_} {}
+  VectorWriter<Generic<T, comparable, orderable>>()
+      : writer_{castWriter_, castType_, offset_} {}
 
   void setOffset(vector_size_t offset) override {
     offset_ = offset;

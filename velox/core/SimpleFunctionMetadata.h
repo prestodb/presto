@@ -17,6 +17,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <folly/Likely.h>
+#include <optional>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
@@ -153,11 +154,22 @@ struct TypeAnalysisResults {
     }
   } stats;
 
+  void addVariable(exec::SignatureVariable&& variable) {
+    if (!variablesInformation.count(variable.name())) {
+      variablesInformation.emplace(variable.name(), variable);
+    } else {
+      VELOX_CHECK(
+          variable == variablesInformation.at(variable.name()),
+          "Cant assign different properties to the same variable {}",
+          variable.name());
+    }
+  }
+
   // String representaion of the type in the FunctionSignatureBuilder.
   std::ostringstream out;
 
   // Set of generic variables used in the type.
-  std::set<std::string> variables;
+  std::map<std::string, exec::SignatureVariable> variablesInformation;
 
   std::string typeAsString() {
     return out.str();
@@ -196,15 +208,21 @@ struct TypeAnalysis {
   }
 };
 
-template <typename T>
-struct TypeAnalysis<Generic<T>> {
+template <typename T, bool comparable, bool orderable>
+struct TypeAnalysis<Generic<T, comparable, orderable>> {
   void run(TypeAnalysisResults& results) {
     if constexpr (std::is_same_v<T, AnyType>) {
       results.out << "any";
     } else {
-      auto variableType = fmt::format("__user_T{}", T::getId());
-      results.out << variableType;
-      results.variables.insert(variableType);
+      auto typeVariableName = fmt::format("__user_T{}", T::getId());
+      results.out << typeVariableName;
+      results.addVariable(exec::SignatureVariable(
+          typeVariableName,
+          std::nullopt,
+          exec::ParameterType::kTypeParameter,
+          false,
+          orderable,
+          comparable));
     }
     results.stats.hasGeneric = true;
   }
@@ -237,7 +255,9 @@ struct TypeAnalysis<Variadic<V>> {
         tmp.stats.hasGeneric || results.stats.hasVariadicOfGeneric;
 
     results.stats.concreteCount += tmp.stats.concreteCount;
-    results.variables.insert(tmp.variables.begin(), tmp.variables.end());
+    for (auto& [_, variable] : tmp.variablesInformation) {
+      results.addVariable(std::move(variable));
+    }
     results.out << tmp.typeAsString();
   }
 };
@@ -401,7 +421,7 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
   struct SignatureTypesAnalysisResults {
     std::vector<std::string> argsTypes;
     std::string outputType;
-    std::set<std::string> variables;
+    std::map<std::string, exec::SignatureVariable> variables;
     TypeAnalysisResults::Stats stats;
   };
 
@@ -425,7 +445,7 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
     return SignatureTypesAnalysisResults{
         std::move(argsTypes),
         std::move(outputType),
-        std::move(results.variables),
+        std::move(results.variablesInformation),
         std::move(results.stats)};
   }
 
@@ -438,8 +458,8 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
       builder.argumentType(arg);
     }
 
-    for (const auto& variable : analysis.variables) {
-      builder.typeVariable(variable);
+    for (const auto& [_, variable] : analysis.variables) {
+      builder.variable(variable);
     }
 
     if (isVariadic()) {

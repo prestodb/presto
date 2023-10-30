@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include <optional>
+
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -316,5 +319,119 @@ TEST_F(FunctionResolutionTest, resolveCustomTypeTimestampWithTimeZone) {
       exec::simpleFunctions().resolveFunction("f_timestampzone", {})->type();
   EXPECT_EQ(type->toString(), TIMESTAMP_WITH_TIME_ZONE()->toString());
 }
+
+// A function that takes TInput and returns int, TInput determined at
+// registration.
+template <typename T>
+struct SingleInputFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  template <typename TInput>
+  void call(int64_t& out, const TInput&) {
+    out = 1;
+  }
+};
+
+// A function that takes two inputs of types TInput1, TInput2 and return int,
+// input types determined at registration.
+template <typename T>
+struct TwoInputFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  template <typename TInput1, typename TInput2>
+  void call(int64_t& out, const TInput1&, const TInput2&) {
+    out = 1;
+  }
+};
+
+TEST_F(FunctionResolutionTest, constrainedGenerics) {
+  registerFunction<SingleInputFunc, int64_t, Orderable<T1>>({"orderable"});
+  registerFunction<SingleInputFunc, int64_t, Comparable<T1>>({"comparable"});
+  registerFunction<SingleInputFunc, int64_t, Generic<T1>>({"generic"});
+
+  auto& registry = exec::simpleFunctions();
+
+  auto testSingleInput = [&](const auto& inputType) {
+    // Test orderable.
+    {
+      auto resolved = registry.resolveFunction("orderable", {inputType});
+      if (inputType->isOrderable()) {
+        EXPECT_EQ(TypeKind::BIGINT, resolved->type()->kind());
+      } else {
+        EXPECT_EQ(std::nullopt, resolved);
+      }
+    }
+
+    // Test comparable.
+    {
+      auto resolved = registry.resolveFunction("comparable", {inputType});
+
+      if (inputType->isComparable()) {
+        EXPECT_EQ(TypeKind::BIGINT, resolved->type()->kind());
+      } else {
+        EXPECT_EQ(std::nullopt, resolved);
+      }
+    }
+
+    // Test generic.
+    EXPECT_EQ(
+        TypeKind::BIGINT,
+        registry.resolveFunction("generic", {inputType})->type()->kind());
+  };
+
+  auto functionType = std::make_shared<FunctionType>(
+      std::vector<TypePtr>{BIGINT(), VARCHAR()}, BOOLEAN());
+
+  testSingleInput(INTEGER());
+  testSingleInput(functionType);
+  testSingleInput(ARRAY(INTEGER()));
+  testSingleInput(MAP(INTEGER(), INTEGER()));
+  testSingleInput(ROW({INTEGER(), MAP(INTEGER(), INTEGER())}));
+  testSingleInput(ARRAY(ARRAY(INTEGER())));
+
+  // Make sure we can't assign different properties to the same variable.
+  VELOX_ASSERT_THROW(
+      (registerFunction<TwoInputFunc, int64_t, Generic<T1>, Comparable<T1>>(
+          {"generic"})),
+      "Cant assign different properties to the same variable __user_T1");
+  VELOX_ASSERT_THROW(
+      (registerFunction<TwoInputFunc, int64_t, Orderable<T1>, Comparable<T1>>(
+          {"generic"})),
+      "Cant assign different properties to the same variable __user_T1");
+
+  // Expect two args to be the same and comprable.
+  registerFunction<TwoInputFunc, int64_t, Comparable<T1>, Comparable<T1>>(
+      {"same_comparable"});
+
+  EXPECT_EQ(
+      TypeKind::BIGINT,
+      registry.resolveFunction("same_comparable", {BIGINT(), BIGINT()})
+          ->type()
+          ->kind());
+
+  EXPECT_EQ(
+      std::nullopt,
+      registry.resolveFunction(
+          "same_comparable",
+          {MAP(INTEGER(), functionType), MAP(INTEGER(), functionType)}));
+  EXPECT_EQ(
+      std::nullopt,
+      registry.resolveFunction("same_comparable", {BIGINT(), DOUBLE()}));
+
+  // Orderable nested in array.
+  registerFunction<SingleInputFunc, int64_t, Array<Orderable<T1>>>(
+      {"nested_orderable"});
+
+  EXPECT_EQ(
+      std::nullopt,
+      registry.resolveFunction(
+          "nested_orderable", {ARRAY(MAP(BIGINT(), BIGINT()))}));
+  EXPECT_EQ(
+      std::nullopt, registry.resolveFunction("nested_orderable", {INTEGER()}));
+  EXPECT_EQ(
+      TypeKind::BIGINT,
+      registry.resolveFunction("nested_orderable", {ARRAY(INTEGER())})
+          ->type()
+          ->kind());
+}
+
 } // namespace
 } // namespace facebook::velox::exec
