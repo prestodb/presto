@@ -25,6 +25,7 @@ void applyTyped(
     DecodedVector& arrayDecoded,
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
+    exec::EvalCtx& /*context*/,
     FlatVector<bool>& flatResult) {
   using T = typename TypeTraits<kind>::NativeType;
 
@@ -85,6 +86,7 @@ void applyComplexType(
     DecodedVector& arrayDecoded,
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
+    exec::EvalCtx& context,
     FlatVector<bool>& flatResult) {
   auto baseArray = arrayDecoded.base()->as<ArrayVector>();
   auto rawSizes = baseArray->rawSizes();
@@ -96,20 +98,28 @@ void applyComplexType(
   auto searchBase = searchDecoded.base();
   auto searchIndices = searchDecoded.indices();
 
-  rows.applyToSelected([&](auto row) {
+  context.applyToSelectedNoThrow(rows, [&](auto row) {
     auto size = rawSizes[indices[row]];
     auto offset = rawOffsets[indices[row]];
-
     bool foundNull = false;
-
     auto searchIndex = searchIndices[row];
+
     for (auto i = 0; i < size; i++) {
       if (elementsDecoded.isNullAt(offset + i)) {
         foundNull = true;
-      } else if (elementsBase->equalValueAt(
-                     searchBase, elementIndices[offset + i], searchIndex)) {
-        flatResult.set(row, true);
-        return;
+      } else {
+        std::optional<bool> result = elementsBase->equalValueAt(
+            searchBase,
+            elementIndices[offset + i],
+            searchIndex,
+            CompareFlags::NullHandlingMode::StopAtNull);
+        VELOX_USER_CHECK(
+            result.has_value(),
+            "contains does not support arrays with elements that contain null");
+        if (result.value()) {
+          flatResult.set(row, true);
+          return;
+        }
       }
     }
 
@@ -127,9 +137,10 @@ void applyTyped<TypeKind::ARRAY>(
     DecodedVector& arrayDecoded,
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
+    exec::EvalCtx& context,
     FlatVector<bool>& flatResult) {
   applyComplexType(
-      rows, arrayDecoded, elementsDecoded, searchDecoded, flatResult);
+      rows, arrayDecoded, elementsDecoded, searchDecoded, context, flatResult);
 }
 
 template <>
@@ -138,9 +149,10 @@ void applyTyped<TypeKind::MAP>(
     DecodedVector& arrayDecoded,
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
+    exec::EvalCtx& context,
     FlatVector<bool>& flatResult) {
   applyComplexType(
-      rows, arrayDecoded, elementsDecoded, searchDecoded, flatResult);
+      rows, arrayDecoded, elementsDecoded, searchDecoded, context, flatResult);
 }
 
 template <>
@@ -149,9 +161,10 @@ void applyTyped<TypeKind::ROW>(
     DecodedVector& arrayDecoded,
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
+    exec::EvalCtx& context,
     FlatVector<bool>& flatResult) {
   applyComplexType(
-      rows, arrayDecoded, elementsDecoded, searchDecoded, flatResult);
+      rows, arrayDecoded, elementsDecoded, searchDecoded, context, flatResult);
 }
 
 class ArrayContainsFunction : public exec::VectorFunction {
@@ -191,6 +204,7 @@ class ArrayContainsFunction : public exec::VectorFunction {
         *arrayHolder.get(),
         *elementsHolder.get(),
         *searchHolder.get(),
+        context,
         *flatResult);
   }
 

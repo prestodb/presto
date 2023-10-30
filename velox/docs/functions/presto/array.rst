@@ -218,6 +218,12 @@ Array Functions
 .. function:: contains(x, element) -> boolean
 
     Returns true if the array ``x`` contains the ``element``.
+    When 'element' is of complex type, throws if 'x' or 'element' contains nested nulls
+    and these need to be compared to produce a result. ::
+
+    SELECT contains(ARRAY[ARRAY[1, 3]], ARRAY[2, null]); -- false.
+    SELECT contains(ARRAY[ARRAY[2, 3]], ARRAY[2, null]); -- failed: contains does not support arrays with elements that are null or contain null
+    SELECT contains(ARRAY[ARRAY[2, null]], ARRAY[2, 1]); -- failed: contains does not support arrays with elements that are null or contain null
 
 .. function:: element_at(array(E), index) -> E
 
