@@ -248,7 +248,8 @@ public class TestFeaturesConfig
                 .setPullUpExpressionFromLambdaEnabled(false)
                 .setRewriteConstantArrayContainsToInEnabled(false)
                 .setUseHBOForScaledWriters(false)
-                .setRemoveRedundantCastToVarcharInJoin(true));
+                .setRemoveRedundantCastToVarcharInJoin(true)
+                .setHandleComplexEquiJoins(false));
     }
 
     @Test
@@ -445,6 +446,7 @@ public class TestFeaturesConfig
                 .put("optimizer.rewrite-constant-array-contains-to-in", "true")
                 .put("optimizer.use-hbo-for-scaled-writers", "true")
                 .put("optimizer.remove-redundant-cast-to-varchar-in-join", "false")
+                .put("optimizer.handle-complex-equi-joins", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -638,7 +640,8 @@ public class TestFeaturesConfig
                 .setPullUpExpressionFromLambdaEnabled(true)
                 .setRewriteConstantArrayContainsToInEnabled(true)
                 .setUseHBOForScaledWriters(true)
-                .setRemoveRedundantCastToVarcharInJoin(false);
+                .setRemoveRedundantCastToVarcharInJoin(false)
+                .setHandleComplexEquiJoins(true);
         assertFullMapping(properties, expected);
     }
 
