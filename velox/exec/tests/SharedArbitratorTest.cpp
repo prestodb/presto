@@ -1536,7 +1536,7 @@ DEBUG_ONLY_TEST_F(
       joinQueryCtx = newQueryCtx(kMemoryCapacity);
     }
     const auto joinMemoryUsage = 8L << 20;
-    const auto fakeAllocationSize = kMemoryCapacity - joinMemoryUsage / 2;
+    const auto fakeAllocationSize = kMemoryCapacity - joinMemoryUsage;
 
     std::atomic<bool> injectAllocationOnce{true};
     std::atomic<bool> fakeAllocationWaitFlag{true};
@@ -1561,6 +1561,12 @@ DEBUG_ONLY_TEST_F(
           if (op->operatorType() != "HashBuild") {
             return;
           }
+          // Make sure each hash build operator has reserved memory to avoid
+          // trigger memory arbitration in test.
+          if (static_cast<MemoryPoolImpl*>(op->pool())
+                  ->testingMinReservationBytes() == 0) {
+            return;
+          }
           // Check all the hash build operators' memory usage instead of
           // individual operator.
           if (op->pool()->parent()->currentBytes() < joinMemoryUsage) {
@@ -1574,7 +1580,6 @@ DEBUG_ONLY_TEST_F(
             fakeAllocationWaitFlag = false;
             fakeAllocationWait.notifyAll();
           }
-
           // Wait for pause to be triggered.
           taskPauseWait.await([&]() { return !taskPauseWaitFlag.load(); });
         })));
