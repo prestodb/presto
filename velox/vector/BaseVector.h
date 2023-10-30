@@ -370,15 +370,14 @@ class BaseVector {
     return index;
   }
 
-  // Sets the null indicator at 'idx'. 'true' means null.
-  FOLLY_ALWAYS_INLINE virtual void setNull(vector_size_t idx, bool value) {
+  /// Sets the null indicator at 'idx'.
+  FOLLY_ALWAYS_INLINE virtual void setNull(vector_size_t idx, bool isNull) {
     VELOX_DCHECK(idx >= 0 && idx < length_);
-    if (!nulls_ && !value) {
+    if (!nulls_ && !isNull) {
       return;
     }
     ensureNulls();
-    bits::setBit(
-        nulls_->asMutable<uint64_t>(), idx, bits::kNull ? value : !value);
+    bits::setNull(nulls_->asMutable<uint64_t>(), idx, isNull);
   }
 
   struct CopyRange {
