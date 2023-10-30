@@ -53,6 +53,7 @@ set(BOOST_HEADER_ONLY
     circular_buffer
     math
     multi_index
+    multiprecision
     numeric_conversion
     random
     uuid

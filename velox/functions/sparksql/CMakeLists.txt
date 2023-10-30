@@ -17,6 +17,7 @@ add_library(
   ArraySort.cpp
   Bitwise.cpp
   Comparisons.cpp
+  DecimalArithmetic.cpp
   Hash.cpp
   In.cpp
   LeastGreatest.cpp

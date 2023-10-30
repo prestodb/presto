@@ -51,11 +51,24 @@ Mathematical Functions
 .. spark:function:: divide(x, y) -> double
 
     Returns the results of dividing x by y. Performs floating point division.
+    Supported type is DOUBLE.
     Corresponds to Spark's operator ``/``. ::
 
         SELECT 3 / 2; -- 1.5
         SELECT 2L / 2L; -- 1.0
         SELECT 3 / 0; -- NULL
+
+.. spark:function:: divide(x, y) -> decimal
+
+    Returns the results of dividing x by y.
+    Supported type is DECIMAL which can be different precision and scale.
+    Performs floating point division.
+    The result type depends on the precision and scale of x and y.
+    Overflow results return null. Corresponds to Spark's operator ``/``. ::
+
+        SELECT CAST(1 as DECIMAL(17, 3)) / CAST(2 as DECIMAL(17, 3)); -- decimal 0.500000000000000000000
+        SELECT CAST(1 as DECIMAL(20, 3)) / CAST(20 as DECIMAL(20, 2)); -- decimal 0.0500000000000000000
+        SELECT CAST(1 as DECIMAL(20, 3)) / CAST(0 as DECIMAL(20, 3)); -- NULL
 
 .. spark:function:: exp(x) -> double
 
@@ -88,6 +101,17 @@ Mathematical Functions
 
     Returns the result of multiplying x by y. The types of x and y must be the same.
     For integral types, overflow results in an error. Corresponds to Spark's operator ``*``.
+
+.. spark:function:: multiply(x, y) -> [decimal]
+
+    Returns the result of multiplying x by y. The types of x and y must be decimal which can be different precision and scale.
+    The result type depends on the precision and scale of x and y.
+    Overflow results return null. Corresponds to Spark's operator ``*``. ::
+
+        SELECT CAST(1 as DECIMAL(17, 3)) * CAST(2 as DECIMAL(17, 3)); -- decimal 2.000000
+        SELECT CAST(1 as DECIMAL(20, 3)) * CAST(20 as DECIMAL(20, 2)); -- decimal 20.00000
+        SELECT CAST(1 as DECIMAL(20, 3)) * CAST(0 as DECIMAL(20, 3)); -- decimal 0.000000
+        SELECT CAST(201e-38 as DECIMAL(38, 38)) * CAST(301e-38 as DECIMAL(38, 38)); -- decimal 0.0000000000000000000000000000000000000
 
 .. spark:function:: not(x) -> boolean
 
