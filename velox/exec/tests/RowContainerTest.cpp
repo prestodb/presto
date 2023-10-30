@@ -1548,3 +1548,41 @@ TEST_F(RowContainerTest, toString) {
       rowContainer->toString(rows[2]),
       "{3, winter, 12, 123.00299835205078, null}");
 }
+
+TEST_F(RowContainerTest, initializeRowForReuseComplexTypes) {
+  auto intVector = makeFlatVector<int64_t>({10, 20});
+  auto strVector = makeFlatVector<std::string>({"non-inline string"});
+  auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4, 5}});
+  auto mapVector = makeMapVector<int64_t, int64_t>({{{4, 41}}});
+  auto rowVector = makeRowVector({strVector, arrayVector, mapVector});
+
+  DecodedVector decodedInt(*intVector);
+  std::vector<TypePtr> keyTypes = {
+      intVector->type(),
+      strVector->type(),
+      arrayVector->type(),
+      mapVector->type(),
+      rowVector->type()};
+  auto rowContainer = std::make_unique<RowContainer>(keyTypes, pool_.get());
+
+  DecodedVector decodedString(*strVector);
+  DecodedVector decodedArray(*arrayVector);
+  DecodedVector decodedMap(*mapVector);
+  DecodedVector decodedRow(*rowVector);
+
+  auto row = rowContainer->newRow();
+  // Store all fields.
+  rowContainer->store(decodedInt, 0, row, 0);
+  rowContainer->store(decodedString, 0, row, 1);
+  rowContainer->store(decodedArray, 0, row, 2);
+  rowContainer->store(decodedMap, 0, row, 3);
+  rowContainer->store(decodedRow, 0, row, 4);
+
+  // initializeRow() for reuse, and don't store to the complex-typed fields.
+  rowContainer->initializeRow(row, true);
+  rowContainer->store(decodedInt, 1, row, 0);
+
+  // initializeRow() for reuse again, this should not double free the
+  // complex-typed fields.
+  rowContainer->initializeRow(row, true);
+}

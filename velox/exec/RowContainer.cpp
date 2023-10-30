@@ -368,9 +368,7 @@ void RowContainer::freeVariableWidthFields(folly::Range<char**> rows) {
             if (!view.isInline()) {
               stringAllocator_->free(
                   HashStringAllocator::headerOf(view.data()));
-              if (checkFree_) {
-                valueAt<StringView>(row, column.offset()) = StringView();
-              }
+              valueAt<StringView>(row, column.offset()) = StringView();
             }
           }
         }

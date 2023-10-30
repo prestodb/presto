@@ -1098,7 +1098,8 @@ class RowContainer {
       int32_t rightOffset,
       CompareFlags flags = CompareFlags());
 
-  // Free any variable-width fields associated with the 'rows'.
+  // Free any variable-width fields associated with the 'rows' and zero out
+  // complex-typed field in 'rows'.
   void freeVariableWidthFields(folly::Range<char**> rows);
 
   // Free any aggregates associated with the 'rows'.
