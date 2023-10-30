@@ -4291,7 +4291,7 @@ TEST_P(ParameterizedExprTest, lazyHandlingByDereference) {
   // Ensure FieldReference handles an input which has an encoding over a lazy
   // vector. Trying to access the inner flat vector of an input in the form
   // Row(Dict(Lazy(Row(Flat)))) will ensure an intermediate FieldReference
-  // expression in the tree recieves an input of the form Dict(Lazy(Row(Flat))).
+  // expression in the tree receives an input of the form Dict(Lazy(Row(Flat))).
   auto base = makeRowVector(
       {makeNullableFlatVector<int32_t>({1, std::nullopt, 3, 4, 5})});
   VectorPtr col1 = std::make_shared<LazyVector>(
@@ -4441,6 +4441,80 @@ TEST_P(ParameterizedExprTest, coalesceRowInputTypesAreTheSame) {
         "plus");
 
     ASSERT_NO_THROW(compileExpression(plus));
+  }
+}
+
+TEST_P(ParameterizedExprTest, evaluatesArgumentsOnNonIncreasingSelection) {
+  auto makeLazy = [&](const auto& base, const auto& check) {
+    return std::make_shared<LazyVector>(
+        execCtx_->pool(),
+        base->type(),
+        base->size(),
+        std::make_unique<test::SimpleVectorLoader>([&](auto rows) {
+          check(rows);
+          return base;
+        }));
+  };
+  constexpr int kSize = 300;
+  auto c0 = makeFlatVector<int64_t>(kSize, folly::identity);
+  {
+    SCOPED_TRACE("No eager loading for AND clauses");
+    auto input = makeRowVector({
+        c0,
+        makeLazy(
+            c0,
+            [](auto& rows) {
+              // Only the rows passing c0 % 2 == 0 should be loaded.
+              VELOX_CHECK_EQ(rows.size(), (kSize + 1) / 2);
+              for (auto i : rows) {
+                VELOX_CHECK(i % 2 == 0);
+              }
+            }),
+    });
+    auto actual =
+        evaluate("c0 % 2 == 0 and c1 % 3 == 0 and c1 % 5 == 0", input);
+    auto expected =
+        makeFlatVector<bool>(kSize, [](auto i) { return i % 30 == 0; });
+    assertEqualVectors(expected, actual);
+  }
+  {
+    SCOPED_TRACE("IF inside AND");
+    auto input = makeRowVector({
+        c0,
+        makeLazy(
+            c0,
+            [](auto& rows) {
+              // Only the rows passing c0 % 2 == 0 should be loaded.
+              VELOX_CHECK_EQ(rows.size(), (kSize + 1) / 2);
+              for (auto i : rows) {
+                VELOX_CHECK(i % 2 == 0);
+              }
+            }),
+    });
+    auto actual =
+        evaluate("c0 % 2 == 0 and if (c0 % 3 == 0, c1, -1 * c1) >= 0", input);
+    auto expected =
+        makeFlatVector<bool>(kSize, [](auto i) { return i % 6 == 0; });
+    assertEqualVectors(expected, actual);
+  }
+  {
+    SCOPED_TRACE("AND inside IF");
+    auto input = makeRowVector({
+        c0,
+        makeLazy(
+            c0,
+            [&](auto& rows) {
+              // All rows should be loaded.
+              VELOX_CHECK_EQ(rows.size(), kSize);
+            }),
+    });
+    auto actual = evaluate(
+        "if (c0 % 2 == 0, c1 % 3 == 0 and c1 % 5 == 0, c1 % 7 == 0 and c1 % 11 == 0)",
+        input);
+    auto expected = makeFlatVector<bool>(kSize, [](auto i) {
+      return (i % 2 == 0 && i % 15 == 0) || (i % 2 != 0 && i % 77 == 0);
+    });
+    assertEqualVectors(expected, actual);
   }
 }
 
