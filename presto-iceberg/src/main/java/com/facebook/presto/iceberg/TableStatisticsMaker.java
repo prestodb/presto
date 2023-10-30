@@ -14,7 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.Constraint;
@@ -23,7 +22,6 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.BlobMetadata;
 import org.apache.iceberg.DataFile;
@@ -56,14 +54,12 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METAD
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.iceberg.puffin.StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1;
@@ -120,23 +116,9 @@ public class TableStatisticsMaker
                 .filter(column -> !identityPartitionIds.contains(column.fieldId()) && column.type().isPrimitiveType())
                 .collect(toImmutableList());
 
-        List<Type> icebergPartitionTypes = partitionTypes(partitionFields, idToTypeMapping);
         List<IcebergColumnHandle> columnHandles = getColumns(icebergTable.schema(), typeManager);
         Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
-
-        ImmutableMap.Builder<Integer, ColumnFieldDetails> idToDetailsBuilder = ImmutableMap.builder();
-        for (int index = 0; index < partitionFields.size(); index++) {
-            PartitionField field = partitionFields.get(index);
-            Type type = icebergPartitionTypes.get(index);
-            idToDetailsBuilder.put(field.sourceId(), new ColumnFieldDetails(
-                    field,
-                    idToColumnHandle.get(field.sourceId()),
-                    type,
-                    toPrestoType(type, typeManager),
-                    type.typeId().javaClass()));
-        }
-        Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.build();
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(intersection))
@@ -148,14 +130,6 @@ public class TableStatisticsMaker
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             for (FileScanTask fileScanTask : fileScanTasks) {
                 DataFile dataFile = fileScanTask.file();
-                if (!dataFileMatches(
-                        dataFile,
-                        constraint,
-                        idToTypeMapping,
-                        partitionFields,
-                        idToDetails)) {
-                    continue;
-                }
 
                 if (summary == null) {
                     summary = new Partition(
@@ -253,16 +227,6 @@ public class TableStatisticsMaker
         return result.build();
     }
 
-    private boolean dataFileMatches(
-            DataFile dataFile,
-            Constraint constraint,
-            Map<Integer, Type.PrimitiveType> idToTypeMapping,
-            List<PartitionField> partitionFields,
-            Map<Integer, ColumnFieldDetails> fieldDetails)
-    {
-        return true;
-    }
-
     private static Optional<StatisticsFile> getLatestStatisticsFile(Table table, Optional<Long> snapshotId)
     {
         if (table.statisticsFiles().isEmpty()) {
@@ -306,65 +270,6 @@ public class TableStatisticsMaker
                 return snapshot.snapshotId();
             }
         };
-    }
-
-    private NullableValue makeNullableValue(com.facebook.presto.common.type.Type type, Object value)
-    {
-        return value == null ? NullableValue.asNull(type) : NullableValue.of(type, value);
-    }
-
-    public List<Type> partitionTypes(List<PartitionField> partitionFields, Map<Integer, Type.PrimitiveType> idToTypeMapping)
-    {
-        ImmutableList.Builder<Type> partitionTypeBuilder = ImmutableList.builder();
-        for (PartitionField partitionField : partitionFields) {
-            Type.PrimitiveType sourceType = idToTypeMapping.get(partitionField.sourceId());
-            Type type = partitionField.transform().getResultType(sourceType);
-            partitionTypeBuilder.add(type);
-        }
-        return partitionTypeBuilder.build();
-    }
-
-    private static class ColumnFieldDetails
-    {
-        private final PartitionField field;
-        private final IcebergColumnHandle columnHandle;
-        private final Type icebergType;
-        private final com.facebook.presto.common.type.Type prestoType;
-        private final Class<?> javaClass;
-
-        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, com.facebook.presto.common.type.Type prestoType, Class<?> javaClass)
-        {
-            this.field = requireNonNull(field, "field is null");
-            this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
-            this.icebergType = requireNonNull(icebergType, "icebergType is null");
-            this.prestoType = requireNonNull(prestoType, "prestoType is null");
-            this.javaClass = requireNonNull(javaClass, "javaClass is null");
-        }
-
-        public PartitionField getField()
-        {
-            return field;
-        }
-
-        public IcebergColumnHandle getColumnHandle()
-        {
-            return columnHandle;
-        }
-
-        public Type getIcebergType()
-        {
-            return icebergType;
-        }
-
-        public com.facebook.presto.common.type.Type getPrestoType()
-        {
-            return prestoType;
-        }
-
-        public Class<?> getJavaClass()
-        {
-            return javaClass;
-        }
     }
 
     public void updateColumnSizes(Partition summary, Map<Integer, Long> addedColumnSizes)
