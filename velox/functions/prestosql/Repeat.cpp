@@ -37,12 +37,8 @@ class RepeatFunction : public exec::VectorFunction {
       VectorPtr& result) const override {
     VectorPtr localResult;
     if (args[1]->isConstantEncoding()) {
-      try {
-        localResult = applyConstant(rows, args, outputType, context);
-      } catch (const VeloxRuntimeError&) {
-        throw;
-      } catch (const std::exception& e) {
-        context.setErrors(rows, std::current_exception());
+      localResult = applyConstant(rows, args, outputType, context);
+      if (localResult == nullptr) {
         return;
       }
     } else {
@@ -71,14 +67,20 @@ class RepeatFunction : public exec::VectorFunction {
     const auto numRows = rows.end();
     auto pool = context.pool();
 
-    if (args[1]->as<ConstantVector<int32_t>>()->isNullAt(0)) {
+    auto* constantCount = args[1]->as<ConstantVector<int32_t>>();
+    if (constantCount->isNullAt(0)) {
       // If count is a null constant, the result should be all nulls.
       return BaseVector::createNullConstant(outputType, numRows, pool);
     }
 
-    const auto count = args[1]->as<ConstantVector<int32_t>>()->valueAt(0);
-    // Exception will be processed on the upper level.
-    checkCount(count);
+    const auto count = constantCount->valueAt(0);
+    try {
+      checkCount(count);
+    } catch (const VeloxUserError&) {
+      context.setErrors(rows, std::current_exception());
+      return nullptr;
+    }
+
     const auto totalCount = count * numRows;
 
     // Allocate new vectors for indices, lengths and offsets.
