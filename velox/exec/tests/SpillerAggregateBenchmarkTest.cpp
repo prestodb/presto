@@ -14,21 +14,18 @@
  * limitations under the License.
  */
 
-#include <gflags/gflags.h>
-#include <deque>
+#include "velox/exec/tests/AggregateSpillBenchmarkBase.h"
+#include "velox/serializers/PrestoSerializer.h"
 
-#include "velox/exec/tests/SpillerBenchmarkBase.h"
+#include <gflags/gflags.h>
 
 using namespace facebook::velox;
-using namespace facebook::velox::common;
-using namespace facebook::velox::exec;
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   serializer::presto::PrestoVectorSerde::registerVectorSerde();
   filesystems::registerLocalFileSystem();
-  auto test =
-      std::make_unique<facebook::velox::exec::test::JoinSpillInputTest>();
+  auto test = std::make_unique<exec::test::AggregateSpillBenchmarkBase>();
   test->setUp();
   test->run();
   test->printStats();
