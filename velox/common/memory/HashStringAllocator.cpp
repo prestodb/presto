@@ -720,4 +720,33 @@ void HashStringAllocator::checkEmpty() const {
   VELOX_CHECK_EQ(0, checkConsistency());
 }
 
+void HashStringAllocator::copy(char* FOLLY_NONNULL group, int32_t offset) {
+  StringView* string = reinterpret_cast<StringView*>(group + offset);
+  if (string->isInline()) {
+    return;
+  }
+  auto data = pool_.allocateFixed(string->size());
+  memcpy(data, string->data(), string->size());
+  *string = StringView(data, string->size());
+}
+
+void HashStringAllocator::copyMultipart(
+    char* FOLLY_NONNULL group,
+    int32_t offset) {
+  auto string = reinterpret_cast<StringView*>(group + offset);
+  if (string->isInline()) {
+    return;
+  }
+  auto numBytes = string->size();
+
+  // Write the string as non-contiguous chunks.
+  ByteStream stream(this, false, false);
+  auto position = newWrite(stream, numBytes);
+  stream.appendStringPiece(folly::StringPiece(string->data(), numBytes));
+  finishWrite(stream, 0);
+
+  // The stringView has a pointer to the first byte and the total
+  // size. Read with contiguousString().
+  *string = StringView(reinterpret_cast<char*>(position.position), numBytes);
+}
 } // namespace facebook::velox
