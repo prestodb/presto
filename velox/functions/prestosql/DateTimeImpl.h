@@ -35,7 +35,7 @@ FOLLY_ALWAYS_INLINE double toUnixtime(const Timestamp& timestamp) {
 }
 
 FOLLY_ALWAYS_INLINE std::optional<Timestamp> fromUnixtime(double unixtime) {
-  if (UNLIKELY(std::isnan(unixtime))) {
+  if (FOLLY_UNLIKELY(std::isnan(unixtime))) {
     return Timestamp(0, 0);
   }
 
@@ -46,20 +46,24 @@ FOLLY_ALWAYS_INLINE std::optional<Timestamp> fromUnixtime(double unixtime) {
   // than 'kMax'. This will allow 'unixtime' values > 'kMax'. The workaround
   // here is to use uint64_t to represent ('kMax' + 1), which can be represented
   // exactly as double. We then check if the difference with 'unixtime' <= 1.
-  if (UNLIKELY((static_cast<uint64_t>(kMax) + 1) - unixtime <= 1)) {
+  if (FOLLY_UNLIKELY((static_cast<uint64_t>(kMax) + 1) - unixtime <= 1)) {
     return Timestamp::maxMillis();
   }
 
-  if (UNLIKELY(unixtime <= kMin)) {
+  if (FOLLY_UNLIKELY(unixtime <= kMin)) {
     return Timestamp::minMillis();
   }
 
-  if (UNLIKELY(std::isinf(unixtime))) {
+  if (FOLLY_UNLIKELY(std::isinf(unixtime))) {
     return unixtime < 0 ? Timestamp::minMillis() : Timestamp::maxMillis();
   }
 
   auto seconds = std::floor(unixtime);
   auto milliseconds = std::llround((unixtime - seconds) * kMillisInSecond);
+  if (FOLLY_UNLIKELY(milliseconds == kMillisInSecond)) {
+    ++seconds;
+    milliseconds = 0;
+  }
   return Timestamp(seconds, milliseconds * kNanosecondsInMillisecond);
 }
 
