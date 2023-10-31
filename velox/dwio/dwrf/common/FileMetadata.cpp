@@ -102,9 +102,9 @@ TypeKind TypeWrapper::kind() const {
     }
     case proto::orc::Type_Kind_CHAR:
     case proto::orc::Type_Kind_TIMESTAMP_INSTANT:
-      DWIO_RAISE(
+      VELOX_FAIL(fmt::format(
           "{} not supported yet.",
-          proto::orc::Type_Kind_Name(orcPtr()->kind()));
+          proto::orc::Type_Kind_Name(orcPtr()->kind())));
     default:
       VELOX_FAIL("Unknown type kind: {}", Type_Kind_Name(orcPtr()->kind()));
   }
