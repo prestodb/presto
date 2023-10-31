@@ -24,16 +24,15 @@ class ITypedExpr;
 
 using TypedExprPtr = std::shared_ptr<const ITypedExpr>;
 
-/* a strongly-typed expression, such as literal, function call, etc... */
+/// Strongly-typed expression, e.g. literal, function call, etc.
 class ITypedExpr : public ISerializable {
  public:
-  explicit ITypedExpr(std::shared_ptr<const Type> type)
-      : type_{std::move(type)}, inputs_{} {}
+  explicit ITypedExpr(TypePtr type) : type_{std::move(type)}, inputs_{} {}
 
-  ITypedExpr(std::shared_ptr<const Type> type, std::vector<TypedExprPtr> inputs)
+  ITypedExpr(TypePtr type, std::vector<TypedExprPtr> inputs)
       : type_{std::move(type)}, inputs_{std::move(inputs)} {}
 
-  const std::shared_ptr<const Type>& type() const {
+  const TypePtr& type() const {
     return type_;
   }
 
@@ -44,12 +43,12 @@ class ITypedExpr : public ISerializable {
   }
 
   /// Returns a copy of this expression with input fields replaced according
-  /// to specified 'mapping'. Fields specified in the 'mapping are replaced
+  /// to specified 'mapping'. Fields specified in the 'mapping' are replaced
   /// by the corresponding expression in 'mapping'.
   /// Fields not present in 'mapping' are left unmodified.
   ///
   /// Used to bind inputs to lambda functions.
-  virtual std::shared_ptr<const ITypedExpr> rewriteInputNames(
+  virtual TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, TypedExprPtr>& mapping) const = 0;
 
   virtual std::string toString() const = 0;
@@ -64,9 +63,9 @@ class ITypedExpr : public ISerializable {
     return hash;
   }
 
-  // Returns true if other is recursively equal to 'this'. We do not
-  // overload == because this is overloaded in a subclass for a
-  // different purpose.
+  /// Returns true if other is recursively equal to 'this'. We do not
+  /// overload == because this is overloaded in a subclass for a
+  /// different purpose.
   bool equals(const ITypedExpr& other) const {
     if (type_ != other.type_ || inputs_.size() != other.inputs_.size()) {
       return false;
@@ -104,8 +103,8 @@ class ITypedExpr : public ISerializable {
     return false;
   }
 
-  std::shared_ptr<const Type> type_;
-  std::vector<std::shared_ptr<const ITypedExpr>> inputs_;
+  TypePtr type_;
+  std::vector<TypedExprPtr> inputs_;
 };
 
 } // namespace facebook::velox::core

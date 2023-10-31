@@ -23,8 +23,7 @@ namespace facebook::velox::core {
 
 class InputTypedExpr : public ITypedExpr {
  public:
-  InputTypedExpr(std::shared_ptr<const Type> type)
-      : ITypedExpr{std::move(type)} {}
+  explicit InputTypedExpr(TypePtr type) : ITypedExpr{std::move(type)} {}
 
   bool operator==(const ITypedExpr& other) const final {
     const auto* casted = dynamic_cast<const InputTypedExpr*>(&other);
@@ -55,7 +54,7 @@ class ConstantTypedExpr : public ITypedExpr {
  public:
   // Creates constant expression. For complex types, only
   // variant::null() value is supported.
-  ConstantTypedExpr(std::shared_ptr<const Type> type, variant value)
+  ConstantTypedExpr(TypePtr type, variant value)
       : ITypedExpr{std::move(type)}, value_{std::move(value)} {}
 
   // Creates constant expression of scalar or complex type. The value comes from
@@ -87,7 +86,7 @@ class ConstantTypedExpr : public ITypedExpr {
     return valueVector_ != nullptr;
   }
 
-  // Returns scalar value as variant if hasValueVector() is false.
+  /// Returns scalar value as variant if hasValueVector() is false.
   const variant& value() const {
     return value_;
   }
@@ -164,7 +163,7 @@ class ConstantTypedExpr : public ITypedExpr {
 class CallTypedExpr : public ITypedExpr {
  public:
   CallTypedExpr(
-      std::shared_ptr<const Type> type,
+      TypePtr type,
       std::vector<TypedExprPtr> inputs,
       std::string funcName)
       : ITypedExpr{std::move(type), std::move(inputs)},
@@ -408,9 +407,7 @@ class DereferenceTypedExpr : public ITypedExpr {
 
 using DereferenceTypedExprPtr = std::shared_ptr<const DereferenceTypedExpr>;
 
-/*
- * Evaluates a list of expressions to produce a row.
- */
+/// Evaluates a list of expressions to produce a row.
 class ConcatTypedExpr : public ITypedExpr {
  public:
   ConcatTypedExpr(
@@ -469,10 +466,10 @@ class ConcatTypedExpr : public ITypedExpr {
   static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
-  static std::shared_ptr<const Type> toType(
+  static TypePtr toType(
       const std::vector<std::string>& names,
       const std::vector<TypedExprPtr>& expressions) {
-    std::vector<std::shared_ptr<const Type>> children{};
+    std::vector<TypePtr> children{};
     std::vector<std::string> namesCopy{};
     for (size_t i = 0; i < names.size(); ++i) {
       namesCopy.push_back(names.at(i));
@@ -486,7 +483,7 @@ class LambdaTypedExpr : public ITypedExpr {
  public:
   LambdaTypedExpr(RowTypePtr signature, TypedExprPtr body)
       : ITypedExpr(std::make_shared<FunctionType>(
-            std::vector<std::shared_ptr<const Type>>(signature->children()),
+            std::vector<TypePtr>(signature->children()),
             body->type())),
         signature_(signature),
         body_(body) {}
@@ -546,7 +543,7 @@ using LambdaTypedExprPtr = std::shared_ptr<const LambdaTypedExpr>;
 class CastTypedExpr : public ITypedExpr {
  public:
   CastTypedExpr(
-      const std::shared_ptr<const Type>& type,
+      const TypePtr& type,
       const std::vector<TypedExprPtr>& inputs,
       bool nullOnFailure)
       : ITypedExpr{type, inputs}, nullOnFailure_(nullOnFailure) {}
@@ -596,8 +593,7 @@ class CastTypedExpr : public ITypedExpr {
   static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
-  // This flag prevents throws and instead returns
-  // null on cast failure
+  // Suppress exception and return null on failure to cast.
   const bool nullOnFailure_;
 };
 
