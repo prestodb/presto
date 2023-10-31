@@ -44,31 +44,36 @@ int64_t toInt64(Timestamp value) {
 using Days = int64_t;
 using Months = int32_t;
 template <typename T, typename K>
-T add(T value, K steps);
+T add(T value, K step, int32_t sequence);
 
 template <>
-int64_t add(int64_t value, int64_t steps) {
-  return value + steps;
+int64_t add(int64_t value, int64_t step, int32_t sequence) {
+  const auto delta = (int128_t)step * (int128_t)sequence;
+  // Since step is calcuated from start and stop,
+  // the sum of 'value' and 'add' is within int64_t.
+  return value + delta;
 }
 
 template <>
-int32_t add(int32_t value, int64_t steps) {
-  return value + steps;
+int32_t add(int32_t value, int64_t step, int32_t sequence) {
+  const auto delta = (int128_t)step * (int128_t)sequence;
+  return value + delta;
 }
 
 template <>
-Timestamp add(Timestamp value, int64_t steps) {
-  return Timestamp::fromMillis(value.toMillis() + steps);
+Timestamp add(Timestamp value, int64_t step, int32_t sequence) {
+  const auto delta = (int128_t)step * (int128_t)sequence;
+  return Timestamp::fromMillis(value.toMillis() + delta);
 }
 
 template <>
-int32_t add(int32_t value, Months steps) {
-  return addToDate(value, DateTimeUnit::kMonth, steps);
+int32_t add(int32_t value, Months step, int32_t sequence) {
+  return addToDate(value, DateTimeUnit::kMonth, step * sequence);
 }
 
 template <>
-Timestamp add(Timestamp value, Months steps) {
-  return addToTimestamp(value, DateTimeUnit::kMonth, steps);
+Timestamp add(Timestamp value, Months step, int32_t sequence) {
+  return addToTimestamp(value, DateTimeUnit::kMonth, step * sequence);
 }
 
 template <typename T>
@@ -200,8 +205,8 @@ class SequenceFunction : public exec::VectorFunction {
     auto stop = stopVector->valueAt<T>(row);
     auto step = getStep(
         toInt64(start), toInt64(stop), stepVector, row, isDate, isYearMonth);
-    for (auto i = 0; i < sequenceCount; ++i) {
-      elements[i] = add(start, (K)(step * i));
+    for (auto sequence = 0; sequence < sequenceCount; ++sequence) {
+      elements[sequence] = add(start, step, sequence);
     }
   }
 

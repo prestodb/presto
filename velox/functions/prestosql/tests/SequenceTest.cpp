@@ -58,13 +58,27 @@ TEST_F(SequenceTest, sequence) {
 
 TEST_F(SequenceTest, integerOverflow) {
   // stop - start = 9223372036854775807 - (-2147483648) would overflow
-  const auto startVector = makeFlatVector<int64_t>({int64_t(-2147483648), 1});
-  const auto stopVector =
-      makeFlatVector<int64_t>({int64_t(9223372036854775807), 2});
+  auto startVector = makeFlatVector<int64_t>({int64_t(-2147483648), 1});
+  auto stopVector = makeFlatVector<int64_t>({int64_t(9223372036854775807), 2});
   testExpressionWithError(
       "sequence(C0, C1)",
       {startVector, stopVector},
       "result of sequence function must not have more than 10000 entries");
+
+  startVector = makeFlatVector<int64_t>({int64_t(-9000000000000000000), 1});
+  stopVector = makeFlatVector<int64_t>({int64_t(9000000000000000000), 2});
+  const auto stepVector = makeFlatVector<int64_t>({5000000000000000000, 1});
+  // For the 3rd element's calculation
+  // start + step * 3 = -9000000000000000000 + 5000000000000000000 * 3
+  // 5000000000000000000 * 3 would overflow
+  VectorPtr expected = makeArrayVector<int64_t>(
+      {{-9000000000000000000,
+        -4000000000000000000,
+        1000000000000000000,
+        6000000000000000000},
+       {1, 2}});
+  testExpression(
+      "sequence(C0, C1, C2)", {startVector, stopVector, stepVector}, expected);
 }
 
 TEST_F(SequenceTest, negative) {
