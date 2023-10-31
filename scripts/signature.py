@@ -33,6 +33,8 @@ class bcolors:
 
 def export(args):
     """Exports Velox function signatures."""
+    pv.clear_signatures()
+
     if args.spark:
         pv.register_spark_signatures()
 
@@ -169,7 +171,7 @@ def parse_args(args):
     command = parser.add_subparsers(dest="command")
     export_command_parser = command.add_parser("export")
     export_command_parser.add_argument("--spark", action="store_true")
-    export_command_parser.add_argument("--presto", action="store_false")
+    export_command_parser.add_argument("--presto", action="store_true")
     export_command_parser.add_argument("output_file", type=argparse.FileType("w"))
 
     diff_command_parser = command.add_parser("diff")
