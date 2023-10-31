@@ -15,9 +15,9 @@ package com.facebook.presto.spark.util;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.spark.PrestoSparkRetryExecutionSettings;
+import com.facebook.presto.spark.PrestoSparkExecutionSettings;
 import com.facebook.presto.spark.PrestoSparkSessionContext;
-import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
+import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableMap;
@@ -32,21 +32,21 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.getOutOfMem
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getOutOfMemoryRetrySparkConfigs;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_RETRY_EXECUTION_STRATEGY;
 
-public class PrestoSparkRetryExecutionUtils
+public class PrestoSparkExecutionUtils
 {
     private static final Logger log = Logger.get(PrestoSparkSessionContext.class);
 
-    private PrestoSparkRetryExecutionUtils() {}
+    private PrestoSparkExecutionUtils() {}
 
-    public static PrestoSparkRetryExecutionSettings getRetryExecutionSettings(
-            List<RetryExecutionStrategy> retryExecutionStrategies,
+    public static PrestoSparkExecutionSettings getExecutionSettings(
+            List<ExecutionStrategy> executionStrategies,
             Session session)
     {
         ImmutableMap.Builder<String, String> sparkConfigProperties = new ImmutableMap.Builder<>();
         ImmutableMap.Builder<String, String> prestoSessionProperties = new ImmutableMap.Builder<>();
 
-        for (RetryExecutionStrategy strategy : retryExecutionStrategies) {
-            log.info(String.format("Applying retry execution strategy: %s. Query Id: %s", strategy.name(), session.getQueryId().getId()));
+        for (ExecutionStrategy strategy : executionStrategies) {
+            log.info(String.format("Applying execution strategy: %s. Query Id: %s", strategy.name(), session.getQueryId().getId()));
             switch (strategy) {
                 case DISABLE_BROADCAST_JOIN:
                     prestoSessionProperties.put(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name());
@@ -63,10 +63,10 @@ public class PrestoSparkRetryExecutionUtils
                     prestoSessionProperties.put(HASH_PARTITION_COUNT, Long.toString(updatedPartitionCount));
                     break;
                 default:
-                    throw new PrestoException(INVALID_RETRY_EXECUTION_STRATEGY, "Retry execution strategy not supported: " + retryExecutionStrategies);
+                    throw new PrestoException(INVALID_RETRY_EXECUTION_STRATEGY, "Execution strategy not supported: " + executionStrategies);
             }
         }
 
-        return new PrestoSparkRetryExecutionSettings(sparkConfigProperties.build(), prestoSessionProperties.build());
+        return new PrestoSparkExecutionSettings(sparkConfigProperties.build(), prestoSessionProperties.build());
     }
 }
