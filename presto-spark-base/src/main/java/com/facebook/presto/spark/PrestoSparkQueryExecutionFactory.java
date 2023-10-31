@@ -57,6 +57,7 @@ import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlChecker;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkCredentialsProvider;
+import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
@@ -65,7 +66,6 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
-import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spark.execution.PrestoSparkAdaptiveQueryExecution;
 import com.facebook.presto.spark.execution.PrestoSparkDataDefinitionExecution;
@@ -143,8 +143,8 @@ import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdent
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isAdaptiveQueryExecutionEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.MALFORMED_QUERY_FILE;
+import static com.facebook.presto.spark.util.PrestoSparkExecutionUtils.getExecutionSettings;
 import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSparkFailure;
-import static com.facebook.presto.spark.util.PrestoSparkRetryExecutionUtils.getRetryExecutionSettings;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.getActionResultWithTimeout;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -556,7 +556,7 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            List<RetryExecutionStrategy> retryExecutionStrategies,
+            List<ExecutionStrategy> executionStrategies,
             Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
@@ -619,19 +619,19 @@ public class PrestoSparkQueryExecutionFactory
         Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
-        if (!retryExecutionStrategies.isEmpty()) {
-            log.info("Going to retry with following strategies: %s", retryExecutionStrategies);
-            PrestoSparkRetryExecutionSettings prestoSparkRetryExecutionSettings = getRetryExecutionSettings(retryExecutionStrategies, session);
+        if (!executionStrategies.isEmpty()) {
+            log.info("Going to run with following strategies: %s", executionStrategies);
+            PrestoSparkExecutionSettings prestoSparkExecutionSettings = getExecutionSettings(executionStrategies, session);
 
             // Update Spark setting in SparkConf, if present
-            prestoSparkRetryExecutionSettings.getSparkConfigProperties().forEach(sparkContext.conf()::set);
+            prestoSparkExecutionSettings.getSparkConfigProperties().forEach(sparkContext.conf()::set);
 
             // Update Presto settings in Session, if present
             Session.SessionBuilder sessionBuilder = Session.builder(session);
-            transferSessionPropertiesToSession(sessionBuilder, prestoSparkRetryExecutionSettings.getPrestoSessionProperties());
+            transferSessionPropertiesToSession(sessionBuilder, prestoSparkExecutionSettings.getPrestoSessionProperties());
 
             Set<String> clientTags = new HashSet<>(session.getClientTags());
-            retryExecutionStrategies.forEach(s -> clientTags.add(s.name()));
+            executionStrategies.forEach(s -> clientTags.add(s.name()));
             sessionBuilder.setClientTags(clientTags);
 
             session = sessionBuilder.build();

@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.Collections.emptyList;
 
 public class PrestoSparkSessionProperties
 {
@@ -48,6 +49,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE = "spark_split_assignment_batch_size";
     public static final String SPARK_MEMORY_REVOKING_THRESHOLD = "spark_memory_revoking_threshold";
     public static final String SPARK_MEMORY_REVOKING_TARGET = "spark_memory_revoking_target";
+    public static final String SPARK_QUERY_EXECUTION_STRATEGIES = "spark_query_execution_strategies";
     public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED = "spark_retry_on_out_of_memory_broadcast_join_enabled";
     public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED = "spark_retry_on_out_of_memory_with_increased_memory_settings_enabled";
     public static final String OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES = "out_of_memory_retry_presto_session_properties";
@@ -69,6 +71,7 @@ public class PrestoSparkSessionProperties
     public static final String NATIVE_TRIGGER_COREDUMP_WHEN_UNRESPONSIVE_ENABLED = "native_trigger_coredump_when_unresponsive_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final ExecutionStrategyValidator executionStrategyValidator;
 
     public PrestoSparkSessionProperties()
     {
@@ -78,6 +81,7 @@ public class PrestoSparkSessionProperties
     @Inject
     public PrestoSparkSessionProperties(PrestoSparkConfig prestoSparkConfig)
     {
+        executionStrategyValidator = new ExecutionStrategyValidator();
         sessionProperties = ImmutableList.of(
                 booleanProperty(
                         SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED,
@@ -139,6 +143,19 @@ public class PrestoSparkSessionProperties
                         "When revoking memory, try to revoke so much that memory pool is filled below target at the end",
                         prestoSparkConfig.getMemoryRevokingTarget(),
                         false),
+                new PropertyMetadata<>(
+                        SPARK_QUERY_EXECUTION_STRATEGIES,
+                        "Execution strategies to be applied while running the query",
+                        VARCHAR,
+                        List.class,
+                        emptyList(),
+                        false,
+                        value -> {
+                            List<String> specifiedStrategies = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(value.toString());
+                            specifiedStrategies.forEach(strategy -> executionStrategyValidator.accept(strategy));
+                            return specifiedStrategies;
+                        },
+                        value -> value),
                 booleanProperty(
                         SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED,
                         "Disable broadcast join on broadcast OOM and re-submit the query again within the same spark session",
@@ -307,6 +324,11 @@ public class PrestoSparkSessionProperties
     public static double getMemoryRevokingTarget(Session session)
     {
         return session.getSystemProperty(SPARK_MEMORY_REVOKING_TARGET, Double.class);
+    }
+
+    public static List<String> getQueryExecutionStrategies(Session session)
+    {
+        return session.getSystemProperty(SPARK_QUERY_EXECUTION_STRATEGIES, List.class);
     }
 
     public static boolean isRetryOnOutOfMemoryBroadcastJoinEnabled(Session session)
