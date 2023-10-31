@@ -160,14 +160,46 @@ class ConstantTypedExpr : public ITypedExpr {
   const VectorPtr valueVector_;
 };
 
+/// Evaluates a scalar function or a special form.
+///
+/// Supported special forms are: and, or, cast, try_cast, coalesce, if, switch,
+/// try. See registerFunctionCallToSpecialForms in
+/// expression/RegisterSpecialForm.h for the up-to-date list.
+///
+/// Regular functions have the following properties: (1) return type is fully
+/// defined by function name and input types; (2) during evaluation all function
+/// arguments are evaluated first before the function itself is evaluated on the
+/// results, a failure to evaluate function argument prevents the function from
+/// being evaluated.
+///
+/// Special forms are different from regular scalar functions as they do not
+/// always have the above properties.
+///
+/// - CAST doesn't have (1): return type is not defined by input type as it is
+/// possible to cast VARCHAR to INTEGER, BOOLEAN, and many other types.
+/// - Conjuncts AND, OR don't have (2): these have logic to stop evaluating
+/// arguments if the outcome is already decided. For example, a > 10 AND b < 3
+/// applied to a = 0 and b = 0 is fully decided after evaluating a > 10. The
+/// result is FALSE. This is important not only from efficiency standpoint, but
+/// semantically as well. Not evaluating unnecessary arguments implicitly
+/// suppresses the errors that might have happened if evaluation proceeded. For
+/// example, a > 10 AND b / a > 1 would fail if both expressions were evaluated
+/// on a = 0.
+/// - Coalesce, if, switch also don't have (2): these also have logic to stop
+/// evaluating arguments if the outcome is already decided.
+/// - TRY doesn't have (2) either: it needs to capture and suppress errors
+/// received while evaluating the input.
 class CallTypedExpr : public ITypedExpr {
  public:
+  /// @param type Return type.
+  /// @param inputs List of input expressions. May be empty.
+  /// @param name Name of the function or special form.
   CallTypedExpr(
       TypePtr type,
       std::vector<TypedExprPtr> inputs,
-      std::string funcName)
+      std::string name)
       : ITypedExpr{std::move(type), std::move(inputs)},
-        name_(std::move(funcName)) {}
+        name_(std::move(name)) {}
 
   virtual const std::string& name() const {
     return name_;
@@ -540,13 +572,28 @@ class LambdaTypedExpr : public ITypedExpr {
 
 using LambdaTypedExprPtr = std::shared_ptr<const LambdaTypedExpr>;
 
+/// Converts input values to specified type.
 class CastTypedExpr : public ITypedExpr {
  public:
+  /// @param type Type to convert to. This is the return type of the CAST
+  /// expresion.
+  /// @param input Single input. The type of input is referred to as from-type
+  /// and expected to be different from to-type.
+  /// @param nullOnFailure Whether to suppress cast errors and return null.
+  CastTypedExpr(
+      const TypePtr& type,
+      const TypedExprPtr& input,
+      bool nullOnFailure)
+      : ITypedExpr{type, {input}}, nullOnFailure_(nullOnFailure) {}
+
   CastTypedExpr(
       const TypePtr& type,
       const std::vector<TypedExprPtr>& inputs,
       bool nullOnFailure)
-      : ITypedExpr{type, inputs}, nullOnFailure_(nullOnFailure) {}
+      : ITypedExpr{type, inputs}, nullOnFailure_(nullOnFailure) {
+    VELOX_USER_CHECK_EQ(
+        1, inputs.size(), "Cast expression requires exactly one input");
+  }
 
   TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, TypedExprPtr>& mapping)
@@ -597,4 +644,5 @@ class CastTypedExpr : public ITypedExpr {
   const bool nullOnFailure_;
 };
 
+using CastTypedExprPtr = std::shared_ptr<const CastTypedExpr>;
 } // namespace facebook::velox::core

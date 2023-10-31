@@ -44,7 +44,7 @@ class CastBaseTest : public FunctionBaseTest {
     core::TypedExprPtr inputField =
         std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
     return std::make_shared<const core::CastTypedExpr>(
-        toType, std::vector<core::TypedExprPtr>{inputField}, isTryCast);
+        toType, inputField, isTryCast);
   }
 
   // Evaluate cast(fromType as toType) and return the result vector.
@@ -88,7 +88,7 @@ class CastBaseTest : public FunctionBaseTest {
         std::vector<core::TypedExprPtr>{inputField},
         "testing_dictionary");
     return std::make_shared<const core::CastTypedExpr>(
-        toType, std::vector<core::TypedExprPtr>{callExpr}, isTryCast);
+        toType, callExpr, isTryCast);
   }
 
   // Evaluate cast(testing_dictionary(fromType) as toType) and verify the result

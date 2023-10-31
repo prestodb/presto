@@ -30,12 +30,12 @@ class CastBenchmark : public functions::test::FunctionBenchmarkBase {
   size_t doRun(const TypePtr& inputType, const TypePtr& outputType) {
     folly::BenchmarkSuspender suspender;
     std::string colName = "c0";
-    std::vector<facebook::velox::core::TypedExprPtr> inputs{
+    auto castInput =
         std::make_shared<facebook::velox::core::FieldAccessTypedExpr>(
-            inputType, colName)};
+            inputType, colName);
     std::vector<facebook::velox::core::TypedExprPtr> expr{
         std::make_shared<facebook::velox::core::CastTypedExpr>(
-            outputType, inputs, false)};
+            outputType, castInput, false)};
     exec::ExprSet exprSet(expr, &execCtx_);
 
     facebook::velox::VectorFuzzer fuzzer({}, pool());

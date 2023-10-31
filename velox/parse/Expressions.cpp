@@ -49,8 +49,8 @@ TypePtr resolveTypeImpl(
 namespace {
 std::shared_ptr<const core::CastTypedExpr> makeTypedCast(
     const TypePtr& type,
-    const std::vector<TypedExprPtr>& inputs) {
-  return std::make_shared<const core::CastTypedExpr>(type, inputs, false);
+    const TypedExprPtr& input) {
+  return std::make_shared<const core::CastTypedExpr>(type, input, false);
 }
 
 std::vector<TypePtr> implicitCastTargets(const TypePtr& type) {
@@ -100,7 +100,7 @@ std::vector<TypedExprPtr> genImplicitCasts(const TypedExprPtr& typedExpr) {
   std::vector<TypedExprPtr> implicitCasts;
   implicitCasts.reserve(targetTypes.size());
   for (auto targetType : targetTypes) {
-    implicitCasts.emplace_back(makeTypedCast(targetType, {typedExpr}));
+    implicitCasts.emplace_back(makeTypedCast(targetType, typedExpr));
   }
   return implicitCasts;
 }
