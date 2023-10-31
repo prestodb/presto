@@ -460,7 +460,7 @@ public class DistributedQueryRunner
     @Override
     public int getNodeCount()
     {
-        return servers.size();
+        return servers.size() + externalWorkers.size();
     }
 
     @Override
