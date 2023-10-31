@@ -224,7 +224,16 @@ public class PrestoSparkQueryRunner
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties, Map<String, String> hiveProperties, Optional<Path> dataDirectory)
     {
         PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner(
-                "hive", additionalConfigProperties, hiveProperties, ImmutableMap.of(), dataDirectory, ImmutableList.of(new NativeExecutionModule()), DEFAULT_AVAILABLE_CPU_COUNT);
+                "hive",
+                additionalConfigProperties,
+                ImmutableMap.<String, String>builder()
+                        .putAll(hiveProperties)
+                        .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
+                        .build(),
+                ImmutableMap.of(),
+                dataDirectory,
+                ImmutableList.of(new NativeExecutionModule()),
+                DEFAULT_AVAILABLE_CPU_COUNT);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
             metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("tpch"));
@@ -369,7 +378,6 @@ public class PrestoSparkQueryRunner
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
                 .put("hive.allow-drop-table", "true")
                 .put("hive.allow-rename-table", "true")
                 .put("hive.allow-rename-column", "true")
