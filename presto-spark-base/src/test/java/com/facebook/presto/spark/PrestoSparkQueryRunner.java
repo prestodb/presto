@@ -45,6 +45,7 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlCheckerExecution;
+import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
@@ -53,7 +54,6 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitialize
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
-import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spi.Plugin;
@@ -96,10 +96,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.INFO;
 import static com.facebook.airlift.log.Level.WARN;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getQueryExecutionStrategies;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_EXECUTOR_CORES_PROPERTY;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_TASK_CPUS_PROPERTY;
 import static com.facebook.presto.spark.classloader_interface.SparkProcessType.DRIVER;
@@ -505,23 +507,32 @@ public class PrestoSparkQueryRunner
     public MaterializedResult execute(Session session, String sql)
     {
         try {
-            return executeWithRetryStrategies(session, sql, ImmutableList.of());
+            return executeWithStrategies(session, sql, getExecutionStrategies(session));
         }
         catch (PrestoSparkFailure failure) {
             if (!failure.getRetryExecutionStrategies().isEmpty()) {
-                return executeWithRetryStrategies(session, sql, failure.getRetryExecutionStrategies());
+                return executeWithStrategies(session, sql, failure.getRetryExecutionStrategies());
             }
 
             throw failure;
         }
     }
 
-    private MaterializedResult executeWithRetryStrategies(
+    private List<ExecutionStrategy> getExecutionStrategies(Session session)
+    {
+        List<String> executionStrategiesToApply = getQueryExecutionStrategies(session);
+        return executionStrategiesToApply
+                .stream()
+                .map(strategy -> ExecutionStrategy.valueOf(strategy))
+                .collect(Collectors.toList());
+    }
+
+    private MaterializedResult executeWithStrategies(
             Session session,
             String sql,
-            List<RetryExecutionStrategy> retryExecutionStrategies)
+            List<ExecutionStrategy> executionStrategies)
     {
-        IPrestoSparkQueryExecution execution = createPrestoSparkQueryExecution(session, sql, retryExecutionStrategies);
+        IPrestoSparkQueryExecution execution = createPrestoSparkQueryExecution(session, sql, executionStrategies);
         List<List<Object>> results = execution.execute();
 
         List<MaterializedRow> rows = results.stream()
@@ -569,7 +580,7 @@ public class PrestoSparkQueryRunner
 
     public IPrestoSparkQueryExecution createPrestoSparkQueryExecution(Session session,
             String sql,
-            List<RetryExecutionStrategy> retryExecutionStrategies)
+            List<ExecutionStrategy> executionStrategies)
     {
         IPrestoSparkQueryExecutionFactory executionFactory = prestoSparkService.getQueryExecutionFactory();
         IPrestoSparkQueryExecution execution = executionFactory.create(
@@ -583,7 +594,7 @@ public class PrestoSparkQueryRunner
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty(),
                 Optional.empty(),
-                retryExecutionStrategies,
+                executionStrategies,
                 Optional.empty());
         return execution;
     }

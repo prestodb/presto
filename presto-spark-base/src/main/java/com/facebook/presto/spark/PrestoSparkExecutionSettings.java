@@ -17,12 +17,12 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class PrestoSparkRetryExecutionSettings
+public class PrestoSparkExecutionSettings
 {
     private final Map<String, String> sparkConfigProperties;
     private final Map<String, String> prestoSessionProperties;
 
-    public PrestoSparkRetryExecutionSettings(
+    public PrestoSparkExecutionSettings(
             Map<String, String> sparkConfigProperties,
             Map<String, String> prestoSessionProperties)
     {

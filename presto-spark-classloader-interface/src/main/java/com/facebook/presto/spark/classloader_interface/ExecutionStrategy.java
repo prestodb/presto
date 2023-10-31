@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
-public enum RetryExecutionStrategy
+public enum ExecutionStrategy
 {
     DISABLE_BROADCAST_JOIN,
     INCREASE_CONTAINER_SIZE,
