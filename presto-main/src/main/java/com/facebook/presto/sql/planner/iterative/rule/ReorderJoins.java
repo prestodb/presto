@@ -713,9 +713,7 @@ public class ReorderJoins
             private Assignments resolveAssignments(Map<VariableReferenceExpression, RowExpression> assignments, Set<VariableReferenceExpression> availableVariables)
             {
                 HashSet<VariableReferenceExpression> resolvedVariables = new HashSet<>();
-                for (VariableReferenceExpression variable : assignments.keySet()) {
-                    resolveVariable(variable, resolvedVariables, assignments, availableVariables);
-                }
+                ImmutableList.copyOf(assignments.keySet()).forEach(variable -> resolveVariable(variable, resolvedVariables, assignments, availableVariables));
 
                 return Assignments.builder().putAll(assignments).build();
             }
@@ -724,17 +722,14 @@ public class ReorderJoins
                     RowExpression> assignments, Set<VariableReferenceExpression> availableVariables)
             {
                 RowExpression expression = assignments.get(variable);
-
                 Sets.SetView<VariableReferenceExpression> variablesToResolve = Sets.difference(Sets.difference(extractUnique(expression), availableVariables), resolvedVariables);
-                if (variablesToResolve.isEmpty()) {
-                    resolvedVariables.add(variable);
-                    return;
-                }
 
+                // Recursively resolve any unresolved variables
                 variablesToResolve.forEach(variableToResolve -> resolveVariable(variableToResolve, resolvedVariables, assignments, availableVariables));
-                // Modify the assignments to replace the variables with the resolved expressions
+
+                // Modify the assignment for the variable : Replace it with the now resolved constituent variables
                 assignments.put(variable, replaceExpression(expression, assignments));
-                // Mark the variable as resolved
+                // Mark this variable as resolved
                 resolvedVariables.add(variable);
             }
 
