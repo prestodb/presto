@@ -81,6 +81,7 @@ public final class IcebergSessionProperties
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
     public static final String MERGE_ON_READ_MODE_ENABLED = "merge_on_read_enabled";
+    public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String HIVE_METASTORE_STATISTICS_MERGE_STRATEGY = "hive_statistics_merge_strategy";
     public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
 
@@ -304,7 +305,13 @@ public final class IcebergSessionProperties
                         false,
                         val -> HiveStatisticsMergeStrategy.valueOf((String) val),
                         HiveStatisticsMergeStrategy::name),
-                doubleProperty(STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT,
+                booleanProperty(
+                        PUSHDOWN_FILTER_ENABLED,
+                        "Experimental: Enable Filter Pushdown for Iceberg. This is only supported with Native Worker.",
+                        icebergConfig.isPushdownFilterEnabled(),
+                        false),
+                doubleProperty(
+                        STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT,
                         "the amount that the difference in total record count matters" +
                                 "when calculating the closest snapshot when picking statistics. A " +
                                 "value of 1 means a single record is equivalent to 1 millisecond of " +
@@ -479,6 +486,11 @@ public final class IcebergSessionProperties
     public static HiveStatisticsMergeStrategy getHiveStatisticsMergeStrategy(ConnectorSession session)
     {
         return session.getProperty(HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, HiveStatisticsMergeStrategy.class);
+    }
+
+    public static boolean isPushdownFilterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
     }
 
     public static double getStatisticSnapshotRecordDifferenceWeight(ConnectorSession session)
