@@ -106,7 +106,8 @@ TEST_F(ParquetPageReaderTest, corruptedPageHeader) {
 }
 
 TEST(CompressionOptionsTest, testCompressionOptions) {
-  auto options = PageReader::getParquetDecompressionOptions();
+  auto options = getParquetDecompressionOptions(
+      facebook::velox::common::CompressionKind_ZLIB);
   EXPECT_EQ(
       options.format.zlib.windowBits,
       dwio::common::compression::Compressor::PARQUET_ZLIB_WINDOW_BITS);

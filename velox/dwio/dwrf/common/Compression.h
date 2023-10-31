@@ -33,7 +33,7 @@ using namespace dwio::common::compression;
 
 constexpr uint8_t PAGE_HEADER_SIZE = 3;
 
-static const CompressionOptions getDwrfOrcCompressionOptions(
+inline CompressionOptions getDwrfOrcCompressionOptions(
     velox::common::CompressionKind kind,
     uint32_t compressionThreshold,
     int32_t zlibCompressionLevel,
@@ -41,7 +41,8 @@ static const CompressionOptions getDwrfOrcCompressionOptions(
   CompressionOptions options;
   options.compressionThreshold = compressionThreshold;
 
-  if (kind == velox::common::CompressionKind_ZLIB) {
+  if (kind == velox::common::CompressionKind_ZLIB ||
+      kind == velox::common::CompressionKind_GZIP) {
     options.format.zlib.windowBits = Compressor::DWRF_ORC_ZLIB_WINDOW_BITS;
     options.format.zlib.compressionLevel = zlibCompressionLevel;
   } else if (kind == velox::common::CompressionKind_ZSTD) {
@@ -58,7 +59,7 @@ static const CompressionOptions getDwrfOrcCompressionOptions(
  * collection
  * @param config The compression options to use
  */
-static std::unique_ptr<dwio::common::BufferedOutputStream> createCompressor(
+inline std::unique_ptr<dwio::common::BufferedOutputStream> createCompressor(
     common::CompressionKind kind,
     CompressionBufferPool& bufferPool,
     dwio::common::DataBufferHolder& bufferHolder,
@@ -84,9 +85,17 @@ static std::unique_ptr<dwio::common::BufferedOutputStream> createCompressor(
       encrypter);
 }
 
-static const CompressionOptions getDwrfOrcDecompressionOptions() {
+inline CompressionOptions getDwrfOrcDecompressionOptions(
+    common::CompressionKind kind) {
   CompressionOptions options;
-  options.format.zlib.windowBits = Compressor::DWRF_ORC_ZLIB_WINDOW_BITS;
+  if (kind == common::CompressionKind_ZLIB ||
+      kind == common::CompressionKind_GZIP) {
+    options.format.zlib.windowBits = Compressor::DWRF_ORC_ZLIB_WINDOW_BITS;
+  } else if (
+      kind == common::CompressionKind_LZ4 ||
+      kind == common::CompressionKind_LZO) {
+    options.format.lz4_lzo.isHadoopFrameFormat = false;
+  }
   return options;
 }
 
@@ -97,14 +106,14 @@ static const CompressionOptions getDwrfOrcDecompressionOptions() {
  * @param bufferSize The maximum size of the buffer
  * @param pool The memory pool
  */
-static std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
+inline std::unique_ptr<dwio::common::SeekableInputStream> createDecompressor(
     facebook::velox::common::CompressionKind kind,
     std::unique_ptr<dwio::common::SeekableInputStream> input,
     uint64_t bufferSize,
     memory::MemoryPool& pool,
     const std::string& streamDebugInfo,
     const dwio::common::encryption::Decrypter* decryptr = nullptr) {
-  const CompressionOptions& options = getDwrfOrcDecompressionOptions();
+  const CompressionOptions& options = getDwrfOrcDecompressionOptions(kind);
   return createDecompressor(
       kind,
       std::move(input),

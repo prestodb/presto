@@ -80,6 +80,10 @@ struct CompressionOptions {
     struct {
       int32_t compressionLevel;
     } zstd;
+
+    struct {
+      bool isHadoopFrameFormat;
+    } lz4_lzo;
   } format;
 
   uint32_t compressionThreshold;
