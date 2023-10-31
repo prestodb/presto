@@ -216,6 +216,10 @@ void addSubfields(
             subscript,
             "Unsupported for array pruning: {}",
             element->toString());
+        VELOX_USER_CHECK_GT(
+            subscript->index(),
+            0,
+            "Non-positive array subscript cannot be push down");
         maxIndex = std::max(maxIndex, std::min(kMaxIndex, subscript->index()));
       }
       spec.setMaxArrayElementsCount(maxIndex);

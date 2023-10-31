@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveDataSource.h"
@@ -150,6 +151,18 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArray) {
   ASSERT_FALSE(elements->childByName("c0c0")->isConstant());
   ASSERT_FALSE(elements->childByName("c0c2")->isConstant());
   validateNullConstant(*elements->childByName("c0c1"), *BIGINT());
+}
+
+TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArrayNegative) {
+  auto columnType =
+      ARRAY(ROW({{"c0c0", BIGINT()}, {"c0c1", BIGINT()}, {"c0c2", BIGINT()}}));
+  auto rowType = ROW({{"c0", columnType}});
+  auto subfields = makeSubfields({"c0[1].c0c0", "c0[-1].c0c2"});
+  auto groupedSubfields = groupSubfields(subfields);
+  VELOX_ASSERT_USER_THROW(
+      HiveDataSource::makeScanSpec(
+          rowType, groupedSubfields, {}, nullptr, {}, pool_.get()),
+      "Non-positive array subscript cannot be push down");
 }
 
 TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeMap) {
