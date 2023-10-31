@@ -1098,6 +1098,40 @@ class RowContainer {
       int32_t rightOffset,
       CompareFlags flags = CompareFlags());
 
+  // Free variable-width fields at column `column_index` associated with the
+  // 'rows' and zero out complex-typed field in 'rows'. `FieldType` is the type
+  // of data representation of the fields in row, and can be one of
+  // StringView(represents VARCHAR) and std::string_view(represents ARRAY, MAP
+  // or ROW).
+  template <typename FieldType>
+  void freeVariableWidthFieldsAtColumn(
+      size_t column_index,
+      folly::Range<char**> rows) {
+    static_assert(
+        std::is_same_v<FieldType, StringView> ||
+        std::is_same_v<FieldType, std::string_view>);
+
+    const auto column = columnAt(column_index);
+    for (auto row : rows) {
+      if (isNullAt(row, column.nullByte(), column.nullMask())) {
+        continue;
+      }
+
+      auto& view = valueAt<FieldType>(row, column.offset());
+      if constexpr (std::is_same_v<FieldType, StringView>) {
+        if (view.isInline()) {
+          continue;
+        }
+      } else {
+        if (view.empty()) {
+          continue;
+        }
+      }
+      stringAllocator_->free(HashStringAllocator::headerOf(view.data()));
+      view = FieldType();
+    }
+  }
+
   // Free any variable-width fields associated with the 'rows' and zero out
   // complex-typed field in 'rows'.
   void freeVariableWidthFields(folly::Range<char**> rows);
