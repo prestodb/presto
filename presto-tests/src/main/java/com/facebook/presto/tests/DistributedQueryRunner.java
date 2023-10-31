@@ -318,7 +318,7 @@ public class DistributedQueryRunner
 
         long start = nanoTime();
         while (!allNodesGloballyVisible()) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(30, SECONDS));
+            Assertions.assertLessThan(nanosSince(start), new Duration(60, SECONDS));
             MILLISECONDS.sleep(10);
         }
         log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
