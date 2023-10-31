@@ -204,7 +204,7 @@ accumulators. This requires more memory as compared to when inputs do not need
 to be de-duplicated.
 
 Furthermore, many aggregate functions produce same results on sorted and
-unsorted inputs, e.g. func:`min`, func:`max`, :func:`count`, :func:`sum`.
+unsorted inputs, e.g. :func:`min`, :func:`max`, :func:`count`, :func:`sum`.
 The query planner should avoid generating plans that request sorted inputs
 for such aggregate functions. Some examples of aggregate functions that are
 sensitive to the order of inputs include :func:`array_agg` and :func:`min_by`
@@ -238,47 +238,47 @@ Lets say the orders table has 5 rows:
 
 .. code-block::
 
-orderkey   total_quantity
-   1            5
-   2            6
-   2            7
-   3            8
-   4            9
+  orderkey   total_quantity
+     1            5
+     2            6
+     2            7
+     3            8
+     4            9
 
 After GroupId for the grouping sets ((orderkey), ()) the table has the following 10 rows
 
 .. code-block::
 
-orderkey   total_quantity    group_id
-   1            5                0
-   2            6                0
-   2            7                0
-   3            8                0
-   4            9                0
-   null         5                1
-   null         6                1
-   null         7                1
-   null         8                1
-   null         9                1
+  orderkey   total_quantity    group_id
+     1            5                0
+     2            6                0
+     2            7                0
+     3            8                0
+     4            9                0
+     null         5                1
+     null         6                1
+     null         7                1
+     null         8                1
+     null         9                1
 
 A subsequent aggregation with grouping keys (orderkey, group_id) gives the sub-totals for the query
 
 .. code-block::
 
-orderkey   total_quantity     group_id
-  1           5                  0
-  2           13                 0
-  3           8                  0
-  4           9                  0
-  null        35                 1
+  orderkey   total_quantity     group_id
+    1           5                  0
+    2           13                 0
+    3           8                  0
+    4           9                  0
+    null        35                 1
 
 If there were no input rows for this GROUP BY CUBE, then the expected result is a single row with the default value for the
 global aggregation. For the above query that would be:
 
 .. code-block::
 
-orderkey   total_quantity      group_id
-  null           null             1
+  orderkey   total_quantity      group_id
+    null           null             1
 
 To generate this special row the AggregationNode needs the groupId for the global grouping set (1 in this case) and it
 returns a single row for it with the aggregates default value.
