@@ -130,7 +130,9 @@ void StreamingAggregation::initialize() {
 }
 
 void StreamingAggregation::close() {
-  rows_->clear();
+  if (rows_ != nullptr) {
+    rows_->clear();
+  }
   Operator::close();
 }
 

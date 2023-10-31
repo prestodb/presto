@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/core/Expressions.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -299,4 +301,34 @@ TEST_F(StreamingAggregationTest, partialStreaming) {
   };
 
   testMultiKeyAggregation(keys, {"c0"});
+}
+
+// Test StreaingAggregation being closed without being initialized. Create a
+// pipeline with Project followed by StreamingAggregation. Make
+// Project::initialize fail by using non-existent function.
+TEST_F(StreamingAggregationTest, closeUninitialized) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3}),
+  });
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .addNode([](auto nodeId, auto source) -> core::PlanNodePtr {
+                    return std::make_shared<core::ProjectNode>(
+                        nodeId,
+                        std::vector<std::string>{"c0", "x"},
+                        std::vector<core::TypedExprPtr>{
+                            std::make_shared<core::FieldAccessTypedExpr>(
+                                BIGINT(), "c0"),
+                            std::make_shared<core::CallTypedExpr>(
+                                BIGINT(),
+                                std::vector<core::TypedExprPtr>{},
+                                "do-not-exist")},
+                        source);
+                  })
+                  .partialStreamingAggregation({"c0"}, {"sum(x)"})
+                  .planNode();
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "Scalar function name not registered: do-not-exist");
 }
