@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
@@ -37,6 +38,13 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -1190,6 +1198,46 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT transform(array[row(orderkey, comment)], x -> x[2]) FROM orders");
         assertQuery("SELECT transform(array[row(orderkey, orderkey * 10)], x -> x[2]) FROM orders");
         assertQuery("SELECT r[2] FROM (VALUES (ROW (ROW (1, 'a', true)))) AS v(r)");
+    }
+
+    @Test
+    public void testSystemTables()
+    {
+        String tableName = generateRandomTableName();
+        String partitionsTableName = format("%s$partitions", tableName);
+
+        try {
+            getQueryRunner().execute(format("CREATE TABLE %s " +
+                    "WITH (partitioned_by = ARRAY['regionkey']) " +
+                    "AS " +
+                    "SELECT nationkey, name, comment, regionkey FROM nation", tableName));
+
+            String join = format("SELECT * " +
+                    "FROM " +
+                    "   (SELECT DISTINCT regionkey FROM %s) t " +
+                    "INNER JOIN " +
+                    "   (SELECT regionkey FROM \"%s\") p " +
+                    "ON t.regionkey = p.regionkey", tableName, partitionsTableName);
+
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                    .build();
+            assertPlan(
+                    session,
+                    join,
+                    anyTree(
+                            join(
+                                    anyTree(tableScan(tableName)),
+                                    anyTree(
+                                            exchange(REMOTE_STREAMING, REPARTITION,
+                                                    exchange(REMOTE_STREAMING, GATHER,
+                                                            anyTree(
+                                                                    tableScan(partitionsTableName))))))));
+            assertQuery(session, join);
+        }
+        finally {
+            dropTableIfExists(tableName);
+        }
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)

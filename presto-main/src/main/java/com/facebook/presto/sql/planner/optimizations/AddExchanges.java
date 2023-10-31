@@ -108,6 +108,7 @@ import static com.facebook.presto.SystemSessionProperties.isDistributedIndexJoin
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExactPartitioningPreferred;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPreferDistributedUnion;
 import static com.facebook.presto.SystemSessionProperties.isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
@@ -116,6 +117,7 @@ import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchange
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
+import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumberOfTableScans;
@@ -129,6 +131,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pus
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
@@ -684,8 +687,20 @@ public class AddExchanges
         private PlanWithProperties planTableScan(TableScanNode node, RowExpression predicate)
         {
             PlanNode plan = pushPredicateIntoTableScan(node, predicate, true, session, idAllocator, metadata);
+            // Presto Java and Presto Native use different hash functions for partitioning
+            // An additional exchange makes sure the data flows through a native worker in case it need to be partitioned for downstream processing
+            if (isNativeExecutionEnabled(session) && containsSystemTableScan(plan)) {
+                plan = gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+            }
             // TODO: Support selecting layout with best local property once connector can participate in query optimization.
             return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
+        }
+
+        private boolean containsSystemTableScan(PlanNode plan)
+        {
+            return searchFrom(plan)
+                    .where(planNode -> planNode instanceof TableScanNode && isInternalSystemConnector(((TableScanNode) planNode).getTable().getConnectorId()))
+                    .matches();
         }
 
         @Override
