@@ -44,20 +44,7 @@ class SortBufferTest : public OperatorTestBase {
 
   common::SpillConfig getSpillConfig(const std::string& spillFilePath) const {
     return common::SpillConfig(
-        spillFilePath,
-        0,
-        0,
-        0,
-        executor_.get(),
-        5,
-        10,
-        0,
-        0,
-        0,
-        false,
-        0,
-        0,
-        "none");
+        spillFilePath, 0, 0, 0, executor_.get(), 5, 10, 0, 0, 0, 0, "none");
   }
 
   const RowTypePtr inputType_ = ROW(
@@ -302,8 +289,6 @@ TEST_F(SortBufferTest, batchOutput) {
         0,
         0,
         0,
-        false,
-        0,
         100, //  testSpillPct
         "none");
     auto sortBuffer = std::make_unique<SortBuffer>(
@@ -396,8 +381,6 @@ TEST_F(SortBufferTest, spill) {
         spillableReservationGrowthPct,
         0,
         0,
-        0,
-        false,
         0,
         0,
         "none");

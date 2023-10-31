@@ -120,7 +120,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         hashBits_(
             0,
             (type_ == Spiller::Type::kOrderBy ||
-             type_ == Spiller::Type::kAggregateOutput)
+             type_ == Spiller::Type::kAggregateOutput ||
+             type_ == Spiller::Type::kAggregateInput)
                 ? 0
                 : 2),
         numPartitions_(hashBits_.numPartitions()),
@@ -1075,22 +1076,6 @@ class NoHashJoin : public SpillerTest,
   }
 };
 
-class AggregationInputOnly : public SpillerTest,
-                             public testing::WithParamInterface<TestParam> {
- public:
-  AggregationInputOnly() : SpillerTest(GetParam()) {}
-
-  static std::vector<TestParam> getTestParams() {
-    return TestParamsBuilder{
-        .typesToExclude =
-            {Spiller::Type::kHashJoinProbe,
-             Spiller::Type::kHashJoinBuild,
-             Spiller::Type::kOrderBy,
-             Spiller::Type::kAggregateOutput}}
-        .getTestParams();
-  }
-};
-
 TEST_P(NoHashJoin, spilFew) {
   // Test with distinct sort keys.
   testSortedSpill(10, 1);
@@ -1132,157 +1117,6 @@ TEST_P(NoHashJoin, spillAll) {
 
 TEST_P(NoHashJoin, error) {
   testSortedSpill(100, 1, 0, true);
-}
-
-TEST_P(AggregationInputOnly, spillWithEmptyPartitions) {
-  // kOrderBy type which has only one partition which is not relevant for this
-  // test.
-  rowType_ = ROW({{"long_val", BIGINT()}, {"string_val", VARCHAR()}});
-  struct {
-    std::vector<int> rowsPerPartition;
-    int numDuplicates;
-
-    std::string debugString() const {
-      return fmt::format(
-          "rowsPerPartition: [{}], numDuplicates: {}",
-          folly::join(':', rowsPerPartition),
-          numDuplicates);
-    }
-  } testSettings[] = {// Test with distinct sort keys.
-                      {{5000, 0, 0, 0}, 1},
-                      {{5'000, 5'000, 0, 1'000}, 1},
-                      {{5'000, 0, 5'000, 1'000}, 1},
-                      {{5'000, 1'000, 5'000, 0}, 1},
-                      // Test with duplicate sort keys.
-                      {{5000, 0, 0, 0}, 10},
-                      {{5'000, 5'000, 0, 1'000}, 10},
-                      {{5'000, 0, 5'000, 1'000}, 10},
-                      {{5'000, 1'000, 5'000, 0}, 10}};
-  for (auto testData : testSettings) {
-    SCOPED_TRACE(testData.debugString());
-    reset();
-    int32_t numRows = 0;
-    for (const auto partitionRows : testData.rowsPerPartition) {
-      numRows += partitionRows;
-    }
-    int64_t outputIndex = 0;
-    setupSpillData(
-        rowType_,
-        1,
-        numRows,
-        testData.numDuplicates,
-        [&](RowVectorPtr rowVector) {
-          // Set ordinal so that the sorted order is unambiguous.
-          setSequentialValue(rowVector, 0, outputIndex);
-          outputIndex += rowVector->size();
-        },
-        testData.rowsPerPartition);
-    sortSpillData();
-    // Setup a large target file size and spill only once to ensure the number
-    // of spilled files matches the number of spilled partitions.
-    setupSpiller(2'000'000'000, 0, 0, false);
-    // We spill spillPct% of the data all at once.
-    runSpill(100, 100, false);
-    ASSERT_TRUE(spiller_->isAnySpilled());
-    ASSERT_FALSE(spiller_->isAllSpilled());
-
-    uint64_t numNonEmptyPartitions = 0;
-    for (auto partition = 0; partition < numPartitions_; ++partition) {
-      if (testData.rowsPerPartition[partition] != 0) {
-        ASSERT_TRUE(spiller_->state().isPartitionSpilled(partition));
-        ++numNonEmptyPartitions;
-      } else {
-        ASSERT_FALSE(spiller_->state().isPartitionSpilled(partition))
-            << partition;
-      }
-    }
-    const auto stats = spiller_->stats();
-    ASSERT_EQ(stats.spilledFiles, numNonEmptyPartitions);
-    ASSERT_EQ(stats.spilledRows, numRows);
-    ASSERT_EQ(stats.spilledPartitions, numNonEmptyPartitions);
-    ASSERT_GT(stats.spilledBytes, 0);
-    ASSERT_GT(stats.spillWriteTimeUs, 0);
-    ASSERT_GT(stats.spillSortTimeUs, 0);
-    ASSERT_GT(stats.spillFlushTimeUs, 0);
-    ASSERT_GT(stats.spillFillTimeUs, 0);
-    ASSERT_GT(stats.spillSerializationTimeUs, 0);
-    ASSERT_GT(stats.spillDiskWrites, 0);
-    // Expect no non-spilling partitions.
-    ASSERT_FALSE(spiller_->finalized());
-    ASSERT_TRUE(spiller_->finishSpill().empty());
-    ASSERT_TRUE(spiller_->finalized());
-    const auto finalStats = spiller_->stats();
-    ASSERT_GT(finalStats, stats);
-    ASSERT_GT(finalStats.spillFillTimeUs, stats.spillFillTimeUs);
-    ASSERT_EQ(finalStats.spilledFiles, numNonEmptyPartitions);
-    ASSERT_EQ(finalStats.spilledRows, numRows);
-    ASSERT_EQ(finalStats.spilledPartitions, numNonEmptyPartitions);
-    verifySortedSpillData();
-  }
-}
-
-TEST_P(AggregationInputOnly, spillWithNonSpillingPartitions) {
-  // kOrderBy type which has only one partition, is irrelevant for this test.
-  rowType_ = ROW({{"long_val", BIGINT()}, {"string_val", VARCHAR()}});
-  struct {
-    std::vector<int> rowsPerPartition;
-    int numDuplicates;
-    int expectedSpillPartitionIndex;
-
-    std::string debugString() const {
-      return fmt::format(
-          "rowsPerPartition: [{}], numDuplicates: {}, expectedSpillPartitionIndex: {}",
-          folly::join(':', rowsPerPartition),
-          numDuplicates,
-          expectedSpillPartitionIndex);
-    }
-  } testSettings[] = {// Test with distinct sort keys.
-                      {{5'000, 1, 0, 0}, 1, 0},
-                      {{1, 1, 1, 5000}, 1, 3},
-                      // Test with duplicate sort keys.
-                      {{5'000, 1, 0, 0}, 10, 0},
-                      {{1, 1, 1, 5000}, 10, 3}};
-  for (auto testData : testSettings) {
-    SCOPED_TRACE(testData.debugString());
-    reset();
-    int32_t numRows = 0;
-    for (const auto partitionRows : testData.rowsPerPartition) {
-      numRows += partitionRows;
-    }
-    int64_t outputIndex = 0;
-    setupSpillData(
-        rowType_,
-        1,
-        numRows,
-        testData.numDuplicates,
-        [&](RowVectorPtr rowVector) {
-          // Set ordinal so that the sorted order is unambiguous.
-          setSequentialValue(rowVector, 0, outputIndex);
-          outputIndex += rowVector->size();
-        },
-        testData.rowsPerPartition);
-    sortSpillData();
-    // Setup a large target file size and spill only once to ensure the number
-    // of spilled files matches the number of spilled partitions.
-    setupSpiller(2'000'000'000, 0, 0, false);
-    // We spill spillPct% of the data all at once.
-    runSpill(20, 20, false);
-
-    for (int partition = 0; partition < numPartitions_; ++partition) {
-      EXPECT_EQ(
-          testData.expectedSpillPartitionIndex == partition,
-          spiller_->state().isPartitionSpilled(partition));
-    }
-    ASSERT_TRUE(spiller_->isAnySpilled());
-    ASSERT_FALSE(spiller_->isAllSpilled());
-    const auto stats = spiller_->stats();
-    ASSERT_EQ(1, stats.spilledFiles);
-    // Expect non-spilling partition.
-    EXPECT_FALSE(spiller_->finishSpill().empty());
-    verifySortedSpillData();
-    EXPECT_LT(0, spiller_->stats().spilledRows);
-    EXPECT_GT(numRows, spiller_->stats().spilledRows);
-  }
 }
 
 TEST_P(NoHashJoin, spillPartition) {
@@ -1390,48 +1224,6 @@ TEST_P(AllTypes, nonSortedSpillFunctions) {
   testNonSortedSpill(4, 1000, 10, 1'000'000'000);
   // Empty case.
   testNonSortedSpill(1, 1000, 0, 1);
-}
-
-TEST_P(AggregationInputOnly, minSpillRunSize) {
-  std::vector<uint64_t> minSpillRunSizes({0, 1'000'000'000});
-  auto rowType = ROW({{"int1", BIGINT()}, {"int2", BIGINT()}});
-  for (const auto& minSpillRunSize : minSpillRunSizes) {
-    SCOPED_TRACE(fmt::format("minSpillRunSize: {}", minSpillRunSize));
-    setupSpillContainer(rowType, 1);
-    setupSpiller(2'000'000'000, 0, minSpillRunSize, false);
-    for (int i = 0; i < numPartitions_; ++i) {
-      VectorFuzzer::Options options;
-      options.vectorSize = 10 * numPartitions_;
-      std::vector<RowVectorPtr> batches;
-      const int32_t numBatches = 10;
-      VectorFuzzer fuzzer(options, pool_.get());
-      for (int32_t j = 0; j < numBatches; ++j) {
-        auto batch = fuzzer.fuzzRow(rowType);
-        batch->ensureWritable(SelectivityVector::empty(batch->size()));
-        auto vector = batch->as<RowVector>()->childAt(0);
-        auto* rawKeyValues =
-            vector->asFlatVector<int64_t>()->mutableRawValues();
-        for (int k = 0; k < batch->size(); ++k) {
-          rawKeyValues[k] = j;
-        }
-        batches.push_back(batch);
-      }
-      writeSpillData(batches);
-      // Each time spill 50% of rows to see if the impact of min spill run size
-      // config on the partition selection.
-      runSpill(50, 10, false);
-    }
-    ASSERT_TRUE(spiller_->isAnySpilled());
-    if (minSpillRunSize == 0) {
-      // If there is no min spill run size restriction, then only some
-      // partitions will be spilled.
-      ASSERT_FALSE(spiller_->isAllSpilled());
-    } else {
-      // If there is min spill run size restriction, then all the partitions
-      // will be spilled.
-      ASSERT_TRUE(spiller_->isAllSpilled());
-    }
-  }
 }
 
 class HashJoinBuildOnly : public SpillerTest,
@@ -1683,11 +1475,6 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     SpillerTest,
     NoHashJoin,
     testing::ValuesIn(NoHashJoin::getTestParams()));
-
-VELOX_INSTANTIATE_TEST_SUITE_P(
-    SpillerTest,
-    AggregationInputOnly,
-    testing::ValuesIn(AggregationInputOnly::getTestParams()));
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SpillerTest,

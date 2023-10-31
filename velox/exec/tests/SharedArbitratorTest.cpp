@@ -801,7 +801,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromAggregation) {
               .spillDirectory(spillDirectory->path)
               .config(core::QueryConfig::kSpillEnabled, "true")
               .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-              .config(core::QueryConfig::kAggregationSpillPartitionBits, "2")
               .queryCtx(aggregationQueryCtx)
               .plan(PlanBuilder()
                         .values(vectors)
@@ -902,7 +901,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromAggregationOnNoMoreInput) {
               .spillDirectory(spillDirectory->path)
               .config(core::QueryConfig::kSpillEnabled, "true")
               .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-              .config(core::QueryConfig::kAggregationSpillPartitionBits, "2")
               .queryCtx(aggregationQueryCtx)
               .maxDrivers(1)
               .plan(PlanBuilder()
@@ -1009,7 +1007,6 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromAggregationDuringOutput) {
               .spillDirectory(spillDirectory->path)
               .config(core::QueryConfig::kSpillEnabled, "true")
               .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-              .config(core::QueryConfig::kAggregationSpillPartitionBits, "2")
               .config(
                   core::QueryConfig::kPreferredOutputBatchRows,
                   std::to_string(numRows / 10))

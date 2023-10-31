@@ -94,12 +94,12 @@ HashAggregation::HashAggregation(
       isDistinct_(!isGlobal_ && aggregationNode->aggregates().empty()),
       maxExtendedPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxExtendedPartialAggregationMemoryUsage()),
-      maxPartialAggregationMemoryUsage_(
-          driverCtx->queryConfig().maxPartialAggregationMemoryUsage()),
       abandonPartialAggregationMinRows_(
           driverCtx->queryConfig().abandonPartialAggregationMinRows()),
       abandonPartialAggregationMinPct_(
-          driverCtx->queryConfig().abandonPartialAggregationMinPct()) {}
+          driverCtx->queryConfig().abandonPartialAggregationMinPct()),
+      maxPartialAggregationMemoryUsage_(
+          driverCtx->queryConfig().maxPartialAggregationMemoryUsage()) {}
 
 void HashAggregation::initialize() {
   Operator::initialize();
@@ -479,11 +479,13 @@ void HashAggregation::reclaim(
   if (noMoreInput_) {
     if (groupingSet_->hasSpilled()) {
       LOG(WARNING)
-          << "Can't reclaim from aggregation operator which has spilled and is under output processing, pool["
-          << pool()->toString()
-          << ", usage: " << succinctBytes(pool()->currentBytes()) << "]";
+          << "Can't reclaim from aggregation operator which has spilled and is under output processing, pool "
+          << pool()->name()
+          << ", memory usage: " << succinctBytes(pool()->currentBytes())
+          << ", reservation: " << succinctBytes(pool()->reservedBytes());
       return;
     }
+
     // Spill all the rows starting from the next output row pointed by
     // 'resultIterator_'.
     groupingSet_->spill(resultIterator_);

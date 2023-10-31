@@ -36,8 +36,6 @@ TEST(SpillConfig, spillLevel) {
       kInitialBitOffset,
       kNumPartitionsBits,
       0,
-      false,
-      0,
       0,
       "none");
   struct {
@@ -120,8 +118,6 @@ TEST(SpillConfig, spillLevelLimit) {
         0,
         testData.startBitOffset,
         testData.numBits,
-        0,
-        false,
         testData.maxSpillLevel,
         0,
         "none");
@@ -166,8 +162,6 @@ TEST(SpillConfig, spillableReservationPercentages) {
           testData.growthPct,
           0,
           0,
-          0,
-          false,
           0,
           0,
           "none");

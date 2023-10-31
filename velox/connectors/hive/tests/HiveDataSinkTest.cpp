@@ -69,20 +69,7 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
         "planNodeId.HiveDataSinkTest",
         0);
     spillConfig_ = std::make_unique<SpillConfig>(
-        "HiveDataSinkTest",
-        0,
-        0,
-        0,
-        nullptr,
-        10,
-        20,
-        0,
-        0,
-        0,
-        false,
-        0,
-        0,
-        "none");
+        "HiveDataSinkTest", 0, 0, 0, nullptr, 10, 20, 0, 0, 0, 0, "none");
 
     auto hiveConnector =
         connector::getConnectorFactory(

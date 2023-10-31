@@ -223,9 +223,7 @@ void GroupingSet::noMoreInput() {
   // Spill the remaining in-memory state to disk if spilling has been triggered
   // on this grouping set. This is to simplify query OOM prevention when
   // producing output as we don't support to spill during that stage as for now.
-  // We will remove this limitation after we support spilling during the middle
-  // of output processing later.
-  if (hasSpilled() && spillConfig_->aggregationSpillAll) {
+  if (hasSpilled()) {
     spill(0, 0);
   }
 
@@ -729,6 +727,7 @@ bool GroupingSet::getOutput(
   if (hasSpilled()) {
     return getOutputWithSpill(maxOutputRows, maxOutputBytes, result);
   }
+  VELOX_CHECK(!isDistinct());
 
   // @lint-ignore CLANGTIDY
   char* groups[maxOutputRows];
@@ -753,7 +752,7 @@ void GroupingSet::extractGroups(
   if (groups.empty()) {
     return;
   }
-  RowContainer& rows = table_ ? *table_->rows() : *nonSpilledRowContainer_;
+  RowContainer& rows = *table_->rows();
   auto totalKeys = rows.keyTypes().size();
   for (int32_t i = 0; i < totalKeys; ++i) {
     auto keyVector = result->childAt(i);
@@ -848,23 +847,13 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   if (spillConfig_->testSpillPct > 0 &&
       (folly::hasher<uint64_t>()(++spillTestCounter_)) % 100 <=
           spillConfig_->testSpillPct) {
-    const auto rowsToSpill = std::max<int64_t>(1, numDistinct / 10);
-    spill(
-        numDistinct - rowsToSpill,
-        outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow));
+    spill(0, 0);
     return;
   }
 
   const auto currentUsage = pool_.currentBytes();
   if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
-    const int64_t bytesToSpill =
-        currentUsage * spillConfig_->spillableReservationGrowthPct / 100;
-    auto rowsToSpill = std::max<int64_t>(
-        1, bytesToSpill / (rows->fixedRowSize() + outOfLineBytesPerRow));
-    spill(
-        std::max<int64_t>(0, numDistinct - rowsToSpill),
-        std::max<int64_t>(
-            0, outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow)));
+    spill(0, 0);
     return;
   }
 
@@ -916,10 +905,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   // the operator memory pool.
   const auto rowsToSpill = std::max<int64_t>(
       1, targetIncrementBytes / (rows->fixedRowSize() + outOfLineBytesPerRow));
-  spill(
-      std::max<int64_t>(0, numDistinct - rowsToSpill),
-      std::max<int64_t>(
-          0, outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow)));
+  spill(0, 0);
 }
 
 void GroupingSet::ensureOutputFits() {
@@ -973,10 +959,6 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         rows,
         [&](folly::Range<char**> rows) { table_->erase(rows); },
         ROW(std::move(names), std::move(types)),
-        HashBitRange(
-            spillConfig_->startPartitionBit,
-            spillConfig_->startPartitionBit +
-                spillConfig_->aggregationPartitionBits),
         rows->keyTypes().size(),
         std::vector<CompareFlags>(),
         spillConfig_->filePath,
@@ -1031,7 +1013,10 @@ bool GroupingSet::getOutputWithSpill(
     int32_t maxOutputRows,
     int32_t maxOutputBytes,
     const RowVectorPtr& result) {
-  if (outputPartition_ == -1) {
+  if (merge_ == nullptr) {
+    VELOX_CHECK_NULL(mergeRows_);
+    VELOX_CHECK(mergeArgs_.empty());
+
     mergeArgs_.resize(1);
     std::vector<TypePtr> keyTypes;
     for (auto& hasher : table_->hashers()) {
@@ -1052,95 +1037,53 @@ bool GroupingSet::getOutputWithSpill(
 
     initializeAggregates(aggregates_, *mergeRows_, false);
 
-    // Take ownership of the rows and free the hash table. The table will not be
-    // needed for producing spill output.
-    nonSpilledRowContainer_ = table_->moveRows();
-    table_.reset();
-    outputPartition_ = 0;
-    nonSpilledRows_ = spiller_->finishSpill();
-  }
+    VELOX_CHECK_EQ(table_->rows()->numRows(), 0);
+    const auto nonSpillRows = spiller_->finishSpill();
+    VELOX_CHECK(nonSpillRows.empty());
 
-  // NOTE: we don't expect non-spilled rows if spilling is triggered during the
-  // aggregation output processing.
-  if (spiller_->type() == Spiller::Type::kAggregateOutput) {
-    VELOX_CHECK_EQ(nonSpilledRows_.value().size(), 0);
+    merge_ = spiller_->startMerge(0);
   }
+  VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);
+  VELOX_CHECK_NOT_NULL(merge_);
 
-  if (nonSpilledRowIndex_ < nonSpilledRows_.value().size()) {
-    const int32_t numGroups =
-        numNonSpilledGroupsToExtract(maxOutputRows, maxOutputBytes);
-    extractGroups(
-        folly::Range<char**>(
-            nonSpilledRows_.value().data() + nonSpilledRowIndex_, numGroups),
-        result);
-    nonSpilledRowIndex_ += numGroups;
-    return true;
-  }
-
-  while (outputPartition_ < spiller_->state().maxPartitions()) {
-    if (merge_ == nullptr) {
-      merge_ = spiller_->startMerge(outputPartition_);
-    }
-    // NOTE: 'merge_' might be nullptr if 'outputPartition_' is empty.
-    if (merge_ == nullptr ||
-        !mergeNext(maxOutputRows, maxOutputBytes, result)) {
-      ++outputPartition_;
-      merge_ = nullptr;
-      continue;
-    }
-    return true;
-  }
-  return false;
-}
-
-size_t GroupingSet::numNonSpilledGroupsToExtract(
-    int32_t maxOutputRows,
-    int32_t maxOutputBytes) const {
-  const size_t maxNumGroups = std::min<vector_size_t>(
-      maxOutputRows, nonSpilledRows_.value().size() - nonSpilledRowIndex_);
-  size_t totalBytes{0};
-  size_t nextRow = nonSpilledRowIndex_;
-  size_t numGroups{0};
-  for (; numGroups < maxNumGroups; ++numGroups, ++nextRow) {
-    const auto rowSize =
-        nonSpilledRowContainer_->rowSize(nonSpilledRows_.value()[nextRow]);
-    if (numGroups > 0 && (totalBytes + rowSize) >= maxOutputBytes) {
-      break;
-    }
-    totalBytes += rowSize;
-  }
-  return numGroups;
+  return mergeNext(maxOutputRows, maxOutputBytes, result);
 }
 
 bool GroupingSet::mergeNext(
     int32_t maxOutputRows,
     int32_t maxOutputBytes,
     const RowVectorPtr& result) {
+  VELOX_CHECK(!isDistinct());
+
+  // True if 'merge_' indicates that the next key is the same as the current
+  // one.
+  bool nextKeyIsEqual{false};
   for (;;) {
     auto next = merge_->nextWithEquals();
-    if (!next.first) {
+    if (next.first == nullptr) {
       extractSpillResult(result);
       return result->size() > 0;
     }
-    if (!nextKeyIsEqual_) {
+    if (!nextKeyIsEqual) {
       mergeState_ = mergeRows_->newRow();
       initializeRow(*next.first, mergeState_);
     }
     updateRow(*next.first, mergeState_);
-    nextKeyIsEqual_ = next.second;
+    nextKeyIsEqual = next.second;
     next.first->pop();
-    if (!nextKeyIsEqual_ &&
+    if (!nextKeyIsEqual &&
         ((mergeRows_->numRows() >= maxOutputRows) ||
          (mergeRows_->allocatedBytes() >= maxOutputBytes))) {
       extractSpillResult(result);
       return true;
     }
   }
+  VELOX_UNREACHABLE();
 }
 
-void GroupingSet::initializeRow(SpillMergeStream& keys, char* row) {
+void GroupingSet::initializeRow(SpillMergeStream& stream, char* row) {
   for (auto i = 0; i < keyChannels_.size(); ++i) {
-    mergeRows_->store(keys.decoded(i), keys.currentIndex(), mergeState_, i);
+    mergeRows_->store(stream.decoded(i), stream.currentIndex(), mergeState_, i);
   }
   vector_size_t zero = 0;
   for (auto& aggregate : aggregates_) {
@@ -1302,13 +1245,4 @@ void GroupingSet::toIntermediate(
   // aggregaiton function instances won't be reused after it returns.
   tempVectors_.clear();
 }
-
-std::optional<int64_t> GroupingSet::estimateRowSize() const {
-  const RowContainer* rows =
-      table_ ? table_->rows() : nonSpilledRowContainer_.get();
-  return rows && rows->estimateRowSize() >= 0
-      ? std::optional<int64_t>(rows->estimateRowSize())
-      : std::nullopt;
-};
-
 } // namespace facebook::velox::exec

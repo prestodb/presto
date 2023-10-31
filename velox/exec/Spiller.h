@@ -44,7 +44,7 @@ class Spiller {
   using SpillRows = std::vector<char*, memory::StlAllocator<char*>>;
 
   // The constructor without specifying hash bits which will only use one
-  // partition by default. It is only used by SortBuffer spiller type for now.
+  // partition by default.
   Spiller(
       Type type,
       RowContainer* container,

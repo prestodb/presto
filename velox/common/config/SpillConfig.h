@@ -33,8 +33,6 @@ struct SpillConfig {
       int32_t _spillableReservationGrowthPct,
       uint8_t _startPartitionBit,
       uint8_t _joinPartitionBits,
-      uint8_t _aggregationPartitionBits,
-      bool _aggregationSpillAll,
       int32_t _maxSpillLevel,
       int32_t _testSpillPct,
       const std::string& _compressionKind);
@@ -86,16 +84,6 @@ struct SpillConfig {
   /// Used to calculate the spill hash partition number for hash join with
   /// 'startPartitionBit'.
   uint8_t joinPartitionBits;
-
-  /// Used to calculate the spill hash partition number for aggregation with
-  /// 'startPartitionBit'.
-  uint8_t aggregationPartitionBits;
-
-  /// If true and spilling has been triggered during the input processing, the
-  /// spiller will spill all the remaining in-memory state to disk before output
-  /// processing. This is to simplify the aggregation query OOM prevention in
-  /// output processing stage.
-  bool aggregationSpillAll;
 
   /// The max allowed spilling level with zero being the initial spilling
   /// level. This only applies for hash build spilling which needs recursive
