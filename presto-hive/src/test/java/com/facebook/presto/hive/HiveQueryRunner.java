@@ -24,9 +24,12 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpcds.TpcdsTableName;
 import com.facebook.presto.tpcds.TpcdsPlugin;
@@ -470,6 +473,21 @@ public final class HiveQueryRunner
         }
 
         DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8080"), dataDirectory);
+
+        try {
+            queryRunner.installPlugin(new Plugin()
+            {
+                @Override
+                public Iterable<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProviders()
+                {
+                    return ImmutableList.of(new InMemoryHistoryBasedPlanStatisticsProvider());
+                }
+            });
+        }
+        catch (Exception e) {
+            queryRunner.close();
+            throw e;
+        }
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");
