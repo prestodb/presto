@@ -20,6 +20,13 @@
 namespace facebook::velox::core {
 
 namespace {
+
+void appendComma(int32_t i, std::stringstream& sql) {
+  if (i > 0) {
+    sql << ", ";
+  }
+}
+
 std::vector<PlanNodePtr> deserializeSources(
     const folly::dynamic& obj,
     void* context) {
@@ -185,9 +192,7 @@ void addFields(
     std::stringstream& stream,
     const std::vector<FieldAccessTypedExprPtr>& keys) {
   for (auto i = 0; i < keys.size(); ++i) {
-    if (i > 0) {
-      stream << ", ";
-    }
+    appendComma(i, stream);
     stream << keys[i]->name();
   }
 }
@@ -195,9 +200,7 @@ void addFields(
 void addKeys(std::stringstream& stream, const std::vector<TypedExprPtr>& keys) {
   for (auto i = 0; i < keys.size(); ++i) {
     const auto& expr = keys[i];
-    if (i > 0) {
-      stream << ", ";
-    }
+    appendComma(i, stream);
     if (auto field =
             std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expr)) {
       stream << field->name();
@@ -216,9 +219,7 @@ void addSortingKeys(
     const std::vector<SortOrder>& sortingOrders,
     std::stringstream& stream) {
   for (auto i = 0; i < sortingKeys.size(); ++i) {
-    if (i > 0) {
-      stream << ", ";
-    }
+    appendComma(i, stream);
     stream << sortingKeys[i]->name() << " " << sortingOrders[i].toString();
   }
 }
@@ -234,9 +235,7 @@ void AggregationNode::addDetails(std::stringstream& stream) const {
   }
 
   for (auto i = 0; i < aggregateNames_.size(); ++i) {
-    if (i > 0) {
-      stream << ", ";
-    }
+    appendComma(i, stream);
     const auto& aggregate = aggregates_[i];
     stream << aggregateNames_[i] << " := " << aggregate.call->toString();
     if (aggregate.distinct) {
@@ -486,14 +485,10 @@ GroupIdNode::GroupIdNode(
 
 void GroupIdNode::addDetails(std::stringstream& stream) const {
   for (auto i = 0; i < groupingSets_.size(); ++i) {
-    if (i > 0) {
-      stream << ", ";
-    }
+    appendComma(i, stream);
     stream << "[";
     for (auto j = 0; j < groupingSets_[i].size(); j++) {
-      if (j > 0) {
-        stream << ", ";
-      }
+      appendComma(j, stream);
       stream << groupingSets_[i][j];
     }
     stream << "]";
@@ -606,9 +601,7 @@ void ProjectNode::addDetails(std::stringstream& stream) const {
   stream << "expressions: ";
   for (auto i = 0; i < projections_.size(); i++) {
     auto& projection = projections_[i];
-    if (i > 0) {
-      stream << ", ";
-    }
+    appendComma(i, stream);
     stream << "(" << names_[i] << ":" << projection->type()->toString() << ", "
            << projection->toString() << ")";
   }
@@ -1247,9 +1240,7 @@ void WindowNode::addDetails(std::stringstream& stream) const {
   auto numInputCols = sources_[0]->outputType()->size();
   auto numOutputCols = outputType_->size();
   for (auto i = numInputCols; i < numOutputCols; i++) {
-    if (i >= numInputCols + 1) {
-      stream << ", ";
-    }
+    appendComma(i - numInputCols, stream);
     stream << outputType_->names()[i] << " := ";
     addWindowFunction(stream, windowFunctions_[i - numInputCols]);
   }
