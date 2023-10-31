@@ -206,17 +206,21 @@ class CallTypedExpr : public ITypedExpr {
     if (!casted) {
       return false;
     }
-    if (casted->name() != this->name()) {
+    return operator==(*casted);
+  }
+
+  bool operator==(const CallTypedExpr& other) const {
+    if (other.name() != this->name()) {
       return false;
     }
-    if (*casted->type() != *this->type()) {
+    if (*other.type() != *this->type()) {
       return false;
     }
     return std::equal(
         this->inputs().begin(),
         this->inputs().end(),
-        casted->inputs().begin(),
-        casted->inputs().end(),
+        other.inputs().begin(),
+        other.inputs().end(),
         [](const auto& p1, const auto& p2) { return *p1 == *p2; });
   }
 
@@ -301,17 +305,21 @@ class FieldAccessTypedExpr : public ITypedExpr {
     if (!casted) {
       return false;
     }
-    if (casted->name_ != this->name_) {
+    return operator==(*casted);
+  }
+
+  bool operator==(const FieldAccessTypedExpr& other) const {
+    if (other.name_ != this->name_) {
       return false;
     }
-    if (*casted->type() != *this->type()) {
+    if (*other.type() != *this->type()) {
       return false;
     }
     return std::equal(
         this->inputs().begin(),
         this->inputs().end(),
-        casted->inputs().begin(),
-        casted->inputs().end(),
+        other.inputs().begin(),
+        other.inputs().end(),
         [](const auto& p1, const auto& p2) { return *p1 == *p2; });
   }
 
@@ -375,14 +383,18 @@ class DereferenceTypedExpr : public ITypedExpr {
     if (!casted) {
       return false;
     }
-    if (casted->index_ != this->index_) {
+    return operator==(*casted);
+  }
+
+  bool operator==(const DereferenceTypedExpr& other) const {
+    if (other.index_ != this->index_) {
       return false;
     }
     return std::equal(
         this->inputs().begin(),
         this->inputs().end(),
-        casted->inputs().begin(),
-        casted->inputs().end(),
+        other.inputs().begin(),
+        other.inputs().end(),
         [](const auto& p1, const auto& p2) { return *p1 == *p2; });
   }
 
@@ -437,14 +449,18 @@ class ConcatTypedExpr : public ITypedExpr {
     if (!casted) {
       return false;
     }
-    if (*casted->type() != *this->type()) {
+    return operator==(*casted);
+  }
+
+  bool operator==(const ConcatTypedExpr& other) const {
+    if (*other.type() != *this->type()) {
       return false;
     }
     return std::equal(
         this->inputs().begin(),
         this->inputs().end(),
-        casted->inputs().begin(),
-        casted->inputs().end(),
+        other.inputs().begin(),
+        other.inputs().end(),
         [](const auto& p1, const auto& p2) { return *p1 == *p2; });
   }
 
