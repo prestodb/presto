@@ -107,23 +107,12 @@ jobs:
           name: "Install dependencies"
           command: |
             cd presto-native-execution
-            ./scripts/setup-conda.sh
+            make conda-install-deps
       - run:
           name: "Build"
           command: |
-            source $HOME/.bashrc
             cd presto-native-execution
-            source ./scripts/setup-conda.sh
-            conda_activate_env
-            cmake \
-              -B _build/debug \
-              -GNinja \
-              -DENABLE_ALL_WARNINGS=1 \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DPRESTO_ENABLE_PARQUET=ON \
-              -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
-              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-            ninja -C _build/debug -j 8
+            make conda-build
             ccache -s
       - save_cache:
           name: "Save CCache cache"
@@ -133,12 +122,8 @@ jobs:
       - run:
           name: "Run Unit Tests"
           command: |
-            source $HOME/.bashrc
             cd presto-native-execution
-            source ./scripts/setup-conda.sh
-            conda_activate_env
-            cd _build/debug
-            ctest -j 8 -VV --output-on-failure --exclude-regex velox.*
+            make conda-test
       - persist_to_workspace:
           root: presto-native-execution
           paths:
@@ -362,52 +347,26 @@ jobs:
     executor: << parameters.executor >>
     steps:
       - checkout
-      # Uses a clean config because the default .zshrc has a syntax error
       - run:
-          shell: /bin/bash
-          name: "Fix Zsh"
-          command: |
-            mv $HOME/.zshrc $HOME/.zshrc.orig
-            touch $HOME/.zshrc
-      - run:
-          shell: /bin/zsh
           name: "Update velox"
           command: |
             cd presto-native-execution
             make velox-submodule
       - run:
-          shell: /bin/zsh
           name: "Install dependencies"
           command: |
             cd presto-native-execution
-            ./scripts/setup-conda.sh
+            make conda-install-deps
       - run:
-          # -DPRESTO_ENABLE_PARQUET=ON doesn't work on Macs:
-          # https://github.com/prestodb/presto/issues/20986
-          shell: /bin/zsh
           name: "Build"
           command: |
-            source $HOME/.zshrc
             cd presto-native-execution
-            source ./scripts/setup-conda.sh
-            conda_activate_env
-            cmake \
-              -B _build/debug \
-              -GNinja \
-              -DENABLE_ALL_WARNINGS=1 \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON
-            ninja -C _build/debug -j 8
+            make conda-build
       - run:
-          shell: /bin/zsh
           name: "Run Unit Tests"
           command: |
-            source $HOME/.zshrc
             cd presto-native-execution
-            source ./scripts/setup-conda.sh
-            conda_activate_env
-            cd _build/debug
-            DYLD_LIBRARY_PATH=$CONDA_PREFIX/lib ctest -j 8 -VV --output-on-failure --exclude-regex 'velox.*'
+            make conda-test
 
   native-specific-macos:
     executor: macos-intel
