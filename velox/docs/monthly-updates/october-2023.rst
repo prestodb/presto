@@ -9,7 +9,6 @@ Documentation
 * Add blog post about `reduce_agg <https://velox-lib.io/blog/reduce-agg>`_ lambda aggregate function.
 * Extend documentation for datetime Presto functions to explain handling of :ref:`time zones <presto-time-zones>`.
 * Extend documentation for :func:`reduce_agg` Presto lambda aggregate function.
-* Fix Unnest operator to honor `preferred_output_batch_rows` configuration property and avoid producing huge vectors. :pr:`7051`
 
 Core Library
 ============
@@ -21,6 +20,7 @@ Core Library
 * Add optimized version of Window operator for the case when inputs are already partitioned and sorted. :pr:`5437`
 * Add support for order-able and comparable arguments to function signatures.
 * Add support for order-able and comparable arguments to the Simple Function interface. :pr:`7293`
+* Fix Unnest operator to honor `preferred_output_batch_rows` configuration property and avoid producing huge vectors. :pr:`7051`
 
 Presto Functions
 ================
