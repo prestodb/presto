@@ -84,9 +84,18 @@ std::unique_ptr<SimpleVector<uint64_t>> FlatVector<T>::hashAll() const {
   auto hashData = hashBuffer->asMutable<uint64_t>();
 
   if (rawValues_ != nullptr) { // non all-null case
-    folly::hasher<T> hasher;
-    for (size_t i = 0; i < BaseVector::length_; ++i) {
-      hashData[i] = hasher(valueAtFast(i));
+    if constexpr (std::is_same_v<T, StringView>) {
+      folly::hasher<folly::StringPiece> stringHasher;
+      for (size_t i = 0; i < BaseVector::length_; ++i) {
+        auto view = valueAt(i);
+        folly::StringPiece piece(view.data(), view.size());
+        hashData[i] = stringHasher(piece);
+      }
+    } else {
+      folly::hasher<T> hasher;
+      for (size_t i = 0; i < BaseVector::length_; ++i) {
+        hashData[i] = hasher(valueAtFast(i));
+      }
     }
   }
 

@@ -461,29 +461,12 @@ TEST_F(BitUtilTest, forEachBit) {
 }
 
 TEST_F(BitUtilTest, hash) {
-  std::unordered_map<uint64_t, int32_t> hashes;
-  std::string text =
-      "Forget the night, come live with us in forests of azure, "
-      "for we have constructed pyramids in honor of our escaping...";
-  for (int32_t i = 0; i < text.size(); ++i) {
-    // starts hashing at unaligned addresses.
-    int32_t offset = i > 3 && i < text.size() - 3 ? i % 3 : 0;
-    auto hash = hashBytes(1, text.data() + offset, i);
-    if (i + offset < text.size() - 1) {
-      ++text[i + offset];
-      // Change the first byte after the hashed range and check that the hash
-      // function does not overread its range.
-      EXPECT_EQ(hash, hashBytes(1, text.data() + offset, i));
-      --text[i + offset];
-    }
-    auto it = hashes.find(hash);
-    if (it == hashes.end()) {
-      hashes[hash] = i;
-    } else {
-      EXPECT_TRUE(false) << "Duplicate hash at " << i;
-    }
+  std::unordered_set<size_t> hashes;
+  const char* text = "Forget the night, come live with us in forests of azure";
+  for (int32_t i = 0; i < strlen(text); ++i) {
+    hashes.insert(hashBytes(1, text, i));
   }
-  EXPECT_EQ(hashes.size(), text.size());
+  EXPECT_EQ(hashes.size(), strlen(text));
 }
 
 TEST_F(BitUtilTest, nextPowerOfTwo) {

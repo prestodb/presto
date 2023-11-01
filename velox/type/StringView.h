@@ -296,7 +296,8 @@ namespace folly {
 template <>
 struct hasher<::facebook::velox::StringView> {
   size_t operator()(const ::facebook::velox::StringView view) const {
-    return facebook::velox::bits::hashBytes(1, view.data(), view.size());
+    return hash::SpookyHashV2::Hash64(view.data(), view.size(), 0);
+    // return facebook::velox::bits::hashBytes(1, view.data(), view.size());
   }
 };
 

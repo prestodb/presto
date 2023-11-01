@@ -29,7 +29,7 @@ add_test(velox_type_test velox_type_test)
 target_link_libraries(
   velox_type_test
   velox_type
-  velox_common_base
+  velox_serialization
   velox_external_date
   Folly::folly
   gtest

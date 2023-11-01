@@ -784,7 +784,24 @@ inline uint64_t loadPartialWord(const uint8_t* data, int32_t size) {
   return result;
 }
 
-uint64_t hashBytes(uint64_t seed, const char* data, size_t size);
+inline size_t hashBytes(size_t seed, const char* data, size_t size) {
+  auto begin = reinterpret_cast<const uint8_t*>(data);
+  if (size < 8) {
+    return hashMix(seed, loadPartialWord(begin, size));
+  }
+  auto result = seed;
+  auto end = begin + size;
+  while (begin + 8 <= end) {
+    result = hashMix(result, *reinterpret_cast<const uint64_t*>(begin));
+    begin += 8;
+  }
+  if (end != begin) {
+    // Accesses the last 64 bits. Some bytes may get processed twice but the
+    // access is safe.
+    result = hashMix(result, *reinterpret_cast<const uint64_t*>(end - 8));
+  }
+  return result;
+}
 
 namespace detail {
 // Returns at least 'numBits' bits of data starting at bit 'bitOffset'
