@@ -241,6 +241,7 @@ arbitrary large timestamps.
 
     This is an alias for :func:`year_of_week`.
 
+.. _presto-time-zones:
 
 Time Zones
 ----------
