@@ -451,6 +451,10 @@ VectorPtr CastExpr::applyDecimal(
 
   // toType is a decimal
   switch (fromType->kind()) {
+    case TypeKind::BOOLEAN:
+      applyIntToDecimalCastKernel<bool, toDecimalType>(
+          rows, input, context, toType, castResult);
+      break;
     case TypeKind::TINYINT:
       applyIntToDecimalCastKernel<int8_t, toDecimalType>(
           rows, input, context, toType, castResult);

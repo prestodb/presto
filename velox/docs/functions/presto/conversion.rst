@@ -110,7 +110,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      -
-     -
+     - Y
    * - real
      - Y
      - Y
@@ -652,10 +652,23 @@ Valid examples
 Cast to Decimal
 ---------------
 
+From boolean type
+^^^^^^^^^^^^^^^^^
+
+Casting a boolean number to decimal of given precision and scale is allowed.
+True value is converted to 1 and false to 0.
+
+Valid examples
+
+::
+
+  SELECT cast(true as decimal(4, 2)); -- decimal '1.00'
+  SELECT cast(false as decimal(8, 2)); -- decimal '0'
+
 From integral types
 ^^^^^^^^^^^^^^^^^^^
 
-Casting an integral numberto a decimal of given precision and scale is allowed
+Casting an integral number to a decimal of given precision and scale is allowed
 if the input value can be represented by the precision and scale. Casting from
 invalid input values throws.
 

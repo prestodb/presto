@@ -1700,6 +1700,30 @@ TEST_F(CastExprTest, integerToDecimal) {
   testIntToDecimalCasts<int64_t>();
 }
 
+TEST_F(CastExprTest, boolToDecimal) {
+  // Bool to short decimal.
+  auto input =
+      makeFlatVector<bool>({true, false, false, true, true, true, false});
+  testComplexCast(
+      "c0",
+      input,
+      makeFlatVector<int64_t>({100, 0, 0, 100, 100, 100, 0}, DECIMAL(6, 2)));
+
+  // Bool to long decimal.
+  testComplexCast(
+      "c0",
+      input,
+      makeFlatVector<int128_t>(
+          {10'000'000'000,
+           0,
+           0,
+           10'000'000'000,
+           10'000'000'000,
+           10'000'000'000,
+           0},
+          DECIMAL(20, 10)));
+}
+
 TEST_F(CastExprTest, castInTry) {
   // Test try(cast(array(varchar) as array(bigint))) whose input vector is
   // wrapped in dictinary encoding. The row of ["2a"] should trigger an error
