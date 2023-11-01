@@ -33,6 +33,7 @@ import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.histo
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.graph.Traverser.forTree;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestCachingPlanCanonicalInfoProvider
@@ -72,12 +73,24 @@ public class TestCachingPlanCanonicalInfoProvider
                 return;
             }
             for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
-                planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy).get();
+                planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy, false).get();
             }
         });
         // Assert that size of cache remains same, meaning all needed hashes were already cached.
         assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList().size());
         planCanonicalInfoProvider.getHistoryBasedStatisticsCacheManager().invalidate(session.getQueryId());
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 0);
+
+        forTree(PlanNode::getSources).depthFirstPreOrder(root).forEach(child -> {
+            if (!child.getStatsEquivalentPlanNode().isPresent()) {
+                return;
+            }
+            for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+                // Only read from cache, hence will return Optional.empty() as the cache is already invalidated
+                assertFalse(planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy, true).isPresent());
+            }
+        });
+        // Assert that cache is not populated as we only read from cache without populating with cache miss
         assertEquals(planCanonicalInfoProvider.getCacheSize(), 0);
     }
 
