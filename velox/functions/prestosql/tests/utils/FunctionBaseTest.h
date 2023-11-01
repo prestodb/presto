@@ -197,8 +197,9 @@ class FunctionBaseTest : public testing::Test,
       const RowVectorPtr rowVectorPtr,
       const std::optional<SelectivityVector>& rows = std::nullopt,
       const TypePtr& resultType = nullptr) {
-    auto result = evaluate<SimpleVector<EvalType<ReturnType>>>(
-        expr, rowVectorPtr, rows, resultType);
+    auto result =
+        evaluate<SimpleVector<facebook::velox::test::EvalType<ReturnType>>>(
+            expr, rowVectorPtr, rows, resultType);
     return result->isNullAt(0) ? std::optional<ReturnType>{}
                                : ReturnType(result->valueAt(0));
   }

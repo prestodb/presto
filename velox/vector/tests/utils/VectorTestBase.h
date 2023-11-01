@@ -52,9 +52,6 @@ class VectorTestBase {
 
   ~VectorTestBase();
 
-  template <typename T>
-  using EvalType = typename CppToType<T>::NativeType;
-
   static std::shared_ptr<const RowType> makeRowType(
       std::vector<std::shared_ptr<const Type>>&& types) {
     return velox::test::VectorMaker::rowType(

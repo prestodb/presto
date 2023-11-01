@@ -28,6 +28,32 @@ auto defaultPool = memory::addDefaultLeafMemoryPool();
 
 class ParquetReaderTest : public ParquetTestBase {
  public:
+  std::unique_ptr<dwio::common::RowReader> createRowReader(
+      const std::string& fileName,
+      const RowTypePtr& rowType) {
+    const std::string sample(getExampleFilePath(fileName));
+
+    facebook::velox::dwio::common::ReaderOptions readerOptions{
+        defaultPool.get()};
+    auto reader = createReader(sample, readerOptions);
+
+    RowReaderOptions rowReaderOpts;
+    rowReaderOpts.select(
+        std::make_shared<facebook::velox::dwio::common::ColumnSelector>(
+            rowType, rowType->names()));
+    rowReaderOpts.setScanSpec(makeScanSpec(rowType));
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    return rowReader;
+  }
+
+  void assertReadWithExpected(
+      const std::string& fileName,
+      const RowTypePtr& rowType,
+      const RowVectorPtr& expected) {
+    auto rowReader = createRowReader(fileName, rowType);
+    assertReadWithReaderAndExpected(rowType, *rowReader, expected, *pool_);
+  }
+
   void assertReadWithFilters(
       const std::string& fileName,
       const RowTypePtr& fileSchema,
@@ -71,7 +97,8 @@ TEST_F(ParquetReaderTest, parseSample) {
       makeFlatVector<double>(20, [](auto row) { return row + 1; }),
   });
 
-  assertReadExpected(sampleSchema(), *rowReader, expected, *leafPool_);
+  assertReadWithReaderAndExpected(
+      sampleSchema(), *rowReader, expected, *leafPool_);
 }
 
 TEST_F(ParquetReaderTest, parseSampleRange1) {
@@ -89,7 +116,8 @@ TEST_F(ParquetReaderTest, parseSampleRange1) {
       makeFlatVector<int64_t>(10, [](auto row) { return row + 1; }),
       makeFlatVector<double>(10, [](auto row) { return row + 1; }),
   });
-  assertReadExpected(sampleSchema(), *rowReader, expected, *leafPool_);
+  assertReadWithReaderAndExpected(
+      sampleSchema(), *rowReader, expected, *leafPool_);
 }
 
 TEST_F(ParquetReaderTest, parseSampleRange2) {
@@ -107,7 +135,8 @@ TEST_F(ParquetReaderTest, parseSampleRange2) {
       makeFlatVector<int64_t>(10, [](auto row) { return row + 11; }),
       makeFlatVector<double>(10, [](auto row) { return row + 11; }),
   });
-  assertReadExpected(sampleSchema(), *rowReader, expected, *leafPool_);
+  assertReadWithReaderAndExpected(
+      sampleSchema(), *rowReader, expected, *leafPool_);
 }
 
 TEST_F(ParquetReaderTest, parseSampleEmptyRange) {
@@ -251,7 +280,115 @@ TEST_F(ParquetReaderTest, parseInt) {
       makeFlatVector<int32_t>(10, [](auto row) { return row + 100; }),
       makeFlatVector<int64_t>(10, [](auto row) { return row + 1000; }),
   });
-  assertReadExpected(intSchema(), *rowReader, expected, *leafPool_);
+  assertReadWithReaderAndExpected(
+      intSchema(), *rowReader, expected, *leafPool_);
+}
+
+TEST_F(ParquetReaderTest, parseUnsignedInt1) {
+  // uint.parquet holds unsigned integer columns (uint8: TINYINT, uint16:
+  // SMALLINT, uint32: INTEGER, uint64: BIGINT) and 3 rows. Data is in plain
+  // uncompressed format:
+  //   uint8: [255, 3, 3]
+  //   uint16: [65535, 2000, 3000]
+  //   uint32: [4294967295, 2000000000, 3000000000]
+  //   uint64: [18446744073709551615, 2000000000000000000, 3000000000000000000]
+  const std::string sample(getExampleFilePath("uint.parquet"));
+
+  facebook::velox::dwio::common::ReaderOptions readerOptions{defaultPool.get()};
+  auto reader = createReader(sample, readerOptions);
+
+  EXPECT_EQ(reader->numberOfRows(), 3ULL);
+  auto type = reader->typeWithId();
+  EXPECT_EQ(type->size(), 4ULL);
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::TINYINT);
+  auto col1 = type->childAt(1);
+  EXPECT_EQ(col1->type()->kind(), TypeKind::SMALLINT);
+  auto col2 = type->childAt(2);
+  EXPECT_EQ(col2->type()->kind(), TypeKind::INTEGER);
+  auto col3 = type->childAt(3);
+  EXPECT_EQ(col3->type()->kind(), TypeKind::BIGINT);
+
+  auto rowType =
+      ROW({"uint8", "uint16", "uint32", "uint64"},
+          {TINYINT(), SMALLINT(), INTEGER(), BIGINT()});
+
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.select(
+      std::make_shared<facebook::velox::dwio::common::ColumnSelector>(
+          rowType, rowType->names()));
+  rowReaderOpts.setScanSpec(makeScanSpec(rowType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  auto expected = makeRowVector(
+      {makeFlatVector<uint8_t>({255, 2, 3}),
+       makeFlatVector<uint16_t>({65535, 2000, 3000}),
+       makeFlatVector<uint32_t>({4294967295, 2000000000, 3000000000}),
+       makeFlatVector<uint64_t>(
+           {18446744073709551615ULL,
+            2000000000000000000ULL,
+            3000000000000000000ULL})});
+  assertReadWithReaderAndExpected(rowType, *rowReader, expected, *pool_);
+}
+
+TEST_F(ParquetReaderTest, parseUnsignedInt2) {
+  auto rowType =
+      ROW({"uint8", "uint16", "uint32", "uint64"},
+          {SMALLINT(), SMALLINT(), INTEGER(), BIGINT()});
+  auto expected = makeRowVector(
+      {makeFlatVector<uint16_t>({255, 2, 3}),
+       makeFlatVector<uint16_t>({65535, 2000, 3000}),
+       makeFlatVector<uint32_t>({4294967295, 2000000000, 3000000000}),
+       makeFlatVector<uint64_t>(
+           {18446744073709551615ULL,
+            2000000000000000000ULL,
+            3000000000000000000ULL})});
+  assertReadWithExpected("uint.parquet", rowType, expected);
+}
+
+TEST_F(ParquetReaderTest, parseUnsignedInt3) {
+  auto rowType =
+      ROW({"uint8", "uint16", "uint32", "uint64"},
+          {SMALLINT(), INTEGER(), INTEGER(), BIGINT()});
+  auto expected = makeRowVector(
+      {makeFlatVector<uint16_t>({255, 2, 3}),
+       makeFlatVector<uint32_t>({65535, 2000, 3000}),
+       makeFlatVector<uint32_t>({4294967295, 2000000000, 3000000000}),
+       makeFlatVector<uint64_t>(
+           {18446744073709551615ULL,
+            2000000000000000000ULL,
+            3000000000000000000ULL})});
+  assertReadWithExpected("uint.parquet", rowType, expected);
+}
+
+TEST_F(ParquetReaderTest, parseUnsignedInt4) {
+  auto rowType =
+      ROW({"uint8", "uint16", "uint32", "uint64"},
+          {SMALLINT(), INTEGER(), INTEGER(), DECIMAL(20, 0)});
+  auto expected = makeRowVector(
+      {makeFlatVector<uint16_t>({255, 2, 3}),
+       makeFlatVector<uint32_t>({65535, 2000, 3000}),
+       makeFlatVector<uint32_t>({4294967295, 2000000000, 3000000000}),
+       makeFlatVector<uint128_t>(
+           {18446744073709551615ULL,
+            2000000000000000000ULL,
+            3000000000000000000ULL})});
+  assertReadWithExpected("uint.parquet", rowType, expected);
+}
+
+TEST_F(ParquetReaderTest, parseUnsignedInt5) {
+  auto rowType =
+      ROW({"uint8", "uint16", "uint32", "uint64"},
+          {SMALLINT(), INTEGER(), BIGINT(), DECIMAL(20, 0)});
+  auto expected = makeRowVector(
+      {makeFlatVector<uint16_t>({255, 2, 3}),
+       makeFlatVector<uint32_t>({65535, 2000, 3000}),
+       makeFlatVector<uint64_t>({4294967295, 2000000000, 3000000000}),
+       makeFlatVector<uint128_t>(
+           {18446744073709551615ULL,
+            2000000000000000000ULL,
+            3000000000000000000ULL})});
+  assertReadWithExpected("uint.parquet", rowType, expected);
 }
 
 TEST_F(ParquetReaderTest, parseDate) {
@@ -279,7 +416,8 @@ TEST_F(ParquetReaderTest, parseDate) {
   auto expected = makeRowVector({
       makeFlatVector<int32_t>(25, [](auto row) { return row - 5; }),
   });
-  assertReadExpected(dateSchema(), *rowReader, expected, *leafPool_);
+  assertReadWithReaderAndExpected(
+      dateSchema(), *rowReader, expected, *leafPool_);
 }
 
 TEST_F(ParquetReaderTest, parseRowMapArray) {

@@ -108,6 +108,7 @@ std::unordered_set<uint32_t> makeCompatibilityMap() {
   compat.insert(getKey(TypeKind::SMALLINT, TypeKind::INTEGER));
   compat.insert(getKey(TypeKind::SMALLINT, TypeKind::BIGINT));
   compat.insert(getKey(TypeKind::INTEGER, TypeKind::BIGINT));
+  compat.insert(getKey(TypeKind::BIGINT, TypeKind::HUGEINT));
   compat.insert(getKey(TypeKind::REAL, TypeKind::DOUBLE));
   return compat;
 }

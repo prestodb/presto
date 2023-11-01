@@ -22,6 +22,7 @@
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/SequenceVector.h"
 #include "velox/vector/SimpleVector.h"
+#include "velox/vector/tests/utils/VectorMakerStats.h"
 
 namespace facebook::velox::test {
 
@@ -115,9 +116,6 @@ class VectorMaker {
   RowVectorPtr rowVector(
       const std::shared_ptr<const RowType>& rowType,
       vector_size_t size);
-
-  template <typename T>
-  using EvalType = typename CppToType<T>::NativeType;
 
   template <typename T>
   FlatVectorPtr<EvalType<T>> flatVector(

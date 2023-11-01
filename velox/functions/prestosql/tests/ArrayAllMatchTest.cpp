@@ -193,7 +193,7 @@ TEST_F(ArrayAllMatchTest, errors) {
 
 TEST_F(ArrayAllMatchTest, conditional) {
   // No throw and return false if there are unmatched elements except nulls
-  auto c0 = makeFlatVector<uint32_t>({1, 2, 3, 4, 5});
+  auto c0 = makeFlatVector<int32_t>({1, 2, 3, 4, 5});
   auto c1 = makeNullableArrayVector<int32_t>({
       {100, std::nullopt},
       {500, 120},

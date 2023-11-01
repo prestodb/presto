@@ -19,9 +19,47 @@
 #include <optional>
 #include <unordered_set>
 
+#include "velox/type/Type.h"
 #include "velox/vector/SimpleVector.h"
 
 namespace facebook::velox::test {
+template <typename T>
+struct EvalTypeHelper {
+  using Type = typename CppToType<T>::NativeType;
+};
+
+template <typename T>
+struct EvalTypeHelper<std::optional<T>> {
+  using Type = typename EvalTypeHelper<T>::Type;
+};
+
+template <>
+struct EvalTypeHelper<uint8_t> {
+  using Type = uint8_t;
+};
+
+template <>
+struct EvalTypeHelper<uint16_t> {
+  using Type = uint16_t;
+};
+
+template <>
+struct EvalTypeHelper<uint32_t> {
+  using Type = uint32_t;
+};
+
+template <>
+struct EvalTypeHelper<uint64_t> {
+  using Type = uint64_t;
+};
+
+template <>
+struct EvalTypeHelper<uint128_t> {
+  using Type = uint128_t;
+};
+
+template <typename T>
+using EvalType = typename EvalTypeHelper<T>::Type;
 
 // Struct that caries metadata about a vector of nullable elements.
 template <typename T>
@@ -50,17 +88,17 @@ class VectorMakerStats {
 
 // Generates VectorMakerStats for a given vector of nullable elements.
 template <typename T>
-VectorMakerStats<typename CppToType<T>::NativeType> genVectorMakerStats(
+VectorMakerStats<EvalType<T>> genVectorMakerStats(
     const std::vector<std::optional<T>>& data) {
-  using NativeType = typename CppToType<T>::NativeType;
-  VectorMakerStats<NativeType> result;
+  using TEvalType = EvalType<T>;
+  VectorMakerStats<TEvalType> result;
 
   // Count distinct and null elements.
   for (const auto& val : data) {
     if (val == std::nullopt) {
       ++result.nullCount;
     } else {
-      result.addElement(static_cast<NativeType>(*val));
+      result.addElement(static_cast<TEvalType>(*val));
     }
   }
 
@@ -70,7 +108,7 @@ VectorMakerStats<typename CppToType<T>::NativeType> genVectorMakerStats(
   // Calculate min and max (skip null elements).
   for (const auto& val : data) {
     if (val != std::nullopt) {
-      auto nativeVal = static_cast<NativeType>(*val);
+      auto nativeVal = static_cast<TEvalType>(*val);
       result.min = (result.min == std::nullopt)
           ? nativeVal
           : std::min(*result.min, nativeVal);
@@ -84,21 +122,20 @@ VectorMakerStats<typename CppToType<T>::NativeType> genVectorMakerStats(
 
 // Generates VectorMakerStats for a given vector of non-nullable elements.
 template <typename T>
-VectorMakerStats<typename CppToType<T>::NativeType> genVectorMakerStats(
-    const std::vector<T>& data) {
-  using NativeType = typename CppToType<T>::NativeType;
-  VectorMakerStats<NativeType> result;
+VectorMakerStats<EvalType<T>> genVectorMakerStats(const std::vector<T>& data) {
+  using TEvalType = EvalType<T>;
+  VectorMakerStats<TEvalType> result;
   for (const auto& val : data) {
-    result.addElement(static_cast<NativeType>(val));
+    result.addElement(static_cast<TEvalType>(val));
   }
 
   result.isSorted = std::is_sorted(data.begin(), data.end());
   const auto& [min, max] = std::minmax_element(data.begin(), data.end());
   if (min != data.end()) {
-    result.min = static_cast<NativeType>(*min);
+    result.min = static_cast<TEvalType>(*min);
   }
   if (max != data.end()) {
-    result.max = static_cast<NativeType>(*max);
+    result.max = static_cast<TEvalType>(*max);
   }
   return result;
 }

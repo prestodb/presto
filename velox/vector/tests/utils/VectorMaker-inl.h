@@ -17,7 +17,6 @@
 #include <algorithm>
 
 #include "velox/vector/SimpleVector.h"
-#include "velox/vector/tests/utils/VectorMakerStats.h"
 
 namespace facebook::velox::test {
 
@@ -39,7 +38,7 @@ BufferPtr buildBiasedBuffer(
 }
 
 template <typename T>
-BiasVectorPtr<VectorMaker::EvalType<T>> VectorMaker::biasVector(
+BiasVectorPtr<EvalType<T>> VectorMaker::biasVector(
     const std::vector<std::optional<T>>& data) {
   VELOX_CHECK_GT(data.size(), 1);
   using TEvalType = EvalType<T>;
@@ -125,7 +124,7 @@ void sequenceEncode(
 }
 
 template <typename T>
-SequenceVectorPtr<VectorMaker::EvalType<T>> VectorMaker::sequenceVector(
+SequenceVectorPtr<EvalType<T>> VectorMaker::sequenceVector(
     const std::vector<std::optional<T>>& data) {
   using TEvalType = EvalType<T>;
 
@@ -146,7 +145,7 @@ SequenceVectorPtr<VectorMaker::EvalType<T>> VectorMaker::sequenceVector(
 }
 
 template <typename T>
-ConstantVectorPtr<VectorMaker::EvalType<T>> VectorMaker::constantVector(
+ConstantVectorPtr<EvalType<T>> VectorMaker::constantVector(
     const std::vector<std::optional<T>>& data) {
   VELOX_CHECK_GT(data.size(), 0);
   using TEvalType = EvalType<T>;
@@ -169,7 +168,7 @@ ConstantVectorPtr<VectorMaker::EvalType<T>> VectorMaker::constantVector(
 }
 
 template <typename T>
-DictionaryVectorPtr<VectorMaker::EvalType<T>> VectorMaker::dictionaryVector(
+DictionaryVectorPtr<EvalType<T>> VectorMaker::dictionaryVector(
     const std::vector<std::optional<T>>& data) {
   using TEvalType = EvalType<T>;
 
@@ -219,7 +218,7 @@ DictionaryVectorPtr<VectorMaker::EvalType<T>> VectorMaker::dictionaryVector(
 }
 
 template <typename T>
-FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVectorNullable(
+FlatVectorPtr<EvalType<T>> VectorMaker::flatVectorNullable(
     const std::vector<std::optional<T>>& data,
     const TypePtr& type) {
   using TEvalType = EvalType<T>;
@@ -251,7 +250,7 @@ FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVectorNullable(
 }
 
 template <typename T>
-FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVector(
+FlatVectorPtr<EvalType<T>> VectorMaker::flatVector(
     const std::vector<T>& data,
     const TypePtr& type) {
   using TEvalType = EvalType<T>;

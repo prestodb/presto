@@ -471,6 +471,14 @@ class SelectiveColumnReader {
       const TypePtr& requestedType,
       VectorPtr* FOLLY_NONNULL result);
 
+  // Returns integer values for 'rows' cast to the width of
+  // 'requestedType' in '*result', the related fileDataType is unsigned int
+  // type.
+  void getUnsignedIntValues(
+      RowSet rows,
+      const TypePtr& requestedType,
+      VectorPtr* FOLLY_NONNULL result);
+
   // Returns read values for 'rows' in 'vector'. This can be called
   // multiple times for consecutive subsets of 'rows'. If 'isFinal' is
   // true, this is free not to maintain the information mapping values

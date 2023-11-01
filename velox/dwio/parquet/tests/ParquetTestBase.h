@@ -103,7 +103,7 @@ class ParquetTestBase : public testing::Test, public test::VectorTestBase {
     }
   }
 
-  void assertReadExpected(
+  void assertReadWithReaderAndExpected(
       std::shared_ptr<const RowType> outputType,
       dwio::common::RowReader& reader,
       RowVectorPtr expected,
@@ -138,7 +138,8 @@ class ParquetTestBase : public testing::Test, public test::VectorTestBase {
     auto rowReaderOpts = getReaderOpts(fileSchema);
     rowReaderOpts.setScanSpec(scanSpec);
     auto rowReader = reader->createRowReader(rowReaderOpts);
-    assertReadExpected(fileSchema, *rowReader, expected, *leafPool_);
+    assertReadWithReaderAndExpected(
+        fileSchema, *rowReader, expected, *leafPool_);
   }
 
   std::unique_ptr<dwio::common::FileSink> createSink(
