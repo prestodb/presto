@@ -139,17 +139,15 @@ proxygen::HTTPServer::IPConfig HttpsConfig::ipConfig() const {
 }
 
 HttpServer::HttpServer(
+    const std::shared_ptr<folly::IOThreadPoolExecutor>& httpIOExecutor,
     std::unique_ptr<HttpConfig> httpConfig,
-    std::unique_ptr<HttpsConfig> httpsConfig,
-    int httpExecThreads)
+    std::unique_ptr<HttpsConfig> httpsConfig)
     : httpConfig_(std::move(httpConfig)),
       httpsConfig_(std::move(httpsConfig)),
-      httpExecThreads_(httpExecThreads),
       handlerFactory_(std::make_unique<DispatchingRequestHandlerFactory>()),
-      httpExecutor_{std::make_shared<folly::IOThreadPoolExecutor>(
-          httpExecThreads,
-          std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"))} {
+      httpIOExecutor_(httpIOExecutor) {
   VELOX_CHECK((httpConfig_ != nullptr) || (httpsConfig_ != nullptr));
+  VELOX_CHECK(httpIOExecutor_ != nullptr);
 }
 
 bool EndPoint::check(
@@ -263,10 +261,6 @@ void HttpServer::start(
     std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess,
     std::function<void(std::exception_ptr)> onError) {
   proxygen::HTTPServerOptions options;
-  // The 'threads' field is not used when we provide our own executor (see us
-  // passing httpExecutor_ below) to the start() method. In that case we create
-  // executor ourselves with exactly that number of threads.
-  options.threads = httpExecThreads_;
   options.idleTimeout = std::chrono::milliseconds(60'000);
   options.enableContentCompression = false;
 
@@ -311,6 +305,6 @@ void HttpServer::start(
       },
       onError,
       nullptr,
-      httpExecutor_);
+      httpIOExecutor_);
 }
 } // namespace facebook::presto::http

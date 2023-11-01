@@ -30,7 +30,10 @@ struct DriverCountStats {
 
 class TaskManager {
  public:
-  TaskManager();
+  TaskManager(
+      folly::Executor* driverExecutor,
+      folly::Executor* httpSrvExecutor,
+      folly::Executor* spillerExecutor);
 
   /// Invoked by Presto server shutdown to wait for all the tasks to complete
   /// and cleanup the completed tasks.
@@ -122,7 +125,7 @@ class TaskManager {
   std::string toString() const;
 
   QueryContextManager* getQueryContextManager() {
-    return &queryContextManager_;
+    return queryContextManager_.get();
   }
 
   /// Make upto target task threads to yield. Task candidate must have been on
@@ -178,8 +181,8 @@ class TaskManager {
   int32_t oldTaskCleanUpMs_;
   std::shared_ptr<velox::exec::OutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
-  QueryContextManager queryContextManager_;
-  folly::Executor* httpProcessingExecutor_{httpProcessingExecutorPtr()};
+  std::unique_ptr<QueryContextManager> queryContextManager_;
+  folly::Executor* httpSrvCpuExecutor_;
 };
 
 } // namespace facebook::presto

@@ -23,8 +23,11 @@ class TaskResource {
  public:
   explicit TaskResource(
       TaskManager& taskManager,
-      velox::memory::MemoryPool* pool)
-      : taskManager_(taskManager), pool_{pool} {}
+      velox::memory::MemoryPool* pool,
+      folly::Executor* httpSrvCpuExecutor)
+      : httpSrvCpuExecutor_(httpSrvCpuExecutor),
+        pool_{pool},
+        taskManager_(taskManager) {}
 
   void registerUris(http::HttpServer& server);
 
@@ -91,8 +94,10 @@ class TaskResource {
       proxygen::HTTPMessage* message,
       const std::vector<std::string>& pathMatch);
 
+  folly::Executor* const httpSrvCpuExecutor_;
+  velox::memory::MemoryPool* const pool_;
+
   TaskManager& taskManager_;
-  velox::memory::MemoryPool* pool_;
 };
 
 } // namespace facebook::presto
