@@ -116,7 +116,7 @@ public class TestPrestoSparkStatsCalculator
                 .registerVariable(planBuilder.variable("c1"))
                 .filter(planBuilder.rowExpression("c1 IS NOT NULL"),
                         planBuilder.values(planBuilder.variable("c1")));
-        Optional<String> hash = historyBasedPlanStatisticsCalculator.getPlanCanonicalInfoProvider().hash(session, statsEquivalentRemoteSource, REMOVE_SAFE_CONSTANTS);
+        Optional<String> hash = historyBasedPlanStatisticsCalculator.getPlanCanonicalInfoProvider().hash(session, statsEquivalentRemoteSource, REMOVE_SAFE_CONSTANTS, false);
 
         InMemoryHistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider = (InMemoryHistoryBasedPlanStatisticsProvider) historyBasedPlanStatisticsCalculator.getHistoryBasedPlanStatisticsProvider().get();
         historyBasedPlanStatisticsProvider.putStats(ImmutableMap.of(
