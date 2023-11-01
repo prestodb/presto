@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.SetOfValues;
 import com.facebook.presto.operator.aggregation.arrayagg.SetAggregationStateSerializer;
@@ -26,6 +27,8 @@ public interface SetAggregationState
     SetOfValues get();
 
     void set(SetOfValues set);
+
+    void add(Block block, int position);
 
     void addMemoryUsage(long memory);
 

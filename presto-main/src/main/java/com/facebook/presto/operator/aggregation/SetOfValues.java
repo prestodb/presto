@@ -63,9 +63,9 @@ public final class SetOfValues
         deserialize(requireNonNull(serialized, "serialized is null"));
     }
 
-    public Block getvalues()
+    public BlockBuilder getvalues()
     {
-        return valueBlockBuilder.build();
+        return valueBlockBuilder;
     }
 
     private void deserialize(Block block)
@@ -92,7 +92,7 @@ public final class SetOfValues
         return size;
     }
 
-    public void add(Block value, int valuePosition)
+    public int add(Block value, int valuePosition)
     {
         int hashPosition = getHashPositionOfValue(value, valuePosition);
         if (valuePositionByHash[hashPosition] == EMPTY_SLOT) {
@@ -100,8 +100,11 @@ public final class SetOfValues
             valuePositionByHash[hashPosition] = valueBlockBuilder.getPositionCount() - 1;
             if (valueBlockBuilder.getPositionCount() >= maxFill) {
                 rehash();
+                return valuePositionByHash[getHashPositionOfValue(value, valuePosition)];
             }
         }
+
+        return valuePositionByHash[hashPosition];
     }
 
     private int getHashPositionOfValue(Block value, int position)
