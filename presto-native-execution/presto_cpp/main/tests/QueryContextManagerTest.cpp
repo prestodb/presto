@@ -20,8 +20,20 @@ namespace facebook::presto {
 class QueryContextManagerTest : public testing::Test {
  protected:
   void SetUp() override {
-    taskManager_ = std::make_unique<TaskManager>();
+    driverExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+        4, std::make_shared<folly::NamedThreadFactory>("Driver"));
+    httpSrvCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+        4, std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
+    spillerExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+        4, std::make_shared<folly::NamedThreadFactory>("Spiller"));
+    taskManager_ = std::make_unique<TaskManager>(
+        driverExecutor_.get(),
+        httpSrvCpuExecutor_.get(),
+        spillerExecutor_.get());
   }
+  std::shared_ptr<folly::CPUThreadPoolExecutor> driverExecutor_;
+  std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
+  std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
   std::unique_ptr<TaskManager> taskManager_;
 };
 

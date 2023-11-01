@@ -30,9 +30,10 @@ TEST_F(HttpsBasicTest, ssl) {
 
   auto httpsConfig = std::make_unique<http::HttpsConfig>(
       folly::SocketAddress("127.0.0.1", 0), certPath, keyPath, ciphers);
-
-  auto server =
-      std::make_unique<http::HttpServer>(nullptr, std::move(httpsConfig));
+  auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
+      8, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+  auto server = std::make_unique<http::HttpServer>(
+      ioPool, nullptr, std::move(httpsConfig));
 
   HttpServerWrapper wrapper(std::move(server));
   auto serverAddress = wrapper.start().get();
@@ -46,7 +47,24 @@ TEST_F(HttpsBasicTest, ssl) {
   EXPECT_TRUE(cb.succeeded());
 }
 
-class HttpTestSuite : public ::testing::TestWithParam<bool> {};
+class HttpTestSuite : public ::testing::TestWithParam<bool> {
+ public:
+  void SetUp() override {
+    httpIOExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+        8, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+  }
+
+ protected:
+  std::unique_ptr<http::HttpServer> getServer(
+      bool useHttps,
+      const std::shared_ptr<folly::IOThreadPoolExecutor>& ioPool = nullptr) {
+    return getHttpServer(
+        useHttps, ioPool == nullptr ? httpIOExecutor_ : ioPool);
+  }
+
+ private:
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpIOExecutor_;
+};
 
 TEST_P(HttpTestSuite, basic) {
   auto memoryPool = defaultMemoryManager().addLeafPool("basic");
@@ -145,7 +163,9 @@ TEST_P(HttpTestSuite, serverRestart) {
   auto memoryPool = defaultMemoryManager().addLeafPool("serverRestart");
 
   const bool useHttps = GetParam();
-  auto server = getServer(useHttps);
+  auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
+      8, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+  auto server = getServer(useHttps, ioPool);
 
   server->registerGet("/ping", ping);
 
@@ -165,6 +185,8 @@ TEST_P(HttpTestSuite, serverRestart) {
 
   wrapper->stop();
 
+  auto ioPool2 = std::make_shared<folly::IOThreadPoolExecutor>(
+      8, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO2"));
   auto server2 = getServer(useHttps);
 
   server2->registerGet("/ping", ping);
@@ -268,7 +290,9 @@ TEST_P(HttpTestSuite, httpConnectTimeout) {
   }
   auto memoryPool = defaultMemoryManager().addLeafPool("httpTimeouts");
 
-  auto server = getServer(useHttps, 1);
+  auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
+      1, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+  auto server = getServer(useHttps, ioPool);
 
   auto requestState1 = std::make_shared<AsyncMsgRequestState>();
   auto requestState2 = std::make_shared<AsyncMsgRequestState>();
@@ -344,7 +368,9 @@ TEST_P(HttpTestSuite, httpRequestTimeout) {
   auto memoryPool = defaultMemoryManager().addLeafPool("httpRequestTimeout");
 
   const bool useHttps = GetParam();
-  auto server = getServer(useHttps, 1);
+  auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
+      1, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+  auto server = getServer(useHttps, ioPool);
 
   auto requestState = std::make_shared<AsyncMsgRequestState>();
 

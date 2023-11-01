@@ -165,6 +165,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
+  static constexpr std::string_view kNumHttpCpuThreads{"num-http-cpu-threads"};
   static constexpr std::string_view kHttpServerHttpsPort{
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
@@ -407,6 +408,8 @@ class SystemConfig : public ConfigBase {
   int32_t concurrentLifespansPerTask() const;
 
   int32_t httpExecThreads() const;
+
+  int32_t numHttpCpuThreads() const;
 
   /// Size of global IO executor.
   int32_t numIoThreads() const;

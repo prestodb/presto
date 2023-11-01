@@ -24,44 +24,6 @@ using facebook::presto::protocol::TaskId;
 
 namespace facebook::presto {
 namespace {
-static std::shared_ptr<folly::CPUThreadPoolExecutor>& executor() {
-  static auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(
-      SystemConfig::instance()->numQueryThreads(),
-      std::make_shared<folly::NamedThreadFactory>("Driver"));
-  return executor;
-}
-
-std::shared_ptr<folly::CPUThreadPoolExecutor>& httpProcessingExecutor() {
-  static auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(
-      SystemConfig::instance()->numQueryThreads(),
-      std::make_shared<folly::NamedThreadFactory>("HttpProcessing"));
-  return executor;
-}
-
-std::shared_ptr<folly::CPUThreadPoolExecutor> spillExecutor() {
-  const int32_t numSpillThreads = SystemConfig::instance()->numSpillThreads();
-  if (numSpillThreads <= 0) {
-    return nullptr;
-  }
-  static auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(
-      numSpillThreads, std::make_shared<folly::NamedThreadFactory>("Spiller"));
-  return executor;
-}
-} // namespace
-
-folly::CPUThreadPoolExecutor* driverCPUExecutor() {
-  return executor().get();
-}
-
-folly::CPUThreadPoolExecutor* httpProcessingExecutorPtr() {
-  return httpProcessingExecutor().get();
-}
-
-folly::CPUThreadPoolExecutor* spillExecutorPtr() {
-  return spillExecutor().get();
-}
-
-namespace {
 std::string maybeRemoveNativePrefix(const std::string& name) {
   static const std::string kNativePrefix = "native_";
   const auto result =
@@ -105,6 +67,11 @@ toConnectorConfigs(const protocol::SessionRepresentation& session) {
   return connectorConfigs;
 }
 } // namespace
+
+QueryContextManager::QueryContextManager(
+    folly::Executor* driverExecutor,
+    folly::Executor* spillerExecutor)
+    : driverExecutor_(driverExecutor), spillerExecutor_(spillerExecutor) {}
 
 std::shared_ptr<velox::core::QueryCtx>
 QueryContextManager::findOrCreateQueryCtx(
@@ -156,12 +123,12 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
           : nullptr);
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
-      executor().get(),
+      driverExecutor_,
       std::move(queryConfig),
       connectorConfigs,
       cache::AsyncDataCache::getInstance(),
       std::move(pool),
-      spillExecutor(),
+      spillerExecutor_,
       queryId);
 
   return lockedCache->insert(queryId, queryCtx);
