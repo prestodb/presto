@@ -3162,7 +3162,7 @@ TEST_P(MemoryPoolTest, maybeReserveFailWithAbort) {
   ASSERT_TRUE(child->aborted());
   ASSERT_TRUE(root->aborted());
   VELOX_ASSERT_THROW(
-      child->maybeReserve(2 * kMaxSize), "This memory pool has been aborted.");
+      child->maybeReserve(2 * kMaxSize), "Manual MemoryPool Abortion");
 }
 
 // Model implementation of a GrowCallback.
@@ -3313,7 +3313,9 @@ TEST_P(MemoryPoolTest, abortAPI) {
       }
       ASSERT_TRUE(rootPool->aborted());
       {
-        abortPool(rootPool.get());
+        VELOX_ASSERT_THROW(
+            abortPool(rootPool.get()),
+            "Trying to set another abort error on an already aborted pool.");
         ASSERT_TRUE(rootPool->aborted());
       }
       ASSERT_TRUE(rootPool->aborted());
@@ -3375,7 +3377,9 @@ TEST_P(MemoryPoolTest, abortAPI) {
           "aggregateAbortAPI", MemoryReclaimer::create());
       ASSERT_TRUE(aggregatePool->aborted());
       {
-        abortPool(aggregatePool.get());
+        VELOX_ASSERT_THROW(
+            abortPool(aggregatePool.get()),
+            "Trying to set another abort error on an already aborted pool.");
         ASSERT_TRUE(aggregatePool->aborted());
         ASSERT_TRUE(leafPool->aborted());
         ASSERT_TRUE(rootPool->aborted());
@@ -3384,7 +3388,9 @@ TEST_P(MemoryPoolTest, abortAPI) {
       ASSERT_TRUE(leafPool->aborted());
       ASSERT_TRUE(rootPool->aborted());
       {
-        abortPool(rootPool.get());
+        VELOX_ASSERT_THROW(
+            abortPool(rootPool.get()),
+            "Trying to set another abort error on an already aborted pool.");
         ASSERT_TRUE(aggregatePool->aborted());
         ASSERT_TRUE(leafPool->aborted());
         ASSERT_TRUE(rootPool->aborted());

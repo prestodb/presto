@@ -273,8 +273,13 @@ bool SharedArbitrator::handleOOM(
                          << " to free up memory for requestor "
                          << requestor->name();
   try {
-    VELOX_MEM_POOL_ABORTED(
-        memoryPoolAbortMessage(victim, requestor, targetBytes));
+    if (victim == requestor) {
+      VELOX_MEM_POOL_CAP_EXCEEDED(
+          memoryPoolAbortMessage(victim, requestor, targetBytes));
+    } else {
+      VELOX_MEM_POOL_ABORTED(
+          memoryPoolAbortMessage(victim, requestor, targetBytes));
+    }
   } catch (VeloxRuntimeError& e) {
     abort(victim, std::current_exception());
   }

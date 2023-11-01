@@ -766,12 +766,7 @@ bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {
 
 bool MemoryPoolImpl::maybeIncrementReservationLocked(uint64_t size) {
   if (isRoot()) {
-    if (aborted()) {
-      // This memory pool has been aborted by the memory arbitrator. Abort to
-      // prevent this pool from triggering memory arbitration. The associated
-      // query should also abort soon.
-      VELOX_MEM_POOL_ABORTED("This memory pool has been aborted.");
-    }
+    checkIfAborted();
 
     // NOTE: we allow memory pool to overuse its memory during the memory
     // arbitration process. The memory arbitration process itself needs to
@@ -991,8 +986,23 @@ void MemoryPoolImpl::abort(const std::exception_ptr& error) {
   if (reclaimer() == nullptr) {
     VELOX_FAIL("Can't abort the memory pool {} without reclaimer", name_);
   }
-  aborted_ = true;
+  setAbortError(error);
   reclaimer()->abort(this, error);
+}
+
+void MemoryPoolImpl::setAbortError(const std::exception_ptr& error) {
+  VELOX_CHECK(
+      !aborted_,
+      "Trying to set another abort error on an already aborted pool.");
+  abortError_ = error;
+  aborted_ = true;
+}
+
+void MemoryPoolImpl::checkIfAborted() const {
+  if (FOLLY_UNLIKELY(aborted())) {
+    VELOX_CHECK_NOT_NULL(abortError_);
+    std::rethrow_exception(abortError_);
+  }
 }
 
 void MemoryPoolImpl::testingSetCapacity(int64_t bytes) {
