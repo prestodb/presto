@@ -17,10 +17,10 @@ import com.facebook.presto.benchmark.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.benchmark.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.github.rvesse.airline.annotations.Command;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
-import io.airlift.airline.Command;
 
 import java.util.List;
 import java.util.Set;

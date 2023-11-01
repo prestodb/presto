@@ -64,6 +64,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-cli</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>

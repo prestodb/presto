@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cli;
 
-import io.airlift.airline.Option;
+import com.github.rvesse.airline.annotations.Option;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
