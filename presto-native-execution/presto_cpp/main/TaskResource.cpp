@@ -13,11 +13,14 @@
  */
 #include "presto_cpp/main/TaskResource.h"
 #include <presto_cpp/main/common/Exception.h>
+#include <chrono>
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/time/Timer.h"
 
 namespace facebook::presto {
@@ -127,6 +130,20 @@ void TaskResource::registerUris(http::HttpServer& server) {
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return getTaskInfo(message, pathMatch);
+      });
+
+  server.registerGet(
+      R"(/v1/task/(.+)/remote-source/(.+))",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return removeRemoteSource(message, pathMatch);
+      });
+
+  server.registerGet(
+      R"(/v1/jmx/mbean/(.+):(.+)=(.+))",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return mockJmxMbeanInfo(message, pathMatch);
       });
 }
 
@@ -651,4 +668,30 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
                 });
       });
 }
+
+proxygen::RequestHandler* TaskResource::mockJmxMbeanInfo(
+    proxygen::HTTPMessage* /*message*/,
+    const std::vector<std::string>& pathMatch) {
+  auto subPath = pathMatch[1];
+  auto key = pathMatch[2];
+  auto category = pathMatch[3];
+
+  return new http::CallbackRequestHandler(
+      [this, subPath, key, category](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        try {
+          using namespace std::chrono;
+          auto cpuTimeNanos = std::to_string(
+              duration_cast<nanoseconds>(steady_clock::now().time_since_epoch())
+                  .count());
+          http::sendOkResponse(downstream, cpuTimeNanos);
+        } catch (const std::exception& e) {
+          http::sendErrorResponse(downstream, e.what());
+          return;
+        }
+      });
+}
+
 } // namespace facebook::presto

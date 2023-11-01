@@ -91,6 +91,10 @@ class TaskResource {
       proxygen::HTTPMessage* message,
       const std::vector<std::string>& pathMatch);
 
+  proxygen::RequestHandler* mockJmxMbeanInfo(
+      proxygen::HTTPMessage* message,
+      const std::vector<std::string>& pathMatch);
+
   TaskManager& taskManager_;
   velox::memory::MemoryPool* pool_;
 };

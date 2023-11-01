@@ -266,7 +266,12 @@ public class BenchmarkQueryRunner
         for (URI server : nodes) {
             URI addressUri = uriBuilderFrom(server).replacePath("/v1/jmx/mbean/java.lang:type=OperatingSystem/ProcessCpuTime").build();
             String data = httpClient.execute(prepareGet().setUri(addressUri).build(), createStringResponseHandler()).getBody();
-            totalCpuTime += parseLong(data.trim());
+            if (data.trim().isEmpty()) {
+                throw new IllegalStateException("Node server returned empty response. Get CPU time failed.");
+            }
+            else {
+                totalCpuTime += parseLong(data.trim());
+            }
         }
         return TimeUnit.NANOSECONDS.toNanos(totalCpuTime);
     }
