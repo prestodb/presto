@@ -272,8 +272,15 @@ struct ZombieTaskStatsSet {
 };
 } // namespace
 
-TaskManager::TaskManager()
-    : bufferManager_(velox::exec::OutputBufferManager::getInstance().lock()) {
+TaskManager::TaskManager(
+    folly::Executor* driverExecutor,
+    folly::Executor* httpSrvCpuExecutor,
+    folly::Executor* spillerExecutor)
+    : bufferManager_(velox::exec::OutputBufferManager::getInstance().lock()),
+      queryContextManager_(std::make_unique<QueryContextManager>(
+          driverExecutor,
+          spillerExecutor)),
+      httpSrvCpuExecutor_(httpSrvCpuExecutor) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
@@ -306,7 +313,7 @@ TaskMap TaskManager::tasks() const {
 }
 
 const QueryContextManager* TaskManager::getQueryContextManager() const {
-  return &queryContextManager_;
+  return queryContextManager_.get();
 }
 
 void TaskManager::abortResults(const TaskId& taskId, long bufferId) {
@@ -721,7 +728,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
     // Return current TaskInfo without waiting.
     promise.setValue(
         std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
-    return std::move(future).via(httpProcessingExecutor_);
+    return std::move(future).via(httpSrvCpuExecutor_);
   }
 
   uint64_t maxWaitMicros =
@@ -738,7 +745,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
       prestoTask->infoRequest = folly::to_weak_ptr(promiseHolder);
 
       return std::move(future)
-          .via(httpProcessingExecutor_)
+          .via(httpSrvCpuExecutor_)
           .onTimeout(std::chrono::microseconds(maxWaitMicros), [prestoTask]() {
             return std::make_unique<protocol::TaskInfo>(
                 prestoTask->updateInfo());
@@ -749,7 +756,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
   if (currentState.value() != info.taskStatus.state ||
       isFinalState(info.taskStatus.state)) {
     promise.setValue(std::make_unique<protocol::TaskInfo>(info));
-    return std::move(future).via(httpProcessingExecutor_);
+    return std::move(future).via(httpSrvCpuExecutor_);
   }
 
   auto promiseHolder =
@@ -757,7 +764,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
           std::move(promise));
 
   prestoTask->task->stateChangeFuture(maxWaitMicros)
-      .via(httpProcessingExecutor_)
+      .via(httpSrvCpuExecutor_)
       .thenValue([promiseHolder, prestoTask](auto&& /*done*/) {
         promiseHolder->promise.setValue(
             std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
@@ -769,7 +776,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
             promiseHolder->promise.setValue(
                 std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
           });
-  return std::move(future).via(httpProcessingExecutor_);
+  return std::move(future).via(httpSrvCpuExecutor_);
 }
 
 folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
@@ -837,7 +844,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
         // If the task has finished, then send completion result.
         if (prestoTask->task->state() == exec::kFinished) {
           promiseHolder->promise.setValue(createCompleteResult(token));
-          return std::move(future).via(httpProcessingExecutor_);
+          return std::move(future).via(httpSrvCpuExecutor_);
         }
         // If task is not running let the request timeout. The task may have
         // failed at creation time and the coordinator hasn't yet caught up.
@@ -851,7 +858,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
               *bufferManager_);
         }
         return std::move(future)
-            .via(httpProcessingExecutor_)
+            .via(httpSrvCpuExecutor_)
             .onTimeout(std::chrono::microseconds(maxWaitMicros), timeoutFn);
       }
 
@@ -873,15 +880,15 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
       request->maxSize = maxSize;
       prestoTask->resultRequests.insert({destination, std::move(request)});
       return std::move(future)
-          .via(httpProcessingExecutor_)
+          .via(httpSrvCpuExecutor_)
           .onTimeout(std::chrono::microseconds(maxWaitMicros), timeoutFn);
     }
   } catch (const velox::VeloxException& e) {
     promiseHolder->promise.setException(e);
-    return std::move(future).via(httpProcessingExecutor_);
+    return std::move(future).via(httpSrvCpuExecutor_);
   } catch (const std::exception& e) {
     promiseHolder->promise.setException(e);
-    return std::move(future).via(httpProcessingExecutor_);
+    return std::move(future).via(httpSrvCpuExecutor_);
   }
 }
 
@@ -914,7 +921,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
       keepPromiseAlive(promiseHolder, state);
       prestoTask->statusRequest = folly::to_weak_ptr(promiseHolder);
       return std::move(future)
-          .via(httpProcessingExecutor_)
+          .via(httpSrvCpuExecutor_)
           .onTimeout(std::chrono::microseconds(maxWaitMicros), [prestoTask]() {
             return std::make_unique<protocol::TaskStatus>(
                 prestoTask->updateStatus());
@@ -926,7 +933,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
 
   if (currentState.value() != status.state || isFinalState(status.state)) {
     promise.setValue(std::make_unique<protocol::TaskStatus>(status));
-    return std::move(future).via(httpProcessingExecutor_);
+    return std::move(future).via(httpSrvCpuExecutor_);
   }
 
   auto promiseHolder =
@@ -934,7 +941,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
           std::move(promise));
 
   prestoTask->task->stateChangeFuture(maxWaitMicros)
-      .via(httpProcessingExecutor_)
+      .via(httpSrvCpuExecutor_)
       .thenValue([promiseHolder, prestoTask](auto&& /*done*/) {
         promiseHolder->promise.setValue(
             std::make_unique<protocol::TaskStatus>(prestoTask->updateStatus()));
@@ -947,7 +954,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
                 std::make_unique<protocol::TaskStatus>(
                     prestoTask->updateStatus()));
           });
-  return std::move(future).via(httpProcessingExecutor_);
+  return std::move(future).via(httpSrvCpuExecutor_);
 }
 
 void TaskManager::removeRemoteSource(

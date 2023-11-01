@@ -71,8 +71,9 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
     auto clientConfig = jwtSystemConfig(clientSystemConfigOverride);
     auto systemConfig = SystemConfig::instance();
     systemConfig->initialize(std::move(clientConfig));
-
-    auto server = getServer(useHttps);
+    auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
+        8, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+    auto server = getHttpServer(useHttps, ioPool);
 
     auto request = std::make_shared<AsyncMsgRequestState>();
 

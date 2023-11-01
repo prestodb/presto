@@ -237,9 +237,9 @@ folly::SemiFuture<std::unique_ptr<http::HttpResponse>> sendGet(
       .send(client, body, sendDelay);
 }
 
-static std::unique_ptr<http::HttpServer> getServer(
+static std::unique_ptr<http::HttpServer> getHttpServer(
     bool useHttps,
-    uint32_t numThreads = 8) {
+    const std::shared_ptr<folly::IOThreadPoolExecutor>& httpIOExecutor) {
   if (useHttps) {
     std::string certPath = getCertsPath("test_cert1.pem");
     std::string keyPath = getCertsPath("test_key1.pem");
@@ -247,13 +247,13 @@ static std::unique_ptr<http::HttpServer> getServer(
     auto httpsConfig = std::make_unique<http::HttpsConfig>(
         folly::SocketAddress("127.0.0.1", 0), certPath, keyPath, ciphers);
     return std::make_unique<http::HttpServer>(
-        nullptr, std::move(httpsConfig), numThreads);
+        httpIOExecutor, nullptr, std::move(httpsConfig));
   } else {
     return std::make_unique<http::HttpServer>(
+        httpIOExecutor,
         std::make_unique<http::HttpConfig>(
             folly::SocketAddress("127.0.0.1", 0)),
-        nullptr,
-        numThreads);
+        nullptr);
   }
 }
 

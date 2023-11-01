@@ -138,6 +138,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kMaxDriversPerTask, 16),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
           NUM_PROP(kHttpExecThreads, 8),
+          NUM_PROP(kNumHttpCpuThreads, std::thread::hardware_concurrency() * 2),
           NONE_PROP(kHttpServerHttpsPort),
           STR_PROP(kHttpServerHttpsEnabled, "false"),
           STR_PROP(
@@ -297,6 +298,10 @@ int32_t SystemConfig::concurrentLifespansPerTask() const {
 
 int32_t SystemConfig::httpExecThreads() const {
   return optionalProperty<int32_t>(kHttpExecThreads).value();
+}
+
+int32_t SystemConfig::numHttpCpuThreads() const {
+  return optionalProperty<int32_t>(kNumHttpCpuThreads).value();
 }
 
 int32_t SystemConfig::numIoThreads() const {

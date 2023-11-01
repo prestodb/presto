@@ -23,11 +23,6 @@
 #include "velox/core/QueryCtx.h"
 
 namespace facebook::presto {
-
-folly::CPUThreadPoolExecutor* driverCPUExecutor();
-folly::CPUThreadPoolExecutor* httpProcessingExecutorPtr();
-folly::CPUThreadPoolExecutor* spillExecutorPtr();
-
 class QueryContextCache {
  public:
   using QueryCtxWeakPtr = std::weak_ptr<velox::core::QueryCtx>;
@@ -103,7 +98,9 @@ class QueryContextCache {
 
 class QueryContextManager {
  public:
-  QueryContextManager() = default;
+  QueryContextManager(
+      folly::Executor* driverExecutor,
+      folly::Executor* spillerExecutor);
 
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
@@ -122,6 +119,9 @@ class QueryContextManager {
           std::string,
           std::unordered_map<std::string, std::string>>&&
           connectorConfigStrings);
+
+  folly::Executor* const driverExecutor_{nullptr};
+  folly::Executor* const spillerExecutor_{nullptr};
 
   folly::Synchronized<QueryContextCache> queryContextCache_;
 };

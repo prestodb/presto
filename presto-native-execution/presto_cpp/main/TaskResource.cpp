@@ -142,7 +142,7 @@ proxygen::RequestHandler* TaskResource::abortResults(
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
-            httpProcessingExecutorPtr(),
+            httpSrvCpuExecutor_,
             [this, taskId, destination, handlerState]() {
               taskManager_.abortResults(taskId, destination);
               return true;
@@ -177,7 +177,7 @@ proxygen::RequestHandler* TaskResource::acknowledgeResults(
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
-            httpProcessingExecutorPtr(),
+            httpSrvCpuExecutor_,
             [this, taskId, bufferId, token]() {
               taskManager_.acknowledgeResults(taskId, bufferId, token);
               return true;
@@ -218,7 +218,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
-            httpProcessingExecutorPtr(),
+            httpSrvCpuExecutor_,
             [this, &body, taskId, createOrUpdateFunc]() {
               const auto startProcessCpuTime = PrestoTask::getProcessCpuTime();
 
@@ -371,7 +371,7 @@ proxygen::RequestHandler* TaskResource::deleteTask(
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
-            httpProcessingExecutorPtr(),
+            httpSrvCpuExecutor_,
             [this, taskId, abort, downstream]() {
               std::unique_ptr<protocol::TaskInfo> taskInfo;
               taskInfo = taskManager_.deleteTask(taskId, abort);
@@ -425,7 +425,7 @@ proxygen::RequestHandler* TaskResource::getResults(
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         auto evb = folly::EventBaseManager::get()->getEventBase();
         folly::via(
-            httpProcessingExecutorPtr(),
+            httpSrvCpuExecutor_,
             [this,
              evb,
              taskId,
@@ -505,7 +505,7 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         auto evb = folly::EventBaseManager::get()->getEventBase();
         folly::via(
-            httpProcessingExecutorPtr(),
+            httpSrvCpuExecutor_,
             [this,
              evb,
              useThrift,
@@ -570,7 +570,7 @@ proxygen::RequestHandler* TaskResource::getTaskInfo(
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
-            httpProcessingExecutorPtr(),
+            httpSrvCpuExecutor_,
             [this,
              evb = folly::EventBaseManager::get()->getEventBase(),
              taskId,
@@ -625,7 +625,7 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
-            httpProcessingExecutorPtr(),
+            httpSrvCpuExecutor_,
             [this, taskId, remoteId, downstream]() {
               taskManager_.removeRemoteSource(taskId, remoteId);
             })
