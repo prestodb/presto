@@ -19,10 +19,10 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.verifier.event.EventClientModule;
 import com.facebook.presto.verifier.prestoaction.QueryActionsModule;
 import com.facebook.presto.verifier.source.SourceQueryModule;
+import com.github.rvesse.airline.annotations.Arguments;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import io.airlift.airline.Arguments;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 

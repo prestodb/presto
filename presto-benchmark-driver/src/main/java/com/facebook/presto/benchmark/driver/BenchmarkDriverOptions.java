@@ -14,11 +14,11 @@
 package com.facebook.presto.benchmark.driver;
 
 import com.facebook.presto.client.ClientSession;
+import com.github.rvesse.airline.annotations.Option;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.airlift.airline.Option;
 import io.airlift.units.Duration;
 
 import java.net.URI;

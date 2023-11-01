@@ -13,20 +13,25 @@
  */
 package com.facebook.presto.spark.launcher;
 
-import io.airlift.airline.Option;
+import com.github.rvesse.airline.annotations.Option;
+import com.github.rvesse.airline.annotations.restrictions.Required;
 
 public class PrestoSparkClientOptions
 {
-    @Option(name = {"-f", "--file"}, title = "file", description = "sql file to execute", required = true)
+    @Option(name = {"-f", "--file"}, title = "file", description = "sql file to execute")
+    @Required
     public String file;
 
-    @Option(name = {"-p", "--package"}, title = "file", description = "presto-spark-package-*.tar.gz path", required = true)
+    @Option(name = {"-p", "--package"}, title = "file", description = "presto-spark-package-*.tar.gz path")
+    @Required
     public String packagePath;
 
-    @Option(name = {"-c", "--config"}, title = "file", description = "config.properties path", required = true)
+    @Option(name = {"-c", "--config"}, title = "file", description = "config.properties path")
+    @Required
     public String config;
 
-    @Option(name = {"--catalogs"}, title = "directory", description = "catalog configuration directory path", required = true)
+    @Option(name = {"--catalogs"}, title = "directory", description = "catalog configuration directory path")
+    @Required
     public String catalogs;
 
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
