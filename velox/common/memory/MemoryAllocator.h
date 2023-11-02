@@ -161,6 +161,17 @@ class Cache {
   virtual MemoryAllocator* allocator() const = 0;
 };
 
+/// Sets a thread level failure message describing cache state. Used
+/// for example to expose why space could not be freed from
+/// cache. This is defined here with the abstract Cache base class
+/// and not the cache implementation because allocator cannot depend
+/// on cache.
+void setCacheFailureMessage(std::string message);
+
+/// Returns and clears a thread local message set with
+/// setCacheFailuremessage().
+std::string getAndClearCacheFailureMessage();
+
 /// This class provides interface for the actual memory allocations from memory
 /// pool. It allocates runs of machine pages from predefined size classes, and
 /// supports both contiguous and non-contiguous memory allocations. An
@@ -386,6 +397,11 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     injectedFailure_ = InjectedFailure::kNone;
     isPersistentFailureInjection_ = false;
   }
+
+  /// Returns extra information after returning false from any of the allocate
+  /// functions. The error message is scoped to the most recent call on the
+  /// thread. The message is cleared after return.
+  std::string getAndClearFailureMessage();
 
  protected:
   explicit MemoryAllocator() = default;

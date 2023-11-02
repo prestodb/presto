@@ -515,7 +515,11 @@ void MemoryPoolImpl::allocateNonContiguous(
           minSizeClass)) {
     VELOX_CHECK(out.empty());
     VELOX_MEM_ALLOC_ERROR(fmt::format(
-        "{} failed with {} pages from {}", __FUNCTION__, numPages, toString()));
+        "{} failed with {} pages from {} {}",
+        __FUNCTION__,
+        numPages,
+        toString(),
+        allocator_->getAndClearFailureMessage()));
   }
   DEBUG_RECORD_ALLOC(out);
   VELOX_CHECK(!out.empty());
@@ -563,7 +567,11 @@ void MemoryPoolImpl::allocateContiguous(
           maxPages)) {
     VELOX_CHECK(out.empty());
     VELOX_MEM_ALLOC_ERROR(fmt::format(
-        "{} failed with {} pages from {}", __FUNCTION__, numPages, toString()));
+        "{} failed with {} pages from {} {}",
+        __FUNCTION__,
+        numPages,
+        toString(),
+        allocator_->getAndClearFailureMessage()));
   }
   DEBUG_RECORD_ALLOC(out);
   VELOX_CHECK(!out.empty());
@@ -592,10 +600,11 @@ void MemoryPoolImpl::growContiguous(
             }
           })) {
     VELOX_MEM_ALLOC_ERROR(fmt::format(
-        "{} failed with {} pages from {}",
+        "{} failed with {} pages from {} {}",
         __FUNCTION__,
         increment,
-        toString()));
+        toString(),
+        allocator_->getAndClearFailureMessage()));
   }
   if (FOLLY_UNLIKELY(debugEnabled_)) {
     recordGrowDbg(allocation.data(), allocation.size());

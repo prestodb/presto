@@ -510,6 +510,10 @@ struct CacheStats {
   // lifetime for entries in cache.
   int64_t sumEvictScore{0};
 
+  // Total size of shared/exclusive pinned entries.
+  int64_t sharedPinnedBytes{0};
+  int64_t exclusivePinnedBytes{0};
+
   std::shared_ptr<SsdCacheStats> ssdStats = nullptr;
 
   std::string toString() const;

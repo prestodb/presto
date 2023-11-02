@@ -28,6 +28,21 @@ DECLARE_bool(velox_memory_use_hugepages);
 
 namespace facebook::velox::memory {
 
+namespace {
+std::string& cacheFailureMessage() {
+  thread_local std::string message;
+  return message;
+}
+} // namespace
+
+void setCacheFailureMessage(std::string message) {
+  cacheFailureMessage() = std::move(message);
+}
+
+std::string getAndClearCacheFailureMessage() {
+  return std::move(cacheFailureMessage());
+}
+
 std::shared_ptr<MemoryAllocator> MemoryAllocator::instance_;
 MemoryAllocator* MemoryAllocator::customInstance_;
 std::mutex MemoryAllocator::initMutex_;
@@ -347,6 +362,13 @@ void MemoryAllocator::useHugePages(
                            << folly ::errnoStr(errno);
   }
 #endif
+}
+
+std::string MemoryAllocator::getAndClearFailureMessage() {
+  if (cache()) {
+    return getAndClearCacheFailureMessage();
+  }
+  return "";
 }
 
 } // namespace facebook::velox::memory

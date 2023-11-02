@@ -789,6 +789,8 @@ TEST_F(AsyncDataCacheTest, cacheStats) {
   stats.numEntries = 100;
   stats.numExclusive = 20;
   stats.numShared = 30;
+  stats.sharedPinnedBytes = 10 << 20;
+  stats.exclusivePinnedBytes = 10 << 20;
   stats.numEmptyEntries = 20;
   stats.numPrefetch = 30;
   stats.prefetchBytes = 100;
@@ -803,7 +805,8 @@ TEST_F(AsyncDataCacheTest, cacheStats) {
   ASSERT_EQ(
       stats.toString(),
       "Cache size: 2.56KB tinySize: 257B large size: 2.31KB\n"
-      "Cache entries: 100 read pins: 30 write pins: 20 num write wait: 244 empty entries: 20\n"
+      "Cache entries: 100 read pins: 30 write pins: 20 pinned shared: 10.00MB pinned exclusive: 10.00MB\n"
+      " num write wait: 244 empty entries: 20\n"
       "Cache access miss: 2041 hit: 46 hit bytes: 1.34KB eviction: 463 eviction checks: 348\n"
       "Prefetch entries: 30 bytes: 100B\n"
       "Alloc Megaclocks 0");
@@ -815,7 +818,8 @@ TEST_F(AsyncDataCacheTest, cacheStats) {
       cache_->toString(),
       "AsyncDataCache:\n"
       "Cache size: 0B tinySize: 0B large size: 0B\n"
-      "Cache entries: 0 read pins: 0 write pins: 0 num write wait: 0 empty entries: 0\n"
+      "Cache entries: 0 read pins: 0 write pins: 0 pinned shared: 0B pinned exclusive: 0B\n"
+      " num write wait: 0 empty entries: 0\n"
       "Cache access miss: 0 hit: 0 hit bytes: 0B eviction: 0 eviction checks: 0\n"
       "Prefetch entries: 0 bytes: 0B\n"
       "Alloc Megaclocks 0\n"
