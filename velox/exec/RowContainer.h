@@ -260,10 +260,18 @@ class RowContainer {
     *ptr = std::min<uint64_t>(size, std::numeric_limits<uint32_t>::max());
   }
 
-  // Initialize row. 'reuse' specifies whether the 'row' is reused or
-  // not. If it is reused, it will free memory associated with the row
-  // elsewhere (such as in HashStringAllocator).
-  char* FOLLY_NONNULL initializeRow(char* FOLLY_NONNULL row, bool reuse);
+  /// Initialize row. 'reuse' specifies whether the 'row' is reused or not. If
+  /// it is reused, it will free memory associated with the row elsewhere (such
+  /// as in HashStringAllocator).
+  /// Note: Fields of the row are not zero-initialized. If the row contains
+  /// variable-width fields, the caller must populate these fields by calling
+  /// 'store' or initialize them to zero by calling 'initializeFields'.
+  char* initializeRow(char* row, bool reuse);
+
+  /// Zero out all the fields of the 'row'.
+  void initializeFields(char* row) {
+    ::memset(row, 0, fixedRowSize_);
+  }
 
   // Stores the 'index'th value in 'decoded' into 'row' at
   // 'columnIndex'.
@@ -1099,10 +1107,10 @@ class RowContainer {
       CompareFlags flags = CompareFlags());
 
   // Free variable-width fields at column `column_index` associated with the
-  // 'rows' and zero out complex-typed field in 'rows'. `FieldType` is the type
-  // of data representation of the fields in row, and can be one of
-  // StringView(represents VARCHAR) and std::string_view(represents ARRAY, MAP
-  // or ROW).
+  // 'rows', and if 'checkFree_' is true, zero out complex-typed field in
+  // 'rows'. `FieldType` is the type of data representation of the fields in
+  // row, and can be one of StringView(represents VARCHAR) and
+  // std::string_view(represents ARRAY, MAP or ROW).
   template <typename FieldType>
   void freeVariableWidthFieldsAtColumn(
       size_t column_index,
@@ -1128,7 +1136,9 @@ class RowContainer {
         }
       }
       stringAllocator_->free(HashStringAllocator::headerOf(view.data()));
-      view = FieldType();
+      if (checkFree_) {
+        view = FieldType();
+      }
     }
   }
 

@@ -1549,40 +1549,40 @@ TEST_F(RowContainerTest, toString) {
       "{3, winter, 12, 123.00299835205078, null}");
 }
 
-TEST_F(RowContainerTest, initializeRowForReuseComplexTypes) {
-  auto intVector = makeFlatVector<int64_t>({10, 20});
-  auto strVector = makeFlatVector<std::string>({"non-inline string"});
-  auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4, 5}});
-  auto mapVector = makeMapVector<int64_t, int64_t>({{{4, 41}}});
-  auto rowVector = makeRowVector({strVector, arrayVector, mapVector});
+TEST_F(RowContainerTest, partialWriteComplexTypedRow) {
+  auto data = makeRowVector(
+      {makeFlatVector<int64_t>(1, [](auto row) { return row; }),
+       makeFlatVector<std::string>({"non-inline string"}),
+       makeArrayVector<int64_t>({{1, 2, 3, 4, 5}}),
+       makeMapVector<int64_t, int64_t>({{{4, 41}}}),
+       makeRowVector({makeFlatVector<std::string>({"non-inline string"})})});
 
-  DecodedVector decodedInt(*intVector);
-  std::vector<TypePtr> keyTypes = {
-      intVector->type(),
-      strVector->type(),
-      arrayVector->type(),
-      mapVector->type(),
-      rowVector->type()};
-  auto rowContainer = std::make_unique<RowContainer>(keyTypes, pool_.get());
+  auto rowContainer = std::make_unique<RowContainer>(
+      data->type()->asRow().children(), pool_.get());
 
-  DecodedVector decodedString(*strVector);
-  DecodedVector decodedArray(*arrayVector);
-  DecodedVector decodedMap(*mapVector);
-  DecodedVector decodedRow(*rowVector);
+  std::vector<DecodedVector> decodedVectors;
+  for (auto& vectorPtr : data->children()) {
+    decodedVectors.emplace_back(*vectorPtr);
+  }
 
+  // No write at all.
   auto row = rowContainer->newRow();
-  // Store all fields.
-  rowContainer->store(decodedInt, 0, row, 0);
-  rowContainer->store(decodedString, 0, row, 1);
-  rowContainer->store(decodedArray, 0, row, 2);
-  rowContainer->store(decodedMap, 0, row, 3);
-  rowContainer->store(decodedRow, 0, row, 4);
+  rowContainer->initializeFields(row);
+  rowContainer->eraseRows(folly::Range<char**>(&row, 1));
 
-  // initializeRow() for reuse, and don't store to the complex-typed fields.
+  row = rowContainer->newRow();
+  rowContainer->initializeFields(row);
+  for (auto i = 0; i < decodedVectors.size(); ++i) {
+    rowContainer->store(decodedVectors[i], 0, row, i);
+  }
+  // Partial writes should not break initializeRow for reuse.
   rowContainer->initializeRow(row, true);
-  rowContainer->store(decodedInt, 1, row, 0);
+  rowContainer->initializeFields(row);
+  for (auto i = 0; i < 3; ++i) {
+    rowContainer->store(decodedVectors[i], 0, row, i);
+  }
+  rowContainer->initializeRow(row, true);
 
-  // initializeRow() for reuse again, this should not double free the
-  // complex-typed fields.
-  rowContainer->initializeRow(row, true);
+  rowContainer->initializeFields(row);
+  rowContainer->eraseRows(folly::Range<char**>(&row, 1));
 }
