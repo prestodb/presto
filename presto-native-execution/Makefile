@@ -90,7 +90,7 @@ else
 endif
 
 # Needs DYLD_LIBRARY_PATH on Macs
-conda-test:
+conda-test: conda-build
 ifeq ($(shell uname),Darwin)
 	source $$HOME/.zshrc && \
 	conda run --cwd $(BUILD_BASE_DIR)/debug --no-capture-output -n $(CONDA_ENV_NAME) \
