@@ -90,7 +90,7 @@ HashStringAllocator::~HashStringAllocator() {
 void HashStringAllocator::clear() {
   numFree_ = 0;
   freeBytes_ = 0;
-  freeNonEmpty_ = 0;
+  std::fill(std::begin(freeNonEmpty_), std::end(freeNonEmpty_), 0);
   for (auto& pair : allocationsFromPool_) {
     pool()->free(pair.first, pair.second);
   }
@@ -308,49 +308,17 @@ void HashStringAllocator::freeRestOfBlock(Header* header, int32_t keepBytes) {
   free(newHeader);
 }
 
-// Free list sizes align with size of containers. + 20 allows for padding for an
-// alignment of 16 bytes.
-int32_t HashStringAllocator::freeListSizes_[kNumFreeLists + 7] = {
-    30,
-    50,
-    72,
-    8 * 16 + 20,
-    100,
-    16 * 16 + 20,
-    32 * 16 + 20,
-    64 * 16 + 20,
-    128 * 16 + 20,
-    std::numeric_limits<int32_t>::max(),
-    std::numeric_limits<int32_t>::max(),
-    std::numeric_limits<int32_t>::max(),
-    std::numeric_limits<int32_t>::max(),
-    std::numeric_limits<int32_t>::max(),
-    std::numeric_limits<int32_t>::max(),
-    std::numeric_limits<int32_t>::max(),
-};
-
-// static
-folly::Range<const int32_t*> HashStringAllocator::freeListSizeClasses() {
-  return folly::Range<const int32_t*>(&freeListSizes_[0], kNumFreeLists);
+int32_t HashStringAllocator::freeListIndex(int size) {
+  return std::min(size - kMinAlloc, kNumFreeLists - 1);
 }
 
-int32_t HashStringAllocator::freeListIndex(int32_t size, uint32_t mask) {
-  static_assert(sizeof(freeListSizes_) >= sizeof(xsimd::batch<int32_t>));
-  auto vsize = xsimd::broadcast(size);
-  if constexpr (sizeof(freeListSizes_) == sizeof(xsimd::batch<int32_t>)) {
-    auto sizes = xsimd::load_unaligned(freeListSizes_);
-    auto bits = simd::toBitMask(vsize < sizes) & mask;
-    return count_trailing_zeros(bits);
-  } else {
-    for (int offset = 0; offset <= kNumFreeLists; offset += vsize.size) {
-      auto sizes = xsimd::load_unaligned(freeListSizes_ + offset);
-      auto bits = simd::toBitMask(vsize < sizes) & mask;
-      if (bits) {
-        return offset + count_trailing_zeros(bits);
-      }
-      mask >>= vsize.size;
-    }
-    return count_trailing_zeros(0);
+void HashStringAllocator::removeFromFreeList(Header* header) {
+  VELOX_CHECK(header->isFree());
+  header->clearFree();
+  auto index = freeListIndex(header->size());
+  reinterpret_cast<CompactDoubleList*>(header->begin())->remove();
+  if (free_[index].empty()) {
+    bits::clearBit(freeNonEmpty_, index);
   }
 }
 
@@ -379,30 +347,22 @@ HashStringAllocator::allocateFromFreeLists(
     int32_t preferredSize,
     bool mustHaveSize,
     bool isFinalSize) {
-  preferredSize = std::max(kMinAlloc, preferredSize);
   if (!numFree_) {
     return nullptr;
   }
-  auto index = freeListIndex(preferredSize, freeNonEmpty_);
-  while (index < kNumFreeLists) {
-    if (auto header = allocateFromFreeList(
-            preferredSize, mustHaveSize, isFinalSize, index)) {
-      return header;
-    }
-    // Go to the next larger size non-empty free list.
-    index = count_trailing_zeros(freeNonEmpty_ & ~bits::lowMask(index + 1));
+  preferredSize = std::max(kMinAlloc, preferredSize);
+  const auto index = freeListIndex(preferredSize);
+  auto available = bits::findFirstBit(freeNonEmpty_, index, kNumFreeLists);
+  if (!mustHaveSize && available == -1) {
+    available = bits::findLastBit(freeNonEmpty_, 0, index);
   }
-  if (mustHaveSize) {
+  if (available == -1) {
     return nullptr;
   }
-  index = freeListIndex(preferredSize) - 1;
-  for (; index >= 0; --index) {
-    if (auto header =
-            allocateFromFreeList(preferredSize, false, isFinalSize, index)) {
-      return header;
-    }
-  }
-  return nullptr;
+  auto* header =
+      allocateFromFreeList(preferredSize, mustHaveSize, isFinalSize, available);
+  VELOX_CHECK_NOT_NULL(header);
+  return header;
 }
 
 HashStringAllocator::Header* FOLLY_NULLABLE
@@ -411,46 +371,16 @@ HashStringAllocator::allocateFromFreeList(
     bool mustHaveSize,
     bool isFinalSize,
     int32_t freeListIndex) {
-  constexpr int32_t kMaxCheckedForFit = 5;
-  int32_t counter = 0;
-  if (mustHaveSize && largestInFreeList_[freeListIndex] < preferredSize) {
+  auto* item = free_[freeListIndex].next();
+  if (item == &free_[freeListIndex]) {
     return nullptr;
   }
-  int32_t largestFreeSize = 0;
-  Header* largest = nullptr;
-  Header* found = nullptr;
-  for (auto* item = free_[freeListIndex].next(); item != &free_[freeListIndex];
-       item = item->next()) {
-    auto header = headerOf(item);
-    VELOX_CHECK(header->isFree());
-    auto size = header->size();
-    if (size >= preferredSize) {
-      found = header;
-      break;
-    }
-    if (!largest || size > largest->size()) {
-      largest = header;
-    }
-    ++counter;
-    if (!mustHaveSize && counter > kMaxCheckedForFit) {
-      break;
-    }
-  }
-  numFreeListNoFit_ += counter;
-  if (!mustHaveSize && !found) {
-    found = largest;
-  }
-  if (!found) {
-    // We have traversed the complete free list and therefore know the largest
-    // size. Either the list is empty or mustHaveSize is true and there is no
-    // block large enough.
-    largestInFreeList_[freeListIndex] = largest ? largest->size() : 0;
-    return nullptr;
-  }
+  auto found = headerOf(item);
+  VELOX_CHECK(
+      found->isFree() && (!mustHaveSize || found->size() >= preferredSize));
   --numFree_;
   freeBytes_ -= found->size() + sizeof(Header);
   removeFromFreeList(found);
-
   auto next = found->next();
   if (next) {
     next->clearPreviousFree();
@@ -504,10 +434,7 @@ void HashStringAllocator::free(Header* _header) {
     }
     auto freedSize = header->size();
     auto freeIndex = freeListIndex(freedSize);
-    freeNonEmpty_ |= 1 << freeIndex;
-    if (largestInFreeList_[freeIndex] < freedSize) {
-      largestInFreeList_[freeIndex] = freedSize;
-    }
+    bits::setBit(freeNonEmpty_, freeIndex);
     free_[freeIndex].insert(
         reinterpret_cast<CompactDoubleList*>(header->begin()));
     markAsFree(header);
@@ -692,16 +619,18 @@ int64_t HashStringAllocator::checkConsistency() const {
   uint64_t numInFreeList = 0;
   uint64_t bytesInFreeList = 0;
   for (auto i = 0; i < kNumFreeLists; ++i) {
-    bool hasData = freeNonEmpty_ & (1 << i);
+    bool hasData = bits::isBitSet(freeNonEmpty_, i);
     bool listNonEmpty = !free_[i].empty();
     VELOX_CHECK_EQ(hasData, listNonEmpty);
     for (auto free = free_[i].next(); free != &free_[i]; free = free->next()) {
       ++numInFreeList;
       auto size = headerOf(free)->size();
-      if (i > 0) {
-        VELOX_CHECK_GE(size, freeListSizes_[i - 1]);
+      VELOX_CHECK_GE(size, kMinAlloc);
+      if (size - kMinAlloc < kNumFreeLists - 1) {
+        VELOX_CHECK_EQ(size - kMinAlloc, i);
+      } else {
+        VELOX_CHECK_GE(size - kMinAlloc, kNumFreeLists - 1);
       }
-      VELOX_CHECK_LT(size, freeListSizes_[i]);
       bytesInFreeList += size + sizeof(Header);
     }
   }

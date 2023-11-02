@@ -475,35 +475,26 @@ TEST_F(HashStringAllocatorTest, externalLeak) {
 }
 
 TEST_F(HashStringAllocatorTest, freeLists) {
-  auto sizes = HashStringAllocator::freeListSizeClasses();
+  constexpr int kSize = 100'000;
+  constexpr int kSmall = 17;
+  constexpr int kMedium = kSmall + 1;
+  constexpr int kLarge = 128;
   std::vector<HashStringAllocator::Header*> allocations;
-  // We make alternating allocations of different free list size
-  // classes. We free the small ones. We allocate a larger size from
-  // the same size class, This reads the free list and moves to a
-  // larger list. On the second time around, this remembers that the
-  // smaller fre list dies not have entries of that size.
-  auto small = sizes[1] + 2;
-  auto larger = sizes[2] + 2;
-  for (auto i = 0; i < 100; ++i) {
-    allocations.push_back(allocator_->allocate(i == 0 ? small + 10 : small));
-    allocations.push_back(allocator_->allocate(larger));
+  for (int i = 0; i < 2 * kSize; ++i) {
+    allocations.push_back(allocator_->allocate(i < kSize ? kMedium : kSmall));
+    allocations.push_back(allocator_->allocate(kLarge));
   }
-  for (auto i = 0; i < allocations.size(); i += 2) {
+  // Release medium blocks, then small ones.
+  for (int i = 0; i < allocations.size(); i += 2) {
     allocator_->free(allocations[i]);
   }
-  allocations[0] = allocator_->allocate(small);
-  // This comes from head of free list.
-  EXPECT_EQ(0, allocator_->numFreeListNoFit());
-  allocations[2] = allocator_->allocate(small + 10);
-  // Last in free llist fits.
-  EXPECT_EQ(98, allocator_->numFreeListNoFit());
-  allocations[4] = allocator_->allocate(small + 10);
-  // Traverse the free list again but no fit.
-  EXPECT_EQ(2 * 98, allocator_->numFreeListNoFit());
-  allocations[6] = allocator_->allocate(small + 10);
-  // Now we know there is no fit in the list for small, so it is not
-  // retraversed.
-  EXPECT_EQ(2 * 98, allocator_->numFreeListNoFit());
+  // Make sure we don't traverse the whole small free list while looking for
+  // medium free blocks.
+  auto t0 = std::chrono::steady_clock::now();
+  for (int i = 0; i < kSize; ++i) {
+    allocator_->allocate(kSmall + 1);
+  }
+  ASSERT_LT(std::chrono::steady_clock::now() - t0, std::chrono::seconds(30));
 }
 
 } // namespace
