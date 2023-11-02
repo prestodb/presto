@@ -112,7 +112,7 @@ jobs:
           name: "Build"
           command: |
             cd presto-native-execution
-            make conda-build
+            make NUM_THREADS=8 conda-build
             ccache -s
       - save_cache:
           name: "Save CCache cache"
@@ -123,7 +123,7 @@ jobs:
           name: "Run Unit Tests"
           command: |
             cd presto-native-execution
-            make conda-test
+            make NUM_THREADS=8 conda-test
       - persist_to_workspace:
           root: presto-native-execution
           paths:
@@ -361,12 +361,12 @@ jobs:
           name: "Build"
           command: |
             cd presto-native-execution
-            make conda-build
+            make NUM_THREADS=8 conda-build
       - run:
           name: "Run Unit Tests"
           command: |
             cd presto-native-execution
-            make conda-test
+            make NUM_THREADS=8 conda-test
 
   native-specific-macos:
     executor: macos-intel
