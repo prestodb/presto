@@ -124,19 +124,23 @@ struct VeloxToArrowSchemaBridgeHolder {
 
   // Buffer required to generate a decimal format.
   std::string formatBuffer;
-};
 
-void setUniqueChild(
-    std::unique_ptr<ArrowSchema>&& child,
-    VeloxToArrowSchemaBridgeHolder& holder,
-    ArrowSchema& schema) {
-  holder.childrenOwned.resize(1);
-  holder.childrenRaw.resize(1);
-  holder.childrenOwned[0] = std::move(child);
-  schema.children = holder.childrenRaw.data();
-  schema.n_children = 1;
-  schema.children[0] = holder.childrenOwned[0].get();
-}
+  void setChildAtIndex(
+      size_t index,
+      std::unique_ptr<ArrowSchema>&& child,
+      ArrowSchema& schema) {
+    if (index >= childrenOwned.size()) {
+      childrenOwned.resize(index + 1);
+    }
+    if (index >= childrenRaw.size()) {
+      childrenRaw.resize(index + 1);
+    }
+    childrenOwned[index] = std::move(child);
+    schema.children = childrenRaw.data();
+    schema.n_children = childrenOwned.size();
+    schema.children[index] = childrenOwned[index].get();
+  }
+};
 
 // Release function for ArrowArray. Arrow standard requires it to recurse down
 // to children and dictionary arrays, and set release and private_data to null
@@ -259,6 +263,21 @@ const char* exportArrowFormatStr(
     default:
       VELOX_NYI("Unable to map type '{}' to ArrowSchema.", type->kind());
   }
+}
+
+std::unique_ptr<ArrowSchema> newArrowSchema(
+    const char* format = nullptr,
+    const char* name = nullptr) {
+  auto arrowSchema = std::make_unique<ArrowSchema>();
+  arrowSchema->format = format;
+  arrowSchema->name = name;
+  arrowSchema->metadata = nullptr;
+  arrowSchema->flags = 0;
+  arrowSchema->n_children = 0;
+  arrowSchema->children = nullptr;
+  arrowSchema->dictionary = nullptr;
+  arrowSchema->release = releaseArrowSchema;
+  return arrowSchema;
 }
 
 // A filter representation that can also keep the order.
@@ -443,7 +462,7 @@ void exportFlat(
   }
 }
 
-void exportBase(
+void exportToArrowImpl(
     const BaseVector&,
     const Selection&,
     ArrowArray&,
@@ -461,7 +480,7 @@ void exportRows(
   out.children = holder.getChildrenArrays();
   for (column_index_t i = 0; i < vec.childrenSize(); ++i) {
     try {
-      exportBase(
+      exportToArrowImpl(
           *vec.childAt(i)->loadedVector(),
           rows,
           *holder.allocateChild(i),
@@ -530,7 +549,7 @@ void exportArrays(
   Selection childRows(vec.elements()->size());
   exportOffsets(vec, rows, out, pool, holder, childRows);
   holder.resizeChildren(1);
-  exportBase(
+  exportToArrowImpl(
       *vec.elements()->loadedVector(),
       childRows,
       *holder.allocateChild(0),
@@ -554,7 +573,7 @@ void exportMaps(
   Selection childRows(child.size());
   exportOffsets(vec, rows, out, pool, holder, childRows);
   holder.resizeChildren(1);
-  exportBase(child, childRows, *holder.allocateChild(0), pool);
+  exportToArrowImpl(child, childRows, *holder.allocateChild(0), pool);
   out.n_children = 1;
   out.children = holder.getChildrenArrays();
 }
@@ -576,10 +595,10 @@ void exportDictionary(
   }
   auto& values = *vec.valueVector()->loadedVector();
   out.dictionary = holder.allocateDictionary();
-  exportBase(values, Selection(values.size()), *out.dictionary, pool);
+  exportToArrowImpl(values, Selection(values.size()), *out.dictionary, pool);
 }
 
-void exportBase(
+void exportToArrowImpl(
     const BaseVector& vec,
     const Selection& rows,
     ArrowArray& out,
@@ -619,7 +638,7 @@ void exportToArrow(
     const VectorPtr& vector,
     ArrowArray& arrowArray,
     memory::MemoryPool* pool) {
-  exportBase(*vector, Selection(vector->size()), arrowArray, pool);
+  exportToArrowImpl(*vector, Selection(vector->size()), arrowArray, pool);
 }
 
 void exportToArrow(const VectorPtr& vec, ArrowSchema& arrowSchema) {
@@ -644,6 +663,28 @@ void exportToArrow(const VectorPtr& vec, ArrowSchema& arrowSchema) {
     arrowSchema.dictionary = bridgeHolder->dictionary.get();
     exportToArrow(vec->valueVector(), *arrowSchema.dictionary);
 
+  } else if (vec->encoding() == VectorEncoding::Simple::CONSTANT) {
+    // Arrow REE spec available in
+    //  https://arrow.apache.org/docs/format/Columnar.html#run-end-encoded-layout
+    arrowSchema.format = "+r";
+    arrowSchema.dictionary = nullptr;
+
+    // Set up the `values` child.
+    auto valuesChild = newArrowSchema();
+    const auto& valueVector = vec->valueVector();
+
+    // Contants of complex types are stored in the `values` vector.
+    if (valueVector != nullptr) {
+      exportToArrow(valueVector, *valuesChild);
+    } else {
+      valuesChild->format =
+          exportArrowFormatStr(type, bridgeHolder->formatBuffer);
+    }
+
+    bridgeHolder->setChildAtIndex(
+        0, newArrowSchema("i", "run_ends"), arrowSchema);
+    bridgeHolder->setChildAtIndex(1, std::move(valuesChild), arrowSchema);
+
   } else {
     arrowSchema.format = exportArrowFormatStr(type, bridgeHolder->formatBuffer);
     arrowSchema.dictionary = nullptr;
@@ -662,7 +703,7 @@ void exportToArrow(const VectorPtr& vec, ArrowSchema& arrowSchema) {
           maps.getNullCount());
       exportToArrow(rows, *child);
       child->name = "entries";
-      setUniqueChild(std::move(child), *bridgeHolder, arrowSchema);
+      bridgeHolder->setChildAtIndex(0, std::move(child), arrowSchema);
 
     } else if (type->kind() == TypeKind::ARRAY) {
       auto child = std::make_unique<ArrowSchema>();
@@ -670,7 +711,7 @@ void exportToArrow(const VectorPtr& vec, ArrowSchema& arrowSchema) {
       exportToArrow(arrays.elements(), *child);
       // Name is required, and "item" is the default name used in arrow itself.
       child->name = "item";
-      setUniqueChild(std::move(child), *bridgeHolder, arrowSchema);
+      bridgeHolder->setChildAtIndex(0, std::move(child), arrowSchema);
 
     } else if (type->kind() == TypeKind::ROW) {
       auto& rows = *vec->asUnchecked<RowVector>();
