@@ -634,6 +634,10 @@ void RowVector::validate(const VectorValidateOptions& options) const {
   }
 }
 
+void RowVector::unsafeResize(vector_size_t newSize, bool setNotNull) {
+  BaseVector::resize(newSize, setNotNull);
+}
+
 void ArrayVectorBase::checkRanges() const {
   std::unordered_map<vector_size_t, vector_size_t> seenElements;
   seenElements.reserve(size());

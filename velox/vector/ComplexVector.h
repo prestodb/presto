@@ -204,6 +204,11 @@ class RowVector : public BaseVector {
 
   void validate(const VectorValidateOptions& options) const override;
 
+  /// Only calls BaseVector::resize and doesnt resize the children.
+  /// This function is present for backwards compatibility,
+  /// until the few places that require it are migrated over.
+  void unsafeResize(vector_size_t newSize, bool setNotNull = true);
+
  private:
   vector_size_t childSize() const {
     bool allConstant = false;

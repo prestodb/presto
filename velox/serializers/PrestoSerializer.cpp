@@ -629,7 +629,12 @@ void scatterVector(
     const uint64_t* incomingNulls,
     VectorPtr& vector) {
   auto oldSize = vector->size();
-  vector->resize(size);
+  if (vector->encoding() == VectorEncoding::Simple::ROW) {
+    vector->asUnchecked<RowVector>()->unsafeResize(size);
+  } else {
+    vector->resize(size);
+  }
+
   switch (vector->encoding()) {
     case VectorEncoding::Simple::DICTIONARY: {
       if (incomingNulls) {
@@ -727,7 +732,7 @@ void scatterStructNulls(
           row.size(), scatterSize, scatter, incomingNulls, row.childAt(0));
       scatterVector(
           row.size(), scatterSize, scatter, incomingNulls, row.childAt(1));
-      row.resize(size);
+      row.unsafeResize(size);
       scatterNulls(oldSize, incomingNulls, row);
     }
     return;
@@ -779,7 +784,7 @@ void scatterStructNulls(
     }
   }
   if (incomingNulls) {
-    row.resize(size);
+    row.unsafeResize(size);
     scatterNulls(oldSize, incomingNulls, row);
   }
   // On return of scatter we check that child sizes match the struct size. This
