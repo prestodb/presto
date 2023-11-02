@@ -57,11 +57,13 @@ public class SingleStoreClient
         extends BaseJdbcClient
 {
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
+    private final boolean checkDriverCaseSupport;
 
     @Inject
     public SingleStoreClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
         super(connectorId, config, "`", new DriverConnectionFactory(new Driver(), config));
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport();
     }
 
     @Override
@@ -178,7 +180,7 @@ public class SingleStoreClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && checkDriverCaseSupport) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
             String sql = format(
