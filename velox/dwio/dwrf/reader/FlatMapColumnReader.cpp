@@ -644,6 +644,24 @@ uint64_t FlatMapStructEncodingColumnReader<T>::skip(uint64_t numValues) {
   return numValues;
 }
 
+namespace {
+
+BufferPtr getBufferForCurrentThread(
+    folly::Synchronized<std::unordered_map<std::thread::id, BufferPtr>>&
+        bufferMap) {
+  const auto id = std::this_thread::get_id();
+  {
+    auto bufferMapRead = bufferMap.rlock();
+    auto mergedNullsIt = bufferMapRead->find(id);
+    if (mergedNullsIt != bufferMapRead->end()) {
+      return mergedNullsIt->second;
+    }
+  }
+  return bufferMap.wlock()->emplace(id, nullptr).first->second;
+}
+
+} // namespace
+
 template <typename T>
 void FlatMapStructEncodingColumnReader<T>::next(
     uint64_t numValues,
@@ -687,16 +705,24 @@ void FlatMapStructEncodingColumnReader<T>::next(
     result = std::move(rowResult);
   }
 
+  auto mergedNullsBuffers = std::make_shared<
+      folly::Synchronized<std::unordered_map<std::thread::id, BufferPtr>>>();
   for (size_t i = 0; i < keyNodes_.size(); ++i) {
     auto& node = keyNodes_[i];
     auto& child = (*childrenPtr)[i];
 
     if (node) {
       if (executor_) {
-        executor_->add([&node, &child, numValues, nonNullMaps, nullsPtr]() {
-          BufferPtr mergedNulls;
+        executor_->add([&node,
+                        &child,
+                        numValues,
+                        nonNullMaps,
+                        nullsPtr,
+                        mergedNullsBuffers]() {
+          auto mergedNullsBuffer =
+              getBufferForCurrentThread(*mergedNullsBuffers);
           node->loadAsChild(
-              child, numValues, mergedNulls, nonNullMaps, nullsPtr);
+              child, numValues, mergedNullsBuffer, nonNullMaps, nullsPtr);
         });
       } else {
         node->loadAsChild(
