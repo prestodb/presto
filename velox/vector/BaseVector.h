@@ -415,12 +415,20 @@ class BaseVector {
     return !nulls_ || (nulls_->isMutable());
   }
 
-  // Sets null when 'nulls' has null value for a row in 'rows'
-  virtual void addNulls(const uint64_t* bits, const SelectivityVector& rows);
+  // Sets null when 'nulls' has a null value for active rows in 'rows'.
+  // Is a no-op 'nulls' is a nullptr or 'rows' has no selections.
+  virtual void addNulls(
+      const uint64_t* FOLLY_NULLABLE nulls,
+      const SelectivityVector& rows);
 
-  // Clears null when 'nulls' has non-null value for a row in 'rows'
-  virtual void clearNulls(const SelectivityVector& rows);
+  // Sets nulls for all active row in 'nullRows'. Is a no-op if nullRows has no
+  // selections.
+  virtual void addNulls(const SelectivityVector& nullRows);
 
+  // Clears nulls for all active rows in 'nonNullRows'
+  virtual void clearNulls(const SelectivityVector& nonNullRows);
+
+  // Clears nulls for all row indices in range [begin, end).
   virtual void clearNulls(vector_size_t begin, vector_size_t end);
 
   void clearAllNulls() {

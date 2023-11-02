@@ -264,7 +264,7 @@ void ConjunctExpr::updateResult(
       &values,
       &nulls)) {
     case BooleanMix::kAllNull:
-      result->addNulls(nullptr, *activeRows);
+      result->addNulls(*activeRows);
       return;
     case BooleanMix::kAllFalse:
       if (isAnd_) {

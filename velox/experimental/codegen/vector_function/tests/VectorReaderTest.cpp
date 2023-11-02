@@ -35,7 +35,7 @@ TEST(VectorReader, ReadDoublesVectors) {
   SelectivityVector selectivityVector(vectorSize);
   selectivityVector.setAll();
   in1->resize(vectorSize);
-  in1->addNulls(nullptr, selectivityVector);
+  in1->addNulls(selectivityVector);
   VectorReader<DoubleType, OutputReaderConfig<false, false>> writer(in1);
   VectorReader<DoubleType, InputReaderConfig<false, false>> reader(in1);
 

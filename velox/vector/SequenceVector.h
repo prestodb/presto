@@ -172,6 +172,10 @@ class SequenceVector : public SimpleVector<T> {
     throw std::runtime_error("addNulls not supported");
   }
 
+  void addNulls(const SelectivityVector& rows) override {
+    throw std::runtime_error("addNulls not supported");
+  }
+
   std::string toString(vector_size_t index) const override {
     if (BaseVector::isNullAt(index)) {
       return "null";

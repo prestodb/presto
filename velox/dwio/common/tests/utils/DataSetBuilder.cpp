@@ -106,7 +106,7 @@ DataSetBuilder& DataSetBuilder::withAllNullsForField(
   for (RowVectorPtr batch : *batches_) {
     auto fieldValues = getChildBySubfield(batch.get(), field);
     SelectivityVector rows(fieldValues->size());
-    fieldValues->addNulls(nullptr, rows);
+    fieldValues->addNulls(rows);
   }
 
   return *this;
@@ -122,7 +122,7 @@ DataSetBuilder& DataSetBuilder::withNullsForField(
     if (nullsPercent == 0) {
       fieldValues->clearNulls(rows);
     } else if (nullsPercent >= 100) {
-      fieldValues->addNulls(nullptr, rows);
+      fieldValues->addNulls(rows);
     } else {
       std::vector<vector_size_t> nonNullRows =
           getSomeNonNullRowNumbers(fieldValues, 23);

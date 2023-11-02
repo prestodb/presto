@@ -98,8 +98,8 @@ TEST(TestConcat, EvalConcatFunction) {
 
   in1->resize(rowLength);
   in2->resize(rowLength);
-  in1->addNulls(nullptr, rows);
-  in2->addNulls(nullptr, rows);
+  in1->addNulls(rows);
+  in2->addNulls(rows);
 
   std::vector<VectorPtr> in{in1, in2};
   auto queryCtx = std::make_shared<core::QueryCtx>();

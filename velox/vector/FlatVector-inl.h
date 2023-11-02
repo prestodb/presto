@@ -216,7 +216,7 @@ void FlatVector<T>::copyValuesAndNulls(
     }
   } else if (source->isConstantEncoding()) {
     if (source->isNullAt(0)) {
-      BaseVector::addNulls(nullptr, rows);
+      BaseVector::addNulls(rows);
       return;
     }
     auto constant = source->asUnchecked<ConstantVector<T>>();

@@ -292,6 +292,10 @@ class ConstantVector final : public SimpleVector<T> {
     }
   }
 
+  void addNulls(const SelectivityVector& /*rows*/) override {
+    VELOX_FAIL("addNulls not supported");
+  }
+
   std::optional<int32_t> compare(
       const BaseVector* other,
       vector_size_t index,

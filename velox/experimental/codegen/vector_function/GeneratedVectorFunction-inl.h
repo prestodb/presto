@@ -201,7 +201,7 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
            GeneratedCodeConfig::isDefaultNullStrict) &&
           !GeneratedCode::hasFilter) {
         // preset all with nulls, only if it's projection only
-        child->addNulls(nullptr, rows);
+        child->addNulls(rows);
       } else {
         // preset all not nulls
         child->mutableRawNulls();

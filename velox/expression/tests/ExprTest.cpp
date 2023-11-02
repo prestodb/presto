@@ -2008,7 +2008,7 @@ class NullArrayFunction : public exec::VectorFunction {
       VectorPtr& result) const override {
     // This function returns a vector of all nulls
     BaseVector::ensureWritable(rows, ARRAY(VARCHAR()), context.pool(), result);
-    result->addNulls(nullptr, rows);
+    result->addNulls(rows);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
