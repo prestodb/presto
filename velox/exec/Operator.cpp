@@ -83,9 +83,7 @@ Operator::Operator(
           operatorId,
           driverCtx->pipelineId,
           std::move(planNodeId),
-          std::move(operatorType)}) {
-  maybeSetReclaimer();
-}
+          std::move(operatorType)}) {}
 
 void Operator::maybeSetReclaimer() {
   VELOX_CHECK_NULL(pool()->reclaimer());
@@ -139,7 +137,14 @@ std::unique_ptr<JoinBridge> Operator::joinBridgeFromPlanNode(
 
 void Operator::initialize() {
   VELOX_CHECK(!initialized_);
+  VELOX_CHECK_EQ(
+      pool()->currentBytes(),
+      0,
+      "Unexpected memory usage {} from pool {} before operator init",
+      succinctBytes(pool()->currentBytes()),
+      pool()->name());
   initialized_ = true;
+  maybeSetReclaimer();
 }
 
 // static
