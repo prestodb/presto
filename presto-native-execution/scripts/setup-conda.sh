@@ -198,6 +198,7 @@ function install_system_deps {
   DEPS+=" boost=1.82.0"
   DEPS+=" boost-cpp=1.82.0"
   DEPS+=" c-ares=1.19.1"
+  DEPS+=" ccache=3.7.9"
   DEPS+=" cmake=3.27.5"
   DEPS+=" cxx-compiler=1.6.0"
   DEPS+=" double-conversion=3.3.0"
