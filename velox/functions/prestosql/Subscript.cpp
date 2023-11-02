@@ -31,6 +31,8 @@ class SubscriptFunction : public SubscriptImpl<
                               /* allowOutOfBound */ false,
                               /* indexStartsAtOne */ true> {
  public:
+  explicit SubscriptFunction(bool allowcaching) : SubscriptImpl(allowcaching) {}
+
   bool canPushdown() const override {
     return true;
   }
@@ -38,9 +40,25 @@ class SubscriptFunction : public SubscriptImpl<
 
 } // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_subscript,
-    SubscriptFunction::signatures(),
-    std::make_unique<SubscriptFunction>());
+void registerSubscriptFunction(
+    const std::string& name,
+    bool enableCaching = true) {
+  exec::registerStatefulVectorFunction(
+      name,
+      SubscriptFunction::signatures(),
+      [enableCaching](
+          const std::string&,
+          const std::vector<exec::VectorFunctionArg>& inputArgs,
+          const velox::core::QueryConfig& config) {
+        static const auto kSubscriptStateLess =
+            std::make_shared<SubscriptFunction>(false);
+        if (inputArgs[0].type->isArray()) {
+          return kSubscriptStateLess;
+        } else {
+          return std::make_shared<SubscriptFunction>(
+              enableCaching && config.isExpressionEvaluationCacheEnabled());
+        }
+      });
+}
 
 } // namespace facebook::velox::functions

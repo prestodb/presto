@@ -15,10 +15,13 @@
  */
 
 #include <optional>
+
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/lib/SubscriptUtil.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/vector/BaseVector.h"
+#include "velox/vector/SelectivityVector.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::functions::test;
@@ -519,7 +522,7 @@ TEST_F(ElementAtTest, allFlavors3) {
   exec::registerVectorFunction(
       "__f2",
       SubscriptImpl<false, true, false, false>::signatures(),
-      std::make_unique<SubscriptImpl<false, true, false, false>>());
+      std::make_unique<SubscriptImpl<false, true, false, false>>(false));
 
   // #1
   EXPECT_EQ(elementAtSimple("__f2(C0, 0)", {arrayVector}), 10);
@@ -561,7 +564,7 @@ TEST_F(ElementAtTest, allFlavors4) {
   exec::registerVectorFunction(
       "__f3",
       SubscriptImpl<true, false, true, false>::signatures(),
-      std::make_unique<SubscriptImpl<true, false, true, false>>());
+      std::make_unique<SubscriptImpl<true, false, true, false>>(false));
 
   EXPECT_EQ(elementAtSimple("__f3(C0, 0)", {arrayVector}), 10);
   EXPECT_EQ(elementAtSimple("__f3(C0, 1)", {arrayVector}), 11);
@@ -882,4 +885,148 @@ TEST_F(ElementAtTest, errorStatesArray) {
       {arrayVector, indicesVector},
       expectedValueAt,
       [](auto row) { return row == 40; });
+}
+
+TEST_F(ElementAtTest, testCachingOptimzation) {
+  std::vector<std::vector<std::pair<int64_t, std::optional<int64_t>>>>
+      inputMapVectorData;
+  inputMapVectorData.push_back({});
+  for (int i = 0; i < 1000; i++) {
+    // 0 -> 1000
+    // 1 -> 1001
+    // ..etc
+    inputMapVectorData.back().push_back({i, i + 1000});
+  }
+
+  inputMapVectorData.push_back({});
+  for (int i = 0; i < 1000; i++) {
+    // 0 -> 0
+    // 2 -> 1
+    // ..etc
+    inputMapVectorData.back().push_back({i * 2, i});
+  }
+
+  // Size of this map is 10, it wont be cached.
+  inputMapVectorData.push_back({});
+  for (int i = 0; i < 10; i++) {
+    // 0 -> 0
+    // 1 -> 1
+    inputMapVectorData.back().push_back({i, i});
+  }
+
+  // Make a dummy eval context.
+  exec::ExprSet exprSet({}, &execCtx_);
+  auto inputs = makeRowVector({});
+  exec::EvalCtx evalCtx(&execCtx_, &exprSet, inputs.get());
+
+  SelectivityVector rows(3);
+  auto inputMap = makeMapVector<int64_t, int64_t>(inputMapVectorData);
+
+  auto keys = makeFlatVector<int64_t>({0, 0, 0});
+  std::vector<VectorPtr> args = {inputMap, keys};
+
+  facebook::velox::functions::MapSubscript mapSubscriptWithCaching(true);
+
+  auto checkStatus = [&](bool cachingEnabled,
+                         bool materializedMapIsNull,
+                         const VectorPtr& firtSeen) {
+    EXPECT_EQ(cachingEnabled, mapSubscriptWithCaching.cachingEnabled());
+    EXPECT_EQ(firtSeen, mapSubscriptWithCaching.firstSeenMap());
+    EXPECT_EQ(
+        materializedMapIsNull,
+        nullptr == mapSubscriptWithCaching.lookupTable());
+  };
+
+  // Initial state.
+  checkStatus(true, true, nullptr);
+
+  auto result1 = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  // Nothing has been materialized yet since the input is seen only once.
+  checkStatus(true, true, args[0]);
+
+  auto result2 = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  checkStatus(true, false, args[0]);
+
+  auto result3 = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  checkStatus(true, false, args[0]);
+
+  // all the result should be the same.
+  test::assertEqualVectors(result1, result2);
+  test::assertEqualVectors(result2, result3);
+
+  // Test the cached map content.
+  auto verfyCachedContent = [&]() {
+    auto& cachedMapTyped =
+        *static_cast<
+             facebook::velox::functions::LookupTable<TypeKind::BIGINT>*>(
+             mapSubscriptWithCaching.lookupTable().get())
+             ->map();
+
+    EXPECT_TRUE(cachedMapTyped.count(0));
+    EXPECT_TRUE(cachedMapTyped.count(1));
+    // Small map not cached.
+    EXPECT_FALSE(cachedMapTyped.count(2));
+
+    auto map0 = cachedMapTyped.find(0)->second;
+    for (int i = 0; i < 1000; i++) {
+      EXPECT_TRUE(map0.count(i));
+      // The map caches the offset of the value.
+      EXPECT_EQ(map0[i], i);
+    }
+
+    auto map1 = cachedMapTyped.find(1)->second;
+    EXPECT_EQ(map1.size(), 1000);
+    for (int i = 0; i < 1000; i++) {
+      EXPECT_TRUE(map1.count(i * 2));
+      // The map caches the offset of the value.
+      EXPECT_EQ(map1[i * 2], 1000 + i);
+    }
+  };
+
+  verfyCachedContent();
+  // Pass different map with same base.
+  {
+    auto dictInput = BaseVector::wrapInDictionary(
+        nullptr, makeIndicesInReverse(3), 3, inputMap);
+    args[0] = dictInput;
+
+    auto result = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+    // Last seen map will keep pointing to the original map since both have the
+    // same base.
+    checkStatus(true, false, inputMap);
+
+    auto expectedResult = BaseVector::wrapInDictionary(
+        nullptr, makeIndicesInReverse(3), 3, result1);
+    test::assertEqualVectors(expectedResult, result);
+    verfyCachedContent();
+  }
+
+  {
+    auto constantInput = BaseVector::wrapInConstant(3, 0, inputMap);
+    args[0] = constantInput;
+
+    auto result = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+    // Last seen map will keep pointing to the original map since both have the
+    // same base.
+    checkStatus(true, false, inputMap);
+
+    auto expectedResult = makeFlatVector<int64_t>({1000, 1000, 1000});
+    test::assertEqualVectors(expectedResult, result);
+    verfyCachedContent();
+  }
+
+  // Pass a different map, caching will be disabled.
+  {
+    args[0] = makeMapVector<int64_t, int64_t>(inputMapVectorData);
+    auto result = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+    checkStatus(false, true, nullptr);
+    test::assertEqualVectors(result, result1);
+  }
+
+  {
+    args[0] = makeMapVector<int64_t, int64_t>(inputMapVectorData);
+    auto result = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+    checkStatus(false, true, nullptr);
+    test::assertEqualVectors(result, result1);
+  }
 }

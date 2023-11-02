@@ -29,16 +29,35 @@ namespace {
 /// - allows out of bounds accesses for arrays and maps (returns NULL if out of
 ///    bounds).
 /// - index starts at 1 for arrays.
-using ElementAtFunction = SubscriptImpl<
-    /* allowNegativeIndices */ true,
-    /* nullOnNegativeIndices */ false,
-    /* allowOutOfBound */ true,
-    /* indexStartsAtOne */ true>;
+class ElementAtFunction : public SubscriptImpl<
+                              /* allowNegativeIndices */ true,
+                              /* nullOnNegativeIndices */ false,
+                              /* allowOutOfBound */ true,
+                              /* indexStartsAtOne */ true> {
+ public:
+  explicit ElementAtFunction(bool allowcaching) : SubscriptImpl(allowcaching) {}
+};
 } // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_element_at,
-    ElementAtFunction::signatures(),
-    std::make_unique<ElementAtFunction>());
+void registerElementAtFunction(
+    const std::string& name,
+    bool enableCaching = true) {
+  exec::registerStatefulVectorFunction(
+      name,
+      ElementAtFunction::signatures(),
+      [enableCaching](
+          const std::string&,
+          const std::vector<exec::VectorFunctionArg>& inputArgs,
+          const velox::core::QueryConfig& config) {
+        static const auto kSubscriptStateLess =
+            std::make_shared<ElementAtFunction>(false);
+        if (inputArgs[0].type->isArray()) {
+          return kSubscriptStateLess;
+        } else {
+          return std::make_shared<ElementAtFunction>(
+              enableCaching && config.isExpressionEvaluationCacheEnabled());
+        }
+      });
+}
 
 } // namespace facebook::velox::functions

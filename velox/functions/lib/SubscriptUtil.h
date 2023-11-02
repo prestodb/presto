@@ -16,10 +16,16 @@
 
 #pragma once
 
+#include <memory>
+#include "velox/expression/ComplexViewTypes.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/expression/VectorReaders.h"
 #include "velox/type/Type.h"
+#include "velox/vector/BaseVector.h"
+#include "velox/vector/ComplexVector.h"
 #include "velox/vector/NullsBuilder.h"
+#include "velox/vector/TypeAliases.h"
 
 namespace facebook::velox::functions {
 
@@ -29,11 +35,139 @@ const std::exception_ptr& zeroSubscriptError();
 const std::exception_ptr& badSubscriptError();
 const std::exception_ptr& negativeSubscriptError();
 
+template <TypeKind kind>
+class LookupTable;
+
+class LookupTableBase {
+ public:
+  template <TypeKind kind>
+  LookupTable<kind>& typedTable() {
+    return *static_cast<LookupTable<kind>*>(this);
+  }
+  virtual ~LookupTableBase() {}
+};
+
+template <TypeKind kind>
+class LookupTable : public LookupTableBase {
+  using key_t = typename TypeTraits<kind>::NativeType;
+
+ public:
+  LookupTable(memory::MemoryPool& pool)
+      : pool_(pool),
+        map_(std::make_unique<outer_map_t>(outer_allocator_t(pool))) {}
+
+  auto& map() {
+    return map_;
+  }
+
+  bool containsMapAtIndex(vector_size_t rowIndex) const {
+    return map_->count(rowIndex) != 0;
+  }
+
+  void ensureMapAtIndex(vector_size_t rowIndex) const {
+    map_->emplace(rowIndex, pool_);
+  }
+
+  auto& getMapAtIndex(vector_size_t rowIndex) {
+    VELOX_DCHECK(containsMapAtIndex(rowIndex));
+    return map_->find(rowIndex)->second;
+  }
+
+ private:
+  using inner_allocator_t =
+      memory::StlAllocator<std::pair<key_t const, vector_size_t>>;
+
+  using inner_map_t = folly::F14FastMap<
+      key_t,
+      vector_size_t,
+      folly::f14::DefaultHasher<key_t>,
+      folly::f14::DefaultKeyEqual<key_t>,
+      inner_allocator_t>;
+
+  using outer_allocator_t =
+      memory::StlAllocator<std::pair<vector_size_t const, inner_map_t>>;
+
+  // [rowindex][key] -> offset of value.
+  using outer_map_t = folly::F14FastMap<
+      vector_size_t,
+      inner_map_t,
+      folly::f14::DefaultHasher<vector_size_t>,
+      folly::f14::DefaultKeyEqual<vector_size_t>,
+      outer_allocator_t>;
+
+  memory::MemoryPool& pool_;
+  std::unique_ptr<outer_map_t> map_;
+};
+
+class MapSubscript {
+ public:
+  explicit MapSubscript(bool allowCaching) : allowcaching_(allowCaching) {}
+
+  VectorPtr applyMap(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      exec::EvalCtx& context) const;
+
+  bool cachingEnabled() const {
+    return allowcaching_;
+  }
+
+  auto& lookupTable() const {
+    return lookupTable_;
+  }
+
+  auto& firstSeenMap() const {
+    return firstSeenMap_;
+  }
+
+ private:
+  bool shouldTriggerCaching(const VectorPtr& mapArg) const {
+    if (!allowcaching_) {
+      return false;
+    }
+
+    if (!mapArg->type()->childAt(0)->isPrimitiveType() &&
+        !!mapArg->type()->childAt(0)->isBoolean()) {
+      // Disable caching if the key type is not primitive or is boolean.
+      allowcaching_ = false;
+      return false;
+    }
+
+    if (!firstSeenMap_) {
+      firstSeenMap_ = mapArg;
+      return false;
+    }
+
+    if (firstSeenMap_->wrappedVector() == mapArg->wrappedVector()) {
+      return true;
+    }
+
+    // Disable caching forever.
+    allowcaching_ = false;
+    lookupTable_.reset();
+    firstSeenMap_.reset();
+    return false;
+  }
+
+  // When true the function is allowed to cache a materialized version of the
+  // processed map.
+  mutable bool allowcaching_;
+
+  // This is used to check if the same base map is being passed over and over
+  // in the function. A shared_ptr is used to guarantee that if the map is
+  // seen again then it was not modified.
+  mutable VectorPtr firstSeenMap_;
+
+  // Materialized cached version of firstSeenMap_ used to optimize the lookup.
+  mutable std::shared_ptr<LookupTableBase> lookupTable_;
+};
+
 /// Generic subscript/element_at implementation for both array and map data
 /// types.
 ///
 /// Provides four template parameters to configure the behavior:
-/// - allowNegativeIndices: if allowed, negative indices accesses elements from
+/// - allowNegativeIndices: if allowed, negative indices accesses elements
+/// from
 ///   last to the first; otherwise, throws.
 /// - nullOnNegativeIndices: returns NULL for negative indices instead of the
 ///   behavior described above.
@@ -47,6 +181,9 @@ template <
     bool indexStartsAtOne>
 class SubscriptImpl : public exec::Subscript {
  public:
+  explicit SubscriptImpl(bool allowcaching)
+      : mapSubscript_(MapSubscript(allowcaching)) {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -62,13 +199,36 @@ class SubscriptImpl : public exec::Subscript {
         break;
 
       case TypeKind::MAP:
-        localResult = applyMap(rows, args, context);
+        localResult = mapSubscript_.applyMap(rows, args, context);
         break;
 
       default:
         VELOX_UNREACHABLE();
     }
     context.moveOrCopyResult(localResult, rows, result);
+  }
+
+  VectorPtr applyArray(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      exec::EvalCtx& context) const {
+    VELOX_CHECK_EQ(args[0]->typeKind(), TypeKind::ARRAY);
+
+    auto arrayArg = args[0];
+    auto indexArg = args[1];
+
+    switch (indexArg->typeKind()) {
+      case TypeKind::INTEGER:
+        return applyArrayTyped<int32_t>(rows, arrayArg, indexArg, context);
+
+      case TypeKind::BIGINT:
+        return applyArrayTyped<int64_t>(rows, arrayArg, indexArg, context);
+
+      default:
+        VELOX_UNSUPPORTED(
+            "Unsupported type for element_at index {}",
+            mapTypeKindToName(indexArg->typeKind()));
+    }
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -96,78 +256,6 @@ class SubscriptImpl : public exec::Subscript {
     return signatures;
   }
 
- private:
-  VectorPtr applyArray(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      exec::EvalCtx& context) const {
-    VELOX_CHECK_EQ(args[0]->typeKind(), TypeKind::ARRAY);
-
-    auto arrayArg = args[0];
-    auto indexArg = args[1];
-
-    switch (indexArg->typeKind()) {
-      case TypeKind::INTEGER:
-        return applyArrayTyped<int32_t>(rows, arrayArg, indexArg, context);
-
-      case TypeKind::BIGINT:
-        return applyArrayTyped<int64_t>(rows, arrayArg, indexArg, context);
-
-      default:
-        VELOX_UNSUPPORTED(
-            "Unsupported type for element_at index {}",
-            mapTypeKindToName(indexArg->typeKind()));
-    }
-  }
-
-  VectorPtr applyMap(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      exec::EvalCtx& context) const {
-    VELOX_CHECK_EQ(args[0]->typeKind(), TypeKind::MAP);
-
-    auto mapArg = args[0];
-    auto indexArg = args[1];
-
-    // Ensure map key type and second argument are the same.
-    VELOX_CHECK(mapArg->type()->childAt(0)->equivalent(*indexArg->type()));
-
-    switch (indexArg->typeKind()) {
-      case TypeKind::HUGEINT:
-        return applyMapTyped<int128_t>(rows, mapArg, indexArg, context);
-      case TypeKind::BIGINT:
-        return applyMapTyped<int64_t>(rows, mapArg, indexArg, context);
-      case TypeKind::INTEGER:
-        return applyMapTyped<int32_t>(rows, mapArg, indexArg, context);
-      case TypeKind::SMALLINT:
-        return applyMapTyped<int16_t>(rows, mapArg, indexArg, context);
-      case TypeKind::TINYINT:
-        return applyMapTyped<int8_t>(rows, mapArg, indexArg, context);
-      case TypeKind::REAL:
-        return applyMapTyped<float>(rows, mapArg, indexArg, context);
-      case TypeKind::DOUBLE:
-        return applyMapTyped<double>(rows, mapArg, indexArg, context);
-      case TypeKind::BOOLEAN:
-        return applyMapTyped<bool>(rows, mapArg, indexArg, context);
-      case TypeKind::TIMESTAMP:
-        return applyMapTyped<Timestamp>(rows, mapArg, indexArg, context);
-      case TypeKind::VARCHAR:
-      case TypeKind::VARBINARY:
-        return applyMapTyped<StringView>(rows, mapArg, indexArg, context);
-      case TypeKind::ARRAY:
-      case TypeKind::MAP:
-      case TypeKind::ROW:
-        return applyMapComplexType(rows, mapArg, indexArg, context);
-      default:
-        VELOX_UNSUPPORTED(
-            "Unsupported map key type for element_at: {}",
-            mapTypeKindToName(indexArg->typeKind()));
-    }
-  }
-
-  /// Decode arguments and transform result into a dictionaryVector where the
-  /// dictionary maintains a mapping from a given row to the index of the input
-  /// elements vector. This allows us to ensure that element_at is zero-copy.
   template <typename I>
   VectorPtr applyArrayTyped(
       const SelectivityVector& rows,
@@ -266,7 +354,8 @@ class SubscriptImpl : public exec::Subscript {
 
   // Returns the actual Vector index given an array index. Checks and adjusts
   // negative indices, in addition to bound checks.
-  // `index` is always a 0-based array index (see `adjustIndex` function above).
+  // `index` is always a 0-based array index (see `adjustIndex` function
+  // above).
   template <typename I>
   vector_size_t getIndex(
       I index,
@@ -307,168 +396,8 @@ class SubscriptImpl : public exec::Subscript {
     return rawOffsets[indices[row]] + index;
   }
 
-  /// Decode arguments and transform result into a dictionaryVector where the
-  /// dictionary maintains a mapping from a given row to the index of the input
-  /// map value vector. This allows us to ensure that element_at is zero-copy.
-  template <typename TKey>
-  VectorPtr applyMapTyped(
-      const SelectivityVector& rows,
-      const VectorPtr& mapArg,
-      const VectorPtr& indexArg,
-      exec::EvalCtx& context) const {
-    auto* pool = context.pool();
-
-    BufferPtr indices = allocateIndices(rows.end(), pool);
-    auto rawIndices = indices->asMutable<vector_size_t>();
-
-    // Create nulls for lazy initialization.
-    NullsBuilder nullsBuilder(rows.end(), pool);
-
-    // Get base MapVector.
-    // TODO: Optimize the case when indices are identity.
-    exec::LocalDecodedVector mapHolder(context, *mapArg, rows);
-    auto decodedMap = mapHolder.get();
-    auto baseMap = decodedMap->base()->as<MapVector>();
-    auto mapIndices = decodedMap->indices();
-
-    // Get map keys.
-    auto mapKeys = baseMap->mapKeys();
-    exec::LocalSelectivityVector allElementRows(context, mapKeys->size());
-    allElementRows->setAll();
-    exec::LocalDecodedVector mapKeysHolder(context, *mapKeys, *allElementRows);
-    auto decodedMapKeys = mapKeysHolder.get();
-
-    // Get index vector (second argument).
-    exec::LocalDecodedVector indexHolder(context, *indexArg, rows);
-    auto decodedIndices = indexHolder.get();
-
-    auto rawSizes = baseMap->rawSizes();
-    auto rawOffsets = baseMap->rawOffsets();
-
-    // Lambda that does the search for a key, for each row.
-    auto processRow = [&](vector_size_t row, TKey searchKey) {
-      size_t mapIndex = mapIndices[row];
-      size_t offsetStart = rawOffsets[mapIndex];
-      size_t offsetEnd = offsetStart + rawSizes[mapIndex];
-      bool found = false;
-
-      // Sequentially check each key on this map for a match. We use a
-      // sequential scan over the keys because it's easier to express (and
-      // likely has good memory locality), but if we find that this is slow
-      // for large maps we could try to canonicalize the whole vector and binary
-      // search `searchKey`.
-      for (size_t offset = offsetStart; offset < offsetEnd; ++offset) {
-        if (decodedMapKeys->valueAt<TKey>(offset) == searchKey) {
-          rawIndices[row] = offset;
-          found = true;
-          break;
-        }
-      }
-
-      // NB: We still allow non-existent map keys, even if out of bounds is
-      // disabled for arrays.
-
-      // Handle NULLs.
-      if (!found) {
-        nullsBuilder.setNull(row);
-      }
-    };
-
-    // When second argument ("at") is a constant.
-    if (decodedIndices->isConstantMapping()) {
-      auto searchKey = decodedIndices->valueAt<TKey>(0);
-      rows.applyToSelected(
-          [&](vector_size_t row) { processRow(row, searchKey); });
-    }
-    // When the second argument ("at") is also a variable vector.
-    else {
-      rows.applyToSelected([&](vector_size_t row) {
-        auto searchKey = decodedIndices->valueAt<TKey>(row);
-        processRow(row, searchKey);
-      });
-    }
-
-    // Subscript into empty maps always returns NULLs. Check added at the end to
-    // ensure user error checks for indices are not skipped.
-    if (baseMap->mapValues()->size() == 0) {
-      return BaseVector::createNullConstant(
-          baseMap->mapValues()->type(), rows.end(), context.pool());
-    }
-
-    return BaseVector::wrapInDictionary(
-        nullsBuilder.build(), indices, rows.end(), baseMap->mapValues());
-  }
-
-  VectorPtr applyMapComplexType(
-      const SelectivityVector& rows,
-      const VectorPtr& mapArg,
-      const VectorPtr& indexArg,
-      exec::EvalCtx& context) const {
-    auto* pool = context.pool();
-
-    // Use indices with the mapValues wrapped in a dictionary vector.
-    BufferPtr indices = allocateIndices(rows.end(), pool);
-    auto rawIndices = indices->asMutable<vector_size_t>();
-
-    // Create nulls for lazy initialization.
-    NullsBuilder nullsBuilder(rows.end(), pool);
-
-    // Get base MapVector.
-    exec::LocalDecodedVector mapHolder(context, *mapArg, rows);
-    auto decodedMap = mapHolder.get();
-    auto baseMap = decodedMap->base()->as<MapVector>();
-    auto mapIndices = decodedMap->indices();
-
-    // Get map keys.
-    auto mapKeys = baseMap->mapKeys();
-    exec::LocalSelectivityVector allElementRows(context, mapKeys->size());
-    allElementRows->setAll();
-    exec::LocalDecodedVector mapKeysHolder(context, *mapKeys, *allElementRows);
-    auto mapKeysDecoded = mapKeysHolder.get();
-    auto mapKeysBase = mapKeysDecoded->base();
-    auto mapKeysIndices = mapKeysDecoded->indices();
-
-    // Get index vector (second argument).
-    exec::LocalDecodedVector indexHolder(context, *indexArg, rows);
-    auto decodedIndices = indexHolder.get();
-    auto searchBase = decodedIndices->base();
-    auto searchIndices = decodedIndices->indices();
-
-    auto rawSizes = baseMap->rawSizes();
-    auto rawOffsets = baseMap->rawOffsets();
-
-    // Search the key in each row.
-    rows.applyToSelected([&](vector_size_t row) {
-      size_t mapIndex = mapIndices[row];
-      size_t size = rawSizes[mapIndex];
-      size_t offset = rawOffsets[mapIndex];
-
-      bool found = false;
-      auto searchIndex = searchIndices[row];
-      for (auto i = 0; i < size; i++) {
-        if (mapKeysBase->equalValueAt(
-                searchBase, mapKeysIndices[offset + i], searchIndex)) {
-          rawIndices[row] = offset + i;
-          found = true;
-          break;
-        }
-      }
-
-      if (!found) {
-        nullsBuilder.setNull(row);
-      };
-    });
-
-    // Subscript into empty maps always returns NULLs. Check added at the end to
-    // ensure user error checks for indices are not skipped.
-    if (baseMap->mapValues()->size() == 0) {
-      return BaseVector::createNullConstant(
-          baseMap->mapValues()->type(), rows.end(), context.pool());
-    }
-
-    return BaseVector::wrapInDictionary(
-        nullsBuilder.build(), indices, rows.end(), baseMap->mapValues());
-  }
+ private:
+  MapSubscript mapSubscript_;
 };
 
 } // namespace facebook::velox::functions
