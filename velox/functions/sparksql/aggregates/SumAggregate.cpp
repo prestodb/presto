@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/functions/sparksql/aggregates/SumAggregate.h"
+
 #include "velox/functions/lib/aggregates/SumAggregateBase.h"
 
 using namespace facebook::velox::functions::aggregate;
@@ -24,7 +26,7 @@ template <typename TInput, typename TAccumulator, typename ResultType>
 using SumAggregate = SumAggregateBase<TInput, TAccumulator, ResultType, true>;
 }
 
-void registerSum(const std::string& name) {
+exec::AggregateRegistrationResult registerSum(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .returnType("real")
@@ -46,7 +48,7 @@ void registerSum(const std::string& name) {
                              .build());
   }
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

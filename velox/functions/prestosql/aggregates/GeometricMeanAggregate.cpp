@@ -82,7 +82,8 @@ class GeometricMeanAggregate {
 
 } // namespace
 
-void registerGeometricMeanAggregate(const std::string& prefix) {
+exec::AggregateRegistrationResult registerGeometricMeanAggregate(
+    const std::string& prefix) {
   const std::string name = prefix + kGeometricMean;
 
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
@@ -102,7 +103,7 @@ void registerGeometricMeanAggregate(const std::string& prefix) {
                            .argumentType("real")
                            .build());
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

@@ -18,8 +18,10 @@
 
 #include <string>
 
+#include "velox/exec/Aggregate.h"
+
 namespace facebook::velox::functions::aggregate::sparksql {
 
-void registerSum(const std::string& name);
+exec::AggregateRegistrationResult registerSum(const std::string& name);
 
 } // namespace facebook::velox::functions::aggregate::sparksql

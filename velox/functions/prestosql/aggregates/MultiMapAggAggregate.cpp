@@ -361,7 +361,10 @@ class MultiMapAggAggregate : public exec::Aggregate {
   DecodedVector decodedValueArrays_;
 };
 
-exec::AggregateRegistrationResult registerMultiMapAgg(const std::string& name) {
+} // namespace
+
+exec::AggregateRegistrationResult registerMultiMapAggAggregate(
+    const std::string& prefix) {
   static const std::vector<std::string> kSupportedKeyTypes = {
       "boolean",
       "tinyint",
@@ -389,6 +392,7 @@ exec::AggregateRegistrationResult registerMultiMapAgg(const std::string& name) {
             .build());
   }
 
+  auto name = prefix + kMultiMapAgg;
   return exec::registerAggregateFunction(
       name,
       std::move(signatures),
@@ -429,12 +433,6 @@ exec::AggregateRegistrationResult registerMultiMapAgg(const std::string& name) {
                 "Unexpected type {}", mapTypeKindToName(typeKind));
         }
       });
-}
-
-} // namespace
-
-void registerMultiMapAggAggregate(const std::string& prefix) {
-  registerMultiMapAgg(prefix + kMultiMapAgg);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

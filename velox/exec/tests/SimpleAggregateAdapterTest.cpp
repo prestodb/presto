@@ -410,7 +410,8 @@ class CountNullsAggregate {
   using AccumulatorType = Accumulator;
 };
 
-bool registerSimpleCountNullsAggregate(const std::string& name) {
+exec::AggregateRegistrationResult registerSimpleCountNullsAggregate(
+    const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .returnType("bigint")
@@ -418,7 +419,7 @@ bool registerSimpleCountNullsAggregate(const std::string& name) {
           .argumentType("double")
           .build()};
 
-  exec::registerAggregateFunction(
+  return exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -432,7 +433,6 @@ bool registerSimpleCountNullsAggregate(const std::string& name) {
         return std::make_unique<SimpleAggregateAdapter<CountNullsAggregate>>(
             resultType);
       });
-  return true;
 }
 
 void registerSimpleCountNullsAggregate() {

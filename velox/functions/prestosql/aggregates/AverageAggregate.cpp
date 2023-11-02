@@ -20,7 +20,6 @@
 using namespace facebook::velox::functions::aggregate;
 
 namespace facebook::velox::aggregate::prestosql {
-namespace {
 
 /// Count is BIGINT() while sum and the final aggregates type depends on
 /// the input types:
@@ -30,7 +29,8 @@ namespace {
 ///     REAL            |     DOUBLE          |    REAL
 ///     ALL INTs        |     DOUBLE          |    DOUBLE
 ///     DECIMAL         |     DECIMAL         |    DECIMAL
-exec::AggregateRegistrationResult registerAverage(const std::string& name) {
+exec::AggregateRegistrationResult registerAverageAggregate(
+    const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
   for (const auto& inputType : {"smallint", "integer", "bigint", "double"}) {
@@ -55,6 +55,7 @@ exec::AggregateRegistrationResult registerAverage(const std::string& name) {
                            .returnType("DECIMAL(a_precision, a_scale)")
                            .build());
 
+  auto name = prefix + kAvg;
   return exec::registerAggregateFunction(
       name,
       std::move(signatures),
@@ -139,11 +140,6 @@ exec::AggregateRegistrationResult registerAverage(const std::string& name) {
         }
       },
       /*registerCompanionFunctions*/ true);
-}
-} // namespace
-
-void registerAverageAggregate(const std::string& prefix) {
-  registerAverage(prefix + kAvg);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

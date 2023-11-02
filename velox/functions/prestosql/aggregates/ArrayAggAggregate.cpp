@@ -235,7 +235,10 @@ class ArrayAggAggregate : public exec::Aggregate {
   DecodedVector decodedIntermediate_;
 };
 
-exec::AggregateRegistrationResult registerArray(const std::string& name) {
+} // namespace
+
+exec::AggregateRegistrationResult registerArrayAggAggregate(
+    const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("E")
@@ -244,6 +247,7 @@ exec::AggregateRegistrationResult registerArray(const std::string& name) {
           .argumentType("E")
           .build()};
 
+  auto name = prefix + kArrayAgg;
   return exec::registerAggregateFunction(
       name,
       std::move(signatures),
@@ -258,12 +262,6 @@ exec::AggregateRegistrationResult registerArray(const std::string& name) {
             resultType, config.prestoArrayAggIgnoreNulls());
       },
       /*registerCompanionFunctions*/ true);
-}
-
-} // namespace
-
-void registerArrayAggregate(const std::string& prefix) {
-  registerArray(prefix + kArrayAgg);
 }
 
 } // namespace facebook::velox::aggregate::prestosql
