@@ -43,8 +43,8 @@ make CONDA_ENV_NAME=test-conda-env \
      NUM_THREADS=16 \
      PROMPT_ALWAYS_RESPOND=Y \
      conda-install-deps
-make CONDA_ENV_NAME=test-conda-env NUM_THREADS=16 conda-build
-make CONDA_ENV_NAME=test-conda-env NUM_THREADS=16 conda-test
+make CONDA_ENV_NAME=test-conda-env CONDA_INSTALL_DIR=test-install-dir NUM_THREADS=16 conda-build
+make CONDA_ENV_NAME=test-conda-env CONDA_INSTALL_DIR=test-install-dir NUM_THREADS=16 conda-test
 ```
 
 - `CONDA_ENV_NAME` is the conda environment name (default: `presto-dev`)

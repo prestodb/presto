@@ -76,28 +76,24 @@ conda-install-deps: submodules
 # https://github.com/prestodb/presto/issues/20986
 conda-build:
 ifeq ($(shell uname),Darwin)
-	source $$HOME/.zshrc && \
-	conda run --no-capture-output -n $(CONDA_ENV_NAME) \
+	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
 		$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug TREAT_WARNINGS_AS_ERRORS=0 PRESTO_ENABLE_PARQUET=OFF && \
-	conda run --no-capture-output -n $(CONDA_ENV_NAME) \
+	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
 		$(MAKE) build BUILD_DIR=debug
 else
-	source $$HOME/.bashrc && \
-	conda run --no-capture-output -n $(CONDA_ENV_NAME) \
+	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
 		$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug TREAT_WARNINGS_AS_ERRORS=0 PRESTO_ENABLE_PARQUET=ON && \
-	conda run --no-capture-output -n $(CONDA_ENV_NAME) \
+	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
 		$(MAKE) build BUILD_DIR=debug
 endif
 
 # Needs DYLD_LIBRARY_PATH on Macs
 conda-test: conda-build
 ifeq ($(shell uname),Darwin)
-	source $$HOME/.zshrc && \
-	conda run --cwd $(BUILD_BASE_DIR)/debug --no-capture-output -n $(CONDA_ENV_NAME) \
+	$(CONDA_INSTALL_DIR)/bin/conda run --cwd $(BUILD_BASE_DIR)/debug --no-capture-output -n $(CONDA_ENV_NAME) \
 		bash -c 'DYLD_LIBRARY_PATH=$$CONDA_PREFIX/lib ctest -j $(NUM_THREADS) -VV --output-on-failure --exclude-regex 'velox.*''
 else
-	source $$HOME/.bashrc && \
-	conda run --cwd $(BUILD_BASE_DIR)/debug --no-capture-output -n $(CONDA_ENV_NAME) \
+	$(CONDA_INSTALL_DIR)/bin/conda run --cwd $(BUILD_BASE_DIR)/debug --no-capture-output -n $(CONDA_ENV_NAME) \
 		ctest -j $(NUM_THREADS) -VV --output-on-failure --exclude-regex 'velox.*'
 endif
 
