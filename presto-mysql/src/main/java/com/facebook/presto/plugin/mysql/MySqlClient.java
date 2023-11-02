@@ -56,15 +56,19 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
 import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class MySqlClient
         extends BaseJdbcClient
 {
+    private final boolean checkDriverCaseSupport;
+
     @Inject
     public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
             throws SQLException
     {
         super(connectorId, config, "`", connectionFactory(config, mySqlConfig));
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport();
     }
 
     private static ConnectionFactory connectionFactory(BaseJdbcConfig config, MySqlConfig mySqlConfig)
@@ -207,10 +211,10 @@ public class MySqlClient
     public void renameColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-//            DatabaseMetaData metadata = connection.getMetaData();
-//            if (metadata.storesUpperCaseIdentifiers()) {
-//                newColumnName = newColumnName.toUpperCase(ENGLISH);
-//            }
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers() && checkDriverCaseSupport) {
+                newColumnName = newColumnName.toUpperCase(ENGLISH);
+            }
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
                     quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
