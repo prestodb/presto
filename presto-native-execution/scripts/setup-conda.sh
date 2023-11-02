@@ -19,6 +19,7 @@ SHELL_SOURCE="${BASH_SOURCE[0]:-${(%):-%x}}"
 # Gets values from environment variables or uses the defaults
 CONDA_ENV_NAME="${PRESTO_CONDA_ENV_NAME-presto-dev}"
 CONDA_INSTALL_DIR="${PRESTO_CONDA_INSTALL_DIR-$HOME/miniconda3}"
+PROMPT_ALWAYS_RESPOND="${PROMPT_ALWAYS_RESPOND-Y}"
 
 # Imports helper functions, like github_checkout and cmake_install
 source "$(dirname "${SHELL_SOURCE}")/../velox/scripts/setup-helper-functions.sh"
@@ -74,10 +75,10 @@ function _conda_install_common {
     # Configures conda to use mamba, a faster solver for conda
     "$CONDA_INSTALL_DIR"/bin/conda install --yes -n base conda-libmamba-solver
     "$CONDA_INSTALL_DIR"/bin/conda config --set solver libmamba
-    # Makes conda work without restarting the shell
-    export PATH="$CONDA_INSTALL_DIR/bin/:$PATH"
-    source "$CONDA_INSTALL_DIR/etc/profile.d/conda.sh"
   fi
+  # Makes conda work without restarting the shell
+  export PATH="$CONDA_INSTALL_DIR/bin/:$PATH"
+  source "$CONDA_INSTALL_DIR/etc/profile.d/conda.sh"
 }
 
 function conda_install_linux {
