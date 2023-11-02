@@ -24,6 +24,7 @@
 #include "velox/dwio/common/Options.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::connector::hive {
@@ -37,6 +38,7 @@ constexpr const char* kHiveConnectorId = "test-hive";
 class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
  protected:
   void SetUp() override {
+    HiveConnectorTestBase::SetUp();
     Type::registerSerDe();
     HiveSortingColumn::registerSerDe();
     HiveBucketProperty::registerSerDe();
@@ -50,6 +52,37 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
              DOUBLE(),
              VARCHAR(),
              BOOLEAN()});
+
+    setupMemoryPools();
+
+    spillExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
+        std::thread::hardware_concurrency());
+  }
+
+  std::unique_ptr<SpillConfig> getSpillConfig(
+      const std::string spillPath,
+      uint64_t writerFlushThreshold) {
+    return std::make_unique<SpillConfig>(
+        spillPath,
+        0,
+        0,
+        0,
+        spillExecutor_.get(),
+        10,
+        20,
+        0,
+        0,
+        0,
+        writerFlushThreshold,
+        0,
+        "none");
+  }
+
+  void setupMemoryPools() {
+    connectorQueryCtx_.reset();
+    connectorPool_.reset();
+    opPool_.reset();
+    root_.reset();
 
     root_ = memory::defaultMemoryManager().addRootPool(
         "HiveDataSinkTest", 1L << 30, exec::MemoryReclaimer::create());
@@ -68,14 +101,6 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
         "task.HiveDataSinkTest",
         "planNodeId.HiveDataSinkTest",
         0);
-    spillConfig_ = std::make_unique<SpillConfig>(
-        "HiveDataSinkTest", 0, 0, 0, nullptr, 10, 20, 0, 0, 0, 0, "none");
-
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(kHiveConnectorId, nullptr);
-    connector::registerConnector(std::move(hiveConnector));
   }
 
   std::shared_ptr<connector::hive::HiveInsertTableHandle>
@@ -156,9 +181,9 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
   std::shared_ptr<memory::MemoryPool> opPool_;
   std::shared_ptr<memory::MemoryPool> connectorPool_;
   RowTypePtr rowType_;
-  std::unique_ptr<SpillConfig> spillConfig_;
   std::unique_ptr<ConnectorQueryCtx> connectorQueryCtx_;
   std::shared_ptr<Config> connectorConfig_{std::make_unique<core::MemConfig>()};
+  std::unique_ptr<folly::IOThreadPoolExecutor> spillExecutor_;
 };
 
 TEST_F(HiveDataSinkTest, hiveSortingColumn) {
@@ -534,23 +559,23 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
     dwio::common::FileFormat format;
     bool sortWriter;
     bool writerSpillEnabled;
-    uint64_t minWriterFlushThreshold;
+    uint64_t writerFlushThreshold;
     bool expectedWriterReclaimEnabled;
     bool expectedWriterReclaimed;
 
     std::string debugString() const {
       return fmt::format(
-          "format: {}, sortWriter: {}, writerSpillEnabled: {}, minWriterFlushThreshold: {}, expectedWriterReclaimEnabled: {}, expectedWriterReclaimed: {}",
+          "format: {}, sortWriter: {}, writerSpillEnabled: {}, writerFlushThreshold: {}, expectedWriterReclaimEnabled: {}, expectedWriterReclaimed: {}",
           format,
           sortWriter,
           writerSpillEnabled,
-          succinctBytes(minWriterFlushThreshold),
+          succinctBytes(writerFlushThreshold),
           expectedWriterReclaimEnabled,
           expectedWriterReclaimed);
     }
   } testSettings[] = {
-    {dwio::common::FileFormat::DWRF, true, true, 1 << 30, false, false},
-    {dwio::common::FileFormat::DWRF, true, true, 1, false, false},
+    {dwio::common::FileFormat::DWRF, true, true, 1 << 30, true, true},
+    {dwio::common::FileFormat::DWRF, true, true, 1, true, true},
     {dwio::common::FileFormat::DWRF, true, false, 1 << 30, false, false},
     {dwio::common::FileFormat::DWRF, true, false, 1, false, false},
     {dwio::common::FileFormat::DWRF, false, true, 1 << 30, true, false},
@@ -571,12 +596,7 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
   };
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-
-    std::unordered_map<std::string, std::string> connectorConfig;
-    connectorConfig.emplace(
-        "file_writer_flush_threshold_bytes",
-        folly::to<std::string>(testData.minWriterFlushThreshold));
-    setConnectorConfig(connectorConfig);
+    setupMemoryPools();
 
     const auto outputDirectory = TempDirectoryPath::create();
     std::shared_ptr<HiveBucketProperty> bucketProperty;
@@ -592,12 +612,17 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
               std::make_shared<HiveSortingColumn>(
                   "c1", core::SortOrder{false, false})});
     }
+    std::shared_ptr<TempDirectoryPath> spillDirectory;
+    std::unique_ptr<SpillConfig> spillConfig;
     if (testData.writerSpillEnabled) {
+      spillDirectory = exec::test::TempDirectoryPath::create();
+      spillConfig =
+          getSpillConfig(spillDirectory->path, testData.writerFlushThreshold);
       auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
           opPool_.get(),
           connectorPool_.get(),
           connectorConfig_.get(),
-          spillConfig_.get(),
+          spillConfig.get(),
           nullptr,
           nullptr,
           "query.HiveDataSinkTest",
@@ -637,14 +662,19 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
     if (testData.expectedWriterReclaimed) {
       ASSERT_TRUE(root_->reclaimableBytes(reclaimableBytes));
       ASSERT_GT(reclaimableBytes, 0);
-      ASSERT_GT(root_->reclaim(1L << 30, stats), 0);
-      ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+      ASSERT_GT(root_->reclaim(256L << 20, stats), 0);
+      // We expect dwrf writer set numNonReclaimableAttempts counter.
+      ASSERT_LE(stats.numNonReclaimableAttempts, 1);
     } else {
       ASSERT_FALSE(root_->reclaimableBytes(reclaimableBytes));
       ASSERT_EQ(reclaimableBytes, 0);
-      ASSERT_EQ(root_->reclaim(1L << 30, stats), 0);
+      ASSERT_EQ(root_->reclaim(256L << 20, stats), 0);
       if (testData.expectedWriterReclaimEnabled) {
-        ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+        if (testData.sortWriter) {
+          ASSERT_GE(stats.numNonReclaimableAttempts, 1);
+        } else {
+          ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+        }
       } else {
         ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
       }
@@ -681,9 +711,9 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
           expectedWriterReclaimEnabled);
     }
   } testSettings[] = {
-      {dwio::common::FileFormat::DWRF, true, true, true, false},
+      {dwio::common::FileFormat::DWRF, true, true, true, true},
       {dwio::common::FileFormat::DWRF, true, false, true, false},
-      {dwio::common::FileFormat::DWRF, true, true, false, false},
+      {dwio::common::FileFormat::DWRF, true, true, false, true},
       {dwio::common::FileFormat::DWRF, true, false, false, false},
       {dwio::common::FileFormat::DWRF, false, true, true, true},
       {dwio::common::FileFormat::DWRF, false, false, true, false},
@@ -720,12 +750,16 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
               std::make_shared<HiveSortingColumn>(
                   "c1", core::SortOrder{false, false})});
     }
+    std::shared_ptr<TempDirectoryPath> spillDirectory;
+    std::unique_ptr<SpillConfig> spillConfig;
     if (testData.writerSpillEnabled) {
+      spillDirectory = exec::test::TempDirectoryPath::create();
+      spillConfig = getSpillConfig(spillDirectory->path, 0);
       auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
           opPool_.get(),
           connectorPool_.get(),
           connectorConfig_.get(),
-          spillConfig_.get(),
+          spillConfig.get(),
           nullptr,
           nullptr,
           "query.HiveDataSinkTest",
@@ -786,7 +820,11 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
     }
     ASSERT_EQ(root_->reclaim(1L << 30, stats), 0);
     if (testData.expectedWriterReclaimEnabled) {
-      ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+      if (testData.sortWriter) {
+        ASSERT_GE(stats.numNonReclaimableAttempts, 1);
+      } else {
+        ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+      }
     } else {
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
     }

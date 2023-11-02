@@ -237,6 +237,10 @@ Spilling
      - integer
      - 0
      - Maximum amount of memory in bytes that an order by can use before spilling. 0 means unlimited.
+   * - writer_flush_threshold_bytes
+     - integer
+     - 96MB
+     - Minimum memory footprint size required to reclaim memory from a file writer by flushing its buffered data to disk.
    * - min_spillable_reservation_pct
      - integer
      - 5
@@ -382,10 +386,6 @@ Hive Connector
      - integer
      - 128MB
      - Maximum distance in bytes between chunks to be fetched that may be coalesced into a single request.
-   * - file_writer_flush_threshold_bytes
-     - integer
-     - 96MB
-     - Minimum memory footprint size required to reclaim memory from a file writer by flushing its buffered data to disk.
 
 ``Amazon S3 Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

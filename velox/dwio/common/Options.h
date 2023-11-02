@@ -550,6 +550,7 @@ struct WriterOptions {
   TypePtr schema;
   velox::memory::MemoryPool* memoryPool;
   const velox::common::SpillConfig* spillConfig{nullptr};
+  tsan_atomic<bool>* nonReclaimableSection{nullptr};
   std::optional<velox::common::CompressionKind> compressionKind;
   std::optional<uint64_t> maxStripeSize{std::nullopt};
   std::optional<uint64_t> maxDictionaryMemory{std::nullopt};

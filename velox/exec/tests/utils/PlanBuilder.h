@@ -266,6 +266,61 @@ class PlanBuilder {
           dwio::common::FileFormat::DWRF,
       const std::vector<std::string>& aggregates = {});
 
+  /// Adds a TableWriteNode to write all input columns into a partitioned Hive
+  /// table without compression.
+  ///
+  /// @param outputDirectoryPath Path to a directory to write data to.
+  /// @param partitionBy Specifies the partition key columns.
+  /// @param fileFormat File format to use for the written data.
+  /// @param aggregates Aggregations for column statistics collection during
+  /// write.
+  PlanBuilder& tableWrite(
+      const std::string& outputDirectoryPath,
+      const std::vector<std::string>& partitionBy,
+      const dwio::common::FileFormat fileFormat =
+          dwio::common::FileFormat::DWRF,
+      const std::vector<std::string>& aggregates = {});
+
+  /// Adds a TableWriteNode to write all input columns into a non-sorted
+  /// bucketed Hive table without compression.
+  ///
+  /// @param outputDirectoryPath Path to a directory to write data to.
+  /// @param partitionBy Specifies the partition key columns.
+  /// @param bucketCount Specifies the bucket count.
+  /// @param bucketedBy Specifies the bucket by columns.
+  /// @param fileFormat File format to use for the written data.
+  /// @param aggregates Aggregations for column statistics collection during
+  /// write.
+  PlanBuilder& tableWrite(
+      const std::string& outputDirectoryPath,
+      const std::vector<std::string>& partitionBy,
+      int32_t bucketCount,
+      const std::vector<std::string>& bucketedBy,
+      const dwio::common::FileFormat fileFormat =
+          dwio::common::FileFormat::DWRF,
+      const std::vector<std::string>& aggregates = {});
+
+  /// Adds a TableWriteNode to write all input columns into a sorted bucket Hive
+  /// table without compression.
+  ///
+  /// @param outputDirectoryPath Path to a directory to write data to.
+  /// @param partitionBy Specifies the partition key columns.
+  /// @param bucketCount Specifies the bucket count.
+  /// @param bucketedBy Specifies the bucket by columns.
+  /// @param sortBy Specifies the sort by columns.
+  /// @param fileFormat File format to use for the written data.
+  /// @param aggregates Aggregations for column statistics collection during
+  /// write.
+  PlanBuilder& tableWrite(
+      const std::string& outputDirectoryPath,
+      const std::vector<std::string>& partitionBy,
+      int32_t bucketCount,
+      const std::vector<std::string>& bucketedBy,
+      const std::vector<std::string>& sortBy,
+      const dwio::common::FileFormat fileFormat =
+          dwio::common::FileFormat::DWRF,
+      const std::vector<std::string>& aggregates = {});
+
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(
       const std::shared_ptr<core::AggregationNode>& aggregationNode = nullptr);

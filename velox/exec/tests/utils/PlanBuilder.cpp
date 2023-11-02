@@ -64,6 +64,30 @@ template <TypeKind FromKind, TypeKind ToKind>
 typename TypeTraits<ToKind>::NativeType cast(const variant& v) {
   return util::Converter<ToKind, void, false>::cast(v.value<FromKind>());
 }
+
+std::shared_ptr<HiveBucketProperty> buildHiveBucketProperty(
+    const RowTypePtr rowType,
+    int32_t bucketCount,
+    const std::vector<std::string>& bucketColumns,
+    const std::vector<std::string>& sortByColumns) {
+  std::vector<TypePtr> bucketTypes;
+  bucketTypes.reserve(bucketColumns.size());
+  for (const auto& bucketColumn : bucketColumns) {
+    bucketTypes.push_back(rowType->childAt(rowType->getChildIdx(bucketColumn)));
+  }
+  std::vector<std::shared_ptr<const HiveSortingColumn>> sortedBy;
+  sortedBy.reserve(sortByColumns.size());
+  for (const auto& sortByColumn : sortByColumns) {
+    sortedBy.push_back(std::make_shared<const HiveSortingColumn>(
+        sortByColumn, core::SortOrder{false, false}));
+  }
+  return std::make_shared<HiveBucketProperty>(
+      HiveBucketProperty::Kind::kHiveCompatible,
+      bucketCount,
+      bucketColumns,
+      bucketTypes,
+      sortedBy);
+}
 } // namespace
 
 PlanBuilder& PlanBuilder::tableScan(
@@ -306,14 +330,57 @@ PlanBuilder& PlanBuilder::tableWrite(
     const std::string& outputDirectoryPath,
     const dwio::common::FileFormat fileFormat,
     const std::vector<std::string>& aggregates) {
+  return tableWrite(outputDirectoryPath, {}, 0, {}, {}, fileFormat, aggregates);
+}
+
+PlanBuilder& PlanBuilder::tableWrite(
+    const std::string& outputDirectoryPath,
+    const std::vector<std::string>& partitionBy,
+    const dwio::common::FileFormat fileFormat,
+    const std::vector<std::string>& aggregates) {
+  return tableWrite(
+      outputDirectoryPath, partitionBy, 0, {}, {}, fileFormat, aggregates);
+}
+
+PlanBuilder& PlanBuilder::tableWrite(
+    const std::string& outputDirectoryPath,
+    const std::vector<std::string>& partitionBy,
+    int32_t bucketCount,
+    const std::vector<std::string>& bucketedBy,
+    const dwio::common::FileFormat fileFormat,
+    const std::vector<std::string>& aggregates) {
+  return tableWrite(
+      outputDirectoryPath,
+      partitionBy,
+      bucketCount,
+      bucketedBy,
+      {},
+      fileFormat,
+      aggregates);
+}
+
+PlanBuilder& PlanBuilder::tableWrite(
+    const std::string& outputDirectoryPath,
+    const std::vector<std::string>& partitionBy,
+    int32_t bucketCount,
+    const std::vector<std::string>& bucketedBy,
+    const std::vector<std::string>& sortBy,
+    const dwio::common::FileFormat fileFormat,
+    const std::vector<std::string>& aggregates) {
   auto rowType = planNode_->outputType();
 
   std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
       columnHandles;
   for (auto i = 0; i < rowType->size(); ++i) {
+    const auto column = rowType->nameOf(i);
+    const bool isPartitionKey =
+        std::find(partitionBy.begin(), partitionBy.end(), column) !=
+        partitionBy.end();
     columnHandles.push_back(std::make_shared<connector::hive::HiveColumnHandle>(
-        rowType->nameOf(i),
-        connector::hive::HiveColumnHandle::ColumnType::kRegular,
+        column,
+        isPartitionKey
+            ? connector::hive::HiveColumnHandle::ColumnType::kPartitionKey
+            : connector::hive::HiveColumnHandle::ColumnType::kRegular,
         rowType->childAt(i),
         rowType->childAt(i)));
   }
@@ -322,11 +389,16 @@ PlanBuilder& PlanBuilder::tableWrite(
       outputDirectoryPath,
       outputDirectoryPath,
       connector::hive::LocationHandle::TableType::kNew);
+  std::shared_ptr<HiveBucketProperty> bucketProperty;
+  if (!partitionBy.empty() && bucketCount != 0) {
+    bucketProperty =
+        buildHiveBucketProperty(rowType, bucketCount, bucketedBy, sortBy);
+  }
   auto hiveHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
       columnHandles,
       locationHandle,
       fileFormat,
-      nullptr, // bucketProperty,
+      bucketProperty,
       common::CompressionKind_NONE);
 
   auto insertHandle =

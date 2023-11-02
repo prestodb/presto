@@ -281,6 +281,11 @@ class QueryConfig {
   static constexpr const char* kSpillableReservationGrowthPct =
       "spillable_reservation_growth_pct";
 
+  /// Minimum memory footprint size required to reclaim memory from a file
+  /// writer by flushing its buffered data to disk.
+  static constexpr const char* kWriterFlushThresholdBytes =
+      "writer_flush_threshold_bytes";
+
   /// If true, array_agg() aggregation function will ignore nulls in the input.
   static constexpr const char* kPrestoArrayAggIgnoreNulls =
       "presto.array_agg.ignore_nulls";
@@ -563,6 +568,10 @@ class QueryConfig {
 
   bool aggregationSpillAll() const {
     return get<bool>(kAggregationSpillAll, true);
+  }
+
+  uint64_t writerFlushThresholdBytes() const {
+    return get<uint64_t>(kWriterFlushThresholdBytes, 96L << 20);
   }
 
   uint64_t maxSpillFileSize() const {

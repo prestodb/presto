@@ -34,6 +34,7 @@ struct SpillConfig {
       uint8_t _startPartitionBit,
       uint8_t _joinPartitionBits,
       int32_t _maxSpillLevel,
+      uint64_t _writerFlushThresholdSize,
       int32_t _testSpillPct,
       const std::string& _compressionKind);
 
@@ -91,6 +92,10 @@ struct SpillConfig {
   /// is no limit and then some extreme large query might run out of spilling
   /// partition bits at the end.
   int32_t maxSpillLevel;
+
+  /// Minimum memory footprint size required to reclaim memory from a file
+  /// writer by flushing its buffered data to disk.
+  uint64_t writerFlushThresholdSize;
 
   /// Percentage of input batches to be spilled for testing. 0 means no
   /// spilling for test.

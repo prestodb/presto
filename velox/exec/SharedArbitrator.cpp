@@ -413,7 +413,7 @@ uint64_t SharedArbitrator::reclaim(
       }
     } catch (const std::exception& e) {
       VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "
-                           << pool->name() << ", aborting it!";
+                           << pool->name() << ", aborting it: " << e.what();
       abort(pool, std::current_exception());
       // Free up all the free capacity from the aborted pool as the associated
       // query has failed at this point.

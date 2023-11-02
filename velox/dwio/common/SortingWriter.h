@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/dwio/common/Writer.h"
+#include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/SortBuffer.h"
 
 namespace facebook::velox::dwio::common {
@@ -38,7 +39,38 @@ class SortingWriter : public Writer {
 
   void abort() override;
 
+ private:
+  class MemoryReclaimer : public exec::MemoryReclaimer {
+   public:
+    static std::unique_ptr<memory::MemoryReclaimer> create(
+        SortingWriter* writer);
+
+    bool reclaimableBytes(
+        const memory::MemoryPool& pool,
+        uint64_t& reclaimableBytes) const override;
+
+    uint64_t reclaim(
+        memory::MemoryPool* pool,
+        uint64_t targetBytes,
+        memory::MemoryReclaimer::Stats& stats) override;
+
+   private:
+    MemoryReclaimer(SortingWriter* writer)
+        : exec::MemoryReclaimer(),
+          writer_(writer),
+          canReclaim_(writer_->sortBuffer_->canSpill()) {}
+
+    SortingWriter* const writer_;
+    const bool canReclaim_;
+  };
+
+  // Sets the sort writer as closed on close or abort. The function returns true
+  // if this sort writer has already been closed.
+  bool setClose();
+
   const std::unique_ptr<Writer> outputWriter_;
+  memory::MemoryPool* const sortPool_;
+  bool closed_{false};
   std::unique_ptr<exec::SortBuffer> sortBuffer_;
 };
 

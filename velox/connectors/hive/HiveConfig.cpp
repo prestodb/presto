@@ -166,10 +166,6 @@ int32_t HiveConfig::numCacheFileHandles(const Config* config) {
   return config->get<int32_t>(kNumCacheFileHandles, 20'000);
 }
 
-uint64_t HiveConfig::fileWriterFlushThresholdBytes(const Config* config) {
-  return config->get<int32_t>(kFileWriterFlushThresholdBytes, 96L << 20);
-}
-
 uint64_t HiveConfig::getOrcWriterMaxStripeSize(
     const Config* connectorQueryCtxConfig,
     const Config* connectorPropertiesConfig) {

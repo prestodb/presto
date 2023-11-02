@@ -107,12 +107,6 @@ class HiveConfig {
   /// Maximum number of entries in the file handle cache.
   static constexpr const char* kNumCacheFileHandles = "num_cached_file_handles";
 
-  /// The memory arbitrator might flush a file write to reclaim used memory if
-  /// its buffered data size is no less than this minimum threshold. The
-  /// buffered data size is measured by a file writer's memory footprint.
-  static constexpr const char* kFileWriterFlushThresholdBytes =
-      "file_writer_flush_threshold_bytes";
-
   // TODO: Refactor and merge config and session property.
   static constexpr const char* kOrcWriterMaxStripeSize =
       "orc_optimized_writer_max_stripe_size";

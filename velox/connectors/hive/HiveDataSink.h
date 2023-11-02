@@ -353,11 +353,13 @@ struct HiveWriterInfo {
       std::shared_ptr<memory::MemoryPool> _sinkPool,
       std::shared_ptr<memory::MemoryPool> _sortPool)
       : writerParameters(std::move(parameters)),
+        nonReclaimableSectionHolder(new tsan_atomic<bool>(false)),
         writerPool(std::move(_writerPool)),
         sinkPool(std::move(_sinkPool)),
         sortPool(std::move(_sortPool)) {}
 
   const HiveWriterParameters writerParameters;
+  const std::unique_ptr<tsan_atomic<bool>> nonReclaimableSectionHolder;
   const std::shared_ptr<memory::MemoryPool> writerPool;
   const std::shared_ptr<memory::MemoryPool> sinkPool;
   const std::shared_ptr<memory::MemoryPool> sortPool;
@@ -430,8 +432,8 @@ class HiveDataSink : public DataSink {
   class WriterReclaimer : public exec::MemoryReclaimer {
    public:
     static std::unique_ptr<memory::MemoryReclaimer> create(
-        bool canReclaim,
-        uint64_t flushThresholdBytes);
+        HiveDataSink* dataSink,
+        HiveWriterInfo* writerInfo);
 
     bool reclaimableBytes(
         const memory::MemoryPool& pool,
@@ -443,13 +445,16 @@ class HiveDataSink : public DataSink {
         memory::MemoryReclaimer::Stats& stats) override;
 
    private:
-    WriterReclaimer(bool canReclaim, uint64_t flushThresholdBytes)
+    WriterReclaimer(HiveDataSink* dataSink, HiveWriterInfo* writerInfo)
         : exec::MemoryReclaimer(),
-          canReclaim_(canReclaim),
-          flushThresholdBytes_(flushThresholdBytes) {}
+          dataSink_(dataSink),
+          writerInfo_(writerInfo) {
+      VELOX_CHECK_NOT_NULL(dataSink_);
+      VELOX_CHECK_NOT_NULL(writerInfo_);
+    }
 
-    const bool canReclaim_{false};
-    const uint64_t flushThresholdBytes_;
+    HiveDataSink* const dataSink_;
+    HiveWriterInfo* const writerInfo_;
   };
 
   FOLLY_ALWAYS_INLINE bool sortWrite() const {
@@ -472,6 +477,8 @@ class HiveDataSink : public DataSink {
 
   std::shared_ptr<memory::MemoryPool> createWriterPool(
       const HiveWriterId& writerId);
+
+  void setMemoryReclaimers(HiveWriterInfo* writerInfo);
 
   // Compute the partition id and bucket id for each row in 'input'.
   void computePartitionAndBucketIds(const RowVectorPtr& input);

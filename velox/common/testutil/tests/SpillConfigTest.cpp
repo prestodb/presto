@@ -37,6 +37,7 @@ TEST(SpillConfig, spillLevel) {
       kNumPartitionsBits,
       0,
       0,
+      0,
       "none");
   struct {
     uint8_t bitOffset;
@@ -120,6 +121,7 @@ TEST(SpillConfig, spillLevelLimit) {
         testData.numBits,
         testData.maxSpillLevel,
         0,
+        0,
         "none");
 
     ASSERT_EQ(
@@ -160,6 +162,7 @@ TEST(SpillConfig, spillableReservationPercentages) {
           nullptr,
           testData.minPct,
           testData.growthPct,
+          0,
           0,
           0,
           0,
