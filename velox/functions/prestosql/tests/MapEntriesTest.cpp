@@ -162,3 +162,35 @@ TEST_F(MapEntriesTest, outputSizeIsBoundBySelectedRows) {
 
   ASSERT_EQ(results[0]->size(), 5);
 }
+
+TEST_F(MapEntriesTest, differentSizedValueKeyVectors) {
+  auto keyVector =
+      makeNullableFlatVector<int64_t>({1, 2, 3, 4, std::nullopt, std::nullopt});
+  auto valueVector = makeFlatVector<int64_t>({1, 2, 3, 4});
+
+  auto offsetBuffer = makeIndices({3, 2, 1, 0, 0, 0});
+  auto sizeBuffer = makeIndices({1, 1, 1, 1, 1, 1});
+
+  auto mapVector = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      6,
+      offsetBuffer,
+      sizeBuffer,
+      keyVector,
+      valueVector);
+
+  mapVector->validate({});
+  auto rowVector = makeRowVector({mapVector});
+
+  auto result = evaluate("map_entries(c0)", rowVector);
+
+  EXPECT_NE(result, nullptr);
+  auto elementVector = makeRowVector(
+      {makeFlatVector<int64_t>({4, 3, 2, 1, 1, 1}),
+       makeFlatVector<int64_t>({4, 3, 2, 1, 1, 1})});
+  auto arrayVector = makeArrayVector({0, 1, 2, 3, 4, 5}, elementVector);
+
+  test::assertEqualVectors(arrayVector, result);
+}

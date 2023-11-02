@@ -29,7 +29,6 @@ class MapEntriesFunction : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     auto& arg = args[0];
-
     VectorPtr localResult;
 
     // Input can be constant or flat.
@@ -71,7 +70,7 @@ class MapEntriesFunction : public exec::VectorFunction {
         context.pool(),
         outputType->childAt(0),
         BufferPtr(nullptr),
-        inputMap->mapKeys()->size(),
+        std::min(inputMap->mapKeys()->size(), inputMap->mapValues()->size()),
         std::vector<VectorPtr>{inputMap->mapKeys(), inputMap->mapValues()});
 
     return std::make_shared<ArrayVector>(
