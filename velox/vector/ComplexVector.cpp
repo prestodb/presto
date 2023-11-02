@@ -187,6 +187,9 @@ void RowVector::copy(
 
   // Copy non-null values.
   SelectivityVector nonNullRows = rows;
+  if (!toSourceRow) {
+    VELOX_CHECK_GE(source->size(), rows.end());
+  }
 
   DecodedVector decodedSource(*source);
   if (decodedSource.isIdentityMapping()) {
@@ -194,6 +197,7 @@ void RowVector::copy(
       auto rawNulls = source->rawNulls();
       rows.applyToSelected([&](auto row) {
         auto idx = toSourceRow ? toSourceRow[row] : row;
+        VELOX_DCHECK_GT(source->size(), idx);
         if (bits::isBitNull(rawNulls, idx)) {
           nonNullRows.setValid(row, false);
         }
@@ -218,6 +222,7 @@ void RowVector::copy(
     if (nulls) {
       rows.applyToSelected([&](auto row) {
         auto idx = toSourceRow ? toSourceRow[row] : row;
+        VELOX_DCHECK_GT(source->size(), idx);
         if (bits::isBitNull(nulls, idx)) {
           nonNullRows.setValid(row, false);
         }

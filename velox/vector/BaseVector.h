@@ -448,7 +448,8 @@ class BaseVector {
 
   // Sets the rows of 'this' given by 'rows' to
   // 'source.valueAt(toSourceRow ? toSourceRow[row] : row)', where
-  // 'row' iterates over 'rows'.
+  // 'row' iterates over 'rows'. All active 'row' in 'rows' must map to a valid
+  // row in the 'source'.
   virtual void copy(
       const BaseVector* source,
       const SelectivityVector& rows,

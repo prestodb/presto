@@ -150,6 +150,9 @@ void FlatVector<T>::copyValuesAndNulls(
   source = source->loadedVector();
   VELOX_CHECK_EQ(BaseVector::typeKind(), source->typeKind());
   VELOX_CHECK_GE(BaseVector::length_, rows.end());
+  if (!toSourceRow) {
+    VELOX_CHECK_GE(source->size(), rows.end());
+  }
   const uint64_t* sourceNulls = source->rawNulls();
   uint64_t* rawNulls = const_cast<uint64_t*>(BaseVector::rawNulls_);
   if (source->mayHaveNulls()) {
@@ -176,7 +179,8 @@ void FlatVector<T>::copyValuesAndNulls(
       auto* sourceValues = flatSource->template rawValues<uint64_t>();
       if (toSourceRow) {
         rows.applyToSelected([&](auto row) {
-          int32_t sourceRow = toSourceRow[row];
+          auto sourceRow = toSourceRow[row];
+          VELOX_DCHECK_GT(source->size(), sourceRow);
           bits::setBit(rawValues, row, bits::isBitSet(sourceValues, sourceRow));
         });
       } else {
@@ -188,7 +192,9 @@ void FlatVector<T>::copyValuesAndNulls(
       auto* sourceValues = flatSource->rawValues();
       if (toSourceRow) {
         rows.applyToSelected([&](auto row) {
-          rawValues_[row] = sourceValues[toSourceRow[row]];
+          auto sourceRow = toSourceRow[row];
+          VELOX_DCHECK_GT(source->size(), sourceRow);
+          rawValues_[row] = sourceValues[sourceRow];
         });
       } else {
         rows.applyToSelected(
@@ -204,6 +210,7 @@ void FlatVector<T>::copyValuesAndNulls(
         if (toSourceRow) {
           rows.applyToSelected([&](auto row) {
             auto sourceRow = toSourceRow[row];
+            VELOX_DCHECK_GT(source->size(), sourceRow);
             bits::setNull(
                 rawNulls, row, bits::isBitNull(sourceNulls, sourceRow));
           });
@@ -239,6 +246,7 @@ void FlatVector<T>::copyValuesAndNulls(
     auto sourceVector = source->asUnchecked<SimpleVector<T>>();
     rows.applyToSelected([&](auto row) {
       auto sourceRow = toSourceRow ? toSourceRow[row] : row;
+      VELOX_DCHECK_GT(source->size(), sourceRow);
       if (!source->isNullAt(sourceRow)) {
         if constexpr (std::is_same_v<T, bool>) {
           auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);

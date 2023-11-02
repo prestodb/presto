@@ -700,36 +700,21 @@ void BaseVector::copy(
     const BaseVector* source,
     const SelectivityVector& rows,
     const vector_size_t* toSourceRow) {
-  // Check if there are rows that do not exist in 'source'. Remove these from
-  // 'ranges'.
-  // TODO Update the callers and remove this logic.
-
+  if (!rows.hasSelections()) {
+    return;
+  }
   std::vector<CopyRange> ranges;
   if (toSourceRow == nullptr) {
-    if (source->size() < rows.end()) {
-      SelectivityVector trimmedRows = rows;
-      trimmedRows.setValidRange(source->size(), rows.end(), false);
-      trimmedRows.updateBounds();
-
-      ranges = toCopyRanges(trimmedRows);
-    } else {
-      ranges = toCopyRanges(rows);
-    }
+    VELOX_CHECK_GE(source->size(), rows.end());
+    ranges = toCopyRanges(rows);
   } else {
     ranges.reserve(rows.end());
     rows.applyToSelected([&](vector_size_t row) {
       const auto sourceRow = toSourceRow[row];
-      if (sourceRow >= source->size()) {
-        return;
-      }
+      VELOX_DCHECK_GT(source->size(), sourceRow);
       ranges.push_back({sourceRow, row, 1});
     });
   }
-
-  if (ranges.empty()) {
-    return;
-  }
-
   copyRanges(source, ranges);
 }
 
