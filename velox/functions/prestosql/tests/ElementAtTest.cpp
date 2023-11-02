@@ -83,17 +83,16 @@ class ElementAtTest : public FunctionBaseTest {
 
   // Create a simple vector containing a single map ([10=>10, 11=>11, 12=>12]).
   MapVectorPtr getSimpleMapVector() {
-    auto keyAt = [](auto idx) { return idx + 10; };
-    auto sizeAt = [](auto) { return 3; };
-    auto mapValueAt = [](auto idx) { return idx + 10; };
-    return makeMapVector<int64_t, int64_t>(1, sizeAt, keyAt, mapValueAt);
+    return makeMapVectorFromJson<int64_t, int64_t>({
+        "{10: 10, 11: 11, 12: 12}",
+    });
   }
 };
 
 template <>
 void ElementAtTest::testVariableInputMap<StringView>() {
   auto toStr = [](size_t input) {
-    return StringView(folly::sformat("str{}", input).c_str());
+    return StringView(fmt::format("str{}", input).c_str());
   };
 
   auto indicesVector = makeFlatVector<StringView>(
@@ -645,7 +644,7 @@ TEST_F(ElementAtTest, constantInputMap) {
 
     // String map value type.
     auto valueAt2 = [](vector_size_t idx) {
-      return StringView(folly::sformat("str{}", idx % 5).c_str());
+      return StringView(fmt::format("str{}", idx % 5).c_str());
     };
     auto expectedValueAt2 = [](vector_size_t /* row */) {
       return StringView("str3");
@@ -716,62 +715,119 @@ TEST_F(ElementAtTest, mapWithComplexTypeAsKey) {
   searchVector = makeRowVector(
       {makeFlatVector<int64_t>({1, 3, 7}),
        makeFlatVector<StringView>({"a", "c", "f"})});
-  test::assertEqualVectors(
-      expected,
-      evaluate<SimpleVector<int64_t>>(
-          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+
+  auto elementAt = [&](auto& map, auto& search) {
+    return evaluate("element_at(C0, C1)", makeRowVector({map, search}));
+  };
+
+  test::assertEqualVectors(expected, elementAt(mapVector, searchVector));
 
   // Constant search vector.
   searchVector = makeConstantRow(
       ROW({BIGINT(), VARCHAR()}), variant::row({(int64_t)3, "c"}), 3);
   test::assertEqualVectors(
       makeNullableFlatVector<int64_t>({std::nullopt, 3, std::nullopt}),
-      evaluate<SimpleVector<int64_t>>(
-          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+      elementAt(mapVector, searchVector));
 
   // Map of Arrays:
   // {ARRAY[1, 2, 3] -> 1, ARRAY[333] -> 2}
   // {ARRAY[123, 456] -> 3}
   // {ARRAY[66, 77] -> 4, ARRAY[88] -> 5, ARRAY[99] -> 6}
-  keyVector = makeArrayVector<int64_t>(
-      {{1, 2, 3}, {333}, {123, 456}, {66, 77}, {88}, {99}});
+  keyVector = makeArrayVectorFromJson<int64_t>({
+      "[1, 2, 3]",
+      "[333]",
+      "[123, 456]",
+      "[66, 77]",
+      "[88]",
+      "[99]",
+  });
   mapVector = makeMapVector({0, 2, 3}, keyVector, valueVector);
-  searchVector = makeArrayVector<int64_t>({{1, 2, 3}, {123, 456}, {31415926}});
-  test::assertEqualVectors(
-      expected,
-      evaluate<SimpleVector<int64_t>>(
-          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+  searchVector = makeArrayVectorFromJson<int64_t>({
+      "[1, 2, 3]",
+      "[123, 456]",
+      "[31415926]",
+  });
+  test::assertEqualVectors(expected, elementAt(mapVector, searchVector));
 
   // Map of Maps:
   // {MAP(1->"a", 2->"b") -> 1, MAP(3->"c") -> 2}
   // {MAP(44->"e", 55->"f") -> 3}
   // {MAP(666->"w", 777->"x") -> 4, MAP(888->"y") -> 5, MAP(999->"z") -> 6}
-  keyVector = makeMapVector<int64_t, StringView>(
-      {{{1, "a"_sv}, {2, "b"_sv}},
-       {{3, "c"_sv}},
-       {{44, "e"_sv}, {55, "f"_sv}},
-       {{666, "w"_sv}, {777, "x"_sv}},
-       {{888, "y"_sv}},
-       {{999, "z"_sv}}});
+  keyVector = makeMapVectorFromJson<int64_t, std::string>({
+      "{1: \"a\", 2: \"b\"}",
+      "{3: \"c\"}",
+      "{44: \"e\", 55: \"f\"}",
+      "{666: \"w\", 777: \"x\"}",
+      "{888: \"y\"}",
+      "{999: \"z\"}",
+  });
   mapVector = makeMapVector({0, 2, 3}, keyVector, valueVector);
-  searchVector = makeMapVector<int64_t, StringView>(
-      {{{1, "a"_sv}, {2, "b"_sv}},
-       {{44, "e"_sv}, {55, "f"_sv}},
-       {{77777, "xyz"_sv}}});
-  test::assertEqualVectors(
-      expected,
-      evaluate<SimpleVector<int64_t>>(
-          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+
+  searchVector = makeMapVectorFromJson<int64_t, std::string>({
+      "{1: \"a\", 2: \"b\"}",
+      "{44: \"e\", 55: \"f\"}",
+      "{77777: \"xyz\"}",
+  });
+  test::assertEqualVectors(expected, elementAt(mapVector, searchVector));
 
   // The map entry order doesn't matter.
   searchVector = makeMapVector<int64_t, StringView>(
       {{{2, "b"_sv}, {1, "a"_sv}},
        {{55, "f"_sv}, {44, "e"_sv}},
        {{77777, "xyz"_sv}}});
-  test::assertEqualVectors(
-      expected,
-      evaluate<SimpleVector<int64_t>>(
-          "element_at(C0, C1)", makeRowVector({mapVector, searchVector})));
+  test::assertEqualVectors(expected, elementAt(mapVector, searchVector));
+}
+
+// Test fast path for the case of a single map.
+TEST_F(ElementAtTest, singleMapWithComplexTypeAsKey) {
+  auto keys = makeArrayVectorFromJson<int64_t>({
+      "[1, 2, 3]",
+      "[4, 5]",
+      "[]",
+      "[6]",
+  });
+  auto values = makeFlatVector<std::string>({"a", "b", "c", "d"});
+
+  auto singleMapVector = makeMapVector({0}, keys, values);
+  auto mapVector = BaseVector::wrapInConstant(7, 0, singleMapVector);
+
+  auto search = makeArrayVectorFromJson<int64_t>({
+      "[1, 2, 3]",
+      "[1, 2]",
+      "[4, 5]",
+      "null",
+      "[]",
+      "[null]",
+      "[6]",
+  });
+
+  auto expected = makeNullableFlatVector<std::string>(
+      {"a", std::nullopt, "b", std::nullopt, "c", std::nullopt, "d"});
+
+  auto result =
+      evaluate("element_at(C0, C1)", makeRowVector({mapVector, search}));
+  test::assertEqualVectors(expected, result);
+
+  mapVector =
+      wrapInDictionary(makeIndices({0, 0, 0, 0, 0, 0, 0}), singleMapVector);
+  result = evaluate("element_at(C0, C1)", makeRowVector({mapVector, search}));
+  test::assertEqualVectors(expected, result);
+
+  // Use encoded keys.
+  auto encodedKeys = wrapInDictionary(makeIndicesInReverse(4), keys);
+  singleMapVector = makeMapVector({0}, encodedKeys, values);
+  mapVector = BaseVector::wrapInConstant(7, 0, singleMapVector);
+
+  expected = makeNullableFlatVector<std::string>(
+      {"d", std::nullopt, "c", std::nullopt, "b", std::nullopt, "a"});
+
+  result = evaluate("element_at(C0, C1)", makeRowVector({mapVector, search}));
+  test::assertEqualVectors(expected, result);
+
+  mapVector =
+      wrapInDictionary(makeIndices({0, 0, 0, 0, 0, 0, 0}), singleMapVector);
+  result = evaluate("element_at(C0, C1)", makeRowVector({mapVector, search}));
+  test::assertEqualVectors(expected, result);
 }
 
 TEST_F(ElementAtTest, variableInputArray) {
@@ -865,7 +921,7 @@ TEST_F(ElementAtTest, errorStatesArray) {
         return 1 + row % 7;
       });
 
-  // Make arrays of 1-based sequences of variying lengths: [1, 2], [1, 2, 3],
+  // Make arrays of 1-based sequences of varying lengths: [1, 2], [1, 2, 3],
   // [1, 2, 3, 4], etc.
   auto sizeAt = [](vector_size_t row) { return 2 + row % 7; };
   auto expectedValueAt = [](vector_size_t row) { return 1 + row % 7; };

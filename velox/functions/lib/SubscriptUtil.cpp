@@ -165,6 +165,19 @@ VectorPtr applyMapTyped(
       nullsBuilder.build(), indices, rows.end(), baseMap->mapValues());
 }
 
+// A flat vector of map keys, an index into that vector and an index into
+// the original map keys vector that may have encodings.
+struct MapKey {
+  const BaseVector* baseVector;
+  const vector_size_t baseIndex;
+  const vector_size_t index;
+
+  bool operator<(const MapKey& other) const {
+    return baseVector->compare(other.baseVector, baseIndex, other.baseIndex) <
+        0;
+  }
+};
+
 VectorPtr applyMapComplexType(
     const SelectivityVector& rows,
     const VectorPtr& mapArg,
@@ -203,29 +216,66 @@ VectorPtr applyMapComplexType(
   auto rawSizes = baseMap->rawSizes();
   auto rawOffsets = baseMap->rawOffsets();
 
-  // Search the key in each row.
-  rows.applyToSelected([&](vector_size_t row) {
-    size_t mapIndex = mapIndices[row];
-    size_t size = rawSizes[mapIndex];
-    size_t offset = rawOffsets[mapIndex];
+  // Fast path for the case of a single map. It may be constant or dictionary
+  // encoded. Sort map keys, then use binary search.
+  if (baseMap->size() == 1) {
+    auto sortedKeyIndices = baseMap->sortedKeyIndices(0);
 
-    bool found = false;
-    auto searchIndex = searchIndices[row];
-    for (auto i = 0; i < size; i++) {
-      if (mapKeysBase->equalValueAt(
-              searchBase, mapKeysIndices[offset + i], searchIndex)) {
-        rawIndices[row] = offset + i;
-        found = true;
-        break;
-      }
+    std::vector<MapKey> sortedKeys;
+    sortedKeys.reserve(sortedKeyIndices.size());
+    for (const auto& index : sortedKeyIndices) {
+      sortedKeys.emplace_back(
+          MapKey{mapKeysBase, mapKeysIndices[index], index});
     }
 
-    if (!found) {
-      nullsBuilder.setNull(row);
-    };
-  });
+    rows.applyToSelected([&](vector_size_t row) {
+      VELOX_CHECK_EQ(0, mapIndices[row]);
 
-  // Subscript into empty maps always returns NULLs.
+      bool found = false;
+      auto searchIndex = searchIndices[row];
+
+      auto it = std::lower_bound(
+          sortedKeys.begin(),
+          sortedKeys.end(),
+          MapKey{searchBase, searchIndex, row});
+
+      if (it != sortedKeys.end()) {
+        if (mapKeysBase->equalValueAt(searchBase, it->baseIndex, searchIndex)) {
+          rawIndices[row] = it->index;
+          found = true;
+        }
+      }
+
+      if (!found) {
+        nullsBuilder.setNull(row);
+      }
+    });
+  } else {
+    // Search the key in each row.
+    rows.applyToSelected([&](vector_size_t row) {
+      size_t mapIndex = mapIndices[row];
+      size_t size = rawSizes[mapIndex];
+      size_t offset = rawOffsets[mapIndex];
+
+      bool found = false;
+      auto searchIndex = searchIndices[row];
+      for (auto i = 0; i < size; i++) {
+        if (mapKeysBase->equalValueAt(
+                searchBase, mapKeysIndices[offset + i], searchIndex)) {
+          rawIndices[row] = offset + i;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        nullsBuilder.setNull(row);
+      }
+    });
+  }
+
+  // Subscript into empty maps always returns NULLs. Check added at the end to
+  // ensure user error checks for indices are not skipped.
   if (baseMap->mapValues()->size() == 0) {
     return BaseVector::createNullConstant(
         baseMap->mapValues()->type(), rows.end(), context.pool());

@@ -101,7 +101,7 @@ class LookupTable : public LookupTableBase {
 
 class MapSubscript {
  public:
-  explicit MapSubscript(bool allowCaching) : allowcaching_(allowCaching) {}
+  explicit MapSubscript(bool allowCaching) : allowCaching_(allowCaching) {}
 
   VectorPtr applyMap(
       const SelectivityVector& rows,
@@ -109,7 +109,7 @@ class MapSubscript {
       exec::EvalCtx& context) const;
 
   bool cachingEnabled() const {
-    return allowcaching_;
+    return allowCaching_;
   }
 
   auto& lookupTable() const {
@@ -122,14 +122,14 @@ class MapSubscript {
 
  private:
   bool shouldTriggerCaching(const VectorPtr& mapArg) const {
-    if (!allowcaching_) {
+    if (!allowCaching_) {
       return false;
     }
 
     if (!mapArg->type()->childAt(0)->isPrimitiveType() &&
         !!mapArg->type()->childAt(0)->isBoolean()) {
       // Disable caching if the key type is not primitive or is boolean.
-      allowcaching_ = false;
+      allowCaching_ = false;
       return false;
     }
 
@@ -143,7 +143,7 @@ class MapSubscript {
     }
 
     // Disable caching forever.
-    allowcaching_ = false;
+    allowCaching_ = false;
     lookupTable_.reset();
     firstSeenMap_.reset();
     return false;
@@ -151,7 +151,7 @@ class MapSubscript {
 
   // When true the function is allowed to cache a materialized version of the
   // processed map.
-  mutable bool allowcaching_;
+  mutable bool allowCaching_;
 
   // This is used to check if the same base map is being passed over and over
   // in the function. A shared_ptr is used to guarantee that if the map is
@@ -181,8 +181,8 @@ template <
     bool indexStartsAtOne>
 class SubscriptImpl : public exec::Subscript {
  public:
-  explicit SubscriptImpl(bool allowcaching)
-      : mapSubscript_(MapSubscript(allowcaching)) {}
+  explicit SubscriptImpl(bool allowCaching)
+      : mapSubscript_(MapSubscript(allowCaching)) {}
 
   void apply(
       const SelectivityVector& rows,
