@@ -264,9 +264,43 @@ Task::Task(
       bufferManager_(OutputBufferManager::getInstance()) {}
 
 Task::~Task() {
+  // TODO(spershin): Temporary code designed to reveal what causes SIGABRT in
+  // jemalloc when destroying some Tasks.
+  std::string clearStage;
+  facebook::velox::process::ThreadDebugInfo debugInfoForTask{
+      queryCtx_->queryId(), taskId_, [&]() {
+        LOG(ERROR) << "Task::~Task(" << taskId_
+                   << "), failure during clearing stage: " << clearStage;
+      }};
+  facebook::velox::process::ScopedThreadDebugInfo scopedInfo(debugInfoForTask);
+
   TestValue::adjust("facebook::velox::exec::Task::~Task", this);
 
+  clearStage = "removeSpillDirectoryIfExists";
   removeSpillDirectoryIfExists();
+
+  // TODO(spershin): Temporary code designed to reveal what causes SIGABRT in
+  // jemalloc when destroying some Tasks.
+#define CLEAR(_action_)   \
+  clearStage = #_action_; \
+  _action_;
+  CLEAR(threadFinishPromises_.clear());
+  CLEAR(splitGroupStates_.clear());
+  CLEAR(taskStats_ = TaskStats());
+  CLEAR(stateChangePromises_.clear());
+  CLEAR(taskCompletionPromises_.clear());
+  CLEAR(splitsStates_.clear());
+  CLEAR(drivers_.clear());
+  CLEAR(driverFactories_.clear());
+  CLEAR(onError_ = [](std::exception_ptr) {});
+  CLEAR(exchangeClientByPlanNode_.clear());
+  CLEAR(exchangeClients_.clear());
+  CLEAR(exception_ = nullptr);
+  CLEAR(nodePools_.clear());
+  CLEAR(childPools_.clear());
+  CLEAR(pool_.reset());
+  CLEAR(planFragment_ = core::PlanFragment());
+  clearStage = "exiting ~Task()";
 }
 
 uint64_t Task::timeSinceStartMsLocked() const {
