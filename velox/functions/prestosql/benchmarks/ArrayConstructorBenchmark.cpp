@@ -28,47 +28,68 @@ int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
 
   functions::prestosql::registerArrayFunctions();
+  auto anotherPool = memory::addDefaultLeafMemoryPool("bm");
 
   ExpressionBenchmarkBuilder benchmarkBuilder;
 
   auto* pool = benchmarkBuilder.pool();
   auto& vm = benchmarkBuilder.vectorMaker();
 
-  auto createSet =
-      [&](const TypePtr& type, bool withNulls, const VectorPtr& constantInput) {
-        VectorFuzzer::Options options;
-        options.vectorSize = 1'000;
-        options.nullRatio = withNulls ? 0.2 : 0.0;
+  auto createSet = [&](const TypePtr& type,
+                       bool withNulls,
+                       const VectorPtr& constantInput,
+                       const std::string& suffix = "") {
+    VectorFuzzer::Options options;
+    options.vectorSize = 1'000;
+    options.nullRatio = withNulls ? 0.2 : 0.0;
 
-        VectorFuzzer fuzzer(options, pool);
-        std::vector<VectorPtr> columns;
-        columns.push_back(fuzzer.fuzzFlat(type));
-        columns.push_back(fuzzer.fuzzFlat(type));
-        columns.push_back(fuzzer.fuzzFlat(type));
-        columns.push_back(
-            BaseVector::createNullConstant(type, options.vectorSize, pool));
-        columns.push_back(
-            BaseVector::wrapInConstant(options.vectorSize, 0, constantInput));
+    VectorFuzzer fuzzer(options, pool);
+    std::vector<VectorPtr> columns;
+    columns.push_back(fuzzer.fuzzFlat(type));
+    columns.push_back(fuzzer.fuzzFlat(type));
+    columns.push_back(fuzzer.fuzzFlat(type));
+    columns.push_back(
+        BaseVector::createNullConstant(type, options.vectorSize, pool));
+    columns.push_back(
+        BaseVector::wrapInConstant(options.vectorSize, 0, constantInput));
 
-        auto input = vm.rowVector({"c0", "c1", "c2", "n", "c"}, columns);
+    auto input = vm.rowVector({"c0", "c1", "c2", "n", "c"}, columns);
 
-        benchmarkBuilder
-            .addBenchmarkSet(
-                fmt::format(
-                    "array_constructor_{}_{}",
-                    mapTypeKindToName(type->kind()),
-                    withNulls ? "nulls" : "nullfree"),
-                input)
-            .addExpression("1", "array_constructor(c0)")
-            .addExpression("2", "array_constructor(c0, c1)")
-            .addExpression("3", "array_constructor(c0, c1, c2)")
-            .addExpression("2_null", "array_constructor(c0, c1, n)")
-            .addExpression("2_const", "array_constructor(c0, c1, c)");
-      };
+    benchmarkBuilder
+        .addBenchmarkSet(
+            fmt::format(
+                "array_constructor_{}_{}{}",
+                mapTypeKindToName(type->kind()),
+                withNulls ? "nulls" : "nullfree",
+                suffix),
+            input)
+        .addExpression("1", "array_constructor(c0)")
+        .addExpression("2", "array_constructor(c0, c1)")
+        .addExpression("3", "array_constructor(c0, c1, c2)")
+        .addExpression("2_null", "array_constructor(c0, c1, n)")
+        .addExpression("2_const", "array_constructor(c0, c1, c)");
+  };
 
   auto constantInteger = BaseVector::createConstant(INTEGER(), 11, 1, pool);
   createSet(INTEGER(), true, constantInteger);
   createSet(INTEGER(), false, constantInteger);
+
+  {
+    auto constantString =
+        BaseVector::createConstant(VARCHAR(), std::string(20, 'x'), 1, pool);
+    createSet(VARCHAR(), true, constantString);
+    createSet(VARCHAR(), false, constantString);
+  }
+
+  pool = anotherPool.get();
+  {
+    auto constantString =
+        BaseVector::createConstant(VARCHAR(), std::string(20, 'x'), 1, pool);
+    createSet(VARCHAR(), true, constantString, "_dp");
+    createSet(VARCHAR(), false, constantString, "_dp");
+  }
+
+  pool = benchmarkBuilder.pool();
 
   auto constantRow = vm.rowVector({
       BaseVector::createConstant(INTEGER(), 11, 1, pool),

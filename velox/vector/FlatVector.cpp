@@ -281,14 +281,44 @@ void FlatVector<StringView>::copy(
     copyValuesAndNulls(source, rows, toSourceRow);
     acquireSharedStringBuffers(source);
   } else {
+    DecodedVector decoded(*source);
+    uint64_t* rawNulls = const_cast<uint64_t*>(BaseVector::rawNulls_);
+    if (decoded.mayHaveNulls()) {
+      rawNulls = BaseVector::mutableRawNulls();
+    }
+
+    size_t totalBytes = 0;
     rows.applyToSelected([&](vector_size_t row) {
-      auto sourceRow = toSourceRow ? toSourceRow[row] : row;
-      if (source->isNullAt(sourceRow)) {
-        setNull(row, true);
+      const auto sourceRow = toSourceRow ? toSourceRow[row] : row;
+      if (decoded.isNullAt(sourceRow)) {
+        bits::setNull(rawNulls, row);
       } else {
-        set(row, leaf->valueAt(source->wrappedIndex(sourceRow)));
+        if (rawNulls) {
+          bits::clearNull(rawNulls, row);
+        }
+        auto v = decoded.valueAt<StringView>(sourceRow);
+        if (v.isInline()) {
+          rawValues_[row] = v;
+        } else {
+          totalBytes += v.size();
+        }
       }
     });
+
+    if (totalBytes > 0) {
+      auto* buffer = getRawStringBufferWithSpace(totalBytes);
+      rows.applyToSelected([&](vector_size_t row) {
+        const auto sourceRow = toSourceRow ? toSourceRow[row] : row;
+        if (!decoded.isNullAt(sourceRow)) {
+          auto v = decoded.valueAt<StringView>(sourceRow);
+          if (!v.isInline()) {
+            memcpy(buffer, v.data(), v.size());
+            rawValues_[row] = StringView(buffer, v.size());
+            buffer += v.size();
+          }
+        }
+      });
+    }
   }
 
   if (auto stringVector = source->as<SimpleVector<StringView>>()) {
