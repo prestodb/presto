@@ -184,9 +184,11 @@ TEST_F(TopNRowNumberTest, manyPartitions) {
                   size,
                   [](auto row) { return (size - row) * 10; },
                   [](auto row) { return row == 123; }),
-              // Partitioning key.
+              // Partitioning key. Make sure to spread rows from the same
+              // partition across multiple batches to trigger de-dup logic when
+              // reading back spilled data.
               makeFlatVector<int64_t>(
-                  size, [](auto row) { return row / 2; }, nullEvery(7)),
+                  size, [](auto row) { return row % 5'000; }, nullEvery(7)),
           }),
       10);
 
@@ -194,7 +196,7 @@ TEST_F(TopNRowNumberTest, manyPartitions) {
 
   auto spillDirectory = exec::test::TempDirectoryPath::create();
 
-  auto testLimit = [&](auto limit) {
+  auto testLimit = [&](auto limit, size_t outputBatchBytes = 1024) {
     SCOPED_TRACE(fmt::format("Limit: {}", limit));
     core::PlanNodeId topNRowNumberId;
     auto plan = PlanBuilder()
@@ -212,7 +214,9 @@ TEST_F(TopNRowNumberTest, manyPartitions) {
     // Spilling.
     auto task =
         AssertQueryBuilder(plan, duckDbQueryRunner_)
-            .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
+            .config(
+                core::QueryConfig::kPreferredOutputBatchBytes,
+                fmt::format("{}", outputBatchBytes))
             .config(core::QueryConfig::kTestingSpillPct, "100")
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kTopNRowNumberSpillEnabled, "true")
@@ -231,6 +235,8 @@ TEST_F(TopNRowNumberTest, manyPartitions) {
   testLimit(1);
   testLimit(2);
   testLimit(100);
+
+  testLimit(1, 1);
 }
 
 TEST_F(TopNRowNumberTest, abandonPartialEarly) {

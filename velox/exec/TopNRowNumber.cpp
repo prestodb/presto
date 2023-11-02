@@ -524,6 +524,9 @@ void TopNRowNumber::setupNextOutput(
     }
     next->pop();
   }
+
+  // This partition is the last partition.
+  nextRowNumber_ = 0;
 }
 
 RowVectorPtr TopNRowNumber::getOutputFromSpill() {
