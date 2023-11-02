@@ -70,7 +70,7 @@ velox-submodule:		#: Check out code for velox submodule
 submodules: velox-submodule
 
 conda-install-deps: submodules
-	PRESTO_CONDA_ENV_NAME=$(CONDA_ENV_NAME) PRESTO_CONDA_INSTALL_DIR=$(CONDA_INSTALL_DIR) ./scripts/setup-conda.sh
+	PRESTO_CONDA_ENV_NAME=$(CONDA_ENV_NAME) PRESTO_CONDA_INSTALL_DIR=$(CONDA_INSTALL_DIR) NUM_THREADS=$(NUM_THREADS) ./scripts/setup-conda.sh
 
 # -DPRESTO_ENABLE_PARQUET=ON doesn't work on Macs:
 # https://github.com/prestodb/presto/issues/20986
