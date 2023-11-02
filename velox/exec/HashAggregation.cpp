@@ -414,6 +414,14 @@ RowVectorPtr HashAggregation::getOutput() {
     if (!newDistincts_) {
       if (noMoreInput_) {
         finished_ = true;
+        if (auto numRows = groupingSet_->numDefaultGlobalGroupingSetRows()) {
+          prepareOutput(numRows.value());
+          if (groupingSet_->getDefaultGlobalGroupingSetOutput(
+                  resultIterator_, output_)) {
+            numOutputRows_ += output_->size();
+            return output_;
+          }
+        }
       }
       return nullptr;
     }

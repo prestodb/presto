@@ -1239,6 +1239,28 @@ TEST_F(AggregationTest, groupingSets) {
       plan,
       "SELECT k1, k2, count(1), sum(a), max(b) FROM tmp GROUP BY GROUPING SETS ((k1), (k2))");
 
+  // Distinct aggregations.
+  plan = PlanBuilder()
+             .values({data})
+             .groupId({"k1", "k2"}, {{"k1"}, {"k2"}}, {})
+             .singleAggregation({"k1", "k2", "group_id"}, {})
+             .project({"k1", "k2"})
+             .planNode();
+
+  assertQuery(
+      plan, "SELECT k1, k2 FROM tmp GROUP BY GROUPING SETS ((k1), (k2))");
+
+  // Distinct aggregations with global grouping sets.
+  plan = PlanBuilder()
+             .values({data})
+             .groupId({"k1", "k2"}, {{"k1"}, {"k2"}, {}}, {})
+             .singleAggregation({"k1", "k2", "group_id"}, {})
+             .project({"k1", "k2"})
+             .planNode();
+
+  assertQuery(
+      plan, "SELECT k1, k2 FROM tmp GROUP BY GROUPING SETS ((k1), (k2), ())");
+
   // Compute a subset of aggregates per grouping set by using masks based on
   // group_id column.
   plan = PlanBuilder()
@@ -1430,6 +1452,20 @@ TEST_F(AggregationTest, groupingSetsEmptyInput) {
       plan,
       "SELECT count(c2) as count_c2 FROM tmp WHERE c1 < 0 GROUP BY GROUPING SETS ((c1), ())");
 
+  // Distinct aggregations with GROUPING SETS.
+  plan = PlanBuilder()
+             .values({data})
+             .filter("c1 < 0")
+             .groupId({"c1"}, {{"c1"}, {}}, {})
+             .partialAggregation({"c1", "group_id"}, {}, {})
+             .finalAggregation()
+             .project({"c1"})
+             .planNode();
+
+  assertQuery(
+      plan,
+      "SELECT c1 FROM tmp WHERE c1 < 0 GROUP BY GROUPING SETS ((c1), ())");
+
   plan =
       PlanBuilder()
           .values({data})
@@ -1442,6 +1478,20 @@ TEST_F(AggregationTest, groupingSetsEmptyInput) {
           .planNode();
 
   assertQuery(plan, makeRowVector({makeFlatVector<int64_t>({0, 0})}));
+
+  // Distinct aggregations over empty input with global GROUPING SETs.
+  plan = PlanBuilder()
+             .values({data})
+             .filter("c1 < 0")
+             .groupId({"c1"}, {{}, {}}, {})
+             .singleAggregation({"c1", "group_id"}, {}, {})
+             .planNode();
+
+  assertQuery(
+      plan,
+      makeRowVector(
+          {makeNullableFlatVector<int64_t>({std::nullopt, std::nullopt}),
+           makeFlatVector<int64_t>({0, 1})}));
 }
 
 TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {

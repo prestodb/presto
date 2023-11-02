@@ -603,6 +603,8 @@ bool GroupingSet::getGlobalAggregationOutput(
 bool GroupingSet::getDefaultGlobalGroupingSetOutput(
     RowContainerIterator& iterator,
     RowVectorPtr& result) {
+  VELOX_CHECK(hasDefaultGlobalGroupingSetOutput());
+
   if (iterator.allocationIndex != 0) {
     return false;
   }
@@ -718,9 +720,7 @@ bool GroupingSet::getOutput(
     return getGlobalAggregationOutput(iterator, result);
   }
 
-  bool defaultGlobalGroupingSetOutput = noMoreInput_ && numInputRows_ == 0 &&
-      !globalGroupingSets_.empty() && (isRawInput_ || isPartial_);
-  if (defaultGlobalGroupingSetOutput) {
+  if (hasDefaultGlobalGroupingSetOutput()) {
     return getDefaultGlobalGroupingSetOutput(iterator, result);
   }
 

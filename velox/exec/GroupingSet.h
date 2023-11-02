@@ -91,6 +91,14 @@ class GroupingSet {
     return table_ ? table_->numDistinct() : 0;
   }
 
+  /// Returns number of global grouping sets rows if there is default output.
+  std::optional<vector_size_t> numDefaultGlobalGroupingSetRows() const {
+    if (hasDefaultGlobalGroupingSetOutput()) {
+      return globalGroupingSets_.size();
+    }
+    return std::nullopt;
+  }
+
   const HashLookup& hashLookup() const;
 
   /// Spills content until under 'targetRows' and under 'targetBytes'
@@ -135,6 +143,14 @@ class GroupingSet {
   /// single input row. Passes grouping keys through.
   void toIntermediate(const RowVectorPtr& input, RowVectorPtr& result);
 
+  /// Returns default global grouping sets output if there are no input rows.
+  /// The default global grouping set output is a single row per global grouping
+  /// set with the groupId key and the default aggregate value.
+  /// This function can also be used with distinct aggregations.
+  bool getDefaultGlobalGroupingSetOutput(
+      RowContainerIterator& iterator,
+      RowVectorPtr& result);
+
   memory::MemoryPool& testingPool() const {
     return pool_;
   }
@@ -157,6 +173,13 @@ class GroupingSet {
   bool getGlobalAggregationOutput(
       RowContainerIterator& iterator,
       RowVectorPtr& result);
+
+  // If there are global grouping sets, then returns if they have default
+  // output incase no input rows were received.
+  bool hasDefaultGlobalGroupingSetOutput() const {
+    return noMoreInput_ && numInputRows_ == 0 && !globalGroupingSets_.empty() &&
+        isRawInput_;
+  }
 
   void createHashTable();
 
@@ -226,10 +249,6 @@ class GroupingSet {
   // 'excludeToIntermediate' is true, skip the functions that support
   // 'toIntermediate'.
   std::vector<Accumulator> accumulators(bool excludeToIntermediate);
-
-  bool getDefaultGlobalGroupingSetOutput(
-      RowContainerIterator& iterator,
-      RowVectorPtr& result);
 
   std::vector<column_index_t> keyChannels_;
 
