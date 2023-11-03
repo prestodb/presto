@@ -142,7 +142,7 @@ public class HistoryBasedPlanStatisticsCalculator
 
     private PlanNodeStatsEstimate getStatistics(PlanNode planNode, Session session, Lookup lookup, PlanNodeStatsEstimate delegateStats)
     {
-        if (!useHistoryBasedPlanStatisticsEnabled(session) || historyBasedStatisticsCacheManager.loadHistoryFailed(session.getQueryId())) {
+        if (!useHistoryBasedPlanStatisticsEnabled(session)) {
             return delegateStats;
         }
 
