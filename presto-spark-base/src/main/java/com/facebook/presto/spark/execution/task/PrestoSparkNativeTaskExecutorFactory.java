@@ -94,7 +94,9 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionBroadcastBasePath;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeTriggerCoredumpWhenUnresponsiveEnabled;
 import static com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory.DEFAULT_URI;
+import static com.facebook.presto.spark.execution.task.NativeExecutionTask.isNativeExecutionTaskError;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
@@ -294,25 +296,43 @@ public class PrestoSparkNativeTaskExecutorFactory
         Optional<String> broadcastDirectory =
                 isFixedBroadcastDistribution ? Optional.of(getBroadcastDirectoryPath(session)) : Optional.empty();
 
-        // 3. Submit the task to cpp process for execution
-        log.info("Submitting native execution task ");
-        NativeExecutionTask task = nativeExecutionTaskFactory.createNativeExecutionTask(
-                session,
-                nativeExecutionProcess.getLocation(),
-                taskId,
-                fragment,
-                ImmutableList.copyOf(taskSources),
-                taskDescriptor.getTableWriteInfo(),
-                serializedShuffleWriteInfo,
-                broadcastDirectory);
+        boolean triggerCoredumpWhenUnresponsive = isNativeTriggerCoredumpWhenUnresponsiveEnabled(session);
+        try {
+            // 3. Submit the task to cpp process for execution
+            log.info("Submitting native execution task ");
+            NativeExecutionTask task = nativeExecutionTaskFactory.createNativeExecutionTask(
+                    session,
+                    nativeExecutionProcess.getLocation(),
+                    taskId,
+                    fragment,
+                    ImmutableList.copyOf(taskSources),
+                    taskDescriptor.getTableWriteInfo(),
+                    serializedShuffleWriteInfo,
+                    broadcastDirectory);
 
-        log.info("Creating task and will wait for remote task completion");
-        TaskInfo taskInfo = task.start();
+            log.info("Creating task and will wait for remote task completion");
+            TaskInfo taskInfo = task.start();
 
-        // task creation might have failed
-        processTaskInfoForErrorsOrCompletion(taskInfo);
-        // 4. return output to spark RDD layer
-        return new PrestoSparkNativeTaskOutputIterator<>(partitionId, task, outputType, taskInfoCollector, taskInfoCodec, executionExceptionFactory, cpuTracker);
+            // task creation might have failed
+            processTaskInfoForErrorsOrCompletion(taskInfo);
+            // 4. return output to spark RDD layer
+            return new PrestoSparkNativeTaskOutputIterator<>(
+                    partitionId,
+                    task,
+                    outputType,
+                    taskInfoCollector,
+                    taskInfoCodec,
+                    executionExceptionFactory,
+                    cpuTracker,
+                    nativeExecutionProcess,
+                    triggerCoredumpWhenUnresponsive);
+        }
+        catch (RuntimeException e) {
+            if (triggerCoredumpWhenUnresponsive && isNativeExecutionTaskError(e)) {
+                nativeExecutionProcess.sendCoreSignal();
+            }
+            throw e;
+        }
     }
 
     private String getBroadcastDirectoryPath(Session session)
@@ -494,7 +514,9 @@ public class PrestoSparkNativeTaskExecutorFactory
         private final Codec<TaskInfo> taskInfoCodec;
         private final Class<T> outputType;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
-        private CpuTracker cpuTracker;
+        private final CpuTracker cpuTracker;
+        private final NativeExecutionProcess nativeExecutionProcess;
+        private final boolean triggerCoredumpWhenUnresponsive;
 
         public PrestoSparkNativeTaskOutputIterator(
                 int partitionId,
@@ -503,7 +525,9 @@ public class PrestoSparkNativeTaskExecutorFactory
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollectionAccumulator,
                 Codec<TaskInfo> taskInfoCodec,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
-                CpuTracker cpuTracker)
+                CpuTracker cpuTracker,
+                NativeExecutionProcess nativeExecutionProcess,
+                boolean triggerCoredumpWhenUnresponsive)
         {
             this.partitionId = partitionId;
             this.nativeExecutionTask = nativeExecutionTask;
@@ -512,6 +536,8 @@ public class PrestoSparkNativeTaskExecutorFactory
             this.outputType = outputType;
             this.executionExceptionFactory = executionExceptionFactory;
             this.cpuTracker = cpuTracker;
+            this.nativeExecutionProcess = requireNonNull(nativeExecutionProcess, "nativeExecutionProcess is null");
+            this.triggerCoredumpWhenUnresponsive = triggerCoredumpWhenUnresponsive;
         }
 
         /**
@@ -588,6 +614,9 @@ public class PrestoSparkNativeTaskExecutorFactory
                 processTaskInfoForErrorsOrCompletion(taskInfo.get());
             }
             catch (RuntimeException ex) {
+                if (triggerCoredumpWhenUnresponsive && isNativeExecutionTaskError(ex)) {
+                    nativeExecutionProcess.sendCoreSignal();
+                }
                 // For a failed task, if taskInfo is present we still want to log the metrics
                 completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
                 throw executionExceptionFactory.toPrestoSparkExecutionException(ex);

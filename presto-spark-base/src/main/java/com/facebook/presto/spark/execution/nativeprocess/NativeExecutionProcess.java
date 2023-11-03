@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Paths;
@@ -70,6 +71,7 @@ public class NativeExecutionProcess
     private static final String WORKER_NODE_CONFIG_FILE = "/node.properties";
     private static final String WORKER_VELOX_CONFIG_FILE = "/velox.properties";
     private static final String WORKER_CONNECTOR_CONFIG_FILE = "/catalog/";
+    private static final int SIGSYS = 31;
 
     private final Session session;
     private final PrestoSparkHttpServerClient serverClient;
@@ -156,6 +158,55 @@ public class NativeExecutionProcess
         SettableFuture<ServerInfo> future = SettableFuture.create();
         doGetServerInfo(future);
         return future;
+    }
+
+    /**
+     * Triggers coredump (also terminates the process)
+     */
+    public void sendCoreSignal()
+    {
+        // chosen as the least likely core signal to occur naturally (invalid sys call)
+        // https://man7.org/linux/man-pages/man7/signal.7.html
+        sendSignal(SIGSYS);
+    }
+
+    public void sendSignal(int signal)
+    {
+        Process process = this.process;
+        if (process == null) {
+            log.warn("Failure sending signal, process does not exist");
+            return;
+        }
+        long pid = getPid(process);
+        if (!process.isAlive()) {
+            log.warn("Failure sending signal, process is dead: %s", pid);
+            return;
+        }
+        try {
+            log.info("Sending signal to process %s: %s", pid, signal);
+            Runtime.getRuntime().exec(format("kill -%s %s", signal, pid));
+        }
+        catch (IOException e) {
+            log.warn(e, "Failure sending signal to process %s", pid);
+        }
+    }
+
+    private static long getPid(Process p)
+    {
+        try {
+            if (p.getClass().getName().equals("java.lang.UNIXProcess")) {
+                Field f = p.getClass().getDeclaredField("pid");
+                f.setAccessible(true);
+                long pid = f.getLong(p);
+                f.setAccessible(false);
+                return pid;
+            }
+            return -1;
+        }
+        catch (NoSuchFieldException | IllegalAccessException e) {
+            // should not happen
+            throw new AssertionError(e);
+        }
     }
 
     @Override
