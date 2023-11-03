@@ -218,6 +218,23 @@ public class IcebergDistributedTestBase
     }
 
     @Test
+    public void testDropPartitionColumn()
+    {
+        assertQuerySucceeds("create table test_drop_partition_column(a int, b varchar) with (partitioning = ARRAY['a'])");
+        assertQuerySucceeds("insert into test_drop_partition_column values(1, '1001'), (2, '1002'), (3, '1003')");
+        String errorMessage = "This connector does not support dropping columns which exist in any of the table's partition specs";
+        assertQueryFails("alter table test_drop_partition_column drop column a", errorMessage);
+        assertQuerySucceeds("DROP TABLE test_drop_partition_column");
+
+        assertQuerySucceeds("create table test_drop_partition_column(a int)");
+        assertQuerySucceeds("insert into test_drop_partition_column values 1, 2, 3");
+        assertQuerySucceeds("alter table test_drop_partition_column add column b varchar with (partitioning = 'identity')");
+        assertQuerySucceeds("insert into test_drop_partition_column values(4, '1004'), (5, '1005')");
+        assertQueryFails("alter table test_drop_partition_column drop column b", errorMessage);
+        assertQuerySucceeds("DROP TABLE test_drop_partition_column");
+    }
+
+    @Test
     public void testTruncate()
     {
         // Test truncate empty table
