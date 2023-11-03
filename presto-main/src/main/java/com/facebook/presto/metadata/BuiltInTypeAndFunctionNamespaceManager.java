@@ -177,6 +177,7 @@ import com.facebook.presto.operator.scalar.SplitToMapFunction;
 import com.facebook.presto.operator.scalar.SplitToMultimapFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.TDigestFunctions;
+import com.facebook.presto.operator.scalar.ThetaSketchFunctions;
 import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.operator.scalar.TypeOfFunction;
 import com.facebook.presto.operator.scalar.UrlFunctions;
@@ -357,6 +358,7 @@ import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySum
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianClippingAggregation.NOISY_SUM_GAUSSIAN_CLIPPING_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianClippingRandomSeedAggregation.NOISY_SUM_GAUSSIAN_CLIPPING_RANDOM_SEED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianRandomSeedAggregation.NOISY_SUM_GAUSSIAN_RANDOM_SEED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchAggregationFunction.THETA_SKETCH;
 import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
@@ -925,6 +927,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(TDigestOperators.class)
                 .scalars(TDigestFunctions.class)
                 .functions(TDIGEST_AGG, TDIGEST_AGG_WITH_WEIGHT, TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION)
+                .function(THETA_SKETCH)
+                .scalars(ThetaSketchFunctions.class)
                 .function(MergeTDigestFunction.MERGE)
                 .sqlInvokedScalar(MapNormalizeFunction.class)
                 .sqlInvokedScalars(ArraySqlFunctions.class)

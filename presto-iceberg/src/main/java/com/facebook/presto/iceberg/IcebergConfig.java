@@ -44,6 +44,7 @@ public class IcebergConfig
     private double minimumAssignedSplitWeight = 0.05;
     private boolean parquetDereferencePushdownEnabled = true;
     private boolean mergeOnReadModeEnabled;
+    private double statisticSnapshotRecordDifferenceWeight;
 
     private HiveStatisticsMergeStrategy hiveStatisticsMergeStrategy = HiveStatisticsMergeStrategy.NONE;
 
@@ -195,5 +196,20 @@ public class IcebergConfig
     public HiveStatisticsMergeStrategy getHiveStatisticsMergeStrategy()
     {
         return hiveStatisticsMergeStrategy;
+    }
+
+    @Config("iceberg.statistic-snapshot-record-difference-weight")
+    @ConfigDescription("the amount that the difference in total record count matters when " +
+            "calculating the closest snapshot when picking statistics. A value of 1 means a single " +
+            "record is equivalent to 1 millisecond of time difference.")
+    public IcebergConfig setStatisticSnapshotRecordDifferenceWeight(double weight)
+    {
+        this.statisticSnapshotRecordDifferenceWeight = weight;
+        return this;
+    }
+
+    public double getStatisticSnapshotRecordDifferenceWeight()
+    {
+        return statisticSnapshotRecordDifferenceWeight;
     }
 }

@@ -84,6 +84,8 @@ public final class IcebergSessionProperties
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
     public static final String MERGE_ON_READ_MODE_ENABLED = "merge_on_read_enabled";
     public static final String HIVE_METASTORE_STATISTICS_MERGE_STRATEGY = "hive_statistics_merge_strategy";
+    public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -303,7 +305,14 @@ public final class IcebergSessionProperties
                         icebergConfig.getHiveStatisticsMergeStrategy(),
                         false,
                         val -> HiveStatisticsMergeStrategy.valueOf((String) val),
-                        HiveStatisticsMergeStrategy::name));
+                        HiveStatisticsMergeStrategy::name),
+                doubleProperty(STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT,
+                        "the amount that the difference in total record count matters" +
+                                "when calculating the closest snapshot when picking statistics. A " +
+                                "value of 1 means a single record is equivalent to 1 millisecond of " +
+                                "time difference.",
+                        icebergConfig.getStatisticSnapshotRecordDifferenceWeight(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -489,5 +498,10 @@ public final class IcebergSessionProperties
     public static HiveStatisticsMergeStrategy getHiveStatisticsMergeStrategy(ConnectorSession session)
     {
         return session.getProperty(HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, HiveStatisticsMergeStrategy.class);
+    }
+
+    public static double getStatisticSnapshotRecordDifferenceWeight(ConnectorSession session)
+    {
+        return session.getProperty(STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT, Double.class);
     }
 }

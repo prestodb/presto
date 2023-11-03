@@ -15,11 +15,27 @@ package com.facebook.presto.spi.statistics;
 
 public enum ColumnStatisticType
 {
-    MIN_VALUE,
-    MAX_VALUE,
-    NUMBER_OF_DISTINCT_VALUES,
-    NUMBER_OF_NON_NULL_VALUES,
-    NUMBER_OF_TRUE_VALUES,
-    MAX_VALUE_SIZE_IN_BYTES,
-    TOTAL_SIZE_IN_BYTES,
+    MAX_VALUE("max"),
+    MAX_VALUE_SIZE_IN_BYTES("max_data_size_for_stats"),
+    MIN_VALUE("min"),
+    NUMBER_OF_DISTINCT_VALUES("approx_distinct"),
+    NUMBER_OF_NON_NULL_VALUES("count"),
+    NUMBER_OF_TRUE_VALUES("count_if"),
+    TOTAL_SIZE_IN_BYTES("sum_data_size_for_stats");
+    private final String functionName;
+
+    ColumnStatisticType(String functionName)
+    {
+        this.functionName = functionName;
+    }
+
+    public ColumnStatisticMetadata getColumnStatisticMetadata(String columnName)
+    {
+        return new ColumnStatisticMetadata(columnName, this, this.functionName);
+    }
+
+    public ColumnStatisticMetadata getColumnStatisticMetadataWithCustomFunction(String columnName, String functionName)
+    {
+        return new ColumnStatisticMetadata(columnName, this, functionName);
+    }
 }

@@ -13,19 +13,34 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
@@ -38,17 +53,24 @@ public class IcebergDistributedTestBase
         extends AbstractTestDistributedQueries
 {
     private final CatalogType catalogType;
+    private final Map<String, String> extraConnectorProperties;
+
+    protected IcebergDistributedTestBase(CatalogType catalogType, Map<String, String> extraConnectorProperties)
+    {
+        this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this.extraConnectorProperties = requireNonNull(extraConnectorProperties, "extraConnectorProperties is null");
+    }
 
     protected IcebergDistributedTestBase(CatalogType catalogType)
     {
-        this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this(catalogType, ImmutableMap.of());
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType);
+        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType, extraConnectorProperties);
     }
 
     @Override
@@ -317,14 +339,14 @@ public class IcebergDistributedTestBase
         // validate return data of VarbinaryType
         List<Object> varbinaryColumnDatas = getQueryRunner().execute("select b from test_partition_columns_varbinary order by a asc").getOnlyColumn().collect(Collectors.toList());
         assertEquals(varbinaryColumnDatas.size(), 2);
-        assertEquals(varbinaryColumnDatas.get(0), new byte[]{(byte) 0xbc, (byte) 0xd1});
-        assertEquals(varbinaryColumnDatas.get(1), new byte[]{(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+        assertEquals(varbinaryColumnDatas.get(0), new byte[] {(byte) 0xbc, (byte) 0xd1});
+        assertEquals(varbinaryColumnDatas.get(1), new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
 
         // validate column of VarbinaryType exists in query filter
         assertEquals(getQueryRunner().execute("select b from test_partition_columns_varbinary where b = X'bcd1'").getOnlyValue(),
-                new byte[]{(byte) 0xbc, (byte) 0xd1});
+                new byte[] {(byte) 0xbc, (byte) 0xd1});
         assertEquals(getQueryRunner().execute("select b from test_partition_columns_varbinary where b = X'e3bcd1'").getOnlyValue(),
-                new byte[]{(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+                new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
 
         // validate column of VarbinaryType in system table "partitions"
         assertEquals(getQueryRunner().execute("select count(*) FROM \"test_partition_columns_varbinary$partitions\"").getOnlyValue(), 2L);
@@ -335,9 +357,9 @@ public class IcebergDistributedTestBase
         assertUpdate("delete from test_partition_columns_varbinary WHERE b = X'bcd1'", 1);
         varbinaryColumnDatas = getQueryRunner().execute("select b from test_partition_columns_varbinary order by a asc").getOnlyColumn().collect(Collectors.toList());
         assertEquals(varbinaryColumnDatas.size(), 1);
-        assertEquals(varbinaryColumnDatas.get(0), new byte[]{(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+        assertEquals(varbinaryColumnDatas.get(0), new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
         assertEquals(getQueryRunner().execute("select b FROM test_partition_columns_varbinary where b = X'e3bcd1'").getOnlyValue(),
-                new byte[]{(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+                new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
         assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns_varbinary$partitions\"").getOnlyValue(), 1L);
         assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_varbinary$partitions\" where b = X'e3bcd1'").getOnlyValue(), 1L);
 
@@ -371,10 +393,236 @@ public class IcebergDistributedTestBase
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
     }
 
-    private void assertExplainAnalyze(@Language("SQL") String query)
+    @Test
+    public void testReadWriteNDVs()
     {
-        String value = (String) computeActual(query).getOnlyValue();
+        assertUpdate("CREATE TABLE test_stat_ndv (col0 int)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_stat_ndv"));
+        assertTableColumnNames("test_stat_ndv", "col0");
 
-        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
+        // test that stats don't exist before analyze
+        TableStatistics stats = getTableStats("test_stat_ndv");
+        assertTrue(stats.getColumnStatistics().isEmpty());
+
+        // test after simple insert we get a good estimate
+        assertUpdate("INSERT INTO test_stat_ndv VALUES 1, 2, 3", 3);
+        getQueryRunner().execute("ANALYZE test_stat_ndv");
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+
+        // test after inserting the same values, we still get the same estimate
+        assertUpdate("INSERT INTO test_stat_ndv VALUES 1, 2, 3", 3);
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+
+        // test after ANALYZING with the new inserts that the NDV estimate is the same
+        getQueryRunner().execute("ANALYZE test_stat_ndv");
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+
+        // test after inserting a new value, but not analyzing, the estimate is the same.
+        assertUpdate("INSERT INTO test_stat_ndv VALUES 4", 1);
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+
+        // test that after analyzing, the updates stats show up.
+        getQueryRunner().execute("ANALYZE test_stat_ndv");
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(4.0));
+
+        // test adding a null value is successful, and analyze still runs successfully
+        assertUpdate("INSERT INTO test_stat_ndv VALUES NULL", 1);
+        assertQuerySucceeds("ANALYZE test_stat_ndv");
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(4.0));
+
+        assertUpdate("DROP TABLE test_stat_ndv");
+    }
+
+    @Test
+    public void testReadWriteNDVsComplexTypes()
+    {
+        assertUpdate("CREATE TABLE test_stat_ndv_complex (col0 int, col1 date, col2 varchar, col3 row(c0 int))");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_stat_ndv_complex"));
+        assertTableColumnNames("test_stat_ndv_complex", "col0", "col1", "col2", "col3");
+
+        // test that stats don't exist before analyze
+        TableStatistics stats = getTableStats("test_stat_ndv_complex");
+        assertTrue(stats.getColumnStatistics().isEmpty());
+
+        // test after simple insert we get a good estimate
+        assertUpdate("INSERT INTO test_stat_ndv_complex VALUES (0, current_date, 't1', row(0))", 1);
+        getQueryRunner().execute("ANALYZE test_stat_ndv_complex");
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test after inserting the same values, we still get the same estimate
+        assertUpdate("INSERT INTO test_stat_ndv_complex VALUES (0, current_date, 't1', row(0))", 1);
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test after ANALYZING with the new inserts that the NDV estimate is the same
+        getQueryRunner().execute("ANALYZE test_stat_ndv_complex");
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test after inserting a new value, but not analyzing, the estimate is the same.
+        assertUpdate("INSERT INTO test_stat_ndv_complex VALUES (1, current_date + interval '1' day, 't2', row(1))", 1);
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test that after analyzing, the updates stats show up.
+        getQueryRunner().execute("ANALYZE test_stat_ndv_complex");
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test adding a null value is successful, and analyze still runs successfully
+        assertUpdate("INSERT INTO test_stat_ndv_complex VALUES (NULL, NULL, NULL, NULL)", 1);
+        assertQuerySucceeds("ANALYZE test_stat_ndv_complex");
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        assertUpdate("DROP TABLE test_stat_ndv_complex");
+    }
+
+    @Test
+    public void testNDVsAtSnapshot()
+    {
+        assertUpdate("CREATE TABLE test_stat_snap (col0 int, col1 varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_stat_snap"));
+        assertTableColumnNames("test_stat_snap", "col0", "col1");
+        assertEquals(getTableSnapshots("test_stat_snap").size(), 0);
+
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertUpdate("INSERT INTO test_stat_snap VALUES (0, '0')", 1);
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertUpdate("INSERT INTO test_stat_snap VALUES (1, '1')", 1);
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertUpdate("INSERT INTO test_stat_snap VALUES (2, '2')", 1);
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertUpdate("INSERT INTO test_stat_snap VALUES (3, '3')", 1);
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertEquals(getTableSnapshots("test_stat_snap").size(), 4);
+
+        List<Long> snaps = getTableSnapshots("test_stat_snap");
+        for (int i = 0; i < snaps.size(); i++) {
+            TableStatistics statistics = getTableStats("test_stat_snap", Optional.of(snaps.get(i)));
+            // assert either case as we don't have good control over the timing of when statistics files are written
+            ColumnStatistics col0Stats = columnStatsFor(statistics, "col0");
+            ColumnStatistics col1Stats = columnStatsFor(statistics, "col1");
+            System.out.printf("distinct @ %s count col0: %s%n", snaps.get(i), col0Stats.getDistinctValuesCount());
+            final int idx = i;
+            assertEither(
+                    () -> assertEquals(col0Stats.getDistinctValuesCount(), Estimate.of(idx)),
+                    () -> assertEquals(col0Stats.getDistinctValuesCount(), Estimate.of(idx + 1)));
+            assertEither(
+                    () -> assertEquals(col1Stats.getDistinctValuesCount(), Estimate.of(idx)),
+                    () -> assertEquals(col1Stats.getDistinctValuesCount(), Estimate.of(idx + 1)));
+        }
+        assertUpdate("DROP TABLE test_stat_snap");
+    }
+
+    @Test
+    public void testStatsByDistance()
+    {
+        assertUpdate("CREATE TABLE test_stat_dist (col0 int)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_stat_dist"));
+        assertTableColumnNames("test_stat_dist", "col0");
+        assertEquals(getTableSnapshots("test_stat_dist").size(), 0);
+
+        assertUpdate("INSERT INTO test_stat_dist VALUES 0", 1);
+        assertQuerySucceeds("ANALYZE test_stat_dist");
+        assertUpdate("INSERT INTO test_stat_dist VALUES 1", 1);
+        assertUpdate("INSERT INTO test_stat_dist VALUES 2", 1);
+        assertUpdate("INSERT INTO test_stat_dist VALUES 3", 1);
+        assertUpdate("INSERT INTO test_stat_dist VALUES 4", 1);
+        assertUpdate("INSERT INTO test_stat_dist VALUES 5", 1);
+        assertQuerySucceeds("ANALYZE test_stat_dist");
+        assertEquals(getTableSnapshots("test_stat_dist").size(), 6);
+        List<Long> snapshots = getTableSnapshots("test_stat_dist");
+        // set a high weight so the weighting calculation is mostly done by record count
+        Session weightedSession = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT, "10000000")
+                .build();
+        Function<Integer, Estimate> ndvs = (x) -> columnStatsFor(getTableStats("test_stat_dist", Optional.of(snapshots.get(x)), weightedSession), "col0")
+                .getDistinctValuesCount();
+        assertEquals(ndvs.apply(0).getValue(), 1);
+        assertEquals(ndvs.apply(1).getValue(), 1);
+        assertEquals(ndvs.apply(2).getValue(), 1);
+        assertEquals(ndvs.apply(3).getValue(), 6);
+        assertEquals(ndvs.apply(4).getValue(), 6);
+        assertEquals(ndvs.apply(5).getValue(), 6);
+        assertUpdate("DROP TABLE test_stat_dist");
+    }
+
+    private static void assertEither(Runnable first, Runnable second)
+    {
+        try {
+            first.run();
+        }
+        catch (AssertionError e) {
+            second.run();
+        }
+    }
+
+    private List<Long> getTableSnapshots(String tableName)
+    {
+        MaterializedResult result = getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at", tableName));
+        return result.getOnlyColumn().map(Long.class::cast).collect(Collectors.toList());
+    }
+
+    private TableStatistics getTableStats(String name)
+    {
+        return getTableStats(name, Optional.empty());
+    }
+
+    private TableStatistics getTableStats(String name, Optional<Long> snapshot)
+    {
+        return getTableStats(name, snapshot, getSession());
+    }
+
+    private TableStatistics getTableStats(String name, Optional<Long> snapshot, Session session)
+    {
+        TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session metadataSession = session.beginTransactionId(
+                transactionId,
+                getQueryRunner().getTransactionManager(),
+                new AllowAllAccessControl());
+        Metadata metadata = getDistributedQueryRunner().getMetadata();
+        MetadataResolver resolver = metadata.getMetadataResolver(metadataSession);
+        String tableName = snapshot.map(snap -> format("%s@%d", name, snap)).orElse(name);
+        String qualifiedName = format("%s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).get();
+        return metadata.getTableStatistics(metadataSession,
+                handle,
+                new ArrayList<>(resolver.getColumnHandles(handle).values()),
+                Constraint.alwaysTrue());
+    }
+
+    private static ColumnStatistics columnStatsFor(TableStatistics statistics, String name)
+    {
+        return statistics.getColumnStatistics().entrySet()
+                .stream().filter(entry -> ((IcebergColumnHandle) entry.getKey()).getName().equals(name))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .get();
     }
 }
