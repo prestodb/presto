@@ -66,6 +66,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED = "spark_adaptive_query_execution_enabled";
     public static final String ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED = "adaptive_join_side_switching_enabled";
     public static final String NATIVE_EXECUTION_BROADCAST_BASE_PATH = "native_execution_broadcast_base_path";
+    public static final String NATIVE_TRIGGER_COREDUMP_WHEN_UNRESPONSIVE_ENABLED = "native_trigger_coredump_when_unresponsive_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -235,6 +236,11 @@ public class PrestoSparkSessionProperties
                         NATIVE_EXECUTION_BROADCAST_BASE_PATH,
                         "Base path for temporary storage of broadcast data",
                         prestoSparkConfig.getNativeExecutionBroadcastBasePath(),
+                        false),
+                booleanProperty(
+                        NATIVE_TRIGGER_COREDUMP_WHEN_UNRESPONSIVE_ENABLED,
+                        "Trigger coredump of the native execution process when it becomes unresponsive",
+                        prestoSparkConfig.isNativeTriggerCoredumpWhenUnresponsiveEnabled(),
                         false));
     }
 
@@ -391,5 +397,10 @@ public class PrestoSparkSessionProperties
     public static String getNativeExecutionBroadcastBasePath(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_BROADCAST_BASE_PATH, String.class);
+    }
+
+    public static boolean isNativeTriggerCoredumpWhenUnresponsiveEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_TRIGGER_COREDUMP_WHEN_UNRESPONSIVE_ENABLED, Boolean.class);
     }
 }
