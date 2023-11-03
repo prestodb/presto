@@ -23,6 +23,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveTypeTranslator;
+import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.ViewAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
@@ -135,7 +136,6 @@ public class IcebergHiveMetadata
     private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
-    private final String prestoVersion;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
 
     private final FilterStatsCalculatorService filterStatsCalculatorService;
@@ -146,14 +146,13 @@ public class IcebergHiveMetadata
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            String prestoVersion,
+            NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             RowExpressionService rowExpressionService)
     {
-        super(typeManager, commitTaskCodec);
+        super(typeManager, commitTaskCodec, nodeVersion);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
     }
@@ -364,7 +363,7 @@ public class IcebergHiveMetadata
         Table table = createTableObjectForViewCreation(
                 session,
                 viewMetadata,
-                createIcebergViewProperties(session, prestoVersion),
+                createIcebergViewProperties(session, nodeVersion.toString()),
                 new HiveTypeTranslator(),
                 metastoreContext,
                 encodeViewData(viewData));
@@ -457,7 +456,7 @@ public class IcebergHiveMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
-        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
         HiveStatisticsMergeStrategy mergeStrategy = getHiveStatisticsMergeStrategy(session);
         return tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast).map(layoutHandle -> {
             TupleDomain<VariableReferenceExpression> predicate = layoutHandle.getTupleDomain().transform(icebergLayout -> {
@@ -513,7 +512,7 @@ public class IcebergHiveMetadata
                 .filter(column -> !column.isHidden())
                 .flatMap(meta -> metastore.getSupportedColumnStatistics(getMetastoreContext(session), meta.getType())
                         .stream()
-                        .map(statType -> new ColumnStatisticMetadata(meta.getName(), statType)))
+                        .map(statType -> statType.getColumnStatisticMetadata(meta.getName())))
                 .collect(toImmutableSet());
 
         Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);

@@ -2197,6 +2197,18 @@
                 <artifactId>opentelemetry-semconv</artifactId>
                 <version>1.19.0-alpha</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.datasketches</groupId>
+                <artifactId>datasketches-memory</artifactId>
+                <version>2.2.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.datasketches</groupId>
+                <artifactId>datasketches-java</artifactId>
+                <version>4.2.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

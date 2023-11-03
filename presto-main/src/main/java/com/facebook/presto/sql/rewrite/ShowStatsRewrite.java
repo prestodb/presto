@@ -101,14 +101,14 @@ public class ShowStatsRewrite
 
     @Override
     public Statement rewrite(Session session,
-                             Metadata metadata,
-                             SqlParser parser,
-                             Optional<QueryExplainer> queryExplainer,
-                             Statement node,
-                             List<Expression> parameters,
-                             Map<NodeRef<Parameter>, Expression> parameterLookup,
-                             AccessControl accessControl,
-                             WarningCollector warningCollector)
+            Metadata metadata,
+            SqlParser parser,
+            Optional<QueryExplainer> queryExplainer,
+            Statement node,
+            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            AccessControl accessControl,
+            WarningCollector warningCollector)
     {
         return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector).process(node, null);
     }

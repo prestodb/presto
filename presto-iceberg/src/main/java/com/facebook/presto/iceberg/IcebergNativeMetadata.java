@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -74,9 +75,10 @@ public class IcebergNativeMetadata
             IcebergResourceFactory resourceFactory,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            CatalogType catalogType)
+            CatalogType catalogType,
+            NodeVersion nodeVersion)
     {
-        super(typeManager, commitTaskCodec);
+        super(typeManager, commitTaskCodec, nodeVersion);
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
