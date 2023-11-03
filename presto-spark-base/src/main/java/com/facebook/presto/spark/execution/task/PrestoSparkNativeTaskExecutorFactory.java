@@ -593,7 +593,7 @@ public class PrestoSparkNativeTaskExecutorFactory
                 throw executionExceptionFactory.toPrestoSparkExecutionException(ex);
             }
             catch (InterruptedException e) {
-                log.error(e);
+                Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
 

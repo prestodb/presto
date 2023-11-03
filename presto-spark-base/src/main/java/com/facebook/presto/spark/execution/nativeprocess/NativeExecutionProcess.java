@@ -172,7 +172,7 @@ public class NativeExecutionProcess
                 process.waitFor(1, TimeUnit.SECONDS);
             }
             catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt();
             }
             finally {
                 if (process.isAlive()) {
