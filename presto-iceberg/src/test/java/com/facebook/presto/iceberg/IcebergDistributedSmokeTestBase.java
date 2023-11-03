@@ -987,4 +987,138 @@ public class IcebergDistributedSmokeTestBase
                         "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         dropTable(session, tableName);
     }
+
+    @Test
+    public void testDatePartitionedByYear()
+    {
+        Session session = getSession();
+        String tableName = "test_date_partitioned_by_year";
+
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 date) WITH(partitioning = ARRAY['year(c2)'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, date '2022-10-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, date '2023-11-02')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, date '1980-01-01'), (4, date '1990-02-02')", 2);
+
+        assertQuery("SELECT c2_year, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_year",
+                "VALUES (10, 1, 1), (20, 1, 1), (52, 1, 1), (53, 1, 1)");
+        assertQuery("SELECT * FROM " + tableName + " WHERE year(c2) = 2023", "VALUES (2, '2023-11-02')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testDatePartitionedByMonth()
+    {
+        Session session = getSession();
+        String tableName = "test_date_partitioned_by_month";
+
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 date) WITH(partitioning = ARRAY['month(c2)'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, date '2022-01-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, date '2023-11-02')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, date '1970-02-02'), (4, date '1971-01-02')", 2);
+
+        assertQuery("SELECT c2_month, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_month",
+                "VALUES (1, 1, 1), (12, 1, 1), (624, 1, 1), (646, 1, 1)");
+        assertQuery("SELECT * FROM " + tableName + " WHERE month(c2) = 11", "VALUES (2, '2023-11-02')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testDatePartitionedByDay()
+    {
+        Session session = getSession();
+        String tableName = "test_date_partitioned_by_day";
+
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 date) WITH(partitioning = ARRAY['day(c2)'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, date '2022-10-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, date '2023-11-02')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, date '1970-10-01'), (4, date '1971-11-05')", 2);
+
+        assertQuery("SELECT c2_day, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_day",
+                "VALUES ('1970-10-01', 1, 1), ('1971-11-05', 1, 1), ('2022-10-01', 1, 1), ('2023-11-02', 1, 1)");
+        assertQuery("SELECT * FROM " + tableName + " WHERE day(c2) = 2", "VALUES (2, '2023-11-02')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testTimestampPartitionedByYear()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_timestamp_partitioned_by_year";
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['year(c2)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1980-01-01 12:10:31.315'), (4, timestamp '1990-01-01 12:10:31.315')", 2);
+
+        assertQuery(session, "SELECT c2_year, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_year",
+                "VALUES (10, 1, 1), (20, 1, 1), (52, 1, 1), (53, 1, 1)");
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE year(c2) = 2023", "VALUES (2, '2023-11-02 12:10:31.315')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testTimestampPartitionedByMonth()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_timestamp_partitioned_by_month";
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['month(c2)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-02-02 12:10:31.315'), (4, timestamp '1971-01-02 12:10:31.315')", 2);
+
+        assertQuery(session, "SELECT c2_month, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_month",
+                "VALUES (1, 1, 1), (12, 1, 1), (633, 1, 1), (646, 1, 1)");
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE month(c2) = 11", "VALUES (2, '2023-11-02 12:10:31.315')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testTimestampPartitionedByDay()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_timestamp_partitioned_by_day";
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['day(c2)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-01-05 00:00:00.000'), (4, timestamp '1971-01-10 12:10:31.315')", 2);
+
+        assertQuery(session, "SELECT c2_day, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_day",
+                "VALUES ('1970-01-05', 1, 1), ('1971-01-10', 1, 1), ('2022-10-01', 1, 1), ('2023-11-02', 1, 1)");
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE day(c2) = 2", "VALUES (2, '2023-11-02 12:10:31.315')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testTimestampPartitionedByHour()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_timestamp_partitioned_by_hour";
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['hour(c2)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 10:00:00.000')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-01-01 10:10:31.315'), (4, timestamp '1970-01-02 10:10:31.315')", 2);
+
+        assertQuery(session, "SELECT c2_hour, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_hour",
+                "VALUES (10, 1, 1), (34, 1, 1), (462394, 1, 1), (471924, 1, 1)");
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE hour(c2) = 12", "VALUES (2, '2023-11-02 12:10:31.315')");
+
+        dropTable(session, tableName);
+    }
 }
