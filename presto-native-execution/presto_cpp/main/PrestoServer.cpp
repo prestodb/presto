@@ -331,7 +331,18 @@ void PrestoServer::run() {
       });
 
   facebook::velox::exec::ExchangeSource::registerFactory(
-      operators::UnsafeRowExchangeSource::createExchangeSource);
+      [this](
+          const std::string& taskId,
+          int destination,
+          std::shared_ptr<velox::exec::ExchangeQueue> queue,
+          memory::MemoryPool* pool) {
+        return operators::UnsafeRowExchangeSource::createExchangeSource(
+            taskId,
+            destination,
+            queue,
+            pool,
+            exchangeHttpExecutor_.get());
+      });
 
   // Batch broadcast exchange source.
   facebook::velox::exec::ExchangeSource::registerFactory(

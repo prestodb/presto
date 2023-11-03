@@ -13,10 +13,15 @@
  */
 #pragma once
 
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/Operator.h"
+
+namespace folly {
+class IOThreadPoolExecutor;
+} // namespace folly
 
 namespace facebook::presto::operators {
 
@@ -27,11 +32,13 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
       const std::shared_ptr<ShuffleReader>& shuffle,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool)
-      : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle) {}
+      velox::memory::MemoryPool* FOLLY_NONNULL pool,
+      folly::IOThreadPoolExecutor* ioThreadPoolExecutor)
+      : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle),
+        ioThreadPoolExecutor_(ioThreadPoolExecutor) {}
 
   bool shouldRequestLocked() override {
-    return !atEnd_;
+    return !atEnd_ && !isRequestPendingLocked();
   }
 
   bool supportsFlowControlV2() const override {
@@ -52,12 +59,17 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
       const std::string& url,
       int32_t destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool);
+      velox::memory::MemoryPool* FOLLY_NONNULL pool,
+      folly::IOThreadPoolExecutor* ioThreadPoolExecutor);
 
  private:
+  void fetchDataAndUpdateQueueAsync();
   const std::shared_ptr<ShuffleReader> shuffle_;
 
   // The number of batches read from 'shuffle_'.
   uint64_t numBatches_{0};
+  velox::VeloxPromise<Response> promise_{
+      velox::VeloxPromise<Response>::makeEmpty()};
+  folly::IOThreadPoolExecutor* ioThreadPoolExecutor_;
 };
 } // namespace facebook::presto::operators
