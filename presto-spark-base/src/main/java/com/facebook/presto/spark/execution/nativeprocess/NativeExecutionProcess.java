@@ -213,6 +213,8 @@ public class NativeExecutionProcess
     public void close()
     {
         if (process != null && process.isAlive()) {
+            long pid = getPid(process);
+            log.info("Destroying process: %s", pid);
             process.destroy();
             try {
                 // This 1 sec is arbitrary. Ideally, we do not need to be give any heads up
@@ -227,12 +229,15 @@ public class NativeExecutionProcess
             }
             finally {
                 if (process.isAlive()) {
-                    log.warn("Graceful shutdown of native execution process failed. Force killing it.");
+                    log.warn("Graceful shutdown of native execution process failed. Force killing it: %s", pid);
                     process.destroyForcibly();
                 }
             }
         }
-        process = null;
+        else if (process != null) {
+            log.info("Process is dead: %s", getPid(process));
+            process = null;
+        }
     }
 
     public boolean isAlive()
