@@ -81,7 +81,7 @@ public class NativeExecutionProcess
     private final HttpClient httpClient;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
-    private Process process;
+    private volatile Process process;
 
     public NativeExecutionProcess(
             Session session,
@@ -198,6 +198,7 @@ public class NativeExecutionProcess
     {
         return location;
     }
+
     private static URI getBaseUriWithPort(URI baseUri, int port)
     {
         return uriBuilderFrom(baseUri)
