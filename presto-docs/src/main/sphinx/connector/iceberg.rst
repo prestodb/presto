@@ -487,8 +487,13 @@ Available transforms in the Presto Iceberg connector include:
 
 * ``Bucket`` (partitions data into a specified number of buckets using a hash function)
 * ``Truncate`` (partitions the table based on the truncated value of the field and can specify the width of the truncated value)
+* ``Identity`` (partitions data using unmodified source value)
+* ``Year`` (partitions data using integer value by extracting a date or timestamp year, as years from 1970)
+* ``Month`` (partitions data using integer value by extracting a date or timestamp month, as months from 1970-01-01)
+* ``Day`` (partitions data using integer value by extracting a date or timestamp day, as days from 1970-01-01)
+* ``Hour`` (partitions data using integer value by extracting a timestamp hour, as hours from 1970-01-01 00:00:00)
 
-Create an Iceberg table partitioned into 8 buckets of equal sized ranges::
+Create an Iceberg table partitioned into 8 buckets of equal size ranges::
 
     CREATE TABLE players (
         id int,
@@ -500,7 +505,7 @@ Create an Iceberg table partitioned into 8 buckets of equal sized ranges::
         partitioning = ARRAY['bucket(team, 8)']
     );
 
-Create an Iceberg table partitioned by the first letter of the team field::
+Create an Iceberg table partitioned by the first letter of the ``team`` field::
 
     CREATE TABLE players (
         id int,
@@ -512,10 +517,31 @@ Create an Iceberg table partitioned by the first letter of the team field::
         partitioning = ARRAY['truncate(team, 1)']
     );
 
-.. note::
+Create an Iceberg table partitioned by ``ds``::
 
-    ``Day``, ``Month``, ``Year``, ``Hour`` partition column transform functions are not supported in Presto Iceberg
-    connector yet (:issue:`20570`).
+    CREATE TABLE players (
+        id int,
+        name varchar,
+        team varchar,
+        ds date
+    )
+    WITH (
+        format = 'ORC',
+        partitioning = ARRAY['year(ds)']
+    );
+
+Create an Iceberg table partitioned by ``ts``::
+
+    CREATE TABLE players (
+        id int,
+        name varchar,
+        team varchar,
+        ts timestamp
+    )
+    WITH (
+        format = 'ORC',
+        partitioning = ARRAY['hour(ts)']
+    );
 
 CREATE VIEW
 ^^^^^^^^^^^^
