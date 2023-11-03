@@ -24,6 +24,7 @@ import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERI
 import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTERS;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
@@ -67,17 +68,19 @@ public class TestPredicatePushdownWithDynamicFilter
         assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = 2)",
                 anyTree(
                         project(
-                                node(
-                                        FilterNode.class,
-                                        tableScan(
-                                                "lineitem",
-                                                ImmutableMap.of("LINE_ORDER_KEY", "orderkey", "LINE_QUANTITY", "quantity")))),
-                        node(
-                                ExchangeNode.class,
                                 project(
                                         node(
                                                 FilterNode.class,
-                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+                                                tableScan(
+                                                        "lineitem",
+                                                        ImmutableMap.of("LINE_ORDER_KEY", "orderkey", "LINE_QUANTITY", "quantity"))))),
+                        node(
+                                ExchangeNode.class,
+                                project(
+                                        project(
+                                                node(
+                                                        FilterNode.class,
+                                                        tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))))));
     }
 
     @Override
@@ -88,20 +91,23 @@ public class TestPredicatePushdownWithDynamicFilter
                 anyTree(
                         semiJoin(
                                 "LINE_ORDER_KEY",
-                                "ORDERS_ORDER_KEY",
+                                "expr_6",
                                 "SEMI_JOIN_RESULT",
                                 project(
-                                        node(
-                                                FilterNode.class,
-                                                tableScan(
-                                                        "lineitem",
-                                                        ImmutableMap.of("LINE_ORDER_KEY", "orderkey", "LINE_QUANTITY", "quantity")))),
-                                node(
-                                        ExchangeNode.class,
                                         project(
                                                 node(
                                                         FilterNode.class,
-                                                        tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))))));
+                                                        tableScan(
+                                                                "lineitem",
+                                                                ImmutableMap.of("LINE_ORDER_KEY", "orderkey", "LINE_QUANTITY", "quantity"))))),
+                                node(
+                                        ExchangeNode.class,
+                                        project(
+                                                project(
+                                                        ImmutableMap.of("expr_6", expression("2")),
+                                                        node(
+                                                                FilterNode.class,
+                                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))))));
     }
 
     @Override

@@ -76,7 +76,7 @@ public class TestPullConstantsAboveGroupBy
     @Test
     public void testRuleDisabledDoesNotFire()
     {
-        RuleTester tester = new RuleTester(ImmutableList.of(), ImmutableMap.of("optimize_constant_grouping_keys", "false"));
+        RuleTester tester = new RuleTester(ImmutableList.of(), ImmutableMap.of("optimize_constant_grouping_keys", "false", "rewrite_expression_with_constant_expression", "false"));
 
         tester.assertThat(new PullConstantsAboveGroupBy())
             .on(p -> p.aggregation(ab -> ab

@@ -227,7 +227,8 @@ public class TestHiveLogicalPlanner
 
         assertPlan(pushdownFilterEnabled, "SELECT partkey, linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(
-                        strictTableScan("lineitem", identityMap("partkey", "linenumber")))),
+                        project(
+                                strictTableScan("lineitem", identityMap("linenumber"))))),
                 plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
 
         // Only remaining predicate
@@ -293,7 +294,9 @@ public class TestHiveLogicalPlanner
 
         assertPlan(pushdownFilterEnabled, "SELECT partkey, orderkey, linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
                 output(exchange(
-                        strictTableScan("lineitem", identityMap("partkey", "orderkey", "linenumber")))),
+                        project(
+                                ImmutableMap.of("expr_8", expression("10")),
+                                strictTableScan("lineitem", identityMap("orderkey", "linenumber"))))),
                 plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
     }
 
