@@ -332,6 +332,7 @@ uint64_t TableWriter::ConnectorReclaimer::reclaim(
         << ", memory usage: " << succinctBytes(pool->currentBytes());
     return 0;
   }
+  RuntimeStatWriterScopeGuard opStatsGuard(op_);
   return memory::MemoryReclaimer::reclaim(pool, targetBytes, stats);
 }
 
