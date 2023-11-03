@@ -89,14 +89,6 @@ class MemoryArbitrator {
   /// registered.
   static void unregisterFactory(const std::string& kind);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  /// Register all the supported memory arbitrator kinds.
-  static void registerAllFactories() {}
-
-  /// Unregister all the supported memory arbitrator kinds.
-  static void unregisterAllFactories() {}
-#endif
-
   /// Invoked by the memory manager to create an instance of memory arbitrator
   /// based on the kind specified in 'config'. The arbitrator kind must be
   /// registered through MemoryArbitrator::registerFactory(), otherwise the

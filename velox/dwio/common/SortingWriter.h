@@ -55,7 +55,7 @@ class SortingWriter : public Writer {
         memory::MemoryReclaimer::Stats& stats) override;
 
    private:
-    MemoryReclaimer(SortingWriter* writer)
+    explicit MemoryReclaimer(SortingWriter* writer)
         : exec::MemoryReclaimer(),
           writer_(writer),
           canReclaim_(writer_->sortBuffer_->canSpill()) {}

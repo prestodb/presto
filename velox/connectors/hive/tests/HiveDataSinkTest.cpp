@@ -24,7 +24,6 @@
 #include "velox/dwio/common/Options.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::connector::hive {
@@ -60,7 +59,7 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
   }
 
   std::unique_ptr<SpillConfig> getSpillConfig(
-      const std::string spillPath,
+      const std::string& spillPath,
       uint64_t writerFlushThreshold) {
     return std::make_unique<SpillConfig>(
         spillPath,

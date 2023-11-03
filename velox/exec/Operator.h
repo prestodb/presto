@@ -324,7 +324,8 @@ class Operator : public BaseRuntimeStatWriter {
   /// allocation from memory pool that can't be done under operator constructor.
   ///
   /// NOTE: the default implementation set 'initialized_' to true to ensure we
-  /// never call this more than once.
+  /// never call this more than once. The overload initialize() implementation
+  /// must call this base implementation first.
   virtual void initialize();
 
   /// Indicates if this operator has been initialized or not.
