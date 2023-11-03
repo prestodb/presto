@@ -21,6 +21,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -305,7 +306,11 @@ public class HiveTableOperations
                 metastore.createTable(metastoreContext, table, privileges);
             }
             else {
+                PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
                 metastore.replaceTable(metastoreContext, database, tableName, table, privileges);
+
+                // attempt to put back previous table statistics
+                metastore.updateTableStatistics(metastoreContext, database, tableName, oldStats -> tableStats);
             }
         }
         finally {

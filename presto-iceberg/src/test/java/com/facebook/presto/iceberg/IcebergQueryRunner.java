@@ -56,6 +56,17 @@ public final class IcebergQueryRunner
         return createIcebergQueryRunner(extraProperties, ImmutableMap.of("iceberg.catalog.type", catalogType.name()));
     }
 
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType, Map<String, String> extraConnectorProperties)
+            throws Exception
+    {
+        return createIcebergQueryRunner(
+                extraProperties,
+                ImmutableMap.<String, String>builder()
+                        .putAll(extraConnectorProperties)
+                        .put("iceberg.catalog.type", catalogType.name())
+                        .build());
+    }
+
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Map<String, String> extraConnectorProperties)
             throws Exception
     {
