@@ -234,7 +234,7 @@ public class TestPrestoSparkHttpClient
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(taskId);
 
         List<TaskSource> sources = new ArrayList<>();
-        ListenableFuture<BaseResponse<TaskInfo>> future = workerClient.updateTask(
+        BaseResponse<TaskInfo> response = workerClient.updateTask(
                 sources,
                 createPlanFragment(),
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
@@ -244,7 +244,7 @@ public class TestPrestoSparkHttpClient
                 createInitialEmptyOutputBuffers(PARTITIONED));
 
         try {
-            TaskInfo taskInfo = future.get().getValue();
+            TaskInfo taskInfo = response.getValue();
             assertEquals(taskInfo.getTaskId().toString(), taskId.toString());
         }
         catch (Exception e) {
