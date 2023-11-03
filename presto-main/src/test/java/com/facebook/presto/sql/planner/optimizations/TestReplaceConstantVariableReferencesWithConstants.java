@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -41,6 +42,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topN;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.union;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.unnest;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
@@ -431,6 +433,80 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                                 values("key1", "key2")))));
     }
 
+    @Test
+    public void testJoinPlanChange()
+    {
+        RuleTester tester = new RuleTester();
+        tester.assertThat(new ReplaceConstantVariableReferencesWithConstants(createTestFunctionAndTypeManager()))
+                .on(planBuilder ->
+                {
+                    VariableReferenceExpression key1 = planBuilder.variable("key1", INTEGER);
+                    VariableReferenceExpression key2 = planBuilder.variable("key2", INTEGER);
+                    VariableReferenceExpression count = planBuilder.variable("cnt");
+                    return planBuilder.join(
+                            JoinNode.Type.INNER,
+                            planBuilder.filter(
+                                    planBuilder.rowExpression("key1= 3"),
+                                    planBuilder.values(key1)),
+                            planBuilder.filter(
+                                    planBuilder.rowExpression("key2= 5"),
+                                    planBuilder.values(key2)));
+                })
+                .matches(
+                        join(
+                                project(
+                                        ImmutableMap.of("key1", expression("3")),
+                                        filter(
+                                                "key1=3",
+                                                values("key1"))),
+                                project(
+                                        ImmutableMap.of("key2", expression("5")),
+                                        filter(
+                                                "key2=5",
+                                                values("key2")))));
+    }
+
+    @Test
+    public void testUnionPlanChange()
+    {
+        RuleTester tester = new RuleTester();
+        tester.assertThat(new ReplaceConstantVariableReferencesWithConstants(createTestFunctionAndTypeManager()))
+                .on(planBuilder ->
+                {
+                    VariableReferenceExpression input1Source1 = planBuilder.variable("input1_source1", INTEGER);
+                    VariableReferenceExpression input2Source1 = planBuilder.variable("input2_source1", INTEGER);
+                    VariableReferenceExpression input1Source2 = planBuilder.variable("input1_source2", INTEGER);
+                    VariableReferenceExpression input2Source2 = planBuilder.variable("input2_source2", INTEGER);
+                    VariableReferenceExpression output1 = planBuilder.variable("output1", INTEGER);
+                    VariableReferenceExpression output2 = planBuilder.variable("output2", INTEGER);
+
+                    return
+                            planBuilder.union(
+                                    ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder().putAll(output1, input1Source1, input1Source2)
+                                            .putAll(output2, input2Source1, input2Source2).build(),
+                                    ImmutableList.of(
+                                            planBuilder.filter(
+                                                    planBuilder.rowExpression("input1_source1 = 3"),
+                                                    planBuilder.values(input1Source1, input2Source1)),
+                                            planBuilder.filter(
+                                                    planBuilder.rowExpression("input1_source2 = 3"),
+                                                    planBuilder.values(input1Source2, input2Source2))));
+                })
+                .matches(
+
+                        union(
+                                project(
+                                        ImmutableMap.of("input1_source1", expression("3"), "input2_source1", expression("input2_source1")),
+                                        filter(
+                                                "input1_source1=3",
+                                                values("input1_source1", "input2_source1"))),
+                                project(
+                                        ImmutableMap.of("input1_source2", expression("3"), "input2_source2", expression("input2_source2")),
+                                        filter(
+                                                "input1_source2=3",
+                                                values("input1_source2", "input2_source2")))));
+    }
+
     // Do not extract constant variable when having conflicting filters
     @Test
     public void testConflictFilter()
@@ -461,6 +537,169 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                         filter(
                                                 "key1=3",
                                                 values("key1", "key2")))));
+    }
+
+    @Test
+    public void testConflictFilterConjunct()
+    {
+        RuleTester tester = new RuleTester();
+        tester.assertThat(new ReplaceConstantVariableReferencesWithConstants(createTestFunctionAndTypeManager()))
+                .on(planBuilder ->
+                {
+                    VariableReferenceExpression key1 = planBuilder.variable("key1", INTEGER);
+                    VariableReferenceExpression key2 = planBuilder.variable("key2", INTEGER);
+                    VariableReferenceExpression count = planBuilder.variable("cnt");
+                    return planBuilder.aggregation(
+                            aggregationBuilder -> aggregationBuilder
+                                    .source(
+                                            planBuilder.filter(
+                                                    planBuilder.rowExpression("key1=2 and key2=5"),
+                                                    planBuilder.filter(
+                                                            planBuilder.rowExpression("key1= 3"),
+                                                            planBuilder.values(key1, key2))))
+                                    .singleGroupingSet(key1, key2)
+                                    .addAggregation(count, planBuilder.rowExpression("count()")));
+                })
+                .matches(
+                        aggregation(
+                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                filter(
+                                        "key1=2 and key2=5",
+                                        filter(
+                                                "key1=3",
+                                                values("key1", "key2")))));
+    }
+
+    @Test
+    public void testNonConflictFilter()
+    {
+        RuleTester tester = new RuleTester();
+        tester.assertThat(new ReplaceConstantVariableReferencesWithConstants(createTestFunctionAndTypeManager()))
+                .on(planBuilder ->
+                {
+                    VariableReferenceExpression key1 = planBuilder.variable("key1", INTEGER);
+                    VariableReferenceExpression key2 = planBuilder.variable("key2", INTEGER);
+                    VariableReferenceExpression count = planBuilder.variable("cnt");
+                    return planBuilder.aggregation(
+                            aggregationBuilder -> aggregationBuilder
+                                    .source(
+                                            planBuilder.filter(
+                                                    planBuilder.rowExpression("key1=3"),
+                                                    planBuilder.filter(
+                                                            planBuilder.rowExpression("key1= 3"),
+                                                            planBuilder.values(key1, key2))))
+                                    .singleGroupingSet(key1, key2)
+                                    .addAggregation(count, planBuilder.rowExpression("count()")));
+                })
+                .matches(
+                        aggregation(
+                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                project(
+                                        ImmutableMap.of("key1", expression("3")),
+                                        filter(
+                                                "3=3",
+                                                filter(
+                                                        "key1=3",
+                                                        values("key1", "key2"))))));
+    }
+
+    @Test
+    public void testNonConflictFilterConjunct()
+    {
+        RuleTester tester = new RuleTester();
+        tester.assertThat(new ReplaceConstantVariableReferencesWithConstants(createTestFunctionAndTypeManager()))
+                .on(planBuilder ->
+                {
+                    VariableReferenceExpression key1 = planBuilder.variable("key1", INTEGER);
+                    VariableReferenceExpression key2 = planBuilder.variable("key2", INTEGER);
+                    VariableReferenceExpression count = planBuilder.variable("cnt");
+                    return planBuilder.aggregation(
+                            aggregationBuilder -> aggregationBuilder
+                                    .source(
+                                            planBuilder.filter(
+                                                    planBuilder.rowExpression("key1=3 and key2=5"),
+                                                    planBuilder.filter(
+                                                            planBuilder.rowExpression("key1= 3"),
+                                                            planBuilder.values(key1, key2))))
+                                    .singleGroupingSet(key1, key2)
+                                    .addAggregation(count, planBuilder.rowExpression("count()")));
+                })
+                .matches(
+                        aggregation(
+                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                project(
+                                        ImmutableMap.of("key1", expression("3"), "key2", expression("5")),
+                                        filter(
+                                                "3=3 and key2=5",
+                                                filter(
+                                                        "key1=3",
+                                                        values("key1", "key2"))))));
+    }
+
+    @Test
+    public void testFilterOnExpression()
+    {
+        RuleTester tester = new RuleTester();
+        tester.assertThat(new ReplaceConstantVariableReferencesWithConstants(createTestFunctionAndTypeManager()))
+                .on(planBuilder ->
+                {
+                    VariableReferenceExpression key1 = planBuilder.variable("key1", INTEGER);
+                    VariableReferenceExpression key2 = planBuilder.variable("key2", INTEGER);
+                    VariableReferenceExpression count = planBuilder.variable("cnt");
+                    return planBuilder.aggregation(
+                            aggregationBuilder -> aggregationBuilder
+                                    .source(
+                                            planBuilder.filter(
+                                                    planBuilder.rowExpression("key2=key1+2"),
+                                                    planBuilder.filter(
+                                                            planBuilder.rowExpression("key1= 3"),
+                                                            planBuilder.values(key1, key2))))
+                                    .singleGroupingSet(key1, key2)
+                                    .addAggregation(count, planBuilder.rowExpression("count()")));
+                })
+                .matches(
+                        aggregation(
+                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                project(
+                                        ImmutableMap.of("key1", expression("3"), "key2", expression("key2")),
+                                        filter(
+                                                "key2=3+2",
+                                                filter(
+                                                        "key1=3",
+                                                        values("key1", "key2"))))));
+    }
+
+    @Test
+    public void testFilterAndProjectOnExpression()
+    {
+        RuleTester tester = new RuleTester();
+        tester.assertThat(new ReplaceConstantVariableReferencesWithConstants(createTestFunctionAndTypeManager()))
+                .on(planBuilder ->
+                {
+                    VariableReferenceExpression key1 = planBuilder.variable("key1", INTEGER);
+                    VariableReferenceExpression key2 = planBuilder.variable("key2", INTEGER);
+                    VariableReferenceExpression count = planBuilder.variable("cnt");
+                    return planBuilder.aggregation(
+                            aggregationBuilder -> aggregationBuilder
+                                    .source(
+                                            planBuilder.project(
+                                                    assignment(key2, planBuilder.rowExpression("key1+2"), key1, planBuilder.rowExpression("key1")),
+                                                    planBuilder.filter(
+                                                            planBuilder.rowExpression("key1= 3"),
+                                                            planBuilder.values(key1, key2))))
+                                    .singleGroupingSet(key1, key2)
+                                    .addAggregation(count, planBuilder.rowExpression("count()")));
+                })
+                .matches(
+                        aggregation(
+                                ImmutableMap.of("cnt", functionCall("count", ImmutableList.of())),
+                                project(
+                                        ImmutableMap.of("key1", expression("3"), "key2", expression("key2")),
+                                        project(
+                                                ImmutableMap.of("key2", expression("3+2"), "key1", expression("3")),
+                                                filter(
+                                                        "key1=3",
+                                                        values("key1", "key2"))))));
     }
 
     @Test

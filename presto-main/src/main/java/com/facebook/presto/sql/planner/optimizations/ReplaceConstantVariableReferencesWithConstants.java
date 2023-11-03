@@ -104,7 +104,7 @@ import static java.util.Objects.requireNonNull;
 public class ReplaceConstantVariableReferencesWithConstants
         implements PlanOptimizer
 {
-    private static final List<Type> SUPPORTED_JOIN_KEY_TYPE = ImmutableList.of(BIGINT, INTEGER, VARCHAR, DATE);
+    private static final List<Type> SUPPORTED_TYPES = ImmutableList.of(BIGINT, INTEGER, VARCHAR, DATE);
     private final FunctionAndTypeManager functionAndTypeManager;
 
     public ReplaceConstantVariableReferencesWithConstants(FunctionAndTypeManager functionAndTypeManager)
@@ -114,7 +114,7 @@ public class ReplaceConstantVariableReferencesWithConstants
 
     private static boolean isSupportedType(RowExpression rowExpression)
     {
-        return SUPPORTED_JOIN_KEY_TYPE.contains(rowExpression.getType()) || rowExpression.getType() instanceof VarcharType;
+        return SUPPORTED_TYPES.contains(rowExpression.getType()) || rowExpression.getType() instanceof VarcharType;
     }
 
     @Override
