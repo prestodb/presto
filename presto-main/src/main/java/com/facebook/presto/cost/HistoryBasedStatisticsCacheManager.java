@@ -46,6 +46,9 @@ public class HistoryBasedStatisticsCacheManager
 
     private final Map<QueryId, Map<CachingPlanCanonicalInfoProvider.InputTableCacheKey, PlanStatistics>> inputTableStatistics = new ConcurrentHashMap<>();
 
+    // Stores query IDs which timeout during history optimizer registration
+    private final Set<QueryId> queryIdsRegistrationTimeOut = ConcurrentHashMap.newKeySet();
+
     public HistoryBasedStatisticsCacheManager() {}
 
     public LoadingCache<PlanNodeWithHash, HistoricalPlanStatistics> getStatisticsCache(QueryId queryId, Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider, long timeoutInMilliSeconds)
@@ -87,11 +90,22 @@ public class HistoryBasedStatisticsCacheManager
         statisticsCache.remove(queryId);
         canonicalInfoCache.remove(queryId);
         inputTableStatistics.remove(queryId);
+        queryIdsRegistrationTimeOut.remove(queryId);
     }
 
     @VisibleForTesting
     public Map<QueryId, Map<CachingPlanCanonicalInfoProvider.CacheKey, PlanNodeCanonicalInfo>> getCanonicalInfoCache()
     {
         return canonicalInfoCache;
+    }
+
+    public boolean historyBasedQueryRegistrationTimeout(QueryId queryId)
+    {
+        return queryIdsRegistrationTimeOut.contains(queryId);
+    }
+
+    public void setHistoryBasedQueryRegistrationTimeout(QueryId queryId)
+    {
+        queryIdsRegistrationTimeOut.add(queryId);
     }
 }
