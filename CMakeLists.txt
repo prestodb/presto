@@ -526,6 +526,11 @@ endif()
 set(xsimd_SOURCE BUNDLED)
 resolve_dependency(xsimd)
 
+if(VELOX_BUILD_TESTING)
+  set(cpr_SOURCE BUNDLED)
+  resolve_dependency(cpr)
+endif()
+
 include(CTest) # include after project() but before add_subdirectory()
 
 include_directories(.)

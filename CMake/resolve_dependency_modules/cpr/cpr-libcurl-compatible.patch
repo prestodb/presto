@@ -1,0 +1,41 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# This can be removed once we upgrade to curl >= 7.68.0
+--- a/cpr/multiperform.cpp
++++ b/cpr/multiperform.cpp
+@@ -97,9 +97,9 @@ void MultiPerform::DoMultiPerform() {
+
+         if (still_running) {
+             const int timeout_ms{250};
+-            error_code = curl_multi_poll(multicurl_->handle, nullptr, 0, timeout_ms, nullptr);
++            error_code = curl_multi_wait(multicurl_->handle, nullptr, 0, timeout_ms, nullptr);
+             if (error_code) {
+-                std::cerr << "curl_multi_poll() failed, code " << static_cast<int>(error_code) << std::endl;
++                std::cerr << "curl_multi_wait() failed, code " << static_cast<int>(error_code) << std::endl;
+                 break;
+             }
+         }
+
+--- a/include/cpr/util.h
++++ b/include/cpr/util.h
+@@ -23,7 +23,7 @@ size_t writeUserFunction(char* ptr, size_t size, size_t nmemb, const WriteCallba
+ template <typename T = ProgressCallback>
+ int progressUserFunction(const T* progress, cpr_pf_arg_t dltotal, cpr_pf_arg_t dlnow, cpr_pf_arg_t ultotal, cpr_pf_arg_t ulnow) {
+     const int cancel_retval{1};
+-    static_assert(cancel_retval != CURL_PROGRESSFUNC_CONTINUE);
++    static_assert(cancel_retval != 0x10000001);
+     return (*progress)(dltotal, dlnow, ultotal, ulnow) ? 0 : cancel_retval;
+ }
+ int debugUserFunction(CURL* handle, curl_infotype type, char* data, size_t size, const DebugCallback* debug);
