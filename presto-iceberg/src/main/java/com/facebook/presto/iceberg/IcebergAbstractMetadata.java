@@ -378,6 +378,17 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+
+        // Currently drop partition column used in any partition specs of a table would introduce some problems in Iceberg.
+        // So we explicitly disallow dropping partition columns until Iceberg fix this problem.
+        // See https://github.com/apache/iceberg/issues/4563
+        boolean shouldNotDropPartitionColumn = icebergTable.specs().values().stream()
+                .flatMap(partitionSpec -> partitionSpec.fields().stream())
+                .anyMatch(field -> field.sourceId() == handle.getId());
+        if (shouldNotDropPartitionColumn) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns which exist in any of the table's partition specs");
+        }
+
         icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
     }
 
