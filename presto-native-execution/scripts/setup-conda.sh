@@ -222,6 +222,7 @@ function install_system_deps {
   DEPS+=" ninja=1.11.1"
   DEPS+=" openssl=3.1.2"
   DEPS+=" pkg-config=0.29.2"
+  DEPS+=" rapidjson=1.1.0"
   DEPS+=" re2=2023.03.02"
   DEPS+=" snappy=1.1.10"
   DEPS+=" tzdata=2023c"
