@@ -827,6 +827,31 @@ TEST_P(HashTableTest, offsetOverflowLoadTags) {
   }
 }
 
+TEST_P(HashTableTest, offsetOverflowStoreRowPointer) {
+  std::vector<std::unique_ptr<VectorHasher>> hashers;
+  hashers.push_back(std::make_unique<VectorHasher>(TINYINT(), 0));
+  auto table = HashTable<false>::createForJoin(
+      std::move(hashers),
+      {} /*dependentTypes=*/,
+      true,
+      false,
+      1'000,
+      pool_.get());
+  table->testingSetHashMode(
+      BaseHashTable::HashMode::kNormalizedKey, 700'000'000);
+  // Set greater than INT_MAX bucketOffset.
+  uint64_t bucketOffset = 2'848'622'336;
+  // Setting random value and hash value.
+  uint8_t value = 10;
+  uint64_t hash = 168'520'4148'842'825'593;
+  table->testingStoreRowPointer(bucketOffset, hash, (char*)&value);
+  auto expectedTag = BaseHashTable::hashTag(hash);
+  auto actualTagSimdBatch = table->testingLoadTags(bucketOffset);
+  ASSERT_EQ(expectedTag, actualTagSimdBatch.get(0));
+  auto slotIndex = bucketOffset & (sizeof(BaseHashTable::TagVector) - 1);
+  ASSERT_EQ(value, *(uint8_t*)table->testingGetRow(bucketOffset, slotIndex));
+}
+
 DEBUG_ONLY_TEST_P(HashTableTest, failureInCreateRowPartitions) {
   // This tests an issue in parallelJoinBuild where an exception in
   // createRowPartitions could lead to concurrency issues in async table

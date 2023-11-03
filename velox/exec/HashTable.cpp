@@ -290,7 +290,7 @@ void HashTable<ignoreNullKeys>::storeKeys(
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::storeRowPointer(
-    int32_t index,
+    uint64_t index,
     uint64_t hash,
     char* row) {
   if (hashMode_ == HashMode::kArray) {
@@ -307,7 +307,7 @@ void HashTable<ignoreNullKeys>::storeRowPointer(
 template <bool ignoreNullKeys>
 char* HashTable<ignoreNullKeys>::insertEntry(
     HashLookup& lookup,
-    int32_t index,
+    uint64_t index,
     vector_size_t row) {
   char* group = rows_->newRow();
   lookup.hits[row] = group; // NOLINT
@@ -374,8 +374,8 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::fullProbe(
           return RowContainer::normalizedKey(group) ==
               lookup.normalizedKeys[row];
         },
-        [&](int32_t index, int32_t row) {
-          return isJoin ? nullptr : insertEntry(lookup, row, index);
+        [&](int32_t row, uint64_t index) {
+          return isJoin ? nullptr : insertEntry(lookup, index, row);
         },
         numTombstones_,
         !isJoin && extraCheck);
@@ -386,8 +386,8 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::fullProbe(
       *this,
       0,
       [&](char* group, int32_t row) { return compareKeys(group, lookup, row); },
-      [&](int32_t index, int32_t row) {
-        return isJoin ? nullptr : insertEntry(lookup, row, index);
+      [&](int32_t row, uint64_t index) {
+        return isJoin ? nullptr : insertEntry(lookup, index, row);
       },
       numTombstones_,
       !isJoin && extraCheck);

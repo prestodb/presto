@@ -500,6 +500,18 @@ class HashTable : public BaseHashTable {
     setHashMode(mode, numNew);
   }
 
+  void testingStoreRowPointer(uint64_t index, uint64_t hash, char* row) {
+    storeRowPointer(index, hash, row);
+  }
+
+  auto testingLoadTags(uint64_t bucketOffset) {
+    return loadTags(bucketOffset);
+  }
+
+  auto testingGetRow(uint64_t bucketOffset, uint64_t slotIndex) {
+    return row(bucketOffset, slotIndex);
+  }
+
   auto& testingOtherTables() const {
     return otherTables_;
   }
@@ -622,7 +634,7 @@ class HashTable : public BaseHashTable {
   void rehash(bool initNormalizedKeys);
   void storeKeys(HashLookup& lookup, vector_size_t row);
 
-  void storeRowPointer(int32_t index, uint64_t hash, char* row);
+  void storeRowPointer(uint64_t index, uint64_t hash, char* row);
 
   // Allocates new tables for tags and payload pointers. The size must
   // a power of 2.
@@ -711,7 +723,7 @@ class HashTable : public BaseHashTable {
       bool initNormalizedKeys,
       raw_vector<uint64_t>& hashes);
 
-  char* insertEntry(HashLookup& lookup, int32_t index, vector_size_t row);
+  char* insertEntry(HashLookup& lookup, uint64_t index, vector_size_t row);
 
   bool compareKeys(const char* group, HashLookup& lookup, vector_size_t row);
 
