@@ -41,7 +41,16 @@ class QueryCtx {
           connectorConfigs = {},
       cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
       std::shared_ptr<memory::MemoryPool> pool = nullptr,
-      std::shared_ptr<folly::Executor> spillExecutor = nullptr,
+      folly::Executor* spillExecutor = nullptr,
+      const std::string& queryId = "");
+
+  QueryCtx(
+      folly::Executor* executor,
+      QueryConfig&& queryConfig,
+      std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
+      cache::AsyncDataCache* cache,
+      std::shared_ptr<memory::MemoryPool> pool,
+      std::shared_ptr<folly::Executor> spillExecutor,
       const std::string& queryId = "");
 
   /// Constructor to block the destruction of executor while this
@@ -105,7 +114,7 @@ class QueryCtx {
   }
 
   folly::Executor* spillExecutor() const {
-    return spillExecutor_.get();
+    return spillExecutor_;
   }
 
   const std::string& queryId() const {
@@ -131,14 +140,14 @@ class QueryCtx {
   }
 
   const std::string queryId_;
+  folly::Executor* const executor_{nullptr};
+  folly::Executor* const spillExecutor_{nullptr};
+  cache::AsyncDataCache* const cache_;
 
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
-  cache::AsyncDataCache* cache_;
   std::shared_ptr<memory::MemoryPool> pool_;
-  folly::Executor* executor_;
   folly::Executor::KeepAlive<> executorKeepalive_;
   QueryConfig queryConfig_;
-  std::shared_ptr<folly::Executor> spillExecutor_;
 };
 
 // Represents the state of one thread of query execution.
