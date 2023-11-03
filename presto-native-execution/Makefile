@@ -77,15 +77,13 @@ conda-install-deps: submodules
 conda-build:
 ifeq ($(shell uname),Darwin)
 	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
-		$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug TREAT_WARNINGS_AS_ERRORS=0 PRESTO_ENABLE_PARQUET=OFF && \
-	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
-		$(MAKE) build BUILD_DIR=debug
+		$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug TREAT_WARNINGS_AS_ERRORS=0 PRESTO_ENABLE_PARQUET=OFF
 else
 	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
-		$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug TREAT_WARNINGS_AS_ERRORS=0 PRESTO_ENABLE_PARQUET=ON && \
+		$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug TREAT_WARNINGS_AS_ERRORS=0 PRESTO_ENABLE_PARQUET=ON
+endif
 	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
 		$(MAKE) build BUILD_DIR=debug
-endif
 
 # Needs DYLD_LIBRARY_PATH on Macs
 conda-test: conda-build
