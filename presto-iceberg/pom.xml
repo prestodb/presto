@@ -65,6 +65,12 @@
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-column</artifactId>
             <version>${dep.parquet.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.yetus</groupId>
+                    <artifactId>audience-annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
