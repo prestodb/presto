@@ -602,7 +602,7 @@ TEST_F(DecodedVectorTest, dictionaryOverLazy) {
     checkUnloaded(decoded);
   }
   dictionaryVector->loadedVector();
-  EXPECT_TRUE(dictionaryVector->valueVector()->as<LazyVector>()->isLoaded());
+  EXPECT_TRUE(!dictionaryVector->valueVector()->isLazy());
   {
     SelectivityVector selection(dictionarySize);
     DecodedVector decoded(*dictionaryVector, selection, false);

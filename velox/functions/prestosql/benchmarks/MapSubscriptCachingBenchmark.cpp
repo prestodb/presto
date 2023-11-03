@@ -35,8 +35,6 @@ extern void registerSubscriptFunction(
     bool enableCaching);
 }
 
-// This benchmark evaluates the effectiveness of the caching optimization of map
-// subscript and ensure that it does not degrade performance.
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
 

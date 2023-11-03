@@ -15,10 +15,9 @@
  */
 #pragma once
 
+#include <folly/container/F14Map.h>
 #include <memory>
 #include <type_traits>
-
-#include <folly/container/F14Map.h>
 
 #include "velox/common/base/SimdUtil.h"
 #include "velox/vector/LazyVector.h"
@@ -159,6 +158,7 @@ class DictionaryVector : public SimpleVector<T> {
     rows.updateBounds();
 
     LazyVector::ensureLoadedRows(dictionaryValues_, rows);
+    dictionaryValues_ = BaseVector::loadedVectorShared(dictionaryValues_);
     setInternalState();
     return this;
   }

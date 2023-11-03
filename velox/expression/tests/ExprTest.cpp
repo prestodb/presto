@@ -220,41 +220,6 @@ class ExprTest : public testing::Test, public VectorTestBase {
         valueType, std::move(value));
   }
 
-  // Create LazyVector that produces a flat vector and asserts that is is being
-  // loaded for a specific set of rows.
-  template <typename T>
-  std::shared_ptr<LazyVector> makeLazyFlatVector(
-      vector_size_t size,
-      std::function<T(vector_size_t /*row*/)> valueAt,
-      std::function<bool(vector_size_t /*row*/)> isNullAt,
-      vector_size_t expectedSize,
-      const std::function<vector_size_t(vector_size_t /*index*/)>&
-          expectedRowAt) {
-    return std::make_shared<LazyVector>(
-        execCtx_->pool(),
-        CppToType<T>::create(),
-        size,
-        std::make_unique<SimpleVectorLoader>([=](RowSet rows) {
-          VELOX_CHECK_EQ(rows.size(), expectedSize);
-          for (auto i = 0; i < rows.size(); i++) {
-            VELOX_CHECK_EQ(rows[i], expectedRowAt(i));
-          }
-          return makeFlatVector<T>(size, valueAt, isNullAt);
-        }));
-  }
-
-  VectorPtr wrapInLazyDictionary(VectorPtr vector) {
-    return std::make_shared<LazyVector>(
-        execCtx_->pool(),
-        vector->type(),
-        vector->size(),
-        std::make_unique<SimpleVectorLoader>([=](RowSet /*rows*/) {
-          auto indices =
-              makeIndices(vector->size(), [](auto row) { return row; });
-          return wrapInDictionary(indices, vector->size(), vector);
-        }));
-  }
-
   /// Remove ". Input data: .*" from the 'context'.
   std::string trimInputPath(const std::string& context) {
     auto pos = context.find(". Input data: ");

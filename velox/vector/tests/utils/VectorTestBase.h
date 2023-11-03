@@ -22,6 +22,7 @@
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 #include <gtest/gtest.h>
+#include <optional>
 
 namespace facebook::velox::test {
 
@@ -706,6 +707,47 @@ class VectorTestBase {
 
   memory::MemoryPool* pool() const {
     return pool_.get();
+  }
+
+  // Create LazyVector that produces a flat vector and asserts that is is being
+  // loaded for a specific set of rows.
+  template <typename T>
+  std::shared_ptr<LazyVector> makeLazyFlatVector(
+      vector_size_t size,
+      std::function<T(vector_size_t /*row*/)> valueAt,
+      std::function<bool(vector_size_t /*row*/)> isNullAt =
+          [](vector_size_t row) { return false; },
+      std::optional<vector_size_t> expectedSize = std::nullopt,
+      const std::optional<
+          std::function<vector_size_t(vector_size_t /*index*/)>>&
+          expectedRowAt = std::nullopt) {
+    return std::make_shared<LazyVector>(
+        pool(),
+        CppToType<T>::create(),
+        size,
+        std::make_unique<SimpleVectorLoader>([=](RowSet rows) {
+          if (expectedSize.has_value()) {
+            VELOX_CHECK_EQ(rows.size(), *expectedSize);
+          }
+          if (expectedRowAt.has_value()) {
+            for (auto i = 0; i < rows.size(); i++) {
+              VELOX_CHECK_EQ(rows[i], (*expectedRowAt)(i));
+            }
+          }
+          return makeFlatVector<T>(size, valueAt, isNullAt);
+        }));
+  }
+
+  VectorPtr wrapInLazyDictionary(VectorPtr vector) {
+    return std::make_shared<LazyVector>(
+        pool(),
+        vector->type(),
+        vector->size(),
+        std::make_unique<SimpleVectorLoader>([=](RowSet /*rows*/) {
+          auto indices =
+              makeIndices(vector->size(), [](auto row) { return row; });
+          return wrapInDictionary(indices, vector->size(), vector);
+        }));
   }
 
   std::shared_ptr<memory::MemoryPool> rootPool_{

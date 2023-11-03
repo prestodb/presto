@@ -16,6 +16,7 @@
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <cstdint>
 #include <functional>
 #include <optional>
 
@@ -25,8 +26,10 @@
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
+#include "velox/vector/DictionaryVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/LazyVector.h"
+#include "velox/vector/SelectivityVector.h"
 #include "velox/vector/SimpleVector.h"
 #include "velox/vector/TypeAliases.h"
 #include "velox/vector/VectorTypeUtils.h"
@@ -3239,5 +3242,49 @@ TEST_F(VectorTest, constantNullEqual) {
   // Null compare in StopAtNull mode, [2, null] vs [2, null].
   ASSERT_FALSE(equalStopAtNull(0, 1).has_value());
 }
+
+TEST_F(VectorTest, dictionaryLoadedVectorRemoveLazy) {
+  auto makeTestVector = [&]() {
+    auto lazy = makeLazyFlatVector<int64_t>(3, [&](auto row) { return row; });
+    auto dictVector =
+        BaseVector::wrapInDictionary(nullptr, makeIndices({0, 1, 2}), 3, lazy);
+    return dictVector;
+  };
+
+  {
+    auto vector = makeTestVector();
+    vector->loadedVector();
+    EXPECT_FALSE(
+        vector->as<DictionaryVector<int64_t>>()->valueVector()->isLazy());
+  }
+
+  {
+    auto vector = makeTestVector();
+    LazyVector::ensureLoadedRows(vector, SelectivityVector(3));
+    EXPECT_FALSE(
+        vector->as<DictionaryVector<int64_t>>()->valueVector()->isLazy());
+  }
+
+  {
+    auto vector = makeRowVector({makeTestVector()});
+    vector->loadedVector();
+    EXPECT_FALSE(vector->as<RowVector>()
+                     ->childAt(0)
+                     ->as<DictionaryVector<int64_t>>()
+                     ->valueVector()
+                     ->isLazy());
+  }
+
+  {
+    auto vector = makeRowVector({makeTestVector()});
+    LazyVector::ensureLoadedRows(vector, SelectivityVector(3));
+    EXPECT_FALSE(vector->as<RowVector>()
+                     ->childAt(0)
+                     ->as<DictionaryVector<int64_t>>()
+                     ->valueVector()
+                     ->isLazy());
+  }
+}
+
 } // namespace
 } // namespace facebook::velox

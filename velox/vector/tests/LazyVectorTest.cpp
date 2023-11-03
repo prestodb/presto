@@ -59,10 +59,7 @@ TEST_F(LazyVectorTest, lazyInDictionary) {
   rows.updateBounds();
   LazyVector::ensureLoadedRows(wrapped, rows);
   EXPECT_EQ(wrapped->encoding(), VectorEncoding::Simple::DICTIONARY);
-  EXPECT_EQ(wrapped->valueVector()->encoding(), VectorEncoding::Simple::LAZY);
-  EXPECT_EQ(
-      wrapped->valueVector()->loadedVector()->encoding(),
-      VectorEncoding::Simple::FLAT);
+  EXPECT_EQ(wrapped->valueVector()->encoding(), VectorEncoding::Simple::FLAT);
 
   EXPECT_EQ(loadedRows, (std::vector<vector_size_t>{0, 5}));
   assertCopyableVector(wrapped);
