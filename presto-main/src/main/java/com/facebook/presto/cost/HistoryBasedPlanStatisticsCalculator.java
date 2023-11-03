@@ -79,10 +79,15 @@ public class HistoryBasedPlanStatisticsCalculator
     @Override
     public boolean registerPlan(PlanNode root, Session session, long startTimeInNano, long timeoutInMilliseconds)
     {
+        // If previous registration timeout for this query, this run is likely to timeout too, return false.
+        if (historyBasedStatisticsCacheManager.historyBasedQueryRegistrationTimeout(session.getQueryId())) {
+            return false;
+        }
         ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
         Iterable<PlanNode> planNodeIterable = forTree(PlanNode::getSources).depthFirstPreOrder(root);
         for (PlanNode plan : planNodeIterable) {
             if (checkTimeOut(startTimeInNano, timeoutInMilliseconds)) {
+                historyBasedStatisticsCacheManager.setHistoryBasedQueryRegistrationTimeout(session.getQueryId());
                 return false;
             }
             if (plan.getStatsEquivalentPlanNode().isPresent()) {
@@ -94,6 +99,10 @@ public class HistoryBasedPlanStatisticsCalculator
         }
         catch (ExecutionException e) {
             throw new RuntimeException("Unable to register plan: ", e.getCause());
+        }
+
+        if (checkTimeOut(startTimeInNano, timeoutInMilliseconds)) {
+            historyBasedStatisticsCacheManager.setHistoryBasedQueryRegistrationTimeout(session.getQueryId());
         }
         // Return true even if get empty history statistics, so that HistoricalStatisticsEquivalentPlanMarkingOptimizer still return the plan with StatsEquivalentPlanNode which
         // will be used in populating history statistics
