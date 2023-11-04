@@ -78,6 +78,8 @@ class HashAggregation : public Operator {
   // the inputs.
   void recordSpillStats();
 
+  void updateEstimatedOutputRowSize();
+
   std::shared_ptr<const core::AggregationNode> aggregationNode_;
 
   const bool isPartialOutput_;
@@ -93,6 +95,11 @@ class HashAggregation : public Operator {
 
   int64_t maxPartialAggregationMemoryUsage_;
   std::unique_ptr<GroupingSet> groupingSet_;
+
+  // Size of a single output row estimated using
+  // 'groupingSet_->estimateRowSize()'. If spilling, this value is set to max
+  // 'groupingSet_->estimateRowSize()' across all accumulated data set.
+  std::optional<int64_t> estimatedOutputRowSize_;
 
   bool partialFull_ = false;
   bool newDistincts_ = false;

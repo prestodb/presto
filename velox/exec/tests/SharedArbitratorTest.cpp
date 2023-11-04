@@ -32,6 +32,7 @@
 #include "velox/exec/Driver.h"
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/HashJoinBridge.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/SharedArbitrator.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/Values.h"
@@ -342,6 +343,22 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
   RowVectorPtr newVector() {
     VectorFuzzer fuzzer(fuzzerOpts_, pool());
     return fuzzer.fuzzRow(rowType_);
+  }
+
+  std::vector<RowVectorPtr> newVectors(size_t vectorSize, size_t expectedSize) {
+    VectorFuzzer::Options fuzzerOpts;
+    fuzzerOpts.vectorSize = vectorSize;
+    fuzzerOpts.stringVariableLength = false;
+    fuzzerOpts.stringLength = 1024;
+    fuzzerOpts.allowLazyVector = false;
+    VectorFuzzer fuzzer(fuzzerOpts_, pool());
+    uint64_t totalSize{0};
+    std::vector<RowVectorPtr> vectors;
+    while (totalSize < expectedSize) {
+      vectors.push_back(fuzzer.fuzzInputRow(rowType_));
+      totalSize += vectors.back()->estimateFlatSize();
+    }
+    return vectors;
   }
 
   std::shared_ptr<core::QueryCtx> newQueryCtx(
@@ -829,6 +846,31 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromAggregation) {
     memThread.join();
     waitForAllTasksToBeDeleted();
   }
+}
+
+TEST_F(SharedArbitrationTest, reclaimFromDistinctAggregation) {
+  const uint64_t maxQueryCapacity = 20L << 20;
+  std::vector<RowVectorPtr> vectors = newVectors(1024, maxQueryCapacity * 2);
+  createDuckDbTable(vectors);
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  core::PlanNodeId aggrNodeId;
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(maxQueryCapacity);
+  auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                  .spillDirectory(spillDirectory->path)
+                  .config(core::QueryConfig::kSpillEnabled, "true")
+                  .config(core::QueryConfig::kAggregationSpillEnabled, "true")
+                  .queryCtx(queryCtx)
+                  .plan(PlanBuilder()
+                            .values(vectors)
+                            .singleAggregation({"c0"}, {})
+                            .capturePlanNodeId(aggrNodeId)
+                            .planNode())
+                  .assertResults("SELECT distinct c0 FROM tmp");
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  auto& planStats = taskStats.at(aggrNodeId);
+  ASSERT_GT(planStats.spilledBytes, 0);
+  task.reset();
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromAggregationOnNoMoreInput) {

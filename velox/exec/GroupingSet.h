@@ -76,7 +76,10 @@ class GroupingSet {
 
   uint64_t allocatedBytes() const;
 
-  void resetPartial();
+  /// Resets the hash table inside the grouping set when partial aggregation
+  /// is full or reclaims memory from distinct aggregation after it has received
+  /// all the inputs.
+  void resetTable();
 
   /// Returns true if 'this' should start producing partial
   /// aggregation results. Checks the memory consumption against
@@ -155,6 +158,8 @@ class GroupingSet {
     return pool_;
   }
 
+  std::optional<int64_t> estimateOutputRowSize() const;
+
  private:
   bool isDistinct() const {
     return aggregates_.empty();
@@ -175,7 +180,7 @@ class GroupingSet {
       RowVectorPtr& result);
 
   // If there are global grouping sets, then returns if they have default
-  // output incase no input rows were received.
+  // output in case no input rows were received.
   bool hasDefaultGlobalGroupingSetOutput() const {
     return noMoreInput_ && numInputRows_ == 0 && !globalGroupingSets_.empty() &&
         isRawInput_;
@@ -214,13 +219,24 @@ class GroupingSet {
       int32_t maxOutputBytes,
       const RowVectorPtr& result);
 
-  // Reads rows from the current spilled partition until producing a batch of
-  // final results in 'result'. Returns false and leaves 'result' empty when
-  // the partition is fully read. 'maxOutputRows' and 'maxOutputBytes' specify
-  // the max number of output rows and bytes in 'result'.
+  // Reads from spilled rows until producing a batch of final results in
+  // 'result'. Returns false and leaves 'result' empty when the spilled data is
+  // fully read. 'maxOutputRows' and 'maxOutputBytes' specify the max number of
+  // output rows and bytes in 'result'.
   bool mergeNext(
       int32_t maxOutputRows,
       int32_t maxOutputBytes,
+      const RowVectorPtr& result);
+
+  // Reads from spilled rows for group by with aggregates.
+  bool mergeNextWithAggregates(
+      int32_t maxOutputRows,
+      int32_t maxOutputBytes,
+      const RowVectorPtr& result);
+
+  // Reads from spilled rows for group by without aggregates.
+  bool mergeNextWithoutAggregates(
+      int32_t maxOutputRows,
       const RowVectorPtr& result);
 
   // Initializes a new row in 'mergeRows' with the keys from the
@@ -307,12 +323,12 @@ class GroupingSet {
 
   bool noMoreInput_{false};
 
-  /// In case of partial streaming aggregation, the input vector passed to
-  /// addInput(). A set of rows that belong to the last group of pre-grouped
-  /// keys need to be processed after flushing the hash table and accumulators.
+  // In case of partial streaming aggregation, the input vector passed to
+  // addInput(). A set of rows that belong to the last group of pre-grouped
+  // keys need to be processed after flushing the hash table and accumulators.
   RowVectorPtr remainingInput_;
 
-  /// First row in remainingInput_ that needs to be processed.
+  // First row in remainingInput_ that needs to be processed.
   vector_size_t firstRemainingRow_;
 
   // The value of mayPushdown flag specified in addInput() for the

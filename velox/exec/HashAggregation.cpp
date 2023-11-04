@@ -254,7 +254,8 @@ void HashAggregation::addInput(RowVectorPtr input) {
   }
 
   if (isDistinct_) {
-    newDistincts_ = !groupingSet_->hashLookup().newGroups.empty();
+    newDistincts_ = !groupingSet_->hasSpilled() &&
+        !groupingSet_->hashLookup().newGroups.empty();
 
     if (newDistincts_) {
       // Save input to use for output in getOutput().
@@ -333,7 +334,7 @@ void HashAggregation::resetPartialOutputIfNeed() {
     lockedStats->addRuntimeStat(
         "partialAggregationPct", RuntimeCounter(aggregationPct));
   }
-  groupingSet_->resetPartial();
+  groupingSet_->resetTable();
   partialFull_ = false;
   if (!finished_) {
     maybeIncreasePartialAggregationMemoryUsage(aggregationPct);
@@ -411,45 +412,16 @@ RowVectorPtr HashAggregation::getOutput() {
   }
 
   if (isDistinct_) {
-    if (!newDistincts_) {
-      if (noMoreInput_) {
-        finished_ = true;
-        if (auto numRows = groupingSet_->numDefaultGlobalGroupingSetRows()) {
-          prepareOutput(numRows.value());
-          if (groupingSet_->getDefaultGlobalGroupingSetOutput(
-                  resultIterator_, output_)) {
-            numOutputRows_ += output_->size();
-            return output_;
-          }
-        }
-      }
-      return nullptr;
-    }
-
-    auto lookup = groupingSet_->hashLookup();
-    auto size = lookup.newGroups.size();
-    BufferPtr indices = allocateIndices(size, operatorCtx_->pool());
-    auto indicesPtr = indices->asMutable<vector_size_t>();
-    std::copy(lookup.newGroups.begin(), lookup.newGroups.end(), indicesPtr);
-    newDistincts_ = false;
-    auto output = fillOutput(size, indices);
-    numOutputRows_ += size;
-
-    // Drop reference to input_ to make it singly-referenced at the producer and
-    // allow for memory reuse.
-    input_ = nullptr;
-
-    resetPartialOutputIfNeed();
-    return output;
+    return getDistinctOutput();
   }
 
   const auto& queryConfig = operatorCtx_->driverCtx()->queryConfig();
   const auto maxOutputRows =
-      isGlobal_ ? 1 : queryConfig.preferredOutputBatchRows();
+      isGlobal_ ? 1 : outputBatchRows(estimatedOutputRowSize_);
   // Reuse output vectors if possible.
   prepareOutput(maxOutputRows);
 
-  bool hasData = groupingSet_->getOutput(
+  const bool hasData = groupingSet_->getOutput(
       maxOutputRows,
       queryConfig.preferredOutputBatchBytes(),
       resultIterator_,
@@ -466,7 +438,67 @@ RowVectorPtr HashAggregation::getOutput() {
   return output_;
 }
 
+RowVectorPtr HashAggregation::getDistinctOutput() {
+  VELOX_CHECK(isDistinct_);
+  VELOX_CHECK(!finished_);
+
+  if (newDistincts_) {
+    VELOX_CHECK_NOT_NULL(input_);
+
+    auto& lookup = groupingSet_->hashLookup();
+    const auto size = lookup.newGroups.size();
+    BufferPtr indices = allocateIndices(size, operatorCtx_->pool());
+    auto indicesPtr = indices->asMutable<vector_size_t>();
+    std::copy(lookup.newGroups.begin(), lookup.newGroups.end(), indicesPtr);
+    newDistincts_ = false;
+    auto output = fillOutput(size, indices);
+    numOutputRows_ += size;
+
+    // Drop reference to input_ to make it singly-referenced at the producer and
+    // allow for memory reuse.
+    input_ = nullptr;
+
+    resetPartialOutputIfNeed();
+    return output;
+  }
+  VELOX_CHECK(!newDistincts_);
+
+  if (!groupingSet_->hasSpilled()) {
+    if (noMoreInput_) {
+      finished_ = true;
+      if (auto numRows = groupingSet_->numDefaultGlobalGroupingSetRows()) {
+        prepareOutput(numRows.value());
+        if (groupingSet_->getDefaultGlobalGroupingSetOutput(
+                resultIterator_, output_)) {
+          numOutputRows_ += output_->size();
+          return output_;
+        }
+      }
+    }
+    return nullptr;
+  }
+
+  if (!noMoreInput_) {
+    return nullptr;
+  }
+
+  const auto& queryConfig = operatorCtx_->driverCtx()->queryConfig();
+  const auto maxOutputRows = outputBatchRows(estimatedOutputRowSize_);
+  prepareOutput(maxOutputRows);
+  if (!groupingSet_->getOutput(
+          maxOutputRows,
+          queryConfig.preferredOutputBatchBytes(),
+          resultIterator_,
+          output_)) {
+    finished_ = true;
+    return nullptr;
+  }
+  numOutputRows_ += output_->size();
+  return output_;
+}
+
 void HashAggregation::noMoreInput() {
+  updateEstimatedOutputRowSize();
   groupingSet_->noMoreInput();
   Operator::noMoreInput();
   recordSpillStats();
@@ -484,6 +516,8 @@ void HashAggregation::reclaim(
   VELOX_CHECK(canReclaim());
   VELOX_CHECK(!nonReclaimableSection_);
 
+  updateEstimatedOutputRowSize();
+
   if (noMoreInput_) {
     if (groupingSet_->hasSpilled()) {
       LOG(WARNING)
@@ -491,6 +525,13 @@ void HashAggregation::reclaim(
           << pool()->name()
           << ", memory usage: " << succinctBytes(pool()->currentBytes())
           << ", reservation: " << succinctBytes(pool()->reservedBytes());
+      return;
+    }
+    if (isDistinct_) {
+      // Since we have seen all the input, we can safely reset the hash table.
+      groupingSet_->resetTable();
+      // Release the minimum reserved memory.
+      pool()->release();
       return;
     }
 
@@ -520,5 +561,20 @@ void HashAggregation::close() {
 
 void HashAggregation::abort() {
   close();
+}
+
+void HashAggregation::updateEstimatedOutputRowSize() {
+  const auto optionalRowSize = groupingSet_->estimateOutputRowSize();
+  if (!optionalRowSize.has_value()) {
+    return;
+  }
+
+  const auto rowSize = optionalRowSize.value();
+
+  if (!estimatedOutputRowSize_.has_value()) {
+    estimatedOutputRowSize_ = rowSize;
+  } else if (rowSize > estimatedOutputRowSize_.value()) {
+    estimatedOutputRowSize_ = rowSize;
+  }
 }
 } // namespace facebook::velox::exec
