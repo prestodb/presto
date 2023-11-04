@@ -630,7 +630,8 @@ bool GroupingSet::getDefaultGlobalGroupingSetOutput(
   VELOX_CHECK(getGlobalAggregationOutput(iterator, globalAggregatesRow));
 
   // There is one output row for each global GroupingSet.
-  result->resize(globalGroupingSets_.size());
+  const auto numGroupingSets = globalGroupingSets_.size();
+  result->resize(numGroupingSets);
   VELOX_CHECK(groupIdChannel_.has_value());
   // These first columns are for grouping keys (which could include the
   // GroupId column). For a global grouping set row :
@@ -639,14 +640,14 @@ bool GroupingSet::getDefaultGlobalGroupingSetOutput(
   for (auto i = 0; i < firstAggregateCol; i++) {
     auto column = result->childAt(i);
     if (i == groupIdChannel_.value()) {
-      column->resize(globalGroupingSets_.size());
+      column->resize(numGroupingSets);
       auto* groupIdVector = column->asFlatVector<int64_t>();
-      for (auto j = 0; j < globalGroupingSets_.size(); j++) {
+      for (auto j = 0; j < numGroupingSets; j++) {
         groupIdVector->set(j, globalGroupingSets_.at(j));
       }
     } else {
-      column->resize(globalGroupingSets_.size(), false);
-      for (auto j = 0; j < globalGroupingSets_.size(); j++) {
+      column->resize(numGroupingSets, false);
+      for (auto j = 0; j < numGroupingSets; j++) {
         column->setNull(j, true);
       }
     }
@@ -656,9 +657,10 @@ bool GroupingSet::getDefaultGlobalGroupingSetOutput(
   // aggregates.
   for (auto i = firstAggregateCol; i < outputType->size(); i++) {
     auto resultAggregateColumn = result->childAt(i);
+    resultAggregateColumn->resize(numGroupingSets);
     auto sourceAggregateColumn =
         globalAggregatesRow->childAt(i - firstAggregateCol);
-    for (auto j = 0; j < globalGroupingSets_.size(); j++) {
+    for (auto j = 0; j < numGroupingSets; j++) {
       resultAggregateColumn->copy(sourceAggregateColumn.get(), j, 0, 1);
     }
   }
