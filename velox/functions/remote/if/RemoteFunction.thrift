@@ -19,10 +19,7 @@ namespace java.swift com.facebook.spark.remotefunctionserver.api
 
 cpp_include "folly/io/IOBuf.h"
 
-include "thrift/annotation/cpp.thrift"
-
-@cpp.Type{name = "folly::IOBuf"}
-typedef binary IOBuf
+typedef binary (cpp2.type = "folly::IOBuf") IOBuf
 
 /// The format used to serialize buffers/payloads.
 enum PageFormat {
