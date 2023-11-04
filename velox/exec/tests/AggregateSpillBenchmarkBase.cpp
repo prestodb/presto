@@ -61,7 +61,7 @@ void AggregateSpillBenchmarkBase::writeSpillData() {
   }
 
   std::vector<char*> rows;
-  rows.reserve(numRows);
+  rows.resize(numRows);
   for (int i = 0; i < numRows; ++i) {
     rows[i] = rowContainer_->newRow();
   }

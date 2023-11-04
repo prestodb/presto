@@ -500,18 +500,6 @@ class HashTable : public BaseHashTable {
     setHashMode(mode, numNew);
   }
 
-  void testingStoreRowPointer(uint64_t index, uint64_t hash, char* row) {
-    storeRowPointer(index, hash, row);
-  }
-
-  auto testingLoadTags(uint64_t bucketOffset) {
-    return loadTags(bucketOffset);
-  }
-
-  auto testingGetRow(uint64_t bucketOffset, uint64_t slotIndex) {
-    return row(bucketOffset, slotIndex);
-  }
-
   auto& testingOtherTables() const {
     return otherTables_;
   }

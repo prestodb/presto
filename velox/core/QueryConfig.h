@@ -266,15 +266,6 @@ class QueryConfig {
   static constexpr const char* kJoinSpillPartitionBits =
       "join_spiller_partition_bits";
 
-  static constexpr const char* kAggregationSpillPartitionBits =
-      "aggregation_spiller_partition_bits";
-
-  /// If true and spilling has been triggered during the input processing, the
-  /// spiller will spill all the remaining in-memory state to disk before output
-  /// processing. This is to simplify the aggregation query OOM prevention in
-  /// output processing stage.
-  static constexpr const char* kAggregationSpillAll = "aggregation_spill_all";
-
   static constexpr const char* kMinSpillableReservationPct =
       "min_spillable_reservation_pct";
 
@@ -552,22 +543,6 @@ class QueryConfig {
     constexpr uint8_t kMaxBits = 3;
     return std::min(
         kMaxBits, get<uint8_t>(kJoinSpillPartitionBits, kDefaultBits));
-  }
-
-  /// Returns the number of bits used to calculate the spilling partition
-  /// number for hash join. The number of spilling partitions will be power of
-  /// two.
-  ///
-  /// NOTE: as for now, we only support up to 8-way spill partitioning.
-  uint8_t aggregationSpillPartitionBits() const {
-    constexpr uint8_t kDefaultBits = 0;
-    constexpr uint8_t kMaxBits = 3;
-    return std::min(
-        kMaxBits, get<uint8_t>(kAggregationSpillPartitionBits, kDefaultBits));
-  }
-
-  bool aggregationSpillAll() const {
-    return get<bool>(kAggregationSpillAll, true);
   }
 
   uint64_t writerFlushThresholdBytes() const {

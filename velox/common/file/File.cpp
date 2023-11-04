@@ -258,9 +258,10 @@ void LocalWriteFile::append(std::string_view data) {
   VELOX_CHECK_EQ(
       bytes_written,
       data.size(),
-      "fwrite failure in LocalWriteFile::append, {} vs {}.",
+      "fwrite failure in LocalWriteFile::append, {} vs {}: {}",
       bytes_written,
-      data.size());
+      data.size(),
+      folly::errnoStr(errno));
 }
 
 void LocalWriteFile::flush() {

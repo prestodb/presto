@@ -23,6 +23,7 @@ SortingWriter::SortingWriter(
     std::unique_ptr<exec::SortBuffer> sortBuffer)
     : outputWriter_(std::move(writer)),
       sortPool_(sortBuffer->pool()),
+      canReclaim_(sortBuffer->canSpill()),
       sortBuffer_(std::move(sortBuffer)) {
   if (sortPool_->parent()->reclaimer() != nullptr) {
     sortPool_->setReclaimer(MemoryReclaimer::create(this));
@@ -68,6 +69,33 @@ bool SortingWriter::setClose() {
   return closed;
 }
 
+bool SortingWriter::canReclaim() const {
+  return canReclaim_;
+}
+
+uint64_t SortingWriter::reclaim(
+    uint64_t targetBytes,
+    memory::MemoryReclaimer::Stats& stats) {
+  if (!canReclaim_) {
+    return 0;
+  }
+
+  if (closed_) {
+    LOG(WARNING) << "Can't reclaim from a closed or aborted hive sort writer: "
+                 << sortPool_->name() << ", used memory: "
+                 << succinctBytes(sortPool_->currentBytes())
+                 << ", reserved memory: "
+                 << succinctBytes(sortPool_->reservedBytes());
+    ++stats.numNonReclaimableAttempts;
+    return 0;
+  }
+  VELOX_CHECK_NOT_NULL(sortBuffer_);
+
+  sortBuffer_->spill(0, 0);
+  sortPool_->release();
+  return sortPool_->shrink(targetBytes);
+}
+
 std::unique_ptr<memory::MemoryReclaimer> SortingWriter::MemoryReclaimer::create(
     SortingWriter* writer) {
   return std::unique_ptr<memory::MemoryReclaimer>(new MemoryReclaimer(writer));
@@ -79,7 +107,7 @@ bool SortingWriter::MemoryReclaimer::reclaimableBytes(
   VELOX_CHECK_EQ(pool.name(), writer_->sortPool_->name());
 
   reclaimableBytes = 0;
-  if (!canReclaim_) {
+  if (!writer_->canReclaim()) {
     return false;
   }
   reclaimableBytes = pool.currentBytes();
@@ -92,19 +120,6 @@ uint64_t SortingWriter::MemoryReclaimer::reclaim(
     memory::MemoryReclaimer::Stats& stats) {
   VELOX_CHECK_EQ(pool->name(), writer_->sortPool_->name());
 
-  if (!canReclaim_) {
-    return 0;
-  }
-
-  if (writer_->closed_) {
-    LOG(WARNING) << "Can't reclaim from a closed or aborted hive sort writer: "
-                 << pool->name();
-    ++stats.numNonReclaimableAttempts;
-    return 0;
-  }
-
-  writer_->sortBuffer_->spill(0, 0);
-  pool->release();
-  return pool->shrink(targetBytes);
+  return writer_->reclaim(targetBytes, stats);
 }
 } // namespace facebook::velox::dwio::common
