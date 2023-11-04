@@ -81,7 +81,6 @@ public class PrestoSparkNativeQueryRunnerUtils
                 // Do not use default Prestissimo config files. Presto-Spark will generate the configs on-the-fly.
                 .put("catalog.config-dir", "/")
                 .put("task.info-update-interval", "100ms")
-                .put("native-execution-enabled", "true")
                 .put("spark.initial-partition-count", "1")
                 .put("register-test-functions", "true")
                 .put("native-execution-program-arguments", "--logtostderr=1 --minloglevel=3")

@@ -158,7 +158,6 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableMap.<String, String>builder()
                         .put("http-server.http.port", "8080")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
-                        .put("native-execution-enabled", "true")
                         .putAll(getNativeWorkerSystemProperties())
                         .build(),
                 ImmutableMap.of(),
