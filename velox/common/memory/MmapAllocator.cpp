@@ -626,20 +626,23 @@ std::string MmapAllocator::SizeClass::toString() const {
   int count = 0;
   int mappedCount = 0;
   int mappedFreeCount = 0;
-  for (int i = 0; i < pageBitmapSize_; ++i) {
-    count += __builtin_popcountll(pageAllocated_[i]);
-    mappedCount += __builtin_popcountll(pageMapped_[i]);
-    mappedFreeCount +=
-        __builtin_popcountll(~pageAllocated_[i] & pageMapped_[i]);
-  }
-  auto mb = (AllocationTraits::pageBytes(count * unitSize_)) >> 20;
-  out << "[size " << unitSize_ << ": " << count << "(" << mb << "MB) allocated "
-      << mappedCount << " mapped";
-  if (mappedFreeCount != numMappedFreePages_) {
-    out << "Mismatched count of mapped free pages "
-        << ". Actual= " << mappedFreeCount
-        << " vs recorded= " << numMappedFreePages_
-        << ". Total mapped=" << mappedCount;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    for (int i = 0; i < pageBitmapSize_; ++i) {
+      count += __builtin_popcountll(pageAllocated_[i]);
+      mappedCount += __builtin_popcountll(pageMapped_[i]);
+      mappedFreeCount +=
+          __builtin_popcountll(~pageAllocated_[i] & pageMapped_[i]);
+    }
+    auto mb = (AllocationTraits::pageBytes(count * unitSize_)) >> 20;
+    out << "[size " << unitSize_ << ": " << count << "(" << mb
+        << "MB) allocated " << mappedCount << " mapped";
+    if (mappedFreeCount != numMappedFreePages_) {
+      out << "Mismatched count of mapped free pages "
+          << ". Actual= " << mappedFreeCount
+          << " vs recorded= " << numMappedFreePages_
+          << ". Total mapped=" << mappedCount;
+    }
   }
   out << "]";
   return out.str();

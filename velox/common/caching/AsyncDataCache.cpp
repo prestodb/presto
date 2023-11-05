@@ -671,8 +671,8 @@ bool AsyncDataCache::makeSpace(
       sizeMultiplier *= 2;
     }
   }
-  memory::setCacheFailureMessage(
-      fmt::format("After failing to evict from cache state: {}", toString()));
+  memory::setCacheFailureMessage(fmt::format(
+      "After failing to evict from cache state: {}", toString(false)));
   return false;
 }
 
@@ -756,16 +756,18 @@ void AsyncDataCache::clear() {
   }
 }
 
-std::string AsyncDataCache::toString() const {
+std::string AsyncDataCache::toString(bool details) const {
   auto stats = refreshStats();
   std::stringstream out;
   out << "AsyncDataCache:\n"
       << stats.toString() << "\n"
       << "Allocated pages: " << allocator_->numAllocated()
       << " cached pages: " << cachedPages_ << "\n";
-  out << "Backing: " << allocator_->toString();
-  if (ssdCache_) {
-    out << "\nSSD: " << ssdCache_->toString();
+  if (details) {
+    out << "Backing: " << allocator_->toString();
+    if (ssdCache_) {
+      out << "\nSSD: " << ssdCache_->toString();
+    }
   }
   return out.str();
 }

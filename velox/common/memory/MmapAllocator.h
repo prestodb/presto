@@ -275,7 +275,7 @@ class MmapAllocator : public MemoryAllocator {
     const int32_t pageBitmapSize_;
 
     // Serializes access to all data members and private methods.
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
 
     // Start of address range.
     uint8_t* address_;

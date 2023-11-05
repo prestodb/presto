@@ -814,8 +814,7 @@ TEST_F(AsyncDataCacheTest, cacheStats) {
   constexpr uint64_t kRamBytes = 32 << 20;
   constexpr uint64_t kSsdBytes = 512UL << 20;
   initializeCache(kRamBytes, kSsdBytes);
-  ASSERT_EQ(
-      cache_->toString(),
+  const std::string expectedDetailedCacheOutput =
       "AsyncDataCache:\n"
       "Cache size: 0B tinySize: 0B large size: 0B\n"
       "Cache entries: 0 read pins: 0 write pins: 0 pinned shared: 0B pinned exclusive: 0B\n"
@@ -836,5 +835,17 @@ TEST_F(AsyncDataCacheTest, cacheStats) {
       "[size 256: 0(0MB) allocated 0 mapped]\n"
       "]\n"
       "SSD: Ssd cache IO: Write 0MB read 0MB Size 0GB Occupied 0GB0K entries.\n"
-      "GroupStats: <dummy FileGroupStats>");
+      "GroupStats: <dummy FileGroupStats>";
+  ASSERT_EQ(cache_->toString(), expectedDetailedCacheOutput);
+  ASSERT_EQ(cache_->toString(true), expectedDetailedCacheOutput);
+  const std::string expectedShortCacheOutput =
+      "AsyncDataCache:\n"
+      "Cache size: 0B tinySize: 0B large size: 0B\n"
+      "Cache entries: 0 read pins: 0 write pins: 0 pinned shared: 0B pinned exclusive: 0B\n"
+      " num write wait: 0 empty entries: 0\n"
+      "Cache access miss: 0 hit: 0 hit bytes: 0B eviction: 0 eviction checks: 0\n"
+      "Prefetch entries: 0 bytes: 0B\n"
+      "Alloc Megaclocks 0\n"
+      "Allocated pages: 0 cached pages: 0\n";
+  ASSERT_EQ(cache_->toString(false), expectedShortCacheOutput);
 }
