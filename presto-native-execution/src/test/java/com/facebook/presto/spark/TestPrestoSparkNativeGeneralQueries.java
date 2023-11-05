@@ -48,6 +48,7 @@ public class TestPrestoSparkNativeGeneralQueries
     public void testShowAndDescribe() {}
 
     @Override
+    @Ignore
     public void testSystemTables() {}
 
     // @TODO Refer https://github.com/prestodb/presto/issues/20294
