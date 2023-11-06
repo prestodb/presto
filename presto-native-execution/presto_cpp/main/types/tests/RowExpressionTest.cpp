@@ -27,7 +27,8 @@ class RowExpressionTest : public ::testing::Test {
  public:
   void SetUp() override {
     pool_ = memory::addDefaultLeafMemoryPool();
-    converter_ = std::make_unique<VeloxExprConverter>(pool_.get());
+    converter_ =
+        std::make_unique<VeloxExprConverter>(pool_.get(), &typeParser_);
   }
 
   void testConstantExpression(
@@ -46,6 +47,7 @@ class RowExpressionTest : public ::testing::Test {
 
   std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<VeloxExprConverter> converter_;
+  TypeParser typeParser_;
 };
 
 TEST_F(RowExpressionTest, bigInt) {
