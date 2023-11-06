@@ -992,13 +992,23 @@ public abstract class AbstractTestNativeGeneralQueries
         return tableName;
     }
 
-    @Test
-    public void testReadTableWithUnsupportedFormats()
+    @Test(groups = {"no_json_reader"})
+    public void testReadTableWithUnsupportedJsonFormat()
     {
         assertQueryFails("SELECT * FROM nation_json", ".*ReaderFactory is not registered for format json.*");
+    }
+
+    @Test(groups = {"no_textfile_reader"})
+    public void testReadTableWithUnsupportedTextfileFormat()
+    {
         assertQueryFails("SELECT * FROM nation_text", ".*ReaderFactory is not registered for format text.*");
     }
 
+    @Test(groups = {"textfile_reader"})
+    public void testReadTableWithTextfileFormat()
+    {
+        assertQuery("SELECT * FROM nation_text");
+    }
     private void dropTableIfExists(String tableName)
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
