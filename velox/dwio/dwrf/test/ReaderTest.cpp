@@ -2940,7 +2940,33 @@ TEST_F(TestReader, selectiveStringDirectFastPath) {
   auto actual = BaseVector::create(schema, 0, pool());
   ASSERT_EQ(rowReader->next(1024, actual), batch->size());
   auto expected = makeRowVector({
-      std::make_shared<ConstantVector<int64_t>>(pool(), 16, false, BIGINT(), 1),
+      makeConstant<int64_t>(1, 16),
+      makeFlatVector<StringView>(16, genStr),
+  });
+  assertEqualVectors(expected, actual);
+}
+
+TEST_F(TestReader, selectiveStringDirect) {
+  auto genStr = [](auto i) {
+    static const std::string s(2048, 'x');
+    return i == 0 || i == 8 ? s.c_str() : "";
+  };
+  auto batch = makeRowVector({
+      makeFlatVector<int64_t>(17, [](auto i) { return i != 15; }),
+      makeFlatVector<StringView>(17, genStr),
+  });
+  auto [writer, reader] = createWriterReader({batch}, pool());
+  auto schema = asRowType(batch->type());
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+  spec->childByName("c0")->setFilter(common::createBigintValues({1}, false));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  auto actual = BaseVector::create(schema, 0, pool());
+  ASSERT_EQ(rowReader->next(1024, actual), batch->size());
+  auto expected = makeRowVector({
+      makeConstant<int64_t>(1, 16),
       makeFlatVector<StringView>(16, genStr),
   });
   assertEqualVectors(expected, actual);
