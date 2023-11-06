@@ -1905,16 +1905,21 @@ void StructColumnReader::next(
     result = std::move(rowResult);
   }
 
-  for (uint64_t i = 0; i < children_.size(); ++i) {
-    auto& reader = children_[i];
-    if (reader) {
-      if (executor_) {
+  if (executor_) {
+    for (uint64_t i = 0; i < children_.size(); ++i) {
+      auto& reader = children_[i];
+      if (reader) {
         executor_->add(
             [&reader,
              numValues,
              child = &(*childrenVectorsPtr)[i],
              nullsPtr]() { reader->next(numValues, *child, nullsPtr); });
-      } else {
+      }
+    }
+  } else {
+    for (uint64_t i = 0; i < children_.size(); ++i) {
+      auto& reader = children_[i];
+      if (reader) {
         reader->next(numValues, (*childrenVectorsPtr)[i], nullsPtr);
       }
     }
