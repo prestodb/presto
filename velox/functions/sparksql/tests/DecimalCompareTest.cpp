@@ -19,7 +19,7 @@
 namespace facebook::velox::functions::sparksql::test {
 namespace {
 
-class DecimalVectorFunctionsTest : public SparkFunctionBaseTest {
+class DecimalCompareTest : public SparkFunctionBaseTest {
  protected:
   void testCompareExpr(
       const std::string& exprStr,
@@ -30,7 +30,7 @@ class DecimalVectorFunctionsTest : public SparkFunctionBaseTest {
   }
 };
 
-TEST_F(DecimalVectorFunctionsTest, gt) {
+TEST_F(DecimalCompareTest, gt) {
   // Fast path when c1 vector is constant.
   testCompareExpr(
       "decimal_greaterthan(c0, c1)",
@@ -128,7 +128,7 @@ TEST_F(DecimalVectorFunctionsTest, gt) {
       makeNullableFlatVector<bool>({false, std::nullopt, false, false}));
 }
 
-TEST_F(DecimalVectorFunctionsTest, gte) {
+TEST_F(DecimalCompareTest, gte) {
   // Fast path when c1 vector is constant.
   testCompareExpr(
       "decimal_greaterthanorequal(c0, c1)",
@@ -226,7 +226,7 @@ TEST_F(DecimalVectorFunctionsTest, gte) {
       makeNullableFlatVector<bool>({false, std::nullopt, false, false}));
 }
 
-TEST_F(DecimalVectorFunctionsTest, eq) {
+TEST_F(DecimalCompareTest, eq) {
   // Fast path when c1 vector is constant.
   testCompareExpr(
       "decimal_equalto(c0, c1)",
@@ -324,7 +324,7 @@ TEST_F(DecimalVectorFunctionsTest, eq) {
       makeNullableFlatVector<bool>({false, std::nullopt, false, false}));
 }
 
-TEST_F(DecimalVectorFunctionsTest, neq) {
+TEST_F(DecimalCompareTest, neq) {
   // Fast path when c1 vector is constant.
   testCompareExpr(
       "decimal_notequalto(c0, c1)",
@@ -422,7 +422,7 @@ TEST_F(DecimalVectorFunctionsTest, neq) {
       makeNullableFlatVector<bool>({true, std::nullopt, true, true}));
 }
 
-TEST_F(DecimalVectorFunctionsTest, lt) {
+TEST_F(DecimalCompareTest, lt) {
   // Fast path when c1 vector is constant.
   testCompareExpr(
       "decimal_lessthan(c0, c1)",
@@ -520,7 +520,7 @@ TEST_F(DecimalVectorFunctionsTest, lt) {
       makeNullableFlatVector<bool>({true, std::nullopt, true, true}));
 }
 
-TEST_F(DecimalVectorFunctionsTest, lte) {
+TEST_F(DecimalCompareTest, lte) {
   // Fast path when c1 vector is constant.
   testCompareExpr(
       "decimal_lessthanorequal(c0, c1)",
