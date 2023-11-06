@@ -202,7 +202,7 @@ public class AggregationMetadata
             return;
         }
         Class<?>[] parameterTypes = method.type().parameterArray();
-        checkArgument(parameterTypes.length == stateDescriptors.size() + 1, "Number of arguments for combine function must be exactly one plus than number of states.");
+        checkArgument(parameterTypes.length == stateDescriptors.size() + 1, "Number of arguments for output function must be exactly one plus than number of states.");
         for (int i = 0; i < stateDescriptors.size(); i++) {
             checkArgument(parameterTypes[i].equals(stateDescriptors.get(i).getStateInterface()), format("Type for Parameter index %d is unexpected", i));
         }
