@@ -14,7 +14,6 @@
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include <boost/algorithm/string/case_conv.hpp>
-#include "presto_cpp/main/types/ParseTypeSignature.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -170,7 +169,8 @@ namespace {
 std::optional<TypedExprPtr> tryConvertCast(
     const protocol::Signature& signature,
     const std::string& returnType,
-    const std::vector<TypedExprPtr>& args) {
+    const std::vector<TypedExprPtr>& args,
+    const TypeParser* typeParser) {
   static const char* kCast = "presto.default.$operator$cast";
   static const char* kTryCast = "presto.default.try_cast";
   static const char* kJsonToArrayCast =
@@ -197,7 +197,7 @@ std::optional<TypedExprPtr> tryConvertCast(
       signature.name.compare(kJsonToArrayCast) == 0 ||
       signature.name.compare(kJsonToMapCast) == 0 ||
       signature.name.compare(kJsonToRowCast) == 0) {
-    auto type = parseTypeSignature(returnType);
+    auto type = typeParser->parse(returnType);
     return std::make_shared<CastTypedExpr>(
         type,
         std::vector<TypedExprPtr>{std::make_shared<CallTypedExpr>(
@@ -219,14 +219,15 @@ std::optional<TypedExprPtr> tryConvertCast(
     return args[0];
   }
 
-  auto type = parseTypeSignature(returnType);
+  auto type = typeParser->parse(returnType);
   return std::make_shared<CastTypedExpr>(type, args, nullOnFailure);
 }
 
 std::optional<TypedExprPtr> tryConvertTry(
     const protocol::Signature& signature,
     const std::string& returnType,
-    const std::vector<TypedExprPtr>& args) {
+    const std::vector<TypedExprPtr>& args,
+    const TypeParser* typeParser) {
   static const char* kTry = "presto.default.$internal$try";
 
   if (signature.kind != protocol::FunctionKind::SCALAR) {
@@ -243,7 +244,7 @@ std::optional<TypedExprPtr> tryConvertTry(
   VELOX_CHECK(lambda);
   VELOX_CHECK_EQ(lambda->signature()->size(), 0);
 
-  auto type = parseTypeSignature(returnType);
+  auto type = typeParser->parse(returnType);
   std::vector<TypedExprPtr> newArgs = {lambda->body()};
   return std::make_shared<CallTypedExpr>(type, newArgs, "try");
 }
@@ -252,7 +253,8 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
     const protocol::Signature& signature,
     const std::string& returnType,
     const std::vector<TypedExprPtr>& args,
-    velox::memory::MemoryPool* pool) {
+    velox::memory::MemoryPool* pool,
+    const TypeParser* typeParser) {
   static const char* kLiteralArray = "presto.default.$literal$array";
   static const char* kFromBase64 = "presto.default.from_base64";
 
@@ -272,7 +274,7 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
     return std::nullopt;
   }
 
-  auto type = parseTypeSignature(returnType);
+  auto type = typeParser->parse(returnType);
 
   auto encoded =
       std::dynamic_pointer_cast<const ConstantTypedExpr>(call->inputs()[0]);
@@ -310,7 +312,7 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertDate(
   // a VARCHAR or TIMESTAMP (with an optional timezone) type.
   args.emplace_back(toVeloxExpr(pexpr.arguments[0]));
 
-  auto returnType = parseTypeSignature(pexpr.returnType);
+  auto returnType = typeParser_->parse(pexpr.returnType);
   return std::make_shared<CastTypedExpr>(returnType, args, false);
 }
 
@@ -360,7 +362,7 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
   }
 
   // Construct the returnType and CallTypedExpr for 'like'
-  auto returnType = parseTypeSignature(pexpr.returnType);
+  auto returnType = typeParser_->parse(pexpr.returnType);
   return std::make_shared<CallTypedExpr>(
       returnType, args, getFunctionName(signature));
 }
@@ -384,23 +386,24 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     auto args = toVeloxExpr(pexpr.arguments);
     auto signature = builtin->signature;
 
-    auto cast = tryConvertCast(signature, pexpr.returnType, args);
+    auto cast = tryConvertCast(signature, pexpr.returnType, args, typeParser_);
     if (cast.has_value()) {
       return cast.value();
     }
 
-    auto tryExpr = tryConvertTry(signature, pexpr.returnType, args);
+    auto tryExpr =
+        tryConvertTry(signature, pexpr.returnType, args, typeParser_);
     if (tryExpr.has_value()) {
       return tryExpr.value();
     }
 
-    auto literal =
-        tryConvertLiteralArray(signature, pexpr.returnType, args, pool_);
+    auto literal = tryConvertLiteralArray(
+        signature, pexpr.returnType, args, pool_, typeParser_);
     if (literal.has_value()) {
       return literal.value();
     }
 
-    auto returnType = parseTypeSignature(pexpr.returnType);
+    auto returnType = typeParser_->parse(pexpr.returnType);
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(signature));
 
@@ -409,7 +412,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
           std::dynamic_pointer_cast<protocol::SqlFunctionHandle>(
               pexpr.functionHandle)) {
     auto args = toVeloxExpr(pexpr.arguments);
-    auto returnType = parseTypeSignature(pexpr.returnType);
+    auto returnType = typeParser_->parse(pexpr.returnType);
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
@@ -419,7 +422,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
 
 std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
     std::shared_ptr<protocol::ConstantExpression> pexpr) const {
-  const auto type = parseTypeSignature(pexpr->type);
+  const auto type = typeParser_->parse(pexpr->type);
   switch (type->kind()) {
     case TypeKind::ROW:
       FOLLY_FALLTHROUGH;
@@ -676,7 +679,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     return convertInExpr(args, pool_);
   }
 
-  auto returnType = parseTypeSignature(pexpr->returnType);
+  auto returnType = typeParser_->parse(pexpr->returnType);
 
   if (pexpr->form == protocol::Form::SWITCH) {
     return convertSwitchExpr(returnType, std::move(args));
@@ -703,7 +706,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
 std::shared_ptr<const FieldAccessTypedExpr> VeloxExprConverter::toVeloxExpr(
     std::shared_ptr<protocol::VariableReferenceExpression> pexpr) const {
   return std::make_shared<FieldAccessTypedExpr>(
-      parseTypeSignature(pexpr->type), pexpr->name);
+      typeParser_->parse(pexpr->type), pexpr->name);
 }
 
 std::shared_ptr<const LambdaTypedExpr> VeloxExprConverter::toVeloxExpr(
@@ -711,7 +714,7 @@ std::shared_ptr<const LambdaTypedExpr> VeloxExprConverter::toVeloxExpr(
   std::vector<velox::TypePtr> argumentTypes;
   argumentTypes.reserve(lambda->argumentTypes.size());
   for (auto& typeName : lambda->argumentTypes) {
-    argumentTypes.emplace_back(parseTypeSignature(typeName));
+    argumentTypes.emplace_back(typeParser_->parse(typeName));
   }
 
   // TODO(spershin): In some cases we can visit this method with the same lambda
@@ -728,7 +731,7 @@ std::shared_ptr<const LambdaTypedExpr> VeloxExprConverter::toVeloxExpr(
 std::shared_ptr<const FieldAccessTypedExpr> VeloxExprConverter::toVeloxExpr(
     const protocol::VariableReferenceExpression& pexpr) const {
   return std::make_shared<FieldAccessTypedExpr>(
-      parseTypeSignature(pexpr.type), pexpr.name);
+      typeParser_->parse(pexpr.type), pexpr.name);
 }
 
 TypedExprPtr VeloxExprConverter::toVeloxExpr(

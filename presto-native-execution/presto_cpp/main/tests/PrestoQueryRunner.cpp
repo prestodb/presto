@@ -15,13 +15,18 @@
 #include <folly/Uri.h>
 #include <folly/init/Init.h>
 #include <folly/json.h>
-#include "presto_cpp/main/types/ParseTypeSignature.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/serializers/PrestoSerializer.h"
+
+// ANTLR defines an INVALID_INDEX macro, and DuckDB has a constant variable of
+// the same name.  So we have to include TypeParser.h after Velox.
+// clang-format off
+#include "presto_cpp/main/types/TypeParser.h"
+// clang-format on
 
 using namespace facebook::velox;
 
@@ -122,9 +127,10 @@ class ServerResponse {
 
     std::vector<std::string> names;
     std::vector<TypePtr> types;
+    TypeParser parser;
     for (const auto& column : response_["columns"]) {
       names.push_back(column["name"].asString());
-      types.push_back(parseTypeSignature(column["type"].asString()));
+      types.push_back(parser.parse(column["type"].asString()));
     }
 
     auto rowType = ROW(std::move(names), std::move(types));

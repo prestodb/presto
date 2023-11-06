@@ -12,11 +12,20 @@
  * limitations under the License.
  */
 
-#include <boost/algorithm/string.hpp>
-#include "presto_cpp/main/types/TypeParser.h"
+#pragma once
 
-// Generated from TypeSignature.g4 by ANTLR 4.9.3
+#include "velox/type/Type.h"
 
-#include "TypeSignatureBaseVisitor.h"
+#include "presto_cpp/main/types/antlr/TypeSignatureBaseVisitor.h"
 
-using namespace facebook::presto::type;
+namespace facebook::presto {
+
+class TypeParser {
+ public:
+  velox::TypePtr parse(const std::string& text) const;
+
+ private:
+  mutable std::unordered_map<std::string, velox::TypePtr> cache_;
+};
+
+} // namespace facebook::presto
