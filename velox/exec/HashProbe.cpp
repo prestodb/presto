@@ -1448,6 +1448,7 @@ void HashProbe::abort() {
   output_.reset();
   nonSpillInputIndicesBuffer_.reset();
   spillInputIndicesBuffers_.clear();
+  spillInputReader_.reset();
 }
 
 } // namespace facebook::velox::exec
