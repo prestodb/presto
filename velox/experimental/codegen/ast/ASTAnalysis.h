@@ -28,4 +28,4 @@ bool isDefaultNullStrict(const ASTNode& node);
 // output is null or false if any input is null
 bool isFilterDefaultNull(const ASTNode& node);
 
-} // namespace facebook::velox::codegen::analysis
+}; // namespace facebook::velox::codegen::analysis

@@ -59,4 +59,4 @@ bool Codegen::runInitializationTests() {
 
 } // namespace codegen
 } // namespace velox
-} // namespace facebook
+}; // namespace facebook

@@ -726,7 +726,7 @@ std::shared_ptr<exec::VectorFunction> createDecimalBetweenFunction(
   }
   VELOX_UNSUPPORTED();
 }
-} // namespace
+}; // namespace
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_add,
@@ -767,4 +767,4 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_between,
     decimalBetweenSignature(),
     createDecimalBetweenFunction);
-} // namespace facebook::velox::functions
+}; // namespace facebook::velox::functions

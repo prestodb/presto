@@ -204,4 +204,4 @@ requires(compiledExpression<T>&&...) // All the type parameters
 
 } // namespace codegen
 } // namespace velox
-} // namespace facebook
+}; // namespace facebook

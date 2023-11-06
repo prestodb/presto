@@ -333,4 +333,4 @@ TEST_F(ComparisonsTest, greaterthanorequal) {
   EXPECT_EQ(greaterthanorequal<float>(kInf, kNaN), false);
 }
 } // namespace
-} // namespace facebook::velox::functions::sparksql::test
+}; // namespace facebook::velox::functions::sparksql::test

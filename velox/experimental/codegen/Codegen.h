@@ -74,4 +74,4 @@ class Codegen {
 
 } // namespace codegen
 } // namespace velox
-} // namespace facebook
+}; // namespace facebook

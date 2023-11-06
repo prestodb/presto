@@ -159,7 +159,7 @@ auto isomorphicTreeTransform(
 
 } // namespace transform
 } // namespace velox
-} // namespace facebook
+}; // namespace facebook
 
 namespace ranges {
 template <typename Range>

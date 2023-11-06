@@ -57,7 +57,7 @@ class DecimalArithmeticTest : public SparkFunctionBaseTest {
     }
     return makeFlatVector<int128_t>(int128s, DECIMAL(precision, scale));
   }
-} // namespace
+}; // namespace
 
 TEST_F(DecimalArithmeticTest, multiply) {
   // The result can be obtained by Spark unit test

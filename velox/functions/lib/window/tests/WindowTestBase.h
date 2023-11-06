@@ -190,4 +190,4 @@ class WindowTestBase : public exec::test::OperatorTestBase {
   /// as bigint (Presto behavior).
   parse::ParseOptions options_;
 };
-} // namespace facebook::velox::window::test
+}; // namespace facebook::velox::window::test

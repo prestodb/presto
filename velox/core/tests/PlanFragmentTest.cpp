@@ -76,7 +76,7 @@ class PlanFragmentTest : public testing::Test {
   std::shared_ptr<PlanNode> probeValueNode_;
   std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
 };
-} // namespace
+}; // namespace
 
 TEST_F(PlanFragmentTest, orderByCanSpill) {
   struct {

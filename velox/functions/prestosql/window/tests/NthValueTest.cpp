@@ -466,5 +466,5 @@ TEST_F(NthValueTest, ignoreNullsCurrentRow) {
       "range between current row and unbounded following");
 }
 
-} // namespace
-} // namespace facebook::velox::window::test
+}; // namespace
+}; // namespace facebook::velox::window::test
