@@ -245,7 +245,7 @@ void updateKRowsOffsetsColumn(
   }
 }
 
-}; // namespace
+} // namespace
 
 void Window::updateKRowsFrameBounds(
     bool isKPreceding,
@@ -359,7 +359,7 @@ void computeValidFrames(
   validFrames.updateBounds();
 }
 
-}; // namespace
+} // namespace
 
 void Window::computePeerAndFrameBuffers(
     vector_size_t startRow,

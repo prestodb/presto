@@ -317,5 +317,5 @@ TEST_F(AggregateEmptyFramesTest, nonNullEmptyResult) {
   frameClause = "rows between 6 following and unbounded following";
   testWindowFunction({input}, "count(c1)", overClause, frameClause, expected);
 }
-}; // namespace
-}; // namespace facebook::velox::window::test
+} // namespace
+} // namespace facebook::velox::window::test

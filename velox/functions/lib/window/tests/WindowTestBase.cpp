@@ -213,4 +213,4 @@ void WindowTestBase::assertWindowFunctionError(
       assertQuery(queryInfo.planNode, queryInfo.querySql), errorMessage);
 }
 
-}; // namespace facebook::velox::window::test
+} // namespace facebook::velox::window::test

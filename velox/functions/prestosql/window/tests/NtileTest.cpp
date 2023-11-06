@@ -100,5 +100,5 @@ TEST_F(NtileTest, errorCases) {
       {columnVector}, "ntile(c0)", overClause, bucketError);
 }
 
-}; // namespace
-}; // namespace facebook::velox::window::test
+} // namespace
+} // namespace facebook::velox::window::test

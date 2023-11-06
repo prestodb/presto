@@ -85,7 +85,7 @@ std::pair<vector_size_t, vector_size_t> findMinMaxFrameBounds(
   return {minFrame, maxFrame};
 }
 
-}; // namespace
+} // namespace
 
 std::optional<std::pair<vector_size_t, vector_size_t>>
 WindowPartition::extractNulls(

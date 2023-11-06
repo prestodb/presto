@@ -82,7 +82,7 @@ slice(const std::vector<TypePtr>& types, int32_t start, int32_t end) {
   }
   return result;
 }
-}; // namespace
+} // namespace
 
 WindowBuild::WindowBuild(
     const std::shared_ptr<const core::WindowNode>& windowNode,

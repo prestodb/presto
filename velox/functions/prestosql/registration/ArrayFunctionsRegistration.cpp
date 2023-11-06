@@ -297,4 +297,4 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayNormalizeFunctions<float>(prefix);
   registerArrayNormalizeFunctions<double>(prefix);
 }
-}; // namespace facebook::velox::functions
+} // namespace facebook::velox::functions

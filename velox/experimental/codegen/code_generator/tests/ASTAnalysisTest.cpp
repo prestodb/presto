@@ -174,4 +174,4 @@ TEST_F(ASTAnalysisTest, FilterDefaultNull) {
       "C0 > 1 AND 1 is NULL", false);
 }
 } // namespace codegen::expressions::test
-}; // namespace facebook::velox
+} // namespace facebook::velox

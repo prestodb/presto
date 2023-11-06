@@ -423,4 +423,4 @@ class CodegenTestBase : public CodegenTestCore, public testing::Test {
     init();
   }
 };
-}; // namespace facebook::velox::codegen
+} // namespace facebook::velox::codegen

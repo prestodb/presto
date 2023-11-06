@@ -281,4 +281,4 @@ class ZSTDCodec : public Codec {
 std::unique_ptr<Codec> MakeZSTDCodec(int compression_level) {
   return std::make_unique<ZSTDCodec>(compression_level);
 }
-}; // namespace facebook::velox::parquet::arrow::util::internal.
+} // namespace facebook::velox::parquet::arrow::util::internal.
