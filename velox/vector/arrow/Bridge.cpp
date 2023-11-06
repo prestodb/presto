@@ -464,7 +464,9 @@ VectorPtr createStringFlatVector(
       optionalNullCount(nullCount));
 }
 
-void exportNulls(
+// This functions does two things: (a) sets the value of null_count, and (b) the
+// validity buffer (if there is at least one null row).
+void exportValidityBitmap(
     const BaseVector& vec,
     const Selection& rows,
     ArrowArray& out,
@@ -474,15 +476,25 @@ void exportNulls(
     out.null_count = 0;
     return;
   }
-  if (!rows.changed()) {
-    holder.setBuffer(0, vec.nulls());
-    out.null_count = vec.getNullCount().value_or(-1);
-    return;
+
+  auto nulls = vec.nulls();
+
+  // If we're only exporting a subset, create a new validity buffer.
+  if (rows.changed()) {
+    nulls = AlignedBuffer::allocate<bool>(out.length, pool);
+    gatherFromBuffer(*BOOLEAN(), *vec.nulls(), rows, *nulls);
   }
-  auto nulls = AlignedBuffer::allocate<bool>(out.length, pool);
-  gatherFromBuffer(*BOOLEAN(), *vec.nulls(), rows, *nulls);
-  holder.setBuffer(0, nulls);
-  out.null_count = -1;
+
+  // Set null counts.
+  if (!rows.changed() && (vec.getNullCount() != std::nullopt)) {
+    out.null_count = *vec.getNullCount();
+  } else {
+    out.null_count = BaseVector::countNulls(nulls, rows.count());
+  }
+
+  if (out.null_count > 0) {
+    holder.setBuffer(0, nulls);
+  }
 }
 
 void exportValues(
@@ -725,12 +737,6 @@ void exportConstantValue(
     const BaseVector& vec,
     ArrowArray& out,
     memory::MemoryPool* pool) {
-  // If this is a null constant.
-  if (vec.mayHaveNulls()) {
-    setNullArray(out, 1);
-    return;
-  }
-
   VectorPtr valuesVector;
   Selection selection(1);
 
@@ -753,10 +759,10 @@ void exportConstantValue(
         vec.typeKind(),
         pool,
         vec.type(),
-        nullptr,
+        vec.nulls(),
         1,
         wrapInBufferViewAsViewer(vec.valuesAsVoid(), bufferSize),
-        0);
+        vec.mayHaveNulls() ? 1 : 0);
   }
   exportToArrowImpl(*valuesVector, selection, out, pool);
 }
@@ -811,7 +817,7 @@ void exportToArrowImpl(
   out.length = rows.count();
   out.offset = 0;
   out.dictionary = nullptr;
-  exportNulls(vec, rows, out, pool, *holder);
+  exportValidityBitmap(vec, rows, out, pool, *holder);
 
   switch (vec.encoding()) {
     case VectorEncoding::Simple::FLAT:
