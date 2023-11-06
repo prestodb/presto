@@ -102,7 +102,9 @@ public abstract class AbstractMinMaxByNAggregationFunction
             heap = new TypedKeyValueHeap(comparator, keyType, valueType, toIntExact(n));
             state.setTypedKeyValueHeap(heap);
         }
-
+        else {
+            checkCondition(n == heap.getCapacity(), INVALID_FUNCTION_ARGUMENT, "Count argument is not constant: found multiple values [%s, %s]", n, heap.getCapacity());
+        }
         long startSize = heap.getEstimatedSize();
         if (!key.isNull(blockIndex)) {
             heap.add(key, value, blockIndex);
@@ -121,6 +123,9 @@ public abstract class AbstractMinMaxByNAggregationFunction
             state.setTypedKeyValueHeap(otherHeap);
             return;
         }
+
+        checkCondition(otherHeap.getCapacity() == heap.getCapacity(), INVALID_FUNCTION_ARGUMENT, "Count argument is not constant: found multiple values [%s, %s]: %s", otherHeap.getCapacity(), heap.getCapacity());
+
         long startSize = heap.getEstimatedSize();
         heap.addAll(otherHeap);
         state.addMemoryUsage(heap.getEstimatedSize() - startSize);
