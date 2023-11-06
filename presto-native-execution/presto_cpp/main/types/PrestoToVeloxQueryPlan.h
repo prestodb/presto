@@ -22,20 +22,22 @@
 #include "velox/type/Variant.h"
 
 #include "presto_cpp/main/types/PrestoTaskId.h"
-// TypeSignatureTypeConverter.h must be included after presto_protocol.h
-// because it changes the macro EOF in some way (maybe deleting it?) which
-// is used in external/json/nlohmann/json.hpp
-//
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+// antlr-common.h undefines the EOF macro that external/json/nlohmann/json.hpp
+// relies on, so include presto_protcol.h before TypeParser.h
+// clang-format off
+#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/main/types/TypeParser.h"
+// clang-format on
 
 namespace facebook::presto {
 
 class VeloxQueryPlanConverterBase {
  public:
-  explicit VeloxQueryPlanConverterBase(
+  VeloxQueryPlanConverterBase(
       velox::core::QueryCtx* queryCtx,
       velox::memory::MemoryPool* pool)
-      : pool_(pool), queryCtx_{queryCtx}, exprConverter_(pool) {}
+      : pool_(pool), queryCtx_{queryCtx}, exprConverter_(pool, &typeParser_) {}
 
   virtual ~VeloxQueryPlanConverterBase() = default;
 
@@ -215,9 +217,10 @@ class VeloxQueryPlanConverterBase {
       std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
       std::vector<std::string>& aggregateNames);
 
-  velox::memory::MemoryPool* pool_;
-  velox::core::QueryCtx* queryCtx_;
+  velox::memory::MemoryPool* const pool_;
+  velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
+  TypeParser typeParser_;
 };
 
 class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {
