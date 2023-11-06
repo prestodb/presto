@@ -490,6 +490,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
         "Single-threaded execution doesn't support delivering results to a "
         "callback");
 
+    taskStats_.executionStartTimeMs = getCurrentTimeMs();
     LocalPlanner::plan(
         planFragment_, nullptr, &driverFactories_, queryCtx_->queryConfig(), 1);
     exchangeClients_.resize(driverFactories_.size());
