@@ -33,8 +33,10 @@ import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.GroupedAccumulatorState;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,6 +61,8 @@ import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 public class TestStateCompiler
 {
@@ -361,6 +365,30 @@ public class TestStateCompiler
         }
     }
 
+    @Test
+    public void testStateSerializerConstructorsWithMetadata()
+    {
+        Map<String, Type> fields = ImmutableMap.of("T", BIGINT, "E", VARCHAR);
+        Object stateSerializer = StateCompiler.generateStateSerializer(TestAccumulatorSerializerNoType.class, fields, new DynamicClassLoader(TestAccumulatorSerializerNoType.class.getClassLoader()));
+        assertTrue(stateSerializer instanceof TestAccumulatorSerializerNoType);
+
+        stateSerializer = StateCompiler.generateStateSerializer(TestAccumulatorSerializerMultipleType.class, fields, new DynamicClassLoader(TestAccumulatorSerializerMultipleType.class.getClassLoader()));
+        assertTrue(stateSerializer instanceof TestAccumulatorSerializerMultipleType);
+
+        stateSerializer = StateCompiler.generateStateSerializer(TestAccumulatorSerializerSingleType.class, fields, new DynamicClassLoader(TestAccumulatorSerializerSingleType.class.getClassLoader()));
+        assertTrue(stateSerializer instanceof TestAccumulatorSerializerSingleType);
+
+        assertThrows(() -> StateCompiler.generateStateSerializer(
+                TestAccumulatorSerializerUntyped.class,
+                fields,
+                new DynamicClassLoader(TestAccumulatorSerializerUntyped.class.getClassLoader())));
+
+        assertThrows(() -> StateCompiler.generateStateSerializer(
+                TestAccumulatorAmbiguousConstructor.class,
+                fields,
+                new DynamicClassLoader(TestAccumulatorAmbiguousConstructor.class.getClassLoader())));
+    }
+
     public interface TestComplexState
             extends AccumulatorState
     {
@@ -427,5 +455,78 @@ public class TestStateCompiler
         Slice getSlice();
 
         void setSlice(Slice slice);
+    }
+
+    private abstract static class TestAccumulatorSerializer
+            implements AccumulatorStateSerializer<Object>
+    {
+        @Override
+        public Type getSerializedType()
+        {
+            return null;
+        }
+
+        @Override
+        public void serialize(Object state, BlockBuilder out)
+        {}
+
+        @Override
+        public void deserialize(Block block, int index, Object state)
+        {}
+    }
+
+    @AccumulatorStateMetadata(stateSerializerClass = TestAccumulatorSerializerSingleType.class)
+    public static class TestAccumulatorSerializerSingleType
+            extends TestAccumulatorSerializer
+    {
+        public TestAccumulatorSerializerSingleType(@TypeParameter("E") Type first)
+        {}
+    }
+
+    @AccumulatorStateMetadata(stateSerializerClass = TestAccumulatorSerializerMultipleType.class)
+    public static class TestAccumulatorSerializerMultipleType
+            extends TestAccumulatorSerializer
+    {
+        public TestAccumulatorSerializerMultipleType(@TypeParameter("E") Type first, @TypeParameter("T") Type second)
+        {}
+    }
+
+    @AccumulatorStateMetadata(stateSerializerClass = TestAccumulatorSerializerNoType.class)
+    public static class TestAccumulatorSerializerNoType
+            extends TestAccumulatorSerializer
+    {
+        public TestAccumulatorSerializerNoType()
+        {}
+    }
+
+    @AccumulatorStateMetadata(stateSerializerClass = TestAccumulatorAmbiguousConstructor.class)
+    public static class TestAccumulatorAmbiguousConstructor
+            extends TestAccumulatorSerializer
+    {
+        public TestAccumulatorAmbiguousConstructor()
+        {}
+
+        public TestAccumulatorAmbiguousConstructor(@TypeParameter("E") Type type)
+        {}
+    }
+
+    // test all invalid constructor types
+    @AccumulatorStateMetadata(stateSerializerClass = TestAccumulatorSerializerUntyped.class)
+    public static class TestAccumulatorSerializerUntyped
+            extends TestAccumulatorSerializer
+    {
+        public TestAccumulatorSerializerUntyped(Type x)
+        {}
+
+        public TestAccumulatorSerializerUntyped(int y)
+        {}
+
+        // type parameter G should not be in passed fields
+        public TestAccumulatorSerializerUntyped(@TypeParameter("G") Object y)
+        {}
+
+        // type parameter G should not be in passed fields
+        public TestAccumulatorSerializerUntyped(@TypeParameter("E") Type x, @TypeParameter("G") Long y)
+        {}
     }
 }
