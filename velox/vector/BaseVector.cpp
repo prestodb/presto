@@ -70,7 +70,7 @@ void BaseVector::ensureNullsCapacity(
     bool setNotNull) {
   auto fill = setNotNull ? bits::kNotNull : bits::kNull;
   // Ensure the size of nulls_ is always at least as large as length_.
-  auto size = std::max(minimumSize, length_);
+  auto size = std::max<vector_size_t>(minimumSize, length_);
   if (nulls_ && !nulls_->isView() && nulls_->unique()) {
     if (nulls_->capacity() < bits::nbytes(size)) {
       AlignedBuffer::reallocate<bool>(&nulls_, size, fill);
@@ -90,7 +90,7 @@ void BaseVector::ensureNullsCapacity(
       memcpy(
           newNulls->asMutable<char>(),
           nulls_->as<char>(),
-          byteSize<bool>(std::min(length_, size)));
+          byteSize<bool>(std::min<vector_size_t>(length_, size)));
     }
     nulls_ = std::move(newNulls);
     rawNulls_ = nulls_->as<uint64_t>();
@@ -427,8 +427,8 @@ void BaseVector::clearNulls(const SelectivityVector& nonNullRows) {
   bits::orBits(
       rawNulls,
       nonNullRows.asRange().bits(),
-      std::min(length_, nonNullRows.begin()),
-      std::min(length_, nonNullRows.end()));
+      std::min<vector_size_t>(length_, nonNullRows.begin()),
+      std::min<vector_size_t>(length_, nonNullRows.end()));
   nullCount_ = std::nullopt;
 }
 

@@ -886,7 +886,7 @@ class BaseVector {
   // Caches raw pointer to 'nulls->as<uint64_t>().
   const uint64_t* rawNulls_ = nullptr;
   velox::memory::MemoryPool* pool_;
-  vector_size_t length_ = 0;
+  tsan_atomic<vector_size_t> length_{0};
 
   /**
    * Holds the number of nulls in the vector. If the number of nulls

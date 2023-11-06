@@ -375,7 +375,8 @@ class ConstantVector final : public SimpleVector<T> {
 
     isNull_ = valueVector_->isNullAt(index_);
     BaseVector::distinctValueCount_ = isNull_ ? 0 : 1;
-    BaseVector::nullCount_ = isNull_ ? BaseVector::length_ : 0;
+    const vector_size_t vectorSize = BaseVector::length_;
+    BaseVector::nullCount_ = isNull_ ? vectorSize : 0;
     if (valueVector_->isScalar()) {
       auto simple = valueVector_->loadedVector()->as<SimpleVector<T>>();
       isNull_ = simple->isNullAt(index_);

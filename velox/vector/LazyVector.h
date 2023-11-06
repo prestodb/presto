@@ -290,7 +290,7 @@ class LazyVector : public BaseVector {
   std::unique_ptr<VectorLoader> loader_;
 
   // True if all values are loaded.
-  mutable bool allLoaded_ = false;
+  mutable tsan_atomic<bool> allLoaded_{false};
   // Vector to hold loaded values. This may be present before load for
   // reuse. If loading is with ValueHook, this will not be created.
   mutable VectorPtr vector_;

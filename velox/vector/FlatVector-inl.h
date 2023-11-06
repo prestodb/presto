@@ -410,7 +410,7 @@ VectorPtr FlatVector<T>::slice(vector_size_t offset, vector_size_t length)
 
 template <typename T>
 void FlatVector<T>::resize(vector_size_t newSize, bool setNotNull) {
-  auto previousSize = BaseVector::length_;
+  const vector_size_t previousSize = BaseVector::length_;
   if (newSize == previousSize) {
     return;
   }
@@ -522,11 +522,11 @@ void FlatVector<T>::resizeValues(
       auto len = std::min(values_->size(), newValues->size());
       memcpy(dst, src, len);
     } else {
-      auto previousSize = BaseVector::length_;
-      auto rawOldValues = newValues->asMutable<T>();
-      auto rawNewValues = newValues->asMutable<T>();
-      auto len = std::min<vector_size_t>(newSize, previousSize);
-      for (vector_size_t row = 0; row < len; row++) {
+      const vector_size_t previousSize = BaseVector::length_;
+      auto* rawOldValues = newValues->asMutable<T>();
+      auto* rawNewValues = newValues->asMutable<T>();
+      const auto len = std::min<vector_size_t>(newSize, previousSize);
+      for (vector_size_t row = 0; row < len; ++row) {
         rawNewValues[row] = rawOldValues[row];
       }
     }

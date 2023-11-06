@@ -303,9 +303,8 @@ void SelectiveStructColumnReaderBase::getValues(
     RowSet rows,
     VectorPtr* result) {
   VELOX_CHECK(!scanSpec_->children().empty());
-  VELOX_CHECK(
-      *result != nullptr,
-      "SelectiveStructColumnReaderBase expects a non-null result");
+  VELOX_CHECK_NOT_NULL(
+      *result, "SelectiveStructColumnReaderBase expects a non-null result");
   VELOX_CHECK(
       result->get()->type()->isRow(),
       "Struct reader expects a result of type ROW.");
