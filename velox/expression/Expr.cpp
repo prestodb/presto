@@ -831,8 +831,7 @@ void Expr::eval(
     for (auto* field : distinctFields_) {
       context.ensureFieldLoaded(field->index(context), rows);
     }
-  } else if (
-      !propagatesNulls_ && !evaluatesArgumentsOnNonIncreasingSelection()) {
+  } else if (!propagatesNulls_) {
     // Load multiply-referenced fields at common parent expr with "rows".
     // Delay loading fields that are not in multiplyReferencedFields_.
     for (const auto& field : multiplyReferencedFields_) {

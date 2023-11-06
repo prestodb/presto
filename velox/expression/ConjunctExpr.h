@@ -82,10 +82,6 @@ class ConjunctExpr : public SpecialForm {
       FlatVector<bool>* result,
       SelectivityVector* activeRows);
 
-  bool evaluatesArgumentsOnNonIncreasingSelection() const override {
-    return isAnd_;
-  }
-
   // true if conjunction (and), false if disjunction (or).
   const bool isAnd_;
 
