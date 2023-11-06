@@ -847,7 +847,7 @@ void readColumns(
     const std::vector<TypePtr>& types,
     std::vector<VectorPtr>& result,
     bool useLosslessTimestamp) {
-  static std::unordered_map<
+  static const std::unordered_map<
       TypeKind,
       std::function<void(
           ByteStream * source,
@@ -873,7 +873,7 @@ void readColumns(
           {TypeKind::UNKNOWN, &read<UnknownValue>}};
 
   for (int32_t i = 0; i < types.size(); ++i) {
-    auto encoding = readLengthPrefixedString(source);
+    const auto encoding = readLengthPrefixedString(source);
     if (encoding == kRLE) {
       readConstantVector(
           source, types[i], pool, result[i], useLosslessTimestamp);
@@ -882,7 +882,7 @@ void readColumns(
           source, types[i], pool, result[i], useLosslessTimestamp);
     } else {
       checkTypeEncoding(encoding, types[i]);
-      auto it = readers.find(types[i]->kind());
+      const auto it = readers.find(types[i]->kind());
       VELOX_CHECK(
           it != readers.end(),
           "Column reader for type {} is missing",
