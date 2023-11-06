@@ -102,7 +102,20 @@ String
 
     Variable length character data with an optional maximum length.
 
-    Example type definitions: ``varchar``, ``varchar(20)``
+    Example type definitions: ``varchar``, ``varchar(20)``.
+
+    SQL supports simple and Unicode string literals:
+     - Literal string : ``'Hello winter !'``
+     - Unicode string with default escape character: ``U&'Hello winter \2603 !'``
+     - Unicode string with custom escape character: ``U&'Hello winter #2603 !' UESCAPE '#'``
+
+    A Unicode string is prefixed with ``U&`` and requires an escape character
+    before any Unicode character usage with 4 digits. In these examples
+    ``\2603`` and ``#2603`` represent a snowman character. Long Unicode codes
+    with 6 digits require a plus symbol ``+`` before the code. For example,
+    use ``\+01F600`` for a grinning face emoji.
+
+    Single quotes in string literals can be escaped by using another single quote: ``'It''s a beautiful day!'``
 
 ``CHAR``
 ^^^^^^^^
