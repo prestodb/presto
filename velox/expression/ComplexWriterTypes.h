@@ -17,6 +17,7 @@
 #pragma once
 #include <folly/Likely.h>
 #include <cinttypes>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -105,6 +106,9 @@ template <typename V>
 class ArrayWriter {
   using child_writer_t = VectorWriter<V, void>;
   using element_t = typename child_writer_t::exec_out_t;
+
+  static constexpr bool hasStringValue =
+      std::is_same_v<V, Varchar> || std::is_same_v<V, Varbinary>;
 
  public:
   // Note: size is with respect to the current size of this array being written.
@@ -262,7 +266,33 @@ class ArrayWriter {
           this->operator[](i + start) = std::nullopt;
         }
       }
+    } else if constexpr (hasStringValue) {
+      auto* vector = arrayView.elementsVector();
+      bool found = false;
+      // Caching at this layer is much faster.
+      for (auto* item : vectorsWithAcquiredBuffers_) {
+        if (item == vector) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        vectorsWithAcquiredBuffers_.push_back(vector);
+        this->elementsVector_->acquireSharedStringBuffers(vector);
+      }
+      auto start = length_ + valuesOffset_;
+      resize(length_ + arrayView.size());
+      for (const auto& element : arrayView) {
+        if (element.has_value()) {
+          elementsVector_->setNoCopy(start, element.value());
+        } else {
+          elementsVector_->setNull(start, true);
+        }
+        start++;
+      }
     } else {
+      reserve(size() + arrayView.size());
       for (const auto& item : arrayView) {
         if (item.has_value()) {
           auto& writer = add_item();
@@ -314,6 +344,11 @@ class ArrayWriter {
 
   // Tracks the capacity of elements vector.
   vector_size_t elementsVectorCapacity_ = 0;
+
+  typename std::conditional<
+      hasStringValue,
+      std::vector<const BaseVector*>,
+      std::byte>::type vectorsWithAcquiredBuffers_;
 
   template <typename A, typename B>
   friend struct VectorWriter;
