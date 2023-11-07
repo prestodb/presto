@@ -15,6 +15,7 @@
  */
 #include "velox/expression/ConjunctExpr.h"
 #include "velox/expression/BooleanMix.h"
+#include "velox/expression/FieldReference.h"
 #include "velox/expression/ScopedVarSetter.h"
 
 namespace facebook::velox::exec {
@@ -135,6 +136,14 @@ void ConjunctExpr::evalSpecialForm(
     }
 
     SelectivityTimer timer(selectivity_[inputOrder_[i]], numActive);
+    if (evaluatesArgumentsOnNonIncreasingSelection()) {
+      // Exclude loading rows that we know for sure will have a false result.
+      for (auto* field : inputs_[inputOrder_[i]]->distinctFields()) {
+        if (multiplyReferencedFields_.count(field) > 0) {
+          context.ensureFieldLoaded(field->index(context), *activeRows);
+        }
+      }
+    }
     inputs_[inputOrder_[i]]->eval(*activeRows, context, inputResult);
     if (context.errors()) {
       handleErrors = true;

@@ -831,9 +831,12 @@ void Expr::eval(
     for (auto* field : distinctFields_) {
       context.ensureFieldLoaded(field->index(context), rows);
     }
-  } else if (!propagatesNulls_) {
-    // Load multiply-referenced fields at common parent expr with "rows".
-    // Delay loading fields that are not in multiplyReferencedFields_.
+  } else if (
+      !propagatesNulls_ && !evaluatesArgumentsOnNonIncreasingSelection()) {
+    // Load multiply-referenced fields at common parent expr with "rows".  Delay
+    // loading fields that are not in multiplyReferencedFields_.  In case
+    // evaluatesArgumentsOnNonIncreasingSelection() is true, this is delayed
+    // until we process the inputs of ConjunctExpr.
     for (const auto& field : multiplyReferencedFields_) {
       context.ensureFieldLoaded(field->index(context), rows);
     }
