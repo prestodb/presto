@@ -1927,6 +1927,19 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->groupingSets.groupingSetCount == 1 &&
       node->groupingSets.globalGroupingSets.empty();
 
+  // groupIdField and globalGroupingSets are required for producing default
+  // output rows for global grouping sets when there are no input rows.
+  // Global grouping sets can be present without groupIdField in Final
+  // aggregations. But the default output is generated only for Single and
+  // Partial aggregations. Set both fields only when required for the
+  // aggregation.
+  std::optional<core::FieldAccessTypedExprPtr> groupIdField;
+  std::vector<vector_size_t> globalGroupingSets;
+  if (node->groupIdVariable && !node->groupingSets.globalGroupingSets.empty()) {
+    groupIdField = toVeloxExprs({*node->groupIdVariable.get()})[0];
+    globalGroupingSets = node->groupingSets.globalGroupingSets;
+  }
+
   return std::make_shared<core::AggregationNode>(
       node->id,
       step,
@@ -1935,6 +1948,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                  : std::vector<core::FieldAccessTypedExprPtr>{},
       aggregateNames,
       aggregates,
+      globalGroupingSets,
+      groupIdField,
       false, // ignoreNullKeys
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
