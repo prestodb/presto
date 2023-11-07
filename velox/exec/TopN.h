@@ -49,6 +49,9 @@ class TopN : public Operator {
   bool finished_ = false;
   uint32_t numRowsReturned_ = 0;
 
+  std::vector<column_index_t> sortingKeyColumns_;
+  std::vector<column_index_t> nonKeyColumns_;
+
   // As the inputs are added to TopN operator, we use topRows_ (a priority
   // queue) to keep track of the pointers to rows stored in the
   // RowContainer (data_). We only update the RowContainer if a row is a

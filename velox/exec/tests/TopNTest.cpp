@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
@@ -202,7 +203,10 @@ TEST_F(TopNTest, varchar) {
           return StringView::makeInline(std::to_string(row));
         },
         nullEvery(31));
-    vectors.push_back(makeRowVector({c0, c1, c2}));
+    auto c3 = makeFlatVector<std::string>(batchSize, [](vector_size_t row) {
+      return "non inline string " + std::to_string(row);
+    });
+    vectors.push_back(makeRowVector({c0, c1, c2, c3}));
   }
   createDuckDbTable(vectors);
 
@@ -260,4 +264,44 @@ TEST_F(TopNTest, lowCardinality) {
   createDuckDbTable(vectors);
 
   testTwoKeys(vectors, "c0", "c1", 200);
+}
+
+// All columns are sorting keys.
+TEST_F(TopNTest, onlyKeys) {
+  vector_size_t batchSize = 1000;
+  std::vector<RowVectorPtr> vectors;
+  for (int32_t i = 0; i < 2; ++i) {
+    auto c0 = makeFlatVector<int64_t>(
+        batchSize,
+        [](vector_size_t row) { return row % 20; },
+        nullEvery(31, 1));
+    auto c1 = makeFlatVector<int32_t>(
+        batchSize, [](vector_size_t row) { return row; }, nullEvery(17));
+    vectors.push_back(makeRowVector({c0, c1}));
+  }
+  createDuckDbTable(vectors);
+
+  testTwoKeys(vectors, "c0", "c1", 200);
+}
+
+TEST_F(TopNTest, planNodeValidation) {
+  auto data = makeRowVector(
+      ROW({"a", "b"},
+          {
+              BIGINT(),
+              BIGINT(),
+          }),
+      10);
+  auto plan = [&](const std::vector<std::string>& sortingKeys,
+                  int32_t count = 10) {
+    PlanBuilder().values({data}).topN(sortingKeys, count, false).planNode();
+  };
+
+  VELOX_ASSERT_THROW(plan({}), "TopN must specify sorting keys");
+  VELOX_ASSERT_THROW(
+      plan({"a"}, 0),
+      "TopN must specify greater than zero number of rows to keep");
+  VELOX_ASSERT_THROW(
+      plan({"a", "b", "a"}),
+      "TopN must specify unique sorting keys. Found duplicate key: a");
 }

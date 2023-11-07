@@ -483,7 +483,7 @@ operations.
    * - Property
      - Description
    * - sortingKeys
-     - List of one of more input columns to sort by.
+     - List of one of more input columns to sort by. Must not be empty and must not contain duplicates.
    * - sortingOrders
      - Sorting order for each of the soring keys. See OrderBy for the list of supported orders.
    * - count
@@ -831,7 +831,7 @@ FilterNode(row_number <= limit), but it uses less memory and CPU.
   * - partitionKeys
     - Partition by columns for the window functions. May be empty.
   * - sortingKeys
-    - Order by columns for the window functions. Cannot be empty and cannot overlap with 'partitionKeys'.
+    - Order by columns for the window functions. Must not be empty and must not overlap with 'partitionKeys'.
   * - sortingOrders
     - Sorting order for each sorting key above. The supported sort orders are asc nulls first, asc nulls last, desc nulls first and desc nulls last.
   * - rowNumberColumnName
