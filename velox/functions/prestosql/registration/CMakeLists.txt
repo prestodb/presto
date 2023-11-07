@@ -27,7 +27,8 @@ add_library(
   StringFunctionsRegistration.cpp
   BitwiseFunctionsRegistration.cpp
   URLFunctionsRegistration.cpp
-  RegistrationFunctions.cpp)
+  RegistrationFunctions.cpp
+  ArrayConcatRegistration.cpp)
 
 # GCC 12 has a bug where it does not respect "pragma ignore" directives and ends
 # up failing compilation in an openssl header included by a hash-related

@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <type_traits>
+
 #include "velox/expression/ComplexViewTypes.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/lib/CheckedArithmetic.h"
@@ -543,16 +545,16 @@ struct ArrayNormalizeFunction {
 ///
 ///  Note:
 ///   - For compatibility with Presto a maximum arity of 254 is enforced.
-template <typename T>
+template <typename TExec, typename T>
 struct ArrayConcatFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T)
+  VELOX_DEFINE_FUNCTION_TYPES(TExec)
 
   static constexpr int32_t kMinArity = 2;
   static constexpr int32_t kMaxArity = 254;
 
-  FOLLY_ALWAYS_INLINE void call(
-      out_type<Array<Generic<T1>>>& out,
-      const arg_type<Variadic<Array<Generic<T1>>>>& arrays) {
+  void call(
+      out_type<Array<T>>& out,
+      const arg_type<Variadic<Array<T>>>& arrays) {
     VELOX_USER_CHECK_GE(
         arrays.size(),
         kMinArity,
@@ -570,23 +572,33 @@ struct ArrayConcatFunction {
     }
   }
 
-  void call(
-      out_type<Array<Generic<T1>>>& out,
-      const arg_type<Array<Generic<T1>>>& array,
-      const arg_type<Generic<T1>>& element) {
-    out.reserve(array.size() + 1);
-    out.add_items(array);
-    auto& newItem = out.add_item();
-    newItem.copy_from(element);
+  template <typename B, typename U>
+  void assignElement(B& out, const U& input) {
+    if constexpr (SimpleTypeTrait<T>::isPrimitiveType) {
+      // Primitives we just assign. copy_from not defined for primitives.
+      out = input;
+    } else {
+      out.copy_from(input);
+    }
   }
 
   void call(
-      out_type<Array<Generic<T1>>>& out,
-      const arg_type<Generic<T1>>& element,
-      const arg_type<Array<Generic<T1>>>& array) {
+      out_type<Array<T>>& out,
+      const arg_type<Array<T>>& array,
+      const arg_type<T>& element) {
+    out.reserve(array.size() + 1);
+    out.add_items(array);
+    auto& newItem = out.add_item();
+    assignElement(newItem, element);
+  }
+
+  void call(
+      out_type<Array<T>>& out,
+      const arg_type<T>& element,
+      const arg_type<Array<T>>& array) {
     out.reserve(array.size() + 1);
     auto& newItem = out.add_item();
-    newItem.copy_from(element);
+    assignElement(newItem, element);
     out.add_items(array);
   }
 };

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <string>
+
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/ArrayConstructor.h"
 #include "velox/functions/prestosql/ArrayFunctions.h"
@@ -21,6 +23,8 @@
 #include "velox/functions/prestosql/WidthBucketArray.h"
 
 namespace facebook::velox::functions {
+extern void registerArrayConcatFunctions(const std::string& prefix);
+
 template <typename T>
 inline void registerArrayMinMaxFunctions(const std::string& prefix) {
   registerFunction<ArrayMinFunction, T, Array<T>>({prefix + "array_min"});
@@ -174,20 +178,8 @@ void registerArrayFunctions(const std::string& prefix) {
   registerFunction<ArrayAverageFunction, double, Array<double>>(
       {prefix + "array_average"});
 
-  registerFunction<
-      ArrayConcatFunction,
-      Array<Generic<T1>>,
-      Array<Generic<T1>>,
-      Generic<T1>>({prefix + "concat"});
-  registerFunction<
-      ArrayConcatFunction,
-      Array<Generic<T1>>,
-      Generic<T1>,
-      Array<Generic<T1>>>({prefix + "concat"});
-  registerFunction<
-      ArrayConcatFunction,
-      Array<Generic<T1>>,
-      Variadic<Array<Generic<T1>>>>({prefix + "concat"});
+  registerArrayConcatFunctions(prefix);
+
   registerFunction<
       ArrayFlattenFunction,
       Array<Generic<T1>>,
