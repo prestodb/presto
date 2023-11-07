@@ -825,7 +825,7 @@ void readColumns(
     ByteStream* source,
     velox::memory::MemoryPool* pool,
     const std::vector<TypePtr>& types,
-    std::vector<VectorPtr>& result,
+    std::vector<VectorPtr>& results,
     bool useLosslessTimestamp) {
   static const std::unordered_map<
       TypeKind,
@@ -852,23 +852,28 @@ void readColumns(
           {TypeKind::ROW, &readRowVector},
           {TypeKind::UNKNOWN, &read<UnknownValue>}};
 
+  VELOX_CHECK_EQ(types.size(), results.size());
+
   for (int32_t i = 0; i < types.size(); ++i) {
+    const auto& columnType = types[i];
+    auto& columnResult = results[i];
+
     const auto encoding = readLengthPrefixedString(source);
     if (encoding == kRLE) {
       readConstantVector(
-          source, types[i], pool, result[i], useLosslessTimestamp);
+          source, columnType, pool, columnResult, useLosslessTimestamp);
     } else if (encoding == kDictionary) {
       readDictionaryVector(
-          source, types[i], pool, result[i], useLosslessTimestamp);
+          source, columnType, pool, columnResult, useLosslessTimestamp);
     } else {
-      checkTypeEncoding(encoding, types[i]);
-      const auto it = readers.find(types[i]->kind());
+      checkTypeEncoding(encoding, columnType);
+      const auto it = readers.find(columnType->kind());
       VELOX_CHECK(
           it != readers.end(),
           "Column reader for type {} is missing",
-          types[i]->kindName());
+          columnType->kindName());
 
-      it->second(source, types[i], pool, result[i], useLosslessTimestamp);
+      it->second(source, columnType, pool, columnResult, useLosslessTimestamp);
     }
   }
 }
