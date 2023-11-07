@@ -660,7 +660,7 @@ public class TaskManagerConfig
         return highMemoryTaskKillerStrategy;
     }
 
-    @Config("experiemental.task.high-memory-task-killer-strategy")
+    @Config("experimental.task.high-memory-task-killer-strategy")
     public TaskManagerConfig setHighMemoryTaskKillerStrategy(HighMemoryTaskKillerStrategy highMemoryTaskKillerStrategy)
     {
         this.highMemoryTaskKillerStrategy = highMemoryTaskKillerStrategy;
