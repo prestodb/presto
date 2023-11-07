@@ -3802,7 +3802,7 @@ TEST_F(HashJoinTest, memory) {
   params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
   auto [taskCursor, rows] = readCursor(params, [](Task*) {});
   EXPECT_GT(3'500, params.queryCtx->pool()->stats().numAllocs);
-  EXPECT_GT(7'500'000, params.queryCtx->pool()->stats().cumulativeBytes);
+  EXPECT_GT(18'000'000, params.queryCtx->pool()->stats().cumulativeBytes);
 }
 
 TEST_F(HashJoinTest, lazyVectors) {

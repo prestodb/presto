@@ -159,14 +159,18 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::pair<VectorPtr, std::unordered_map<std::string, exec::ExprStats>>
   evaluateWithStats(const std::string& expression, const RowVectorPtr& input) {
     auto exprSet = compileExpression(expression, asRowType(input->type()));
+    return evaluateWithStats(exprSet.get(), input);
+  }
 
+  std::pair<VectorPtr, std::unordered_map<std::string, exec::ExprStats>>
+  evaluateWithStats(exec::ExprSet* exprSetPtr, const RowVectorPtr& input) {
     SelectivityVector rows(input->size());
     std::vector<VectorPtr> results(1);
 
-    exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
-    exprSet->eval(rows, context, results);
+    exec::EvalCtx context(execCtx_.get(), exprSetPtr, input.get());
+    exprSetPtr->eval(rows, context, results);
 
-    return {results[0], exprSet->stats()};
+    return {results[0], exprSetPtr->stats()};
   }
 
   template <
@@ -2062,7 +2066,10 @@ TEST_P(ParameterizedExprTest, rewriteInputs) {
   }
 }
 
-TEST_P(ParameterizedExprTest, memo) {
+TEST_F(ExprTest, memo) {
+  // Verify that dictionary memoization
+  // 1. correctly evaluates the unevaluated rows on subsequent runs
+  // 2. Only caches results if it encounters the same base twice
   auto base = makeArrayVector<int64_t>(
       1'000,
       [](auto row) { return row % 5 + 1; },
@@ -2074,24 +2081,55 @@ TEST_P(ParameterizedExprTest, memo) {
   auto rowType = ROW({"c0"}, {base->type()});
   auto exprSet = compileExpression("c0[1] = 1", rowType);
 
-  auto result = evaluate(
+  auto [result, stats] = evaluateWithStats(
       exprSet.get(), makeRowVector({wrapInDictionary(evenIndices, 100, base)}));
   auto expectedResult = makeFlatVector<bool>(
       100, [](auto row) { return (8 + row * 2) % 3 == 1; });
   assertEqualVectors(expectedResult, result);
+  VELOX_CHECK_EQ(stats["eq"].numProcessedRows, 100);
+  VELOX_CHECK(base.unique());
 
-  result = evaluate(
+  // After this results would be cached
+  std::tie(result, stats) = evaluateWithStats(
+      exprSet.get(), makeRowVector({wrapInDictionary(evenIndices, 100, base)}));
+  assertEqualVectors(expectedResult, result);
+  VELOX_CHECK_EQ(stats["eq"].numProcessedRows, 200);
+  VELOX_CHECK(!base.unique());
+
+  // Unevaluated rows are processed
+  std::tie(result, stats) = evaluateWithStats(
       exprSet.get(), makeRowVector({wrapInDictionary(oddIndices, 100, base)}));
   expectedResult = makeFlatVector<bool>(
       100, [](auto row) { return (9 + row * 2) % 3 == 1; });
   assertEqualVectors(expectedResult, result);
+  VELOX_CHECK_EQ(stats["eq"].numProcessedRows, 300);
+  VELOX_CHECK(!base.unique());
 
   auto everyFifth = makeIndices(100, [](auto row) { return row * 5; });
-  result = evaluate(
+  std::tie(result, stats) = evaluateWithStats(
       exprSet.get(), makeRowVector({wrapInDictionary(everyFifth, 100, base)}));
   expectedResult =
       makeFlatVector<bool>(100, [](auto row) { return (row * 5) % 3 == 1; });
   assertEqualVectors(expectedResult, result);
+  VELOX_CHECK_EQ(
+      stats["eq"].numProcessedRows,
+      360,
+      "Fewer rows expected as memoization should have kicked in.");
+  VELOX_CHECK(!base.unique());
+
+  // Create a new base
+  base = makeArrayVector<int64_t>(
+      1'000,
+      [](auto row) { return row % 5 + 1; },
+      [](auto row, auto index) { return (row % 3) + index; });
+
+  std::tie(result, stats) = evaluateWithStats(
+      exprSet.get(), makeRowVector({wrapInDictionary(oddIndices, 100, base)}));
+  expectedResult = makeFlatVector<bool>(
+      100, [](auto row) { return (9 + row * 2) % 3 == 1; });
+  assertEqualVectors(expectedResult, result);
+  VELOX_CHECK_EQ(stats["eq"].numProcessedRows, 460);
+  VELOX_CHECK(base.unique());
 }
 
 // This test triggers the situation when peelEncodings() produces an empty

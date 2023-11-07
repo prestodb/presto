@@ -251,7 +251,10 @@ class Expr {
   }
 
   void clearMemo() {
-    baseDictionary_ = nullptr;
+    baseOfDictionaryRepeats_ = 0;
+    baseOfDictionary_.reset();
+    baseOfDictionaryWeakPtr_.reset();
+    baseOfDictionaryRawPtr_ = nullptr;
     dictionaryCache_ = nullptr;
     cachedDictionaryIndices_ = nullptr;
   }
@@ -597,21 +600,28 @@ class Expr {
   // evaluateSharedSubexpr() is called to the cached shared results.
   std::map<std::vector<const BaseVector*>, SharedResults> sharedSubexprResults_;
 
-  VectorPtr baseDictionary_;
+  // Pointers to the last base vector of cachable dictionary input. Used to
+  // check if the current input's base vector is the same as the last. If it's
+  // the same, then results can be cached.
+  std::weak_ptr<BaseVector> baseOfDictionaryWeakPtr_;
+  BaseVector* baseOfDictionaryRawPtr_ = nullptr;
+
+  // This is a strong reference to the base vector and is only set if
+  // `baseOfDictionaryRepeats_` > 1. This is to ensure that the vector held is
+  // not modified and re-used in-place.
+  VectorPtr baseOfDictionary_;
+
+  // Number of times currently held cacheable vector is seen for a non-first
+  // time. Is reset everytime 'baseOfDictionaryRawPtr_' is different from the
+  // current input's base.
+  int baseOfDictionaryRepeats_ = 0;
 
   // Values computed for the base dictionary, 1:1 to the positions in
-  // 'baseDictionary_'.
+  // 'baseOfDictionaryRawPtr_'.
   VectorPtr dictionaryCache_;
 
   // The indices that are valid in 'dictionaryCache_'.
   std::unique_ptr<SelectivityVector> cachedDictionaryIndices_;
-
-  // Count of executions where this is wrapped in a dictionary so that
-  // results could be cached.
-  int32_t numCachableInput_{0};
-
-  // Count of times the cacheable vector is seen for a non-first time.
-  int32_t numCacheableRepeats_{0};
 
   /// Runtime statistics. CPU time, wall time and number of processed rows.
   ExprStats stats_;
