@@ -579,7 +579,7 @@ public class FeaturesConfig
     }
 
     @Config("cte-materialization-strategy")
-    @ConfigDescription("Set strategy used to determine whether to materialize ctes (ALL, NONE)")
+    @ConfigDescription("Set strategy used to determine whether to materialize CTEs (ALL, NONE)")
     public FeaturesConfig setCteMaterializationStrategy(CteMaterializationStrategy cteMaterializationStrategy)
     {
         this.cteMaterializationStrategy = cteMaterializationStrategy;
