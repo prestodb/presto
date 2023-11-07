@@ -29,10 +29,6 @@ class LocalExchangeSource : public exec::ExchangeSource {
       memory::MemoryPool* pool)
       : ExchangeSource(taskId, destination, queue, pool) {}
 
-  bool supportsFlowControlV2() const override {
-    return true;
-  }
-
   bool shouldRequestLocked() override {
     if (atEnd_) {
       return false;

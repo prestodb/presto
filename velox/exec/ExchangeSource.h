@@ -42,7 +42,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   /// Temporary API to indicate whether 'request(maxBytes, maxWaitSeconds)' API
   /// is supported.
   virtual bool supportsFlowControlV2() const {
-    return false;
+    VELOX_UNREACHABLE();
   }
 
   /// Returns true if there is no request to the source pending or if

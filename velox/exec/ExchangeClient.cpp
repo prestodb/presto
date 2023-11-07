@@ -133,48 +133,28 @@ std::unique_ptr<SerializedPage> ExchangeClient::next(
 void ExchangeClient::request(const RequestSpec& requestSpec) {
   auto& exec = folly::QueuedImmediateExecutor::instance();
   for (auto& source : requestSpec.sources) {
-    if (source->supportsFlowControlV2()) {
-      auto future =
-          source->request(requestSpec.maxBytes, kDefaultMaxWaitSeconds);
-      VELOX_CHECK(future.valid());
-      std::move(future)
-          .via(&exec)
-          .thenValue([this, requestSource = source](auto&& response) {
-            RequestSpec requestSpec;
-            {
-              std::lock_guard<std::mutex> l(queue_->mutex());
-              if (!response.atEnd) {
-                if (response.bytes > 0) {
-                  producingSources_.push(requestSource);
-                } else {
-                  emptySources_.push(requestSource);
-                }
+    auto future = source->request(requestSpec.maxBytes, kDefaultMaxWaitSeconds);
+    VELOX_CHECK(future.valid());
+    std::move(future)
+        .via(&exec)
+        .thenValue([this, requestSource = source](auto&& response) {
+          RequestSpec requestSpec;
+          {
+            std::lock_guard<std::mutex> l(queue_->mutex());
+            if (!response.atEnd) {
+              if (response.bytes > 0) {
+                producingSources_.push(requestSource);
+              } else {
+                emptySources_.push(requestSource);
               }
-              requestSpec = pickSourcesToRequestLocked();
             }
-            request(requestSpec);
-          })
-          .thenError(
-              folly::tag_t<std::exception>{},
-              [&](const std::exception& e) { queue_->setError(e.what()); });
-    } else {
-      auto future = source->request(requestSpec.maxBytes);
-      VELOX_CHECK(future.valid());
-      std::move(future)
-          .via(&exec)
-          .thenValue([this, requestSource = source](auto&& /*unused*/) {
-            RequestSpec requestSpec;
-            {
-              std::lock_guard<std::mutex> l(queue_->mutex());
-              emptySources_.push(requestSource);
-              requestSpec = pickSourcesToRequestLocked();
-            }
-            request(requestSpec);
-          })
-          .thenError(
-              folly::tag_t<std::exception>{},
-              [&](const std::exception& e) { queue_->setError(e.what()); });
-    }
+            requestSpec = pickSourcesToRequestLocked();
+          }
+          request(requestSpec);
+        })
+        .thenError(
+            folly::tag_t<std::exception>{},
+            [&](const std::exception& e) { queue_->setError(e.what()); });
   }
 }
 
