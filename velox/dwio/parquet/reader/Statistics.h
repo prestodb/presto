@@ -16,9 +16,18 @@
 
 #pragma once
 
-#include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/parquet/thrift/ParquetThriftTypes.h"
-#include "velox/type/Type.h"
+
+#include <cstring>
+#include <optional>
+
+namespace facebook::velox {
+class Type;
+}
+
+namespace facebook::velox::dwio::common {
+class ColumnStatistics;
+}
 
 namespace facebook::velox::parquet {
 
@@ -27,7 +36,7 @@ namespace facebook::velox::parquet {
 template <typename T>
 inline const T load(const char* ptr) {
   T ret;
-  memcpy(&ret, ptr, sizeof(ret));
+  std::memcpy(&ret, ptr, sizeof(ret));
   return ret;
 }
 

@@ -15,7 +15,14 @@
  */
 
 #include "velox/dwio/parquet/reader/StructColumnReader.h"
+
+#include "velox/dwio/common/BufferedInput.h"
+#include "velox/dwio/parquet/reader/ParquetColumnReader.h"
 #include "velox/dwio/parquet/reader/RepeatedColumnReader.h"
+
+namespace facebook::velox::common {
+class ScanSpec;
+}
 
 namespace facebook::velox::parquet {
 

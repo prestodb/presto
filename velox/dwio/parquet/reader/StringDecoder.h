@@ -16,12 +16,6 @@
 
 #pragma once
 
-#include "velox/common/base/GTestMacros.h"
-#include "velox/common/base/Nulls.h"
-#include "velox/dwio/common/DecoderUtil.h"
-#include "velox/dwio/common/IntDecoder.h"
-#include "velox/dwio/common/TypeUtil.h"
-
 namespace facebook::velox::parquet {
 
 class StringDecoder {

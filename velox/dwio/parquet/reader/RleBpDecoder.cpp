@@ -16,7 +16,7 @@
 
 #include "velox/dwio/parquet/reader/RleBpDecoder.h"
 
-#include "velox/dwio/common/BitPackDecoder.h"
+#include <folly/Varint.h>
 
 namespace facebook::velox::parquet {
 

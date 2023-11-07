@@ -17,9 +17,18 @@
 #pragma once
 
 #include "velox/dwio/common/SelectiveStructColumnReader.h"
-#include "velox/dwio/parquet/reader/ParquetColumnReader.h"
+
+#include <parquet/level_conversion.h>
+
+namespace facebook::velox::dwio::common {
+class BufferedInput;
+}
 
 namespace facebook::velox::parquet {
+
+enum class LevelMode;
+class PageReader;
+class ParquetParams;
 
 class StructColumnReader : public dwio::common::SelectiveStructColumnReader {
  public:

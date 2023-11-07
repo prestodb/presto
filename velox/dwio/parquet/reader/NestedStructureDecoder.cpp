@@ -16,7 +16,6 @@
 
 #include "velox/dwio/parquet/reader/NestedStructureDecoder.h"
 
-#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/common/BufferUtil.h"
 
 namespace facebook::velox::parquet {

@@ -15,18 +15,13 @@
  */
 
 #include "velox/dwio/parquet/reader/PageReader.h"
-#include "velox/common/compression/LzoDecompressor.h"
+
 #include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/common/ColumnVisitors.h"
-#include "velox/dwio/parquet/reader/NestedStructureDecoder.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
 #include "velox/vector/FlatVector.h"
 
-#include <lz4.h>
-#include <snappy.h>
-#include <thrift/protocol/TCompactProtocol.h> //@manual
-#include <zlib.h>
-#include <zstd.h>
+#include <thrift/protocol/TCompactProtocol.h> // @manual
 
 namespace facebook::velox::parquet {
 

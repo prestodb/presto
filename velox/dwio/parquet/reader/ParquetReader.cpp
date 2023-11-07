@@ -15,11 +15,12 @@
  */
 
 #include "velox/dwio/parquet/reader/ParquetReader.h"
-#include <thrift/protocol/TCompactProtocol.h> //@manual
-#include "velox/dwio/common/MetricsLog.h"
-#include "velox/dwio/common/TypeUtils.h"
+
+#include "velox/dwio/parquet/reader/ParquetColumnReader.h"
 #include "velox/dwio/parquet/reader/StructColumnReader.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
+
+#include <thrift/protocol/TCompactProtocol.h> //@manual
 
 namespace facebook::velox::parquet {
 

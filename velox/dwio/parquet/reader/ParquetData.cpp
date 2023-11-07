@@ -15,6 +15,8 @@
  */
 
 #include "velox/dwio/parquet/reader/ParquetData.h"
+
+#include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/parquet/reader/Statistics.h"
 
 namespace facebook::velox::parquet {

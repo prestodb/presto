@@ -15,6 +15,8 @@
  */
 
 #include "velox/dwio/parquet/reader/Statistics.h"
+
+#include "velox/dwio/common/Statistics.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::parquet {

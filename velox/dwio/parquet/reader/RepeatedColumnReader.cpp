@@ -20,6 +20,8 @@
 
 namespace facebook::velox::parquet {
 
+class ParquetTypeWithId;
+
 namespace {
 PageReader* FOLLY_NULLABLE readLeafRepDefs(
     dwio::common::SelectiveColumnReader* FOLLY_NONNULL reader,

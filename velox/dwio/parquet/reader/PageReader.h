@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <arrow/util/rle_encoding.h>
 #include "velox/common/compression/Compression.h"
 #include "velox/dwio/common/BitConcatenation.h"
 #include "velox/dwio/common/DirectDecoder.h"
@@ -26,7 +25,8 @@
 #include "velox/dwio/parquet/reader/ParquetTypeWithId.h"
 #include "velox/dwio/parquet/reader/RleBpDataDecoder.h"
 #include "velox/dwio/parquet/reader/StringDecoder.h"
-#include "velox/vector/BaseVector.h"
+
+#include <arrow/util/rle_encoding.h>
 
 namespace facebook::velox::parquet {
 

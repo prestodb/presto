@@ -19,10 +19,6 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/BitPackDecoder.h"
 #include "velox/dwio/common/DecoderUtil.h"
-#include "velox/type/Filter.h"
-#include "velox/vector/LazyVector.h"
-
-#include <folly/Varint.h>
 
 namespace facebook::velox::parquet {
 

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/common/SelectiveColumnReaderInternal.h"
+#include "velox/dwio/common/SelectiveColumnReader.h"
 #include "velox/dwio/parquet/reader/ParquetData.h"
 
 namespace facebook::velox::parquet {
