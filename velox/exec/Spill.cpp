@@ -433,18 +433,23 @@ SpillPartitionNumSet SpillState::testingNonEmptySpilledPartitionSet() const {
 
 std::vector<std::unique_ptr<SpillPartition>> SpillPartition::split(
     int numShards) {
-  const int32_t numFilesPerShard = bits::roundUp(files_.size(), numShards);
   std::vector<std::unique_ptr<SpillPartition>> shards(numShards);
-
-  for (int shard = 0, fileIdx = 0; shard < numShards; ++shard) {
-    SpillFiles shardFiles;
-    shardFiles.reserve(numFilesPerShard);
-    while (shardFiles.size() < numFilesPerShard && fileIdx < files_.size()) {
-      shardFiles.push_back(std::move(files_[fileIdx++]));
+  const auto numFilesPerShard = files_.size() / numShards;
+  int32_t numRemainingFiles = files_.size() % numShards;
+  int fileIdx{0};
+  for (int shard = 0; shard < numShards; ++shard) {
+    SpillFiles files;
+    auto numFiles = numFilesPerShard;
+    if (numRemainingFiles-- > 0) {
+      ++numFiles;
     }
-    shards[shard] =
-        std::make_unique<SpillPartition>(id_, std::move(shardFiles));
+    files.reserve(numFiles);
+    while (files.size() < numFiles) {
+      files.push_back(std::move(files_[fileIdx++]));
+    }
+    shards[shard] = std::make_unique<SpillPartition>(id_, std::move(files));
   }
+  VELOX_CHECK_EQ(fileIdx, files_.size());
   files_.clear();
   return shards;
 }

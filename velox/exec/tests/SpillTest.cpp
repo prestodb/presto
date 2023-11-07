@@ -672,17 +672,27 @@ TEST_P(SpillTest, spillPartitionSpilt) {
 
     folly::Random::DefaultGenerator rng;
     rng.seed(seed);
-    const int32_t numSplits =
-        1 + folly::Random::rand32(spillPartition->numFiles() * 2 / 3);
-    auto spillPartitionSplits = spillPartition->split(numSplits);
-    for (const auto& partitionSplit : spillPartitionSplits) {
-      ASSERT_EQ(id, partitionSplit->id());
+    const auto totalNumFiles = spillPartition->numFiles();
+    const int32_t numShards = 1 + folly::Random::rand32(totalNumFiles * 2 / 3);
+    auto spillPartitionShards = spillPartition->split(numShards);
+    for (const auto& partitionShard : spillPartitionShards) {
+      ASSERT_EQ(id, partitionShard->id());
     }
+
+    // Even split distribution verification.
+    int minNumFiles = std::numeric_limits<int>::max();
+    int maxNumFiles = std::numeric_limits<int>::min();
+    for (uint32_t i = 0; i < numShards; i++) {
+      auto numFiles = spillPartitionShards[i]->numFiles();
+      minNumFiles = std::min(minNumFiles, numFiles);
+      maxNumFiles = std::max(maxNumFiles, numFiles);
+    }
+    ASSERT_LE(maxNumFiles - minNumFiles, 1);
 
     // Read verification.
     int batchIdx = 0;
-    for (int32_t i = 0; i < numSplits; ++i) {
-      auto reader = spillPartitionSplits[i]->createReader();
+    for (int32_t i = 0; i < numShards; ++i) {
+      auto reader = spillPartitionShards[i]->createReader();
       RowVectorPtr output;
       while (reader->nextBatch(output)) {
         for (int row = 0; row < numRowsPerBatch; ++row) {
