@@ -15,7 +15,7 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.testing.QueryRunner;
 
-public class TestNativeProbabilityFunctionQueries
+public class TestPrestoNativeProbabilityFunctionQueries
         extends AbstractTestNativeProbabilityFunctionQueries
 {
     @Override
