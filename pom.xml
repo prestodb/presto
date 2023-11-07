@@ -48,7 +48,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
-        <dep.aws-sdk.version>1.12.261</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.560</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
@@ -60,7 +60,7 @@
         <dep.testng.version>7.5</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.3</dep.logback.version>
-        <dep.parquet.version>1.12.0</dep.parquet.version>
+        <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.0</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
@@ -190,6 +190,7 @@
         <module>presto-open-telemetry</module>
         <module>redis-hbo-provider</module>
         <module>presto-singlestore</module>
+        <module>presto-hana</module>
     </modules>
 
     <dependencyManagement>
@@ -412,6 +413,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-singlestore</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-hana</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1162,6 +1169,12 @@
                 <groupId>com.facebook.thirdparty</groupId>
                 <artifactId>libsvm</artifactId>
                 <version>3.18.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.sap.cloud.db.jdbc</groupId>
+                <artifactId>ngdbc</artifactId>
+                <version>2.17.12</version>
             </dependency>
 
             <dependency>

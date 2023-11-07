@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -135,6 +136,18 @@ public class TestSimplifyPlanWithEmptyInput
                 output(
                         ImmutableList.of("orderkey", "partkey"),
                         tableScan("lineitem", ImmutableMap.of("partkey", "partkey", "orderkey", "orderkey"))));
+    }
+
+    @Test
+    public void testUnionMultipleNonEmptyInput()
+    {
+        assertPlan("select orderkey, partkey from lineitem union all select orderkey, custkey as partkey from orders where false union all select custkey, nationkey from customer",
+                enableOptimization(),
+                output(
+                        ImmutableList.of("orderkey", "partkey"),
+                        exchange(
+                                tableScan("lineitem", ImmutableMap.of("partkey", "partkey", "orderkey", "orderkey")),
+                                tableScan("customer", ImmutableMap.of("nationkey", "nationkey", "custkey", "custkey")))));
     }
 
     @Test

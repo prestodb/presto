@@ -189,4 +189,12 @@ public abstract class AbstractTestNativeWindowQueries
         testWindowFunction("lag(orderkey, 5)", FunctionType.VALUE);
         testWindowFunction("lag(totalprice, 2, -123.456)", FunctionType.VALUE);
     }
+
+    @Test
+    public void testOverlappingPartitionAndSortingKeys()
+    {
+        assertQuery("SELECT row_number() OVER (PARTITION BY orderdate ORDER BY orderdate) FROM orders");
+        assertQuery("SELECT min(orderkey) OVER (PARTITION BY orderdate ORDER BY orderdate, totalprice) FROM orders");
+        assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
+    }
 }

@@ -1255,7 +1255,7 @@ public class TestLogicalPlanner
         assertPlanWithSession(
                 "SELECT C, orderkey FROM (select orderkey as C from orders where 1=0) join orders on 1=1",
                 disableEmptyJoinOptimization, true,
-                output(node(JoinNode.class, values("orderkey_0"), values("orderkey_3"))));
+                output(node(JoinNode.class, values("orders"), anyTree(tableScan("orders")))));
     }
 
     @Test

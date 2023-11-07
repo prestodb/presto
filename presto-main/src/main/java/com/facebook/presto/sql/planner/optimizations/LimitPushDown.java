@@ -45,7 +45,7 @@ public class LimitPushDown
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -53,7 +53,9 @@ public class LimitPushDown
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
+        Rewriter rewriter = new Rewriter(idAllocator);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class LimitContext
@@ -91,6 +93,7 @@ public class LimitPushDown
             extends SimplePlanRewriter<LimitContext>
     {
         private final PlanNodeIdAllocator idAllocator;
+        private boolean planChanged;
 
         private Rewriter(PlanNodeIdAllocator idAllocator)
         {
@@ -106,6 +109,7 @@ public class LimitPushDown
             if (limit != null) {
                 // Drop in a LimitNode b/c we cannot push our limit down any further
                 rewrittenNode = new LimitNode(rewrittenNode.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.getStep());
+                planChanged = true;
             }
             return rewrittenNode;
         }
@@ -120,6 +124,7 @@ public class LimitPushDown
 
             // return empty ValuesNode in case of limit 0
             if (count == 0) {
+                planChanged = true;
                 return new ValuesNode(
                         node.getSourceLocation(),
                         idAllocator.getNextId(),
@@ -143,11 +148,13 @@ public class LimitPushDown
                     node.getOutputVariables().size() == node.getGroupingKeys().size() &&
                     node.getOutputVariables().containsAll(node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
+                planChanged = true;
                 return new DistinctLimitNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputVariables(), Optional.empty(), 0);
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {
                 // Drop in a LimitNode b/c limits cannot be pushed through aggregations
+                planChanged = true;
                 rewrittenNode = new LimitNode(rewrittenNode.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, limit.getCount(), limit.getStep());
             }
             return rewrittenNode;
@@ -181,6 +188,7 @@ public class LimitPushDown
 
             long count = node.getCount();
             if (limit != null) {
+                planChanged = true;
                 count = Math.min(count, limit.getCount());
             }
             return new TopNNode(node.getSourceLocation(), node.getId(), rewrittenSource, count, node.getOrderingScheme(), node.getStep());
@@ -194,9 +202,11 @@ public class LimitPushDown
 
             PlanNode rewrittenSource = context.rewrite(node.getSource());
             if (limit != null) {
+                planChanged = true;
                 return new TopNNode(node.getSourceLocation(), node.getId(), rewrittenSource, limit.getCount(), node.getOrderingScheme(), TopNNode.Step.SINGLE);
             }
             else if (rewrittenSource != node.getSource()) {
+                planChanged = true;
                 return new SortNode(node.getSourceLocation(), node.getId(), rewrittenSource, node.getOrderingScheme(), node.isPartial());
             }
             return node;
@@ -219,6 +229,7 @@ public class LimitPushDown
 
             PlanNode output = new UnionNode(node.getSourceLocation(), node.getId(), sources, node.getOutputVariables(), node.getVariableMapping());
             if (limit != null) {
+                planChanged = true;
                 output = new LimitNode(output.getSourceLocation(), idAllocator.getNextId(), output, limit.getCount(), limit.getStep());
             }
             return output;
@@ -229,6 +240,7 @@ public class LimitPushDown
         {
             PlanNode source = context.rewrite(node.getSource(), context.get());
             if (source != node.getSource()) {
+                planChanged = true;
                 return new SemiJoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -243,6 +255,11 @@ public class LimitPushDown
                         node.getDynamicFilters());
             }
             return node;
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
     }
 }

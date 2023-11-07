@@ -85,6 +85,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.prestospark.PrestoSparkExecutionContext;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
@@ -336,6 +337,16 @@ public class PrestoSparkQueryExecutionFactory
                 succinctBytes(peakNodeTotalMemoryInBytes),
                 session.getRuntimeStats());
 
+        Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
+        if (planAndMore.isPresent()) {
+            prestoSparkExecutionContext = Optional.of(
+                    PrestoSparkExecutionContext.create(
+                            planAndMore.get().getPhysicalResourceSettings().getHashPartitionCount(),
+                            planAndMore.get().getPhysicalResourceSettings().getMaxExecutorCount(),
+                            planAndMore.get().getPhysicalResourceSettings().isHashPartitionCountAutoTuned(),
+                            planAndMore.get().getPhysicalResourceSettings().isMaxExecutorCountAutoTuned()));
+        }
+
         return new QueryInfo(
                 session.getQueryId(),
                 session.toSessionRepresentation(),
@@ -378,7 +389,8 @@ public class PrestoSparkQueryExecutionFactory
                 planAndMore.map(PlanAndMore::getInvokedAggregateFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getInvokedWindowFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getPlanCanonicalInfo).orElseGet(ImmutableList::of),
-                planAndMore.map(PlanAndMore::getPlan).map(Plan::getPlanIdNodeMap).orElseGet(ImmutableMap::of));
+                planAndMore.map(PlanAndMore::getPlan).map(Plan::getPlanIdNodeMap).orElseGet(ImmutableMap::of),
+                prestoSparkExecutionContext);
     }
 
     public static StageInfo createStageInfo(QueryId queryId, SubPlan plan, List<TaskInfo> taskInfos)
@@ -671,7 +683,7 @@ public class PrestoSparkQueryExecutionFactory
             else {
                 VariableAllocator variableAllocator = new VariableAllocator();
                 PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
-                planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator);
+                planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator, sparkContext);
                 JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
                 taskInfoCollector.register(sparkContext, Option.empty(), false);

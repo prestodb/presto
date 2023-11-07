@@ -295,6 +295,7 @@ public final class SystemSessionProperties
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
     public static final String ENABLE_HISTORY_BASED_SCALED_WRITER = "enable_history_based_scaled_writer";
     public static final String REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN = "remove_redundant_cast_to_varchar_in_join";
+    public static final String HANDLE_COMPLEX_EQUI_JOINS = "handle_complex_equi_joins";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -1775,6 +1776,11 @@ public final class SystemSessionProperties
                         REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN,
                         "If both left and right side of join clause are varchar cast from int/bigint, remove the cast here",
                         featuresConfig.isRemoveRedundantCastToVarcharInJoin(),
+                        false),
+                booleanProperty(
+                        HANDLE_COMPLEX_EQUI_JOINS,
+                        "Handle complex equi-join conditions to open up join space for join reordering",
+                        featuresConfig.getHandleComplexEquiJoins(),
                         false));
     }
 
@@ -2950,7 +2956,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(INFER_INEQUALITY_PREDICATES, Boolean.class);
     }
 
-    public static boolean useHBOForScaledWriters(Session session)
+    public static boolean useHistoryBasedScaledWriters(Session session)
     {
         return session.getSystemProperty(ENABLE_HISTORY_BASED_SCALED_WRITER, Boolean.class);
     }
@@ -2958,5 +2964,10 @@ public final class SystemSessionProperties
     public static boolean isRemoveRedundantCastToVarcharInJoinEnabled(Session session)
     {
         return session.getSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, Boolean.class);
+    }
+
+    public static boolean shouldHandleComplexEquiJoins(Session session)
+    {
+        return session.getSystemProperty(HANDLE_COMPLEX_EQUI_JOINS, Boolean.class);
     }
 }

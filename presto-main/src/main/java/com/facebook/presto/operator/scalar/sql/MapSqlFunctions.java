@@ -36,7 +36,7 @@ public class MapSqlFunctions
     }
 
     @SqlInvokedScalarFunction(value = "map_top_n_keys", deterministic = true, calledOnNullInput = false)
-    @Description("Returns the top N keys of the given map in descending order according to the natural ordering of its values.")
+    @Description("Returns the top N keys of the given map by sorting the keys in descending order according to the natural ordering of its keys.")
     @TypeParameter("K")
     @TypeParameter("V")
     @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "bigint")})
@@ -47,7 +47,7 @@ public class MapSqlFunctions
     }
 
     @SqlInvokedScalarFunction(value = "map_top_n_keys", deterministic = true, calledOnNullInput = true)
-    @Description("Returns the top N keys of the given map sorted using the provided lambda comparator.")
+    @Description("Returns the top N keys of the given map sorting its keys using the provided lambda comparator.")
     @TypeParameter("K")
     @TypeParameter("V")
     @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "bigint"), @SqlParameter(name = "f", type = "function(K, K, int)")})

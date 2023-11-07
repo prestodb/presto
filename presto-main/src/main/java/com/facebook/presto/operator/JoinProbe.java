@@ -55,6 +55,7 @@ public class JoinProbe
     private final boolean probeMayHaveNull;
 
     private int position = -1;
+    private int nullRowCount;
 
     private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, @Nullable Block probeHashBlock)
     {
@@ -79,6 +80,7 @@ public class JoinProbe
     public long getCurrentJoinPosition(LookupSource lookupSource)
     {
         if (probeMayHaveNull && currentRowContainsNull()) {
+            ++nullRowCount;
             return -1;
         }
         if (probeHashBlock != null) {
@@ -116,5 +118,15 @@ public class JoinProbe
             }
         }
         return false;
+    }
+
+    public int getNullRowCount()
+    {
+        return nullRowCount;
+    }
+
+    public int getPositionCount()
+    {
+        return positionCount;
     }
 }

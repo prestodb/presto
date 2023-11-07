@@ -61,7 +61,7 @@ public class MergeJoinForSortedInputOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider type, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider type, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -69,9 +69,11 @@ public class MergeJoinForSortedInputOptimizer
         requireNonNull(idAllocator, "idAllocator is null");
 
         if (isEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new MergeJoinForSortedInputOptimizer.Rewriter(variableAllocator, idAllocator, metadata, session), plan, null);
+            Rewriter rewriter = new MergeJoinForSortedInputOptimizer.Rewriter(variableAllocator, idAllocator, metadata, session);
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private class Rewriter
@@ -81,6 +83,7 @@ public class MergeJoinForSortedInputOptimizer
         private final Metadata metadata;
         private final Session session;
         private final TypeProvider types;
+        private boolean planChanged;
 
         private Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
         {
@@ -88,6 +91,11 @@ public class MergeJoinForSortedInputOptimizer
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.types = TypeProvider.viewOf(variableAllocator.getVariables());
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -113,6 +121,7 @@ public class MergeJoinForSortedInputOptimizer
 
             // 2. If not, we don't optimize
             if (meetsDataRequirement(node.getLeft(), node.getRight(), node)) {
+                planChanged = true;
                 return new MergeJoinNode(
                         node.getSourceLocation(),
                         node.getId(),

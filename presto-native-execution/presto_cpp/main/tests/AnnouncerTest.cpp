@@ -55,16 +55,21 @@ struct PromiseHolder {
   folly::Promise<T> promise_;
 };
 
-static std::unique_ptr<http::HttpServer> createHttpServer(bool useHttps) {
+static std::unique_ptr<http::HttpServer> createHttpServer(
+    bool useHttps,
+    std::shared_ptr<folly::IOThreadPoolExecutor> ioPool =
+        std::make_shared<folly::IOThreadPoolExecutor>(8)) {
   if (useHttps) {
     std::string certPath = getCertsPath("test_cert1.pem");
     std::string keyPath = getCertsPath("test_key1.pem");
     std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
     auto httpsConfig = std::make_unique<http::HttpsConfig>(
         folly::SocketAddress("127.0.0.1", 0), certPath, keyPath, ciphers);
-    return std::make_unique<http::HttpServer>(nullptr, std::move(httpsConfig));
+    return std::make_unique<http::HttpServer>(
+        ioPool, nullptr, std::move(httpsConfig));
   } else {
     return std::make_unique<http::HttpServer>(
+        ioPool,
         std::make_unique<http::HttpConfig>(
             folly::SocketAddress("127.0.0.1", 0)));
   }

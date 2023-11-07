@@ -404,7 +404,6 @@ public abstract class AbstractTestWriter
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("task_partitioned_writer_count", "2")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
-                .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
                 .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();
     }

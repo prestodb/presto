@@ -181,12 +181,14 @@ class TaskManagerTest : public testing::Test {
     leafPool_ = memory::addDefaultLeafMemoryPool("TaskManagerTest.leaf");
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
 
-    taskManager_ = std::make_unique<TaskManager>();
-    taskResource_ =
-        std::make_unique<TaskResource>(*taskManager_.get(), leafPool_.get());
+    taskManager_ = std::make_unique<TaskManager>(
+        driverExecutor_.get(), httpSrvCpuExecutor_.get(), nullptr);
+    taskResource_ = std::make_unique<TaskResource>(
+        *taskManager_.get(), leafPool_.get(), httpSrvCpuExecutor_.get());
 
-    auto httpServer =
-        std::make_unique<http::HttpServer>(std::make_unique<http::HttpConfig>(
+    auto httpServer = std::make_unique<http::HttpServer>(
+        httpSrvIOExecutor_,
+        std::make_unique<http::HttpConfig>(
             folly::SocketAddress("127.0.0.1", 0)));
     taskResource_->registerUris(*httpServer.get());
 
@@ -604,6 +606,18 @@ class TaskManagerTest : public testing::Test {
       std::make_shared<folly::CPUThreadPoolExecutor>(1);
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_ =
       std::make_shared<folly::IOThreadPoolExecutor>(10);
+  std::shared_ptr<folly::CPUThreadPoolExecutor> driverExecutor_ =
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          4,
+          std::make_shared<folly::NamedThreadFactory>("Driver"));
+  std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_ =
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          4,
+          std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIOExecutor_ =
+      std::make_shared<folly::IOThreadPoolExecutor>(
+          8,
+          std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
   long splitSequenceId_{0};
 };
 

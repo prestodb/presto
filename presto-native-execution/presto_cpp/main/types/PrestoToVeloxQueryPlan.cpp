@@ -1684,7 +1684,7 @@ VeloxQueryPlanConverterBase::generateAggregationNode(
         statisticsAggregation,
     core::AggregationNode::Step step,
     const protocol::PlanNodeId& id,
-    const std::shared_ptr<protocol::PlanNode>& source,
+    const core::PlanNodePtr& sourceVeloxPlan,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   if (statisticsAggregation == nullptr) {
@@ -1713,7 +1713,7 @@ VeloxQueryPlanConverterBase::generateAggregationNode(
       aggregateNames,
       aggregates,
       false, // ignoreNullKeys
-      toVeloxQueryPlan(source, tableWriteInfo, taskId));
+      sourceVeloxPlan);
 }
 
 std::vector<protocol::VariableReferenceExpression>
@@ -2253,6 +2253,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         "Bucketed table must be partitioned: {}",
         toJsonString(*hiveInsertTableHandle));
 
+    const auto table = hiveInsertTableHandle->pageSinkMetadata.table;
+    VELOX_USER_CHECK_NOT_NULL(table, "Table must not be null for insert query");
     hiveTableHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
         inputColumns,
         toLocationHandle(hiveInsertTableHandle->locationHandle),
@@ -2260,7 +2262,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         toHiveBucketProperty(
             inputColumns, hiveInsertTableHandle->bucketProperty),
         std::optional(
-            toFileCompressionKind(hiveInsertTableHandle->compressionCodec)));
+            toFileCompressionKind(hiveInsertTableHandle->compressionCodec)),
+        std::unordered_map<std::string, std::string>(
+            table->storage.serdeParameters.begin(),
+            table->storage.serdeParameters.end()));
   } else {
     VELOX_UNSUPPORTED(
         "Unsupported table writer handle: {}",
@@ -2275,12 +2280,14 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
        node->fragmentVariable,
        node->tableCommitContextVariable},
       node->statisticsAggregation));
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
   std::shared_ptr<core::AggregationNode> aggregationNode =
       generateAggregationNode(
           node->statisticsAggregation,
           core::AggregationNode::Step::kPartial,
           node->id,
-          node->source,
+          sourceVeloxPlan,
           tableWriteInfo,
           taskId);
   return std::make_shared<core::TableWriteNode>(
@@ -2292,7 +2299,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->partitioningScheme != nullptr,
       outputType,
       getCommitStrategy(),
-      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+      sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::TableWriteMergeNode>
@@ -2305,20 +2312,19 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
        node->fragmentVariable,
        node->tableCommitContextVariable},
       node->statisticsAggregation));
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
   std::shared_ptr<core::AggregationNode> aggregationNode =
       generateAggregationNode(
           node->statisticsAggregation,
           core::AggregationNode::Step::kIntermediate,
           node->id,
-          node->source,
+          sourceVeloxPlan,
           tableWriteInfo,
           taskId);
 
   return std::make_shared<core::TableWriteMergeNode>(
-      node->id,
-      outputType,
-      aggregationNode,
-      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+      node->id, outputType, aggregationNode, sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::UnnestNode>
@@ -2407,7 +2413,8 @@ std::pair<
     std::vector<core::SortOrder>>
 toSortFieldsAndOrders(
     const protocol::OrderingScheme* orderingScheme,
-    VeloxExprConverter& exprConverter) {
+    VeloxExprConverter& exprConverter,
+    const std::unordered_set<std::string>& partitionKeys) {
   std::vector<core::FieldAccessTypedExprPtr> sortFields;
   std::vector<core::SortOrder> sortOrders;
   if (orderingScheme != nullptr) {
@@ -2415,8 +2422,11 @@ toSortFieldsAndOrders(
     sortFields.reserve(nodeSpecOrdering.size());
     sortOrders.reserve(nodeSpecOrdering.size());
     for (const auto& spec : nodeSpecOrdering) {
-      sortFields.emplace_back(exprConverter.toVeloxExpr(spec.variable));
-      sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+      // Drop sorting keys that are present in partitioning keys.
+      if (partitionKeys.count(spec.variable.name) == 0) {
+        sortFields.emplace_back(exprConverter.toVeloxExpr(spec.variable));
+        sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+      }
     }
   }
   return {sortFields, sortOrders};
@@ -2430,12 +2440,16 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   std::vector<core::FieldAccessTypedExprPtr> partitionFields;
   partitionFields.reserve(node->specification.partitionBy.size());
+  std::unordered_set<std::string> partitionFieldNames;
   for (const auto& entry : node->specification.partitionBy) {
     partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
+    partitionFieldNames.emplace(partitionFields.back()->name());
   }
 
   auto [sortFields, sortOrders] = toSortFieldsAndOrders(
-      node->specification.orderingScheme.get(), exprConverter_);
+      node->specification.orderingScheme.get(),
+      exprConverter_,
+      partitionFieldNames);
 
   std::vector<std::string> windowNames;
   std::vector<core::WindowNode::Function> windowFunctions;
@@ -2513,12 +2527,16 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   std::vector<core::FieldAccessTypedExprPtr> partitionFields;
   partitionFields.reserve(node->specification.partitionBy.size());
+  std::unordered_set<std::string> partitionFieldNames;
   for (const auto& entry : node->specification.partitionBy) {
     partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
+    partitionFieldNames.emplace(partitionFields.back()->name());
   }
 
   auto [sortFields, sortOrders] = toSortFieldsAndOrders(
-      node->specification.orderingScheme.get(), exprConverter_);
+      node->specification.orderingScheme.get(),
+      exprConverter_,
+      partitionFieldNames);
 
   std::optional<std::string> rowNumberColumnName;
   if (!node->partial) {

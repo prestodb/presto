@@ -70,11 +70,23 @@ class HttpResponse {
     return std::move(bodyChain_);
   }
 
+  /// Consumes the response body. The memory of body will be transferred to the
+  /// memory to be allocated from 'pool'.
+  std::unique_ptr<folly::IOBuf> consumeBody(velox::memory::MemoryPool* pool);
+
   void freeBuffers();
 
   std::string dumpBodyChain() const;
 
  private:
+  // The append operation that copies the 'iobuf' to velox memory 'pool_' and
+  // free 'iobuf' immediately.
+  void appendWithCopy(std::unique_ptr<folly::IOBuf>&& iobuf);
+
+  // Appends the 'iobuf' to 'bodyChain_', and copies them all once into a single
+  // large buffer after receives the entire http response payload.
+  void appendWithoutCopy(std::unique_ptr<folly::IOBuf>&& iobuf);
+
   // Invoked to set the error on the first encountered 'exception'.
   void setError(const std::exception& exception) {
     VELOX_CHECK(!hasError())
@@ -104,7 +116,8 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   HttpClient(
       folly::EventBase* FOLLY_NONNULL eventBase,
       const folly::SocketAddress& address,
-      std::chrono::milliseconds timeout,
+      std::chrono::milliseconds transactionTimeout,
+      std::chrono::milliseconds connectTimeout,
       std::shared_ptr<velox::memory::MemoryPool> pool,
       const std::string& clientCertAndKeyPath = "",
       const std::string& ciphers = "",
@@ -125,7 +138,8 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
  private:
   folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
-  const folly::HHWheelTimer::UniquePtr timer_;
+  const folly::HHWheelTimer::UniquePtr transactionTimer_;
+  const std::chrono::milliseconds connectTimeout_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   // clientCertAndKeyPath_ Points to a file (usually with pem extension) which
   // contains certificate and key concatenated together

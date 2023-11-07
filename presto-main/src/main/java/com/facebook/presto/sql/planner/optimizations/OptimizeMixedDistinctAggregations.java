@@ -104,13 +104,15 @@ public class OptimizeMixedDistinctAggregations
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new Optimizer(idAllocator, variableAllocator, metadata, functionResolution), plan, Optional.empty());
+            Optimizer optimizer = new Optimizer(idAllocator, variableAllocator, metadata, functionResolution);
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(optimizer, plan, Optional.empty());
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, optimizer.isPlanChanged());
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Optimizer
@@ -120,6 +122,7 @@ public class OptimizeMixedDistinctAggregations
         private final VariableAllocator variableAllocator;
         private final Metadata metadata;
         private final StandardFunctionResolution functionResolution;
+        private boolean planChanged;
 
         private Optimizer(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Metadata metadata, StandardFunctionResolution functionResolution)
         {
@@ -127,6 +130,11 @@ public class OptimizeMixedDistinctAggregations
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -231,6 +239,8 @@ public class OptimizeMixedDistinctAggregations
                     node.getStep(),
                     Optional.empty(),
                     node.getGroupIdVariable());
+
+            planChanged = true;
 
             if (coalesceVariables.isEmpty()) {
                 return aggregationNode;
