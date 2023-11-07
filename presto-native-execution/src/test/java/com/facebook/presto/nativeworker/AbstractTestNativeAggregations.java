@@ -136,6 +136,29 @@ public abstract class AbstractTestNativeAggregations
     }
 
     @Test
+    public void testEmptyGroupingSets()
+    {
+        // Returns  a single row with the global aggregation.
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS (())");
+
+        // Returns 2 rows with global aggregation for the global grouping sets.
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS ((), ())");
+
+        // Returns a single row with the global aggregation. There are no rows for the orderkey group.
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS ((orderkey), ())");
+
+        // This is a shorthand for the above query. It returns a single row with the global aggregation.
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
+
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
+
+        // The following return a single row with NULL orderkey.
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
+
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
+    }
+
+    @Test
     public void testStreamingAggregation()
     {
         assertQuery("SELECT name, (SELECT max(name) FROM region WHERE regionkey = nation.regionkey AND length(name) > length(nation.name)) FROM nation");
