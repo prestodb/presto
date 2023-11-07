@@ -341,28 +341,6 @@ void read(
   readValues<T>(source, size, flatResult->nulls(), nullCount, values);
 }
 
-BufferPtr findOrAllocateStringBuffer(
-    int64_t size,
-    const std::vector<BufferPtr>& buffers,
-    velox::memory::MemoryPool* pool) {
-  BufferPtr smallestBuffer;
-  for (auto& buffer : buffers) {
-    if (buffer->unique() && buffer->capacity() >= size && !buffer->isView()) {
-      if (!smallestBuffer || buffer->capacity() < smallestBuffer->capacity()) {
-        smallestBuffer = buffer;
-      }
-    }
-  }
-  if (smallestBuffer) {
-    if (smallestBuffer->size() < size) {
-      smallestBuffer->setSize(size);
-    }
-    return smallestBuffer;
-  }
-
-  return AlignedBuffer::allocate<char>(size, pool);
-}
-
 template <>
 void read<StringView>(
     ByteStream* source,
@@ -383,11 +361,13 @@ void read<StringView>(
   }
   readNulls(source, size, *flatResult);
 
-  int32_t dataSize = source->read<int32_t>();
-  const auto& stringBuffers = flatResult->stringBuffers();
-  BufferPtr strings = findOrAllocateStringBuffer(dataSize, stringBuffers, pool);
-  flatResult->setStringBuffers({strings});
-  auto rawStrings = strings->asMutable<uint8_t>();
+  const int32_t dataSize = source->read<int32_t>();
+  if (dataSize == 0) {
+    return;
+  }
+
+  auto* rawStrings =
+      flatResult->getRawStringBufferWithSpace(dataSize, true /*exactSize*/);
 
   source->readBytes(rawStrings, dataSize);
   int32_t previousOffset = 0;
@@ -446,7 +426,7 @@ void readDictionaryVector(
 
 void readArrayVector(
     ByteStream* source,
-    std::shared_ptr<const Type> type,
+    const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
     bool useLosslessTimestamp) {
@@ -477,7 +457,7 @@ void readArrayVector(
 
 void readMapVector(
     ByteStream* source,
-    std::shared_ptr<const Type> type,
+    const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
     bool useLosslessTimestamp) {
@@ -796,7 +776,7 @@ void scatterStructNulls(
 
 void readRowVector(
     ByteStream* source,
-    std::shared_ptr<const Type> type,
+    const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
     bool useLosslessTimestamp) {
@@ -851,9 +831,9 @@ void readColumns(
       TypeKind,
       std::function<void(
           ByteStream * source,
-          std::shared_ptr<const Type> type,
-          velox::memory::MemoryPool * pool,
-          VectorPtr & result,
+          const TypePtr& type,
+          velox::memory::MemoryPool* pool,
+          VectorPtr& result,
           bool useLosslessTimestamp)>>
       readers = {
           {TypeKind::BOOLEAN, &read<bool>},
