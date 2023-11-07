@@ -17,11 +17,7 @@
 #include <folly/Random.h>
 #include <gtest/gtest.h>
 #include <vector>
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
-#include "velox/vector/BaseVector.h"
-#include "velox/vector/ComplexVector.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -29,16 +25,15 @@ using namespace facebook::velox;
 using namespace facebook::velox::test;
 
 class PrestoSerializerTest
-    : public ::testing::TestWithParam<common::CompressionKind> {
+    : public ::testing::TestWithParam<common::CompressionKind>,
+      public VectorTestBase {
  protected:
   static void SetUpTestCase() {
     serializer::presto::PrestoVectorSerde::registerVectorSerde();
   }
 
   void SetUp() override {
-    pool_ = memory::addDefaultLeafMemoryPool();
     serde_ = std::make_unique<serializer::presto::PrestoVectorSerde>();
-    vectorMaker_ = std::make_unique<test::VectorMaker>(pool_.get());
   }
 
   void sanityCheckEstimateSerializedSize(const RowVectorPtr& rowVector) {
@@ -120,24 +115,24 @@ class PrestoSerializerTest
   }
 
   RowVectorPtr makeTestVector(vector_size_t size) {
-    auto a = vectorMaker_->flatVector<int64_t>(
-        size, [](vector_size_t row) { return row; });
-    auto b = vectorMaker_->flatVector<double>(
+    auto a =
+        makeFlatVector<int64_t>(size, [](vector_size_t row) { return row; });
+    auto b = makeFlatVector<double>(
         size, [](vector_size_t row) { return row * 0.1; });
-    auto c = vectorMaker_->flatVector<std::string>(size, [](vector_size_t row) {
+    auto c = makeFlatVector<std::string>(size, [](vector_size_t row) {
       return row % 2 == 0 ? "LaaaaaaaaargeString" : "inlineStr";
     });
 
     std::vector<VectorPtr> childVectors = {a, b, c};
 
-    return vectorMaker_->rowVector(childVectors);
+    return makeRowVector(childVectors);
   }
 
   void testRoundTrip(
       VectorPtr vector,
       const serializer::presto::PrestoVectorSerde::PrestoOptions* serdeOptions =
           nullptr) {
-    auto rowVector = vectorMaker_->rowVector({vector});
+    auto rowVector = makeRowVector({vector});
     std::ostringstream out;
     serialize(rowVector, &out, serdeOptions);
 
@@ -181,9 +176,7 @@ class PrestoSerializerTest
     }
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<serializer::presto::PrestoVectorSerde> serde_;
-  std::unique_ptr<test::VectorMaker> vectorMaker_;
 };
 
 TEST_P(PrestoSerializerTest, basic) {
@@ -197,8 +190,7 @@ TEST_P(PrestoSerializerTest, basic) {
 TEST_P(PrestoSerializerTest, dictionaryWithExtraNulls) {
   vector_size_t size = 1'000;
 
-  auto base =
-      vectorMaker_->flatVector<int64_t>(10, [](auto row) { return row; });
+  auto base = makeFlatVector<int64_t>(10, [](auto row) { return row; });
 
   BufferPtr nulls = AlignedBuffer::allocate<bool>(size, pool_.get());
   auto rawNulls = nulls->asMutable<uint64_t>();
@@ -219,7 +211,7 @@ TEST_P(PrestoSerializerTest, dictionaryWithExtraNulls) {
 }
 
 TEST_P(PrestoSerializerTest, emptyPage) {
-  auto rowVector = vectorMaker_->rowVector(ROW({"a"}, {BIGINT()}), 0);
+  auto rowVector = makeRowVector(ROW({"a"}, {BIGINT()}), 0);
 
   std::ostringstream out;
   serialize(rowVector, &out, nullptr);
@@ -230,7 +222,7 @@ TEST_P(PrestoSerializerTest, emptyPage) {
 }
 
 TEST_P(PrestoSerializerTest, emptyArray) {
-  auto arrayVector = vectorMaker_->arrayVector<int32_t>(
+  auto arrayVector = makeArrayVector<int32_t>(
       1'000,
       [](vector_size_t row) { return row % 5; },
       [](vector_size_t row) { return row; });
@@ -239,7 +231,7 @@ TEST_P(PrestoSerializerTest, emptyArray) {
 }
 
 TEST_P(PrestoSerializerTest, emptyMap) {
-  auto mapVector = vectorMaker_->mapVector<int32_t, int32_t>(
+  auto mapVector = makeMapVector<int32_t, int32_t>(
       1'000,
       [](vector_size_t row) { return row % 5; },
       [](vector_size_t row) { return row; },
@@ -249,10 +241,10 @@ TEST_P(PrestoSerializerTest, emptyMap) {
 }
 
 TEST_P(PrestoSerializerTest, timestampWithTimeZone) {
-  auto timestamp = vectorMaker_->flatVector<int64_t>(
-      100, [](auto row) { return 10'000 + row; });
+  auto timestamp =
+      makeFlatVector<int64_t>(100, [](auto row) { return 10'000 + row; });
   auto timezone =
-      vectorMaker_->flatVector<int16_t>(100, [](auto row) { return row % 37; });
+      makeFlatVector<int16_t>(100, [](auto row) { return row % 37; });
 
   auto vector = std::make_shared<RowVector>(
       pool_.get(),
@@ -271,7 +263,7 @@ TEST_P(PrestoSerializerTest, timestampWithTimeZone) {
 }
 
 TEST_P(PrestoSerializerTest, intervalDayTime) {
-  auto vector = vectorMaker_->flatVector<int64_t>(
+  auto vector = makeFlatVector<int64_t>(
       100,
       [](auto row) { return row + folly::Random::rand32(); },
       nullptr, // nullAt
@@ -338,7 +330,7 @@ TEST_P(PrestoSerializerTest, timestampWithNanosecondPrecision) {
   const serializer::presto::PrestoVectorSerde::PrestoOptions
       kUseLosslessTimestampOptions(
           true, common::CompressionKind::CompressionKind_NONE);
-  auto timestamp = vectorMaker_->flatVector<Timestamp>(
+  auto timestamp = makeFlatVector<Timestamp>(
       {Timestamp{0, 0},
        Timestamp{12, 0},
        Timestamp{0, 17'123'456},
@@ -347,15 +339,14 @@ TEST_P(PrestoSerializerTest, timestampWithNanosecondPrecision) {
   testRoundTrip(timestamp, &kUseLosslessTimestampOptions);
 
   // Verify that precision is lost when no option is passed to the serde.
-  auto timestampMillis = vectorMaker_->flatVector<Timestamp>(
+  auto timestampMillis = makeFlatVector<Timestamp>(
       {Timestamp{0, 0},
        Timestamp{12, 0},
        Timestamp{0, 17'000'000},
        Timestamp{1, 17'000'000},
        Timestamp{-1, 17'000'000}});
-  auto inputRowVector = vectorMaker_->rowVector({timestamp});
-  auto expectedOutputWithLostPrecision =
-      vectorMaker_->rowVector({timestampMillis});
+  auto inputRowVector = makeRowVector({timestamp});
+  auto expectedOutputWithLostPrecision = makeRowVector({timestampMillis});
   std::ostringstream out;
   serialize(inputRowVector, &out, {});
   auto rowType = asRowType(inputRowVector->type());
@@ -370,8 +361,7 @@ TEST_P(PrestoSerializerTest, longDecimal) {
     decimalValues[row] = row - 50;
   }
   decimalValues[101] = DecimalUtil::kLongDecimalMax;
-  auto vector =
-      vectorMaker_->flatVector<int128_t>(decimalValues, DECIMAL(20, 5));
+  auto vector = makeFlatVector<int128_t>(decimalValues, DECIMAL(20, 5));
 
   testRoundTrip(vector);
 
@@ -383,15 +373,13 @@ TEST_P(PrestoSerializerTest, longDecimal) {
 }
 
 TEST_P(PrestoSerializerTest, encodings) {
-  auto baseNoNulls = vectorMaker_->flatVector<int64_t>({1, 2, 3, 4});
-  auto baseWithNulls =
-      vectorMaker_->flatVectorNullable<int32_t>({1, std::nullopt, 2, 3});
-  auto baseArray = vectorMaker_->arrayVector<int32_t>(
-      {{1, 2, 3}, {}, {4, 5}, {6, 7, 8, 9, 10}});
-  auto indices = makeIndices(
-      8, [](auto row) { return row / 2; }, pool_.get());
+  auto baseNoNulls = makeFlatVector<int64_t>({1, 2, 3, 4});
+  auto baseWithNulls = makeNullableFlatVector<int32_t>({1, std::nullopt, 2, 3});
+  auto baseArray =
+      makeArrayVector<int32_t>({{1, 2, 3}, {}, {4, 5}, {6, 7, 8, 9, 10}});
+  auto indices = makeIndices(8, [](auto row) { return row / 2; });
 
-  auto data = vectorMaker_->rowVector({
+  auto data = makeRowVector({
       BaseVector::wrapInDictionary(nullptr, indices, 8, baseNoNulls),
       BaseVector::wrapInDictionary(nullptr, indices, 8, baseWithNulls),
       BaseVector::wrapInDictionary(nullptr, indices, 8, baseArray),
@@ -428,8 +416,7 @@ TEST_P(PrestoSerializerTest, scatterEncoded) {
   }
   auto numNulls = BaseVector::countNulls(inner->nulls(), 0, inner->size());
   auto numNonNull = inner->size() - numNulls;
-  auto indices = makeIndices(
-      numNonNull, [](auto row) { return row; }, pool_.get());
+  auto indices = makeIndices(numNonNull, [](auto row) { return row; });
 
   inner->children()[0] = BaseVector::createConstant(
       BIGINT(),
@@ -503,7 +490,7 @@ TEST_P(PrestoSerializerTest, roundTrip) {
 
 TEST_P(PrestoSerializerTest, emptyArrayOfRowVector) {
   // The value of nullCount_ + nonNullCount_ of the inner RowVector is 0.
-  auto arrayOfRow = vectorMaker_->arrayOfRowVector(ROW({UNKNOWN()}), {{}});
+  auto arrayOfRow = makeArrayOfRowVector(ROW({UNKNOWN()}), {{}});
   testRoundTrip(arrayOfRow);
 }
 
