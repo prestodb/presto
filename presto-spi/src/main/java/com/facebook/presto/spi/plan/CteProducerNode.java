@@ -27,32 +27,41 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public final class CteReferenceNode
+public final class CteProducerNode
         extends PlanNode
 {
     private final PlanNode source;
     private final String cteName;
+    private final VariableReferenceExpression rowCountVariable;
+    private final List<VariableReferenceExpression> originalOutputVariables;
 
     @JsonCreator
-    public CteReferenceNode(
+    public CteProducerNode(
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("cteName") String cteName)
+            @JsonProperty("cteName") String cteName,
+            @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
+            @JsonProperty("originalOutputVariables") List<VariableReferenceExpression> originalOutputVariables)
     {
-        this(sourceLocation, id, Optional.empty(), source, cteName);
+        this(sourceLocation, id, Optional.empty(), source, cteName, rowCountVariable, originalOutputVariables);
     }
 
-    public CteReferenceNode(
+    public CteProducerNode(
             Optional<SourceLocation> sourceLocation,
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
-            String cteName)
+            String cteName,
+            VariableReferenceExpression rowCountVariable,
+            List<VariableReferenceExpression> originalOutputVariables)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
+        // Inside your method or constructor
         this.cteName = requireNonNull(cteName, "cteName must not be null");
         this.source = requireNonNull(source, "source must not be null");
+        this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable must not be null");
+        this.originalOutputVariables = requireNonNull(originalOutputVariables, "originalOutputVariables must not be null");
     }
 
     @Override
@@ -70,32 +79,38 @@ public final class CteReferenceNode
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return source.getOutputVariables();
+        return originalOutputVariables;
     }
 
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        requireNonNull(newChildren, "newChildren is null");
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
-        return new CteReferenceNode(newChildren.get(0).getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), cteName);
+        return new CteProducerNode(newChildren.get(0).getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0),
+                cteName, rowCountVariable, originalOutputVariables);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new CteReferenceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, cteName);
+        return new CteProducerNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, cteName, rowCountVariable, originalOutputVariables);
     }
 
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
-        return visitor.visitCteReference(this, context);
+        return visitor.visitCteProducer(this, context);
     }
 
+    @JsonProperty
     public String getCteName()
     {
         return cteName;
+    }
+
+    public VariableReferenceExpression getRowCountVariable()
+    {
+        return rowCountVariable;
     }
 
     private static void checkArgument(boolean condition, String message)

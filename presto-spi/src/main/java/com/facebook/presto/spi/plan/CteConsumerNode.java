@@ -20,79 +20,75 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public final class CteReferenceNode
+public final class CteConsumerNode
         extends PlanNode
 {
-    private final PlanNode source;
     private final String cteName;
+    private final List<VariableReferenceExpression> originalOutputVariables;
 
     @JsonCreator
-    public CteReferenceNode(
+    public CteConsumerNode(
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("source") PlanNode source,
+            @JsonProperty("outputvars") List<VariableReferenceExpression> originalOutputVariables,
             @JsonProperty("cteName") String cteName)
     {
-        this(sourceLocation, id, Optional.empty(), source, cteName);
+        this(sourceLocation, id, Optional.empty(), originalOutputVariables, cteName);
     }
 
-    public CteReferenceNode(
+    public CteConsumerNode(
             Optional<SourceLocation> sourceLocation,
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
-            PlanNode source,
+            List<VariableReferenceExpression> originalOutputVariables,
             String cteName)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.cteName = requireNonNull(cteName, "cteName must not be null");
-        this.source = requireNonNull(source, "source must not be null");
+        this.originalOutputVariables = requireNonNull(originalOutputVariables, "originalOutputVariables must not be null");
     }
 
     @Override
     public List<PlanNode> getSources()
     {
-        return singletonList(source);
-    }
-
-    @JsonProperty
-    public PlanNode getSource()
-    {
-        return source;
+        // CteConsumer should be the leaf node
+        return Collections.emptyList();
     }
 
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return source.getOutputVariables();
+        return originalOutputVariables;
     }
 
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        requireNonNull(newChildren, "newChildren is null");
-        checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
-        return new CteReferenceNode(newChildren.get(0).getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), cteName);
+        // this function expects a new instance
+        checkArgument(newChildren.size() == 0, "expected newChildren to contain 0 node");
+        return new CteConsumerNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), originalOutputVariables, cteName);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new CteReferenceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, cteName);
+        return new CteConsumerNode(getSourceLocation(), getId(), statsEquivalentPlanNode, originalOutputVariables, cteName);
     }
 
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
-        return visitor.visitCteReference(this, context);
+        return visitor.visitCteConsumer(this, context);
     }
 
+    @JsonProperty
     public String getCteName()
     {
         return cteName;

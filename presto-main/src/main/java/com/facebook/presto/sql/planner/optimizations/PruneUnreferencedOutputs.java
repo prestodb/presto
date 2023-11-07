@@ -20,6 +20,8 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -30,6 +32,7 @@ import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -501,6 +504,34 @@ public class PruneUnreferencedOutputs
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
             return new FilterNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getPredicate());
+        }
+
+        @Override
+        public PlanNode visitCteConsumer(CteConsumerNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            // Some output can be pruned but current implementation of PhysicalCteProducer does not allow cteconsumer pruning
+            return node;
+        }
+
+        @Override
+        public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            Set<VariableReferenceExpression> expectedInputs = ImmutableSet.copyOf(node.getOutputVariables());
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs);
+            return new CteProducerNode(node.getSourceLocation(), node.getId(), source, node.getCteName(), node.getRowCountVariable(), node.getOutputVariables());
+        }
+
+        @Override
+        public PlanNode visitSequence(SequenceNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            ImmutableSet.Builder<VariableReferenceExpression> cteProducersBuilder = ImmutableSet.builder();
+            node.getCteProducers().forEach(leftSource -> cteProducersBuilder.addAll(leftSource.getOutputVariables()));
+            Set<VariableReferenceExpression> leftInputs = cteProducersBuilder.build();
+            List<PlanNode> cteProducers = node.getCteProducers().stream()
+                    .map(leftSource -> context.rewrite(leftSource, leftInputs)).collect(toImmutableList());
+            Set<VariableReferenceExpression> rightInputs = ImmutableSet.copyOf(node.getPrimarySource().getOutputVariables());
+            PlanNode primarySource = context.rewrite(node.getPrimarySource(), rightInputs);
+            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource);
         }
 
         @Override

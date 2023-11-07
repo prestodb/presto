@@ -36,6 +36,7 @@ import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -95,6 +96,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getAggregationPartitioningMergingStrategy;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
@@ -614,6 +616,22 @@ public class AddExchanges
             }
 
             return rebaseAndDeriveProperties(node, planChild(node, preferredProperties));
+        }
+
+        @Override
+        public PlanWithProperties visitSequence(SequenceNode node, PreferredProperties preferredProperties)
+        {
+            List<PlanWithProperties> leftPlans = node.getCteProducers().stream()
+                    .map(source -> accept(source, PreferredProperties.any()))
+                    .collect(toImmutableList());
+            PlanWithProperties rightPlan = accept(node.getPrimarySource(), preferredProperties);
+            List<PlanNode> childrenNodes = Stream.concat(
+                    leftPlans.stream().map(PlanWithProperties::getNode),
+                    Stream.of(rightPlan.getNode())
+            ).collect(toImmutableList());
+            return new PlanWithProperties(
+                    node.replaceChildren(childrenNodes),
+                    rightPlan.getProperties());
         }
 
         @Override

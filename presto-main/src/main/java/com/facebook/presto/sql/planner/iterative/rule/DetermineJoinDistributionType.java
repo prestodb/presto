@@ -22,6 +22,7 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -198,7 +199,7 @@ public class DetermineJoinDistributionType
         }
 
         List<PlanNode> sourceNodes = PlanNodeSearcher.searchFrom(node, lookup)
-                .whereIsInstanceOfAny(ImmutableList.of(TableScanNode.class, ValuesNode.class, RemoteSourceNode.class))
+                .whereIsInstanceOfAny(ImmutableList.of(TableScanNode.class, ValuesNode.class, RemoteSourceNode.class, CteConsumerNode.class))
                 .findAll();
 
         return sourceNodes.stream()

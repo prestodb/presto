@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -754,6 +755,12 @@ public class PropertyDerivations
             return ActualProperties.builder()
                     .global(singleStreamPartition())
                     .build();
+        }
+
+        public ActualProperties visitSequence(SequenceNode node, List<ActualProperties> context)
+        {
+            // Return the rightmost node properties
+            return context.get(context.size() - 1);
         }
 
         @Override
