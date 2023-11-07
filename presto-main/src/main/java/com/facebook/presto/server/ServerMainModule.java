@@ -105,13 +105,14 @@ import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.operator.AlluxioFragmentResultCacheManager;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
-import com.facebook.presto.operator.FileFragmentResultCacheConfig;
 import com.facebook.presto.operator.FileFragmentResultCacheManager;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.FragmentCacheStats;
+import com.facebook.presto.operator.FragmentResultCacheConfig;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
@@ -500,7 +501,7 @@ public class ServerMainModule
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MultilevelSplitQueue.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(FileFragmentResultCacheConfig.class);
+        configBinder(binder).bindConfig(FragmentResultCacheConfig.class);
         binder.bind(FragmentCacheStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FragmentCacheStats.class).withGeneratedName();
         configBinder(binder).bindConfig(CompilerConfig.class);
@@ -811,15 +812,27 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    public static FragmentResultCacheManager createFragmentResultCacheManager(FileFragmentResultCacheConfig config, BlockEncodingSerde blockEncodingSerde, FragmentCacheStats fragmentCacheStats)
+    public static FragmentResultCacheManager createFragmentResultCacheManager(FragmentResultCacheConfig config, BlockEncodingSerde blockEncodingSerde, FragmentCacheStats fragmentCacheStats)
     {
         if (config.isCachingEnabled()) {
-            return new FileFragmentResultCacheManager(
-                    config,
-                    blockEncodingSerde,
-                    fragmentCacheStats,
-                    newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%s")),
-                    newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
+            switch (config.getCacheType()) {
+                case ALLUXIO:
+                    return new AlluxioFragmentResultCacheManager(
+                            config,
+                            blockEncodingSerde,
+                            fragmentCacheStats,
+                            newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%s")),
+                            newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
+                case FILE:
+                    return new FileFragmentResultCacheManager(
+                            config,
+                            blockEncodingSerde,
+                            fragmentCacheStats,
+                            newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%s")),
+                            newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
+                default:
+                    throw new UnsupportedOperationException("Unsupported fragment result cache type " + config.getCacheType());
+            }
         }
         return new NoOpFragmentResultCacheManager();
     }

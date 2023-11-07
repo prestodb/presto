@@ -28,8 +28,10 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 
-public class FileFragmentResultCacheConfig
+public class FragmentResultCacheConfig
 {
+    private FragmentResultCacheType cacheType;
+
     private boolean cachingEnabled;
     private URI baseDirectory;
     private boolean blockEncodingCompressionEnabled;
@@ -40,6 +42,19 @@ public class FileFragmentResultCacheConfig
     private DataSize maxSinglePagesSize = new DataSize(500, MEGABYTE);
     private DataSize maxCacheSize = new DataSize(100, GIGABYTE);
 
+    public FragmentResultCacheType getCacheType()
+    {
+        return cacheType;
+    }
+
+    @Config("fragment-result-cache.type")
+    @ConfigDescription("Type of fragment result caching")
+    public FragmentResultCacheConfig setCacheType(FragmentResultCacheType cacheType)
+    {
+        this.cacheType = cacheType;
+        return this;
+    }
+
     public boolean isCachingEnabled()
     {
         return cachingEnabled;
@@ -47,7 +62,7 @@ public class FileFragmentResultCacheConfig
 
     @Config("fragment-result-cache.enabled")
     @ConfigDescription("Enable fragment result caching")
-    public FileFragmentResultCacheConfig setCachingEnabled(boolean cachingEnabled)
+    public FragmentResultCacheConfig setCachingEnabled(boolean cachingEnabled)
     {
         this.cachingEnabled = cachingEnabled;
         return this;
@@ -60,7 +75,7 @@ public class FileFragmentResultCacheConfig
 
     @Config("fragment-result-cache.base-directory")
     @ConfigDescription("Base URI to cache data")
-    public FileFragmentResultCacheConfig setBaseDirectory(URI baseDirectory)
+    public FragmentResultCacheConfig setBaseDirectory(URI baseDirectory)
     {
         this.baseDirectory = baseDirectory;
         return this;
@@ -73,7 +88,7 @@ public class FileFragmentResultCacheConfig
 
     @Config("fragment-result-cache.block-encoding-compression-enabled")
     @ConfigDescription("Enable compression for block encoding")
-    public FileFragmentResultCacheConfig setBlockEncodingCompressionEnabled(boolean blockEncodingCompressionEnabled)
+    public FragmentResultCacheConfig setBlockEncodingCompressionEnabled(boolean blockEncodingCompressionEnabled)
     {
         this.blockEncodingCompressionEnabled = blockEncodingCompressionEnabled;
         return this;
@@ -87,7 +102,7 @@ public class FileFragmentResultCacheConfig
 
     @Config("fragment-result-cache.max-cached-entries")
     @ConfigDescription("Number of entries allowed in cache")
-    public FileFragmentResultCacheConfig setMaxCachedEntries(int maxCachedEntries)
+    public FragmentResultCacheConfig setMaxCachedEntries(int maxCachedEntries)
     {
         this.maxCachedEntries = maxCachedEntries;
         return this;
@@ -101,7 +116,7 @@ public class FileFragmentResultCacheConfig
 
     @Config("fragment-result-cache.cache-ttl")
     @ConfigDescription("Time-to-live for a cache entry")
-    public FileFragmentResultCacheConfig setCacheTtl(Duration cacheTtl)
+    public FragmentResultCacheConfig setCacheTtl(Duration cacheTtl)
     {
         this.cacheTtl = cacheTtl;
         return this;
@@ -115,7 +130,7 @@ public class FileFragmentResultCacheConfig
 
     @Config("fragment-result-cache.max-in-flight-size")
     @ConfigDescription("Maximum size of pages in memory waiting to be flushed")
-    public FileFragmentResultCacheConfig setMaxInFlightSize(DataSize maxInFlightSize)
+    public FragmentResultCacheConfig setMaxInFlightSize(DataSize maxInFlightSize)
     {
         this.maxInFlightSize = maxInFlightSize;
         return this;
@@ -129,7 +144,7 @@ public class FileFragmentResultCacheConfig
 
     @Config("fragment-result-cache.max-single-pages-size")
     @ConfigDescription("Maximum size of pages write to flushed")
-    public FileFragmentResultCacheConfig setMaxSinglePagesSize(DataSize maxSinglePagesSize)
+    public FragmentResultCacheConfig setMaxSinglePagesSize(DataSize maxSinglePagesSize)
     {
         this.maxSinglePagesSize = maxSinglePagesSize;
         return this;
@@ -143,7 +158,7 @@ public class FileFragmentResultCacheConfig
 
     @Config("fragment-result-cache.max-cache-size")
     @ConfigDescription("Maximum on-disk size of this fragment result cache")
-    public FileFragmentResultCacheConfig setMaxCacheSize(DataSize maxCacheSize)
+    public FragmentResultCacheConfig setMaxCacheSize(DataSize maxCacheSize)
     {
         this.maxCacheSize = maxCacheSize;
         return this;

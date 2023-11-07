@@ -80,9 +80,9 @@ import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
-import com.facebook.presto.operator.FileFragmentResultCacheConfig;
 import com.facebook.presto.operator.FileFragmentResultCacheManager;
 import com.facebook.presto.operator.FragmentCacheStats;
+import com.facebook.presto.operator.FragmentResultCacheConfig;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
@@ -439,7 +439,7 @@ public class PrestoSparkModule
         binder.bind(AdaptivePlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(FileFragmentResultCacheConfig.class);
+        configBinder(binder).bindConfig(FragmentResultCacheConfig.class);
         binder.bind(FragmentCacheStats.class).in(Scopes.SINGLETON);
         binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
@@ -551,7 +551,7 @@ public class PrestoSparkModule
 
     @Provides
     @Singleton
-    public static FragmentResultCacheManager createFragmentResultCacheManager(FileFragmentResultCacheConfig config, BlockEncodingSerde blockEncodingSerde, FragmentCacheStats fragmentCacheStats)
+    public static FragmentResultCacheManager createFragmentResultCacheManager(FragmentResultCacheConfig config, BlockEncodingSerde blockEncodingSerde, FragmentCacheStats fragmentCacheStats)
     {
         if (config.isCachingEnabled()) {
             return new FileFragmentResultCacheManager(
