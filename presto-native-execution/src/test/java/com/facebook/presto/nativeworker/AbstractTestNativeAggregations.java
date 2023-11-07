@@ -147,12 +147,12 @@ public abstract class AbstractTestNativeAggregations
         // Returns a single row with the global aggregation. There are no rows for the orderkey group.
         assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS ((orderkey), ())");
 
-        // This is a shorthand for the above query. It returns a single row with the global aggregation.
+        // This is a shorthand for the above query. Returns a single row with the global aggregation.
         assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
 
         assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
 
-        // The following return a single row with NULL orderkey.
+        // Returns a single row with NULL orderkey.
         assertQuery("SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
 
         assertQuery("SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
