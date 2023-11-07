@@ -89,6 +89,7 @@ _build/
 *.swp
 a.out
 CMake/resolve_dependency_module/boost/FindBoost.cmake
+__cmake_systeminformation/
 
 #==============================================================================#
 # Kate Swap Files
