@@ -2795,6 +2795,26 @@ TEST_F(VectorTest, getRawStringBufferWithSpace) {
   auto expected = makeFlatVector<StringView>(
       {"ee", "I'm replace 123456789", "rryy", "12345678901234"});
   test::assertEqualVectors(expected, vector);
+
+  // Use up all but 5 bytes in the 'lastBuffer', then ask for buffer with at
+  // least 6 bytes of space. Expect a fairly large new buffer.
+  lastBuffer->setSize(lastBuffer->capacity() - 5);
+  rawBuffer = vector->getRawStringBufferWithSpace(6);
+  ASSERT_EQ(vector->stringBuffers().size(), 2);
+
+  lastBuffer = vector->stringBuffers().back();
+  ASSERT_EQ(6, lastBuffer->size());
+  ASSERT_EQ(49056, lastBuffer->capacity());
+
+  // Use up all bytes in 'lastBuffer, then ask for buffer with exactly one byte
+  // of space. Expect a small new buffer.
+  lastBuffer->setSize(lastBuffer->capacity());
+
+  rawBuffer = vector->getRawStringBufferWithSpace(1, true /*exactSize*/);
+  ASSERT_EQ(vector->stringBuffers().size(), 3);
+  lastBuffer = vector->stringBuffers().back();
+  ASSERT_EQ(1, lastBuffer->size());
+  ASSERT_EQ(32, lastBuffer->capacity());
 }
 
 TEST_F(VectorTest, getRawStringBufferWithSpaceNoExistingBuffer) {

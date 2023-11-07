@@ -443,7 +443,10 @@ class FlatVector final : public SimpleVector<T> {
   /// Buffer::setSize(n) to update the size of the buffer to include newly
   /// written content ('n' cannot exceed 'size', but can be less than 'size').
   /// The caller must ensure not to write more then 'size' bytes.
-  Buffer* getBufferWithSpace(int32_t /* size */) {
+  ///
+  /// If allocates new buffer and 'exactSize' is true, allocates 'size' bytes.
+  /// Otherwise, allocates at least kInitialStringSize bytes.
+  Buffer* getBufferWithSpace(int32_t /*size*/, bool exactSize = false) {
     return nullptr;
   }
 
@@ -456,7 +459,10 @@ class FlatVector final : public SimpleVector<T> {
   /// sets buffer size to 'size' and returns a pointer to the start of writable
   /// memory.
   /// The caller must ensure not to write more then 'size' bytes.
-  char* getRawStringBufferWithSpace(int32_t /* size */) {
+  ///
+  /// If allocates new buffer and 'exactSize' is true, allocates 'size' bytes.
+  /// Otherwise, allocates at least kInitialStringSize bytes.
+  char* getRawStringBufferWithSpace(int32_t /*size*/, bool exactSize = false) {
     return nullptr;
   }
 
@@ -545,10 +551,14 @@ void FlatVector<StringView>::validate(
     const VectorValidateOptions& options) const;
 
 template <>
-Buffer* FlatVector<StringView>::getBufferWithSpace(int32_t size);
+Buffer* FlatVector<StringView>::getBufferWithSpace(
+    int32_t size,
+    bool exactSize);
 
 template <>
-char* FlatVector<StringView>::getRawStringBufferWithSpace(int32_t size);
+char* FlatVector<StringView>::getRawStringBufferWithSpace(
+    int32_t size,
+    bool exactSize);
 
 template <>
 void FlatVector<StringView>::prepareForReuse();
