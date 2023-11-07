@@ -91,6 +91,21 @@ class SimpleFunctionAdapter : public VectorFunction {
   constexpr int32_t reuseStringsFromArgValue() const {
     return udf_reuse_strings_from_arg<typename FUNC::udf_struct_t>();
   }
+  template <size_t... Is>
+  bool allArgsPrimitiveImpl(std::index_sequence<Is...>) const {
+    return ([&]() {
+      if constexpr (isVariadicType<arg_at<Is>>::value) {
+        return SimpleTypeTrait<
+            typename arg_at<Is>::underlying_type>::isPrimitiveType;
+      } else {
+        return SimpleTypeTrait<arg_at<Is>>::isPrimitiveType;
+      }
+    }() && ...);
+  }
+
+  bool allArgsPrimitive() const {
+    return allArgsPrimitiveImpl(std::make_index_sequence<FUNC::num_args>());
+  }
 
   // Check if all arguments that satisfy
   // isArgFlatConstantFastPathEligible<Is> and not part of variadic pack have
@@ -226,6 +241,8 @@ class SimpleFunctionAdapter : public VectorFunction {
       }
     }
   }
+
+  explicit SimpleFunctionAdapter() {}
 
   template <
       int32_t POSITION,
@@ -404,7 +421,18 @@ class SimpleFunctionAdapter : public VectorFunction {
   }
 
   bool supportsFlatNoNullsFastPath() const override {
-    return !FUNC::can_produce_null_output;
+    if (FUNC::can_produce_null_output) {
+      return false;
+    }
+
+    if (FUNC::is_default_contains_nulls_behavior) {
+      // If the function has is_default_contains_nulls_behavior it returns
+      // null if data contain null even if the return type of callNullFree is
+      // void.
+      return allArgsPrimitive();
+    } else {
+      return true;
+    }
   }
 
   bool ensureStringEncodingSetAtAllInputs() const override {
