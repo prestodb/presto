@@ -13,7 +13,7 @@
 # limitations under the License.
 cmake_minimum_required(VERSION 3.14)
 
-# the policy allows us to change options without caching
+# The policy allows us to change options without caching.
 cmake_policy(SET CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
@@ -25,7 +25,7 @@ if(POLICY CMP0135)
   set(CMAKE_POLICY_DEFAULT_CMP0135 NEW)
 endif()
 
-# set the project name
+# Set the project name.
 project(velox)
 
 # If we are in an active conda env disable search in system paths and add env to
@@ -62,6 +62,7 @@ option(
   VELOX_BUILD_MINIMAL
   "Build a minimal set of components only. This will override other build options."
   OFF)
+
 # option() always creates a BOOL variable so we have to use a normal cache
 # variable with STRING type for this option.
 #
@@ -105,6 +106,12 @@ option(
   VELOX_ENABLE_INT64_BUILD_PARTITION_BOUND
   "make buildPartitionBounds_ a vector int64 instead of int32 to avoid integer overflow when the hashtable has billions of records"
   OFF)
+
+# Explicitly force compilers to generate colored output. Compilers usually do
+# this by default if they detect the output is a terminal, but this assumption
+# is broken if you use ninja.
+option(VELOX_FORCE_COLORED_OUTPUT
+       "Always produce ANSI-colored output (GNU/Clang only)." OFF)
 
 if(${VELOX_BUILD_MINIMAL})
   # Enable and disable components for velox base build
@@ -191,6 +198,15 @@ if(VELOX_ENABLE_CCACHE
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_FOUND})
     # keep comments as they might matter to the compiler
     set(ENV{CCACHE_COMMENTS} "1")
+  endif()
+endif()
+
+if(${VELOX_FORCE_COLORED_OUTPUT})
+  if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    add_compile_options(-fdiagnostics-color=always)
+  elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
+         OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+    add_compile_options(-fcolor-diagnostics)
   endif()
 endif()
 

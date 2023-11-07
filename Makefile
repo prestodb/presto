@@ -54,7 +54,12 @@ endif
 USE_NINJA ?= 1
 ifeq ($(USE_NINJA), 1)
 ifneq ($(shell which ninja), )
-GENERATOR=-GNinja -DMAX_LINK_JOBS=$(MAX_LINK_JOBS) -DMAX_HIGH_MEM_JOBS=$(MAX_HIGH_MEM_JOBS)
+GENERATOR := -GNinja
+GENERATOR += -DMAX_LINK_JOBS=$(MAX_LINK_JOBS)
+GENERATOR += -DMAX_HIGH_MEM_JOBS=$(MAX_HIGH_MEM_JOBS)
+
+# Ninja makes compilers disable colored output by default.
+GENERATOR += -DVELOX_FORCE_COLORED_OUTPUT=ON
 endif
 endif
 
@@ -84,7 +89,6 @@ cmake:					#: Use CMake to create a Makefile build system
 		${CMAKE_FLAGS} \
 		$(GENERATOR) \
 		$(USE_CCACHE) \
-		$(FORCE_COLOR) \
 		${EXTRA_CMAKE_FLAGS}
 
 cmake-gpu:
