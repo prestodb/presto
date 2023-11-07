@@ -121,7 +121,7 @@ public class TestTaskManagerConfig
                 .put("task.interrupt-runaway-splits-timeout", "599s")
                 .put("experimental.task.memory-based-slowdown-threshold", "0.9")
                 .put("experimental.task.high-memory-task-killer-enabled", "true")
-                .put("experiemental.task.high-memory-task-killer-strategy", "FREE_MEMORY_ON_FREQUENT_FULL_GC")
+                .put("experimental.task.high-memory-task-killer-strategy", "FREE_MEMORY_ON_FREQUENT_FULL_GC")
                 .put("experimental.task.high-memory-task-killer-reclaim-memory-threshold", "0.8")
                 .put("experimental.task.high-memory-task-killer-frequent-full-gc-duration-threshold", "2s")
                 .put("experimental.task.high-memory-task-killer-heap-memory-threshold", "0.8")
