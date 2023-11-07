@@ -71,26 +71,64 @@ class SortedAggregations {
  private:
   void addNewRow(char* group, char* newRow);
 
+  // A list of sorting keys along with sorting orders.
+  using SortingSpec = std::vector<std::pair<column_index_t, core::SortOrder>>;
+
+  SortingSpec toSortingSpec(const AggregateInfo& aggregate) const;
+
   bool compareRowsWithKeys(
       const char* lhs,
       const char* rhs,
-      const std::vector<std::pair<column_index_t, core::SortOrder>>& keys);
+      const SortingSpec& sortingSpec);
 
   void sortSingleGroup(
       std::vector<char*>& groupRows,
-      const AggregateInfo& aggregate);
+      const SortingSpec& sortingSpec);
 
   std::vector<VectorPtr> extractSingleGroup(
       std::vector<char*>& groupRows,
       const AggregateInfo& aggregate);
 
-  const std::vector<AggregateInfo*> aggregates_;
+  struct Hash {
+    static uint64_t hashSortOrder(const core::SortOrder& sortOrder) {
+      return bits::hashMix(
+          folly::hasher<bool>{}(sortOrder.isAscending()),
+          folly::hasher<bool>{}(sortOrder.isNullsFirst()));
+    }
 
-  /// Indices of all inputs for all aggregates.
+    size_t operator()(const SortingSpec& elements) const {
+      uint64_t hash = 0;
+
+      for (auto i = 0; i < elements.size(); ++i) {
+        auto column = elements[i].first;
+        auto sortOrder = elements[i].second;
+
+        auto elementHash = bits::hashMix(
+            folly::hasher<vector_size_t>{}(column), hashSortOrder(sortOrder));
+
+        hash = (i == 0) ? elementHash : bits::hashMix(hash, elementHash);
+      }
+      return hash;
+    }
+  };
+
+  struct EqualTo {
+    bool operator()(const SortingSpec& left, const SortingSpec& right) const {
+      return left == right;
+    }
+  };
+
+  // Aggregates grouped by sorting keys and orders.
+  folly::F14FastMap<SortingSpec, std::vector<AggregateInfo*>, Hash, EqualTo>
+      aggregates_;
+
+  // Indices of all inputs for all aggregates.
   std::vector<column_index_t> inputs_;
-  /// Stores all input rows for all groups.
+
+  // Stores all input rows for all groups.
   std::unique_ptr<RowContainer> inputData_;
-  /// Mapping from the input column index to an index into 'inputs_'.
+
+  // Mapping from the input column index to an index into 'inputs_'.
   std::vector<column_index_t> inputMapping_;
 
   std::vector<DecodedVector> decodedInputs_;

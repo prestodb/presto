@@ -187,6 +187,23 @@ TEST_F(ArrayAggTest, sortedGroupBy) {
             "SELECT c0, array_agg(c1 ORDER BY c2 DESC, c3), sum(c1) "
             " FROM tmp GROUP BY 1");
 
+    // Multiple sorted aggregations with same sorting keys.
+    plan = PlanBuilder()
+               .values({data})
+               .singleAggregation(
+                   {"c0"},
+                   {
+                       fmt::format("{}(c1 ORDER BY c3)", functionName),
+                       fmt::format("{}(c2 ORDER BY c3)", functionName),
+                       "sum(c1)",
+                   })
+               .planNode();
+
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .assertResults(
+            "SELECT c0, array_agg(c1 ORDER BY c3), array_agg(c2 ORDER BY c3), sum(c1) "
+            " FROM tmp GROUP BY 1");
+
     // Sorted aggregation with mask.
     plan = PlanBuilder()
                .values({data})
