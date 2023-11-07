@@ -29,6 +29,7 @@ import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -186,6 +187,7 @@ public final class SystemSessionProperties
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
+    public static final String CTE_MATERIALIZATION_STRATEGY = "cte_materialization_strategy";
     public static final String DEFAULT_JOIN_SELECTIVITY_COEFFICIENT = "default_join_selectivity_coefficient";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String OPTIMIZE_CONSTANT_GROUPING_KEYS = "optimize_constant_grouping_keys";
@@ -1039,6 +1041,18 @@ public final class SystemSessionProperties
                         "use a default filter factor for unknown filters in a filter node",
                         featuresConfig.isDefaultFilterFactorEnabled(),
                         false),
+                new PropertyMetadata<>(
+                        CTE_MATERIALIZATION_STRATEGY,
+                        format("The strategy to materialize common table expressions. Options are %s",
+                                Stream.of(CteMaterializationStrategy.values())
+                                        .map(CteMaterializationStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        CteMaterializationStrategy.class,
+                        featuresConfig.getCteMaterializationStrategy(),
+                        false,
+                        value -> CteMaterializationStrategy.valueOf(((String) value).toUpperCase()),
+                        CteMaterializationStrategy::name),
                 new PropertyMetadata<>(
                         DEFAULT_JOIN_SELECTIVITY_COEFFICIENT,
                         "use a default join selectivity coefficient factor when column statistics are not available in a join node",
@@ -2316,6 +2330,11 @@ public final class SystemSessionProperties
     public static DataSize getFilterAndProjectMinOutputPageSize(Session session)
     {
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE, DataSize.class);
+    }
+
+    public static CteMaterializationStrategy getCteMaterializationStrategy(Session session)
+    {
+        return session.getSystemProperty(CTE_MATERIALIZATION_STRATEGY, CteMaterializationStrategy.class);
     }
 
     public static int getFilterAndProjectMinOutputPageRowCount(Session session)

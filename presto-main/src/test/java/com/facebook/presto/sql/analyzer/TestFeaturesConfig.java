@@ -19,6 +19,7 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementa
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
@@ -254,7 +255,8 @@ public class TestFeaturesConfig
                 .setUseHBOForScaledWriters(false)
                 .setRemoveRedundantCastToVarcharInJoin(true)
                 .setHandleComplexEquiJoins(false)
-                .setSkipHashGenerationForJoinWithTableScanInput(false));
+                .setSkipHashGenerationForJoinWithTableScanInput(false)
+                .setCteMaterializationStrategy(CteMaterializationStrategy.NONE));
     }
 
     @Test
@@ -455,6 +457,7 @@ public class TestFeaturesConfig
                 .put("optimizer.rewrite-constant-array-contains-to-in", "true")
                 .put("optimizer.use-hbo-for-scaled-writers", "true")
                 .put("optimizer.remove-redundant-cast-to-varchar-in-join", "false")
+                .put("cte-materialization-strategy", "ALL")
                 .put("optimizer.handle-complex-equi-joins", "true")
                 .put("optimizer.skip-hash-generation-for-join-with-table-scan-input", "true")
                 .build();
@@ -656,7 +659,8 @@ public class TestFeaturesConfig
                 .setUseHBOForScaledWriters(true)
                 .setRemoveRedundantCastToVarcharInJoin(false)
                 .setHandleComplexEquiJoins(true)
-                .setSkipHashGenerationForJoinWithTableScanInput(true);
+                .setSkipHashGenerationForJoinWithTableScanInput(true)
+                .setCteMaterializationStrategy(CteMaterializationStrategy.ALL);
         assertFullMapping(properties, expected);
     }
 

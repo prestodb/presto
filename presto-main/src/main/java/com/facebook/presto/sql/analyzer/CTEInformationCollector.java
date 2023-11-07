@@ -23,14 +23,19 @@ public class CTEInformationCollector
 {
     private final HashMap<String, CTEInformation> cteInformationMap = new HashMap<>();
 
-    public void addCTEReference(String cteName, boolean isView)
+    public void addCTEReference(String cteName, boolean isView, boolean isMaterialized)
     {
-        cteInformationMap.putIfAbsent(cteName, new CTEInformation(cteName, 0, isView));
+        cteInformationMap.putIfAbsent(cteName, new CTEInformation(cteName, 0, isView, isMaterialized));
         cteInformationMap.get(cteName).incrementReferences();
     }
 
     public List<CTEInformation> getCTEInformationList()
     {
         return ImmutableList.copyOf(cteInformationMap.values());
+    }
+
+    public HashMap<String, CTEInformation> getCteInformationMap()
+    {
+        return cteInformationMap;
     }
 }
