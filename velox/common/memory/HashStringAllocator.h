@@ -181,15 +181,7 @@ class HashStringAllocator : public StreamArena {
 
   // Copies a StringView at 'offset' in 'group' to storage owned by
   // the hash table. Updates the StringView.
-  void copy(char* FOLLY_NONNULL group, int32_t offset) {
-    StringView* string = reinterpret_cast<StringView*>(group + offset);
-    if (string->isInline()) {
-      return;
-    }
-    auto data = pool_.allocateFixed(string->size());
-    memcpy(data, string->data(), string->size());
-    *string = StringView(data, string->size());
-  }
+  void copy(char* FOLLY_NONNULL group, int32_t offset);
 
   // Copies a StringView at 'offset' in 'group' to storage owned by
   // 'this'. Updates the StringView. A large string may be copied into
@@ -199,13 +191,7 @@ class HashStringAllocator : public StreamArena {
   // data. StringViews written by this are to be read with
   // contiguousString(). This is nearly always zero copy but will
   // accommodate the odd extra large string.
-  void copyMultipart(char* FOLLY_NONNULL group, int32_t offset) {
-    auto string = reinterpret_cast<StringView*>(group + offset);
-    if (string->isInline()) {
-      return;
-    }
-    copyMultipartNoInline(group, offset);
-  }
+  void copyMultipart(char* FOLLY_NONNULL group, int32_t offset);
 
   // Returns a contiguous view on 'view', where 'view' comes from
   // copyMultipart(). Uses 'storage' to own a possible temporary
@@ -382,11 +368,6 @@ class HashStringAllocator : public StreamArena {
   // 'header's memory to free list. Does nothing if the resulting
   // blocks would be below minimum size.
   void freeRestOfBlock(Header* FOLLY_NONNULL header, int32_t keepBytes);
-
-  void copyMultipartNoInline(char* FOLLY_NONNULL group, int32_t offset);
-  // Fast path for storing a string as a single part. Returns true if succeeded,
-  // has no effect if returns false.
-  bool storeStringFast(const char* bytes, int32_t size, char* destination);
 
   // Returns the free list index for 'size'.
   int32_t freeListIndex(int size);

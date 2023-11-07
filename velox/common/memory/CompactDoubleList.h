@@ -64,14 +64,6 @@ class CompactDoubleList {
     return loadPointer(previousLow_, previousHigh_);
   }
 
-  // Updates the next pointer to be 'next' and sets 'next's previous pointer to
-  // 'this'. The use case is taking the head of a free list block without a full
-  // remove of block plus reinsert of the remainder of the block.
-  void updateNext(CompactDoubleList* next) {
-    setNext(next);
-    next->setPrevious(this);
-  }
-
  private:
   static constexpr uint8_t kPointerSignificantBits = 48;
 
