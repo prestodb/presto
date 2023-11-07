@@ -25,22 +25,31 @@ public class CTEInformation
     //number of references of the CTE in the query
     private int numberOfReferences;
     private final boolean isView;
+    private final boolean isMaterialized;
 
     @JsonCreator
     public CTEInformation(
             @JsonProperty("cteName") String cteName,
             @JsonProperty("numberOfReferences") int numberOfReferences,
-            @JsonProperty("isView") boolean isView)
+            @JsonProperty("isView") boolean isView,
+            @JsonProperty("isMaterialized") boolean isMaterialized)
     {
         this.cteName = requireNonNull(cteName, "cteName is null");
         this.numberOfReferences = numberOfReferences;
         this.isView = isView;
+        this.isMaterialized = isMaterialized;
     }
 
     @JsonProperty
     public String getCteName()
     {
         return cteName;
+    }
+
+    @JsonProperty
+    public boolean isMaterialized()
+    {
+        return isMaterialized;
     }
 
     @JsonProperty

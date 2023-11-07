@@ -90,6 +90,8 @@ public class FeaturesConfig
     private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
+
+    private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
@@ -348,6 +350,12 @@ public class FeaturesConfig
         }
     }
 
+    public enum CteMaterializationStrategy
+    {
+        ALL, // Materialize all CTES
+        NONE // Materialize no ctes
+    }
+
     public enum TaskSpillingStrategy
     {
         ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
@@ -562,6 +570,19 @@ public class FeaturesConfig
     public FeaturesConfig setLegacyMapSubscript(boolean value)
     {
         this.legacyMapSubscript = value;
+        return this;
+    }
+
+    public CteMaterializationStrategy getCteMaterializationStrategy()
+    {
+        return cteMaterializationStrategy;
+    }
+
+    @Config("cte-materialization-strategy")
+    @ConfigDescription("Set strategy used to determine whether to materialize ctes (ALL, NONE)")
+    public FeaturesConfig setCteMaterializationStrategy(CteMaterializationStrategy cteMaterializationStrategy)
+    {
+        this.cteMaterializationStrategy = cteMaterializationStrategy;
         return this;
     }
 
