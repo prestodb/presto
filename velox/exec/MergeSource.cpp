@@ -120,13 +120,14 @@ class MergeExchangeSource : public MergeSource {
       MergeExchange* mergeExchange,
       const std::string& taskId,
       int destination,
-      memory::MemoryPool* FOLLY_NONNULL pool)
+      int64_t maxQueuedBytes,
+      memory::MemoryPool* pool)
       : mergeExchange_(mergeExchange),
         client_(std::make_unique<ExchangeClient>(
             taskId,
             destination,
             pool,
-            ExchangeClient::kDefaultMaxQueuedBytes)) {
+            maxQueuedBytes)) {
     client_->addRemoteTaskId(taskId);
     client_->noMoreRemoteTasks();
   }
@@ -207,9 +208,10 @@ std::shared_ptr<MergeSource> MergeSource::createMergeExchangeSource(
     MergeExchange* mergeExchange,
     const std::string& taskId,
     int destination,
+    int64_t maxQueuedBytes,
     memory::MemoryPool* pool) {
   return std::make_shared<MergeExchangeSource>(
-      mergeExchange, taskId, destination, pool);
+      mergeExchange, taskId, destination, maxQueuedBytes, pool);
 }
 
 namespace {

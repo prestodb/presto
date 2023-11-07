@@ -128,6 +128,11 @@ class QueryConfig {
   static constexpr const char* kMaxExchangeBufferSize =
       "exchange.max_buffer_size";
 
+  /// Maximum size in bytes to accumulate among all sources of the merge
+  /// exchange. Enforced approximately, not strictly.
+  static constexpr const char* kMaxMergeExchangeBufferSize =
+      "merge_exchange.max_buffer_size";
+
   static constexpr const char* kMaxPartialAggregationMemory =
       "max_partial_aggregation_memory";
 
@@ -394,6 +399,11 @@ class QueryConfig {
   uint64_t maxExchangeBufferSize() const {
     static constexpr uint64_t kDefault = 32UL << 20;
     return get<uint64_t>(kMaxExchangeBufferSize, kDefault);
+  }
+
+  uint64_t maxMergeExchangeBufferSize() const {
+    static constexpr uint64_t kDefault = 128UL << 20;
+    return get<uint64_t>(kMaxMergeExchangeBufferSize, kDefault);
   }
 
   uint64_t preferredOutputBatchBytes() const {

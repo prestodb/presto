@@ -196,7 +196,8 @@ class MergeExchange : public Merge {
 
  private:
   bool noMoreSplits_ = false;
-  size_t numSplits_{0}; // Number of splits we took to process so far.
+  // Task Ids from all the splits we took to process so far.
+  std::vector<std::string> remoteSourceTaskIds_;
 };
 
 } // namespace facebook::velox::exec
