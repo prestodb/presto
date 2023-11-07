@@ -19,6 +19,9 @@ import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -55,6 +58,9 @@ public class ApplyConnectorOptimization
         implements PlanOptimizer
 {
     static final Set<Class<? extends PlanNode>> CONNECTOR_ACCESSIBLE_PLAN_NODES = ImmutableSet.of(
+            CteProducerNode.class,
+            CteConsumerNode.class,
+            CteReferenceNode.class,
             DistinctLimitNode.class,
             FilterNode.class,
             TableScanNode.class,

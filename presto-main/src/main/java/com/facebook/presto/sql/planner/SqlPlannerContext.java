@@ -16,6 +16,12 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.tree.Query;
+import com.google.common.annotations.VisibleForTesting;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Stack;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.SystemSessionProperties.isLeafNodeLimitEnabled;
@@ -28,10 +34,18 @@ public class SqlPlannerContext
     private int leafNodesInLogicalPlan;
     private final SqlToRowExpressionTranslator.Context translatorContext;
 
+    private final NestedCteStack nestedCteStack;
+
     public SqlPlannerContext(int leafNodesInLogicalPlan)
     {
         this.leafNodesInLogicalPlan = leafNodesInLogicalPlan;
         this.translatorContext = new SqlToRowExpressionTranslator.Context();
+        this.nestedCteStack = new NestedCteStack();
+    }
+
+    public NestedCteStack getNestedCteStack()
+    {
+        return nestedCteStack;
     }
 
     public SqlToRowExpressionTranslator.Context getTranslatorContext()
@@ -47,6 +61,60 @@ public class SqlPlannerContext
                 throw new PrestoException(EXCEEDED_PLAN_NODE_LIMIT, format("Number of leaf nodes in logical plan exceeds threshold %s set in max_leaf_nodes_in_plan",
                         getMaxLeafNodesInPlan(session)));
             }
+        }
+    }
+
+    public class NestedCteStack
+    {
+        @VisibleForTesting
+        public static final String delimiter = "_*%$_";
+        private final Stack<String> cteStack;
+        private final Map<String, String> rawCtePathMap;
+
+        public NestedCteStack()
+        {
+            this.cteStack = new Stack<>();
+            this.rawCtePathMap = new HashMap<>();
+        }
+
+        public void push(String cteName, Query query)
+        {
+            this.cteStack.push(cteName);
+            if (query.getWith().isPresent()) {
+                // All ctes defined in this context should have their paths updated
+                query.getWith().get().getQueries().forEach(with -> this.addNestedCte(with.getName().toString()));
+            }
+        }
+
+        public void pop(Query query)
+        {
+            this.cteStack.pop();
+            if (query.getWith().isPresent()) {
+                query.getWith().get().getQueries().forEach(with -> this.removeNestedCte(with.getName().toString()));
+            }
+        }
+
+        public String getRawPath(String cteName)
+        {
+            if (!this.rawCtePathMap.containsKey(cteName)) {
+                return cteName;
+            }
+            return this.rawCtePathMap.get(cteName);
+        }
+
+        private void addNestedCte(String cteName)
+        {
+            this.rawCtePathMap.put(cteName, getCurrentRelativeCtePath() + delimiter + cteName);
+        }
+
+        private void removeNestedCte(String cteName)
+        {
+            this.rawCtePathMap.remove(cteName);
+        }
+
+        public String getCurrentRelativeCtePath()
+        {
+            return String.join(delimiter, cteStack);
         }
     }
 }

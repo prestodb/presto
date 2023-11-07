@@ -28,6 +28,7 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -84,6 +85,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.getCteExecutionOrder;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.getDynamicFilterAssignments;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatAsLong;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatDouble;
@@ -111,6 +113,8 @@ public final class GraphvizPrinter
         SINK,
         WINDOW,
         UNION,
+
+        SEQUENCE,
         SORT,
         SAMPLE,
         MARK_DISTINCT,
@@ -140,6 +144,7 @@ public final class GraphvizPrinter
             .put(NodeType.SINK, "indianred1")
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
+            .put(NodeType.SEQUENCE, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
             .put(NodeType.TABLE_WRITER, "cyan")
             .put(NodeType.TABLE_WRITER_MERGE, "cyan4")
@@ -194,6 +199,7 @@ public final class GraphvizPrinter
 
         return output.toString();
     }
+
     public static String printDistributedFromFragments(List<PlanFragment> allFragments, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
@@ -269,6 +275,18 @@ public final class GraphvizPrinter
         public Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException(format("Node %s does not have a Graphviz visitor", node.getClass().getName()));
+        }
+
+        @Override
+        public Void visitSequence(SequenceNode node, Void context)
+        {
+            String expression = getCteExecutionOrder(node);
+            printNode(node, "Sequence", expression, NODE_COLORS.get(NodeType.SEQUENCE));
+            for (PlanNode planNode : node.getSources()) {
+                planNode.accept(this, context);
+            }
+
+            return null;
         }
 
         @Override

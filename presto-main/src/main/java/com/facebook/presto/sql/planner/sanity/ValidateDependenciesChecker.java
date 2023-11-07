@@ -18,6 +18,9 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -27,6 +30,7 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -520,6 +524,36 @@ public final class ValidateDependenciesChecker
         public Void visitTableScan(TableScanNode node, Set<VariableReferenceExpression> boundVariables)
         {
             //We don't have to do a check here as TableScanNode has no dependencies.
+            return null;
+        }
+
+        @Override
+        public Void visitCteReference(CteReferenceNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            node.getSource().accept(this, boundVariables);
+            return null;
+        }
+
+        public Void visitCteProducer(CteProducerNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundVariables);
+            checkDependencies(source.getOutputVariables(), node.getOutputVariables(),
+                    "Invalid node. Output column dependencies (%s) not in source plan output (%s)",
+                    node.getOutputVariables(), source.getOutputVariables());
+
+            return null;
+        }
+
+        public Void visitCteConsumer(CteConsumerNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            //We don't have to do a check here as CteConsumerNode has no dependencies.
+            return null;
+        }
+
+        public Void visitSequence(SequenceNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            node.getSources().forEach(plan -> plan.accept(this, boundVariables));
             return null;
         }
 
