@@ -85,9 +85,10 @@ class SortedAggregations {
       std::vector<char*>& groupRows,
       const SortingSpec& sortingSpec);
 
-  std::vector<VectorPtr> extractSingleGroup(
+  vector_size_t extractSingleGroup(
       std::vector<char*>& groupRows,
-      const AggregateInfo& aggregate);
+      const AggregateInfo& aggregate,
+      std::vector<VectorPtr>& inputVectors);
 
   struct Hash {
     static uint64_t hashSortOrder(const core::SortOrder& sortOrder) {

@@ -227,43 +227,51 @@ void SortedAggregations::sortSingleGroup(
       });
 }
 
-std::vector<VectorPtr> SortedAggregations::extractSingleGroup(
+vector_size_t SortedAggregations::extractSingleGroup(
     std::vector<char*>& groupRows,
-    const AggregateInfo& aggregate) {
-  const auto numGroups = groupRows.size();
+    const AggregateInfo& aggregate,
+    std::vector<VectorPtr>& inputVectors) {
+  const auto numGroupRows = groupRows.size();
 
   std::vector<vector_size_t> rowNumbers;
   if (aggregate.mask) {
     FlatVectorPtr<bool> mask = BaseVector::create<FlatVector<bool>>(
-        BOOLEAN(), numGroups, inputData_->pool());
+        BOOLEAN(), numGroupRows, inputData_->pool());
     inputData_->extractColumn(
         groupRows.data(),
-        numGroups,
+        numGroupRows,
         inputMapping_[aggregate.mask.value()],
         mask);
 
-    rowNumbers.reserve(numGroups);
-    for (auto i = 0; i < numGroups; ++i) {
+    rowNumbers.reserve(numGroupRows);
+    for (auto i = 0; i < numGroupRows; ++i) {
       if (!mask->isNullAt(i) && mask->valueAt(i)) {
         rowNumbers.push_back(i);
       }
     }
 
     if (rowNumbers.empty()) {
-      return {};
+      return 0;
     }
   }
 
   const auto numInputs = aggregate.inputs.size();
-  std::vector<VectorPtr> inputVectors(numInputs);
+  VELOX_CHECK_EQ(numInputs, inputVectors.size());
+
+  const auto numRows = aggregate.mask ? rowNumbers.size() : numGroupRows;
+
   for (auto i = 0; i < numInputs; ++i) {
     if (aggregate.inputs[i] == kConstantChannel) {
       inputVectors[i] = aggregate.constantInputs[i];
     } else {
       const auto columnIndex = inputMapping_[aggregate.inputs[i]];
-      const auto numRows = aggregate.mask ? rowNumbers.size() : numGroups;
-      inputVectors[i] = BaseVector::create(
-          inputData_->keyTypes()[columnIndex], numRows, inputData_->pool());
+      if (inputVectors[i] == nullptr) {
+        inputVectors[i] = BaseVector::create(
+            inputData_->keyTypes()[columnIndex], numRows, inputData_->pool());
+      } else {
+        BaseVector::prepareForReuse(inputVectors[i], numRows);
+      }
+
       if (aggregate.mask) {
         inputData_->extractColumn(
             groupRows.data(),
@@ -273,12 +281,12 @@ std::vector<VectorPtr> SortedAggregations::extractSingleGroup(
             inputVectors[i]);
       } else {
         inputData_->extractColumn(
-            groupRows.data(), numGroups, columnIndex, inputVectors[i]);
+            groupRows.data(), numRows, columnIndex, inputVectors[i]);
       }
     }
   }
 
-  return inputVectors;
+  return numRows;
 }
 
 void SortedAggregations::extractValues(
@@ -287,6 +295,13 @@ void SortedAggregations::extractValues(
   raw_vector<int32_t> temp;
   SelectivityVector rows;
   for (const auto& [sortingSpec, aggregates] : aggregates_) {
+    std::vector<VectorPtr> inputVectors;
+    size_t numInputColumns = 0;
+    for (const auto& aggregate : aggregates) {
+      numInputColumns += aggregate->inputs.size();
+    }
+    inputVectors.resize(numInputColumns);
+
     // For each group, sort inputs, add them to aggregate.
     for (auto* group : groups) {
       auto groupRows =
@@ -294,18 +309,33 @@ void SortedAggregations::extractValues(
 
       sortSingleGroup(groupRows, sortingSpec);
 
+      size_t firstInputColumn = 0;
       for (const auto& aggregate : aggregates) {
+        std::vector<VectorPtr> aggregateInputs;
+        aggregateInputs.reserve(aggregate->inputs.size());
+        for (auto i = 0; i < aggregate->inputs.size(); ++i) {
+          aggregateInputs.push_back(
+              std::move(inputVectors[firstInputColumn + i]));
+        }
+
         // TODO Process group rows in batches to avoid creating very large input
         // vectors.
-        auto inputVectors = extractSingleGroup(groupRows, *aggregate);
-        if (inputVectors.empty()) {
+        const auto numRows =
+            extractSingleGroup(groupRows, *aggregate, aggregateInputs);
+        if (numRows == 0) {
           // Mask must be false for all 'groupRows'.
           continue;
         }
 
-        rows.resize(inputVectors[0]->size());
+        rows.resize(numRows);
         aggregate->function->addSingleGroupRawInput(
-            group, rows, inputVectors, false);
+            group, rows, aggregateInputs, false);
+
+        for (auto i = 0; i < aggregate->inputs.size(); ++i) {
+          inputVectors[firstInputColumn + i] = std::move(aggregateInputs[i]);
+        }
+
+        firstInputColumn += aggregateInputs.size();
       }
     }
 
