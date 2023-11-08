@@ -1006,7 +1006,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         tableCache.invalidate(getCachingKey(metastoreContext, new HiveTableHandle(databaseName, tableName)));
         return delegate.lock(metastoreContext, databaseName, tableName);
