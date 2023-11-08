@@ -7,6 +7,7 @@ Spark Functions
 
     functions/spark/math
     functions/spark/bitwise
+    functions/spark/decimal
     functions/spark/comparison
     functions/spark/string
     functions/spark/datetime

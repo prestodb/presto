@@ -36,6 +36,7 @@ add_executable(
   SortArrayTest.cpp
   SplitFunctionsTest.cpp
   StringTest.cpp
+  UnscaledValueFunctionTest.cpp
   XxHash64Test.cpp)
 
 add_test(velox_functions_spark_test velox_functions_spark_test)
