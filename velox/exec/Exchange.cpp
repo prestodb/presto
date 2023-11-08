@@ -53,7 +53,7 @@ bool Exchange::getSplits(ContinueFuture* future) {
 }
 
 BlockingReason Exchange::isBlocked(ContinueFuture* future) {
-  if (currentPage_ || atEnd_) {
+  if (!currentPages_.empty() || atEnd_) {
     return BlockingReason::kNotBlocked;
   }
 
@@ -64,9 +64,13 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
     getSplits(&splitFuture_);
   }
 
+  const auto maxBytes = getSerde()->supportsAppendInDeserialize()
+      ? preferredOutputBatchBytes_
+      : 1;
+
   ContinueFuture dataFuture;
-  currentPage_ = exchangeClient_->next(&atEnd_, &dataFuture);
-  if (currentPage_ || atEnd_) {
+  currentPages_ = exchangeClient_->next(maxBytes, &atEnd_, &dataFuture);
+  if (!currentPages_.empty() || atEnd_) {
     if (atEnd_ && noMoreSplits_) {
       const auto numSplits = stats_.rlock()->numSplits;
       operatorCtx_->task()->multipleSplitsFinished(numSplits);
@@ -92,23 +96,30 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
 }
 
 bool Exchange::isFinished() {
-  return atEnd_;
+  return atEnd_ && currentPages_.empty();
 }
 
 RowVectorPtr Exchange::getOutput() {
-  if (!currentPage_) {
+  if (currentPages_.empty()) {
     return nullptr;
   }
 
   uint64_t rawInputBytes{0};
-  if (!inputStream_) {
-    inputStream_ = std::make_unique<ByteStream>();
-    rawInputBytes += currentPage_->size();
-    currentPage_->prepareStreamForDeserialize(inputStream_.get());
+  vector_size_t resultOffset = 0;
+  for (const auto& page : currentPages_) {
+    rawInputBytes += page->size();
+
+    ByteStream inputStream;
+    page->prepareStreamForDeserialize(&inputStream);
+
+    while (!inputStream.atEnd()) {
+      getSerde()->deserialize(
+          &inputStream, pool(), outputType_, &result_, resultOffset);
+      resultOffset = result_->size();
+    }
   }
 
-  getSerde()->deserialize(
-      inputStream_.get(), operatorCtx_->pool(), outputType_, &result_);
+  currentPages_.clear();
 
   {
     auto lockedStats = stats_.wlock();
@@ -116,17 +127,12 @@ RowVectorPtr Exchange::getOutput() {
     lockedStats->addInputVector(result_->estimateFlatSize(), result_->size());
   }
 
-  if (inputStream_->atEnd()) {
-    currentPage_ = nullptr;
-    inputStream_ = nullptr;
-  }
-
   return result_;
 }
 
 void Exchange::close() {
   SourceOperator::close();
-  currentPage_ = nullptr;
+  currentPages_.clear();
   result_ = nullptr;
   if (exchangeClient_) {
     recordExchangeClientStats();

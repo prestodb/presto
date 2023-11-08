@@ -54,14 +54,12 @@ class ExchangeClientTest : public testing::Test,
 
   std::shared_ptr<Task> makeTask(
       const std::string& taskId,
-      const core::PlanNodePtr& planNode,
-      int destination) {
+      const core::PlanNodePtr& planNode) {
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(
         memory::defaultMemoryManager().addRootPool(queryCtx->queryId()));
-    core::PlanFragment planFragment{planNode};
     return Task::create(
-        taskId, std::move(planFragment), destination, std::move(queryCtx));
+        taskId, core::PlanFragment{planNode}, 0, std::move(queryCtx));
   }
 
   int32_t enqueue(
@@ -81,9 +79,38 @@ class ExchangeClientTest : public testing::Test,
     for (auto i = 0; i < numPages; ++i) {
       bool atEnd;
       ContinueFuture future;
-      auto page = client.next(&atEnd, &future);
-      ASSERT_TRUE(page != nullptr);
+      auto pages = client.next(1, &atEnd, &future);
+      ASSERT_EQ(1, pages.size());
     }
+  }
+
+  static void addSources(ExchangeQueue& queue, int32_t numSources) {
+    {
+      std::lock_guard<std::mutex> l(queue.mutex());
+      for (auto i = 0; i < numSources; ++i) {
+        queue.addSourceLocked();
+      }
+    }
+    queue.noMoreSources();
+  }
+
+  static void enqueue(
+      ExchangeQueue& queue,
+      std::unique_ptr<SerializedPage> page) {
+    std::vector<ContinuePromise> promises;
+    {
+      std::lock_guard<std::mutex> l(queue.mutex());
+      queue.enqueueLocked(std::move(page), promises);
+    }
+    for (auto& promise : promises) {
+      promise.setValue();
+    }
+  }
+
+  static std::unique_ptr<SerializedPage> makePage(uint64_t size) {
+    auto ioBuf = folly::IOBuf::create(size);
+    ioBuf->append(size);
+    return std::make_unique<SerializedPage>(std::move(ioBuf));
   }
 
   std::shared_ptr<OutputBufferManager> bufferManager_;
@@ -120,7 +147,7 @@ TEST_F(ExchangeClientTest, stats) {
                   .partitionedOutput({"c0"}, 100)
                   .planNode();
   auto taskId = "local://t1";
-  auto task = makeTask(taskId, plan, 17);
+  auto task = makeTask(taskId, plan);
 
   bufferManager_->initializeTask(
       task, core::PartitionedOutputNode::Kind::kPartitioned, 100, 16);
@@ -170,7 +197,7 @@ TEST_F(ExchangeClientTest, flowControl) {
   std::vector<std::shared_ptr<Task>> tasks;
   for (auto i = 0; i < 10; ++i) {
     auto taskId = fmt::format("local://t{}", i);
-    auto task = makeTask(taskId, plan, 17);
+    auto task = makeTask(taskId, plan);
 
     bufferManager_->initializeTask(
         task, core::PartitionedOutputNode::Kind::kPartitioned, 100, 16);
@@ -195,6 +222,46 @@ TEST_F(ExchangeClientTest, flowControl) {
     task->requestCancel();
     bufferManager_->removeTask(task->taskId());
   }
+}
+
+TEST_F(ExchangeClientTest, multiPageFetch) {
+  ExchangeClient client("test", 17, pool(), 1 << 20);
+
+  bool atEnd;
+  ContinueFuture future;
+  auto pages = client.next(1, &atEnd, &future);
+  ASSERT_EQ(0, pages.size());
+  ASSERT_FALSE(atEnd);
+
+  const auto& queue = client.queue();
+  addSources(*queue, 1);
+
+  for (auto i = 0; i < 10; ++i) {
+    enqueue(*queue, makePage(1'000 + i));
+  }
+
+  // Fetch one page.
+  pages = client.next(1, &atEnd, &future);
+  ASSERT_EQ(1, pages.size());
+  ASSERT_FALSE(atEnd);
+
+  // Fetch multiple pages. Each page is slightly larger than 1K bytes, hence,
+  // only 4 pages fit.
+  pages = client.next(5'000, &atEnd, &future);
+  ASSERT_EQ(4, pages.size());
+  ASSERT_FALSE(atEnd);
+
+  // Fetch the rest of the pages.
+  pages = client.next(10'000, &atEnd, &future);
+  ASSERT_EQ(5, pages.size());
+  ASSERT_FALSE(atEnd);
+
+  // Signal no-more-data.
+  enqueue(*queue, nullptr);
+
+  pages = client.next(10'000, &atEnd, &future);
+  ASSERT_EQ(0, pages.size());
+  ASSERT_TRUE(atEnd);
 }
 
 } // namespace

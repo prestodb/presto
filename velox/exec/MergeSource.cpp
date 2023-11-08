@@ -135,17 +135,19 @@ class MergeExchangeSource : public MergeSource {
   BlockingReason next(RowVectorPtr& data, ContinueFuture* future) override {
     data.reset();
 
-    if (atEnd_) {
+    if (atEnd_ && !currentPage_) {
       return BlockingReason::kNotBlocked;
     }
 
     if (!currentPage_) {
-      currentPage_ = client_->next(&atEnd_, future);
-      if (atEnd_) {
-        return BlockingReason::kNotBlocked;
-      }
+      auto pages = client_->next(1, &atEnd_, future);
+      VELOX_CHECK_LE(pages.size(), 1);
+      currentPage_ = pages.empty() ? nullptr : std::move(pages.front());
 
       if (!currentPage_) {
+        if (atEnd_) {
+          return BlockingReason::kNotBlocked;
+        }
         return BlockingReason::kWaitForProducer;
       }
     }

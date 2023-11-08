@@ -62,7 +62,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
   std::shared_ptr<Task> makeTask(
       const std::string& taskId,
       const core::PlanNodePtr& planNode,
-      int destination,
+      int destination = 0,
       Consumer consumer = nullptr,
       int64_t maxMemory = memory::kMaxMemory) {
     auto configCopy = configSettings_;
@@ -148,12 +148,39 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     createDuckDbTable(vectors_);
   }
 
+  std::unique_ptr<SerializedPage> toSerializedPage(const RowVectorPtr& vector) {
+    auto data = std::make_unique<VectorStreamGroup>(pool());
+    auto size = vector->size();
+    auto range = IndexRange{0, size};
+    data->createStreamTree(asRowType(vector->type()), size);
+    data->append(vector, folly::Range(&range, 1));
+    auto listener = bufferManager_->newListener();
+    IOBufOutputStream stream(*pool(), listener.get(), data->size());
+    data->flush(&stream);
+    return std::make_unique<SerializedPage>(stream.getIOBuf());
+  }
+
+  int32_t enqueue(
+      const std::string& taskId,
+      int32_t destination,
+      const RowVectorPtr& data) {
+    auto page = toSerializedPage(data);
+    const auto pageSize = page->size();
+
+    ContinueFuture unused;
+    auto blocked =
+        bufferManager_->enqueue(taskId, destination, std::move(page), &unused);
+    VELOX_CHECK(!blocked);
+    return pageSize;
+  }
+
   void verifyExchangeStats(
       const std::shared_ptr<Task>& task,
       int32_t expectedNumPagesCount,
       int32_t expectedBackgroundCpuCount) const {
-    auto exchangeStats =
-        task->taskStats().pipelineStats[0].operatorStats[0].runtimeStats;
+    auto taskStats = exec::toPlanStats(task->taskStats());
+
+    const auto& exchangeStats = taskStats.at("0").customStats;
     ASSERT_EQ(1, exchangeStats.count("localExchangeSource.numPages"));
     ASSERT_EQ(
         expectedNumPagesCount,
@@ -161,9 +188,8 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     ASSERT_EQ(
         expectedBackgroundCpuCount,
         exchangeStats.at(ExchangeClient::kBackgroundCpuTimeMs).count);
-    auto cpuBackgroundTimeMs =
-        task->taskStats().pipelineStats[0].operatorStats[0].backgroundTiming;
-    ASSERT_EQ(expectedBackgroundCpuCount, cpuBackgroundTimeMs.count);
+    ASSERT_EQ(
+        expectedBackgroundCpuCount, taskStats.at("0").backgroundTiming.count);
   }
 
   RowTypePtr rowType_{
@@ -172,6 +198,8 @@ class MultiFragmentTest : public HiveConnectorTestBase {
   std::unordered_map<std::string, std::string> configSettings_;
   std::vector<std::shared_ptr<TempFilePath>> filePaths_;
   std::vector<RowVectorPtr> vectors_;
+  std::shared_ptr<OutputBufferManager> bufferManager_{
+      OutputBufferManager::getInstance().lock()};
 };
 
 TEST_F(MultiFragmentTest, aggregationSingleKey) {
@@ -523,9 +551,8 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
                         .planNode();
     auto leafTask = makeTask(leafTaskId, leafPlan, 0);
     leafTask->start(4);
-    auto bufferMgr = OutputBufferManager::getInstance().lock();
     // Delete the results asynchronously to simulate abort from downstream.
-    bufferMgr->deleteResults(leafTaskId, 0);
+    bufferManager_->deleteResults(leafTaskId, 0);
 
     ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }
@@ -555,8 +582,8 @@ TEST_F(MultiFragmentTest, partitionedOutputWithLargeInput) {
 
     auto task =
         assertQuery(op, {leafTaskId}, "SELECT c0, c1, c2, c3, c4 FROM tmp");
-    auto exchangeStats = task->taskStats().pipelineStats[0].operatorStats[0];
-    ASSERT_GT(exchangeStats.inputVectors, 2);
+    auto taskStats = toPlanStats(task->taskStats());
+    ASSERT_GT(taskStats.at("0").inputVectors, 2);
     ASSERT_TRUE(waitForTaskCompletion(leafTask.get()))
         << leafTask->taskId() << "state: " << leafTask->state();
   }
@@ -596,8 +623,9 @@ TEST_F(MultiFragmentTest, partitionedOutputWithLargeInput) {
 
     auto task = assertQuery(
         op, intermediateTaskIds, "SELECT c0, c1, c2, c3, c4 FROM tmp");
-    auto exchangeStats = task->taskStats().pipelineStats[0].operatorStats[0];
-    ASSERT_GT(exchangeStats.inputVectors, 2);
+    auto taskStats = toPlanStats(task->taskStats());
+    ASSERT_GT(taskStats.at("0").inputVectors, 2);
+
     ASSERT_TRUE(waitForTaskCompletion(leafTask.get()))
         << "state: " << leafTask->state();
   }
@@ -1422,7 +1450,6 @@ TEST_F(MultiFragmentTest, taskTerminateWithPendingOutputBuffers) {
   task->start(1);
   addHiveSplits(task, filePaths_);
 
-  auto bufferManager = OutputBufferManager::getInstance().lock();
   const uint64_t maxBytes = std::numeric_limits<uint64_t>::max();
   const int destination = 0;
   std::vector<std::unique_ptr<folly::IOBuf>> receivedIobufs;
@@ -1430,7 +1457,7 @@ TEST_F(MultiFragmentTest, taskTerminateWithPendingOutputBuffers) {
   for (;;) {
     auto dataPromise = ContinuePromise("WaitForOutput");
     bool complete{false};
-    ASSERT_TRUE(bufferManager->getData(
+    ASSERT_TRUE(bufferManager_->getData(
         taskId,
         destination,
         maxBytes,
@@ -1619,12 +1646,8 @@ class DataFetcher {
  private:
   static constexpr int64_t kInitialSequence = 0;
 
-  std::shared_ptr<OutputBufferManager> bufferManager() {
-    return OutputBufferManager::getInstance().lock();
-  }
-
   void doFetch(int64_t sequence) {
-    bool ok = bufferManager()->getData(
+    bool ok = bufferManager_->getData(
         taskId_,
         destination_,
         maxBytes_,
@@ -1632,10 +1655,10 @@ class DataFetcher {
         [&](auto pages, auto sequence) mutable {
           const auto nextSequence = sequence + pages.size();
           const bool atEnd = processData(std::move(pages), sequence);
-          bufferManager()->acknowledge(taskId_, destination_, nextSequence);
+          bufferManager_->acknowledge(taskId_, destination_, nextSequence);
 
           if (atEnd) {
-            bufferManager()->deleteResults(taskId_, destination_);
+            bufferManager_->deleteResults(taskId_, destination_);
             promise_.setValue();
           } else {
             doFetch(nextSequence);
@@ -1672,6 +1695,9 @@ class DataFetcher {
   int32_t numPackets_{0};
   int32_t numPages_{0};
   int64_t totalBytes_{0};
+
+  std::shared_ptr<OutputBufferManager> bufferManager_{
+      OutputBufferManager::getInstance().lock()};
 };
 
 /// Verify that POBM::getData() honors maxBytes parameter roughly at 1MB
@@ -1837,5 +1863,65 @@ TEST_F(MultiFragmentTest, earlyTaskFailure) {
         << partialSortTask->taskId();
   }
 }
+
+TEST_F(MultiFragmentTest, mergeSmallBatchesInExchange) {
+  auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
+
+  const int32_t numPartitions = 100;
+  auto producerPlan = test::PlanBuilder()
+                          .values({data})
+                          .partitionedOutput({"c0"}, numPartitions)
+                          .planNode();
+  const auto producerTaskId = "local://t1";
+
+  auto plan = test::PlanBuilder().exchange(asRowType(data->type())).planNode();
+
+  auto expected = makeRowVector({
+      makeFlatVector<int32_t>(3'000, [](auto row) { return 1 + row % 3; }),
+  });
+
+  auto test = [&](uint64_t maxBytes, int32_t expectedBatches) {
+    auto producerTask = makeTask(producerTaskId, producerPlan);
+
+    bufferManager_->initializeTask(
+        producerTask,
+        core::PartitionedOutputNode::Kind::kPartitioned,
+        numPartitions,
+        1);
+
+    auto cleanupGuard = folly::makeGuard([&]() {
+      producerTask->requestCancel();
+      bufferManager_->removeTask(producerTaskId);
+    });
+
+    // Enqueue many small pages.
+    const int32_t numPages = 1'000;
+    for (auto i = 0; i < numPages; ++i) {
+      enqueue(producerTaskId, 17, data);
+    }
+    bufferManager_->noMoreData(producerTaskId);
+
+    auto task = test::AssertQueryBuilder(plan)
+                    .split(remoteSplit(producerTaskId))
+                    .destination(17)
+                    .config(
+                        core::QueryConfig::kPreferredOutputBatchBytes,
+                        std::to_string(maxBytes))
+                    .assertResults(expected);
+
+    auto taskStats = exec::toPlanStats(task->taskStats());
+    const auto& stats = taskStats.at("0");
+
+    ASSERT_EQ(expected->size(), stats.outputRows);
+    ASSERT_EQ(expectedBatches, stats.outputVectors);
+    ASSERT_EQ(numPages, stats.customStats.at("numReceivedPages").sum);
+  };
+
+  test(1, 1'000);
+  test(1'000, 56);
+  test(10'000, 6);
+  test(100'000, 1);
+}
+
 } // namespace
 } // namespace facebook::velox::exec

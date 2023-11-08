@@ -107,6 +107,10 @@ class VectorSerde {
       RowVectorPtr* result,
       vector_size_t resultOffset,
       const Options* options = nullptr) {
+    if (resultOffset == 0) {
+      deserialize(source, pool, type, result, options);
+      return;
+    }
     VELOX_UNSUPPORTED();
   }
 };

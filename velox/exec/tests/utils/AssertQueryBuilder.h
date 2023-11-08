@@ -35,6 +35,10 @@ class AssertQueryBuilder {
   /// Change requested number of drivers. Default is 1.
   AssertQueryBuilder& maxDrivers(int32_t maxDrivers);
 
+  /// Change task's 'destination', the partition number assigned to the task.
+  /// Default is 0.
+  AssertQueryBuilder& destination(int32_t destination);
+
   /// Set configuration property. May be called multiple times to set multiple
   /// properties.
   AssertQueryBuilder& config(const std::string& key, const std::string& value);

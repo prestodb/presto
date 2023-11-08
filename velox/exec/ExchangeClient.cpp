@@ -105,21 +105,20 @@ folly::F14FastMap<std::string, RuntimeMetric> ExchangeClient::stats() const {
   return stats;
 }
 
-std::unique_ptr<SerializedPage> ExchangeClient::next(
-    bool* atEnd,
-    ContinueFuture* future) {
+std::vector<std::unique_ptr<SerializedPage>>
+ExchangeClient::next(uint32_t maxBytes, bool* atEnd, ContinueFuture* future) {
   RequestSpec requestSpec;
-  std::unique_ptr<SerializedPage> page;
+  std::vector<std::unique_ptr<SerializedPage>> pages;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     *atEnd = false;
-    page = queue_->dequeueLocked(atEnd, future);
+    pages = queue_->dequeueLocked(maxBytes, atEnd, future);
     if (*atEnd) {
-      return page;
+      return pages;
     }
 
-    if (page && queue_->totalBytes() > maxQueuedBytes_) {
-      return page;
+    if (!pages.empty() && queue_->totalBytes() > maxQueuedBytes_) {
+      return pages;
     }
 
     requestSpec = pickSourcesToRequestLocked();
@@ -127,7 +126,7 @@ std::unique_ptr<SerializedPage> ExchangeClient::next(
 
   // Outside of lock
   request(requestSpec);
-  return page;
+  return pages;
 }
 
 void ExchangeClient::request(const RequestSpec& requestSpec) {

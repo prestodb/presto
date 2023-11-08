@@ -998,7 +998,8 @@ TEST_F(OutputBufferManagerTest, errorInQueue) {
   std::lock_guard<std::mutex> l(queue->mutex());
   ContinueFuture future;
   bool atEnd = false;
-  VELOX_ASSERT_THROW(queue->dequeueLocked(&atEnd, &future), "Forced failure");
+  VELOX_ASSERT_THROW(
+      queue->dequeueLocked(1, &atEnd, &future), "Forced failure");
 }
 
 TEST_F(OutputBufferManagerTest, setQueueErrorWithPendingPages) {
@@ -1024,7 +1025,8 @@ TEST_F(OutputBufferManagerTest, setQueueErrorWithPendingPages) {
   std::lock_guard<std::mutex> l(queue->mutex());
   ContinueFuture future;
   bool atEnd = false;
-  VELOX_ASSERT_THROW(queue->dequeueLocked(&atEnd, &future), "Forced failure");
+  VELOX_ASSERT_THROW(
+      queue->dequeueLocked(1, &atEnd, &future), "Forced failure");
 }
 
 TEST_F(OutputBufferManagerTest, getDataOnFailedTask) {
