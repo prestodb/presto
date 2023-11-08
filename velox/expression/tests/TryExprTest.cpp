@@ -444,4 +444,23 @@ TEST_F(TryExprTest, doesNotMutateSharedResults) {
   // Make sure input did not change.
   assertEqualVectors(input, makeFlatVector<StringView>({"1", "", ""}));
 }
+
+TEST_F(TryExprTest, decimalDivideByZero) {
+  options_.parseDecimalAsDouble = false;
+  auto shortDecimalFlatVector =
+      makeFlatVector<int64_t>({10, 20, 30}, DECIMAL(10, 2));
+  auto longDecimalFlatVector =
+      makeFlatVector<int128_t>({10100, 20202, 30300}, DECIMAL(30, 10));
+
+  auto result =
+      evaluate("try(c0 / 0.0)", makeRowVector({shortDecimalFlatVector}));
+  auto expectedShort = makeNullableFlatVector<int64_t>(
+      {std::nullopt, std::nullopt, std::nullopt}, DECIMAL(11, 2));
+  assertEqualVectors(expectedShort, result);
+
+  result = evaluate("try(c0 / 0.0)", makeRowVector({longDecimalFlatVector}));
+  auto expectedLong = makeNullableFlatVector<int128_t>(
+      {std::nullopt, std::nullopt, std::nullopt}, DECIMAL(31, 10));
+  assertEqualVectors(expectedLong, result);
+}
 } // namespace facebook::velox
