@@ -21,6 +21,7 @@
 #include "folly/executors/CPUThreadPoolExecutor.h"
 #include "folly/lang/Assume.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/dwio/common/ExecutorBarrier.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/common/Common.h"
@@ -79,16 +80,15 @@ class TestReaderP
     : public testing::TestWithParam</* parallel decoding = */ bool>,
       public VectorTestBase {
  protected:
-  ExecutorBarrier* barrier() {
-    if (GetParam() && !barrier_) {
-      barrier_ = std::make_unique<ExecutorBarrier>(
-          std::make_shared<folly::CPUThreadPoolExecutor>(2));
+  folly::Executor* executor() {
+    if (GetParam() && !executor_) {
+      std::make_shared<folly::CPUThreadPoolExecutor>(2);
     }
-    return barrier_.get();
+    return executor_.get();
   }
 
  private:
-  std::unique_ptr<ExecutorBarrier> barrier_;
+  std::unique_ptr<folly::Executor> executor_;
 };
 
 class TestReader : public testing::Test, public VectorTestBase {
@@ -1801,13 +1801,10 @@ TEST_P(TestReaderP, testUpcastBoolean) {
       TypeWithId::create(rowType),
       streams,
       labels,
-      barrier());
+      executor());
 
   VectorPtr batch;
   reader->next(104, batch);
-  if (barrier()) {
-    barrier()->waitAll();
-  }
 
   auto lv = std::dynamic_pointer_cast<FlatVector<int32_t>>(
       std::dynamic_pointer_cast<RowVector>(batch)->childAt(0));
@@ -1854,13 +1851,10 @@ TEST_P(TestReaderP, testUpcastIntDirect) {
       TypeWithId::create(rowType),
       streams,
       labels,
-      barrier());
+      executor());
 
   VectorPtr batch;
   reader->next(100, batch);
-  if (barrier()) {
-    barrier()->waitAll();
-  }
 
   auto lv = std::dynamic_pointer_cast<FlatVector<int64_t>>(
       std::dynamic_pointer_cast<RowVector>(batch)->childAt(0));
@@ -1924,13 +1918,10 @@ TEST_P(TestReaderP, testUpcastIntDict) {
       TypeWithId::create(rowType),
       streams,
       labels,
-      barrier());
+      executor());
 
   VectorPtr batch;
   reader->next(100, batch);
-  if (barrier()) {
-    barrier()->waitAll();
-  }
 
   auto lv = std::dynamic_pointer_cast<FlatVector<int64_t>>(
       std::dynamic_pointer_cast<RowVector>(batch)->childAt(0));
@@ -1982,13 +1973,10 @@ TEST_P(TestReaderP, testUpcastFloat) {
       TypeWithId::create(rowType),
       streams,
       labels,
-      barrier());
+      executor());
 
   VectorPtr batch;
   reader->next(100, batch);
-  if (barrier()) {
-    barrier()->waitAll();
-  }
 
   auto lv = std::dynamic_pointer_cast<FlatVector<double>>(
       std::dynamic_pointer_cast<RowVector>(batch)->childAt(0));

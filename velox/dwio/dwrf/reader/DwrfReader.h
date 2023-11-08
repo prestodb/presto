@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include "folly/Executor.h"
 #include "folly/synchronization/Baton.h"
-#include "velox/dwio/common/ExecutorBarrier.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/dwio/dwrf/reader/SelectiveDwrfReader.h"
 
@@ -146,7 +146,7 @@ class DwrfRowReader : public StrideIndexProvider,
   uint64_t strideIndex_;
   std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache_;
   dwio::common::RowReaderOptions options_;
-  std::unique_ptr<dwio::common::ExecutorBarrier> executorBarrier_;
+  std::shared_ptr<folly::Executor> executor_;
 
   struct PrefetchedStripeState {
     bool preloaded;

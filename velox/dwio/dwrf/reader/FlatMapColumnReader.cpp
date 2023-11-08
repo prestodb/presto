@@ -20,6 +20,7 @@
 #include <folly/json.h>
 
 #include "velox/common/base/BitUtil.h"
+#include "velox/dwio/common/ExecutorBarrier.h"
 #include "velox/dwio/common/FlatMapHelper.h"
 
 namespace facebook::velox::dwrf {
@@ -689,23 +690,13 @@ void FlatMapStructEncodingColumnReader<T>::next(
     // children vectors.
     childrenPtr = &rowVector->children();
     children.clear();
-    result->setNullCount(nullCount);
   } else {
     children.resize(keyNodes_.size());
-    auto rowResult = std::make_shared<RowVector>(
-        &memoryPool_,
-        ROW(std::vector<std::string>(keyNodes_.size()),
-            std::vector<std::shared_ptr<const Type>>(
-                keyNodes_.size(), requestedType_->type()->asMap().valueType())),
-        nulls,
-        numValues,
-        std::move(children),
-        nullCount);
-    childrenPtr = &rowResult->children();
-    result = std::move(rowResult);
+    childrenPtr = &children;
   }
 
   if (executor_) {
+    dwio::common::ExecutorBarrier barrier(*executor_);
     auto mergedNullsBuffers = std::make_shared<
         folly::Synchronized<std::unordered_map<std::thread::id, BufferPtr>>>();
     for (size_t i = 0; i < keyNodes_.size(); ++i) {
@@ -713,12 +704,12 @@ void FlatMapStructEncodingColumnReader<T>::next(
       auto& child = (*childrenPtr)[i];
 
       if (node) {
-        executor_->add([&node,
-                        &child,
-                        numValues,
-                        nonNullMaps,
-                        nullsPtr,
-                        mergedNullsBuffers]() {
+        barrier.add([&node,
+                     &child,
+                     numValues,
+                     nonNullMaps,
+                     nullsPtr,
+                     mergedNullsBuffers]() {
           auto mergedNullsBuffer =
               getBufferForCurrentThread(*mergedNullsBuffers);
           node->loadAsChild(
@@ -728,6 +719,7 @@ void FlatMapStructEncodingColumnReader<T>::next(
         nullColumnReader_->next(numValues, child, nullsPtr);
       }
     }
+    barrier.waitAll();
   } else {
     for (size_t i = 0; i < keyNodes_.size(); ++i) {
       auto& node = keyNodes_[i];
@@ -740,6 +732,20 @@ void FlatMapStructEncodingColumnReader<T>::next(
         nullColumnReader_->next(numValues, child, nullsPtr);
       }
     }
+  }
+
+  if (result) {
+    result->setNullCount(nullCount);
+  } else {
+    result = std::make_shared<RowVector>(
+        &memoryPool_,
+        ROW(std::vector<std::string>(keyNodes_.size()),
+            std::vector<std::shared_ptr<const Type>>(
+                keyNodes_.size(), requestedType_->type()->asMap().valueType())),
+        nulls,
+        numValues,
+        std::move(children),
+        nullCount);
   }
 }
 
