@@ -23,9 +23,12 @@
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Writer.h"
 #include "velox/dwio/common/WriterFactory.h"
+#include "velox/dwio/parquet/writer/arrow/util/Compression.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::parquet {
+
+using facebook::velox::parquet::arrow::util::CodecOptions;
 
 class ArrowDataBufferSink;
 
@@ -94,6 +97,7 @@ struct WriterOptions {
   // The default factory allows the writer to construct the default flush
   // policy with the configs in its ctor.
   std::function<std::unique_ptr<DefaultFlushPolicy>()> flushPolicyFactory;
+  std::shared_ptr<CodecOptions> codecOptions;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.

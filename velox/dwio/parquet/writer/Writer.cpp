@@ -135,6 +135,7 @@ std::shared_ptr<WriterProperties> getArrowParquetWriterOptions(
   properties = properties->data_pagesize(options.dataPageSize);
   properties = properties->max_row_group_length(
       static_cast<int64_t>(flushPolicy->rowsInRowGroup()));
+  properties = properties->codec_options(options.codecOptions);
   return properties->build();
 }
 
