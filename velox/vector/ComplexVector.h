@@ -209,6 +209,12 @@ class RowVector : public BaseVector {
   /// until the few places that require it are migrated over.
   void unsafeResize(vector_size_t newSize, bool setNotNull = true);
 
+  /// Resizes the parent row container and also recursively resizes the
+  /// children. Note that this function will throw if the children are not
+  /// uniquely referenced by the parent when increasing the size.
+  /// Note : If the child is null, then it will stay null after the resize.
+  void resize(vector_size_t newSize, bool setNotNull = true) override;
+
  private:
   vector_size_t childSize() const {
     bool allConstant = false;

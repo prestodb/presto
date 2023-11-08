@@ -948,14 +948,7 @@ VectorPtr VectorLoaderWrap::makeEncodingPreservedCopy(
   if (decoded.isConstantMapping() || decoded.isIdentityMapping()) {
     VectorPtr result;
     BaseVector::ensureWritable(rows, vector_->type(), vector_->pool(), result);
-    if (result->typeKind() == TypeKind::ROW) {
-      // Avoid calling resize on all children by adding top level nulls only.
-      // We know from the check above that result is unique and isNullsWritable.
-      result->asUnchecked<RowVector>()->appendNulls(
-          vectorSize - result->size());
-    } else {
-      result->resize(vectorSize);
-    }
+    result->resize(vectorSize);
     result->copy(vector_.get(), rows, nullptr);
     return result;
   }

@@ -1542,6 +1542,91 @@ TEST_F(VectorTest, wrapInConstantWithCopy) {
   }
 }
 
+TEST_F(VectorTest, rowResize) {
+  auto testRowResize = [&](const VectorPtr& vector, bool setNotNull) {
+    auto rowVector = vector->as<RowVector>();
+    for (auto& child : rowVector->children()) {
+      VELOX_CHECK(child.unique());
+    }
+    auto oldSize = rowVector->size();
+    auto newSize = oldSize * 2;
+
+    rowVector->resize(newSize, setNotNull);
+
+    EXPECT_EQ(rowVector->size(), newSize);
+
+    for (auto& child : rowVector->children()) {
+      EXPECT_EQ(child->size(), newSize);
+    }
+
+    if (setNotNull) {
+      for (int i = oldSize; i < newSize; i++) {
+        EXPECT_EQ(rowVector->isNullAt(i), !setNotNull);
+        for (auto& child : rowVector->children()) {
+          EXPECT_EQ(child->isNullAt(i), !setNotNull);
+        }
+      }
+    }
+  };
+
+  // FlatVectors.
+  auto rowVector =
+      makeRowVector({makeFlatVector<int32_t>(10), makeFlatVector<int64_t>(10)});
+  testRowResize(rowVector, bits::kNull);
+
+  rowVector =
+      makeRowVector({makeFlatVector<int32_t>(10), makeFlatVector<double>(10)});
+  testRowResize(rowVector, bits::kNotNull);
+
+  rowVector = makeRowVector({makeFlatVector<StringView>(10)});
+  testRowResize(rowVector, bits::kNotNull);
+  rowVector = makeRowVector({makeFlatVector<StringView>(10)});
+  testRowResize(rowVector, bits::kNull);
+
+  // Dictionaries.
+  rowVector = makeRowVector({BaseVector::wrapInDictionary(
+      nullptr,
+      makeIndices(10, [](auto row) { return row; }),
+      10,
+      BaseVector::wrapInDictionary(
+          nullptr,
+          makeIndices(10, [](auto row) { return row; }),
+          10,
+          makeFlatVector<int32_t>(10)))});
+  testRowResize(rowVector, bits::kNotNull);
+
+  // Constants.
+  rowVector = makeRowVector({BaseVector::wrapInConstant(
+      10,
+      5,
+      makeArrayVector<int32_t>(
+          10,
+          [](auto row) { return row % 5 + 1; },
+          [](auto row, auto index) { return row * 2 + index; }))});
+  testRowResize(rowVector, bits::kNotNull);
+
+  // Complex Types.
+  rowVector = makeRowVector(
+      {makeArrayVector<int32_t>(
+           10,
+           [](auto row) { return row % 5 + 1; },
+           [](auto row, auto index) { return row * 2 + index; }),
+       makeMapVector<int32_t, int64_t>(
+           10,
+           [](auto row) { return row % 5; },
+           [](auto row) { return row % 7; },
+           [](auto row) { return row % 5; },
+           nullEvery(9))});
+  testRowResize(rowVector, bits::kNotNull);
+
+  // Resize on lazy children will result in an exception.
+  auto rowWithLazyChild = makeRowVector({makeLazyFlatVector<int32_t>(
+      10,
+      [&](vector_size_t i) { return i % 5; },
+      [](vector_size_t i) { return i % 7 == 0; })});
+  EXPECT_THROW(rowWithLazyChild->resize(20), VeloxException);
+}
+
 TEST_F(VectorTest, wrapConstantInDictionary) {
   // Wrap Constant in Dictionary with no extra nulls. Expect Constant.
   auto indices = makeIndices(10, [](auto row) { return row % 2; });

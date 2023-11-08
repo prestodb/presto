@@ -668,11 +668,11 @@ class MinMaxByNAggregate : public exec::Aggregate {
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto rowVector = (*result)->as<RowVector>();
+    rowVector->resize(numGroups);
+
     auto nVector = rowVector->childAt(0);
     auto comparisonArray = rowVector->childAt(1)->as<ArrayVector>();
     auto valueArray = rowVector->childAt(2)->as<ArrayVector>();
-
-    resizeRowVectorAndChildren(*rowVector, numGroups);
 
     auto* rawNs = nVector->as<FlatVector<int64_t>>()->mutableRawValues();
 

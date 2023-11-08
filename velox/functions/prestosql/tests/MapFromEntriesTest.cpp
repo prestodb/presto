@@ -295,6 +295,8 @@ TEST_F(MapFromEntriesTest, arrayOfDictionaryRowOfNulls) {
   RowVectorPtr rowVector =
       makeRowVector({makeFlatVector<int32_t>(0), makeFlatVector<int32_t>(0)});
   rowVector->resize(4);
+  rowVector->childAt(0)->resize(0);
+  rowVector->childAt(1)->resize(0);
   for (int i = 0; i < rowVector->size(); i++) {
     rowVector->setNull(i, true);
   }
@@ -330,7 +332,8 @@ TEST_F(MapFromEntriesTest, arrayOfConstantRowOfNulls) {
       makeRowVector({makeFlatVector<int32_t>(0), makeFlatVector<int32_t>(0)});
   rowVector->resize(1);
   rowVector->setNull(0, true);
-
+  rowVector->childAt(0)->resize(0);
+  rowVector->childAt(1)->resize(0);
   EXPECT_EQ(rowVector->childAt(0)->size(), 0);
   EXPECT_EQ(rowVector->childAt(1)->size(), 0);
 

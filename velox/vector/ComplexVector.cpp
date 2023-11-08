@@ -643,6 +643,28 @@ void RowVector::unsafeResize(vector_size_t newSize, bool setNotNull) {
   BaseVector::resize(newSize, setNotNull);
 }
 
+void RowVector::resize(vector_size_t newSize, bool setNotNull) {
+  auto oldSize = length_;
+  BaseVector::resize(newSize, setNotNull);
+
+  // Resize all the children.
+  for (auto& child : children_) {
+    if (child) {
+      if (child->isLazy()) {
+        VELOX_FAIL("Resize on a lazy vector is not allowed");
+      }
+
+      // If we are just reducing the size of the vector, its safe
+      // to skip uniqueness check since effectively we are just changing
+      // the length.
+      if (newSize > oldSize) {
+        VELOX_CHECK(child.unique(), "Resizing shared child vector");
+        child->resize(newSize, setNotNull);
+      }
+    }
+  }
+}
+
 void ArrayVectorBase::checkRanges() const {
   std::unordered_map<vector_size_t, vector_size_t> seenElements;
   seenElements.reserve(size());

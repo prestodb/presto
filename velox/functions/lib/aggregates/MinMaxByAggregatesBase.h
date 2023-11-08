@@ -23,17 +23,6 @@
 
 namespace facebook::velox::functions::aggregate {
 
-namespace {
-inline void resizeRowVectorAndChildren(
-    RowVector& rowVector,
-    vector_size_t size) {
-  rowVector.resize(size);
-  for (auto& child : rowVector.children()) {
-    child->resize(size);
-  }
-}
-} // namespace
-
 template <typename T>
 constexpr bool isNumeric() {
   return std::is_same_v<T, bool> || std::is_same_v<T, int8_t> ||
@@ -245,10 +234,10 @@ class MinMaxByAggregateBase : public exec::Aggregate {
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto rowVector = (*result)->as<RowVector>();
+    rowVector->resize(numGroups);
+
     auto valueVector = rowVector->childAt(0);
     auto comparisonVector = rowVector->childAt(1);
-
-    resizeRowVectorAndChildren(*rowVector, numGroups);
     uint64_t* rawNulls = getRawNulls(rowVector);
 
     T* rawValues = nullptr;
