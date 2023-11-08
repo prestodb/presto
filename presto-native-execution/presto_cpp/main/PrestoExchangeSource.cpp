@@ -20,11 +20,9 @@
 
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/common/Counters.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/exec/Operator.h"
 
 using namespace facebook::velox;
 
@@ -46,7 +44,7 @@ std::string extractTaskId(const std::string& path) {
 
 void onFinalFailure(
     const std::string& errorMessage,
-    std::shared_ptr<exec::ExchangeQueue> queue) {
+    const std::shared_ptr<exec::ExchangeQueue>& queue) {
   VLOG(1) << errorMessage;
 
   queue->setError(errorMessage);
@@ -73,7 +71,7 @@ std::string bodyAsString(
 PrestoExchangeSource::PrestoExchangeSource(
     const folly::Uri& baseUri,
     int destination,
-    std::shared_ptr<exec::ExchangeQueue> queue,
+    const std::shared_ptr<exec::ExchangeQueue>& queue,
     memory::MemoryPool* pool,
     folly::CPUThreadPoolExecutor* driverExecutor,
     folly::IOThreadPoolExecutor* httpExecutor,
@@ -460,15 +458,15 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::getSelfPtr() {
 }
 
 // static
-std::unique_ptr<exec::ExchangeSource> PrestoExchangeSource::create(
+std::shared_ptr<exec::ExchangeSource> PrestoExchangeSource::create(
     const std::string& url,
     int destination,
-    std::shared_ptr<exec::ExchangeQueue> queue,
+    const std::shared_ptr<exec::ExchangeQueue>& queue,
     memory::MemoryPool* pool,
     folly::CPUThreadPoolExecutor* driverExecutor,
     folly::IOThreadPoolExecutor* httpExecutor) {
   if (strncmp(url.c_str(), "http://", 7) == 0) {
-    return std::make_unique<PrestoExchangeSource>(
+    return std::make_shared<PrestoExchangeSource>(
         folly::Uri(url),
         destination,
         queue,
@@ -480,7 +478,7 @@ std::unique_ptr<exec::ExchangeSource> PrestoExchangeSource::create(
     const auto clientCertAndKeyPath =
         systemConfig->httpsClientCertAndKeyPath().value_or("");
     const auto ciphers = systemConfig->httpsSupportedCiphers();
-    return std::make_unique<PrestoExchangeSource>(
+    return std::make_shared<PrestoExchangeSource>(
         folly::Uri(url),
         destination,
         queue,
