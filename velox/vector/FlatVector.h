@@ -500,6 +500,23 @@ class FlatVector final : public SimpleVector<T> {
       vector_size_t newSize,
       const std::optional<T>& initialValue);
 
+  // Check string buffers. Keep at most one singly-referenced buffer if it is
+  // not too large.
+  void keepAtMostOneStringBuffer() {
+    if (stringBuffers_.empty()) {
+      return;
+    }
+
+    auto& firstBuffer = stringBuffers_.front();
+    if (firstBuffer->isMutable() &&
+        firstBuffer->capacity() <= kMaxStringSizeForReuse) {
+      firstBuffer->setSize(0);
+      setStringBuffers({firstBuffer});
+    } else {
+      clearStringBuffers();
+    }
+  }
+
   // Contiguous values.
   // If strings, these are velox::StringViews into memory held by
   // 'stringBuffers_'

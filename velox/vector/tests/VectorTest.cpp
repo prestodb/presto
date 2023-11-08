@@ -1649,6 +1649,23 @@ TEST_F(VectorTest, resizeStringAsciiness) {
   ASSERT_FALSE(stringVector->isAscii(rows));
 }
 
+TEST_F(VectorTest, resizeZeroString) {
+  auto vector = makeFlatVector<std::string>(
+      {"This is a string",
+       "This is another string",
+       "This is the third string"});
+  ASSERT_EQ(1, vector->stringBuffers().size());
+  ASSERT_LT(0, vector->stringBuffers()[0]->size());
+
+  const auto capacity = vector->stringBuffers()[0]->capacity();
+  ASSERT_GT(capacity, 0);
+
+  vector->resize(0);
+  ASSERT_EQ(1, vector->stringBuffers().size());
+  ASSERT_EQ(0, vector->stringBuffers()[0]->size());
+  ASSERT_EQ(capacity, vector->stringBuffers()[0]->capacity());
+}
+
 TEST_F(VectorTest, copyNoRows) {
   {
     auto source = makeFlatVector<int32_t>({1, 2, 3});

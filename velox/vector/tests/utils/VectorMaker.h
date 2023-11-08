@@ -367,16 +367,16 @@ class VectorMaker {
     auto numElements =
         createOffsetsAndSizes(size, sizeAt, isNullAt, &nulls, &offsets, &sizes);
 
-    auto flatVector =
-        BaseVector::create<FlatVector<T>>(type->childAt(0), numElements, pool_);
+    auto flatVector = BaseVector::create<FlatVector<EvalType<T>>>(
+        type->childAt(0), numElements, pool_);
     vector_size_t currentIndex = 0;
     for (vector_size_t i = 0; i < size; ++i) {
       if (isNullAt && isNullAt(i)) {
         continue;
       }
       for (vector_size_t j = 0; j < sizeAt(i); ++j) {
-        auto ret = valueAt(i, j);
-        flatVector->set(currentIndex, valueAt(i, j));
+        auto value = valueAt(i, j);
+        flatVector->set(currentIndex, EvalType<T>(value));
         currentIndex++;
       }
     }

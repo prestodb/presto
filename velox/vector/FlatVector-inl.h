@@ -437,7 +437,7 @@ void FlatVector<T>::resize(vector_size_t newSize, bool setNotNull) {
       SimpleVector<StringView>::resizeIsAsciiIfNotEmpty(newSize, false);
     }
     if (newSize == 0) {
-      clearStringBuffers();
+      keepAtMostOneStringBuffer();
     }
   } else {
     resizeValues(newSize, std::nullopt);
