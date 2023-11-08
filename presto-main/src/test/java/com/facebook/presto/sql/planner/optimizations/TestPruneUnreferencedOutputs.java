@@ -19,11 +19,13 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.OptimizerAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -32,6 +34,8 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.except;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.intersect;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -87,6 +91,52 @@ public class TestPruneUnreferencedOutputs
                                 project(
                                         project(
                                                 values("user_uuid")))));
+    }
+
+    @Test
+    public void testIntersectNodePruning()
+    {
+        assertRuleApplication()
+                .on(p ->
+                        p.output(ImmutableList.of("regionkey"), ImmutableList.of(p.variable("regionkey_16")),
+                                p.project(Assignments.of(p.variable("regionkey_16"), p.variable("regionkey_16")),
+                                        p.intersect(
+                                                ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                                                        .putAll(p.variable("nationkey_15"), p.variable("nationkey"), p.variable("regionkey_6"))
+                                                        .putAll(p.variable("regionkey_16"), p.variable("regionkey"), p.variable("regionkey_6"))
+                                                        .build(),
+                                                ImmutableList.of(
+                                                        p.values(p.variable("nationkey"), p.variable("regionkey")),
+                                                        p.values(p.variable("regionkey_6")))))))
+                .matches(
+                        output(
+                                project(
+                                        intersect(
+                                                values("nationkey", "regionkey"),
+                                                values("regionkey_6")))));
+    }
+
+    @Test
+    public void testExceptNodePruning()
+    {
+        assertRuleApplication()
+                .on(p ->
+                        p.output(ImmutableList.of("regionkey"), ImmutableList.of(p.variable("regionkey_16")),
+                                p.project(Assignments.of(p.variable("regionkey_16"), p.variable("regionkey_16")),
+                                        p.except(
+                                                ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                                                        .putAll(p.variable("nationkey_15"), p.variable("nationkey"), p.variable("regionkey_6"))
+                                                        .putAll(p.variable("regionkey_16"), p.variable("regionkey"), p.variable("regionkey_6"))
+                                                        .build(),
+                                                ImmutableList.of(
+                                                        p.values(p.variable("nationkey"), p.variable("regionkey")),
+                                                        p.values(p.variable("regionkey_6")))))))
+                .matches(
+                        output(
+                                project(
+                                        except(
+                                                values("nationkey", "regionkey"),
+                                                values("regionkey_6")))));
     }
 
     private OptimizerAssert assertRuleApplication()
