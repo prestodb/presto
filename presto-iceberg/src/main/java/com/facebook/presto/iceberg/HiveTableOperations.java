@@ -241,7 +241,7 @@ public class HiveTableOperations
         tableLevelMutex.lock();
         try {
             try {
-                lockId = Optional.of(metastore.lock(metastoreContext, database, tableName));
+                lockId = metastore.lock(metastoreContext, database, tableName);
                 if (base == null) {
                     String tableComment = metadata.properties().get(TABLE_COMMENT);
                     Map<String, String> parameters = new HashMap<>();
