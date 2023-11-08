@@ -71,10 +71,11 @@ void AggregateSpillBenchmarkBase::setUp() {
 void AggregateSpillBenchmarkBase::run() {
   MicrosecondTimer timer(&executionTimeUs_);
   if (spillerType_ == Spiller::Type::kAggregateInput) {
-    spiller_->spill(0, 0);
+    spiller_->spill();
   } else {
     spiller_->spill(RowContainerIterator{});
   }
+  rowContainer_->clear();
 }
 
 void AggregateSpillBenchmarkBase::printStats() const {
@@ -129,15 +130,11 @@ std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() const {
     return std::make_unique<Spiller>(
         spillerType_,
         rowContainer_.get(),
-        [&](folly::Range<char**> rows) { rowContainer_->eraseRows(rows); },
         rowType_,
-        HashBitRange{29, 29},
         rowContainer_->keyTypes().size(),
         std::vector<CompareFlags>{},
         spillDir_,
-        FLAGS_spiller_benchmark_max_spill_file_size,
         FLAGS_spiller_benchmark_write_buffer_size,
-        FLAGS_spiller_benchmark_min_spill_run_size,
         stringToCompressionKind(FLAGS_spiller_benchmark_compression_kind),
         spillerPool_.get(),
         executor_.get());
@@ -145,7 +142,6 @@ std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() const {
     return std::make_unique<Spiller>(
         spillerType_,
         rowContainer_.get(),
-        [&](folly::Range<char**> rows) { rowContainer_->eraseRows(rows); },
         rowType_,
         spillDir_,
         FLAGS_spiller_benchmark_write_buffer_size,

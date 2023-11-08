@@ -39,7 +39,6 @@ void JoinSpillInputBenchmarkBase::setUp() {
       fmt::format("{}/{}", spillDir_, FLAGS_spiller_benchmark_name),
       FLAGS_spiller_benchmark_max_spill_file_size,
       FLAGS_spiller_benchmark_write_buffer_size,
-      FLAGS_spiller_benchmark_min_spill_run_size,
       stringToCompressionKind(FLAGS_spiller_benchmark_compression_kind),
       memory::spillMemoryPool(),
       executor_.get());

@@ -136,18 +136,11 @@ void SortWindowBuild::setupSpiller() {
       // TODO Replace Spiller::Type::kOrderBy.
       Spiller::Type::kOrderBy,
       data_.get(),
-      [&](folly::Range<char**> rows) {
-        // TODO Fix Spiller to allow spilling the whole container and not
-        // require erasing rows one at a time.
-        data_->eraseRows(rows);
-      },
       inputType_,
       spillCompareFlags_.size(),
       spillCompareFlags_,
       spillConfig_->filePath,
-      std::numeric_limits<uint64_t>::max(),
       spillConfig_->writeBufferSize,
-      spillConfig_->minSpillRunSize,
       spillConfig_->compressionKind,
       memory::spillMemoryPool(),
       spillConfig_->executor);
@@ -158,7 +151,7 @@ void SortWindowBuild::spill() {
     setupSpiller();
   }
 
-  spiller_->spill(0, 0);
+  spiller_->spill();
   data_->clear();
   data_->pool()->release();
 }
@@ -217,8 +210,8 @@ void SortWindowBuild::noMoreInput() {
     // spilled data.
     spill();
 
-    spiller_->finishSpill();
-    merge_ = spiller_->startMerge(0);
+    spiller_->finalizeSpill();
+    merge_ = spiller_->startMerge();
   } else {
     // At this point we have seen all the input rows. The operator is
     // being prepared to output rows now.

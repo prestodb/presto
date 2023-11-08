@@ -104,14 +104,8 @@ class GroupingSet {
 
   const HashLookup& hashLookup() const;
 
-  /// Spills content until under 'targetRows' and under 'targetBytes'
-  /// of out of line data are left. If targetRows is 0, spills
-  /// everything and physically frees the data in the
-  /// 'table_->rows()'. This leaves 'table_' initialized and 'this'
-  /// ready to accumulate more input. This is called by ensureInputFits
-  /// or by external memory management. In the latter case, the Driver
-  /// of this will be in a paused state and off thread.
-  void spill(int64_t targetRows, int64_t targetBytes);
+  /// Spills all the rows in container.
+  void spill();
 
   /// Spills all the rows in container starting from the offset specified by
   /// 'rowIterator'.

@@ -201,8 +201,7 @@ class OrderByTest : public OperatorTestBase {
         EXPECT_LT(0, spilledStats(*task).spilledBytes);
         EXPECT_EQ(1, spilledStats(*task).spilledPartitions);
         EXPECT_LT(0, spilledStats(*task).spilledFiles);
-        // NOTE: the last input batch won't go spilling.
-        EXPECT_GT(inputRows, spilledStats(*task).spilledRows);
+        EXPECT_EQ(inputRows, spilledStats(*task).spilledRows);
         ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
         if (memory::spillMemoryPool()->trackUsage()) {
           ASSERT_GT(memory::spillMemoryPool()->stats().peakBytes, 0);
@@ -481,11 +480,11 @@ TEST_F(OrderByTest, spill) {
       params, "SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST", {0});
   auto stats = task->taskStats().pipelineStats[0].operatorStats[1];
   ASSERT_GT(stats.spilledRows, 0);
-  ASSERT_LT(stats.spilledRows, kNumBatches * kNumRows);
+  ASSERT_EQ(stats.spilledRows, kNumBatches * kNumRows);
   ASSERT_GT(stats.spilledBytes, 0);
   ASSERT_GT(stats.spilledInputBytes, 0);
   ASSERT_EQ(stats.spilledPartitions, 1);
-  ASSERT_EQ(stats.spilledFiles, 2);
+  ASSERT_EQ(stats.spilledFiles, 3);
   ASSERT_GT(stats.runtimeStats["spillRuns"].count, 0);
   ASSERT_GT(stats.runtimeStats["spillFillTime"].sum, 0);
   ASSERT_GT(stats.runtimeStats["spillSortTime"].sum, 0);

@@ -57,11 +57,8 @@ class SortBuffer {
     return spillConfig_ != nullptr;
   }
 
-  /// Invoked to spill from 'data_' to disk with specified targets.
-  ///
-  /// NOTE: if either 'targetRows' or 'targetBytes' is zero, then we spill all
-  /// the rows from 'data_'.
-  void spill(int64_t targetRows, int64_t targetBytes);
+  /// Invoked to spill all the rows from 'data_'.
+  void spill();
 
   memory::MemoryPool* pool() const {
     return pool_;

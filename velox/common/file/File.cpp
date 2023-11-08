@@ -233,8 +233,8 @@ LocalWriteFile::LocalWriteFile(
           path);
     }
   }
-  auto file = fopen(buf.get(), "ab");
-  VELOX_CHECK(
+  auto* file = fopen(buf.get(), "ab");
+  VELOX_CHECK_NOT_NULL(
       file,
       "fopen failure in LocalWriteFile constructor, {} {}.",
       path,

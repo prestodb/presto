@@ -389,17 +389,11 @@ void RowNumber::setupHashTableSpiller() {
   hashTableSpiller_ = std::make_unique<Spiller>(
       Spiller::Type::kHashJoinBuild,
       table_->rows(),
-      [&](folly::Range<char**> /*rows*/) {
-        // Do nothing. We spill hash table in full and clear it all at once.
-      },
       tableType,
       std::move(hashBits),
-      tableType->size() - 1,
-      std::vector<CompareFlags>(),
       spillConfig.filePath,
       spillConfig.maxFileSize,
       spillConfig.writeBufferSize,
-      spillConfig.minSpillRunSize,
       spillConfig.compressionKind,
       memory::spillMemoryPool(),
       spillConfig.executor);
@@ -417,7 +411,6 @@ void RowNumber::setupInputSpiller() {
       spillConfig.filePath,
       spillConfig.maxFileSize,
       spillConfig.writeBufferSize,
-      spillConfig.minSpillRunSize,
       spillConfig.compressionKind,
       memory::spillMemoryPool(),
       spillConfig.executor);
@@ -442,9 +435,6 @@ void RowNumber::spill() {
   setupHashTableSpiller();
   setupInputSpiller();
 
-  std::vector<Spiller::SpillableStats> spillableStats(
-      hashTableSpiller_->hashBits().numPartitions());
-  hashTableSpiller_->fillSpillRuns(spillableStats);
   hashTableSpiller_->spill();
   hashTableSpiller_->finishSpill(spillHashTablePartitionSet_);
 

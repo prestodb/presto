@@ -279,10 +279,10 @@ void TopNRowNumber::noMoreInput() {
     // spilled data.
     spill();
 
-    spiller_->finishSpill();
+    spiller_->finalizeSpill();
     recordSpillStats(spiller_->stats());
 
-    merge_ = spiller_->startMerge(0);
+    merge_ = spiller_->startMerge();
   } else {
     outputRows_.resize(outputBatchSize_);
   }
@@ -722,7 +722,7 @@ void TopNRowNumber::spill() {
 
   updateEstimatedOutputRowSize();
 
-  spiller_->spill(0, 0);
+  spiller_->spill();
   table_->clear();
   data_->clear();
   pool()->release();
@@ -735,18 +735,11 @@ void TopNRowNumber::setupSpiller() {
       // TODO Replace Spiller::Type::kOrderBy.
       Spiller::Type::kOrderBy,
       data_.get(),
-      [&](folly::Range<char**> rows) {
-        // TODO Fix Spiller to allow spilling the whole container and not
-        // require erasing rows one at a time.
-        data_->eraseRows(rows);
-      },
       inputType_,
       spillCompareFlags_.size(),
       spillCompareFlags_,
       spillConfig_->filePath,
-      std::numeric_limits<uint64_t>::max(),
       spillConfig_->writeBufferSize,
-      spillConfig_->minSpillRunSize,
       spillConfig_->compressionKind,
       memory::spillMemoryPool(),
       spillConfig_->executor);

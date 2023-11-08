@@ -91,7 +91,7 @@ uint64_t SortingWriter::reclaim(
   }
   VELOX_CHECK_NOT_NULL(sortBuffer_);
 
-  sortBuffer_->spill(0, 0);
+  sortBuffer_->spill();
   sortPool_->release();
   return sortPool_->shrink(targetBytes);
 }

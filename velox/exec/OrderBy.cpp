@@ -98,7 +98,7 @@ void OrderBy::reclaim(
 
   // TODO: support fine-grain disk spilling based on 'targetBytes' after having
   // row container memory compaction support later.
-  sortBuffer_->spill(0, targetBytes);
+  sortBuffer_->spill();
   // Release the minimum reserved memory.
   pool()->release();
 }

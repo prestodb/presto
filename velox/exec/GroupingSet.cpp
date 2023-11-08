@@ -224,7 +224,7 @@ void GroupingSet::noMoreInput() {
   // on this grouping set. This is to simplify query OOM prevention when
   // producing output as we don't support to spill during that stage as for now.
   if (hasSpilled()) {
-    spill(0, 0);
+    spill();
   }
 
   if (sortedAggregations_) {
@@ -849,13 +849,13 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   if (spillConfig_->testSpillPct > 0 &&
       (folly::hasher<uint64_t>()(++spillTestCounter_)) % 100 <=
           spillConfig_->testSpillPct) {
-    spill(0, 0);
+    spill();
     return;
   }
 
   const auto currentUsage = pool_.currentBytes();
   if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
-    spill(0, 0);
+    spill();
     return;
   }
 
@@ -903,11 +903,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
     }
   }
 
-  // NOTE: disk spilling use the system disk spilling memory pool instead of
-  // the operator memory pool.
-  const auto rowsToSpill = std::max<int64_t>(
-      1, targetIncrementBytes / (rows->fixedRowSize() + outOfLineBytesPerRow));
-  spill(0, 0);
+  spill();
 }
 
 void GroupingSet::ensureOutputFits() {
@@ -938,7 +934,7 @@ void GroupingSet::ensureOutputFits() {
   spill(RowContainerIterator{});
 }
 
-void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
+void GroupingSet::spill() {
   // NOTE: if the disk spilling is triggered by the memory arbitrator, then it
   // is possible that the grouping set hasn't processed any input data yet.
   // Correspondingly, 'table_' will not be initialized at that point.
@@ -960,23 +956,18 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kAggregateInput,
         rows,
-        [&](folly::Range<char**> rows) { table_->erase(rows); },
         ROW(std::move(names), std::move(types)),
         rows->keyTypes().size(),
         std::vector<CompareFlags>(),
         spillConfig_->filePath,
-        std::numeric_limits<uint64_t>::max(),
         spillConfig_->writeBufferSize,
-        spillConfig_->minSpillRunSize,
         spillConfig_->compressionKind,
         memory::spillMemoryPool(),
         spillConfig_->executor);
   }
   ++(*numSpillRuns_);
-  spiller_->spill(targetRows, targetBytes);
-  if (table_->rows()->numRows() == 0) {
-    table_->clear();
-  }
+  spiller_->spill();
+  table_->clear();
 }
 
 void GroupingSet::spill(const RowContainerIterator& rowIterator) {
@@ -999,7 +990,6 @@ void GroupingSet::spill(const RowContainerIterator& rowIterator) {
   spiller_ = std::make_unique<Spiller>(
       Spiller::Type::kAggregateOutput,
       rows,
-      [&](folly::Range<char**> rows) { table_->erase(rows); },
       ROW(std::move(names), std::move(types)),
       spillConfig_->filePath,
       spillConfig_->writeBufferSize,
@@ -1043,14 +1033,12 @@ bool GroupingSet::getOutputWithSpill(
     }
 
     VELOX_CHECK_EQ(table_->rows()->numRows(), 0);
-    const auto nonSpillRows = spiller_->finishSpill();
-    VELOX_CHECK(nonSpillRows.empty());
+    spiller_->finalizeSpill();
 
-    merge_ = spiller_->startMerge(0);
+    merge_ = spiller_->startMerge();
   }
   VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);
   VELOX_CHECK_NOT_NULL(merge_);
-
   return mergeNext(maxOutputRows, maxOutputBytes, result);
 }
 

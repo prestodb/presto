@@ -417,7 +417,7 @@ TEST_F(SortBufferTest, spill) {
     if (!testData.spillTriggered) {
       ASSERT_FALSE(spillStats.has_value());
       if (!testData.spillEnabled) {
-        VELOX_ASSERT_THROW(sortBuffer->spill(0, 0), "spill config is null");
+        VELOX_ASSERT_THROW(sortBuffer->spill(), "spill config is null");
       }
     } else {
       ASSERT_TRUE(spillStats.has_value());
@@ -428,7 +428,7 @@ TEST_F(SortBufferTest, spill) {
       // SortBuffer shall not respect maxFileSize. Total files should be num
       // addInput() calls minus one which is the first one that has nothing to
       // spill.
-      ASSERT_EQ(spillStats->spilledFiles, 2);
+      ASSERT_EQ(spillStats->spilledFiles, 3);
       sortBuffer.reset();
       ASSERT_EQ(memory::spillMemoryPool()->stats().currentBytes, 0);
       if (memory::spillMemoryPool()->trackUsage()) {
@@ -460,7 +460,7 @@ TEST_F(SortBufferTest, emptySpill) {
         &spillConfig,
         0);
 
-    sortBuffer->spill(0, 0);
+    sortBuffer->spill();
     if (hasPostSpillData) {
       VectorFuzzer fuzzer({.vectorSize = 1024}, fuzzerPool.get());
       sortBuffer->addInput(fuzzer.fuzzRow(inputType_));
