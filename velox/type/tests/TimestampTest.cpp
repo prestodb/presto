@@ -202,7 +202,7 @@ TEST(TimestampTest, toStringPrestoCastBehavior) {
   auto kMin = Timestamp(Timestamp::kMinSeconds, 0);
   auto kMax = Timestamp(Timestamp::kMaxSeconds, Timestamp::kMaxNanos);
   TimestampToStringOptions options = {
-      .precision = TimestampToStringOptions::kMilliseconds,
+      .precision = TimestampToStringOptions::Precision::kMilliseconds,
       .zeroPaddingYear = true,
       .dateTimeSeparator = ' ',
   };
@@ -227,7 +227,7 @@ std::string toStringAlt(
   std::tm tmValue;
   VELOX_CHECK_NOT_NULL(gmtime_r((const time_t*)&seconds, &tmValue));
   auto width = static_cast<int>(precision);
-  auto value = precision == TimestampToStringOptions::kMilliseconds
+  auto value = precision == TimestampToStringOptions::Precision::kMilliseconds
       ? t.getNanos() / 1'000'000
       : t.getNanos();
   std::ostringstream oss;
@@ -244,11 +244,11 @@ TEST(TimestampTest, compareWithToStringAlt) {
   std::uniform_int_distribution<int64_t> distSec(
       Timestamp::kMinSeconds, Timestamp::kMaxSeconds);
   std::uniform_int_distribution<uint64_t> distNano(0, Timestamp::kMaxNanos);
-  for (int i = 0; i < 10000; ++i) {
+  for (int i = 0; i < 10'000; ++i) {
     Timestamp t(distSec(gen), distNano(gen));
     for (auto precision :
-         {TimestampToStringOptions::kMilliseconds,
-          TimestampToStringOptions::kNanoseconds}) {
+         {TimestampToStringOptions::Precision::kMilliseconds,
+          TimestampToStringOptions::Precision::kNanoseconds}) {
       TimestampToStringOptions options{};
       options.precision = precision;
       ASSERT_EQ(t.toString(options), toStringAlt(t, precision))
@@ -299,37 +299,122 @@ TEST(TimestampTest, outOfRange) {
       t.toTimezone(*timezone), "Timestamp is outside of supported range");
 }
 
+void checkTm(const std::tm& actual, const std::tm& expected) {
+  ASSERT_EQ(expected.tm_year, actual.tm_year);
+  ASSERT_EQ(expected.tm_yday, actual.tm_yday);
+  ASSERT_EQ(expected.tm_mon, actual.tm_mon);
+  ASSERT_EQ(expected.tm_mday, actual.tm_mday);
+  ASSERT_EQ(expected.tm_wday, actual.tm_wday);
+  ASSERT_EQ(expected.tm_hour, actual.tm_hour);
+  ASSERT_EQ(expected.tm_min, actual.tm_min);
+  ASSERT_EQ(expected.tm_sec, actual.tm_sec);
+}
+
+std::string tmToString(
+    const std::tm& tmValue,
+    uint64_t nanos,
+    const std::string& format,
+    const TimestampToStringOptions& options) {
+  auto width = static_cast<int>(options.precision);
+  auto value =
+      options.precision == TimestampToStringOptions::Precision::kMilliseconds
+      ? nanos / 1'000'000
+      : nanos;
+
+  std::ostringstream oss;
+  oss << std::put_time(&tmValue, format.c_str());
+
+  if (options.mode != TimestampToStringOptions::Mode::kDateOnly) {
+    oss << '.' << std::setfill('0') << std::setw(width) << value;
+  }
+
+  return oss.str();
+}
+
 TEST(TimestampTest, epochToUtc) {
-  std::tm tm;
-  ASSERT_FALSE(epochToUtc(-(1ll << 60), tm));
-  ASSERT_FALSE(epochToUtc(1ll << 60, tm));
+  std::tm tm{};
+  ASSERT_FALSE(Timestamp::epochToUtc(-(1ll << 60), tm));
+  ASSERT_FALSE(Timestamp::epochToUtc(1ll << 60, tm));
 }
 
 TEST(TimestampTest, randomEpochToUtc) {
   uint64_t seed = 42;
-  // seed = std::random_device{}();
   std::default_random_engine gen(seed);
   std::uniform_int_distribution<time_t> dist(
       std::numeric_limits<time_t>::min(), std::numeric_limits<time_t>::max());
-  std::tm actual, expected;
-  for (int i = 0; i < 10000; ++i) {
+  std::tm actual{};
+  std::tm expected{};
+  for (int i = 0; i < 10'000; ++i) {
     auto epoch = dist(gen);
     SCOPED_TRACE(fmt::format("epoch={}", epoch));
     if (gmtime_r(&epoch, &expected)) {
-      ASSERT_TRUE(epochToUtc(epoch, actual));
-      ASSERT_EQ(expected.tm_year, actual.tm_year);
-      ASSERT_EQ(expected.tm_yday, actual.tm_yday);
-      ASSERT_EQ(expected.tm_mon, actual.tm_mon);
-      ASSERT_EQ(expected.tm_mday, actual.tm_mday);
-      ASSERT_EQ(expected.tm_wday, actual.tm_wday);
-      ASSERT_EQ(expected.tm_hour, actual.tm_hour);
-      ASSERT_EQ(expected.tm_min, actual.tm_min);
-      ASSERT_EQ(expected.tm_sec, actual.tm_sec);
+      ASSERT_TRUE(Timestamp::epochToUtc(epoch, actual));
+      checkTm(actual, expected);
     } else {
-      ASSERT_FALSE(epochToUtc(epoch, actual));
+      ASSERT_FALSE(Timestamp::epochToUtc(epoch, actual));
     }
   }
 }
 
+void testTmToString(
+    const std::string& format,
+    const TimestampToStringOptions::Mode mode) {
+  uint64_t seed = 42;
+  std::default_random_engine gen(seed);
+
+  std::uniform_int_distribution<time_t> dist(
+      std::numeric_limits<time_t>::min(), std::numeric_limits<time_t>::max());
+  std::uniform_int_distribution<int> nanosDist(0, Timestamp::kMaxNanos);
+
+  std::tm actual{};
+  std::tm expected{};
+
+  TimestampToStringOptions options;
+  options.mode = mode;
+
+  const std::vector<TimestampToStringOptions::Precision> precisions = {
+      TimestampToStringOptions::Precision::kMilliseconds,
+      TimestampToStringOptions::Precision::kNanoseconds};
+
+  for (auto precision : precisions) {
+    options.precision = precision;
+    for (int i = 0; i < 10'000; ++i) {
+      auto epoch = dist(gen);
+      auto nanos = nanosDist(gen);
+      SCOPED_TRACE(fmt::format(
+          "epoch={}, nanos={}, mode={}, precision={}",
+          epoch,
+          nanos,
+          mode,
+          precision));
+      if (gmtime_r(&epoch, &expected)) {
+        ASSERT_TRUE(Timestamp::epochToUtc(epoch, actual));
+        checkTm(actual, expected);
+
+        auto actualString = Timestamp::tmToString(actual, nanos, options);
+        auto expectedString = tmToString(expected, nanos, format, options);
+        ASSERT_EQ(expectedString, actualString);
+
+      } else {
+        ASSERT_FALSE(Timestamp::epochToUtc(epoch, actual));
+      }
+    }
+  }
+}
+
+TEST(TimestampTest, tmToStringDateOnly) {
+  // %F - equivalent to "%Y-%m-%d" (the ISO 8601 date format)
+  testTmToString("%F", TimestampToStringOptions::Mode::kDateOnly);
+}
+
+TEST(TimestampTest, tmToStringTimeOnly) {
+  // %T - equivalent to "%H:%M:%S" (the ISO 8601 time format)
+  testTmToString("%T", TimestampToStringOptions::Mode::kTimeOnly);
+}
+
+TEST(TimestampTest, tmToStringTimestamp) {
+  // %FT%T - equivalent to "%Y-%m-%dT%H:%M:%S" (the ISO 8601 timestamp format)
+  testTmToString("%FT%T", TimestampToStringOptions::Mode::kFull);
+}
 } // namespace
 } // namespace facebook::velox

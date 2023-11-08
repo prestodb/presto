@@ -406,7 +406,7 @@ struct Converter<TypeKind::VARCHAR, void, TRUNCATE, LEGACY_CAST> {
 
   static std::string cast(const Timestamp& val) {
     TimestampToStringOptions options;
-    options.precision = TimestampToStringOptions::kMilliseconds;
+    options.precision = TimestampToStringOptions::Precision::kMilliseconds;
     return val.toString(options);
   }
 

@@ -31,26 +31,29 @@ class time_zone;
 namespace facebook::velox {
 
 struct TimestampToStringOptions {
-  enum Precision : int8_t {
+  enum class Precision : int8_t {
     kMilliseconds = 3,
     kNanoseconds = 9,
-  } precision = kNanoseconds;
+  };
+
+  Precision precision = Precision::kNanoseconds;
 
   bool zeroPaddingYear = false;
   char dateTimeSeparator = 'T';
-  bool dateOnly = false;
+
+  enum class Mode : int8_t {
+    /// ISO 8601 timestamp format: %Y-%m-%dT%H:%M:%S.nnnnnnnnn for nanoseconds
+    /// precision; %Y-%m-%dT%H:%M:%S.nnn for milliseconds precision.
+    kFull,
+    /// ISO 8601 date format: %Y-%m-%d.
+    kDateOnly,
+    /// ISO 8601 time format: %H:%M:%S.nnnnnnnnn for nanoseconds precision,
+    /// or %H:%M:%S.nnn for milliseconds precision.
+    kTimeOnly,
+  };
+
+  Mode mode = Mode::kFull;
 };
-
-// Our own version of gmtime_r to avoid expensive calls to __tz_convert.  This
-// might not be very significant in micro benchmark, but is causing significant
-// context switching cost in real world queries with higher concurrency (71% of
-// time is on __tz_convert for some queries).
-//
-// Return whether the epoch second can be converted to a valid std::tm.
-bool epochToUtc(int64_t seconds, std::tm& out);
-
-std::string
-tmToString(const std::tm&, int nanos, const TimestampToStringOptions&);
 
 struct Timestamp {
  public:
@@ -205,6 +208,21 @@ struct Timestamp {
   static const Timestamp max() {
     return Timestamp(kMaxSeconds, kMaxNanos);
   }
+
+  /// Our own version of gmtime_r to avoid expensive calls to __tz_convert.
+  /// This might not be very significant in micro benchmark, but is causing
+  /// significant context switching cost in real world queries with higher
+  /// concurrency (71% of time is on __tz_convert for some queries).
+  ///
+  /// Return whether the epoch second can be converted to a valid std::tm.
+  static bool epochToUtc(int64_t seconds, std::tm& out);
+
+  /// Converts a std::tm to a time/date/timestamp string in ISO 8601 format
+  /// according to TimestampToStringOptions.
+  static std::string tmToString(
+      const std::tm&,
+      uint64_t nanos,
+      const TimestampToStringOptions& options);
 
   // Assuming the timestamp represents a time at zone, converts it to the GMT
   // time at the same moment.

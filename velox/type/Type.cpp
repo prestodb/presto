@@ -1018,10 +1018,12 @@ std::string DateType::toString(int32_t days) const {
   int64_t daySeconds = days * (int64_t)(86400);
   std::tm tmValue;
   VELOX_CHECK(
-      epochToUtc(daySeconds, tmValue), "Can't convert days to dates: {}", days);
+      Timestamp::epochToUtc(daySeconds, tmValue),
+      "Can't convert days to dates: {}",
+      days);
   TimestampToStringOptions options;
-  options.dateOnly = true;
-  return tmToString(tmValue, 0, options);
+  options.mode = TimestampToStringOptions::Mode::kDateOnly;
+  return Timestamp::tmToString(tmValue, 0, options);
 }
 
 int32_t DateType::toDays(folly::StringPiece in) const {
