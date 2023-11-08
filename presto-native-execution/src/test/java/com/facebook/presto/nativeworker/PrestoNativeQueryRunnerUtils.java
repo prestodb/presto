@@ -184,6 +184,7 @@ public class PrestoNativeQueryRunnerUtils
                             configProperties = format("%s%n" +
                                     "remote-function-server.catalog-name=%s%n" +
                                     "remote-function-server.thrift.uds-path=%s%n" +
+                                    "remote-function-server.serde=presto_page%n" +
                                     "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
                         }
                         Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());

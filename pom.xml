@@ -55,7 +55,7 @@
         <dep.drift.version>1.36</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
-        <dep.joda.version>2.12.2</dep.joda.version>
+        <dep.joda.version>2.12.5</dep.joda.version>
         <dep.tempto.version>1.53</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>

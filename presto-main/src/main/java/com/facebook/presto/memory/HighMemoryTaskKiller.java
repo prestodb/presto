@@ -181,6 +181,7 @@ public class HighMemoryTaskKiller
                 triggerTaskKiller = true;
             }
         }
+        log.debug("Task Killer Trigger: " + triggerTaskKiller + ", Before Full GC Head Size: " + beforeGcDataSize.toBytes() + " After Full GC Heap Size: " + afterGcDataSize.toBytes());
 
         return triggerTaskKiller;
     }
@@ -202,14 +203,13 @@ public class HighMemoryTaskKiller
         Comparator<Map.Entry<QueryId, Long>> comparator = Comparator.comparingLong(Map.Entry::getValue);
 
         Optional<QueryId> maxMemoryConsumpingQueryId = queryIDToSqlTaskMap.asMap().entrySet().stream()
-                //Convert to Entry<QueryId, Long>, QueryId -> Total Memory Reservation
                 .map(entry ->
                         new AbstractMap.SimpleEntry<>(entry.getKey(), entry.getValue().stream()
                                 .map(SqlTask::getTaskInfo)
                                 .map(TaskInfo::getStats)
                                 .mapToLong(stats -> stats.getUserMemoryReservationInBytes() + stats.getSystemMemoryReservationInBytes() + stats.getRevocableMemoryReservationInBytes())
                                 .sum())
-                ).max(comparator.reversed()).map(Map.Entry::getKey);
+                ).max(comparator).map(Map.Entry::getKey);
 
         return maxMemoryConsumpingQueryId;
     }
