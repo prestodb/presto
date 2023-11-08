@@ -67,7 +67,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   PrestoExchangeSource(
       const folly::Uri& baseUri,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       velox::memory::MemoryPool* pool,
       folly::CPUThreadPoolExecutor* driverExecutor,
       folly::IOThreadPoolExecutor* httpExecutor,
@@ -100,10 +100,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       uint32_t maxBytes,
       uint32_t maxWaitSeconds) override;
 
-  static std::unique_ptr<ExchangeSource> create(
+  static std::shared_ptr<ExchangeSource> create(
       const std::string& url,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       velox::memory::MemoryPool* pool,
       folly::CPUThreadPoolExecutor* cpuExecutor,
       folly::IOThreadPoolExecutor* ioExecutor);

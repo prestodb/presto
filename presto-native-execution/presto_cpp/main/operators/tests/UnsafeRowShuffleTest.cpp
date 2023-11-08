@@ -242,17 +242,17 @@ void registerExchangeSource(const std::string& shuffleName) {
       [shuffleName](
           const std::string& taskId,
           int destination,
-          std::shared_ptr<exec::ExchangeQueue> queue,
+          const std::shared_ptr<exec::ExchangeQueue>& queue,
           memory::MemoryPool* FOLLY_NONNULL pool)
-          -> std::unique_ptr<exec::ExchangeSource> {
+          -> std::shared_ptr<exec::ExchangeSource> {
         if (strncmp(taskId.c_str(), "batch://", 8) == 0) {
           auto uri = folly::Uri(taskId);
           for (auto& pair : uri.getQueryParams()) {
             if (pair.first == "shuffleInfo") {
-              return std::make_unique<UnsafeRowExchangeSource>(
+              return std::make_shared<UnsafeRowExchangeSource>(
                   taskId,
                   destination,
-                  std::move(queue),
+                  queue,
                   ShuffleInterfaceFactory::factory(shuffleName)
                       ->createReader(pair.second, destination, pool),
                   pool);

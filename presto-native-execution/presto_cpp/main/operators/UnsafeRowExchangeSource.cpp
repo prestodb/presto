@@ -90,11 +90,11 @@ std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
 } // namespace
 
 // static
-std::unique_ptr<velox::exec::ExchangeSource>
+std::shared_ptr<velox::exec::ExchangeSource>
 UnsafeRowExchangeSource::createExchangeSource(
     const std::string& url,
     int32_t destination,
-    std::shared_ptr<velox::exec::ExchangeQueue> queue,
+    const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
     velox::memory::MemoryPool* FOLLY_NONNULL pool) {
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
@@ -113,10 +113,10 @@ UnsafeRowExchangeSource::createExchangeSource(
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");
   auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-  return std::make_unique<UnsafeRowExchangeSource>(
+  return std::make_shared<UnsafeRowExchangeSource>(
       uri.host(),
       destination,
-      std::move(queue),
+      queue,
       shuffleFactory->createReader(
           serializedShuffleInfo.value(), destination, pool),
       pool);
