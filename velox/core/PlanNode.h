@@ -597,12 +597,7 @@ class AggregationNode : public PlanNode {
     return "Aggregation";
   }
 
-  bool canSpill(const QueryConfig& queryConfig) const override {
-    // TODO: add spilling for pre-grouped aggregation later:
-    // https://github.com/facebookincubator/velox/issues/3264
-    return (isFinal() || isSingle()) && preGroupedKeys().empty() &&
-        queryConfig.aggregationSpillEnabled();
-  }
+  bool canSpill(const QueryConfig& queryConfig) const override;
 
   bool isFinal() const {
     return step_ == Step::kFinal;

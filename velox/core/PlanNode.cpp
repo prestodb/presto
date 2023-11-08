@@ -227,6 +227,21 @@ void addSortingKeys(
 }
 } // namespace
 
+bool AggregationNode::canSpill(const QueryConfig& queryConfig) const {
+  // TODO: add spilling for aggregations with sorting or with distinct later:
+  // https://github.com/facebookincubator/velox/issues/7454
+  // https://github.com/facebookincubator/velox/issues/7455
+  for (const auto& aggregate : aggregates_) {
+    if (aggregate.distinct || !aggregate.sortingKeys.empty()) {
+      return false;
+    }
+  }
+  // TODO: add spilling for pre-grouped aggregation later:
+  // https://github.com/facebookincubator/velox/issues/3264
+  return (isFinal() || isSingle()) && preGroupedKeys().empty() &&
+      queryConfig.aggregationSpillEnabled();
+}
+
 void AggregationNode::addDetails(std::stringstream& stream) const {
   stream << stepName(step_) << " ";
 
