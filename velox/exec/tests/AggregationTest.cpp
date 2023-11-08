@@ -26,6 +26,7 @@
 #include "velox/exec/GroupingSet.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/RowContainer.h"
+#include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -149,12 +150,11 @@ class AggregationTest : public OperatorTestBase {
   }
 
   std::vector<RowVectorPtr>
-  makeVectors(const RowTypePtr& rowType, vector_size_t size, int numVectors) {
+  makeVectors(const RowTypePtr& rowType, size_t size, int numVectors) {
     std::vector<RowVectorPtr> vectors;
+    VectorFuzzer fuzzer({.vectorSize = size}, pool());
     for (int32_t i = 0; i < numVectors; ++i) {
-      auto vector = std::dynamic_pointer_cast<RowVector>(
-          velox::test::BatchMaker::createBatch(rowType, size, *pool_));
-      vectors.push_back(vector);
+      vectors.push_back(fuzzer.fuzzInputRow(rowType));
     }
     return vectors;
   }
@@ -1063,12 +1063,7 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   rng_.seed(1);
   rowType_ = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({}, pool());
-  const int32_t numBatches = 5;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType_));
-  }
+  auto batches = makeVectors(rowType_, 100, 5);
 
   core::PlanNodeId aggrNodeId;
   const auto plan = PlanBuilder()
@@ -1116,14 +1111,7 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
 }
 
 TEST_F(AggregationTest, spillAll) {
-  VectorFuzzer::Options options;
-  options.vectorSize = 100;
-  VectorFuzzer fuzzer(options, pool());
-  const int numVectors = 10;
-  std::vector<RowVectorPtr> inputs;
-  for (int i = 0; i < numVectors; ++i) {
-    inputs.push_back(fuzzer.fuzzRow(rowType_));
-  }
+  auto inputs = makeVectors(rowType_, 100, 10);
 
   const auto numDistincts =
       AssertQueryBuilder(PlanBuilder()
@@ -1719,6 +1707,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, minSpillableMemoryReservation) {
   for (int32_t i = 0; i < numBatches; ++i) {
     batches.push_back(fuzzer.fuzzRow(rowType_));
   }
+
   createDuckDbTable(batches);
 
   for (int32_t minSpillableReservationPct : {5, 50, 100}) {
@@ -1841,11 +1830,7 @@ TEST_F(AggregationTest, spillingForAggrsWithSorting) {
 TEST_F(AggregationTest, distinctSpillWithMemoryLimit) {
   rowType_ = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
   VectorFuzzer fuzzer({}, pool());
-  const int32_t numBatches = 5;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzInputRow(rowType_));
-  }
+  auto batches = makeVectors(rowType_, 100, 5);
 
   core::PlanNodeId aggrNodeId;
   const auto plan = PlanBuilder()
@@ -1986,12 +1971,8 @@ TEST_F(AggregationTest, adaptiveOutputBatchRows) {
 DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), VARCHAR()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType));
-  }
+  const int numBatches = 10;
+  auto batches = makeVectors(rowType, 1000, numBatches);
 
   struct {
     // 0: trigger reclaim with some input processed.
@@ -2031,7 +2012,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
     folly::EventCount testWait;
     auto testWaitKey = testWait.prepareWait();
 
-    std::atomic<int> numInputs{0};
+    std::atomic_int numInputs{0};
     Operator* op;
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::addInput",
@@ -2180,7 +2161,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
         op = testOp;
       })));
 
-  std::atomic<bool> injectOnce{true};
+  std::atomic_bool injectOnce{true};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
       std::function<void(memory::MemoryPoolImpl*)>(
@@ -2251,12 +2232,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
 DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), VARCHAR()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType));
-  }
+  auto batches = makeVectors(rowType, 1000, 10);
 
   std::vector<bool> enableSpillings = {false, true};
   for (const auto enableSpilling : enableSpillings) {
@@ -2292,7 +2268,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
           op = testOp;
         })));
 
-    std::atomic<bool> injectOnce{true};
+    std::atomic_bool injectOnce{true};
     SCOPED_TESTVALUE_SET(
         "facebook::velox::common::memory::MemoryPoolImpl::allocateNonContiguous",
         std::function<void(memory::MemoryPoolImpl*)>(
@@ -2383,12 +2359,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
 DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType));
-  }
+  auto batches = makeVectors(rowType, 1000, 10);
 
   std::vector<bool> enableSpillings = {false, true};
   for (const auto enableSpilling : enableSpillings) {
@@ -2407,12 +2378,12 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
             .queryCtx(queryCtx)
             .copyResults(pool_.get());
 
-    std::atomic<bool> driverWaitFlag{true};
+    std::atomic_bool driverWaitFlag{true};
     folly::EventCount driverWait;
-    std::atomic<bool> testWaitFlag{true};
+    std::atomic_bool testWaitFlag{true};
     folly::EventCount testWait;
 
-    std::atomic<bool> injectNoMoreInputOnce{true};
+    std::atomic_bool injectNoMoreInputOnce{true};
     Operator* op{nullptr};
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::noMoreInput",
@@ -2515,12 +2486,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
 DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringNonReclaimableSection) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType));
-  }
+  auto batches = makeVectors(rowType, 1000, 10);
 
   struct {
     bool enableSpilling;
@@ -2558,12 +2524,12 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringNonReclaimableSection) {
         std::function<void(Driver*)>(
             [&](Driver* testDriver) { driver = testDriver; }));
 
-    std::atomic<bool> driverWaitFlag{true};
+    std::atomic_bool driverWaitFlag{true};
     folly::EventCount driverWait;
-    std::atomic<bool> testWaitFlag{true};
+    std::atomic_bool testWaitFlag{true};
     folly::EventCount testWait;
 
-    std::atomic<bool> injectNonReclaimableSectionOnce{true};
+    std::atomic_bool injectNonReclaimableSectionOnce{true};
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::GroupingSet::addInputForActiveRows",
         std::function<void(GroupingSet*)>(([&](GroupingSet* groupSet) {
@@ -2686,12 +2652,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringNonReclaimableSection) {
 DEBUG_ONLY_TEST_F(AggregationTest, reclaimWithEmptyAggregationTable) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType));
-  }
+  auto batches = makeVectors(rowType, 1000, 10);
+
   std::vector<bool> enableSpillings = {false, true};
   for (const auto enableSpilling : enableSpillings) {
     SCOPED_TRACE(fmt::format("enableSpilling {}", enableSpilling));
@@ -2722,7 +2684,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimWithEmptyAggregationTable) {
             .capturePlanNodeId(aggregationPlanNodeId)
             .planNode();
 
-    std::atomic<bool> injectOnce{true};
+    std::atomic_bool injectOnce{true};
     Operator* op;
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal",
@@ -2813,12 +2775,7 @@ void abortPool(memory::MemoryPool* pool) {
 DEBUG_ONLY_TEST_F(AggregationTest, abortDuringOutputProcessing) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType));
-  }
+  auto batches = makeVectors(rowType, 1000, 10);
 
   struct {
     bool abortFromRootMemoryPool;
@@ -2852,7 +2809,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringOutputProcessing) {
     folly::EventCount testWait;
     auto testWaitKey = testWait.prepareWait();
 
-    std::atomic<bool> injectOnce{true};
+    std::atomic_bool injectOnce{true};
     Operator* op;
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::noMoreInput",
@@ -2907,12 +2864,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringOutputProcessing) {
 DEBUG_ONLY_TEST_F(AggregationTest, abortDuringInputgProcessing) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType));
-  }
+  auto batches = makeVectors(rowType, 1000, 10);
 
   struct {
     bool abortFromRootMemoryPool;
@@ -2946,7 +2898,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, abortDuringInputgProcessing) {
     folly::EventCount testWait;
     auto testWaitKey = testWait.prepareWait();
 
-    std::atomic<int> numInputs{0};
+    std::atomic_int numInputs{0};
     Operator* op;
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::addInput",
@@ -3037,5 +2989,128 @@ TEST_F(AggregationTest, memoryPoolAllocationAtInit) {
                   .planNode();
 
   assertQuery(plan, "SELECT c0, cast(NULL as INT) FROM tmp GROUP BY c0");
+}
+
+DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyInput) {
+  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
+  auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), VARCHAR()});
+  const int32_t numBatches = 5;
+  auto batches = makeVectors(rowType, numBatches, 100);
+
+  std::atomic_bool injectReclaimOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const exec::Values*)>([&](const exec::Values* values) {
+        if (!injectReclaimOnce.exchange(false)) {
+          return;
+        }
+        auto* driver = values->testingOperatorCtx()->driver();
+        auto task = values->testingOperatorCtx()->task();
+        {
+          MemoryReclaimer::Stats stats;
+          SuspendedSection suspendedSection(driver);
+          task->pool()->reclaim(kMaxBytes, stats);
+          ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+        }
+        static_cast<memory::MemoryPoolImpl*>(task->pool())
+            ->testingSetCapacity(kMaxBytes);
+      }));
+
+  auto tempDirectory = exec::test::TempDirectoryPath::create();
+  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  queryCtx->testingOverrideMemoryPool(
+      memory::defaultMemoryManager().addRootPool(
+          queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
+  core::PlanNodeId aggNodeId;
+  auto task =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values(batches)
+              // Set fake filter to ensure empty input to aggregation operator.
+              .filter("c0 != c0")
+              .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+              .capturePlanNodeId(aggNodeId)
+              .planNode(),
+          duckDbQueryRunner_)
+          .spillDirectory(tempDirectory->path)
+          .queryCtx(queryCtx)
+          .config(QueryConfig::kSpillEnabled, "true")
+          .config(QueryConfig::kAggregationSpillEnabled, "true")
+          .assertEmptyResults();
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  ASSERT_EQ(taskStats.at(aggNodeId).spilledBytes, 0);
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+}
+
+DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
+  constexpr int64_t kMaxBytes = 4LL << 30; // 4GB
+  auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), VARCHAR()});
+  auto batches = makeVectors(rowType, 100, 5);
+
+  auto expectedResult =
+      AssertQueryBuilder(PlanBuilder()
+                             .values(batches)
+                             .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                             .planNode())
+          .copyResults(pool_.get());
+
+  std::atomic_int numGetOutput{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::getOutput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "Aggregation") {
+          return;
+        }
+        // Inject reclaim after the aggregation operator has received all the
+        // inputs.
+        if (!op->testingNoMoreInput()) {
+          return;
+        }
+        // Inject reclaim after the aggregation operator has produced all the
+        // output and before it has finished.
+        if (++numGetOutput != 2) {
+          return;
+        }
+        auto* driver = op->testingOperatorCtx()->driver();
+        auto task = op->testingOperatorCtx()->task();
+        {
+          MemoryReclaimer::Stats stats;
+          SuspendedSection suspendedSection(driver);
+          task->pool()->reclaim(kMaxBytes, stats);
+          ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+        }
+        // Sets back the memory capacity to proceed the test.
+        static_cast<memory::MemoryPoolImpl*>(task->pool())
+            ->testingSetCapacity(kMaxBytes);
+      })));
+
+  auto tempDirectory = exec::test::TempDirectoryPath::create();
+  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  queryCtx->testingOverrideMemoryPool(
+      memory::defaultMemoryManager().addRootPool(
+          queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
+  core::PlanNodeId aggNodeId;
+  auto task =
+      AssertQueryBuilder(PlanBuilder()
+                             .values(batches)
+                             .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                             .capturePlanNodeId(aggNodeId)
+                             .planNode())
+          .spillDirectory(tempDirectory->path)
+          .queryCtx(queryCtx)
+          .config(QueryConfig::kSpillEnabled, "true")
+          .config(QueryConfig::kAggregationSpillEnabled, "true")
+          // Set the output query configs to ensure fetch the result in one
+          // output batch.
+          .config(
+              QueryConfig::kPreferredOutputBatchBytes,
+              std::to_string(1UL << 30))
+          .config(QueryConfig::kMaxOutputBatchRows, std::to_string(1024))
+          .assertResults(expectedResult);
+  // Since the spilling is triggered after the aggregation operator has produced
+  // all the output, we don't expect any spilled data.
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  ASSERT_EQ(taskStats.at(aggNodeId).spilledBytes, 0);
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
 } // namespace facebook::velox::exec::test

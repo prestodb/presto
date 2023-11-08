@@ -1038,7 +1038,9 @@ bool GroupingSet::getOutputWithSpill(
     merge_ = spiller_->startMerge();
   }
   VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);
-  VELOX_CHECK_NOT_NULL(merge_);
+  if (merge_ == nullptr) {
+    return false;
+  }
   return mergeNext(maxOutputRows, maxOutputBytes, result);
 }
 
@@ -1058,6 +1060,7 @@ bool GroupingSet::mergeNextWithAggregates(
     int32_t maxOutputBytes,
     const RowVectorPtr& result) {
   VELOX_CHECK(!isDistinct());
+  VELOX_CHECK_NOT_NULL(merge_);
 
   // True if 'merge_' indicates that the next key is the same as the current
   // one.
@@ -1088,6 +1091,7 @@ bool GroupingSet::mergeNextWithAggregates(
 bool GroupingSet::mergeNextWithoutAggregates(
     int32_t maxOutputRows,
     const RowVectorPtr& result) {
+  VELOX_CHECK_NOT_NULL(merge_);
   VELOX_CHECK(isDistinct());
 
   // We are looping over sorted rows produced by tree-of-losers. We logically

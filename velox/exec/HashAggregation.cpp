@@ -516,6 +516,10 @@ void HashAggregation::reclaim(
   VELOX_CHECK(canReclaim());
   VELOX_CHECK(!nonReclaimableSection_);
 
+  if (groupingSet_ == nullptr) {
+    return;
+  }
+
   updateEstimatedOutputRowSize();
 
   if (noMoreInput_) {
