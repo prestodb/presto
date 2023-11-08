@@ -28,7 +28,7 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
   BroadcastExchangeSource(
       const std::string& taskId,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       const std::shared_ptr<BroadcastFileReader>& reader,
       velox::memory::MemoryPool* pool)
       : ExchangeSource(taskId, destination, queue, pool), reader_(reader) {}
@@ -51,10 +51,10 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
 
   /// Url format for this exchange source:
   /// batch://<taskid>?broadcastInfo={fileInfos:[<fileInfo>]}.
-  static std::unique_ptr<ExchangeSource> createExchangeSource(
+  static std::shared_ptr<ExchangeSource> createExchangeSource(
       const std::string& url,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       velox::memory::MemoryPool* pool);
 
  private:
