@@ -432,6 +432,19 @@ TEST_F(DateTimeFunctionsTest, addMonths) {
       fmt::format("Integer overflow in add_months(2023-07-10, {})", kMax));
 }
 
+TEST_F(DateTimeFunctionsTest, monthDate) {
+  const auto month = [&](const std::string& dateString) {
+    return evaluateOnce<int32_t, int32_t>(
+        "month(c0)", {parseDate(dateString)}, {DATE()});
+  };
+
+  EXPECT_EQ(4, month("2015-04-08"));
+  EXPECT_EQ(11, month("2013-11-08"));
+  EXPECT_EQ(1, month("1987-01-08"));
+  EXPECT_EQ(8, month("1954-08-08"));
+}
+
+
 TEST_F(DateTimeFunctionsTest, quarterDate) {
   const auto quarter = [&](const std::string& dateString) {
     return evaluateOnce<int32_t, int32_t>(

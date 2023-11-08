@@ -91,6 +91,12 @@ These functions support TIMESTAMP and DATE input types.
 
         SELECT quarter('2009-07-30'); -- 3
 
+.. spark:function:: month(date) -> integer
+
+    Returns the month of ``date``. ::
+
+        SELECT month('2009-07-30'); -- 7
+       
 .. spark:function:: to_unix_timestamp(string) -> integer
 
     Alias for ``unix_timestamp(string) -> integer``.

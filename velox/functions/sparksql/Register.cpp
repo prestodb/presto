@@ -267,6 +267,8 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<QuarterFunction, int32_t, Date>({prefix + "quarter"});
 
+  registerFunction<MonthFunction, int32_t, Date>({prefix + "month"});
+
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});
