@@ -99,7 +99,7 @@ bool isChecksumBitSet(int8_t codec) {
   return (codec & kCheckSumBitMask) == kCheckSumBitMask;
 }
 
-std::string typeToEncodingName(const TypePtr& type) {
+std::string_view typeToEncodingName(const TypePtr& type) {
   switch (type->kind()) {
     case TypeKind::BOOLEAN:
       return "BYTE_ARRAY";
