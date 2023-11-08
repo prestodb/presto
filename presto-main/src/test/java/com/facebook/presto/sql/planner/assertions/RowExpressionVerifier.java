@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -52,6 +53,7 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
@@ -235,6 +237,34 @@ public final class RowExpressionVerifier
         }
 
         return process(expected.getValue(), ((SpecialFormExpression) argument).getArguments().get(0));
+    }
+
+    @Override
+    protected Boolean visitSearchedCaseExpression(SearchedCaseExpression node, RowExpression actual)
+    {
+        if (!(actual instanceof SpecialFormExpression) || !((SpecialFormExpression) actual).getForm().equals(SWITCH)) {
+            return false;
+        }
+        SpecialFormExpression specialForm = (SpecialFormExpression) actual;
+        int argumentSize = node.getWhenClauses().size() + 1;
+        if (node.getDefaultValue().isPresent()) {
+            ++argumentSize;
+        }
+        if (specialForm.getArguments().size() != argumentSize) {
+            return false;
+        }
+        if (!specialForm.getArguments().get(0).equals(constant(true, BooleanType.BOOLEAN))) {
+            return false;
+        }
+        for (int i = 0; i < node.getWhenClauses().size(); ++i) {
+            if (!process(node.getWhenClauses().get(i), specialForm.getArguments().get(i + 1))) {
+                return false;
+            }
+        }
+        if (node.getDefaultValue().isPresent()) {
+            return process(node.getDefaultValue().get(), specialForm.getArguments().get(argumentSize - 1));
+        }
+        return true;
     }
 
     @Override
