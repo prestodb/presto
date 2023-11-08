@@ -95,6 +95,29 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
   memory::MemoryPool* const FOLLY_NONNULL pool_;
   std::vector<BufferPtr> buffers_;
 };
+
+// Read from the stream until the full row is concatenated.
+std::string concatenatePartialRow(
+    ByteStream* source,
+    std::string_view rowFragment,
+    UnsafeRowVectorSerializer::TRowSize rowSize) {
+  std::string rowBuffer;
+  rowBuffer.reserve(rowSize);
+  rowBuffer.append(rowFragment);
+
+  while (rowBuffer.size() < rowSize) {
+    rowFragment = source->nextView(rowSize - rowBuffer.size());
+    VELOX_CHECK_GT(
+        rowFragment.size(),
+        0,
+        "Unable to read full serialized UnsafeRow. Needed {} but read {} bytes.",
+        rowSize - rowBuffer.size(),
+        rowFragment.size());
+    rowBuffer += rowFragment;
+  }
+  return rowBuffer;
+}
+
 } // namespace
 
 std::unique_ptr<VectorSerializer> UnsafeRowVectorSerde::createSerializer(
@@ -112,11 +135,21 @@ void UnsafeRowVectorSerde::deserialize(
     RowVectorPtr* result,
     const Options* /* options */) {
   std::vector<std::optional<std::string_view>> serializedRows;
+  std::vector<std::string> concatenatedRows;
+
   while (!source->atEnd()) {
     // First read row size in big endian order.
     auto rowSize =
         folly::Endian::big(source->read<UnsafeRowVectorSerializer::TRowSize>());
     auto row = source->nextView(rowSize);
+
+    // If we couldn't read the entire row at once, we need to concatenate it
+    // in a different buffer.
+    if (row.size() < rowSize) {
+      concatenatedRows.push_back(concatenatePartialRow(source, row, rowSize));
+      row = concatenatedRows.back();
+    }
+
     VELOX_CHECK_EQ(row.size(), rowSize);
     serializedRows.push_back(row);
   }
