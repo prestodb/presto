@@ -181,6 +181,7 @@ public class HighMemoryTaskKiller
                 triggerTaskKiller = true;
             }
         }
+        log.debug("Task Killer Trigger: " + triggerTaskKiller + ", Before Full GC Head Size: " + beforeGcDataSize.toBytes() + " After Full GC Heap Size: " + afterGcDataSize.toBytes());
 
         return triggerTaskKiller;
     }
