@@ -87,6 +87,28 @@ class VectorSerde {
       RowTypePtr type,
       RowVectorPtr* result,
       const Options* options = nullptr) = 0;
+
+  /// Returns true if implements 'deserialize' API with 'resultOffset' to allow
+  /// for appending deserialized data to an existing vector.
+  virtual bool supportsAppendInDeserialize() const {
+    return false;
+  }
+
+  /// Deserializes data from 'source' and appends to 'result' vector starting at
+  /// 'resultOffset'.
+  /// @param result Result vector to append new data to. Can be null only if
+  /// 'resultOffset' is zero.
+  /// @param resultOffset Must be greater than or equal to zero. If > 0, must be
+  /// less than or equal to the size of 'result'.
+  virtual void deserialize(
+      ByteStream* source,
+      velox::memory::MemoryPool* pool,
+      RowTypePtr type,
+      RowVectorPtr* result,
+      vector_size_t resultOffset,
+      const Options* options = nullptr) {
+    VELOX_UNSUPPORTED();
+  }
 };
 
 /// Register/deregister the "default" vector serde.
