@@ -28,6 +28,7 @@
 #include "folly/CPortability.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/Macros.h"
+#include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/ArithmeticImpl.h"
 
 namespace facebook::velox::functions {
@@ -528,6 +529,57 @@ struct WilsonIntervalLowerFunction {
       const int64_t& trials,
       const double& z) {
     result = wilsonInterval<false /*isUpper*/>(successes, trials, z);
+  }
+};
+
+template <typename T>
+struct CosineSimilarityFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  double normalizeMap(const null_free_arg_type<Map<Varchar, double>>& map) {
+    double norm = 0.0;
+    for (const auto& [key, value] : map) {
+      norm += (value * value);
+    }
+    return std::sqrt(norm);
+  }
+
+  double mapDotProduct(
+      const null_free_arg_type<Map<Varchar, double>>& leftMap,
+      const null_free_arg_type<Map<Varchar, double>>& rightMap) {
+    double result = 0.0;
+    for (const auto& [key, value] : leftMap) {
+      auto it = rightMap.find(key);
+      if (it != rightMap.end()) {
+        result += value * it->second;
+      }
+    }
+    return result;
+  }
+
+  void callNullFree(
+      out_type<double>& result,
+      const null_free_arg_type<Map<Varchar, double>>& leftMap,
+      const null_free_arg_type<Map<Varchar, double>>& rightMap) {
+    if (leftMap.empty() || rightMap.empty()) {
+      result = std::numeric_limits<double>::quiet_NaN();
+      return;
+    }
+
+    double normLeftMap = normalizeMap(leftMap);
+    if (normLeftMap == 0.0) {
+      result = std::numeric_limits<double>::quiet_NaN();
+      return;
+    }
+
+    double normRightMap = normalizeMap(rightMap);
+    if (normRightMap == 0.0) {
+      result = std::numeric_limits<double>::quiet_NaN();
+      return;
+    }
+
+    double dotProduct = mapDotProduct(leftMap, rightMap);
+    result = dotProduct / (normLeftMap * normRightMap);
   }
 };
 

@@ -821,5 +821,51 @@ TEST_F(ArithmeticTest, wilsonIntervalUpper) {
   EXPECT_DOUBLE_EQ(wilsonIntervalUpper(1, 3, kInf).value(), 1.0);
 }
 
+TEST_F(ArithmeticTest, cosineSimilarity) {
+  const auto cosineSimilarity =
+      [&](const std::vector<std::pair<std::string, std::optional<double>>>&
+              left,
+          const std::vector<std::pair<std::string, std::optional<double>>>&
+              right) {
+        auto leftMap = makeMapVector<std::string, double>({left});
+        auto rightMap = makeMapVector<std::string, double>({right});
+        return evaluateOnce<double>(
+                   "cosine_similarity(c0,c1)",
+                   makeRowVector({leftMap, rightMap}))
+            .value();
+      };
+
+  EXPECT_DOUBLE_EQ(
+      (2.0 * 3.0) / (std::sqrt(5.0) * std::sqrt(10.0)),
+      cosineSimilarity({{"a", 1}, {"b", 2}}, {{"c", 1}, {"b", 3}}));
+
+  EXPECT_DOUBLE_EQ(
+      (2.0 * 3.0 + (-1) * 1) / (std::sqrt(1 + 4 + 1) * std::sqrt(1 + 9)),
+      cosineSimilarity({{"a", 1}, {"b", 2}, {"c", -1}}, {{"c", 1}, {"b", 3}}));
+
+  EXPECT_DOUBLE_EQ(
+      (2.0 * 3.0 + (-1) * 1) / (std::sqrt(1 + 4 + 1) * std::sqrt(1 + 9)),
+      cosineSimilarity({{"a", 1}, {"b", 2}, {"c", -1}}, {{"c", 1}, {"b", 3}}));
+
+  EXPECT_DOUBLE_EQ(
+      0.0,
+      cosineSimilarity({{"a", 1}, {"b", 2}, {"c", -1}}, {{"d", 1}, {"e", 3}}));
+
+  EXPECT_TRUE(std::isnan(cosineSimilarity({}, {})));
+  EXPECT_TRUE(std::isnan(cosineSimilarity({{"d", 1}, {"e", 3}}, {})));
+  EXPECT_TRUE(
+      std::isnan(cosineSimilarity({{"a", 1}, {"b", 3}}, {{"a", 0}, {"b", 0}})));
+
+  auto nullableLeftMap = makeNullableMapVector<StringView, double>(
+      {{{{"a"_sv, 1}, {"b"_sv, std::nullopt}}}});
+  auto rightMap =
+      makeMapVector<StringView, double>({{{{"c"_sv, 1}, {"b"_sv, 3}}}});
+
+  EXPECT_FALSE(evaluateOnce<double>(
+                   "cosine_similarity(c0,c1)",
+                   makeRowVector({nullableLeftMap, rightMap}))
+                   .has_value());
+}
+
 } // namespace
 } // namespace facebook::velox

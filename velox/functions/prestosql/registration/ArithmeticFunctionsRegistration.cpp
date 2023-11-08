@@ -137,6 +137,11 @@ void registerSimpleFunctions(const std::string& prefix) {
       int64_t,
       int64_t,
       double>({prefix + "wilson_interval_lower"});
+  registerFunction<
+      CosineSimilarityFunction,
+      double,
+      Map<Varchar, double>,
+      Map<Varchar, double>>({prefix + "cosine_similarity"});
 }
 
 } // namespace

@@ -27,6 +27,17 @@ Mathematical Functions
     verified for performance reasons. Returns ``high`` for all values of ``x``
     when ``low`` is greater than ``high``.
 
+.. function:: cosine_similarity(map(varchar, double), map(varchar, double)) -> double
+
+    Returns the `cosine similarity <https://en.wikipedia.org/wiki/Cosine_similarity>`_ between the vectors represented as map(varchar, double).
+    If any input map is empty, the function returns NaN.
+
+        SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
+
+        SELECT cosine_similarity(MAP(ARRAY['a', 'b'], ARRAY[1.0, 2.0]), MAP(ARRAY['a', 'b'], ARRAY[NULL, 3.0])); -- NULL
+
+        SELECT cosine_similarity(MAP(ARRAY[], ARRAY[]), MAP(ARRAY['a', 'b'], ARRAY[2, 3])); -- NaN
+
 .. function:: degrees(x) -> double
 
     Converts angle x in radians to degrees.
