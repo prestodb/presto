@@ -19,7 +19,8 @@
 namespace facebook::velox::exec::test {
 class AggregateSpillBenchmarkBase : public SpillerBenchmarkBase {
  public:
-  AggregateSpillBenchmarkBase() = default;
+  explicit AggregateSpillBenchmarkBase(Spiller::Type spillerType)
+      : spillerType_(spillerType){};
 
   /// Sets up the test.
   void setUp() override;
@@ -27,15 +28,14 @@ class AggregateSpillBenchmarkBase : public SpillerBenchmarkBase {
   /// Runs the test.
   void run() override;
 
- private:
-  std::unique_ptr<RowContainer> makeRowContainer(
-      const std::vector<TypePtr>& keyTypes,
-      const std::vector<TypePtr>& dependentTypes) const;
-  std::unique_ptr<RowContainer> setupSpillContainer(
-      const RowTypePtr& rowType,
-      uint32_t numKeys) const;
-  void writeSpillData();
+  void printStats() const override;
 
+ private:
+  void writeSpillData();
+  std::unique_ptr<Spiller> makeSpiller() const;
+
+  const Spiller::Type spillerType_;
   std::unique_ptr<RowContainer> rowContainer_;
+  std::shared_ptr<velox::memory::MemoryPool> spillerPool_;
 };
 } // namespace facebook::velox::exec::test

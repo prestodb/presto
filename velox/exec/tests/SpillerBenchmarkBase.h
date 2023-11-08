@@ -27,6 +27,7 @@
 DECLARE_string(spiller_benchmark_compression_kind);
 DECLARE_string(spiller_benchmark_name);
 DECLARE_string(spiller_benchmark_path);
+DECLARE_string(spiller_benchmark_spiller_type);
 DECLARE_uint32(spiller_benchmark_num_key_columns);
 DECLARE_uint32(spiller_benchmark_num_spill_vectors);
 DECLARE_uint32(spiller_benchmark_spill_executor_size);

@@ -26,32 +26,78 @@ using namespace facebook::velox::exec;
 
 namespace facebook::velox::exec::test {
 
+namespace {
+std::unique_ptr<RowContainer> makeRowContainer(
+    const std::vector<TypePtr>& keyTypes,
+    const std::vector<TypePtr>& dependentTypes,
+    std::shared_ptr<velox::memory::MemoryPool>& pool) {
+  return std::make_unique<RowContainer>(
+      keyTypes,
+      true, // nullableKeys
+      std::vector<Accumulator>{},
+      dependentTypes,
+      false, // hasNext
+      false, // isJoinBuild
+      false, // hasProbedFlag
+      false, // hasNormalizedKey
+      pool.get());
+}
+
+std::unique_ptr<RowContainer> setupSpillContainer(
+    const RowTypePtr& rowType,
+    uint32_t numKeys,
+    std::shared_ptr<velox::memory::MemoryPool>& pool) {
+  const auto& childTypes = rowType->children();
+  std::vector<TypePtr> keys(childTypes.begin(), childTypes.begin() + numKeys);
+  std::vector<TypePtr> dependents;
+  if (numKeys < childTypes.size()) {
+    dependents.insert(
+        dependents.end(), childTypes.begin() + numKeys, childTypes.end());
+  }
+  return makeRowContainer(keys, dependents, pool);
+}
+} // namespace
+
 void AggregateSpillBenchmarkBase::setUp() {
   SpillerBenchmarkBase::setUp();
 
-  rowContainer_ =
-      setupSpillContainer(rowType_, FLAGS_spiller_benchmark_num_key_columns);
-  spiller_ = std::make_unique<Spiller>(
-      exec::Spiller::Type::kAggregateInput,
-      rowContainer_.get(),
-      [&](folly::Range<char**> rows) { rowContainer_->eraseRows(rows); },
-      rowType_,
-      HashBitRange{29, 29},
-      rowContainer_->keyTypes().size(),
-      std::vector<CompareFlags>{},
-      fmt::format("{}/{}", spillDir_, FLAGS_spiller_benchmark_name),
-      FLAGS_spiller_benchmark_max_spill_file_size,
-      FLAGS_spiller_benchmark_write_buffer_size,
-      FLAGS_spiller_benchmark_min_spill_run_size,
-      stringToCompressionKind(FLAGS_spiller_benchmark_compression_kind),
-      memory::spillMemoryPool(),
-      executor_.get());
+  spillerPool_ = rootPool_->addLeafChild("spillerPool");
+  rowContainer_ = setupSpillContainer(
+      rowType_, FLAGS_spiller_benchmark_num_key_columns, pool_);
   writeSpillData();
+  spiller_ = makeSpiller();
 }
 
 void AggregateSpillBenchmarkBase::run() {
   MicrosecondTimer timer(&executionTimeUs_);
-  spiller_->spill(0, 0);
+  if (spillerType_ == Spiller::Type::kAggregateInput) {
+    spiller_->spill(0, 0);
+  } else {
+    spiller_->spill(RowContainerIterator{});
+  }
+}
+
+void AggregateSpillBenchmarkBase::printStats() const {
+  LOG(INFO) << "======Aggregate " << Spiller::typeName(spillerType_)
+            << " spilling statistics======";
+  LOG(INFO) << "total execution time: " << succinctMicros(executionTimeUs_);
+  LOG(INFO) << numInputVectors_ << " vectors each with " << inputVectorSize_
+            << " rows have been processed";
+  const auto memStats = spillerPool_->stats();
+  LOG(INFO) << "peak memory usage[" << succinctBytes(memStats.peakBytes)
+            << "] cumulative memory usage["
+            << succinctBytes(memStats.cumulativeBytes) << "]";
+  LOG(INFO) << spiller_->stats().toString();
+  // List files under file path.
+  SpillPartitionSet partitionSet;
+  spiller_->finishSpill(partitionSet);
+  VELOX_CHECK_EQ(partitionSet.size(), 1);
+  const auto files = fs_->list(spillDir_);
+  for (const auto& file : files) {
+    auto rfile = fs_->openFileForRead(file);
+    LOG(INFO) << "spilled file " << file << " size "
+              << succinctBytes(rfile->size());
+  }
 }
 
 void AggregateSpillBenchmarkBase::writeSpillData() {
@@ -78,32 +124,34 @@ void AggregateSpillBenchmarkBase::writeSpillData() {
   }
 }
 
-std::unique_ptr<RowContainer> AggregateSpillBenchmarkBase::makeRowContainer(
-    const std::vector<TypePtr>& keyTypes,
-    const std::vector<TypePtr>& dependentTypes) const {
-  auto container = std::make_unique<RowContainer>(
-      keyTypes,
-      true, // nullableKeys
-      std::vector<Accumulator>{},
-      dependentTypes,
-      false, // hasNext
-      false, // isJoinBuild
-      false, // hasProbedFlag
-      false, // hasNormalizedKey
-      pool_.get());
-  return container;
-}
-
-std::unique_ptr<RowContainer> AggregateSpillBenchmarkBase::setupSpillContainer(
-    const RowTypePtr& rowType,
-    uint32_t numKeys) const {
-  const auto& childTypes = rowType->children();
-  std::vector<TypePtr> keys(childTypes.begin(), childTypes.begin() + numKeys);
-  std::vector<TypePtr> dependents;
-  if (numKeys < childTypes.size()) {
-    dependents.insert(
-        dependents.end(), childTypes.begin() + numKeys, childTypes.end());
+std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() const {
+  if (spillerType_ == Spiller::Type::kAggregateInput) {
+    return std::make_unique<Spiller>(
+        spillerType_,
+        rowContainer_.get(),
+        [&](folly::Range<char**> rows) { rowContainer_->eraseRows(rows); },
+        rowType_,
+        HashBitRange{29, 29},
+        rowContainer_->keyTypes().size(),
+        std::vector<CompareFlags>{},
+        spillDir_,
+        FLAGS_spiller_benchmark_max_spill_file_size,
+        FLAGS_spiller_benchmark_write_buffer_size,
+        FLAGS_spiller_benchmark_min_spill_run_size,
+        stringToCompressionKind(FLAGS_spiller_benchmark_compression_kind),
+        spillerPool_.get(),
+        executor_.get());
+  } else {
+    return std::make_unique<Spiller>(
+        spillerType_,
+        rowContainer_.get(),
+        [&](folly::Range<char**> rows) { rowContainer_->eraseRows(rows); },
+        rowType_,
+        spillDir_,
+        FLAGS_spiller_benchmark_write_buffer_size,
+        stringToCompressionKind(FLAGS_spiller_benchmark_compression_kind),
+        spillerPool_.get(),
+        executor_.get());
   }
-  return makeRowContainer(keys, dependents);
 }
 } // namespace facebook::velox::exec::test

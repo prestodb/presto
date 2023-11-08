@@ -20,15 +20,35 @@
 #include <gflags/gflags.h>
 
 using namespace facebook::velox;
+using namespace facebook::velox::exec;
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   serializer::presto::PrestoVectorSerde::registerVectorSerde();
   filesystems::registerLocalFileSystem();
-  auto test = std::make_unique<exec::test::AggregateSpillBenchmarkBase>();
+
+  auto spillerTypeName = FLAGS_spiller_benchmark_spiller_type;
+  std::transform(
+      spillerTypeName.begin(),
+      spillerTypeName.end(),
+      spillerTypeName.begin(),
+      [](unsigned char c) { return std::toupper(c); });
+  Spiller::Type spillerType;
+  if (spillerTypeName == Spiller::typeName(Spiller::Type::kAggregateInput)) {
+    spillerType = Spiller::Type::kAggregateInput;
+  } else if (
+      spillerTypeName == Spiller::typeName(Spiller::Type::kAggregateOutput)) {
+    spillerType = Spiller::Type::kAggregateOutput;
+  } else {
+    VELOX_UNSUPPORTED(
+        "The spiller type {} is not one of [AGGREGATE_INPUT, AGGREGATE_OUTPUT], the aggregate spiller dose not support it.",
+        spillerTypeName);
+  }
+  auto test = std::make_unique<test::AggregateSpillBenchmarkBase>(spillerType);
   test->setUp();
   test->run();
   test->printStats();
   test->cleanup();
+
   return 0;
 }
