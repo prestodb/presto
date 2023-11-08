@@ -174,8 +174,7 @@ RowContainer::RowContainer(
   // Make offset at least sizeof pointer so that there is space for a
   // free list next pointer below the bit at 'freeFlagOffset_'.
   offset = std::max<int32_t>(offset, sizeof(void*));
-  int32_t firstAggregate = offsets_.size();
-  int32_t firstAggregateOffset = offset;
+  const int32_t firstAggregateOffset = offset;
   for (const auto& accumulator : accumulators) {
     nullOffsets_.push_back(nullOffset);
     ++nullOffset;
@@ -199,11 +198,11 @@ RowContainer::RowContainer(
   nullOffsets_.push_back(nullOffset);
   freeFlagOffset_ = nullOffset + firstAggregateOffset * 8;
   ++nullOffset;
-  // Fixup nullOffsets_ to be the bit number from the start of the row.
+  // Fixup 'nullOffsets_' to be the bit number from the start of the row.
   for (int32_t i = 0; i < nullOffsets_.size(); ++i) {
     nullOffsets_[i] += firstAggregateOffset * 8;
   }
-  int32_t nullBytes = bits::nbytes(nullOffsets_.size());
+  const int32_t nullBytes = bits::nbytes(nullOffsets_.size());
   offset += nullBytes;
   for (const auto& accumulator : accumulators) {
     // Accumulator offset must be aligned by their alignment size.
@@ -224,9 +223,6 @@ RowContainer::RowContainer(
     offset += sizeof(void*);
   }
   fixedRowSize_ = bits::roundUp(offset, alignment_);
-  for (int i = 0; i < accumulators_.size(); ++i) {
-    nullOffset = nullOffsets_[i + firstAggregate];
-  }
   // A distinct hash table has no aggregates and if the hash table has
   // no nulls, it may be that there are no null flags.
   if (!nullOffsets_.empty()) {
@@ -234,7 +230,7 @@ RowContainer::RowContainer(
     // start as 0.
     initialNulls_.resize(nullBytes, 0x0);
     // Aggregates are null on a new row.
-    auto aggregateNullOffset = nullableKeys ? keyTypes.size() : 0;
+    const auto aggregateNullOffset = nullableKeys ? keyTypes.size() : 0;
     for (int32_t i = 0; i < accumulators_.size(); ++i) {
       bits::setBit(initialNulls_.data(), i + aggregateNullOffset);
     }

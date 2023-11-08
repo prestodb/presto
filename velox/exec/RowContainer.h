@@ -119,11 +119,11 @@ class RowPartitions {
   memory::Allocation allocation_;
 };
 
-// Packed representation of offset, null byte offset and null mask for
-// a column inside a RowContainer.
+/// Packed representation of offset, null byte offset and null mask for
+/// a column inside a RowContainer.
 class RowColumn {
  public:
-  // Used as null offset for a non-null column.
+  /// Used as null offset for a non-null column.
   static constexpr int32_t kNotNullOffset = -1;
 
   RowColumn(int32_t offset, int32_t nullOffset)
@@ -156,14 +156,14 @@ class RowColumn {
   const uint64_t packedOffsets_;
 };
 
-// Collection of rows for aggregation, hash join, order by
+/// Collection of rows for aggregation, hash join, order by.
 class RowContainer {
  public:
   static constexpr uint64_t kUnlimited = std::numeric_limits<uint64_t>::max();
   using Eraser = std::function<void(folly::Range<char**> rows)>;
 
-  // 'keyTypes' gives the type of row and use 'allocator' for bulk
-  // allocation.
+  /// 'keyTypes' gives the type of row and use 'allocator' for bulk
+  /// allocation.
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
       memory::MemoryPool* FOLLY_NONNULL pool)
@@ -188,26 +188,25 @@ class RowContainer {
 
   static int32_t combineAlignments(int32_t a, int32_t b);
 
-  // 'keyTypes' gives the type of the key of each row. For a group by,
-  // order by or right outer join build side these may be
-  // nullable. 'nullableKeys' specifies if these have a null flag.
-  // 'aggregates' is a vector of Aggregate for a group by payload,
-  // empty otherwise. 'DependentTypes' gives the types of non-key
-  // columns for a hash join build side or an order by. 'hasNext' is
-  // true for a hash join build side where keys can be
-  // non-unique. 'isJoinBuild' is true for hash join build sides. This
-  // implies that hashing of keys ignores null keys even if these were
-  // allowed. 'hasProbedFlag' indicates that an extra bit is reserved
-  // for a probed state of a full or right outer
-  // join. 'hasNormalizedKey' specifies that an extra word is left
-  // below each row for a normalized key that collapses all parts
-  // into one word for faster comparison. The bulk allocation is done
-  // from 'allocator'. ContainerRowSerde is used for serializing complex
-  // type values into the container.
-  /// ''stringAllocator' allows sharing the variable length data arena with
-  /// another RowContainer. this is
-  // needed for spilling where the same aggregates are used for
-  // reading one container and merging into another.
+  /// 'keyTypes' gives the type of the key of each row. For a group by,
+  /// order by or right outer join build side these may be
+  /// nullable. 'nullableKeys' specifies if these have a null flag.
+  /// 'aggregates' is a vector of Aggregate for a group by payload,
+  /// empty otherwise. 'DependentTypes' gives the types of non-key
+  /// columns for a hash join build side or an order by. 'hasNext' is
+  /// true for a hash join build side where keys can be
+  /// non-unique. 'isJoinBuild' is true for hash join build sides. This
+  /// implies that hashing of keys ignores null keys even if these were
+  /// allowed. 'hasProbedFlag' indicates that an extra bit is reserved
+  /// for a probed state of a full or right outer
+  /// join. 'hasNormalizedKey' specifies that an extra word is left
+  /// below each row for a normalized key that collapses all parts
+  /// into one word for faster comparison. The bulk allocation is done
+  /// from 'allocator'. ContainerRowSerde is used for serializing complex
+  /// type values into the container.
+  /// 'stringAllocator' allows sharing the variable length data arena with
+  /// another RowContainer. This is needed for spilling where the same
+  /// aggregates are used for reading one container and merging into another.
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
       bool nullableKeys,
@@ -220,7 +219,7 @@ class RowContainer {
       memory::MemoryPool* FOLLY_NONNULL pool,
       std::shared_ptr<HashStringAllocator> stringAllocator = nullptr);
 
-  // Allocates a new row and initializes possible aggregates to null.
+  /// Allocates a new row and initializes possible aggregates to null.
   char* FOLLY_NONNULL newRow();
 
   uint32_t rowSize(const char* FOLLY_NONNULL row) const {
@@ -230,9 +229,9 @@ class RowContainer {
              : 0);
   }
 
-  /// Sets all fields, aggregates, keys and dependents to null. Used
-  /// when making a row with uninitialized keys for aggregates with
-  /// no-op partial aggregation.
+  /// Sets all fields, aggregates, keys and dependents to null. Used when making
+  /// a row with uninitialized keys for aggregates with no-op partial
+  /// aggregation.
   void setAllNull(char* FOLLY_NONNULL row) {
     if (!nullOffsets_.empty()) {
       memset(row + nullByte(nullOffsets_[0]), 0xff, initialNulls_.size());
@@ -240,18 +239,18 @@ class RowContainer {
     }
   }
 
-  // The row size excluding any out-of-line stored variable length values.
+  /// The row size excluding any out-of-line stored variable length values.
   int32_t fixedRowSize() const {
     return fixedRowSize_;
   }
 
-  // Adds 'rows' to the free rows list and frees any associated
-  // variable length data.
+  /// Adds 'rows' to the free rows list and frees any associated variable length
+  /// data.
   void eraseRows(folly::Range<char**> rows);
 
-  // Copies elements of 'rows' where the char* points to a row inside 'this' to
-  // 'result' and returns the number copied. 'result' should have space for
-  // 'rows.size()'.
+  /// Copies elements of 'rows' where the char* points to a row inside 'this' to
+  /// 'result' and returns the number copied. 'result' should have space for
+  /// 'rows.size()'.
   int32_t findRows(folly::Range<char**> rows, char** result);
 
   void incrementRowSize(char* FOLLY_NONNULL row, uint64_t bytes) {
@@ -273,8 +272,7 @@ class RowContainer {
     ::memset(row, 0, fixedRowSize_);
   }
 
-  // Stores the 'index'th value in 'decoded' into 'row' at
-  // 'columnIndex'.
+  /// Stores the 'index'th value in 'decoded' into 'row' at 'columnIndex'.
   void store(
       const DecodedVector& decoded,
       vector_size_t index,
@@ -289,8 +287,8 @@ class RowContainer {
     return stringAllocator_;
   }
 
-  // Returns the number of used rows in 'this'. This is the number of
-  // rows a RowContainerIterator would access.
+  /// Returns the number of used rows in 'this'. This is the number of rows a
+  /// RowContainerIterator would access.
   int64_t numRows() const {
     return numRows_;
   }
@@ -305,9 +303,9 @@ class RowContainer {
       vector_size_t resultOffset,
       const VectorPtr& result);
 
-  // Copies the values at 'col' into 'result' for the
-  // 'numRows' rows pointed to by 'rows'. If an entry in 'rows' is null, sets
-  // corresponding row in 'result' to null.
+  /// Copies the values at 'col' into 'result' for the 'numRows' rows pointed to
+  /// by 'rows'. If an entry in 'rows' is null, sets corresponding row in
+  /// 'result' to null.
   static void extractColumn(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       int32_t numRows,
@@ -318,10 +316,10 @@ class RowContainer {
 
   /// Copies the values from the array pointed to by 'rows' at 'col' into
   /// 'result' (starting at 'resultOffset') for the rows at positions in
-  /// the 'rowNumbers' array. If a 'row' is null, sets
-  /// corresponding row in 'result' to null. The positions in 'rowNumbers'
-  /// array can repeat and also appear out of order. If rowNumbers has a
-  /// negative value, then the corresponding row in 'result' is set to null.
+  /// the 'rowNumbers' array. If a 'row' is null, sets corresponding row in
+  /// 'result' to null. The positions in 'rowNumbers' array can repeat and also
+  /// appear out of order. If rowNumbers has a negative value, then the
+  /// corresponding row in 'result' is set to null.
   static void extractColumn(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       folly::Range<const vector_size_t*> rowNumbers,
@@ -329,17 +327,17 @@ class RowContainer {
       vector_size_t resultOffset,
       const VectorPtr& result);
 
-  /// Sets in result all locations with null values in col for rows
-  /// (for numRows number of rows).
+  /// Sets in result all locations with null values in col for rows (for numRows
+  /// number of rows).
   static void extractNulls(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       int32_t numRows,
       RowColumn col,
       const BufferPtr& result);
 
-  // Copies the values at 'columnIndex' into 'result' for the
-  // 'numRows' rows pointed to by 'rows'. If an entry in 'rows' is null, sets
-  //  corresponding row in 'result' to null.
+  /// Copies the values at 'columnIndex' into 'result' for the 'numRows' rows
+  /// pointed to by 'rows'. If an entry in 'rows' is null, sets corresponding
+  /// row in 'result' to null.
   void extractColumn(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       int32_t numRows,
@@ -407,8 +405,8 @@ class RowContainer {
     return 1 << (nullOffset & 7);
   }
 
-  // No tsan because probed flags may have been set by a different
-  // thread. There is a barrier but tsan does not know this.
+  /// No tsan because probed flags may have been set by a different thread.
+  /// There is a barrier but tsan does not know this.
   enum class ProbeType { kAll, kProbed, kNotProbed };
 
   template <ProbeType probeType>
@@ -482,11 +480,10 @@ class RowContainer {
     return count;
   }
 
-  // Extracts up to 'maxRows' rows starting at the position of
-  // 'iter'. A default constructed or reset iter starts at the
-  // beginning. Returns the number of rows written to 'rows'. Returns
-  // 0 when at end. Stops after the total size of returned rows exceeds
-  // maxBytes.
+  /// Extracts up to 'maxRows' rows starting at the position of 'iter'. A
+  /// default constructed or reset iter starts at the beginning. Returns the
+  /// number of rows written to 'rows'. Returns 0 when at end. Stops after the
+  /// total size of returned rows exceeds maxBytes.
   int32_t listRows(
       RowContainerIterator* FOLLY_NONNULL iter,
       int32_t maxRows,
@@ -518,9 +515,9 @@ class RowContainer {
   void
   setProbedFlag(char* FOLLY_NONNULL* FOLLY_NONNULL rows, int32_t numRows);
 
-  // Returns true if 'row' at 'column' equals the value at 'index' in
-  // 'decoded'. 'mayHaveNulls' specifies if nulls need to be checked. This is
-  // a fast path for compare().
+  /// Returns true if 'row' at 'column' equals the value at 'index' in
+  /// 'decoded'. 'mayHaveNulls' specifies if nulls need to be checked. This is a
+  /// fast path for compare().
   template <bool mayHaveNulls>
   bool equals(
       const char* FOLLY_NONNULL row,
@@ -528,9 +525,8 @@ class RowContainer {
       const DecodedVector& decoded,
       vector_size_t index);
 
-  // Compares the value at 'column' in 'row' with the value at 'index'
-  // in 'decoded'. Returns 0 for equal, < 0 for 'row' < 'decoded', > 0
-  // otherwise.
+  /// Compares the value at 'column' in 'row' with the value at 'index' in
+  /// 'decoded'. Returns 0 for equal, < 0 for 'row' < 'decoded', > 0 otherwise.
   int32_t compare(
       const char* FOLLY_NONNULL row,
       RowColumn column,
@@ -538,17 +534,17 @@ class RowContainer {
       vector_size_t index,
       CompareFlags flags = CompareFlags());
 
-  // Compares the value at 'columnIndex' between 'left' and 'right'. Returns
-  // 0 for equal, < 0 for left < right, > 0 otherwise.
+  /// Compares the value at 'columnIndex' between 'left' and 'right'. Returns
+  /// 0 for equal, < 0 for left < right, > 0 otherwise.
   int32_t compare(
       const char* FOLLY_NONNULL left,
       const char* FOLLY_NONNULL right,
       int32_t columnIndex,
       CompareFlags flags = CompareFlags());
 
-  // Compares the value between 'left' at 'leftIndex' and 'right' and
-  // 'rightIndex'. Returns 0 for equal, < 0 for left < right, > 0 otherwise.
-  // Both columns should have the same type.
+  /// Compares the value between 'left' at 'leftIndex' and 'right' and
+  /// 'rightIndex'. Returns 0 for equal, < 0 for left < right, > 0 otherwise.
+  /// Both columns should have the same type.
   int32_t compare(
       const char* FOLLY_NONNULL left,
       const char* FOLLY_NONNULL right,
@@ -556,9 +552,8 @@ class RowContainer {
       int rightColumnIndex,
       CompareFlags flags = CompareFlags());
 
-  // Allows get/set of the normalized key. If normalized keys are
-  // used, they are stored in the word immediately below the hash
-  // table row.
+  /// Allows get/set of the normalized key. If normalized keys are used, they
+  /// are stored in the word immediately below the hash table row.
   static inline normalized_key_t& normalizedKey(char* FOLLY_NONNULL group) {
     return reinterpret_cast<normalized_key_t*>(group)[-1];
   }
@@ -571,27 +566,27 @@ class RowContainer {
     return rowColumns_[index];
   }
 
-  // Bit offset of the probed flag for a full or right outer join  payload.
-  // 0 if not applicable.
+  /// Bit offset of the probed flag for a full or right outer join  payload.
+  /// 0 if not applicable.
   int32_t probedFlagOffset() const {
     return probedFlagOffset_;
   }
 
-  // Returns the offset of a uint32_t row size or 0 if the row has no
-  // variable width fields or accumulators.
+  /// Returns the offset of a uint32_t row size or 0 if the row has no variable
+  /// width fields or accumulators.
   int32_t rowSizeOffset() const {
     return rowSizeOffset_;
   }
 
-  // For a hash join table with possible non-unique entries, the offset of
-  // the pointer to the next row with the same key. 0 if keys are
-  // guaranteed unique, e.g. for a group by or semijoin build.
+  /// For a hash join table with possible non-unique entries, the offset of the
+  /// pointer to the next row with the same key. 0 if keys are guaranteed
+  /// unique, e.g. for a group by or semijoin build.
   int32_t nextOffset() const {
     return nextOffset_;
   }
 
-  // Hashes the values of 'columnIndex' for 'rows'.  If 'mix' is true,
-  // mixes the hash with the existing value in 'result'.
+  /// Hashes the values of 'columnIndex' for 'rows'.  If 'mix' is true, mixes
+  /// the hash with the existing value in 'result'.
   void hash(
       int32_t columnIndex,
       folly::Range<char**> rows,
@@ -602,24 +597,24 @@ class RowContainer {
     return rows_.allocatedBytes() + stringAllocator_->retainedSize();
   }
 
-  // Returns the number of fixed size rows that can be allocated
-  // without growing the container and the number of unused bytes of
-  // reserved storage for variable length data.
+  /// Returns the number of fixed size rows that can be allocated without
+  /// growing the container and the number of unused bytes of reserved storage
+  /// for variable length data.
   std::pair<uint64_t, uint64_t> freeSpace() const {
     return std::make_pair<uint64_t, uint64_t>(
         rows_.freeBytes() / fixedRowSize_ + numFreeRows_,
         stringAllocator_->freeSpace());
   }
 
-  // Returns the average size of rows in bytes stored in this container.
+  /// Returns the average size of rows in bytes stored in this container.
   std::optional<int64_t> estimateRowSize() const;
 
-  // Returns a cap on  extra memory that may be needed when adding 'numRows'
-  // and variableLengthBytes of out-of-line variable length data.
+  /// Returns a cap on extra memory that may be needed when adding 'numRows'
+  /// and variableLengthBytes of out-of-line variable length data.
   int64_t sizeIncrement(vector_size_t numRows, int64_t variableLengthBytes)
       const;
 
-  // Resets the state to be as after construction. Frees memory for payload.
+  /// Resets the state to be as after construction. Frees memory for payload.
   void clear();
 
   int32_t compareRows(
@@ -641,7 +636,7 @@ class RowContainer {
     return stringAllocator_->pool();
   }
 
-  // Returns the types of all non-aggregate columns of 'this', keys first.
+  /// Returns the types of all non-aggregate columns of 'this', keys first.
   const auto& columnTypes() const {
     return types_;
   }
@@ -658,8 +653,8 @@ class RowContainer {
     return *stringAllocator_;
   }
 
-  // Checks that row and free row counts match and that free list
-  // membership is consistent with free flag.
+  /// Checks that row and free row counts match and that free list membership is
+  /// consistent with free flag.
   void checkConsistency();
 
   static inline bool
