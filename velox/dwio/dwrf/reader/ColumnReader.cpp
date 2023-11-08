@@ -1864,7 +1864,7 @@ void StructColumnReader::next(
     DWIO_ENSURE_GE(childrenVectors.size(), children_.size());
 
     // Resize rowVector
-    rowVector->unsafeResize(numValues);
+    rowVector->unsafeResize(numValues, false);
   }
 
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
