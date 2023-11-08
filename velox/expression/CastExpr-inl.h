@@ -192,43 +192,57 @@ void CastExpr::applyToSelectedNoThrowLocal(
 /// @param row The index of the current row
 /// @param input The input vector (of type FromKind)
 /// @param result The output vector (of type ToKind)
-template <TypeKind ToKind, TypeKind FromKind, bool Truncate>
+template <TypeKind ToKind, TypeKind FromKind, bool Truncate, bool LegacyCast>
 void CastExpr::applyCastKernel(
     vector_size_t row,
     EvalCtx& context,
     const SimpleVector<typename TypeTraits<FromKind>::NativeType>* input,
     FlatVector<typename TypeTraits<ToKind>::NativeType>* result) {
-  auto inputRowValue = input->valueAt(row);
+  auto setError = [&](const std::string& details) {
+    if (setNullInResultAtError()) {
+      result->setNull(row, true);
+    } else {
+      context.setVeloxExceptionError(
+          row, makeBadCastException(result->type(), *input, row, details));
+    }
+  };
 
-  // Optimize empty input strings casting by avoiding throwing exceptions.
-  if constexpr (
-      FromKind == TypeKind::VARCHAR || FromKind == TypeKind::VARBINARY) {
+  try {
+    auto inputRowValue = input->valueAt(row);
+
+    // Optimize empty input strings casting by avoiding throwing exceptions.
     if constexpr (
-        TypeTraits<ToKind>::isPrimitiveType &&
-        TypeTraits<ToKind>::isFixedWidth) {
-      if (inputRowValue.size() == 0) {
-        if (setNullInResultAtError()) {
-          result->setNull(row, true);
-        } else {
-          context.setVeloxExceptionError(
-              row,
-              makeBadCastException(
-                  result->type(), *input, row, "Empty string"));
+        FromKind == TypeKind::VARCHAR || FromKind == TypeKind::VARBINARY) {
+      if constexpr (
+          TypeTraits<ToKind>::isPrimitiveType &&
+          TypeTraits<ToKind>::isFixedWidth) {
+        if (inputRowValue.size() == 0) {
+          setError("Empty string");
+          return;
         }
-        return;
       }
     }
-  }
 
-  auto output = util::Converter<ToKind, void, Truncate>::cast(inputRowValue);
+    auto output = util::Converter<ToKind, void, Truncate, LegacyCast>::cast(
+        inputRowValue);
 
-  if constexpr (ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY) {
-    // Write the result output to the output vector
-    auto writer = exec::StringWriter<>(result, row);
-    writer.copy_from(output);
-    writer.finalize();
-  } else {
-    result->set(row, output);
+    if constexpr (
+        ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY) {
+      // Write the result output to the output vector
+      auto writer = exec::StringWriter<>(result, row);
+      writer.copy_from(output);
+      writer.finalize();
+    } else {
+      result->set(row, output);
+    }
+
+  } catch (const VeloxException& ue) {
+    if (!ue.isUserError()) {
+      throw;
+    }
+    setError(ue.message());
+  } catch (const std::exception& e) {
+    setError(e.what());
   }
 }
 
@@ -304,8 +318,8 @@ VectorPtr CastExpr::applyDecimalToFloatCast(
   const auto simpleInput = input.as<SimpleVector<FromNativeType>>();
   const auto scaleFactor = DecimalUtil::kPowersOfTen[precisionScale.second];
   applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-    auto output =
-        util::Converter<ToKind, void, false>::cast(simpleInput->valueAt(row));
+    auto output = util::Converter<ToKind, void, false, false>::cast(
+        simpleInput->valueAt(row));
     resultBuffer[row] = output / scaleFactor;
   });
   return result;
@@ -490,45 +504,30 @@ void CastExpr::applyCastPrimitives(
   const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
   auto& resultType = resultFlatVector->type();
 
-  auto setError = [&](vector_size_t row, const std::string& details) {
-    if (setNullInResultAtError()) {
-      result->setNull(row, true);
-    } else {
-      context.setVeloxExceptionError(
-          row, makeBadCastException(resultType, input, row, details));
-    }
-  };
-
   if (!queryConfig.isCastToIntByTruncate()) {
-    applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-      try {
-        applyCastKernel<ToKind, FromKind, false /*truncate*/>(
+    if (!queryConfig.isLegacyCast()) {
+      applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+        applyCastKernel<ToKind, FromKind, false /*truncate*/, false /*legacy*/>(
             row, context, inputSimpleVector, resultFlatVector);
-
-      } catch (const VeloxException& ue) {
-        if (!ue.isUserError()) {
-          throw;
-        }
-        setError(row, ue.message());
-      } catch (const std::exception& e) {
-        setError(row, e.what());
-      }
-    });
-
+      });
+    } else {
+      applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+        applyCastKernel<ToKind, FromKind, false /*truncate*/, true /*legacy*/>(
+            row, context, inputSimpleVector, resultFlatVector);
+      });
+    }
   } else {
-    applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-      try {
-        applyCastKernel<ToKind, FromKind, true /*truncate*/>(
+    if (!queryConfig.isLegacyCast()) {
+      applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+        applyCastKernel<ToKind, FromKind, true /*truncate*/, false /*legacy*/>(
             row, context, inputSimpleVector, resultFlatVector);
-      } catch (const VeloxException& ue) {
-        if (!ue.isUserError()) {
-          throw;
-        }
-        setError(row, ue.message());
-      } catch (const std::exception& e) {
-        setError(row, e.what());
-      }
-    });
+      });
+    } else {
+      applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
+        applyCastKernel<ToKind, FromKind, true /*truncate*/, true /*legacy*/>(
+            row, context, inputSimpleVector, resultFlatVector);
+      });
+    }
   }
 
   // If we're converting to a TIMESTAMP, check if we need to adjust the

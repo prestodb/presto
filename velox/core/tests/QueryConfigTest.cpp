@@ -28,6 +28,7 @@ TEST(TestQueryConfig, emptyConfig) {
 
   ASSERT_FALSE(config.codegenEnabled());
   ASSERT_EQ(config.codegenConfigurationFilePath(), "");
+  ASSERT_FALSE(config.isLegacyCast());
   ASSERT_FALSE(config.isCastToIntByTruncate());
 }
 
@@ -35,12 +36,14 @@ TEST(TestQueryConfig, setConfig) {
   std::string path = "/tmp/CodeGenConfig";
   std::unordered_map<std::string, std::string> configData(
       {{QueryConfig::kCodegenEnabled, "true"},
-       {QueryConfig::kCodegenConfigurationFilePath, path}});
+       {QueryConfig::kCodegenConfigurationFilePath, path},
+       {QueryConfig::kLegacyCast, "true"}});
   auto queryCtx = std::make_shared<QueryCtx>(nullptr, std::move(configData));
   const QueryConfig& config = queryCtx->queryConfig();
 
   ASSERT_TRUE(config.codegenEnabled());
   ASSERT_EQ(config.codegenConfigurationFilePath(), path);
+  ASSERT_TRUE(config.isLegacyCast());
   ASSERT_FALSE(config.isCastToIntByTruncate());
 }
 

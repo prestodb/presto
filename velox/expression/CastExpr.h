@@ -162,7 +162,7 @@ class CastExpr : public SpecialForm {
   /// @param row The index of the current row
   /// @param input The input vector (of type FromKind)
   /// @param result The output vector (of type ToKind)
-  template <TypeKind ToKind, TypeKind FromKind, bool Truncate>
+  template <TypeKind ToKind, TypeKind FromKind, bool Truncate, bool LegacyCast>
   void applyCastKernel(
       vector_size_t row,
       EvalCtx& context,

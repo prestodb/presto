@@ -60,11 +60,6 @@ core::TypedExprPtr parseExpr(
   return core::Expressions::inferTypes(untyped, rowType, pool);
 }
 
-template <TypeKind FromKind, TypeKind ToKind>
-typename TypeTraits<ToKind>::NativeType cast(const variant& v) {
-  return util::Converter<ToKind, void, false>::cast(v.value<FromKind>());
-}
-
 std::shared_ptr<HiveBucketProperty> buildHiveBucketProperty(
     const RowTypePtr rowType,
     int32_t bucketCount,

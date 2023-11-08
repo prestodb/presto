@@ -94,6 +94,8 @@ class QueryConfig {
 
   /// Flags used to configure the CAST operator:
 
+  static constexpr const char* kLegacyCast = "legacy_cast";
+
   /// This flag makes the Row conversion to by applied in a way that the casting
   /// row field are matched by name instead of position.
   static constexpr const char* kCastMatchStructByName =
@@ -439,6 +441,10 @@ class QueryConfig {
 
   bool adaptiveFilterReorderingEnabled() const {
     return get<bool>(kAdaptiveFilterReorderingEnabled, true);
+  }
+
+  bool isLegacyCast() const {
+    return get<bool>(kLegacyCast, false);
   }
 
   bool isMatchStructByName() const {

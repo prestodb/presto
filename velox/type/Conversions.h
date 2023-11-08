@@ -28,7 +28,11 @@ DECLARE_bool(experimental_enable_legacy_cast);
 
 namespace facebook::velox::util {
 
-template <TypeKind KIND, typename = void, bool TRUNCATE = false>
+template <
+    TypeKind KIND,
+    typename = void,
+    bool TRUNCATE = false,
+    bool LEGACY_CAST = false>
 struct Converter {
   template <typename T>
   static typename TypeTraits<KIND>::NativeType cast(T) {
@@ -37,8 +41,8 @@ struct Converter {
   }
 };
 
-template <>
-struct Converter<TypeKind::BOOLEAN> {
+template <bool LEGACY_CAST>
+struct Converter<TypeKind::BOOLEAN, void, false, LEGACY_CAST> {
   using T = bool;
 
   template <typename From>
@@ -63,7 +67,7 @@ struct Converter<TypeKind::BOOLEAN> {
   }
 };
 
-template <TypeKind KIND, bool TRUNCATE>
+template <TypeKind KIND, bool TRUNCATE, bool LEGACY_CAST>
 struct Converter<
     KIND,
     std::enable_if_t<
@@ -71,7 +75,8 @@ struct Converter<
             KIND == TypeKind::SMALLINT || KIND == TypeKind::INTEGER ||
             KIND == TypeKind::BIGINT || KIND == TypeKind::HUGEINT,
         void>,
-    TRUNCATE> {
+    TRUNCATE,
+    LEGACY_CAST> {
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>
@@ -301,11 +306,12 @@ struct Converter<
   }
 };
 
-template <TypeKind KIND, bool TRUNCATE>
+template <TypeKind KIND, bool TRUNCATE, bool LEGACY_CAST>
 struct Converter<
     KIND,
     std::enable_if_t<KIND == TypeKind::REAL || KIND == TypeKind::DOUBLE, void>,
-    TRUNCATE> {
+    TRUNCATE,
+    LEGACY_CAST> {
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>
@@ -373,17 +379,17 @@ struct Converter<
   }
 };
 
-template <bool TRUNCATE>
-struct Converter<TypeKind::VARBINARY, void, TRUNCATE> {
+template <bool TRUNCATE, bool LEGACY_CAST>
+struct Converter<TypeKind::VARBINARY, void, TRUNCATE, LEGACY_CAST> {
   // Same semantics of TypeKind::VARCHAR converter.
   template <typename T>
   static std::string cast(const T& val) {
-    return Converter<TypeKind::VARCHAR, void, TRUNCATE>::cast(val);
+    return Converter<TypeKind::VARCHAR, void, TRUNCATE, LEGACY_CAST>::cast(val);
   }
 };
 
-template <bool TRUNCATE>
-struct Converter<TypeKind::VARCHAR, void, TRUNCATE> {
+template <bool TRUNCATE, bool LEGACY_CAST>
+struct Converter<TypeKind::VARCHAR, void, TRUNCATE, LEGACY_CAST> {
   template <typename T>
   static std::string cast(const T& val) {
     if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>) {
@@ -410,8 +416,8 @@ struct Converter<TypeKind::VARCHAR, void, TRUNCATE> {
 };
 
 // Allow conversions from string to TIMESTAMP type.
-template <bool TRUNCATE>
-struct Converter<TypeKind::TIMESTAMP, void, TRUNCATE> {
+template <bool TRUNCATE, bool LEGACY_CAST>
+struct Converter<TypeKind::TIMESTAMP, void, TRUNCATE, LEGACY_CAST> {
   using T = typename TypeTraits<TypeKind::TIMESTAMP>::NativeType;
 
   template <typename From>
