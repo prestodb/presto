@@ -85,6 +85,12 @@ These functions support TIMESTAMP and DATE input types.
     ``day`` need to be from 1 to 31, and matches the number of days in each month.
     days of ``year-month-day - 1970-01-01`` need to be in the range of INTEGER type.
 
+.. spark:function:: quarter(date) -> integer
+
+    Returns the quarter of ``date``. The value ranges from ``1`` to ``4``. ::
+
+        SELECT quarter('2009-07-30'); -- 3
+
 .. spark:function:: to_unix_timestamp(string) -> integer
 
     Alias for ``unix_timestamp(string) -> integer``.

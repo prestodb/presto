@@ -82,6 +82,10 @@ FOLLY_ALWAYS_INLINE int getDay(const std::tm& time) {
   return time.tm_mday;
 }
 
+FOLLY_ALWAYS_INLINE int32_t getQuarter(const std::tm& time) {
+  return time.tm_mon / 3 + 1;
+}
+
 template <typename T>
 struct InitSessionTimezone {
   VELOX_DEFINE_FUNCTION_TYPES(T);

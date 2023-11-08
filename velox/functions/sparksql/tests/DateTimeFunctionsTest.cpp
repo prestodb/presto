@@ -431,5 +431,18 @@ TEST_F(DateTimeFunctionsTest, addMonths) {
       addMonths("2023-07-10", kMax),
       fmt::format("Integer overflow in add_months(2023-07-10, {})", kMax));
 }
+
+TEST_F(DateTimeFunctionsTest, quarterDate) {
+  const auto quarter = [&](const std::string& dateString) {
+    return evaluateOnce<int32_t, int32_t>(
+        "quarter(c0)", {parseDate(dateString)}, {DATE()});
+  };
+
+  EXPECT_EQ(2, quarter("2015-04-08"));
+  EXPECT_EQ(4, quarter("2013-11-08"));
+  EXPECT_EQ(1, quarter("1987-01-08"));
+  EXPECT_EQ(3, quarter("1954-08-08"));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
