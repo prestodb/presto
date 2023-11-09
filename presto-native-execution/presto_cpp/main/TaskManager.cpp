@@ -53,7 +53,6 @@ static void maybeSetupTaskSpillDirectory(
       SystemConfig::instance()->includeNodeInSpillPath();
   const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
       baseSpillDirectory,
-      NodeConfig::instance(),
       execTask.queryCtx()->queryId(),
       execTask.taskId(),
       includeNodeInSpillPath);
@@ -349,7 +348,6 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
 
 /*static*/ std::string TaskManager::buildTaskSpillDirectoryPath(
     const std::string& baseSpillPath,
-    const NodeConfig* nodeConfig,
     const std::string& queryId,
     const protocol::TaskId& taskId,
     bool includeNodeInSpillPath) {
@@ -367,6 +365,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
   std::string path;
   folly::toAppend(fmt::format("{}/presto_native/", baseSpillPath), &path);
   if (includeNodeInSpillPath) {
+    auto nodeConfig = NodeConfig::instance();
     folly::toAppend(
         fmt::format(
             "{}_{}/",
