@@ -351,3 +351,65 @@ class TestVeloxVector(unittest.TestCase):
                 self.assertTrue(velox_vector.dtype(), expected_type)
                 for i in range(0, len(data)):
                     self.assertEqual(velox_vector[i], data[i])
+
+    def test_row_vector_basic(self):
+        vals = [
+            pv.from_list([1, 2, 3]),
+            pv.from_list([4.0, 5.0, 6.0]),
+            pv.from_list(["a", "b", "c"]),
+        ]
+
+        col_names = ["x", "y", "z"]
+        rw = pv.row_vector(col_names, vals)
+        rw_str = str(rw)
+        expected_str = "0: {1, 4, a}\n1: {2, 5, b}\n2: {3, 6, c}"
+        assert expected_str == rw_str
+
+    def test_row_vector_with_nulls(self):
+        vals = [
+            pv.from_list([1, 2, 3, 1, 2]),
+            pv.from_list([4, 5, 6, 4, 5]),
+            pv.from_list([7, 8, 9, 7, 8]),
+            pv.from_list([10, 11, 12, 10, 11]),
+        ]
+
+        col_names = ["a", "b", "c", "d"]
+        rw = pv.row_vector(col_names, vals, {0: True, 2: True})
+        rw_str = str(rw)
+        expected_str = (
+            "0: null\n1: {2, 5, 8, 11}\n2: null\n3: {1, 4, 7, 10}\n4: {2, 5, 8, 11}"
+        )
+        assert expected_str == rw_str
+
+    def test_row_vector_comparison(self):
+        u = [
+            pv.from_list([1, 2, 3]),
+            pv.from_list([7, 4, 9]),
+            pv.from_list([10, 11, 12]),
+        ]
+
+        v = [
+            pv.from_list([1, 2, 3]),
+            pv.from_list([7, 8, 9]),
+            pv.from_list([10, 11, 12]),
+        ]
+
+        w = [
+            pv.from_list([1, 2, 3]),
+            pv.from_list([7, 8, 9]),
+        ]
+
+        u_names = ["a", "b", "c"]
+        w_names = ["x", "y"]
+        u_rw = pv.row_vector(u_names, u)
+        v_rw = pv.row_vector(u_names, v)
+        w_rw = pv.row_vector(w_names, w)
+        y_rw = pv.row_vector(u_names, u)
+        x1_rw = pv.row_vector(u_names, u, {0: True, 2: True})
+        x2_rw = pv.row_vector(u_names, u, {0: True, 2: True})
+
+        assert u_rw != w_rw  # num of children doesn't match
+        assert u_rw != v_rw  # data doesn't match
+        assert u_rw == y_rw  # data match
+        assert x1_rw == x2_rw  # with null
+        assert x1_rw != u_rw  # with and without null

@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <cassert>
+
+#include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
@@ -27,6 +30,7 @@
 #include <velox/parse/TypeResolver.h>
 #include <velox/type/Type.h>
 #include <velox/type/Variant.h>
+#include <velox/vector/ComplexVector.h>
 #include <velox/vector/DictionaryVector.h>
 #include <velox/vector/FlatVector.h>
 #include "folly/json.h"
@@ -107,6 +111,32 @@ inline velox::variant pyToVariant(const py::handle& obj, const Type& dtype) {
     default:
       throw py::type_error("Unsupported type supplied");
   }
+}
+
+inline void checkRowVectorBounds(const RowVectorPtr& v, vector_size_t idx) {
+  if (idx < 0 || size_t(idx) >= v->childrenSize()) {
+    throw std::out_of_range("Index out of range");
+  }
+}
+
+bool compareRowVector(const RowVectorPtr& u, const RowVectorPtr& v) {
+  CompareFlags compFlags;
+  compFlags.nullHandlingMode = CompareFlags::NullHandlingMode::NoStop;
+  compFlags.equalsOnly = true;
+  if (u->size() != v->size()) {
+    return false;
+  }
+  for (size_t i = 0; i < u->size(); i++) {
+    if (u->compare(v.get(), i, i, compFlags) != 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+inline std::string rowVectorToString(const RowVectorPtr& vector) {
+  return vector->toString(0, vector->size());
 }
 
 static VectorPtr pyToConstantVector(
@@ -503,6 +533,75 @@ static void addVectorBindings(
             std::move(indices_buffer),
             std::move(baseVector),
             PyVeloxContext::getSingletonInstance().pool());
+      });
+
+  m.def(
+      "row_vector",
+      [](std::vector<std::string>& names,
+         std::vector<VectorPtr>& children,
+         const std::optional<py::dict>& nullabilityDict) {
+        if (children.size() == 0 || names.size() == 0) {
+          throw py::value_error("RowVector must have children.");
+        }
+        std::vector<std::shared_ptr<const Type>> childTypes;
+        childTypes.reserve(children.size());
+
+        size_t vectorSize = children[0]->size();
+        for (int i = 0; i < children.size(); i++) {
+          if (i > 0 && children[i]->size() != vectorSize) {
+            PyErr_SetString(PyExc_ValueError, "Each child must have same size");
+            throw py::error_already_set();
+          }
+          childTypes.push_back(children[i]->type());
+        }
+        auto rowType = ROW(std::move(names), std::move(childTypes));
+
+        BufferPtr nullabilityBuffer = nullptr;
+        if (nullabilityDict.has_value()) {
+          auto nullabilityValues = nullabilityDict.value();
+          nullabilityBuffer = AlignedBuffer::allocate<bool>(
+              vectorSize, PyVeloxContext::getSingletonInstance().pool(), true);
+          for (const auto&& item : nullabilityValues) {
+            auto row = item.first;
+            auto nullability = item.second;
+            if (!py::isinstance<py::int_>(row) ||
+                !py::isinstance<py::bool_>(nullability)) {
+              throw py::type_error(
+                  "Nullability must be a dictionary, rowId in int and nullability in boolean.");
+            }
+            int rowId = py::cast<int>(row);
+            if (!(rowId >= 0 && rowId < vectorSize)) {
+              throw py::type_error("Nullability index out of bounds.");
+            }
+            bool nullabilityVal = py::cast<bool>(nullability);
+            bits::setBit(
+                nullabilityBuffer->asMutable<uint64_t>(),
+                rowId,
+                bits::kNull ? nullabilityVal : !nullabilityVal);
+          }
+        }
+
+        return std::make_shared<RowVector>(
+            PyVeloxContext::getSingletonInstance().pool(),
+            rowType,
+            nullabilityBuffer,
+            vectorSize,
+            children);
+      },
+      py::arg("names"),
+      py::arg("children"),
+      py::arg("nullability") = std::nullopt);
+
+  py::class_<RowVector, BaseVector, RowVectorPtr>(
+      m, "RowVector", py::module_local(asModuleLocalDefinitions))
+      .def(
+          "__len__",
+          [](RowVectorPtr& v) {
+            return v->childrenSize() > 0 ? v->childAt(0)->size() : 0;
+          })
+      .def("__str__", [](RowVectorPtr& v) { return rowVectorToString(v); })
+      .def("__eq__", [](RowVectorPtr& u, RowVectorPtr& v) {
+        return compareRowVector(u, v);
       });
 }
 
