@@ -73,6 +73,11 @@ struct TaskStats {
   /// and results have been consumed.
   uint64_t endTimeMs{0};
 
+  /// Epoch time (ms) when the task was terminated, i.e. its terminal state
+  /// has been set, whether by finishing successfully or with an error, or
+  /// being cancelled or aborted.
+  uint64_t terminationTimeMs{0};
+
   /// Total number of drivers.
   uint64_t numTotalDrivers{0};
   /// The number of completed drivers (which slots are null in Task 'drivers_'

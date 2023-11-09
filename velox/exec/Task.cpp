@@ -1697,6 +1697,11 @@ ContinueFuture Task::terminate(TaskState terminalState) {
     if (taskStats_.executionEndTimeMs == 0) {
       taskStats_.executionEndTimeMs = getCurrentTimeMs();
     }
+    if (taskStats_.terminationTimeMs == 0) {
+      // In case terminate gets called multiple times somehow,
+      // this represents the first time.
+      taskStats_.terminationTimeMs = getCurrentTimeMs();
+    }
     if (not isRunningLocked()) {
       return makeFinishFutureLocked("Task::terminate");
     }
@@ -1942,6 +1947,14 @@ uint64_t Task::timeSinceEndMs() const {
     return 0UL;
   }
   return getCurrentTimeMs() - taskStats_.executionEndTimeMs;
+}
+
+uint64_t Task::timeSinceTerminationMs() const {
+  std::lock_guard<std::mutex> l(mutex_);
+  if (taskStats_.terminationTimeMs == 0UL) {
+    return 0UL;
+  }
+  return getCurrentTimeMs() - taskStats_.terminationTimeMs;
 }
 
 void Task::onTaskCompletion() {
