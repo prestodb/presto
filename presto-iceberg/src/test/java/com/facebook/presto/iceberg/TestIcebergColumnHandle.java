@@ -31,6 +31,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static org.testng.Assert.assertEquals;
@@ -55,7 +56,8 @@ public class TestIcebergColumnHandle
                 RowType.from(ImmutableList.of(
                         RowType.field("foo2", BIGINT),
                         RowType.field("foo3", new ArrayType(BIGINT)))),
-                Optional.empty());
+                Optional.empty(),
+                REGULAR);
         testRoundTrip(nestedColumn);
     }
 

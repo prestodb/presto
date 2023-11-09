@@ -20,6 +20,7 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
@@ -45,6 +46,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -275,9 +278,17 @@ public class TestIcebergHiveStatistics
 
     private void columnStatsEqual(Map<ColumnHandle, ColumnStatistics> actualStats, Map<ColumnHandle, ColumnStatistics> expectedStats)
     {
-        for (ColumnHandle handle : actualStats.keySet()) {
-            ColumnStatistics actual = actualStats.get(handle);
+        for (ColumnHandle handle : expectedStats.keySet()) {
             ColumnStatistics expected = expectedStats.get(handle);
+            if (((IcebergColumnHandle) handle).getColumnType() == PARTITION_KEY) {
+                handle = new IcebergColumnHandle(
+                        ((IcebergColumnHandle) handle).getColumnIdentity(),
+                        ((IcebergColumnHandle) handle).getType(),
+                        ((IcebergColumnHandle) handle).getComment(),
+                        REGULAR,
+                        ((IcebergColumnHandle) handle).getRequiredSubfields());
+            }
+            ColumnStatistics actual = actualStats.get(handle);
             assertEquals(actual.getRange(), expected.getRange(), "range for col: " + handle);
             assertEquals(actual.getNullsFraction(), expected.getNullsFraction(), "nulls fraction for col: " + handle);
             assertEquals(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "NDVs for col: " + handle);

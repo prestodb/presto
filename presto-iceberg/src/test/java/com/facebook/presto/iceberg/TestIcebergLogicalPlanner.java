@@ -50,6 +50,7 @@ import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains
 import static com.facebook.presto.common.predicate.ValueSet.ofRanges;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.isEntireColumn;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getSynthesizedIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
@@ -403,7 +404,12 @@ public class TestIcebergLogicalPlanner
 
             IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout.get();
 
-            Optional<List<TupleDomain.ColumnDomain<ColumnHandle>>> columnDomains = layoutHandle.getTupleDomain().getColumnDomains();
+            TupleDomain<ColumnHandle> tupleDomain = layoutHandle.getDomainPredicate()
+                    .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                    .transform(layoutHandle.getPredicateColumns()::get)
+                    .transform(ColumnHandle.class::cast);
+
+            Optional<List<TupleDomain.ColumnDomain<ColumnHandle>>> columnDomains = tupleDomain.getColumnDomains();
             Set<String> actualPredicateColumns = ImmutableSet.of();
             if (columnDomains.isPresent()) {
                 actualPredicateColumns = columnDomains.get().stream()
@@ -414,7 +420,7 @@ public class TestIcebergLogicalPlanner
             }
 
             if (!Objects.equals(actualPredicateColumns, predicateColumns)
-                    || !Objects.equals(layoutHandle.getTupleDomain(), predicate)) {
+                    || !Objects.equals(tupleDomain, predicate)) {
                 return NO_MATCH;
             }
 
