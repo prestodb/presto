@@ -336,15 +336,17 @@ the standard Java types can't be used as they aren't able to represent the input
 data.
 
 To define a method handle which can accept *any* types, use ``@BlockPosition``
-in conjunction with the ``@BlockIndex`` parameters. This works for both scalar
-and aggregation function implementations. An example signature is provided
-below. 
+in conjunction with the ``@BlockIndex`` parameters. Similar to the
+``@SqlNullable`` annotation, use the ``@NullablePosition`` annotation to denote
+that the function should be called when the block position is ``NULL``.
+
+This works for both scalar and aggregation function implementations.
 
 .. code-block:: java
 
     @ScalarFunction("example")
     public static Block exampleFunction(
-            @BlockPosition @SqlType("array(int)") Block block,
+            @BlockPosition @NullablePosition @SqlType("array(int)") Block block,
             @BlockIndex int index) { /* ...implementation */ }
 
 Applying Generic Types with ``@BlockPosition``
