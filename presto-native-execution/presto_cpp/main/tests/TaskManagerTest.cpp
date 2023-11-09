@@ -595,6 +595,12 @@ class TaskManagerTest : public testing::Test {
         taskId, updateRequest, planFragment, std::move(queryCtx), 0);
   }
 
+  void initNodeConfig(
+      ConfigBase& config,
+      std::unordered_map<std::string, std::string> properties) {
+    config.initialize(std::make_unique<core::MemConfig>(std::move(properties)));
+  }
+
   std::shared_ptr<memory::MemoryPool> rootPool_;
   std::shared_ptr<memory::MemoryPool> leafPool_;
   RowTypePtr rowType_;
@@ -1033,29 +1039,37 @@ TEST_F(TaskManagerTest, aggregationSpill) {
 }
 
 TEST_F(TaskManagerTest, buildTaskSpillDirectoryPath) {
+  NodeConfig config;
+  initNodeConfig(
+      config,
+      {{std::string(NodeConfig::kNodeInternalAddress), "192.168.10.2"},
+       {std::string(NodeConfig::kNodeId), "19"}});
   EXPECT_EQ(
       "fs::/base/presto_native/192.168.10.2_19/2022-12-20/20221220-Q/Task1/",
       TaskManager::buildTaskSpillDirectoryPath(
-          "fs::/base", "192.168.10.2", "19", "20221220-Q", "Task1", true));
+          "fs::/base", &config, "20221220-Q", "Task1", true));
+  EXPECT_EQ(
+      "fs::/base/presto_native/2022-12-20/20221220-Q/Task1/",
+      TaskManager::buildTaskSpillDirectoryPath(
+          "fs::/base", &config, "20221220-Q", "Task1", false));
+
+  initNodeConfig(
+      config,
+      {{std::string(NodeConfig::kNodeInternalAddress), "192.16.10.2"},
+       {std::string(NodeConfig::kNodeId), "sample_node_id"}});
   EXPECT_EQ(
       "fsx::/root/presto_native/192.16.10.2_sample_node_id/1970-01-01/Q100/Task22/",
       TaskManager::buildTaskSpillDirectoryPath(
           "fsx::/root",
-          "192.16.10.2",
-          "sample_node_id",
+          &config,
           "Q100",
           "Task22",
           true));
   EXPECT_EQ(
-      "fs::/base/presto_native/2022-12-20/20221220-Q/Task1/",
-      TaskManager::buildTaskSpillDirectoryPath(
-          "fs::/base", "192.168.10.2", "19", "20221220-Q", "Task1", false));
-  EXPECT_EQ(
       "fsx::/root/presto_native/1970-01-01/Q100/Task22/",
       TaskManager::buildTaskSpillDirectoryPath(
           "fsx::/root",
-          "192.16.10.2",
-          "sample_node_id",
+          &config,
           "Q100",
           "Task22",
           false));

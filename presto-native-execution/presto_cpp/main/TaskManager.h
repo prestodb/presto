@@ -17,6 +17,7 @@
 #include <memory>
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/QueryContextManager.h"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/exec/OutputBufferManager.h"
@@ -150,8 +151,7 @@ class TaskManager {
   /// Always returns non-empty string.
   static std::string buildTaskSpillDirectoryPath(
       const std::string& baseSpillPath,
-      const std::string& nodeIp,
-      const std::string& nodeId,
+      const NodeConfig* nodeConfig,
       const std::string& queryId,
       const protocol::TaskId& taskId,
       bool includeNodeInSpillPath);
