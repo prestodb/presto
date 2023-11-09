@@ -13,11 +13,69 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/type/Filter.h"
 
 namespace facebook::velox::functions {
 namespace {
+
+class GenericInPredicate : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    exec::DecodedArgs decodedArgs(rows, args, context);
+    auto* value = decodedArgs.at(0);
+    auto* valueBase = value->base();
+
+    auto* inList = decodedArgs.at(1);
+
+    auto* inListBaseArray = inList->base()->as<ArrayVector>();
+    auto& inListElements = inListBaseArray->elements();
+
+    context.ensureWritable(rows, BOOLEAN(), result);
+    result->clearNulls(rows);
+    auto* boolResult = result->asUnchecked<FlatVector<bool>>();
+
+    rows.applyToSelected([&](vector_size_t row) {
+      if (value->isNullAt(row) || inList->isNullAt(row)) {
+        boolResult->setNull(row, true);
+        return;
+      }
+
+      const auto valueBaseRow = value->index(row);
+      if (valueBase->containsNullAt(valueBaseRow)) {
+        boolResult->setNull(row, true);
+        return;
+      }
+
+      const auto arrayRow = inList->index(row);
+      const auto offset = inListBaseArray->offsetAt(arrayRow);
+      const auto size = inListBaseArray->sizeAt(arrayRow);
+
+      bool hasNull = false;
+      for (auto i = 0; i < size; ++i) {
+        if (inListElements->containsNullAt(offset + i)) {
+          hasNull = true;
+        } else if (inListElements->equalValueAt(
+                       valueBase, offset + i, valueBaseRow)) {
+          boolResult->set(row, true);
+          return;
+        }
+      }
+
+      if (hasNull) {
+        boolResult->setNull(row, true);
+      } else {
+        boolResult->set(row, false);
+      }
+    });
+  }
+};
 
 // Returns NULL if
 // - input value is NULL or contains NULL;
@@ -284,8 +342,9 @@ class InPredicate : public exec::VectorFunction {
     VELOX_CHECK_EQ(inListType->kind(), TypeKind::ARRAY);
 
     const auto& values = inputArgs[1].constantValue;
-    VELOX_USER_CHECK_NOT_NULL(
-        values, "IN predicate supports only constant IN list");
+    if (values == nullptr) {
+      return std::make_shared<GenericInPredicate>();
+    }
 
     if (values->isNullAt(0)) {
       return std::make_shared<InPredicate>(nullptr, true);
@@ -467,13 +526,13 @@ class InPredicate : public exec::VectorFunction {
             .typeVariable("T")
             .returnType("boolean")
             .argumentType("T")
-            .constantArgumentType("array(T)")
+            .argumentType("array(T)")
             .build(),
         exec::FunctionSignatureBuilder()
             .typeVariable("T")
             .returnType("boolean")
             .argumentType("T")
-            .constantArgumentType("array(unknown)")
+            .argumentType("array(unknown)")
             .build(),
     };
   }
