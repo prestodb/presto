@@ -294,7 +294,7 @@ inline bool copyNextWord(void*& to, const void*& from, int32_t& bytes) {
 } // namespace detail
 
 template <typename A>
-void memcpy(void* to, const void* from, int32_t bytes, const A& arch) {
+inline void memcpy(void* to, const void* from, int32_t bytes, const A& arch) {
   while (bytes >= batchByteSize(arch)) {
     if (!detail::copyNextWord<xsimd::batch<int8_t, A>, A>(to, from, bytes)) {
       return;
@@ -1352,26 +1352,86 @@ xsimd::batch<T, A> reinterpretBatch(xsimd::batch<U, A> data, const A& arch) {
   return detail::ReinterpretBatch<T, U, A>::apply(data, arch);
 }
 
-template <typename A>
-inline bool memEqualUnsafe(const void* x, const void* y, int32_t size) {
-  constexpr int32_t kBatch = xsimd::batch<uint8_t, A>::size;
+namespace detail {
+template <typename T>
+inline bool
+oneOrTwoScalarsEqual(const uint8_t* left, const uint8_t* right, int32_t size) {
+  return *reinterpret_cast<const T*>(left) ==
+      *reinterpret_cast<const T*>(right) &&
+      (size == sizeof(T) ||
+       *reinterpret_cast<const T*>(left + size - sizeof(T)) ==
+           *reinterpret_cast<const T*>(right + size - sizeof(T)));
+}
+} // namespace detail
 
+template <typename A>
+inline bool memEqual(const void* x, const void* y, int32_t size) {
+  constexpr int32_t kBatch = xsimd::batch<uint8_t, A>::size;
   auto left = reinterpret_cast<const uint8_t*>(x);
   auto right = reinterpret_cast<const uint8_t*>(y);
-  while (size > 0) {
-    auto bits = toBitMask(
-        xsimd::batch<uint8_t, A>::load_unaligned(left) ==
-        xsimd::batch<uint8_t, A>::load_unaligned(right));
-    if (bits == allSetBitMask<uint8_t, A>()) {
+  if (size >= kBatch) {
+    do {
+      auto bits = toBitMask(
+          xsimd::batch<uint8_t, A>::load_unaligned(left) ==
+          xsimd::batch<uint8_t, A>::load_unaligned(right));
+      if (bits != allSetBitMask<uint8_t, A>()) {
+        return false;
+      }
       left += kBatch;
       right += kBatch;
       size -= kBatch;
-      continue;
+    } while (size >= kBatch);
+    if (size > 0) {
+      return toBitMask(
+                 xsimd::batch<uint8_t, A>::load_unaligned(
+                     left + size - kBatch) ==
+                 xsimd::batch<uint8_t, A>::load_unaligned(
+                     right + size - kBatch)) == allSetBitMask<uint8_t, A>();
     }
-    auto leading = __builtin_ctz(~bits);
-    return leading >= size;
+    return true;
   }
-  return true;
+#if XSIMD_WITH_AVX
+  using HalfBatch = xsimd::batch<uint8_t, xsimd::sse4_1>;
+  constexpr int32_t kHalfSize = HalfBatch::size;
+
+  if (size >= kHalfSize) {
+    if (simd::toBitMask(
+            HalfBatch::load_unaligned(left) ==
+            HalfBatch::load_unaligned(right)) !=
+        allSetBitMask<uint8_t, xsimd::sse4_1>()) {
+      return false;
+    }
+    if (size > kHalfSize) {
+      return simd::toBitMask(
+                 HalfBatch::load_unaligned(left + size - kHalfSize) ==
+                 HalfBatch::load_unaligned(right + size - kHalfSize)) ==
+          allSetBitMask<uint8_t, xsimd::sse4_1>();
+    }
+
+    return true;
+  }
+  if (size >= sizeof(uint64_t)) {
+    return detail::oneOrTwoScalarsEqual<uint64_t>(left, right, size);
+  }
+
+#else
+  while (size >= sizeof(uint64_t)) {
+    if (*reinterpret_cast<const uint64_t*>(left) !=
+        *reinterpret_cast<uint64_t*>(right)) {
+      return false;
+    }
+    left += sizeof(uint64_t);
+    right += sizeof(uint64_t);
+    size -= sizeof(uint64_t);
+  }
+#endif
+  if (size >= sizeof(uint32_t)) {
+    return detail::oneOrTwoScalarsEqual<uint32_t>(left, right, size);
+  }
+  if (size >= sizeof(uint16_t)) {
+    return detail::oneOrTwoScalarsEqual<uint16_t>(left, right, size);
+  }
+  return size == 0 || *left == *right;
 }
 
 } // namespace facebook::velox::simd
