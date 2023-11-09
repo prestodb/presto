@@ -549,6 +549,13 @@ class NodeConfig : public ConfigBase {
 
   uint64_t nodeMemoryGb(
       const std::function<uint64_t()>& defaultNodeMemoryGb = nullptr) const;
+
+  /// Invoked to get the ip address of the process. In certain deployment
+  /// setup, each process has different ip address. Deployment environment
+  /// may provide there own library to get process specific ip address.
+  /// In such cases, getLocalIp can be overriden to pass process specific
+  /// ip address.
+  virtual std::string getLocalIp() const;
 };
 
 /// Used only in the single instance as the source of the initial properties for

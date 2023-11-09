@@ -12,9 +12,6 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/PrestoServer.h"
-#include <boost/asio/io_service.hpp>
-#include <boost/asio/ip/host_name.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/lexical_cast.hpp>
 #include <glog/logging.h>
 #include "CoordinatorDiscoverer.h"
@@ -24,10 +21,8 @@
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
-#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
@@ -36,12 +31,10 @@
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
-#include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/SsdCache.h"
@@ -178,7 +171,7 @@ void PrestoServer::run() {
     environment_ = nodeConfig->nodeEnvironment();
     nodeId_ = nodeConfig->nodeId();
     address_ = nodeConfig->nodeInternalAddress(
-        std::bind(&PrestoServer::getLocalIp, this));
+        std::bind(&NodeConfig::getLocalIp, nodeConfig));
     // Add [] to an ipv6 address.
     if (address_.find(':') != std::string::npos && address_.front() != '[') {
       address_ = fmt::format("[{}]", address_);
@@ -850,23 +843,6 @@ void PrestoServer::registerMemoryArbitrators() {
 void PrestoServer::registerStatsCounters() {
   registerPrestoCppCounters();
   registerVeloxCounters();
-}
-
-std::string PrestoServer::getLocalIp() const {
-  using boost::asio::ip::tcp;
-  boost::asio::io_service io_service;
-  tcp::resolver resolver(io_service);
-  tcp::resolver::query query(boost::asio::ip::host_name(), kHttp);
-  tcp::resolver::iterator it = resolver.resolve(query);
-  while (it != tcp::resolver::iterator()) {
-    boost::asio::ip::address addr = (it++)->endpoint().address();
-    // simple check to see if the address is not ::
-    if (addr.to_string().length() > 4) {
-      return fmt::format("{}", addr.to_string());
-    }
-  }
-  VELOX_FAIL(
-      "Could not infer Node IP. Please specify node.ip in the node.properties file.");
 }
 
 std::string PrestoServer::getBaseSpillDirectory() const {

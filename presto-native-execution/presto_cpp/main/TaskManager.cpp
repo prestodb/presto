@@ -367,7 +367,13 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
   std::string path;
   folly::toAppend(fmt::format("{}/presto_native/", baseSpillPath), &path);
   if (includeNodeInSpillPath) {
-    folly::toAppend(fmt::format("{}_{}/", nodeConfig->nodeInternalAddress(), nodeConfig->nodeId()), &path);
+    folly::toAppend(
+        fmt::format(
+            "{}_{}/",
+            nodeConfig->nodeInternalAddress(
+                std::bind(&NodeConfig::getLocalIp, nodeConfig)),
+            nodeConfig->nodeId()),
+        &path);
   }
   folly::toAppend(fmt::format("{}/{}/{}/", dateString, queryId, taskId), &path);
   return path;

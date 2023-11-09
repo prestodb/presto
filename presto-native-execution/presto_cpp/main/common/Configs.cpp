@@ -14,9 +14,15 @@
 
 #include <re2/re2.h>
 
+#include <boost/asio/io_service.hpp>
+#include <boost/asio/ip/host_name.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/http/HttpServer.h"
+#include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/core/QueryConfig.h"
 
 #if __has_include("filesystem")
@@ -584,6 +590,23 @@ uint64_t NodeConfig::nodeMemoryGb(
     exit(1);
   }
   return result;
+}
+
+std::string NodeConfig::getLocalIp() const {
+  using boost::asio::ip::tcp;
+  boost::asio::io_service io_service;
+  tcp::resolver resolver(io_service);
+  tcp::resolver::query query(boost::asio::ip::host_name(), "http");
+  tcp::resolver::iterator it = resolver.resolve(query);
+  while (it != tcp::resolver::iterator()) {
+    boost::asio::ip::address addr = (it++)->endpoint().address();
+    // simple check to see if the address is not ::
+    if (addr.to_string().length() > 4) {
+      return fmt::format("{}", addr.to_string());
+    }
+  }
+  VELOX_FAIL(
+      "Could not infer Node IP. Please specify node.ip in the node.properties file.");
 }
 
 BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
