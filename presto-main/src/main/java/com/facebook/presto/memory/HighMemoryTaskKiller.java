@@ -209,7 +209,7 @@ public class HighMemoryTaskKiller
                                 .map(TaskInfo::getStats)
                                 .mapToLong(stats -> stats.getUserMemoryReservationInBytes() + stats.getSystemMemoryReservationInBytes() + stats.getRevocableMemoryReservationInBytes())
                                 .sum())
-                ).max(comparator.reversed()).map(Map.Entry::getKey);
+                ).max(comparator).map(Map.Entry::getKey);
 
         return maxMemoryConsumpingQueryId;
     }
