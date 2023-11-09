@@ -444,7 +444,6 @@ TEST_F(DateTimeFunctionsTest, monthDate) {
   EXPECT_EQ(8, month("1954-08-08"));
 }
 
-
 TEST_F(DateTimeFunctionsTest, quarterDate) {
   const auto quarter = [&](const std::string& dateString) {
     return evaluateOnce<int32_t, int32_t>(

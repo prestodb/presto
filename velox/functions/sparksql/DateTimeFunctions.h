@@ -382,7 +382,6 @@ struct MonthFunction {
   }
 };
 
-
 template <typename T>
 struct QuarterFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
