@@ -248,8 +248,6 @@ const char* exportArrowFormatStr(
       return "z"; // binary
 
     case TypeKind::TIMESTAMP:
-      // TODO: need to figure out how we'll map this since in Velox we currently
-      // store timestamps as two int64s (epoch in sec and nanos).
       return "ttn"; // time64 [nanoseconds]
     // Complex/nested types.
     case TypeKind::ARRAY:
@@ -337,6 +335,7 @@ void gatherFromBuffer(
   auto src = buf.as<uint8_t>();
   auto dst = out.asMutable<uint8_t>();
   vector_size_t j = 0; // index into dst
+
   if (type.kind() == TypeKind::BOOLEAN) {
     rows.apply([&](vector_size_t i) {
       bits::setBit(dst, j++, bits::isBitSet(src, i));
@@ -346,6 +345,11 @@ void gatherFromBuffer(
       int128_t value = buf.as<int64_t>()[i];
       memcpy(dst + (j++) * sizeof(int128_t), &value, sizeof(int128_t));
     });
+  } else if (type.isTimestamp()) {
+    auto srcTs = buf.as<Timestamp>();
+    auto dstTs = out.asMutable<int64_t>();
+
+    rows.apply([&](vector_size_t i) { dstTs[j++] = srcTs[i].toNanos(); });
   } else {
     auto typeSize = type.cppSizeInBytes();
     rows.apply([&](vector_size_t i) {
@@ -497,26 +501,47 @@ void exportValidityBitmap(
   }
 }
 
+bool isFlatScalarZeroCopy(const TypePtr& type) {
+  // - Short decimals need to be converted to 128 bit values as they are mapped
+  // to Arrow Decimal128.
+  // - Velox's Timestamp representation (2x 64bit values) does not have an
+  // equivalent in Arrow.
+  return !type->isShortDecimal() && !type->isTimestamp();
+}
+
+// Returns the size of a single element of a given `type` in the target arrow
+// buffer.
+size_t getArrowElementSize(const TypePtr& type) {
+  if (type->isShortDecimal()) {
+    return sizeof(int128_t);
+  } else if (type->isTimestamp()) {
+    return sizeof(int64_t);
+  } else {
+    return type->cppSizeInBytes();
+  }
+}
+
 void exportValues(
     const BaseVector& vec,
     const Selection& rows,
     ArrowArray& out,
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
+  const auto& type = vec.type();
   out.n_buffers = 2;
-  // Short decimals need to be converted to 128 bit values as they are mapped
-  // to Arrow Decimal128.
-  if (!rows.changed() && !vec.type()->isShortDecimal()) {
+
+  if (!rows.changed() && isFlatScalarZeroCopy(type)) {
     holder.setBuffer(1, vec.values());
     return;
   }
-  auto size = vec.type()->isShortDecimal() ? sizeof(int128_t)
-                                           : vec.type()->cppSizeInBytes();
-  auto values = vec.type()->isBoolean()
+
+  // Otherwise we will need a new buffer and copy the data.
+  auto size = getArrowElementSize(type);
+  auto values = type->isBoolean()
       ? AlignedBuffer::allocate<bool>(out.length, pool)
       : AlignedBuffer::allocate<uint8_t>(
             checkedMultiply<size_t>(out.length, size), pool);
-  gatherFromBuffer(*vec.type(), *vec.values(), rows, *values);
+  gatherFromBuffer(*type, *vec.values(), rows, *values);
   holder.setBuffer(1, values);
 }
 
@@ -570,6 +595,7 @@ void exportFlat(
     case TypeKind::HUGEINT:
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
+    case TypeKind::TIMESTAMP:
       exportValues(vec, rows, out, pool, holder);
       break;
     case TypeKind::VARCHAR:
@@ -1222,6 +1248,36 @@ VectorPtr createDictionaryVector(
       std::move(wrapped));
 }
 
+VectorPtr createTimestampVector(
+    memory::MemoryPool* pool,
+    const TypePtr& type,
+    BufferPtr nulls,
+    const int64_t* input,
+    size_t length,
+    int64_t nullCount) {
+  BufferPtr timestamps = AlignedBuffer::allocate<Timestamp>(length, pool);
+  auto* rawTimestamps = timestamps->asMutable<Timestamp>();
+  const auto* rawNulls = nulls->as<const uint64_t>();
+
+  if (length > nullCount) {
+    for (size_t i = 0; i < length; ++i) {
+      if (!bits::isBitNull(rawNulls, i)) {
+        rawTimestamps[i] = Timestamp::fromNanos(input[i]);
+      }
+    }
+  }
+  return std::make_shared<FlatVector<Timestamp>>(
+      pool,
+      type,
+      nulls,
+      length,
+      timestamps,
+      std::vector<BufferPtr>(),
+      SimpleVectorStats<Timestamp>{},
+      std::nullopt,
+      optionalNullCount(nullCount));
+}
+
 VectorPtr importFromArrowImpl(
     ArrowSchema& arrowSchema,
     ArrowArray& arrowArray,
@@ -1277,9 +1333,16 @@ VectorPtr importFromArrowImpl(
         static_cast<const char*>(arrowArray.buffers[2]), // values
         arrowArray.null_count,
         wrapInBufferView);
-  }
-  // Row/structs.
-  if (type->isRow()) {
+  } else if (type->isTimestamp()) {
+    return createTimestampVector(
+        pool,
+        type,
+        nulls,
+        static_cast<const int64_t*>(arrowArray.buffers[1]),
+        arrowArray.length,
+        arrowArray.null_count);
+  } else if (type->isRow()) {
+    // Row/structs.
     return createRowVector(
         pool,
         std::dynamic_pointer_cast<const RowType>(type),
@@ -1287,36 +1350,36 @@ VectorPtr importFromArrowImpl(
         arrowSchema,
         arrowArray,
         isViewer);
-  }
-  if (type->isArray()) {
+  } else if (type->isArray()) {
     return createArrayVector(
         pool, type, nulls, arrowSchema, arrowArray, isViewer, wrapInBufferView);
-  }
-  if (type->isMap()) {
+  } else if (type->isMap()) {
     return createMapVector(
         pool, type, nulls, arrowSchema, arrowArray, isViewer, wrapInBufferView);
+  } else if (type->isPrimitiveType()) {
+    // Other primitive types.
+
+    // Wrap the values buffer into a Velox BufferView - zero-copy.
+    VELOX_USER_CHECK_EQ(
+        arrowArray.n_buffers,
+        2,
+        "Primitive types expect two buffers as input.");
+    auto values = wrapInBufferView(
+        arrowArray.buffers[1], arrowArray.length * type->cppSizeInBytes());
+
+    return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        createFlatVector,
+        type->kind(),
+        pool,
+        type,
+        nulls,
+        arrowArray.length,
+        values,
+        arrowArray.null_count);
+  } else {
+    VELOX_FAIL(
+        "Conversion of '{}' from Arrow not supported yet.", type->toString());
   }
-  // Other primitive types.
-  VELOX_CHECK(
-      type->isPrimitiveType(),
-      "Conversion of '{}' from Arrow not supported yet.",
-      type->toString());
-
-  // Wrap the values buffer into a Velox BufferView - zero-copy.
-  VELOX_USER_CHECK_EQ(
-      arrowArray.n_buffers, 2, "Primitive types expect two buffers as input.");
-  auto values = wrapInBufferView(
-      arrowArray.buffers[1], arrowArray.length * type->cppSizeInBytes());
-
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      createFlatVector,
-      type->kind(),
-      pool,
-      type,
-      nulls,
-      arrowArray.length,
-      values,
-      arrowArray.null_count);
 }
 
 VectorPtr importFromArrowImpl(
