@@ -64,6 +64,17 @@ class CompactDoubleList {
     return loadPointer(previousLow_, previousHigh_);
   }
 
+  /// Updates links after the next() of 'this' has been moved to 'newNext'. Sets
+  /// the next link of this, the previous link of 'newNext' and the previous
+  /// link of the next() of the moved 'newNext'. The use case is taking the
+  // head of a free list block without a full remove of block plus reinsert of
+  // the remainder of the block.
+  void nextMoved(CompactDoubleList* newNext) {
+    setNext(newNext);
+    VELOX_CHECK(newNext->previous() == this);
+    newNext->next()->setPrevious(newNext);
+  }
+
  private:
   static constexpr uint8_t kPointerSignificantBits = 48;
 

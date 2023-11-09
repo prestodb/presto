@@ -497,5 +497,52 @@ TEST_F(HashStringAllocatorTest, freeLists) {
   ASSERT_LT(std::chrono::steady_clock::now() - t0, std::chrono::seconds(30));
 }
 
+TEST_F(HashStringAllocatorTest, strings) {
+  constexpr uint64_t kMagic1 = 0x133788a07;
+  constexpr uint64_t kMagic2 = 0xe7ababe11e;
+  std::vector<std::string> strings;
+  std::vector<StringView> views;
+  for (auto i = 0; i < 20000; ++i) {
+    std::string str;
+    auto freeBytes = allocator_->freeSpace();
+    if (freeBytes > 20 && freeBytes < 120) {
+      // Target the next allocation to take all of the last free block.
+      str.resize(freeBytes - 15);
+    } else {
+      if (i % 11 == 0) {
+        str.resize((i * kMagic1) % 6001);
+      } else {
+        str.resize(24 + (i % 22));
+      }
+    }
+    for (auto c = 0; c < str.size(); ++c) {
+      str[c] = ((c + i) % 64) + 32;
+    }
+    if (i > 0 && i % 3 == 0) {
+      auto freeIdx = ((i * kMagic2) % views.size());
+      if (!strings[freeIdx].empty()) {
+        strings[freeIdx].clear();
+        allocator_->free(HashStringAllocator::headerOf(views[i].data()));
+      }
+    }
+    strings.push_back(str);
+    views.push_back(StringView(str.data(), str.size()));
+    allocator_->copyMultipart(reinterpret_cast<char*>(&views[i]), 0);
+    if (i % 10 == 0) {
+      allocator_->checkConsistency();
+    }
+  }
+  for (auto i = 0; i < strings.size(); ++i) {
+    if (strings[i].empty()) {
+      continue;
+    }
+    std::string temp;
+    ASSERT_TRUE(
+        StringView(strings[i]) ==
+        HashStringAllocator::contiguousString(views[i], temp));
+  }
+  allocator_->checkConsistency();
+}
+
 } // namespace
 } // namespace facebook::velox
