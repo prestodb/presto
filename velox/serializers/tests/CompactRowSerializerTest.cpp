@@ -48,13 +48,25 @@ class CompactRowSerializerTest : public ::testing::Test,
     ASSERT_EQ(size, output->tellp());
   }
 
-  std::unique_ptr<ByteStream> toByteStream(const std::string_view& input) {
+  std::unique_ptr<ByteStream> toByteStream(
+      const std::string_view& input,
+      size_t pageSize = 32) {
+    auto rawBytes = reinterpret_cast<uint8_t*>(const_cast<char*>(input.data()));
+    size_t offset = 0;
+    std::vector<ByteRange> ranges;
+
+    // Split the input buffer into many different pages.
+    while (offset < input.length()) {
+      ranges.push_back({
+          rawBytes + offset,
+          std::min<int32_t>(pageSize, input.length() - offset),
+          0,
+      });
+      offset += pageSize;
+    }
+
     auto byteStream = std::make_unique<ByteStream>();
-    ByteRange byteRange{
-        reinterpret_cast<uint8_t*>(const_cast<char*>(input.data())),
-        (int32_t)input.length(),
-        0};
-    byteStream->resetInput({byteRange});
+    byteStream->resetInput(std::move(ranges));
     return byteStream;
   }
 
