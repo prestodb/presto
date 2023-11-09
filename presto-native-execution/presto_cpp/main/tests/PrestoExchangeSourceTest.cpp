@@ -325,25 +325,26 @@ std::unique_ptr<exec::SerializedPage> waitForNextPage(
     const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
   facebook::velox::ContinueFuture future;
-  auto page = queue->dequeueLocked(&atEnd, &future);
+  auto pages = queue->dequeueLocked(1, &atEnd, &future);
+  EXPECT_LE(pages.size(), 1);
   EXPECT_FALSE(atEnd);
-  if (page == nullptr) {
+  if (pages.empty()) {
     std::move(future).get();
-    page = queue->dequeueLocked(&atEnd, &future);
-    EXPECT_TRUE(page != nullptr);
+    pages = queue->dequeueLocked(1, &atEnd, &future);
+    EXPECT_EQ(pages.size(), 1);
   }
-  return page;
+  return std::move(pages.front());
 }
 
 void waitForEndMarker(const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
   facebook::velox::ContinueFuture future;
-  auto page = queue->dequeueLocked(&atEnd, &future);
-  ASSERT_TRUE(page == nullptr);
+  auto pages = queue->dequeueLocked(1, &atEnd, &future);
+  ASSERT_TRUE(pages.empty());
   if (!atEnd) {
     std::move(future).get();
-    page = queue->dequeueLocked(&atEnd, &future);
-    ASSERT_TRUE(page == nullptr);
+    pages = queue->dequeueLocked(1, &atEnd, &future);
+    ASSERT_TRUE(pages.empty());
     ASSERT_TRUE(atEnd);
   }
 }

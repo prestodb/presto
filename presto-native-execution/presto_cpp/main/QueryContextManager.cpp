@@ -35,7 +35,6 @@ std::string toVeloxConfig(const std::string& name) {
            QueryConfig::kAggregationSpillMemoryThreshold},
           {"native_simplified_expression_evaluation_enabled",
            QueryConfig::kExprEvalSimplified},
-          {"native_aggregation_spill_all", QueryConfig::kAggregationSpillAll},
           {"native_join_spill_memory_threshold",
            QueryConfig::kJoinSpillMemoryThreshold},
           {"native_order_by_spill_memory_threshold",
