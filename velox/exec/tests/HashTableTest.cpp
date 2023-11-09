@@ -22,7 +22,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <gmock/gmock-matchers.h>
@@ -40,7 +40,8 @@ using namespace facebook::velox::test;
 // measures the time for computing hashes/value ids vs the time spent
 // probing the table. Covers kArray, kNormalizedKey and kHash hash
 // modes.
-class HashTableTest : public testing::TestWithParam<bool> {
+class HashTableTest : public testing::TestWithParam<bool>,
+                      public VectorTestBase {
  protected:
   void SetUp() override {
     common::testutil::TestValue::enable();
@@ -84,12 +85,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
             buildType->childAt(channel), channel));
       }
       auto table = HashTable<true>::createForJoin(
-          std::move(keyHashers),
-          dependentTypes,
-          true,
-          false,
-          1'000,
-          pool_.get());
+          std::move(keyHashers), dependentTypes, true, false, 1'000, pool());
 
       makeRows(size, 1, sequence, buildType, batches);
       copyVectorsToTable(batches, startOffset, table.get());
@@ -172,7 +168,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
     }
 
     return HashTable<false>::createForAggregation(
-        std::move(keyHashers), std::vector<Accumulator>{}, pool_.get());
+        std::move(keyHashers), std::vector<Accumulator>{}, pool());
   }
 
   void insertGroups(
@@ -322,14 +318,14 @@ class HashTableTest : public testing::TestWithParam<bool> {
   VectorPtr makeVector(TypePtr type, int32_t size, int32_t sequence) {
     switch (type->kind()) {
       case TypeKind::BIGINT:
-        return vectorMaker_->flatVector<int64_t>(
+        return makeFlatVector<int64_t>(
             size,
             [&](vector_size_t row) { return keySpacing_ * (sequence + row); },
             nullptr);
 
       case TypeKind::VARCHAR: {
-        auto strings = BaseVector::create<FlatVector<StringView>>(
-            VARCHAR(), size, pool_.get());
+        auto strings =
+            BaseVector::create<FlatVector<StringView>>(VARCHAR(), size, pool());
         for (auto row = 0; row < size; ++row) {
           auto string = fmt::format("{}", keySpacing_ * (sequence + row));
           // Make strings that overflow the inline limit for 1/10 of
@@ -349,7 +345,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
         for (auto i = 0; i < type->size(); ++i) {
           children.push_back(makeVector(type->childAt(i), size, sequence));
         }
-        return vectorMaker_->rowVector(children);
+        return makeRowVector(children);
       }
       default:
         VELOX_FAIL("Unsupported kind for makeVector {}", type->kind());
@@ -464,13 +460,12 @@ class HashTableTest : public testing::TestWithParam<bool> {
         nullValues.insert(i);
       }
     }
-    auto batch = vectorMaker_->rowVector(
-        {keys,
-         vectorMaker_->flatVector<int64_t>(keys->size(), folly::identity)});
+    auto batch = makeRowVector(
+        {keys, makeFlatVector<int64_t>(keys->size(), folly::identity)});
     std::vector<std::unique_ptr<VectorHasher>> hashers;
     hashers.push_back(std::make_unique<VectorHasher>(keys->type(), 0));
     auto table = HashTable<false>::createForJoin(
-        std::move(hashers), {BIGINT()}, true, false, 1'000, pool_.get());
+        std::move(hashers), {BIGINT()}, true, false, 1'000, pool());
     copyVectorsToTable({batch}, 0, table.get());
     table->prepareJoinTable({}, executor_.get());
     ASSERT_EQ(table->hashMode(), mode);
@@ -479,7 +474,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
     auto numRows = table->listNullKeyRows(&iter, rows.size(), rows.data());
     ASSERT_EQ(numRows, nullValues.size());
     auto actual =
-        BaseVector::create<FlatVector<int64_t>>(BIGINT(), numRows, pool_.get());
+        BaseVector::create<FlatVector<int64_t>>(BIGINT(), numRows, pool());
     table->rows()->extractColumn(rows.data(), numRows, 1, actual);
     for (int i = 0; i < actual->size(); ++i) {
       auto it = nullValues.find(actual->valueAt(i));
@@ -490,12 +485,6 @@ class HashTableTest : public testing::TestWithParam<bool> {
     ASSERT_EQ(0, table->listNullKeyRows(&iter, rows.size(), rows.data()));
   }
 
-  std::shared_ptr<memory::MemoryPool> rootPool_{
-      memory::defaultMemoryManager().addRootPool("HashTableTest")};
-  std::shared_ptr<memory::MemoryPool> pool_{
-      rootPool_->addLeafChild("HashTableTest")};
-  std::unique_ptr<test::VectorMaker> vectorMaker_{
-      std::make_unique<test::VectorMaker>(pool_.get())};
   // Bitmap of positions in batches_ that end up in the table.
   std::vector<uint64_t> isInTable_;
   // Test payload, keys first.
@@ -577,7 +566,7 @@ TEST_P(HashTableTest, clear) {
       config);
 
   auto table = HashTable<true>::createForAggregation(
-      std::move(keyHashers), {Accumulator{aggregate.get()}}, pool_.get());
+      std::move(keyHashers), {Accumulator{aggregate.get()}}, pool());
   ASSERT_NO_THROW(table->clear());
 }
 
@@ -610,14 +599,11 @@ TEST_P(HashTableTest, bestWithReserveOverflow) {
   // the VectorHasher, which caused the combined value IDs to be computed using
   // only the last VectorHasher. Hence, all values where last key was the same
   // were assigned the same value IDs.
-  auto data = vectorMaker_->rowVector({
-      vectorMaker_->flatVector<int64_t>(
-          20'000, [](auto row) { return row * 10; }),
-      vectorMaker_->flatVector<int64_t>(
-          20'000, [](auto row) { return 1 + row * 10; }),
-      vectorMaker_->flatVector<int64_t>(
-          20'000, [](auto row) { return 2 + row * 10; }),
-      vectorMaker_->flatVector<int64_t>(
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(20'000, [](auto row) { return row * 10; }),
+      makeFlatVector<int64_t>(20'000, [](auto row) { return 1 + row * 10; }),
+      makeFlatVector<int64_t>(20'000, [](auto row) { return 2 + row * 10; }),
+      makeFlatVector<int64_t>(
           20'000, [](auto row) { return 3 + (row / 2) * 10; }),
   });
 
@@ -677,12 +663,12 @@ TEST_P(HashTableTest, enableRangeWhereCan) {
     c.push_back(std::string(15, '.') + std::to_string(i));
   }
 
-  auto data = vectorMaker_->rowVector({
-      vectorMaker_->flatVector<int64_t>(
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(
           2'000, [&](auto row) { return a[row % a.size()]; }),
-      vectorMaker_->flatVector<StringView>(
+      makeFlatVector<StringView>(
           2'000, [&](auto row) { return StringView(b[row % b.size()]); }),
-      vectorMaker_->flatVector<StringView>(
+      makeFlatVector<StringView>(
           2'000, [&](auto row) { return StringView(c[row % c.size()]); }),
   });
 
@@ -695,8 +681,8 @@ TEST_P(HashTableTest, arrayProbeNormalizedKey) {
   auto lookup = std::make_unique<HashLookup>(table->hashers());
 
   for (auto i = 0; i < 200; ++i) {
-    auto data = vectorMaker_->rowVector({
-        vectorMaker_->flatVector<int64_t>(
+    auto data = makeRowVector({
+        makeFlatVector<int64_t>(
             10'000, [&](auto row) { return i * 10'000 + row; }),
     });
 
@@ -724,7 +710,7 @@ TEST_P(HashTableTest, regularHashingTableSize) {
           std::make_unique<VectorHasher>(type->childAt(channel), channel));
     }
     auto table = HashTable<true>::createForJoin(
-        std::move(keyHashers), {}, true, false, 1'000, pool_.get());
+        std::move(keyHashers), {}, true, false, 1'000, pool());
     std::vector<RowVectorPtr> batches;
     makeRows(1 << 12, 1, 0, type, batches);
     copyVectorsToTable(batches, 0, table.get());
@@ -756,21 +742,21 @@ TEST_P(HashTableTest, checkSizeValidation) {
   table->testingSetHashMode(BaseHashTable::HashMode::kHash, 131'072);
   ASSERT_EQ(table->capacity(), 256 << 10);
 
-  auto vector1 = vectorMaker_->rowVector({vectorMaker_->flatVector<int64_t>(
-      131'072, [&](auto row) { return row; })});
+  auto vector1 = makeRowVector(
+      {makeFlatVector<int64_t>(131'072, [&](auto row) { return row; })});
   // The first insertion of 128KB distinct entries.
   insertGroups(*vector1, *lookup, *table);
   ASSERT_EQ(table->capacity(), 256 << 10);
 
-  auto vector2 = vectorMaker_->rowVector({vectorMaker_->flatVector<int64_t>(
+  auto vector2 = makeRowVector({makeFlatVector<int64_t>(
       131'072, [&](auto row) { return 131'072 + row; })});
   // The second insertion of 128KB distinct entries triggers the table resizing.
   // And we expect the table size bumps up to 512KB.
   insertGroups(*vector2, *lookup, *table);
   ASSERT_EQ(table->capacity(), 512 << 10);
 
-  auto vector3 = vectorMaker_->rowVector(
-      {vectorMaker_->flatVector<int64_t>(1, [&](auto row) { return row; })});
+  auto vector3 = makeRowVector(
+      {makeFlatVector<int64_t>(1, [&](auto row) { return row; })});
   // The last insertion triggers the check size which see the table size matches
   // the number of distinct entries that it stores.
   insertGroups(*vector3, *lookup, *table);
@@ -778,12 +764,12 @@ TEST_P(HashTableTest, checkSizeValidation) {
 }
 
 TEST_P(HashTableTest, listNullKeyRows) {
-  VectorPtr keys = vectorMaker_->flatVector<int64_t>(500, folly::identity);
+  VectorPtr keys = makeFlatVector<int64_t>(500, folly::identity);
   testListNullKeyRows(keys, BaseHashTable::HashMode::kArray);
   {
-    auto flat = vectorMaker_->flatVector<int64_t>(
-        10'000, [](auto i) { return i * 1000; });
-    keys = vectorMaker_->rowVector({flat, flat});
+    auto flat =
+        makeFlatVector<int64_t>(10'000, [](auto i) { return i * 1000; });
+    keys = makeRowVector({flat, flat});
   }
   testListNullKeyRows(keys, BaseHashTable::HashMode::kHash);
 }
@@ -841,14 +827,13 @@ DEBUG_ONLY_TEST_P(HashTableTest, failureInCreateRowPartitions) {
   std::unique_ptr<HashTable<false>> topTable;
   std::vector<std::unique_ptr<BaseHashTable>> otherTables;
   for (int i = 0; i < 4; i++) {
-    auto batch = vectorMaker_->rowVector(
-        {vectorMaker_->flatVector<int64_t>(10, folly::identity)});
+    auto batch = makeRowVector({makeFlatVector<int64_t>(10, folly::identity)});
     std::vector<std::unique_ptr<VectorHasher>> hashers;
     hashers.push_back(std::make_unique<VectorHasher>(BIGINT(), 0));
     // Set minTableSizeForParallelJoinBuild to be really small so we can trigger
     // a parallel join build without needing a lot of data.
     auto table = HashTable<false>::createForJoin(
-        std::move(hashers), {BIGINT()}, true, false, 1, pool_.get());
+        std::move(hashers), {BIGINT()}, true, false, 1, pool());
     copyVectorsToTable({batch}, 0, table.get());
 
     if (!topTable) {

@@ -17,18 +17,13 @@
 #include <gtest/gtest.h>
 #include <velox/buffer/Buffer.h>
 #include "velox/vector/ComplexVector.h"
-#include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 
-class IsWritableVectorTest : public testing::Test {
+class IsWritableVectorTest : public testing::Test, public VectorTestBase {
  protected:
-  void SetUp() override {
-    pool_ = memory::addDefaultLeafMemoryPool();
-    vectorMaker_ = std::make_unique<VectorMaker>(pool_.get());
-  }
-
   // We use templates here to avoid the compiler automatically creating new
   // shared_ptrs which it would do if we used VectorPtr.
   template <typename T, typename V>
@@ -100,21 +95,17 @@ class IsWritableVectorTest : public testing::Test {
       ASSERT_FALSE(BaseVector::isVectorWritable(vector));
     }
   }
-
-  std::shared_ptr<memory::MemoryPool> pool_;
-  std::unique_ptr<VectorMaker> vectorMaker_;
 };
 
 TEST_F(IsWritableVectorTest, flatVector) {
-  auto flatVector = vectorMaker_->flatVector(std::vector<int32_t>{1, 2, 3});
+  auto flatVector = makeFlatVector<int32_t>({1, 2, 3});
 
   basicTest(flatVector);
   testBufferPtr(flatVector, flatVector->values());
 }
 
 TEST_F(IsWritableVectorTest, arrayVector) {
-  auto arrayVector =
-      vectorMaker_->arrayVector<int32_t>({{1, 2}, {3, 4}, {5, 6}});
+  auto arrayVector = makeArrayVector<int32_t>({{1, 2}, {3, 4}, {5, 6}});
 
   basicTest(arrayVector);
   testBufferPtr(arrayVector, arrayVector->offsets());
@@ -123,10 +114,10 @@ TEST_F(IsWritableVectorTest, arrayVector) {
 }
 
 TEST_F(IsWritableVectorTest, mapVector) {
-  auto mapVector = vectorMaker_->mapVector(
+  auto mapVector = makeMapVector(
       {0, 2, 4, 6},
-      vectorMaker_->flatVector<int32_t>({1, 2, 3, 4, 5, 6}),
-      vectorMaker_->flatVector<int32_t>({1, 2, 3, 4, 5, 6}));
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}));
 
   basicTest(mapVector);
   testBufferPtr(mapVector, mapVector->offsets());
@@ -136,10 +127,10 @@ TEST_F(IsWritableVectorTest, mapVector) {
 }
 
 TEST_F(IsWritableVectorTest, rowVector) {
-  auto rowVector = vectorMaker_->rowVector(
-      {vectorMaker_->flatVector<int32_t>({1, 2, 3, 4, 5, 6}),
-       vectorMaker_->flatVector<int32_t>({1, 2, 3, 4, 5, 6}),
-       vectorMaker_->flatVector<int32_t>({1, 2, 3, 4, 5, 6})});
+  auto rowVector = makeRowVector(
+      {makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6})});
 
   basicTest(rowVector);
   testChildVector(rowVector, rowVector->childAt(0));

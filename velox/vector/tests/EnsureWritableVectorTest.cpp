@@ -16,26 +16,18 @@
 #include <gtest/gtest.h>
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/tests/VectorTestUtils.h"
-#include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 
-class EnsureWritableVectorTest : public testing::Test {
- protected:
-  void SetUp() override {
-    pool_ = memory::addDefaultLeafMemoryPool();
-    vectorMaker_ = std::make_unique<test::VectorMaker>(pool_.get());
-  }
-
-  std::shared_ptr<memory::MemoryPool> pool_;
-  std::unique_ptr<test::VectorMaker> vectorMaker_;
-};
+class EnsureWritableVectorTest : public testing::Test, public VectorTestBase {};
 
 TEST_F(EnsureWritableVectorTest, flat) {
   SelectivityVector rows(1'000);
 
   VectorPtr result;
-  BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), result);
+  BaseVector::ensureWritable(rows, BIGINT(), pool(), result);
   ASSERT_TRUE(result);
   ASSERT_EQ(rows.size(), result->size());
   ASSERT_EQ(TypeKind::BIGINT, result->typeKind());
@@ -54,14 +46,14 @@ TEST_F(EnsureWritableVectorTest, flat) {
   // as-is
   auto* rawNulls = flatResult->nulls().get();
   auto* rawValues = flatResult->values().get();
-  BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), result);
+  BaseVector::ensureWritable(rows, BIGINT(), pool(), result);
   ASSERT_EQ(flatResult, result.get());
   ASSERT_EQ(rawNulls, flatResult->nulls().get());
   ASSERT_EQ(rawValues, flatResult->values().get());
 
   // Resize upwards singly-referenced vector with singly referenced buffers
   rows.resize(2'000);
-  BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), result);
+  BaseVector::ensureWritable(rows, BIGINT(), pool(), result);
   ASSERT_EQ(rows.size(), result->size());
   ASSERT_EQ(flatResult, result.get());
   rawNulls = flatResult->nulls().get();
@@ -77,7 +69,7 @@ TEST_F(EnsureWritableVectorTest, flat) {
 
   // Resize downwards
   rows.resize(1'024);
-  BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), result);
+  BaseVector::ensureWritable(rows, BIGINT(), pool(), result);
   ASSERT_EQ(2'000, result->size());
   ASSERT_EQ(rawNulls, flatResult->nulls().get());
   ASSERT_EQ(rawValues, flatResult->values().get());
@@ -85,7 +77,7 @@ TEST_F(EnsureWritableVectorTest, flat) {
   // Add second reference to the vector -> new vector should be allocated
   auto resultCopy = result;
 
-  BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), result);
+  BaseVector::ensureWritable(rows, BIGINT(), pool(), result);
   ASSERT_NE(flatResult, result.get());
   flatResult = result->asFlatVector<int64_t>();
   ASSERT_NE(rawNulls, flatResult->nulls().get());
@@ -116,7 +108,7 @@ TEST_F(EnsureWritableVectorTest, flat) {
   resultCopy.reset();
   auto nullsCopy = result->nulls();
 
-  BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), result);
+  BaseVector::ensureWritable(rows, BIGINT(), pool(), result);
   ASSERT_EQ(flatResult, result.get());
   ASSERT_NE(rawNulls, flatResult->nulls().get());
   rawNulls = flatResult->nulls().get();
@@ -138,7 +130,7 @@ TEST_F(EnsureWritableVectorTest, flat) {
   // Add a reference to values buffer
   auto valuesCopy = result->values();
 
-  BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), result);
+  BaseVector::ensureWritable(rows, BIGINT(), pool(), result);
   ASSERT_EQ(flatResult, result.get());
   ASSERT_EQ(rawNulls, flatResult->nulls().get());
   ASSERT_NE(rawValues, flatResult->values().get());
@@ -163,7 +155,7 @@ TEST_F(EnsureWritableVectorTest, flatStrings) {
   SelectivityVector rows(1'000);
 
   VectorPtr result;
-  BaseVector::ensureWritable(rows, VARCHAR(), pool_.get(), result);
+  BaseVector::ensureWritable(rows, VARCHAR(), pool(), result);
   ASSERT_TRUE(result);
   ASSERT_EQ(rows.size(), result->size());
   ASSERT_EQ(TypeKind::VARCHAR, result->typeKind());
@@ -177,7 +169,7 @@ TEST_F(EnsureWritableVectorTest, flatStrings) {
   // buffer.
   auto valuesCopy = result->values();
 
-  BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), result);
+  BaseVector::ensureWritable(rows, BIGINT(), pool(), result);
   ASSERT_TRUE(result);
   ASSERT_EQ(rows.size(), result->size());
   ASSERT_EQ(TypeKind::VARCHAR, result->typeKind());
@@ -372,7 +364,7 @@ struct MapVectorPointers : public VectorPointersBase<MapVector> {
 TEST_F(EnsureWritableVectorTest, dictionary) {
   vector_size_t dictionarySize = 100;
   vector_size_t size = 1'000;
-  auto dictionary = BaseVector::create(BIGINT(), dictionarySize, pool_.get());
+  auto dictionary = BaseVector::create(BIGINT(), dictionarySize, pool());
   for (vector_size_t i = 0; i < dictionarySize; i++) {
     if (i % 5 == 0) {
       dictionary->setNull(i, true);
@@ -381,7 +373,7 @@ TEST_F(EnsureWritableVectorTest, dictionary) {
     }
   }
 
-  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool());
   auto* rawIndices = indices->asMutable<vector_size_t>();
   for (vector_size_t i = 0; i < size; i++) {
     rawIndices[i] = i % dictionarySize;
@@ -391,7 +383,7 @@ TEST_F(EnsureWritableVectorTest, dictionary) {
       BufferPtr(nullptr), indices, size, dictionary);
 
   auto oddRows = selectOddRows(size);
-  BaseVector::ensureWritable(oddRows, BIGINT(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, BIGINT(), pool(), result);
   ASSERT_EQ(size, result->size());
   ASSERT_EQ(TypeKind::BIGINT, result->typeKind());
   ASSERT_EQ(VectorEncoding::Simple::FLAT, result->encoding());
@@ -413,9 +405,9 @@ TEST_F(EnsureWritableVectorTest, constant) {
   {
     const vector_size_t size = 100;
     auto constant = BaseVector::createConstant(
-        BIGINT(), variant::create<TypeKind::BIGINT>(123), size, pool_.get());
+        BIGINT(), variant::create<TypeKind::BIGINT>(123), size, pool());
     BaseVector::ensureWritable(
-        SelectivityVector::empty(), BIGINT(), pool_.get(), constant);
+        SelectivityVector::empty(), BIGINT(), pool(), constant);
     EXPECT_EQ(VectorEncoding::Simple::FLAT, constant->encoding());
     EXPECT_EQ(size, constant->size());
   }
@@ -425,11 +417,11 @@ TEST_F(EnsureWritableVectorTest, constant) {
   {
     const vector_size_t selectivityVectorSize = 100;
     auto constant = BaseVector::createConstant(
-        BIGINT(), variant::create<TypeKind::BIGINT>(123), 1, pool_.get());
+        BIGINT(), variant::create<TypeKind::BIGINT>(123), 1, pool());
     SelectivityVector rows(selectivityVectorSize);
     rows.setValid(99, false);
     rows.updateBounds();
-    BaseVector::ensureWritable(rows, BIGINT(), pool_.get(), constant);
+    BaseVector::ensureWritable(rows, BIGINT(), pool(), constant);
     EXPECT_EQ(VectorEncoding::Simple::FLAT, constant->encoding());
     EXPECT_EQ(99, constant->size());
   }
@@ -443,11 +435,11 @@ TEST_F(EnsureWritableVectorTest, constant) {
         BIGINT(),
         variant::create<TypeKind::BIGINT>(123),
         constantVectorSize,
-        pool_.get());
+        pool());
     BaseVector::ensureWritable(
         SelectivityVector::empty(selectivityVectorSize),
         BIGINT(),
-        pool_.get(),
+        pool(),
         constant);
     EXPECT_EQ(VectorEncoding::Simple::FLAT, constant->encoding());
     EXPECT_EQ(constantVectorSize, constant->size());
@@ -456,13 +448,13 @@ TEST_F(EnsureWritableVectorTest, constant) {
 
 TEST_F(EnsureWritableVectorTest, array) {
   vector_size_t size = 1'000;
-  auto a = vectorMaker_->arrayVector<int32_t>(
+  auto a = makeArrayVector<int32_t>(
       size,
       /*sizeAt*/ [](vector_size_t row) { return row % 5; },
       /*valueAt*/ [](vector_size_t row) { return row; },
       /*isNullAt*/ test::VectorMaker::nullEvery(7));
 
-  auto b = vectorMaker_->arrayVector<int32_t>(
+  auto b = makeArrayVector<int32_t>(
       size,
       /*sizeAt*/ [](vector_size_t row) { return row % 7; },
       /*valueAt*/ [](vector_size_t row) { return row * 2; },
@@ -470,7 +462,7 @@ TEST_F(EnsureWritableVectorTest, array) {
 
   SelectivityVector rows(size);
   VectorPtr result;
-  BaseVector::ensureWritable(rows, ARRAY(INTEGER()), pool_.get(), result);
+  BaseVector::ensureWritable(rows, ARRAY(INTEGER()), pool(), result);
   ASSERT_EQ(size, result->size());
   ASSERT_TRUE(ARRAY(INTEGER())->kindEquals(result->type()));
   ASSERT_EQ(VectorEncoding::Simple::ARRAY, result->encoding());
@@ -482,7 +474,7 @@ TEST_F(EnsureWritableVectorTest, array) {
   ASSERT_FALSE(result.unique());
 
   auto oddRows = selectOddRows(size);
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   ASSERT_TRUE(result.unique());
   ASSERT_NE(resultCopy.get(), result.get());
 
@@ -502,7 +494,7 @@ TEST_F(EnsureWritableVectorTest, array) {
   }
 
   // Singly referenced array vector; multiply-referenced elements vector
-  result = BaseVector::create(result->type(), rows.size(), pool_.get());
+  result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   ArrayVectorPointers pointers;
@@ -511,7 +503,7 @@ TEST_F(EnsureWritableVectorTest, array) {
   pointers.setElementsUnique(false);
   pointers.assertUnique(result);
 
-  BaseVector::ensureWritable(oddRows, ARRAY(INTEGER()), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, ARRAY(INTEGER()), pool(), result);
   pointers.assertPointers(result);
 
   // Verify that even rows were copied over
@@ -533,7 +525,7 @@ TEST_F(EnsureWritableVectorTest, array) {
   }
 
   // Singly referenced array vector; multiply-referenced offsets buffer
-  result = BaseVector::create(result->type(), rows.size(), pool_.get());
+  result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
@@ -541,7 +533,7 @@ TEST_F(EnsureWritableVectorTest, array) {
   pointers.setOffsetsUnique(false);
   pointers.assertUnique(result);
 
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   pointers.assertPointers(result);
 
   result->copy(b.get(), oddRows, nullptr);
@@ -555,7 +547,7 @@ TEST_F(EnsureWritableVectorTest, array) {
   assertEqualOffsetsOrSizes(a->offsets(), offsetsCopy, a->size(), isNullAt(a));
 
   // Singly referenced array vector; multiply-referenced sizes buffer
-  result = BaseVector::create(result->type(), rows.size(), pool_.get());
+  result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
@@ -563,7 +555,7 @@ TEST_F(EnsureWritableVectorTest, array) {
   pointers.setSizesUnique(false);
   pointers.assertUnique(result);
 
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   pointers.assertPointers(result);
 
   result->copy(b.get(), oddRows, nullptr);
@@ -579,14 +571,14 @@ TEST_F(EnsureWritableVectorTest, array) {
 
 TEST_F(EnsureWritableVectorTest, map) {
   vector_size_t size = 1'000;
-  auto a = vectorMaker_->mapVector<int32_t, int32_t>(
+  auto a = makeMapVector<int32_t, int32_t>(
       size,
       /*sizeAt*/ [](vector_size_t row) { return row % 5; },
       /*keyAt*/ [](vector_size_t row) { return row; },
       /*valueAt*/ [](vector_size_t row) { return row + 10; },
       /*isNullAt*/ test::VectorMaker::nullEvery(7));
 
-  auto b = vectorMaker_->mapVector<int32_t, int32_t>(
+  auto b = makeMapVector<int32_t, int32_t>(
       size,
       /*sizeAt*/ [](vector_size_t row) { return row % 7; },
       /*keyAt*/ [](vector_size_t row) { return row * 2; },
@@ -595,8 +587,7 @@ TEST_F(EnsureWritableVectorTest, map) {
 
   SelectivityVector rows(size);
   VectorPtr result;
-  BaseVector::ensureWritable(
-      rows, MAP(INTEGER(), INTEGER()), pool_.get(), result);
+  BaseVector::ensureWritable(rows, MAP(INTEGER(), INTEGER()), pool(), result);
   ASSERT_EQ(size, result->size());
   ASSERT_TRUE(MAP(INTEGER(), INTEGER())->kindEquals(result->type()));
   ASSERT_EQ(VectorEncoding::Simple::MAP, result->encoding());
@@ -608,7 +599,7 @@ TEST_F(EnsureWritableVectorTest, map) {
   ASSERT_FALSE(result.unique());
 
   auto oddRows = selectOddRows(size);
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   ASSERT_TRUE(result.unique());
   ASSERT_NE(resultCopy.get(), result.get());
 
@@ -628,7 +619,7 @@ TEST_F(EnsureWritableVectorTest, map) {
   }
 
   // Singly referenced map vector; multiply-referenced keys vector
-  result = BaseVector::create(result->type(), rows.size(), pool_.get());
+  result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   MapVectorPointers pointers;
@@ -637,7 +628,7 @@ TEST_F(EnsureWritableVectorTest, map) {
   pointers.setKeysUnique(false);
   pointers.assertUnique(result);
 
-  BaseVector::ensureWritable(oddRows, ARRAY(INTEGER()), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, ARRAY(INTEGER()), pool(), result);
   pointers.assertPointers(result);
 
   // Verify that even rows were copied over
@@ -658,7 +649,7 @@ TEST_F(EnsureWritableVectorTest, map) {
   }
 
   // Singly referenced map vector; multiply-referenced keys vector
-  result = BaseVector::create(result->type(), rows.size(), pool_.get());
+  result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
@@ -666,7 +657,7 @@ TEST_F(EnsureWritableVectorTest, map) {
   pointers.setValuesUnique(false);
   pointers.assertUnique(result);
 
-  BaseVector::ensureWritable(oddRows, ARRAY(INTEGER()), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, ARRAY(INTEGER()), pool(), result);
   pointers.assertPointers(result);
 
   // Verify that even rows were copied over
@@ -688,7 +679,7 @@ TEST_F(EnsureWritableVectorTest, map) {
   }
 
   // Singly referenced map vector; multiply-referenced offsets buffer
-  result = BaseVector::create(result->type(), rows.size(), pool_.get());
+  result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
@@ -696,7 +687,7 @@ TEST_F(EnsureWritableVectorTest, map) {
   pointers.setOffsetsUnique(false);
   pointers.assertUnique(result);
 
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   pointers.assertPointers(result);
 
   result->copy(b.get(), oddRows, nullptr);
@@ -710,7 +701,7 @@ TEST_F(EnsureWritableVectorTest, map) {
   assertEqualOffsetsOrSizes(a->offsets(), offsetsCopy, a->size(), isNullAt(a));
 
   // Singly referenced map vector; multiply-referenced sizes buffer
-  result = BaseVector::create(result->type(), rows.size(), pool_.get());
+  result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
@@ -718,7 +709,7 @@ TEST_F(EnsureWritableVectorTest, map) {
   pointers.setSizesUnique(false);
   pointers.assertUnique(result);
 
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   pointers.assertPointers(result);
 
   result->copy(b.get(), oddRows, nullptr);
@@ -734,16 +725,16 @@ TEST_F(EnsureWritableVectorTest, map) {
 
 TEST_F(EnsureWritableVectorTest, allNullArray) {
   vector_size_t size = 1'000;
-  auto a = vectorMaker_->arrayVector<int64_t>(
+  auto a = makeArrayVector<int64_t>(
       size,
       /*sizeAt*/ [](vector_size_t row) { return row % 5; },
       /*valueAt*/ [](vector_size_t row) { return row; },
       /*isNullAt*/ test::VectorMaker::nullEvery(7));
 
-  VectorPtr result = vectorMaker_->allNullArrayVector(size, BIGINT());
+  VectorPtr result = makeAllNullArrayVector(size, BIGINT());
 
   SelectivityVector oddRows = selectOddRows(size);
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
 
   result->copy(a.get(), oddRows, nullptr);
 
@@ -756,10 +747,10 @@ TEST_F(EnsureWritableVectorTest, allNullArray) {
   }
 
   // Multiply-references array vector; should be copied
-  result = vectorMaker_->allNullArrayVector(size, BIGINT());
+  result = makeAllNullArrayVector(size, BIGINT());
   auto resultCopy = result;
 
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   ASSERT_NE(resultCopy.get(), result.get());
 
   result->copy(a.get(), oddRows, nullptr);
@@ -776,7 +767,7 @@ TEST_F(EnsureWritableVectorTest, allNullArray) {
 
 TEST_F(EnsureWritableVectorTest, allNullMap) {
   vector_size_t size = 1'000;
-  auto a = vectorMaker_->mapVector<int64_t, StringView>(
+  auto a = makeMapVector<int64_t, StringView>(
       size,
       /*sizeAt*/ [](vector_size_t row) { return row % 5; },
       /*keyAt*/ [](vector_size_t row) { return row; },
@@ -786,10 +777,10 @@ TEST_F(EnsureWritableVectorTest, allNullMap) {
       },
       /*isNullAt*/ test::VectorMaker::nullEvery(7));
 
-  VectorPtr result = vectorMaker_->allNullMapVector(size, BIGINT(), VARCHAR());
+  VectorPtr result = makeAllNullMapVector(size, BIGINT(), VARCHAR());
 
   SelectivityVector oddRows = selectOddRows(size);
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
 
   result->copy(a.get(), oddRows, nullptr);
 
@@ -802,10 +793,10 @@ TEST_F(EnsureWritableVectorTest, allNullMap) {
   }
 
   // Multiply-referenced vector; should be copied
-  result = vectorMaker_->allNullMapVector(size, BIGINT(), VARCHAR());
+  result = makeAllNullMapVector(size, BIGINT(), VARCHAR());
   auto resultCopy = result;
 
-  BaseVector::ensureWritable(oddRows, result->type(), pool_.get(), result);
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   ASSERT_NE(resultCopy.get(), result.get());
 
   result->copy(a.get(), oddRows, nullptr);
@@ -822,7 +813,7 @@ TEST_F(EnsureWritableVectorTest, allNullMap) {
 
 TEST_F(EnsureWritableVectorTest, booleanFlatVector) {
   VectorPtr vector =
-      vectorMaker_->flatVector<bool>(100, [](auto /*row*/) { return true; });
+      makeFlatVector<bool>(100, [](auto /*row*/) { return true; });
 
   // Make sure vector::values_ buffer is not uniquely referenced so that the
   // branch in the FlatVector::ensureWritable() that copy old values to new
@@ -834,14 +825,12 @@ TEST_F(EnsureWritableVectorTest, booleanFlatVector) {
   rows.updateBounds();
 
   auto vectorPtr = vector.get();
-  ASSERT_NO_THROW(
-      BaseVector::ensureWritable(rows, BOOLEAN(), pool_.get(), vector));
+  ASSERT_NO_THROW(BaseVector::ensureWritable(rows, BOOLEAN(), pool(), vector));
   ASSERT_EQ(vectorPtr, vector.get());
   ASSERT_NE(another->as<void>(), vector->valuesAsVoid());
 }
 
 TEST_F(EnsureWritableVectorTest, dataDependentFlags) {
-  auto pool = pool_.get();
   auto size = 10;
 
   auto ensureWritableStatic = [](VectorPtr& vector) {
@@ -856,7 +845,7 @@ TEST_F(EnsureWritableVectorTest, dataDependentFlags) {
   {
     SCOPED_TRACE("Flat");
     auto createVector = [&]() {
-      return test::makeFlatVectorWithFlags<TypeKind::VARCHAR>(size, pool);
+      return test::makeFlatVectorWithFlags<TypeKind::VARCHAR>(size, pool());
     };
 
     test::checkVectorFlagsReset(
@@ -869,7 +858,7 @@ TEST_F(EnsureWritableVectorTest, dataDependentFlags) {
   {
     SCOPED_TRACE("Constant");
     auto createVector = [&]() {
-      return test::makeConstantVectorWithFlags<TypeKind::VARCHAR>(size, pool);
+      return test::makeConstantVectorWithFlags<TypeKind::VARCHAR>(size, pool());
     };
 
     test::checkVectorFlagsReset(
@@ -880,7 +869,8 @@ TEST_F(EnsureWritableVectorTest, dataDependentFlags) {
   {
     SCOPED_TRACE("Dictionary");
     auto createVector = [&]() {
-      return test::makeDictionaryVectorWithFlags<TypeKind::VARCHAR>(size, pool);
+      return test::makeDictionaryVectorWithFlags<TypeKind::VARCHAR>(
+          size, pool());
     };
 
     test::checkVectorFlagsReset(
@@ -892,7 +882,7 @@ TEST_F(EnsureWritableVectorTest, dataDependentFlags) {
     SCOPED_TRACE("Map");
     auto createVector = [&]() {
       return test::makeMapVectorWithFlags<TypeKind::VARCHAR, TypeKind::VARCHAR>(
-          size, pool);
+          size, pool());
     };
 
     test::checkVectorFlagsReset(
