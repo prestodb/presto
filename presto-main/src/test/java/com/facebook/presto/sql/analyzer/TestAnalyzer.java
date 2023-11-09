@@ -873,18 +873,35 @@ public class TestAnalyzer
         assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, a) SELECT * FROM t6");
         assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, A) SELECT * FROM t6");
 
-        // b is bigint, while a is double, coercion from b to a is possible
+        // b is bigint, while a is double, coercion is possible either way
         analyze("INSERT INTO t7 (b) SELECT (a) FROM t7 ");
-        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t7 (a) SELECT (b) FROM t7");
+        analyze("INSERT INTO t7 (a) SELECT (b) FROM t7");
 
-        // d is array of bigints, while c is array of doubles, coercion from d to c is possible
+        // d is array of bigints, while c is array of doubles, coercion is possible either way
         analyze("INSERT INTO t7 (d) SELECT (c) FROM t7 ");
-        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t7 (c) SELECT (d) FROM t7 ");
+        analyze("INSERT INTO t7 (c) SELECT (d) FROM t7 ");
 
         analyze("INSERT INTO t7 (d) VALUES (ARRAY[null])");
 
         analyze("INSERT INTO t6 (d) VALUES (1), (2), (3)");
         analyze("INSERT INTO t6 (a,b,c,d) VALUES (1, 'a', 1, 1), (2, 'b', 2, 2), (3, 'c', 3, 3), (4, 'd', 4, 4)");
+
+        // coercion is allowed between compatible types
+        analyze("INSERT INTO t14 (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 1e0, 1e0, 1e0)");
+        analyze("INSERT INTO t14 (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))");
+        analyze("INSERT INTO t14 (tinyint_array_column) SELECT (bigint_array_column) FROM t14");
+        analyze("INSERT INTO t14 (row_column) VALUES (ROW(ROW(1e0, CAST('aa     ' AS varchar))))");
+        analyze("INSERT INTO t14(date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')");
+
+        // coercion is not allowed between incompatible types
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t14 (integer_column) VALUES ('text')");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t14 (integer_column) VALUES (true)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t14 (integer_column) VALUES (ROW(ROW(1e0)))");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t14 (integer_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t14 (unbounded_varchar_column) VALUES (1)");
+
+        // coercion with potential loss is not allowed for nested bounded character string types
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t14 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))");
     }
 
     @Test

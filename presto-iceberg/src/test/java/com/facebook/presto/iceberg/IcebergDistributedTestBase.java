@@ -63,6 +63,17 @@ public class IcebergDistributedTestBase
     }
 
     @Override
+    public void testInsertWithCoercion()
+    {
+        // Iceberg does not support parameterized varchar
+    }
+
+    @Override
+    public void testAddColumn()
+    {
+    }
+
+    @Override
     public void testRenameColumn()
     {
     }

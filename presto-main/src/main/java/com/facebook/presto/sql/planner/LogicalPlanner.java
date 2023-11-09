@@ -16,7 +16,10 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UnknownType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.spi.ColumnHandle;
@@ -27,6 +30,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -55,19 +59,25 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -83,6 +93,7 @@ import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -91,6 +102,7 @@ import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
@@ -98,6 +110,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReferen
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -456,6 +469,52 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
         return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
+    }
+
+    /*
+    According to the standard, for the purpose of store assignment (INSERT),
+    no non-space characters of a character string, and no non-zero octets
+    of a binary string must be lost when the inserted value is truncated to
+    fit in the target column type.
+    The following method returns a cast from source type to target type
+    with a guarantee of no illegal truncation.
+    TODO Once BINARY and parametric VARBINARY types are supported, they should be handled here.
+    TODO This workaround is insufficient to handle structural types
+    */
+    private Expression noTruncationCast(Expression expression, Type fromType, Type toType)
+    {
+        if (fromType instanceof UnknownType || (!(toType instanceof VarcharType) && !(toType instanceof CharType))) {
+            return new Cast(expression, toType.getTypeSignature().toString());
+        }
+        int targetLength;
+        if (toType instanceof VarcharType) {
+            if (((VarcharType) toType).isUnbounded()) {
+                return new Cast(expression, toType.getTypeSignature().toString());
+            }
+            targetLength = ((VarcharType) toType).getLengthSafe();
+        }
+        else {
+            targetLength = ((CharType) toType).getLength();
+        }
+
+        checkState(fromType instanceof VarcharType || fromType instanceof CharType, "inserting non-character value to column of character type");
+        FunctionHandle spaceTrimmedLength = metadata.getFunctionAndTypeManager().resolveFunction(Optional.empty(), Optional.empty(), QualifiedObjectName.valueOf("presto.default.$space_trimmed_length"), fromTypes(VARCHAR));
+        FunctionHandle fail = metadata.getFunctionAndTypeManager().resolveFunction(Optional.empty(), Optional.empty(), QualifiedObjectName.valueOf("presto.default.fail"), fromTypes(VARCHAR));
+
+        return new IfExpression(
+                // check if the trimmed value fits in the target type
+                new ComparisonExpression(
+                        GREATER_THAN_OR_EQUAL,
+                        new GenericLiteral("BIGINT", Integer.toString(targetLength)),
+                        new FunctionCall(
+                                QualifiedName.of("presto", "default", "$space_trimmed_length"),
+                                ImmutableList.of(new Cast(expression, VARCHAR.getTypeSignature().toString())))),
+                new Cast(expression, toType.getTypeSignature().toString()),
+                new Cast(
+                        new FunctionCall(
+                                QualifiedName.of("presto", "default", "fail"),
+                                ImmutableList.of(new Cast(new StringLiteral("Cannot truncate non-space characters on INSERT"), VARCHAR.getTypeSignature().toString()))),
+                        toType.getTypeSignature().toString()));
     }
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)

@@ -37,10 +37,12 @@ import io.airlift.slice.Slices;
 import java.text.Normalizer;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.Chars.byteCountWithoutTrailingSpace;
 import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.common.type.Chars.trimTrailingSpaces;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
@@ -102,6 +104,14 @@ public final class StringFunctions
     public static long charLength(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
         return x;
+    }
+
+    @Description("returns length of a character string without trailing spaces")
+    @ScalarFunction(value = "$space_trimmed_length", visibility = HIDDEN)
+    @SqlType(StandardTypes.BIGINT)
+    public static long spaceTrimmedLength(@SqlType("varchar") Slice slice)
+    {
+        return countCodePoints(slice, 0, byteCountWithoutTrailingSpace(slice, 0, slice.length()));
     }
 
     @Description("greedily removes occurrences of a pattern in a string")

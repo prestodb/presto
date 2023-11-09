@@ -22,11 +22,13 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.ColumnHandle;
@@ -476,29 +478,49 @@ class StatementAnalyzer
                             i + 1,
                             expectedColumns.get(i).getName());
                 }
-                if (!functionAndTypeResolver.canCoerce(
-                        queryColumnTypes.get(i),
-                        expectedColumns.get(i).getType())) {
-                    if (queryColumnTypes.get(i) instanceof RowType && expectedColumns.get(i).getType() instanceof RowType) {
-                        String fieldName = expectedColumns.get(i).getName();
-                        List<Type> columnRowTypes = queryColumnTypes.get(i).getTypeParameters();
-                        List<RowType.Field> expectedRowFields = ((RowType) expectedColumns.get(i).getType()).getFields();
-                        checkTypesMatchForNestedStructs(
-                                node,
-                                errorMessage,
-                                i + 1,
-                                fieldName,
-                                expectedRowFields,
-                                columnRowTypes);
+
+                /*
+                TODO enable coercions based on type compatibility for INSERT of structural types containing nested bounded character types.
+                It might require defining a new range of cast operators and changes in FunctionRegistry to ensure proper handling
+                of nested types.
+                Currently, INSERT for such structural types is only allowed in the case of strict type coercibility.
+                INSERT for other types is allowed in all cases described by the Standard. It is obtained
+                by emulating a "guarded cast" in LogicalPlanner, and without any changes to the actual operators.
+                */
+                if (hasNestedBoundedCharacterType(expectedColumns.get(i).getType())) {
+                    if (metadata.getFunctionAndTypeManager().canCoerce(
+                            queryColumnTypes.get(i),
+                            expectedColumns.get(i).getType())) {
+                        continue;
                     }
-                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
-                            node,
-                            errorMessage + "Mismatch at column %d: '%s' is of type %s but expression is of type %s",
-                            i + 1,
-                            expectedColumns.get(i).getName(),
-                            expectedColumns.get(i).getType(),
-                            queryColumnTypes.get(i));
                 }
+                else {
+                    if (metadata.getFunctionAndTypeManager().isCompatible(
+                            queryColumnTypes.get(i),
+                            expectedColumns.get(i).getType())) {
+                        continue;
+                    }
+                }
+
+                if (queryColumnTypes.get(i) instanceof RowType && expectedColumns.get(i).getType() instanceof RowType) {
+                    String fieldName = expectedColumns.get(i).getName();
+                    List<Type> columnRowTypes = queryColumnTypes.get(i).getTypeParameters();
+                    List<RowType.Field> expectedRowFields = ((RowType) expectedColumns.get(i).getType()).getFields();
+                    checkTypesMatchForNestedStructs(
+                            node,
+                            errorMessage,
+                            i + 1,
+                            fieldName,
+                            expectedRowFields,
+                            columnRowTypes);
+                }
+                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                        node,
+                        errorMessage + "Mismatch at column %d: '%s' is of type %s but expression is of type %s",
+                        i + 1,
+                        expectedColumns.get(i).getName(),
+                        expectedColumns.get(i).getType(),
+                        queryColumnTypes.get(i));
             }
         }
 
@@ -520,7 +542,7 @@ class StatementAnalyzer
                         columnRowTypes.size());
             }
             for (int rowFieldIndex = 0; rowFieldIndex < expectedRowFields.size(); rowFieldIndex++) {
-                if (!functionAndTypeResolver.canCoerce(
+                if (!metadata.getFunctionAndTypeManager().isCompatible(
                         columnRowTypes.get(rowFieldIndex),
                         expectedRowFields.get(rowFieldIndex).getType())) {
                     fieldName += "." + expectedRowFields.get(rowFieldIndex).getName().get();
@@ -544,6 +566,32 @@ class StatementAnalyzer
                     }
                 }
             }
+        }
+
+        private boolean hasNestedBoundedCharacterType(Type type)
+        {
+            if (type instanceof ArrayType) {
+                return hasBoundedCharacterType(((ArrayType) type).getElementType());
+            }
+
+            if (type instanceof MapType) {
+                return hasBoundedCharacterType(((MapType) type).getKeyType()) || hasBoundedCharacterType(((MapType) type).getValueType());
+            }
+
+            if (type instanceof RowType) {
+                for (Type fieldType : type.getTypeParameters()) {
+                    if (hasBoundedCharacterType(fieldType)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private boolean hasBoundedCharacterType(Type type)
+        {
+            return type instanceof CharType || (type instanceof VarcharType && !((VarcharType) type).isUnbounded()) || hasNestedBoundedCharacterType(type);
         }
 
         @Override
