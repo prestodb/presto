@@ -2697,6 +2697,12 @@ TEST_P(ParameterizedExprTest, constantToSql) {
       toSqlComplex(BaseVector::createNullConstant(
           ROW({"a", "b"}, {BOOLEAN(), DOUBLE()}), 10, pool())),
       "NULL::STRUCT(a BOOLEAN, b DOUBLE)");
+  ASSERT_EQ(
+      toSqlComplex(BaseVector::createNullConstant(
+          ROW({"a", "b"}, {BOOLEAN(), ROW({"c", "d"}, {DOUBLE(), VARCHAR()})}),
+          10,
+          pool())),
+      "NULL::STRUCT(a BOOLEAN, b STRUCT(c DOUBLE, d VARCHAR))");
 }
 
 TEST_P(ParameterizedExprTest, toSql) {

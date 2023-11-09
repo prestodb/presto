@@ -118,7 +118,7 @@ std::string toSqlType(const TypePtr& type) {
         if (i > 0) {
           out << ", ";
         }
-        out << type->asRow().nameOf(i) << " " << type->childAt(i)->toString();
+        out << type->asRow().nameOf(i) << " " << toSqlType(type->childAt(i));
       }
       out << ")";
       return out.str();
