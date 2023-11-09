@@ -282,8 +282,16 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayHasDuplicatesFunctions<int128_t>(prefix);
   registerArrayHasDuplicatesFunctions<Varchar>(prefix);
 
+  registerArrayFrequencyFunctions<bool>(prefix);
+  registerArrayFrequencyFunctions<int8_t>(prefix);
+  registerArrayFrequencyFunctions<int16_t>(prefix);
+  registerArrayFrequencyFunctions<int32_t>(prefix);
   registerArrayFrequencyFunctions<int64_t>(prefix);
   registerArrayFrequencyFunctions<int128_t>(prefix);
+  registerArrayFrequencyFunctions<float>(prefix);
+  registerArrayFrequencyFunctions<double>(prefix);
+  registerArrayFrequencyFunctions<Timestamp>(prefix);
+  registerArrayFrequencyFunctions<Date>(prefix);
   registerArrayFrequencyFunctions<Varchar>(prefix);
 
   registerArrayNormalizeFunctions<float>(prefix);
