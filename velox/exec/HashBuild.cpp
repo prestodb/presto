@@ -633,6 +633,11 @@ bool HashBuild::requestSpill(RowVectorPtr& input) {
   VELOX_CHECK_GT(numSpillRows_, 0);
   VELOX_CHECK_GT(numSpillBytes_, 0);
 
+  // If all the partitions have been spilled, then nothing to spill.
+  if (spiller_->isAllSpilled()) {
+    return true;
+  }
+
   input_ = std::move(input);
   if (spillGroup_->requestSpill(*this, future_)) {
     VELOX_CHECK(future_.valid());
