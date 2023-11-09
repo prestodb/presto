@@ -1245,20 +1245,22 @@ void StringColumnWriter::populateDictionaryEncodingStreams() {
                 [&](auto buf, auto size) {
                   inDictionary_->add(buf, common::Ranges::of(0, size), nullptr);
                 });
-
+            auto errorGuard =
+                folly::makeGuard([&inDictWriter]() { inDictWriter.abort(); });
             uint32_t strideDictSize = 0;
             for (size_t i = start; i != end; ++i) {
               auto origIndex = rows_[i];
               bool valInDict = inDict[origIndex];
               inDictWriter.add(valInDict ? 1 : 0);
-              // TODO: optimize this branching either through restoring visitor
-              // pattern, or through separating the index backfill.
+              // TODO: optimize this branching either through restoring
+              // visitor pattern, or through separating the index backfill.
               if (!valInDict) {
                 auto strideDictIndex = lookupTable[origIndex];
                 sortedStrideDictKeyIndexBuffer[strideDictIndex] = origIndex;
                 ++strideDictSize;
               }
             }
+            errorGuard.dismiss();
             inDictWriter.close();
             VELOX_CHECK_EQ(strideDictSize, strideDictKeyCount);
           }
@@ -1273,12 +1275,16 @@ void StringColumnWriter::populateDictionaryEncodingStreams() {
                   strideDictionaryDataLength_->add(
                       buf, common::Ranges::of(0, size), nullptr);
                 });
+            auto errorGuard = folly::makeGuard(
+                [&strideLengthWriter]() { strideLengthWriter.abort(); });
 
             for (size_t i = 0; i < strideDictKeyCount; ++i) {
               auto val = dictEncoder_.getKey(sortedStrideDictKeyIndexBuffer[i]);
               strideDictionaryData_->write(val.data(), val.size());
               strideLengthWriter.add(val.size());
             }
+
+            errorGuard.dismiss();
             strideLengthWriter.close();
           }
         }
@@ -1318,12 +1324,16 @@ void StringColumnWriter::convertToDirectEncoding() {
             [&](auto buf, auto size) {
               dataDirectLength_->add(buf, common::Ranges::of(0, size), nullptr);
             });
+        auto errorGuard =
+            folly::makeGuard([&lengthWriter]() { lengthWriter.abort(); });
 
         for (size_t i = start; i != end; ++i) {
           auto key = dictEncoder_.getKey(rows_[i]);
           dataDirect_->write(key.data(), key.size());
           lengthWriter.add(key.size());
         }
+
+        errorGuard.dismiss();
         lengthWriter.close();
       };
 
@@ -1389,13 +1399,13 @@ uint64_t FloatColumnWriter<T>::write(
           [&](auto buf, auto size) {
             data_.write(reinterpret_cast<const char*>(buf), size * sizeof(T));
           });
+      auto errorGuard = folly::makeGuard([&writer]() { writer.abort(); });
 
       auto processRow = [&](size_t pos) {
         auto val = data[pos];
         writer.add(val);
         statsBuilder.addValues(val);
       };
-
       for (auto& pos : ranges) {
         if (bits::isBitNull(nulls, pos)) {
           ++nullCount;
@@ -1403,6 +1413,8 @@ uint64_t FloatColumnWriter<T>::write(
           processRow(pos);
         }
       }
+
+      errorGuard.dismiss();
       writer.close();
     } else {
       for (auto& pos : ranges) {
@@ -1426,12 +1438,13 @@ uint64_t FloatColumnWriter<T>::write(
         [&](auto buf, auto size) {
           data_.write(reinterpret_cast<const char*>(buf), size * sizeof(T));
         });
+    auto errorGuard = folly::makeGuard([&writer]() { writer.abort(); });
+
     auto processRow = [&](size_t pos) {
       auto val = decodedVector.template valueAt<T>(pos);
       writer.add(val);
       statsBuilder.addValues(val);
     };
-
     if (decodedVector.mayHaveNulls()) {
       for (auto& pos : ranges) {
         if (decodedVector.isNullAt(pos)) {
@@ -1445,6 +1458,8 @@ uint64_t FloatColumnWriter<T>::write(
         processRow(pos);
       }
     }
+
+    errorGuard.dismiss();
     writer.close();
   }
 

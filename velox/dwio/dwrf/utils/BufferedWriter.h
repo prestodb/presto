@@ -83,6 +83,14 @@ class BufferedWriter {
     flush();
   }
 
+  /// Invoked to abort this buffered write on error. It closes the buffered
+  /// writer without flushing pending buffers.
+  void abort() {
+    VELOX_CHECK(!closed_);
+    pos_ = 0;
+    closed_ = true;
+  }
+
   std::string toString() const {
     return fmt::format(
         "BufferedWriter[pos[{}] capacity[{}] closed[{}]]",
