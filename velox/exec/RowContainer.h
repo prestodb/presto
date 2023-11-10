@@ -920,8 +920,8 @@ class RowContainer {
       return compareComplexType(row, offset, decoded, index) == 0;
     }
     if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
-      return compareStringEqual(
-          valueAt<StringView>(row, offset), decoded, index);
+      return compareStringAsc(
+                 valueAt<StringView>(row, offset), decoded, index) == 0;
     }
     return decoded.valueAt<T>(index) == valueAt<T>(row, offset);
   }
@@ -939,8 +939,8 @@ class RowContainer {
       return compareComplexType(row, offset, decoded, index) == 0;
     }
     if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
-      return compareStringEqual(
-          valueAt<StringView>(row, offset), decoded, index);
+      return compareStringAsc(
+                 valueAt<StringView>(row, offset), decoded, index) == 0;
     }
 
     return decoded.valueAt<T>(index) == valueAt<T>(row, offset);
@@ -1071,27 +1071,6 @@ class RowContainer {
       StringView value,
       FlatVector<StringView>* FOLLY_NONNULL values,
       vector_size_t index);
-
-  static inline bool compareStringEqual(
-      StringView left,
-      const DecodedVector& decoded,
-      vector_size_t index) {
-    StringView right = decoded.valueAt<StringView>(index);
-    if (left.sizeAndPrefixAsInt64() != right.sizeAndPrefixAsInt64()) {
-      return false;
-    }
-    if (left.isInline()) {
-      return left.inlinedAsInt64() == right.inlinedAsInt64();
-    }
-    auto header = HashStringAllocator::headerOf(left.data());
-    if (LIKELY(header->size() >= left.size())) {
-      return simd::memEqual(left.data() + 4, right.data() + 4, left.size() - 4);
-    }
-    std::string storage;
-    HashStringAllocator::contiguousString(left, storage);
-    return simd::memEqual(
-        storage.data() + 4, right.data() + 4, left.size() - 4);
-  }
 
   static int32_t compareStringAsc(
       StringView left,

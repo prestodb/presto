@@ -78,7 +78,7 @@ int32_t StringView::linearSearch(
         if (isInline ? inlined ==
                     reinterpret_cast<const uint64_t*>(
                            &strings[indices[i + offset]])[1]
-                     : simd::memEqual(
+                     : simd::memEqualUnsafe(
                            body,
                            strings[indices[i + offset]].data() + 4,
                            bodySize)) {
@@ -118,7 +118,8 @@ int32_t StringView::linearSearch(
             return offset;
           }
           if (!isInline) {
-            if (simd::memEqual(body, strings[offset].data() + 4, bodySize)) {
+            if (simd::memEqualUnsafe(
+                    body, strings[offset].data() + 4, bodySize)) {
               return offset;
             }
           }
