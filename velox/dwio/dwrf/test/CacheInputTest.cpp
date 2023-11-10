@@ -24,6 +24,7 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/dwio/dwrf/common/Common.h"
+#include "velox/dwio/dwrf/test/TestReadFile.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include <gtest/gtest.h>
@@ -36,60 +37,6 @@ using facebook::velox::common::Region;
 
 using memory::MemoryAllocator;
 using IoStatisticsPtr = std::shared_ptr<IoStatistics>;
-
-// Testing stream producing deterministic data. The byte at offset is
-// the low byte of 'seed_' + offset.
-class TestReadFile : public ReadFile {
- public:
-  TestReadFile(uint64_t seed, uint64_t length, IoStatisticsPtr ioStats)
-      : seed_(seed), length_(length), ioStats_(std::move(ioStats)) {}
-
-  uint64_t size() const override {
-    return length_;
-  }
-
-  std::string_view pread(uint64_t offset, uint64_t length, void* buffer)
-      const override {
-    int fill;
-    uint64_t content = offset + seed_;
-    uint64_t available = std::min(length_ - offset, length);
-    for (fill = 0; fill < (available); ++fill) {
-      reinterpret_cast<char*>(buffer)[fill] = content + fill;
-    }
-    ioStats_->incRawBytesRead(length);
-    return std::string_view(static_cast<const char*>(buffer), fill);
-  }
-
-  // Asserts that 'bytes' is as would be read from 'offset'.
-  void checkData(const void* bytes, uint64_t offset, int32_t size) {
-    for (auto i = 0; i < size; ++i) {
-      char expected = seed_ + offset + i;
-      ASSERT_EQ(expected, reinterpret_cast<const char*>(bytes)[i])
-          << " at " << offset + i;
-    }
-  }
-
-  uint64_t memoryUsage() const override {
-    VELOX_NYI();
-  }
-
-  bool shouldCoalesce() const override {
-    VELOX_NYI();
-  }
-
-  std::string getName() const override {
-    return "<TestReadFile>";
-  }
-
-  uint64_t getNaturalReadSize() const override {
-    VELOX_NYI();
-  }
-
- private:
-  const uint64_t seed_;
-  const uint64_t length_;
-  IoStatisticsPtr ioStats_;
-};
 
 class CacheTest : public testing::Test {
  protected:

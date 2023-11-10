@@ -490,7 +490,8 @@ target_link_libraries(
   ${FOLLY_BENCHMARK}
   fmt::fmt)
 
-add_executable(velox_dwio_cache_test CacheInputTest.cpp)
+add_executable(velox_dwio_cache_test CacheInputTest.cpp
+                                     DirectBufferedInputTest.cpp)
 
 add_test(velox_dwio_cache_test velox_dwio_cache_test)
 

@@ -28,6 +28,8 @@ add_library(
   BufferedInput.cpp
   CachedBufferedInput.cpp
   CacheInputStream.cpp
+  DirectBufferedInput.cpp
+  DirectInputStream.cpp
   ColumnSelector.cpp
   DataBufferHolder.cpp
   DecoderUtil.cpp
