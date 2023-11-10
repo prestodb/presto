@@ -41,7 +41,7 @@ class GenericInPredicate : public exec::VectorFunction {
     result->clearNulls(rows);
     auto* boolResult = result->asUnchecked<FlatVector<bool>>();
 
-    rows.applyToSelected([&](vector_size_t row) {
+    context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
       if (value->isNullAt(row) || inList->isNullAt(row)) {
         boolResult->setNull(row, true);
         return;
@@ -56,6 +56,8 @@ class GenericInPredicate : public exec::VectorFunction {
       const auto arrayRow = inList->index(row);
       const auto offset = inListBaseArray->offsetAt(arrayRow);
       const auto size = inListBaseArray->sizeAt(arrayRow);
+
+      VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
 
       bool hasNull = false;
       for (auto i = 0; i < size; ++i) {

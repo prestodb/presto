@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox::test;
@@ -938,12 +939,12 @@ TEST_F(InPredicateTest, nonConstantInList) {
 
   auto expected = makeNullableFlatVector<bool>({
       true, // 1 in [1, 2, 3]
-      false, // 2 in []
+      std::nullopt, // 2 in [] -> error or null if under try
       false, // 3 in [1, 2]
       std::nullopt, // 4 in null
       true, // 5 in [1, 2, null, 3, 4, 5]
       std::nullopt, // 6 in [null, 2, null, 3]
-      std::nullopt, // null in null
+      std::nullopt, // null in []]
       false, // 8 in [1, 3, 5, 7, 9, 11]
   });
 
@@ -955,8 +956,23 @@ TEST_F(InPredicateTest, nonConstantInList) {
       },
       "in");
 
-  auto result = evaluate(in, data);
+  auto tryIn = std::make_shared<core::CallTypedExpr>(
+      BOOLEAN(), std::vector<core::TypedExprPtr>{in}, "try");
+
+  // Evaluate "in" on all rows. Expect an error.
+  VELOX_ASSERT_THROW(evaluate(in, data), "IN list must not be empty");
+
+  // Evaluate "try(in)" on all rows.
+  auto result = evaluate(tryIn, data);
   assertEqualVectors(expected, result);
+
+  // Evaluate "in" on a subset of rows that should not generate an error.
+  SelectivityVector rows(data->size());
+  rows.setValid(1, false);
+  rows.updateBounds();
+
+  result = evaluate(in, data, rows);
+  assertEqualVectors(expected, result, rows);
 }
 
 } // namespace
