@@ -430,10 +430,11 @@ void* MemoryPoolImpl::allocate(int64_t size) {
   if (FOLLY_UNLIKELY(buffer == nullptr)) {
     release(alignedSize);
     VELOX_MEM_ALLOC_ERROR(fmt::format(
-        "{} failed with {} from {}",
+        "{} failed with {} from {} {}",
         __FUNCTION__,
         succinctBytes(size),
-        toString()));
+        toString(),
+        allocator_->getAndClearFailureMessage()));
   }
   DEBUG_RECORD_ALLOC(buffer, size);
   return buffer;
@@ -448,11 +449,12 @@ void* MemoryPoolImpl::allocateZeroFilled(int64_t numEntries, int64_t sizeEach) {
   if (FOLLY_UNLIKELY(buffer == nullptr)) {
     release(alignedSize);
     VELOX_MEM_ALLOC_ERROR(fmt::format(
-        "{} failed with {} entries and {} each from {}",
+        "{} failed with {} entries and {} each from {} {}",
         __FUNCTION__,
         numEntries,
         succinctBytes(sizeEach),
-        toString()));
+        toString(),
+        allocator_->getAndClearFailureMessage()));
   }
   DEBUG_RECORD_ALLOC(buffer, size);
   return buffer;
@@ -467,11 +469,12 @@ void* MemoryPoolImpl::reallocate(void* p, int64_t size, int64_t newSize) {
   if (FOLLY_UNLIKELY(newP == nullptr)) {
     release(alignedNewSize);
     VELOX_MEM_ALLOC_ERROR(fmt::format(
-        "{} failed with new {} and old {} from {}",
+        "{} failed with new {} and old {} from {} {}",
         __FUNCTION__,
         succinctBytes(newSize),
         succinctBytes(size),
-        toString()));
+        toString(),
+        allocator_->getAndClearFailureMessage()));
   }
   DEBUG_RECORD_ALLOC(newP, newSize);
   if (p != nullptr) {

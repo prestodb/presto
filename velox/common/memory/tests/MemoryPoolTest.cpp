@@ -588,27 +588,53 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
         ASSERT_EQ(error_code::kMemAllocError.c_str(), ex.errorCode());
         ASSERT_TRUE(ex.isRetriable());
         if (useMmap_) {
-          ASSERT_EQ(
-              fmt::format(
-                  "allocate failed with 128.00MB from Memory Pool["
-                  "static_quota LEAF root[MemoryCapExceptions] "
-                  "parent[MemoryCapExceptions] MMAP track-usage {}]<max "
-                  "capacity 256.00MB capacity 256.00MB used 0B available 0B "
-                  "reservation [used 0B, reserved 0B, min 0B] counters [allocs "
-                  "1, frees 0, reserves 0, releases 0, collisions 0])>",
-                  isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
-              ex.message());
+          if (useCache_) {
+            ASSERT_EQ(
+                fmt::format(
+                    "allocate failed with 128.00MB from Memory Pool["
+                    "static_quota LEAF root[MemoryCapExceptions] "
+                    "parent[MemoryCapExceptions] MMAP track-usage {}]<max "
+                    "capacity 256.00MB capacity 256.00MB used 0B available 0B "
+                    "reservation [used 0B, reserved 0B, min 0B] counters [allocs "
+                    "1, frees 0, reserves 0, releases 0, collisions 0])> Failed to evict from cache state: AsyncDataCache:\nCache size: 0B tinySize: 0B large size: 0B\nCache entries: 0 read pins: 0 write pins: 0 pinned shared: 0B pinned exclusive: 0B\n num write wait: 0 empty entries: 0\nCache access miss: 0 hit: 0 hit bytes: 0B eviction: 0 eviction checks: 0\nPrefetch entries: 0 bytes: 0B\nAlloc Megaclocks 0\nAllocated pages: 0 cached pages: 0\n",
+                    isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
+                ex.message());
+          } else {
+            ASSERT_EQ(
+                fmt::format(
+                    "allocate failed with 128.00MB from Memory Pool["
+                    "static_quota LEAF root[MemoryCapExceptions] "
+                    "parent[MemoryCapExceptions] MMAP track-usage {}]<max "
+                    "capacity 256.00MB capacity 256.00MB used 0B available 0B "
+                    "reservation [used 0B, reserved 0B, min 0B] counters [allocs "
+                    "1, frees 0, reserves 0, releases 0, collisions 0])> ",
+                    isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
+                ex.message());
+          }
         } else {
-          ASSERT_EQ(
-              fmt::format(
-                  "allocate failed with 128.00MB from Memory Pool"
-                  "[static_quota LEAF root[MemoryCapExceptions] "
-                  "parent[MemoryCapExceptions] MALLOC track-usage {}]"
-                  "<max capacity 256.00MB capacity 256.00MB used 0B available "
-                  "0B reservation [used 0B, reserved 0B, min 0B] counters "
-                  "[allocs 1, frees 0, reserves 0, releases 0, collisions 0])>",
-                  isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
-              ex.message());
+          if (useCache_) {
+            ASSERT_EQ(
+                fmt::format(
+                    "allocate failed with 128.00MB from Memory Pool"
+                    "[static_quota LEAF root[MemoryCapExceptions] "
+                    "parent[MemoryCapExceptions] MALLOC track-usage {}]"
+                    "<max capacity 256.00MB capacity 256.00MB used 0B available "
+                    "0B reservation [used 0B, reserved 0B, min 0B] counters "
+                    "[allocs 1, frees 0, reserves 0, releases 0, collisions 0])> Failed to evict from cache state: AsyncDataCache:\nCache size: 0B tinySize: 0B large size: 0B\nCache entries: 0 read pins: 0 write pins: 0 pinned shared: 0B pinned exclusive: 0B\n num write wait: 0 empty entries: 0\nCache access miss: 0 hit: 0 hit bytes: 0B eviction: 0 eviction checks: 0\nPrefetch entries: 0 bytes: 0B\nAlloc Megaclocks 0\nAllocated pages: 0 cached pages: 0\n",
+                    isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
+                ex.message());
+          } else {
+            ASSERT_EQ(
+                fmt::format(
+                    "allocate failed with 128.00MB from Memory Pool"
+                    "[static_quota LEAF root[MemoryCapExceptions] "
+                    "parent[MemoryCapExceptions] MALLOC track-usage {}]"
+                    "<max capacity 256.00MB capacity 256.00MB used 0B available "
+                    "0B reservation [used 0B, reserved 0B, min 0B] counters "
+                    "[allocs 1, frees 0, reserves 0, releases 0, collisions 0])> ",
+                    isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
+                ex.message());
+          }
         }
       }
     }
