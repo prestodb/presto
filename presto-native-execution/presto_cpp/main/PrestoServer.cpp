@@ -20,7 +20,6 @@
 #include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
-#include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -328,7 +327,8 @@ void PrestoServer::run() {
             queue,
             pool,
             driverExecutor_.get(),
-            exchangeHttpExecutor_.get());
+            exchangeHttpExecutor_.get(),
+            exchangeSourceConnectionPools_);
       });
 
   facebook::velox::exec::ExchangeSource::registerFactory(
@@ -451,6 +451,9 @@ void PrestoServer::run() {
   httpServer_.reset();
 
   unregisterConnectors();
+
+  PRESTO_SHUTDOWN_LOG(INFO) << "Releasing HTTP connection pools";
+  exchangeSourceConnectionPools_.destroy();
 
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining driver CPU Executor '" << driverExecutor_->getName()
