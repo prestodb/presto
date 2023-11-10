@@ -114,7 +114,8 @@ class HttpResponse {
 class HttpClient : public std::enable_shared_from_this<HttpClient> {
  public:
   HttpClient(
-      folly::EventBase* FOLLY_NONNULL eventBase,
+      folly::EventBase* eventBase,
+      proxygen::SessionPool* sessionPool,
       const folly::SocketAddress& address,
       std::chrono::milliseconds transactionTimeout,
       std::chrono::milliseconds connectTimeout,
@@ -122,8 +123,6 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
       const std::string& clientCertAndKeyPath = "",
       const std::string& ciphers = "",
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr);
-
-  ~HttpClient();
 
   // TODO Avoid copy by using IOBuf for body
   folly::SemiFuture<std::unique_ptr<HttpResponse>> sendRequest(
@@ -137,8 +136,9 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
 
  private:
   folly::EventBase* const eventBase_;
+  proxygen::SessionPool* const sessionPool_;
   const folly::SocketAddress address_;
-  const folly::HHWheelTimer::UniquePtr transactionTimer_;
+  const proxygen::WheelTimerInstance transactionTimer_;
   const std::chrono::milliseconds connectTimeout_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   // clientCertAndKeyPath_ Points to a file (usually with pem extension) which
@@ -150,7 +150,6 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   const std::string ciphers_;
   const std::function<void(int)> reportOnBodyStatsFunc_;
   const uint64_t maxResponseAllocBytes_;
-  std::unique_ptr<proxygen::SessionPool> sessionPool_;
 };
 
 class RequestBuilder {

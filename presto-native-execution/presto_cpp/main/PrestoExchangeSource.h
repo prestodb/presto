@@ -24,6 +24,38 @@
 
 namespace facebook::presto {
 
+// HTTP connection pool for a specific endpoint with its associated event base.
+// All the operations on the SessionPool must be performed on the corresponding
+// EventBase.
+struct ConnectionPool {
+  folly::EventBase* eventBase;
+  std::unique_ptr<proxygen::SessionPool> sessionPool;
+};
+
+// Connection pools used by HTTP client in PrestoExchangeSource.  It should be
+// held living longer than all the PrestoExchangeSources and will be passed when
+// we creating the exchange sources.
+class ConnectionPools {
+ public:
+  ~ConnectionPools() {
+    destroy();
+  }
+
+  const ConnectionPool& get(
+      const proxygen::Endpoint& endpoint,
+      folly::IOThreadPoolExecutor* ioExecutor);
+
+  void destroy();
+
+ private:
+  folly::Synchronized<folly::F14FastMap<
+      proxygen::Endpoint,
+      std::unique_ptr<ConnectionPool>,
+      proxygen::EndpointHash,
+      proxygen::EndpointEqual>>
+      pools_;
+};
+
 class PrestoExchangeSource : public velox::exec::ExchangeSource {
  public:
   class RetryState {
@@ -48,10 +80,14 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
           .count();
     }
 
+    int64_t durationMs() const {
+      return velox::getCurrentTimeMs() - startMs_;
+    }
+
     // Returns whether we have exhausted all retries. We only retry if we spent
     // less than maxWaitMs_ time after we first started.
     bool isExhausted() const {
-      return velox::getCurrentTimeMs() - startMs_ > maxWaitMs_;
+      return durationMs() > maxWaitMs_;
     }
 
    private:
@@ -70,7 +106,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       velox::memory::MemoryPool* pool,
       folly::CPUThreadPoolExecutor* driverExecutor,
-      folly::IOThreadPoolExecutor* httpExecutor,
+      folly::EventBase* ioEventBase,
+      proxygen::SessionPool* sessionPool,
       const std::string& clientCertAndKeyPath_ = "",
       const std::string& ciphers_ = "");
 
@@ -96,13 +133,15 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       uint32_t maxBytes,
       uint32_t maxWaitSeconds) override;
 
-  static std::shared_ptr<ExchangeSource> create(
+  // Create an exchange source using pooled connections.
+  static std::shared_ptr<PrestoExchangeSource> create(
       const std::string& url,
       int destination,
       const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
-      velox::memory::MemoryPool* pool,
+      velox::memory::MemoryPool* memoryPool,
       folly::CPUThreadPoolExecutor* cpuExecutor,
-      folly::IOThreadPoolExecutor* ioExecutor);
+      folly::IOThreadPoolExecutor* ioExecutor,
+      ConnectionPools& connectionPools);
 
   /// Completes the future returned by 'request()' if it hasn't completed
   /// already.
@@ -175,8 +214,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       const std::string& path,
       uint32_t maxBytes,
       uint32_t maxWaitSeconds,
-      const std::string& error,
-      bool retry = true);
+      const std::string& error);
 
   void acknowledgeResults(int64_t ackSequence);
 
@@ -214,7 +252,6 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const bool immediateBufferTransfer_;
 
   folly::CPUThreadPoolExecutor* const driverExecutor_;
-  folly::IOThreadPoolExecutor* const httpExecutor_;
 
   std::shared_ptr<http::HttpClient> httpClient_;
   RetryState dataRequestRetryState_;

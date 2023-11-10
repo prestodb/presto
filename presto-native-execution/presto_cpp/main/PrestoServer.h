@@ -22,6 +22,7 @@
 #include "presto_cpp/main/CPUMon.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
+#include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
@@ -187,6 +188,8 @@ class PrestoServer {
 
   // Executor for spilling.
   std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
+
+  ConnectionPools exchangeSourceConnectionPools_;
 
   // Instance of MemoryAllocator used for all query memory allocations.
   std::shared_ptr<velox::memory::MemoryAllocator> allocator_;

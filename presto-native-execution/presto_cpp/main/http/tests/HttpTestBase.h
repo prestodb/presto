@@ -185,6 +185,7 @@ class HttpClientFactory {
   }
 
   ~HttpClientFactory() {
+    eventBase_->runInEventBaseThread([pools = std::move(sessionPools_)] {});
     eventBase_->terminateLoopSoon();
     eventBaseThread_->join();
   }
@@ -196,11 +197,14 @@ class HttpClientFactory {
       bool useHttps,
       std::shared_ptr<MemoryPool> pool,
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr) {
+    sessionPools_.push_back(
+        std::make_unique<proxygen::SessionPool>(nullptr, 10));
     if (useHttps) {
       std::string clientCaPath = getCertsPath("client_ca.pem");
       std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
       return std::make_shared<http::HttpClient>(
           eventBase_.get(),
+          sessionPools_.back().get(),
           address,
           transactionTimeout,
           connectTimeout,
@@ -211,6 +215,7 @@ class HttpClientFactory {
     } else {
       return std::make_shared<http::HttpClient>(
           eventBase_.get(),
+          sessionPools_.back().get(),
           address,
           transactionTimeout,
           connectTimeout,
@@ -224,6 +229,7 @@ class HttpClientFactory {
  private:
   std::unique_ptr<folly::EventBase> eventBase_;
   std::unique_ptr<std::thread> eventBaseThread_;
+  std::vector<std::unique_ptr<proxygen::SessionPool>> sessionPools_;
 };
 
 folly::SemiFuture<std::unique_ptr<http::HttpResponse>> sendGet(
