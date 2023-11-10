@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTERS;
 import static com.facebook.presto.SystemSessionProperties.HANDLE_COMPLEX_EQUI_JOINS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -56,7 +57,8 @@ public class TestTpcdsCostBasedPlan
                     .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                     .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, "false")
-                    .setSystemProperty(HANDLE_COMPLEX_EQUI_JOINS, "true");
+                    .setSystemProperty(HANDLE_COMPLEX_EQUI_JOINS, "true")
+                    .setSystemProperty(GENERATE_DOMAIN_FILTERS, "true");
 
             LocalQueryRunner queryRunner = LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(sessionBuilder.build(), 8);
             queryRunner.createCatalog(
