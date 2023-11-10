@@ -42,7 +42,6 @@ import static java.util.Objects.requireNonNull;
 public class GenerateDomainFilters
         implements PlanOptimizer
 {
-
     private final RowExpressionDomainTranslator rowExpressionDomainTranslator;
     private final LogicalRowExpressions logicalRowExpressions;
     private final SqlParser sqlParser;
