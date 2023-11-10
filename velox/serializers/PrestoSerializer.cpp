@@ -704,7 +704,7 @@ void scatterVector(
     VectorPtr& vector,
     vector_size_t offset) {
   const auto oldSize = vector->size();
-  if (scatter != nullptr) {
+  if (scatter != nullptr && scatterSize > 0) {
     // 'scatter' should have an entry for every row in 'vector' starting from
     // 'offset'.
     VELOX_CHECK_EQ(vector->size(), scatterSize + offset);
