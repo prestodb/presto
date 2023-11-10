@@ -461,11 +461,13 @@ std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
 }
 
 std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
+  auto sessionPool = std::make_unique<proxygen::SessionPool>();
   auto client = std::make_shared<http::HttpClient>(
       eventBaseThread_.getEventBase(),
+      sessionPool.get(),
       coordinatorUri_,
       std::chrono::milliseconds(10'000),
-      std::chrono::milliseconds(0),
+      std::chrono::milliseconds(20'000),
       pool_);
 
   auto response = ServerResponse(startQuery(sql, *client));
@@ -487,6 +489,8 @@ std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
     response.throwIfFailed();
   }
 
+  eventBaseThread_.getEventBase()->runInEventBaseThread(
+      [sessionPool = std::move(sessionPool)] {});
   return queryResults;
 }
 

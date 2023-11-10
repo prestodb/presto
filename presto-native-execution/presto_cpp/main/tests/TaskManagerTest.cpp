@@ -151,7 +151,9 @@ class TaskManagerTest : public testing::Test {
     aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();
     exec::ExchangeSource::registerFactory(
-        [cpuExecutor = exchangeCpuExecutor_, ioExecutor = exchangeIoExecutor_](
+        [cpuExecutor = exchangeCpuExecutor_,
+         ioExecutor = exchangeIoExecutor_,
+         connectionPools = connectionPools_](
             const std::string& taskId,
             int destination,
             std::shared_ptr<exec::ExchangeQueue> queue,
@@ -162,7 +164,8 @@ class TaskManagerTest : public testing::Test {
               queue,
               pool,
               cpuExecutor.get(),
-              ioExecutor.get());
+              ioExecutor.get(),
+              *connectionPools);
         });
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();
@@ -618,6 +621,8 @@ class TaskManagerTest : public testing::Test {
           8,
           std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
   long splitSequenceId_{0};
+  std::shared_ptr<ConnectionPools> connectionPools_ =
+      std::make_shared<ConnectionPools>();
 };
 
 // Runs "select * from t where c0 % 5 = 0" query.

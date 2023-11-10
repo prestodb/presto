@@ -368,21 +368,15 @@ static std::unique_ptr<http::HttpServer> createHttpServer(
   }
 }
 
-folly::Uri makeProducerUri(const folly::SocketAddress& address, bool useHttps) {
+std::string makeProducerUri(
+    const folly::SocketAddress& address,
+    bool useHttps) {
   std::string protocol = useHttps ? "https" : "http";
-  return folly::Uri(fmt::format(
+  return fmt::format(
       "{}://{}:{}/v1/task/20201007_190402_00000_r5erw.1.0.0/results/3",
       protocol,
       address.getAddressStr(),
-      address.getPort()));
-}
-
-static std::string getCiphers(bool useHttps) {
-  return useHttps ? "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384" : "";
-}
-
-static std::string getClientCa(bool useHttps) {
-  return useHttps ? getCertsPath("client_ca.pem") : "";
+      address.getPort());
 }
 
 struct Params {
@@ -414,6 +408,12 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
     SystemConfig::instance()->setValue(
         std::string(SystemConfig::kExchangeImmediateBufferTransfer),
         GetParam().immediateBufferTransfer ? "true" : "false");
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kHttpsClientCertAndKeyPath),
+        getCertsPath("client_ca.pem"));
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kHttpsSupportedCiphers),
+        "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384");
   }
 
   void TearDown() override {
@@ -434,15 +434,14 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
       int destination,
       const std::shared_ptr<exec::ExchangeQueue>& queue,
       memory::MemoryPool* pool = nullptr) {
-    return std::make_shared<PrestoExchangeSource>(
+    return PrestoExchangeSource::create(
         makeProducerUri(producerAddress, useHttps),
         destination,
         queue,
         pool != nullptr ? pool : pool_.get(),
         exchangeCpuExecutor_.get(),
         exchangeIoExecutor_.get(),
-        getClientCa(useHttps),
-        getCiphers(useHttps));
+        connectionPools_);
   }
 
   void requestNextPage(
@@ -459,6 +458,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   std::unique_ptr<memory::MemoryAllocator> allocator_;
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_;
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_;
+  ConnectionPools connectionPools_;
 };
 
 int64_t totalBytes(const std::vector<std::string>& pages) {

@@ -23,6 +23,7 @@
 namespace facebook::presto::http {
 HttpClient::HttpClient(
     folly::EventBase* eventBase,
+    proxygen::SessionPool* sessionPool,
     const folly::SocketAddress& address,
     std::chrono::milliseconds transactionTimeout,
     std::chrono::milliseconds connectTimeout,
@@ -31,37 +32,19 @@ HttpClient::HttpClient(
     const std::string& ciphers,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
+      sessionPool_(sessionPool),
       address_(address),
-      transactionTimer_(folly::HHWheelTimer::newTimer(
-          eventBase_,
-          std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
-          folly::AsyncTimeout::InternalEnum::NORMAL,
-          transactionTimeout)),
+      transactionTimer_(transactionTimeout, eventBase),
       connectTimeout_(connectTimeout),
       pool_(std::move(pool)),
       clientCertAndKeyPath_(clientCertAndKeyPath),
       ciphers_(ciphers),
       reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
       maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()) {
-  sessionPool_ = std::make_unique<proxygen::SessionPool>(nullptr, 10);
   // clientCertAndKeyPath_ and ciphers_ both needed to be set for https. For
   // http, both need to be unset. One set and another is not set is not a valid
   // configuration.
   VELOX_CHECK_EQ(clientCertAndKeyPath_.empty(), ciphers_.empty());
-}
-
-HttpClient::~HttpClient() {
-  if (sessionPool_) {
-    // Make sure to destroy SessionPool on the EventBase thread.
-    //
-    // NOTE: we can't run the destruction callback inline in EventBase thread
-    // and wait for it to complete. The reason is that the http dtor is executed
-    // by driver close, there might be some other concurrent activity such as
-    // memory arbitration running on the EventBase thread to wait for the driver
-    // to close.
-    eventBase_->runInEventBaseThread(
-        [sessionPool = std::move(sessionPool_)] {});
-  }
 }
 
 HttpResponse::HttpResponse(
@@ -307,7 +290,7 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   ConnectionHandler(
       const std::shared_ptr<ResponseHandler>& responseHandler,
       proxygen::SessionPool* sessionPool,
-      folly::HHWheelTimer* transactionTimeout,
+      proxygen::WheelTimerInstance transactionTimeout,
       std::chrono::milliseconds connectTimeout,
       folly::EventBase* eventBase,
       const folly::SocketAddress& address,
@@ -360,7 +343,7 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   const std::shared_ptr<ResponseHandler> responseHandler_;
   proxygen::SessionPool* const sessionPool_;
   // The request processing timer after the connection succeeds.
-  folly::HHWheelTimer* const transactionTimer_;
+  const proxygen::WheelTimerInstance transactionTimer_;
   // The connect timeout used to timeout the duration from starting connection
   // to connect success
   const std::chrono::milliseconds connectTimeout_;
@@ -393,8 +376,8 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
 
     auto connectionHandler = new ConnectionHandler(
         responseHandler,
-        sessionPool_.get(),
-        transactionTimer_.get(),
+        sessionPool_,
+        transactionTimer_,
         connectTimeout_,
         eventBase_,
         address_,
