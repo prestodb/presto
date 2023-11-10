@@ -35,7 +35,20 @@ namespace facebook::velox::dwio::common {
  */
 class Writer {
  public:
+  /// Defines the states of a file writer.
+  enum class State {
+    kInit = 0,
+    kRunning = 1,
+    kAborted = 2,
+    kClosed = 3,
+  };
+  static std::string stateString(State state);
+
   virtual ~Writer() = default;
+
+  State state() const {
+    return state_;
+  }
 
   /**
    * Appends 'data' to writer. Data might still be in memory and not
@@ -60,6 +73,25 @@ class Writer {
    *  Data can no longer be written.
    */
   virtual void abort() = 0;
+
+ protected:
+  bool isRunning() const;
+
+  void checkRunning() const;
+
+  /// Invoked to set writer 'state_' to new 'state'.
+  void setState(State state);
+
+  /// Validates the state transition from 'oldState' to 'newState'.
+  static void checkStateTransition(State oldState, State newState);
+
+  State state_{State::kInit};
 };
 
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& os,
+    Writer::State state) {
+  os << Writer::stateString(state);
+  return os;
+}
 } // namespace facebook::velox::dwio::common

@@ -28,20 +28,21 @@ SortingWriter::SortingWriter(
   if (sortPool_->parent()->reclaimer() != nullptr) {
     sortPool_->setReclaimer(MemoryReclaimer::create(this));
   }
+  setState(State::kRunning);
 }
 
 void SortingWriter::write(const VectorPtr& data) {
+  checkRunning();
   sortBuffer_->addInput(data);
 }
 
 void SortingWriter::flush() {
+  checkRunning();
   outputWriter_->flush();
 }
 
 void SortingWriter::close() {
-  if (setClose()) {
-    return;
-  }
+  setState(State::kClosed);
 
   sortBuffer_->noMoreInput();
   RowVectorPtr output = sortBuffer_->getOutput();
@@ -55,18 +56,11 @@ void SortingWriter::close() {
 }
 
 void SortingWriter::abort() {
-  if (setClose()) {
-    return;
-  }
+  setState(State::kAborted);
+
   sortBuffer_.reset();
   sortPool_->release();
   outputWriter_->abort();
-}
-
-bool SortingWriter::setClose() {
-  const bool closed = closed_;
-  closed_ = true;
-  return closed;
 }
 
 bool SortingWriter::canReclaim() const {
@@ -80,10 +74,10 @@ uint64_t SortingWriter::reclaim(
     return 0;
   }
 
-  if (closed_) {
-    LOG(WARNING) << "Can't reclaim from a closed or aborted hive sort writer: "
-                 << sortPool_->name() << ", used memory: "
-                 << succinctBytes(sortPool_->currentBytes())
+  if (!isRunning()) {
+    LOG(WARNING) << "Can't reclaim from a not running hive sort writer pool: "
+                 << sortPool_->name() << ", state: " << state()
+                 << "used memory: " << succinctBytes(sortPool_->currentBytes())
                  << ", reserved memory: "
                  << succinctBytes(sortPool_->reservedBytes());
     ++stats.numNonReclaimableAttempts;

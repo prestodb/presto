@@ -143,10 +143,6 @@ class Writer : public dwio::common::Writer {
     return *nonReclaimableSection_;
   }
 
-  bool testingClosed() const {
-    return closed_;
-  }
-
  protected:
   std::shared_ptr<WriterBase> writerBase_;
 
@@ -209,8 +205,7 @@ class Writer : public dwio::common::Writer {
   // If not null, used by memory arbitration to track if this file writer is
   // under memory reclaimable section or not.
   tsan_atomic<bool>* const nonReclaimableSection_{nullptr};
-  // Indicates if this file writer has been closed or aborted.
-  bool closed_{false};
+
   std::unique_ptr<DWRFFlushPolicy> flushPolicy_;
   std::unique_ptr<LayoutPlanner> layoutPlanner_;
   std::unique_ptr<ColumnWriter> writer_;

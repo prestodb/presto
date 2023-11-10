@@ -1812,6 +1812,7 @@ TEST_F(E2EWriterTest, memoryReclaimAfterClose) {
 
     auto writer =
         std::make_unique<dwrf::Writer>(std::move(sink), options, dwrfPool);
+    ASSERT_EQ(writer->state(), dwio::common::Writer::State::kRunning);
     ASSERT_EQ(writer->canReclaim(), testData.canReclaim);
 
     writer->flush();
@@ -1826,15 +1827,16 @@ TEST_F(E2EWriterTest, memoryReclaimAfterClose) {
 
     if (testData.abort) {
       writer->abort();
-      writer->abort();
+      VELOX_ASSERT_THROW(writer->abort(), "Writer is not running: ABORTED");
+      VELOX_ASSERT_THROW(writer->close(), "Writer is not running: ABORTED");
     } else {
       writer->close();
-      writer->close();
+      VELOX_ASSERT_THROW(writer->abort(), "Writer is not running: CLOSED");
+      VELOX_ASSERT_THROW(writer->close(), "Writer is not running: CLOSED");
     }
     // Verify append or write after close or abort will fail.
-    VELOX_ASSERT_THROW(
-        writer->write(vectors[0]), "write not allowed on a closed writer");
-    VELOX_ASSERT_THROW(writer->flush(), "flush not allowed on a closed writer");
+    VELOX_ASSERT_THROW(writer->write(vectors[0]), "Writer is not running");
+    VELOX_ASSERT_THROW(writer->flush(), "Writer is not running");
 
     memory::MemoryReclaimer::Stats stats;
     const auto oldCapacity = writerPool->capacity();

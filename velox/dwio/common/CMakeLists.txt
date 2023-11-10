@@ -55,6 +55,7 @@ add_library(
   SeekableInputStream.cpp
   TypeUtils.cpp
   TypeWithId.cpp
+  Writer.cpp
   WriterFactory.cpp
   SortingWriter.cpp
   SortingWriter.h)

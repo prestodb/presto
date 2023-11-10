@@ -68,14 +68,9 @@ class SortingWriter : public Writer {
 
   uint64_t reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats);
 
-  // Sets the sort writer as closed on close or abort. The function returns true
-  // if this sort writer has already been closed.
-  bool setClose();
-
   const std::unique_ptr<Writer> outputWriter_;
   memory::MemoryPool* const sortPool_;
   const bool canReclaim_;
-  bool closed_{false};
   std::unique_ptr<exec::SortBuffer> sortBuffer_;
 };
 

@@ -47,16 +47,6 @@ dwio::common::StripeProgress getStripeProgress(const WriterContext& context) {
                                      : 0)};
 }
 
-#define RETURN_IF_CLOSED() \
-  do {                     \
-    if (closed_) {         \
-      return;              \
-    }                      \
-  } while (0)
-
-#define CHECK_NOT_CLOSED() \
-  VELOX_CHECK(!closed_, "{} not allowed on a closed writer", __FUNCTION__);
-
 #define NON_RECLAIMABLE_SECTION_CHECK() \
   VELOX_CHECK(nonReclaimableSection_ == nullptr || *nonReclaimableSection_);
 } // namespace
@@ -108,6 +98,7 @@ Writer::Writer(
   } else {
     writer_ = options.columnWriterFactory(writerBase_->getContext(), *schema_);
   }
+  setState(State::kRunning);
 }
 
 Writer::Writer(
@@ -144,7 +135,7 @@ void Writer::setMemoryReclaimers(
 }
 
 void Writer::write(const VectorPtr& input) {
-  CHECK_NOT_CLOSED();
+  checkRunning();
   NON_RECLAIMABLE_SECTION_CHECK();
 
   auto& context = writerBase_->getContext();
@@ -681,23 +672,23 @@ void Writer::flushInternal(bool close) {
 }
 
 void Writer::flush() {
-  CHECK_NOT_CLOSED();
+  checkRunning();
   flushInternal(false);
 }
 
 void Writer::close() {
-  RETURN_IF_CLOSED();
+  checkRunning();
   auto exitGuard = folly::makeGuard([this]() {
     flushPolicy_->onClose();
-    closed_ = true;
+    setState(State::kClosed);
   });
   flushInternal(true);
   writerBase_->close();
 }
 
 void Writer::abort() {
-  RETURN_IF_CLOSED();
-  auto exitGuard = folly::makeGuard([this]() { closed_ = true; });
+  checkRunning();
+  auto exitGuard = folly::makeGuard([this]() { setState(State::kAborted); });
   // NOTE: we need to reset column writer as all its dependent objects (e.g.
   // writer context) will be reset by writer base abort.
   writer_.reset();
@@ -740,9 +731,9 @@ uint64_t Writer::MemoryReclaimer::reclaim(
     ++stats.numNonReclaimableAttempts;
     return 0;
   }
-  if (writer_->closed_) {
-    LOG(WARNING) << "Can't reclaim from a closed or aborted dwrf writer: "
-                 << pool->name();
+  if (!writer_->isRunning()) {
+    LOG(WARNING) << "Can't reclaim from a not running dwrf writer: "
+                 << pool->name() << ", state: " << writer_->state();
     ++stats.numNonReclaimableAttempts;
     return 0;
   }

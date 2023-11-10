@@ -30,7 +30,8 @@ add_executable(
   ReaderTest.cpp
   RetryTests.cpp
   TestBufferedInput.cpp
-  TypeTests.cpp)
+  TypeTests.cpp
+  WriterTest.cpp)
 add_test(velox_dwio_common_test velox_dwio_common_test)
 target_link_libraries(
   velox_dwio_common_test
