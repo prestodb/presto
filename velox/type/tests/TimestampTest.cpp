@@ -116,6 +116,8 @@ TEST(TimestampTest, arithmeticOverflow) {
           "Could not convert Timestamp({}, {}) to nanoseconds",
           negativeSecond,
           0));
+  ASSERT_NO_THROW(Timestamp::minMillis().toMillis());
+  ASSERT_NO_THROW(Timestamp::maxMillis().toMillis());
 }
 
 TEST(TimestampTest, toAppend) {

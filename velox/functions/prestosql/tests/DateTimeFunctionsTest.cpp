@@ -858,7 +858,7 @@ TEST_F(DateTimeFunctionsTest, minusTimestampIntervalDayTime) {
   EXPECT_EQ(-1000, minus(1, 2));
   VELOX_ASSERT_THROW(
       minus(Timestamp::kMinSeconds, Timestamp::kMaxSeconds),
-      "integer overflow");
+      "Could not convert Timestamp(-9223372036854776, 0) to milliseconds");
 }
 
 TEST_F(DateTimeFunctionsTest, dayOfMonthTimestampWithTimezone) {
