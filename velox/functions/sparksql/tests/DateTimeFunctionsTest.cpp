@@ -301,7 +301,7 @@ TEST_F(DateTimeFunctionsTest, dayOfYear) {
 
 TEST_F(DateTimeFunctionsTest, dayOfMonth) {
   const auto day = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int64_t, int32_t>("dayofmonth(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t, int32_t>("dayofmonth(c0)", {date}, {DATE()});
   };
   EXPECT_EQ(std::nullopt, day(std::nullopt));
   EXPECT_EQ(30, day(parseDate("2009-07-30")));

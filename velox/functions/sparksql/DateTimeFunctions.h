@@ -391,4 +391,12 @@ struct QuarterFunction {
   }
 };
 
+template <typename T>
+struct DayFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(int32_t& result, const arg_type<Date>& date) {
+    result = getDateTime(date).tm_mday;
+  }
+};
 } // namespace facebook::velox::functions::sparksql
