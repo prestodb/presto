@@ -638,7 +638,10 @@ size_t TaskManager::cleanOldTasks() {
       bool eraseTask{false};
       if (prestoTask->task != nullptr) {
         if (prestoTask->task->state() != exec::TaskState::kRunning) {
-          if (prestoTask->task->timeSinceEndMs() >= oldTaskCleanUpMs_) {
+          // Since the state is not running, we know the task has been
+          // terminated. We use termination time instead of end time as the
+          // former does not include time waiting for results to be consumed.
+          if (prestoTask->task->timeSinceTerminationMs() >= oldTaskCleanUpMs_) {
             // Not running and old.
             eraseTask = true;
           }
