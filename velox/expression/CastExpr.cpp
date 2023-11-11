@@ -725,7 +725,7 @@ std::string CastExpr::toSql(std::vector<VectorPtr>* complexConstants) const {
 }
 
 CastOperatorPtr CastExpr::getCastOperator(const TypePtr& type) {
-  const auto key = type->toString();
+  const auto* key = type->name();
 
   auto it = castOperators_.find(key);
   if (it != castOperators_.end()) {
