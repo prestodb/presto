@@ -399,4 +399,13 @@ struct DayFunction {
     result = getDateTime(date).tm_mday;
   }
 };
+
+template <typename T>
+struct DayOfYearFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(int32_t& result, const arg_type<Date>& date) {
+    result = getDayOfYear(getDateTime(date));
+  }
+};
 } // namespace facebook::velox::functions::sparksql

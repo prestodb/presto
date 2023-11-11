@@ -54,7 +54,7 @@ These functions support TIMESTAMP and DATE input types.
 
 .. spark:function:: dayofyear(date) -> integer
 
-    Returns the day of year of the date/timestamp. ::
+    Returns the day of year of the date. ::
 
         SELECT dayofyear('2016-04-09'); -- 100
 

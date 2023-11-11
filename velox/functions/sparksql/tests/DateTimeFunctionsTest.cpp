@@ -291,7 +291,7 @@ TEST_F(DateTimeFunctionsTest, dateSub) {
 
 TEST_F(DateTimeFunctionsTest, dayOfYear) {
   const auto day = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int64_t, int32_t>("dayofyear(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t, int32_t>("dayofyear(c0)", {date}, {DATE()});
   };
   EXPECT_EQ(std::nullopt, day(std::nullopt));
   EXPECT_EQ(100, day(parseDate("2016-04-09")));
