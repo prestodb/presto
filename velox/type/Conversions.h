@@ -34,6 +34,7 @@ template <
     bool TRUNCATE = false,
     bool LEGACY_CAST = false>
 struct Converter {
+  // TODO: simplify template parameters and evaluate performance impact.
   template <typename T>
   static typename TypeTraits<KIND>::NativeType cast(T) {
     VELOX_UNSUPPORTED(
@@ -407,6 +408,9 @@ struct Converter<TypeKind::VARCHAR, void, TRUNCATE, LEGACY_CAST> {
   static std::string cast(const Timestamp& val) {
     TimestampToStringOptions options;
     options.precision = TimestampToStringOptions::Precision::kMilliseconds;
+    if constexpr (!LEGACY_CAST) {
+      options.dateTimeSeparator = ' ';
+    }
     return val.toString(options);
   }
 

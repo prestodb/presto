@@ -133,6 +133,11 @@ Expression Evaluation Configuration
      - false
      - Whether to track CPU usage for individual expressions (supported by call and cast expressions). Can be expensive
        when processing small batches, e.g. < 10K rows.
+   * - legacy_cast
+     - bool
+     - false
+     - Enables legacy CAST semantics if set to true. CAST(timestamp AS varchar) uses 'T' as separator between date and
+       time (instead of a space).
    * - cast_match_struct_by_name
      - bool
      - false

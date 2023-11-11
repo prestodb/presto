@@ -471,6 +471,8 @@ Invalid example
 Cast to String
 --------------
 
+Casting from scalar types to string is allowed.
+
 Valid examples
 
 ::
@@ -481,11 +483,34 @@ Valid examples
   SELECT cast(nan() as varchar); -- 'NaN'
   SELECT cast(infinity() as varchar); -- 'Infinity'
   SELECT cast(true as varchar); -- 'true'
-  SELECT cast(timestamp '1970-01-01 00:00:00' as varchar); -- '1970-01-01T00:00:00.000'
+  SELECT cast(timestamp '1970-01-01 00:00:00' as varchar); -- '1970-01-01 00:00:00.000'
   SELECT cast(cast(22.51 as DECIMAL(5, 3)) as varchar); -- '22.510'
   SELECT cast(cast(-22.51 as DECIMAL(4, 2)) as varchar); -- '-22.51'
   SELECT cast(cast(0.123 as DECIMAL(3, 3)) as varchar); -- '0.123'
   SELECT cast(cast(1 as DECIMAL(6, 2)) as varchar); -- '1.00'
+
+From TIMESTAMP
+^^^^^^^^^^^^^^
+
+By default, casting a timestamp to a string returns ISO 8601 format with an empty space
+as separator between date and time.
+
+If legacy_cast configuration property is true, the result string uses character 'T'
+as separator between date and time.
+
+Valid examples if legacy_cast = false,
+
+::
+
+  SELECT cast(timestamp '1970-01-01 00:00:00' as varchar); -- '1970-01-01 00:00:00.000'
+  SELECT cast(timestamp '2000-01-01 12:21:56.129' as varchar); -- '2000-01-01 12:21:56.129'
+
+Valid examples if legacy_cast = true,
+
+::
+
+  SELECT cast(timestamp '1970-01-01 00:00:00' as varchar); -- '1970-01-01T00:00:00.000'
+  SELECT cast(timestamp '2000-01-01 12:21:56.129' as varchar); -- '2000-01-01T12:21:56.129'
 
 Cast to TIMESTAMP
 -----------------
