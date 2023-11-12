@@ -28,7 +28,6 @@
 #include "folly/CPortability.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/Macros.h"
-#include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/ArithmeticImpl.h"
 
 namespace facebook::velox::functions {
