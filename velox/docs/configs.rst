@@ -137,7 +137,7 @@ Expression Evaluation Configuration
      - bool
      - false
      - Enables legacy CAST semantics if set to true. CAST(timestamp AS varchar) uses 'T' as separator between date and
-       time (instead of a space).
+       time (instead of a space), and the year part is not padded.
    * - cast_match_struct_by_name
      - bool
      - false

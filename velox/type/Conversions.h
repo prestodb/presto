@@ -409,6 +409,7 @@ struct Converter<TypeKind::VARCHAR, void, TRUNCATE, LEGACY_CAST> {
     TimestampToStringOptions options;
     options.precision = TimestampToStringOptions::Precision::kMilliseconds;
     if constexpr (!LEGACY_CAST) {
+      options.zeroPaddingYear = true;
       options.dateTimeSeparator = ' ';
     }
     return val.toString(options);

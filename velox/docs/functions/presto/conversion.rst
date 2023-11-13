@@ -492,11 +492,11 @@ Valid examples
 From TIMESTAMP
 ^^^^^^^^^^^^^^
 
-By default, casting a timestamp to a string returns ISO 8601 format with an empty space
-as separator between date and time.
+By default, casting a timestamp to a string returns ISO 8601 format with space as separator
+between date and time, and the year part is padded with zeros to 4 characters.
 
 If legacy_cast configuration property is true, the result string uses character 'T'
-as separator between date and time.
+as separator between date and time and the year part is not padded.
 
 Valid examples if legacy_cast = false,
 
@@ -504,6 +504,9 @@ Valid examples if legacy_cast = false,
 
   SELECT cast(timestamp '1970-01-01 00:00:00' as varchar); -- '1970-01-01 00:00:00.000'
   SELECT cast(timestamp '2000-01-01 12:21:56.129' as varchar); -- '2000-01-01 12:21:56.129'
+  SELECT cast(timestamp '384-01-01 08:00:00.000' as varchar); -- '0384-01-01 08:00:00.000'
+  SELECT cast(timestamp '10000-02-01 16:00:00.000' as varchar); -- '10000-02-01 16:00:00.000'
+  SELECT cast(timestamp '-10-02-01 10:00:00.000' as varchar); -- '-0010-02-01 10:00:00.000'
 
 Valid examples if legacy_cast = true,
 
@@ -511,6 +514,8 @@ Valid examples if legacy_cast = true,
 
   SELECT cast(timestamp '1970-01-01 00:00:00' as varchar); -- '1970-01-01T00:00:00.000'
   SELECT cast(timestamp '2000-01-01 12:21:56.129' as varchar); -- '2000-01-01T12:21:56.129'
+  SELECT cast(timestamp '384-01-01 08:00:00.000' as varchar); -- '384-01-01T08:00:00.000'
+  SELECT cast(timestamp '-10-02-01 10:00:00.000' as varchar); -- '-10-02-01T10:00:00.000'
 
 Cast to TIMESTAMP
 -----------------

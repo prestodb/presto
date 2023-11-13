@@ -553,6 +553,9 @@ TEST_F(CastExprTest, timestampToString) {
           Timestamp(946729316, 123),
           Timestamp(946729316, 129900000),
           Timestamp(7266, 0),
+          Timestamp(-50049331200, 0),
+          Timestamp(253405036800, 0),
+          Timestamp(-62480037600, 0),
           std::nullopt,
       },
       {
@@ -566,6 +569,9 @@ TEST_F(CastExprTest, timestampToString) {
           "2000-01-01 12:21:56.000",
           "2000-01-01 12:21:56.129",
           "1970-01-01 02:01:06.000",
+          "0384-01-01 08:00:00.000",
+          "10000-02-01 16:00:00.000",
+          "-0010-02-01 10:00:00.000",
           std::nullopt,
       });
 
@@ -574,10 +580,16 @@ TEST_F(CastExprTest, timestampToString) {
       "string",
       {
           Timestamp(946729316, 123),
+          Timestamp(-50049331200, 0),
+          Timestamp(253405036800, 0),
+          Timestamp(-62480037600, 0),
           std::nullopt,
       },
       {
           "2000-01-01T12:21:56.000",
+          "384-01-01T08:00:00.000",
+          "10000-02-01T16:00:00.000",
+          "-10-02-01T10:00:00.000",
           std::nullopt,
       });
 }
