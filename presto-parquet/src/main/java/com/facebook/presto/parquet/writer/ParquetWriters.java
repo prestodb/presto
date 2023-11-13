@@ -27,6 +27,7 @@ import com.facebook.presto.parquet.writer.valuewriter.DoubleValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.IntegerValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.RealValueWriter;
+import com.facebook.presto.parquet.writer.valuewriter.TimeValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.TimestampValueWriter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
@@ -49,6 +50,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -190,6 +192,9 @@ class ParquetWriters
         }
         if (TIMESTAMP.equals(type)) {
             return new TimestampValueWriter(valuesWriter, type, parquetType);
+        }
+        if (TIME.equals(type)) {
+            return new TimeValueWriter(valuesWriter, type, parquetType);
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             return new CharValueWriter(valuesWriter, type, parquetType);
