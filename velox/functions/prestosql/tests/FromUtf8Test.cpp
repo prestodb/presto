@@ -202,6 +202,22 @@ TEST_F(FromUtf8Test, basic) {
   EXPECT_EQ(makeExpected("#"), fromUtf8(mix.str(), '#'));
   EXPECT_EQ(makeExpected(""), fromUtf8(mix.str(), ""));
   EXPECT_EQ(makeExpected(kClef), fromUtf8(mix.str(), kClef));
+
+  // Invalid codepoint of multi-byte long.
+  {
+    // The first byte 0xFB indicates a 5-byte long codepoint.
+    auto result = evaluateOnce<std::string>(
+        "from_utf8(from_hex(c0))", std::optional<std::string>{"FBB78EB6BE"});
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ("\uFFFD", result.value());
+
+    // The first byte 0xFB indicates a 5-byte long codepoint, but only three
+    // continuation bytes follow. The fifth byte is a valid character 'X'.
+    result = evaluateOnce<std::string>(
+        "from_utf8(from_hex(c0))", std::optional<std::string>{"FBB78EB658"});
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ("\uFFFDX", result.value());
+  }
 }
 
 TEST_F(FromUtf8Test, invalidReplacement) {

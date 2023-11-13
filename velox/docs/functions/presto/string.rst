@@ -40,15 +40,19 @@ String Functions
 .. function:: from_utf8(binary) -> varchar
 
     Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences
-    are replaced with the Unicode replacement character ``U+FFFD``.
+    are replaced with the Unicode replacement character ``U+FFFD``. Each
+    invalid UTF-8 codepoint, including those of multi-byte long, is replaced
+    with one replacement character.
 
 .. function:: from_utf8(binary, replace) -> varchar
     :noindex:
 
     Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences are
-    replaced with `replace`. The `replace` argument can be either Unicode code
-    point (bigint), a single character or empty string. When `replace` is an
-    empty string invalid characters are removed.
+    replaced with `replace`. Each invalid UTF-8 codepoint, including those of
+    multi-byte long, is replaced with one replacement character. The `replace`
+    argument can be either Unicode code point (bigint), a single character or
+    empty string. When `replace` is an empty string invalid characters are
+    removed.
 
 .. function:: length(string) -> bigint
 
@@ -181,7 +185,7 @@ String Functions
     ``instance`` must be a positive number.
     Positions start with ``1``. If not found, ``0`` is returned.
     It takes into account overlapping strings when counting occurrences. ::
-        
+
         SELECT strrpos('aaa', 'aa', 2); -- 1
 
 .. function:: substr(string, start) -> varchar

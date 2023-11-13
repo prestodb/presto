@@ -18,12 +18,54 @@
 #include "velox/external/utf8proc/utf8procImpl.h"
 
 namespace facebook::velox::functions {
+namespace {
+
+// Returns the length of a UTF-8 character indicated by the first byte. Returns
+// -1 for invalid UTF-8 first byte.
+int firstByteCharLength(const char* u_input) {
+  auto u = (const unsigned char*)u_input;
+  unsigned char u0 = u[0];
+  if (u0 < 0b10000000) {
+    // normal ASCII
+    // 0xxx_xxxx
+    return 1;
+  }
+  if (u0 < 0b11000000) {
+    // illegal bytes
+    // 10xx_xxxx
+    return -1;
+  }
+  if (u0 < 0b11100000) {
+    // 110x_xxxx 10xx_xxxx
+    return 2;
+  }
+  if (u0 < 0b11110000) {
+    // 1110_xxxx 10xx_xxxx 10xx_xxxx
+    return 3;
+  }
+  if (u0 < 0b11111000) {
+    // 1111_0xxx 10xx_xxxx 10xx_xxxx 10xx_xxxx
+    return 4;
+  }
+  if (u0 < 0b11111100) {
+    // 1111_10xx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx
+    return 5;
+  }
+  if (u0 < 0b11111110) {
+    // 1111_10xx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx
+    return 6;
+  }
+  // No unicode codepoint can be longer than 6 bytes.
+  return -1;
+}
+
+} // namespace
 
 int32_t tryGetCharLength(const char* input, int64_t size) {
   VELOX_DCHECK_NOT_NULL(input);
   VELOX_DCHECK_GT(size, 0);
 
-  auto charLength = utf8proc_char_length(input);
+  auto charLength = firstByteCharLength(input);
   if (charLength < 0) {
     return -1;
   }
@@ -100,6 +142,35 @@ int32_t tryGetCharLength(const char* input, int64_t size) {
     return -4;
   }
 
-  VELOX_UNREACHABLE();
+  if (size < 5) {
+    return -4;
+  }
+
+  auto fifthByte = input[4];
+  if (!utf_cont(fifthByte)) {
+    return -4;
+  }
+
+  if (charLength == 5) {
+    // Per RFC3629, UTF-8 is limited to 4 bytes, so more bytes are illegal.
+    return -5;
+  }
+
+  if (size < 6) {
+    return -5;
+  }
+
+  auto sixthByte = input[5];
+  if (!utf_cont(sixthByte)) {
+    return -5;
+  }
+
+  if (charLength == 6) {
+    // Per RFC3629, UTF-8 is limited to 4 bytes, so more bytes are illegal.
+    return -6;
+  }
+  // for longer sequence, which can't happen.
+  return -1;
 }
+
 } // namespace facebook::velox::functions
