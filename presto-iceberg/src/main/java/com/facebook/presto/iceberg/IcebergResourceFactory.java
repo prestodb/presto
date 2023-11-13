@@ -17,7 +17,6 @@ import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -99,25 +98,7 @@ public class IcebergResourceFactory
     private String getCatalogCacheKey(ConnectorSession session)
     {
         StringBuilder sb = new StringBuilder();
-        ConnectorIdentity identity = session.getIdentity();
-        sb.append("User:");
-        sb.append(identity.getUser());
-        if (identity.getPrincipal().isPresent()) {
-            sb.append(",Principle:");
-            sb.append(identity.getPrincipal());
-        }
-        if (identity.getRole().isPresent()) {
-            sb.append(",Role:");
-            sb.append(identity.getRole());
-        }
-        if (identity.getExtraCredentials() != null) {
-            identity.getExtraCredentials().forEach((key, value) -> {
-                sb.append(",");
-                sb.append(key);
-                sb.append(":");
-                sb.append(value);
-            });
-        }
+        sb.append(catalogName);
 
         if (catalogType == NESSIE) {
             sb.append(getNessieReferenceName(session));
