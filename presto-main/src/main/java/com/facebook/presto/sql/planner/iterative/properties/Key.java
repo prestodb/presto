@@ -48,6 +48,11 @@ public final class Key
         this.variables = ImmutableSet.copyOf(variables);
     }
 
+    public Set<VariableReferenceExpression> getVariables()
+    {
+        return variables;
+    }
+
     /**
      * Determines if a provided key requirement is satisfied by this key.
      * This is true if the variables in this key are a subset of the variables in the key requirement.

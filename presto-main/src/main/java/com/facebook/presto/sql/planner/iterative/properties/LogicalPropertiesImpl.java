@@ -21,11 +21,14 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.iterative.properties.Key.getNormalizedKey;
@@ -149,6 +152,16 @@ public class LogicalPropertiesImpl
     {
         checkArgument(!keyVars.isEmpty(), "keyVars is empty");
         return keyRequirementSatisfied(new Key(keyVars));
+    }
+
+    @Override
+    public Set<VariableReferenceExpression> getSmallestKeyVariablesSet(Set<VariableReferenceExpression> candidateVariables)
+    {
+        return keyProperty.getKeys().stream()
+                .map(Key::getVariables)
+                .filter(candidateVariables::containsAll)
+                .reduce(BinaryOperator.minBy(Comparator.comparingInt(Set::size)))
+                .orElseGet(Collections::emptySet);
     }
 
     @Override

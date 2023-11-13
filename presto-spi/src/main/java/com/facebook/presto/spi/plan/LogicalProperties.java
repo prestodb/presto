@@ -39,6 +39,15 @@ public interface LogicalProperties
     boolean isDistinct(Set<VariableReferenceExpression> keyVars);
 
     /**
+     * Determines the smallest set of variables that form a unique constraint for a node
+     * from a list of candidate variables
+     *
+     * @param candidateVariables
+     * @return If a key set exists, returns the smallest such set
+     */
+    Set<VariableReferenceExpression> getSmallestKeyVariablesSet(Set<VariableReferenceExpression> candidateVariables);
+
+    /**
      * Determines if there is provably at most one tuple in a final or
      * intermediate result set produced by a PlanNode.
      *
