@@ -62,11 +62,11 @@ static constexpr size_t kHttpEndpointLatencyPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
 
 PeriodicTaskManager::PeriodicTaskManager(
-    folly::CPUThreadPoolExecutor* const driverCPUExecutor,
-    folly::IOThreadPoolExecutor* const httpExecutor,
-    TaskManager* const taskManager,
-    const velox::memory::MemoryAllocator* const memoryAllocator,
-    const velox::cache::AsyncDataCache* const asyncDataCache,
+    folly::CPUThreadPoolExecutor* driverCPUExecutor,
+    folly::IOThreadPoolExecutor* httpExecutor,
+    TaskManager* taskManager,
+    const velox::memory::MemoryAllocator* memoryAllocator,
+    velox::cache::AsyncDataCache* asyncDataCache,
     const std::unordered_map<
         std::string,
         std::shared_ptr<velox::connector::Connector>>& connectors)
@@ -504,6 +504,10 @@ void PeriodicTaskManager::updateOperatingSystemStats() {
       kCounterOsNumForcedContextSwitches,
       forcedContextSwitches - lastForcedContextSwitches_);
   lastForcedContextSwitches_ = forcedContextSwitches;
+
+  if (usage.ru_maxrss > 60UL << 30) {
+    asyncDataCache_->shrink(10UL << 30);
+  }
 }
 
 void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {

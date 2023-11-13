@@ -40,11 +40,11 @@ class TaskManager;
 class PeriodicTaskManager {
  public:
   explicit PeriodicTaskManager(
-      folly::CPUThreadPoolExecutor* const driverCPUExecutor,
-      folly::IOThreadPoolExecutor* const httpExecutor,
+      folly::CPUThreadPoolExecutor* driverCPUExecutor,
+      folly::IOThreadPoolExecutor* httpExecutor,
       TaskManager* const taskManager,
-      const velox::memory::MemoryAllocator* const memoryAllocator,
-      const velox::cache::AsyncDataCache* const asyncDataCache,
+      const velox::memory::MemoryAllocator* memoryAllocator,
+      velox::cache::AsyncDataCache* asyncDataCache,
       const std::unordered_map<
           std::string,
           std::shared_ptr<velox::connector::Connector>>& connectors);
@@ -120,7 +120,7 @@ class PeriodicTaskManager {
   folly::IOThreadPoolExecutor* const httpExecutor_;
   TaskManager* const taskManager_;
   const velox::memory::MemoryAllocator* const memoryAllocator_;
-  const velox::cache::AsyncDataCache* const asyncDataCache_;
+  velox::cache::AsyncDataCache* const asyncDataCache_;
   const velox::memory::MemoryArbitrator* const arbitrator_;
   const std::unordered_map<
       std::string,
