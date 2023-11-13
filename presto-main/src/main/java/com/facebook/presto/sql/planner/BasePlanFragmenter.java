@@ -15,39 +15,26 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.PartitioningMetadata;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.StageExecutionDescriptor;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorNewTableLayout;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -55,10 +42,8 @@ import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.base.Preconditions;
@@ -67,20 +52,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
-import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
+import static com.facebook.presto.sql.TemporaryTableUtil.assignTemporaryTableColumnNames;
+import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableScan;
+import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableWriteWithExchanges;
 import static com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
@@ -89,24 +73,16 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isCompatibleSystemPartitioning;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractOutputVariables;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.ensureSourceOrderingGatheringExchange;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 /**
  * Main rewriter that creates plan fragments
@@ -124,6 +100,8 @@ public abstract class BasePlanFragmenter
     private final SqlParser sqlParser;
     private final Set<PlanNodeId> outputTableWriterNodeIds;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
+
+    private Map<String, TableScanNode> cteNameToTableScanMap = new HashMap<>();
 
     public BasePlanFragmenter(
             Session session,
@@ -221,6 +199,31 @@ public abstract class BasePlanFragmenter
     {
         context.get().setCoordinatorOnlyDistribution(node);
         return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
+    public PlanNode visitSequence(SequenceNode node, RewriteContext<FragmentProperties> context)
+    {
+        // Since this is topologically sorted by the LogicalCtePlanner, need to make sure that execution order follows
+        // Can be optimized further to avoid non dependents from getting blocked
+        int cteProducerCount = node.getCteProducers().size();
+        checkArgument(cteProducerCount >= 1, "Sequence Node has 0 CTE producers");
+        PlanNode source = node.getCteProducers().get(cteProducerCount - 1);
+        FragmentProperties childProperties = new FragmentProperties(new PartitioningScheme(
+                Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                source.getOutputVariables()));
+        SubPlan lastSubPlan = buildSubPlan(source, childProperties, context);
+
+        for (int sourceIndex = cteProducerCount - 2; sourceIndex >= 0; sourceIndex--) {
+            source = node.getCteProducers().get(sourceIndex);
+            childProperties = new FragmentProperties(new PartitioningScheme(
+                    Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                    source.getOutputVariables()));
+            childProperties.addChildren(ImmutableList.of(lastSubPlan));
+            lastSubPlan = buildSubPlan(source, childProperties, context);
+        }
+        context.get().addChildren(ImmutableList.of(lastSubPlan));
+        return node.getPrimarySource().accept(this, context);
     }
 
     @Override
@@ -325,7 +328,7 @@ public abstract class BasePlanFragmenter
                                 "The catalog must support providing a custom partitioning and storing temporary tables."));
 
         Partitioning partitioning = partitioningScheme.getPartitioning();
-        PartitioningVariableAssignments partitioningVariableAssignments = assignPartitioningVariables(partitioning);
+        PartitioningVariableAssignments partitioningVariableAssignments = assignPartitioningVariables(variableAllocator, partitioning);
         Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap = assignTemporaryTableColumnNames(exchange.getOutputVariables(), partitioningVariableAssignments.getConstants().keySet());
         List<VariableReferenceExpression> partitioningVariables = partitioningVariableAssignments.getVariables();
         List<String> partitionColumns = partitioningVariables.stream()
@@ -353,6 +356,9 @@ public abstract class BasePlanFragmenter
         }
 
         TableScanNode scan = createTemporaryTableScan(
+                metadata,
+                session,
+                idAllocator,
                 exchange.getSourceLocation(),
                 temporaryTableHandle,
                 exchange.getOutputVariables(),
@@ -362,7 +368,12 @@ public abstract class BasePlanFragmenter
         checkArgument(
                 !exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                 "materialized remote exchange is not supported when replicateNullsAndAny is needed");
-        TableFinishNode write = createTemporaryTableWrite(
+        TableFinishNode write = createTemporaryTableWriteWithExchanges(
+                metadata,
+                session,
+                idAllocator,
+                variableAllocator,
+                statisticsAggregationPlanner,
                 scan.getSourceLocation(),
                 temporaryTableHandle,
                 variableToColumnMap,
@@ -381,240 +392,6 @@ public abstract class BasePlanFragmenter
         context.get().addChildren(children);
 
         return visitTableScan(scan, context);
-    }
-
-    private PartitioningVariableAssignments assignPartitioningVariables(Partitioning partitioning)
-    {
-        ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
-        ImmutableMap.Builder<VariableReferenceExpression, RowExpression> constants = ImmutableMap.builder();
-        for (RowExpression argument : partitioning.getArguments()) {
-            checkArgument(argument instanceof ConstantExpression || argument instanceof VariableReferenceExpression, format("Expect argument to be ConstantExpression or VariableReferenceExpression, get %s (%s)", argument.getClass(), argument));
-            VariableReferenceExpression variable;
-            if (argument instanceof ConstantExpression) {
-                variable = variableAllocator.newVariable(argument.getSourceLocation(), "constant_partition", argument.getType());
-                constants.put(variable, argument);
-            }
-            else {
-                variable = (VariableReferenceExpression) argument;
-            }
-            variables.add(variable);
-        }
-        return new PartitioningVariableAssignments(variables.build(), constants.build());
-    }
-
-    private Map<VariableReferenceExpression, ColumnMetadata> assignTemporaryTableColumnNames(Collection<VariableReferenceExpression> outputVariables, Collection<VariableReferenceExpression> constantPartitioningVariables)
-    {
-        ImmutableMap.Builder<VariableReferenceExpression, ColumnMetadata> result = ImmutableMap.builder();
-        int column = 0;
-        for (VariableReferenceExpression outputVariable : concat(outputVariables, constantPartitioningVariables)) {
-            String columnName = format("_c%d_%s", column, outputVariable.getName());
-            result.put(outputVariable, new ColumnMetadata(columnName, outputVariable.getType()));
-            column++;
-        }
-        return result.build();
-    }
-
-    private TableScanNode createTemporaryTableScan(
-            Optional<SourceLocation> sourceLocation,
-            TableHandle tableHandle,
-            List<VariableReferenceExpression> outputVariables,
-            Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
-            PartitioningMetadata expectedPartitioningMetadata)
-    {
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        Map<VariableReferenceExpression, ColumnMetadata> outputColumns = outputVariables.stream()
-                .collect(toImmutableMap(identity(), variableToColumnMap::get));
-        Set<ColumnHandle> outputColumnHandles = outputColumns.values().stream()
-                .map(ColumnMetadata::getName)
-                .map(columnHandles::get)
-                .collect(toImmutableSet());
-
-        TableLayoutResult selectedLayout = metadata.getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.of(outputColumnHandles));
-        verify(selectedLayout.getUnenforcedConstraint().equals(TupleDomain.all()), "temporary table layout shouldn't enforce any constraints");
-        verify(!selectedLayout.getLayout().getColumns().isPresent(), "temporary table layout must provide all the columns");
-        TableLayout.TablePartitioning expectedPartitioning = new TableLayout.TablePartitioning(
-                expectedPartitioningMetadata.getPartitioningHandle(),
-                expectedPartitioningMetadata.getPartitionColumns().stream()
-                        .map(columnHandles::get)
-                        .collect(toImmutableList()));
-        verify(selectedLayout.getLayout().getTablePartitioning().equals(Optional.of(expectedPartitioning)), "invalid temporary table partitioning");
-
-        Map<VariableReferenceExpression, ColumnHandle> assignments = outputVariables.stream()
-                .collect(toImmutableMap(identity(), variable -> columnHandles.get(outputColumns.get(variable).getName())));
-
-        return new TableScanNode(
-                sourceLocation,
-                idAllocator.getNextId(),
-                selectedLayout.getLayout().getNewTableHandle(),
-                outputVariables,
-                assignments,
-                TupleDomain.all(),
-                TupleDomain.all());
-    }
-
-    private TableFinishNode createTemporaryTableWrite(
-            Optional<SourceLocation> sourceLocation, TableHandle tableHandle,
-            Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
-            List<VariableReferenceExpression> outputs,
-            List<List<VariableReferenceExpression>> inputs,
-            List<PlanNode> sources,
-            Map<VariableReferenceExpression, RowExpression> constantExpressions,
-            PartitioningMetadata partitioningMetadata)
-    {
-        if (!constantExpressions.isEmpty()) {
-            List<VariableReferenceExpression> constantVariables = ImmutableList.copyOf(constantExpressions.keySet());
-
-            // update outputs
-            outputs = ImmutableList.<VariableReferenceExpression>builder()
-                    .addAll(outputs)
-                    .addAll(constantVariables)
-                    .build();
-
-            // update inputs
-            inputs = inputs.stream()
-                    .map(input -> ImmutableList.<VariableReferenceExpression>builder()
-                            .addAll(input)
-                            .addAll(constantVariables)
-                            .build())
-                    .collect(toImmutableList());
-
-            // update sources
-            sources = sources.stream()
-                    .map(source -> {
-                        Assignments.Builder assignments = Assignments.builder();
-                        source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getSourceLocation(), variable.getName(), variable.getType())));
-                        constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
-                        return new ProjectNode(source.getSourceLocation(), idAllocator.getNextId(), source, assignments.build(), ProjectNode.Locality.LOCAL);
-                    })
-                    .collect(toImmutableList());
-        }
-
-        NewTableLayout insertLayout = metadata.getInsertLayout(session, tableHandle)
-                // TODO: support insert into non partitioned table
-                .orElseThrow(() -> new IllegalArgumentException("insertLayout for the temporary table must be present"));
-
-        PartitioningHandle partitioningHandle = partitioningMetadata.getPartitioningHandle();
-        List<String> partitionColumns = partitioningMetadata.getPartitionColumns();
-        ConnectorNewTableLayout expectedNewTableLayout = new ConnectorNewTableLayout(partitioningHandle.getConnectorHandle(), partitionColumns);
-        verify(insertLayout.getLayout().equals(expectedNewTableLayout), "unexpected new table layout");
-
-        Map<String, VariableReferenceExpression> columnNameToVariable = variableToColumnMap.entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getValue().getName(), Map.Entry::getKey));
-        List<VariableReferenceExpression> partitioningVariables = partitionColumns.stream()
-                .map(columnNameToVariable::get)
-                .collect(toImmutableList());
-
-        List<String> outputColumnNames = outputs.stream()
-                .map(variableToColumnMap::get)
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
-        Set<VariableReferenceExpression> outputNotNullColumnVariables = outputs.stream()
-                .filter(variable -> variableToColumnMap.get(variable) != null && !(variableToColumnMap.get(variable).isNullable()))
-                .collect(Collectors.toSet());
-
-        SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
-        TableWriterNode.InsertReference insertReference = new TableWriterNode.InsertReference(tableHandle, schemaTableName);
-
-        PartitioningScheme partitioningScheme = new PartitioningScheme(
-                Partitioning.create(partitioningHandle, partitioningVariables),
-                outputs,
-                Optional.empty(),
-                false,
-                Optional.empty());
-
-        ExchangeNode writerRemoteSource = new ExchangeNode(
-                sourceLocation,
-                idAllocator.getNextId(),
-                REPARTITION,
-                REMOTE_STREAMING,
-                partitioningScheme,
-                sources,
-                inputs,
-                false,
-                Optional.empty());
-
-        ExchangeNode writerSource;
-        if (getTaskPartitionedWriterCount(session) == 1) {
-            writerSource = gatheringExchange(
-                    idAllocator.getNextId(),
-                    LOCAL,
-                    writerRemoteSource);
-        }
-        else {
-            writerSource = partitionedExchange(
-                    idAllocator.getNextId(),
-                    LOCAL,
-                    writerRemoteSource,
-                    partitioningScheme);
-        }
-
-        String catalogName = tableHandle.getConnectorId().getCatalogName();
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
-        StatisticsAggregationPlanner.TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable);
-        StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
-        PlanNode tableWriterMerge;
-
-        // Disabled by default. Enable when the column statistics are essential for future runtime adaptive plan optimizations
-        boolean enableStatsCollectionForTemporaryTable = SystemSessionProperties.isEnableStatsCollectionForTemporaryTable(session);
-
-        if (isTableWriterMergeOperatorEnabled(session)) {
-            StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getFunctionAndTypeManager());
-            tableWriterMerge = new TableWriterMergeNode(
-                    sourceLocation,
-                    idAllocator.getNextId(),
-                    gatheringExchange(
-                            idAllocator.getNextId(),
-                            LOCAL,
-                            new TableWriterNode(
-                                    sourceLocation,
-                                    idAllocator.getNextId(),
-                                    writerSource,
-                                    Optional.of(insertReference),
-                                    variableAllocator.newVariable("partialrows", BIGINT),
-                                    variableAllocator.newVariable("partialfragments", VARBINARY),
-                                    variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
-                                    outputs,
-                                    outputColumnNames,
-                                    outputNotNullColumnVariables,
-                                    Optional.of(partitioningScheme),
-                                    Optional.empty(),
-                                    enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty(),
-                                    Optional.empty())),
-                    variableAllocator.newVariable("intermediaterows", BIGINT),
-                    variableAllocator.newVariable("intermediatefragments", VARBINARY),
-                    variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
-                    enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getIntermediateAggregation()) : Optional.empty());
-        }
-        else {
-            tableWriterMerge = new TableWriterNode(
-                    sourceLocation,
-                    idAllocator.getNextId(),
-                    writerSource,
-                    Optional.of(insertReference),
-                    variableAllocator.newVariable("partialrows", BIGINT),
-                    variableAllocator.newVariable("partialfragments", VARBINARY),
-                    variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
-                    outputs,
-                    outputColumnNames,
-                    outputNotNullColumnVariables,
-                    Optional.of(partitioningScheme),
-                    Optional.empty(),
-                    enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty(),
-                    Optional.empty());
-        }
-
-        return new TableFinishNode(
-                sourceLocation,
-                idAllocator.getNextId(),
-                ensureSourceOrderingGatheringExchange(
-                        idAllocator.getNextId(),
-                        REMOTE_STREAMING,
-                        tableWriterMerge),
-                Optional.of(insertReference),
-                variableAllocator.newVariable("rows", BIGINT),
-                enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getFinalAggregation()) : Optional.empty(),
-                enableStatsCollectionForTemporaryTable ? Optional.of(statisticsResult.getDescriptor()) : Optional.empty());
     }
 
     private SubPlan buildSubPlan(PlanNode node, FragmentProperties properties, RewriteContext<FragmentProperties> context)
@@ -756,12 +533,12 @@ public abstract class BasePlanFragmenter
         }
     }
 
-    private static class PartitioningVariableAssignments
+    public static class PartitioningVariableAssignments
     {
         private final List<VariableReferenceExpression> variables;
         private final Map<VariableReferenceExpression, RowExpression> constants;
 
-        private PartitioningVariableAssignments(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, RowExpression> constants)
+        public PartitioningVariableAssignments(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, RowExpression> constants)
         {
             this.variables = ImmutableList.copyOf(requireNonNull(variables, "variables is null"));
             this.constants = ImmutableMap.copyOf(requireNonNull(constants, "constants is null"));
