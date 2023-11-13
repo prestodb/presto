@@ -137,8 +137,8 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, 16),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
-          NUM_PROP(kHttpExecThreads, 8),
-          NUM_PROP(kNumHttpCpuThreads, std::thread::hardware_concurrency() * 2),
+          NUM_PROP(kHttpExecThreads, std::thread::hardware_concurrency()),
+          NUM_PROP(kNumHttpCpuThreads, std::thread::hardware_concurrency()),
           NONE_PROP(kHttpServerHttpsPort),
           STR_PROP(kHttpServerHttpsEnabled, "false"),
           STR_PROP(
