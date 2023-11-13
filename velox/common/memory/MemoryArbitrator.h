@@ -21,6 +21,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/future/VeloxPromise.h"
+#include "velox/common/time/Timer.h"
 
 namespace facebook::velox::memory {
 
@@ -262,6 +263,15 @@ class MemoryReclaimer {
     /// due to reclaiming at non-reclaimable stage.
     uint64_t numNonReclaimableAttempts{0};
 
+    /// The total execution time to do the reclaim in microseconds.
+    uint64_t reclaimExecTimeUs{0};
+
+    /// The total reclaimed memory bytes.
+    uint64_t reclaimedBytes{0};
+
+    /// The total time of task pause during reclaim in microseconds.
+    uint64_t reclaimWaitTimeUs{0};
+
     void reset();
 
     bool operator==(const Stats& other) const;
@@ -271,6 +281,8 @@ class MemoryReclaimer {
   virtual ~MemoryReclaimer() = default;
 
   static std::unique_ptr<MemoryReclaimer> create();
+
+  static uint64_t run(const std::function<uint64_t()>& func, Stats& stats);
 
   /// Invoked by the memory arbitrator before entering the memory arbitration
   /// processing. The default implementation does nothing but user can override

@@ -376,6 +376,16 @@ class AggregationTest : public OperatorTestBase {
         pool_.get());
   }
 
+  static void reclaimAndRestoreCapacity(
+      const Operator* op,
+      uint64_t targetBytes,
+      memory::MemoryReclaimer::Stats& reclaimerStats) {
+    const auto oldCapacity = op->pool()->capacity();
+    op->pool()->reclaim(targetBytes, reclaimerStats);
+    dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
+        ->testingSetCapacity(oldCapacity);
+  }
+
   RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6"},
           {BIGINT(),
@@ -1997,7 +2007,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(
         memory::defaultMemoryManager().addRootPool(
-            queryCtx->queryId(), kMaxBytes));
+            queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
@@ -2090,9 +2100,13 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
 
     if (testData.expectedReclaimable) {
       const auto usedMemory = op->pool()->currentBytes();
-      op->reclaim(
+      reclaimAndRestoreCapacity(
+          op,
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
           reclaimerStats_);
+      ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
+      ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+      reclaimerStats_.reset();
       // The hash table itself in the grouping set is not cleared so it still
       // uses some memory.
       ASSERT_LT(op->pool()->currentBytes(), usedMemory);
@@ -2136,7 +2150,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->testingOverrideMemoryPool(
       memory::defaultMemoryManager().addRootPool(
-          queryCtx->queryId(), kMaxBytes));
+          queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
   auto expectedResult =
       AssertQueryBuilder(PlanBuilder()
                              .values(batches)
@@ -2211,9 +2225,13 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
   ASSERT_GT(reclaimableBytes, 0);
 
   const auto usedMemory = op->pool()->currentBytes();
-  op->reclaim(
+  reclaimAndRestoreCapacity(
+      op,
       folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
       reclaimerStats_);
+  ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
+  ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+  reclaimerStats_.reset();
   // The hash table itself in the grouping set is not cleared so it still
   // uses some memory.
   ASSERT_LT(op->pool()->currentBytes(), usedMemory);
@@ -2368,7 +2386,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(
         memory::defaultMemoryManager().addRootPool(
-            queryCtx->queryId(), kMaxBytes));
+            queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
@@ -2451,11 +2469,15 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
       const auto usedMemory = op->pool()->currentBytes();
-      op->reclaim(
+      reclaimAndRestoreCapacity(
+          op,
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
           reclaimerStats_);
       ASSERT_EQ(reclaimerStats_.numNonReclaimableAttempts, 0);
       ASSERT_GT(usedMemory, op->pool()->currentBytes());
+      ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+      ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
+      reclaimerStats_.reset();
     } else {
       ASSERT_EQ(reclaimableBytes, 0);
       VELOX_ASSERT_THROW(
@@ -2736,9 +2758,11 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimWithEmptyAggregationTable) {
     if (enableSpilling) {
       ASSERT_EQ(reclaimableBytes, 0);
       const auto usedMemory = op->pool()->currentBytes();
-      op->reclaim(
+      reclaimAndRestoreCapacity(
+          op,
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
           reclaimerStats_);
+      ASSERT_EQ(reclaimerStats_, memory::MemoryReclaimer::Stats{});
       // No reclaim as the operator has started output processing.
       ASSERT_EQ(usedMemory, op->pool()->currentBytes());
     } else {
@@ -3011,6 +3035,9 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyInput) {
           SuspendedSection suspendedSection(driver);
           task->pool()->reclaim(kMaxBytes, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+          ASSERT_GT(stats.reclaimExecTimeUs, 0);
+          ASSERT_GT(stats.reclaimedBytes, 0);
+          ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
         static_cast<memory::MemoryPoolImpl*>(task->pool())
             ->testingSetCapacity(kMaxBytes);
@@ -3078,6 +3105,9 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
           SuspendedSection suspendedSection(driver);
           task->pool()->reclaim(kMaxBytes, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+          ASSERT_GT(stats.reclaimExecTimeUs, 0);
+          ASSERT_GT(stats.reclaimedBytes, 0);
+          ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
         // Sets back the memory capacity to proceed the test.
         static_cast<memory::MemoryPoolImpl*>(task->pool())

@@ -171,7 +171,9 @@ class MockMemoryOperator {
         reclaimInjectCb_(pool, targetBytes);
       }
       reclaimTargetBytes_.push_back(targetBytes);
-      return op_->reclaim(pool, targetBytes);
+      auto reclaimBytes = op_->reclaim(pool, targetBytes);
+      stats.reclaimedBytes += reclaimBytes;
+      return reclaimBytes;
     }
 
     void enterArbitration() override {

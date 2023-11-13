@@ -217,6 +217,16 @@ class OrderByTest : public OperatorTestBase {
     }
   }
 
+  static void reclaimAndRestoreCapacity(
+      const Operator* op,
+      uint64_t targetBytes,
+      memory::MemoryReclaimer::Stats& reclaimerStats) {
+    const auto oldCapacity = op->pool()->capacity();
+    op->pool()->reclaim(targetBytes, reclaimerStats);
+    dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
+        ->testingSetCapacity(oldCapacity);
+  }
+
   folly::Random::DefaultGenerator rng_;
   memory::MemoryReclaimer::Stats reclaimerStats_;
 };
@@ -597,7 +607,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(
         memory::defaultMemoryManager().addRootPool(
-            queryCtx->queryId(), kMaxBytes));
+            queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
@@ -689,9 +699,13 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
     }
 
     if (testData.expectedReclaimable) {
-      op->reclaim(
+      reclaimAndRestoreCapacity(
+          op,
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
           reclaimerStats_);
+      ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+      ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
+      reclaimerStats_.reset();
       ASSERT_EQ(op->pool()->currentBytes(), 0);
     } else {
       VELOX_ASSERT_THROW(
@@ -733,7 +747,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->testingOverrideMemoryPool(
       memory::defaultMemoryManager().addRootPool(
-          queryCtx->queryId(), kMaxBytes));
+          queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
   auto expectedResult =
       AssertQueryBuilder(
           PlanBuilder()
@@ -809,9 +823,13 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
   ASSERT_TRUE(reclaimable);
   ASSERT_GT(reclaimableBytes, 0);
 
-  op->reclaim(
+  reclaimAndRestoreCapacity(
+      op,
       folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
       reclaimerStats_);
+  ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+  ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
+  reclaimerStats_.reset();
   ASSERT_EQ(op->pool()->currentBytes(), 0);
 
   driverWait.notify();
@@ -974,7 +992,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(
         memory::defaultMemoryManager().addRootPool(
-            queryCtx->queryId(), kMaxBytes));
+            queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
@@ -1055,9 +1073,12 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
       const auto usedMemoryBytes = op->pool()->currentBytes();
-      op->reclaim(
+      reclaimAndRestoreCapacity(
+          op,
           folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_),
           reclaimerStats_);
+      ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+      ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
       // No reclaim as the operator has started output processing.
       ASSERT_EQ(usedMemoryBytes, op->pool()->currentBytes());
     } else {
@@ -1077,7 +1098,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
     ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
     OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   }
-  ASSERT_EQ(reclaimerStats_, memory::MemoryReclaimer::Stats{1});
+  ASSERT_EQ(reclaimerStats_.numNonReclaimableAttempts, 1);
 }
 
 DEBUG_ONLY_TEST_F(OrderByTest, abortDuringOutputProcessing) {

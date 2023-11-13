@@ -85,9 +85,15 @@ uint64_t SortingWriter::reclaim(
   }
   VELOX_CHECK_NOT_NULL(sortBuffer_);
 
-  sortBuffer_->spill();
-  sortPool_->release();
-  return sortPool_->shrink(targetBytes);
+  auto reclaimBytes = memory::MemoryReclaimer::run(
+      [&]() {
+        sortBuffer_->spill();
+        sortPool_->release();
+        return sortPool_->shrink(targetBytes);
+      },
+      stats);
+
+  return reclaimBytes;
 }
 
 std::unique_ptr<memory::MemoryReclaimer> SortingWriter::MemoryReclaimer::create(

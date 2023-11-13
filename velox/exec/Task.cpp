@@ -2524,7 +2524,13 @@ uint64_t Task::MemoryReclaimer::reclaim(
     return 0;
   }
   VELOX_CHECK_EQ(task->pool()->name(), pool->name());
-  task->requestPause().wait();
+  uint64_t reclaimWaitTimeUs{0};
+  {
+    MicrosecondTimer timer{&reclaimWaitTimeUs};
+    task->requestPause().wait();
+  }
+  stats.reclaimWaitTimeUs += reclaimWaitTimeUs;
+
   auto guard = folly::makeGuard([&]() {
     try {
       Task::resume(task);

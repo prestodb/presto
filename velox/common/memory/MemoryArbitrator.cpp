@@ -157,6 +157,21 @@ std::unique_ptr<MemoryReclaimer> MemoryReclaimer::create() {
   return std::unique_ptr<MemoryReclaimer>(new MemoryReclaimer());
 }
 
+// static
+uint64_t MemoryReclaimer::run(
+    const std::function<uint64_t()>& func,
+    Stats& stats) {
+  uint64_t execTimeUs{0};
+  uint64_t bytes{0};
+  {
+    MicrosecondTimer timer{&execTimeUs};
+    bytes = func();
+  }
+  stats.reclaimExecTimeUs += execTimeUs;
+  stats.reclaimedBytes += bytes;
+  return bytes;
+}
+
 bool MemoryReclaimer::reclaimableBytes(
     const MemoryPool& pool,
     uint64_t& reclaimableBytes) const {
@@ -240,11 +255,17 @@ void MemoryReclaimer::abort(MemoryPool* pool, const std::exception_ptr& error) {
 
 void MemoryReclaimer::Stats::reset() {
   numNonReclaimableAttempts = 0;
+  reclaimExecTimeUs = 0;
+  reclaimedBytes = 0;
+  reclaimWaitTimeUs = 0;
 }
 
 bool MemoryReclaimer::Stats::operator==(
     const MemoryReclaimer::Stats& other) const {
-  return numNonReclaimableAttempts == other.numNonReclaimableAttempts;
+  return numNonReclaimableAttempts == other.numNonReclaimableAttempts &&
+      reclaimExecTimeUs == other.reclaimExecTimeUs &&
+      reclaimedBytes == other.reclaimedBytes &&
+      reclaimWaitTimeUs == other.reclaimWaitTimeUs;
 }
 
 bool MemoryReclaimer::Stats::operator!=(

@@ -747,8 +747,14 @@ uint64_t Writer::MemoryReclaimer::reclaim(
     ++stats.numNonReclaimableAttempts;
     return 0;
   }
-  writer_->flushInternal(false);
-  return pool->shrink(targetBytes);
+
+  auto reclaimBytes = memory::MemoryReclaimer::run(
+      [&]() {
+        writer_->flushInternal(false);
+        return pool->shrink(targetBytes);
+      },
+      stats);
+  return reclaimBytes;
 }
 
 dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
