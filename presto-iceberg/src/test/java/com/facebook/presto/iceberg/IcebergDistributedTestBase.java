@@ -71,6 +71,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -429,6 +430,44 @@ public class IcebergDistributedTestBase
         assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
 
         assertQuerySucceeds("drop table test_partition_columns");
+    }
+
+    @Test
+    public void testPartitionedByTimeType()
+    {
+        // create iceberg table partitioned by column of TimestampType, and insert some data
+        assertQuerySucceeds("drop table if exists test_partition_columns_time");
+        assertQuerySucceeds("create table test_partition_columns_time(a bigint, b time) with (partitioning = ARRAY['b'])");
+        assertQuerySucceeds("insert into test_partition_columns_time values(1, time '00:10:00'), (2, time '12:01:01')");
+
+        // validate return data of TimestampType
+        List<Object> timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns_time order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(timestampColumnDatas.size(), 2);
+        assertEquals(timestampColumnDatas.get(0), LocalTime.parse("00:10:00", DateTimeFormatter.ofPattern("HH:mm:ss")));
+        assertEquals(timestampColumnDatas.get(1), LocalTime.parse("12:01:01", DateTimeFormatter.ofPattern("HH:mm:ss")));
+
+        // validate column of TimestampType exists in query filter
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns_time where b = time '00:10:00'").getOnlyValue(),
+                LocalTime.parse("00:10:00", DateTimeFormatter.ofPattern("HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns_time where b = time '12:01:01'").getOnlyValue(),
+                LocalTime.parse("12:01:01", DateTimeFormatter.ofPattern("HH:mm:ss")));
+
+        // validate column of TimestampType in system table "partitions"
+        assertEquals(getQueryRunner().execute("select count(*) FROM \"test_partition_columns_time$partitions\"").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_time$partitions\" where b = time '00:10:00'").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_time$partitions\" where b = time '12:01:01'").getOnlyValue(), 1L);
+
+        // validate column of TimestampType exists in delete filter
+        assertUpdate("delete from test_partition_columns_time WHERE b = time '12:01:01'", 1);
+        timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns_time order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(timestampColumnDatas.size(), 1);
+        assertEquals(timestampColumnDatas.get(0), LocalTime.parse("00:10:00", DateTimeFormatter.ofPattern("HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select b FROM test_partition_columns_time where b = time '00:10:00'").getOnlyValue(),
+                LocalTime.parse("00:10:00", DateTimeFormatter.ofPattern("HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns_time$partitions\"").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_time$partitions\" where b = time '00:10:00'").getOnlyValue(), 1L);
+
+        assertQuerySucceeds("drop table test_partition_columns_time");
     }
 
     @Test

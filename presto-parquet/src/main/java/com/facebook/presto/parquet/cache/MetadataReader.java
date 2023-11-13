@@ -444,6 +444,8 @@ public final class MetadataReader
                 return OriginalType.DATE;
             case TIME_MILLIS:
                 return OriginalType.TIME_MILLIS;
+            case TIME_MICROS:
+                return OriginalType.TIME_MICROS;
             case TIMESTAMP_MICROS:
                 return OriginalType.TIMESTAMP_MICROS;
             case TIMESTAMP_MILLIS:

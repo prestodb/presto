@@ -296,6 +296,9 @@ public class PartitionTable
                 return MICROSECONDS.toMillis((long) value);
             }
         }
+        if (type instanceof Types.TimeType) {
+            return MICROSECONDS.toMillis((long) value);
+        }
         return value;
     }
 }

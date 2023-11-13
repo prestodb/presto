@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HivePartitionKey;
@@ -175,7 +176,7 @@ public class IcebergPageSource
 
     private Block nativeValueToBlock(Type type, Object prefilledValue)
     {
-        if (prefilledValue != null && type instanceof TimestampType && ((TimestampType) type).getPrecision() == MILLISECONDS) {
+        if (prefilledValue != null && (type instanceof TimestampType && ((TimestampType) type).getPrecision() == MILLISECONDS || type instanceof TimeType)) {
             return Utils.nativeValueToBlock(type, MICROSECONDS.toMillis((long) prefilledValue));
         }
         return Utils.nativeValueToBlock(type, prefilledValue);
