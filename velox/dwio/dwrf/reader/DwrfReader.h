@@ -139,7 +139,9 @@ class DwrfRowReader : public StrideIndexProvider,
   uint64_t previousRow;
   uint32_t firstStripe;
   uint32_t currentStripe;
-  uint32_t lastStripe; // the stripe AFTER the last one
+  // The the stripe AFTER the last one that should be read. e.g. if the highest
+  // stripe in the RowReader's bounds is 3, then stripeCeiling is 4.
+  uint32_t stripeCeiling;
   uint64_t currentRowInStripe;
   bool newStripeReadyForRead;
   uint64_t rowsInCurrentStripe;
@@ -206,7 +208,7 @@ class DwrfRowReader : public StrideIndexProvider,
   }
 
   bool isEmptyFile() const {
-    return (lastStripe == 0);
+    return (stripeCeiling == firstStripe);
   }
 
   void checkSkipStrides(uint64_t strideSize);

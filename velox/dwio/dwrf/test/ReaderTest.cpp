@@ -886,6 +886,21 @@ TEST_F(TestRowReaderPrefetch, testFirstStripeNotLoadedWithEagerLoadingOff) {
   ASSERT_EQ(units[0].prefetch(), DwrfRowReader::FetchResult::kFetched);
 }
 
+// PrefetchUnits should return empty
+TEST_F(TestRowReaderPrefetch, testEmptyRowRange) {
+  dwio::common::ReaderOptions readerOpts{pool()};
+  RowReaderOptions rowReaderOpts;
+  // Set empty range in rowreader options
+  rowReaderOpts.range(0, 0);
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(getFMSmallFile(), readerOpts.getMemoryPool()),
+      readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
+  auto units = rowReader->prefetchUnits().value();
+  ASSERT_EQ(0, units.size());
+}
+
 class TestFlatMapReaderFlatLayout
     : public TestWithParam<std::tuple<bool, size_t>>,
       public VectorTestBase {};

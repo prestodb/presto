@@ -40,7 +40,7 @@ DwrfRowReader::DwrfRowReader(
   auto& footer = getReader().getFooter();
   uint32_t numberOfStripes = footer.stripesSize();
   currentStripe = numberOfStripes;
-  lastStripe = 0;
+  stripeCeiling = 0;
   currentRowInStripe = 0;
   newStripeReadyForRead = false;
   rowsInCurrentStripe = 0;
@@ -56,12 +56,19 @@ DwrfRowReader::DwrfRowReader(
       if (i < currentStripe) {
         currentStripe = i;
       }
-      if (i >= lastStripe) {
-        lastStripe = i + 1;
+      if (i >= stripeCeiling) {
+        stripeCeiling = i + 1;
       }
     }
   }
   firstStripe = currentStripe;
+
+  // stripeCeiling will only be 0 here in cases where the passed
+  // RowReaderOptions has an [offset,length] not found in the file. In this
+  // case, set stripeCeiling == firstStripe == numberOfStripes
+  if (stripeCeiling == 0) {
+    stripeCeiling = firstStripe;
+  }
 
   if (currentStripe == 0) {
     previousRow = std::numeric_limits<uint64_t>::max();
@@ -106,16 +113,17 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
       "Prefetch already called. Currently, seek after prefetch is disallowed in DwrfRowReader");
 
   // If we are reading only a portion of the file
-  // (bounded by firstStripe and lastStripe),
+  // (bounded by firstStripe and stripeCeiling),
   // seeking before or after the portion of interest should return no data.
   // Implement this by setting previousRow to the number of rows in the file.
 
-  // seeking past lastStripe
+  // seeking past stripeCeiling
   auto& footer = getReader().getFooter();
   uint32_t num_stripes = footer.stripesSize();
-  if ((lastStripe == num_stripes && rowNumber >= footer.numberOfRows()) ||
-      (lastStripe < num_stripes && rowNumber >= firstRowOfStripe[lastStripe])) {
-    VLOG(1) << "Trying to seek past lastStripe, total rows: "
+  if ((stripeCeiling == num_stripes && rowNumber >= footer.numberOfRows()) ||
+      (stripeCeiling < num_stripes &&
+       rowNumber >= firstRowOfStripe[stripeCeiling])) {
+    VLOG(1) << "Trying to seek past stripeCeiling, total rows: "
             << footer.numberOfRows() << " num_stripes: " << num_stripes;
 
     currentStripe = num_stripes;
@@ -125,7 +133,7 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
   }
 
   uint32_t seekToStripe = 0;
-  while (seekToStripe + 1 < lastStripe &&
+  while (seekToStripe + 1 < stripeCeiling &&
          firstRowOfStripe[seekToStripe + 1] <= rowNumber) {
     seekToStripe++;
   }
@@ -149,7 +157,8 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
       FetchStatus::NOT_STARTED;
 
   VLOG(1) << "rowNumber: " << rowNumber << " currentStripe: " << currentStripe
-          << " firstStripe: " << firstStripe << " lastStripe: " << lastStripe;
+          << " firstStripe: " << firstStripe
+          << " stripeCeiling: " << stripeCeiling;
 
   // Because prefetch and seek are currently incompatible, there should only
   // ever be 1 stripe fetched at this point.
@@ -208,7 +217,7 @@ uint64_t DwrfRowReader::skipRows(uint64_t numberOfRowsToSkip) {
   VLOG(1) << "After skipping: " << previousRow << " InitialRow: " << initialRow;
 
   if (previousRow == footer.numberOfRows()) {
-    VLOG(1) << "When seeking past lastStripe";
+    VLOG(1) << "When seeking past stripeCeiling";
     return previousRow - initialRow - 1;
   }
   return previousRow - initialRow;
@@ -348,7 +357,7 @@ void DwrfRowReader::readWithRowNumber(
 
 int64_t DwrfRowReader::nextRowNumber() {
   auto strideSize = getReader().getFooter().rowIndexStride();
-  while (currentStripe < lastStripe) {
+  while (currentStripe < stripeCeiling) {
     if (currentRowInStripe == 0) {
       startNextStripe();
     }
@@ -385,9 +394,9 @@ uint64_t DwrfRowReader::next(
     const dwio::common::Mutation* mutation) {
   auto nextRow = nextRowNumber();
   if (nextRow == kAtEnd) {
-    if (lastStripe > 0) {
-      previousRow = firstRowOfStripe[lastStripe - 1] +
-          getReader().getFooter().stripes(lastStripe - 1).numberOfRows();
+    if (!isEmptyFile()) {
+      previousRow = firstRowOfStripe[stripeCeiling - 1] +
+          getReader().getFooter().stripes(stripeCeiling - 1).numberOfRows();
     } else {
       previousRow = 0;
     }
@@ -417,13 +426,13 @@ std::optional<std::vector<velox::dwio::common::RowReader::PrefetchUnit>>
 DwrfRowReader::prefetchUnits() {
   auto rowsInStripe = getReader().getRowsPerStripe();
   DWIO_ENSURE(firstStripe <= rowsInStripe.size());
-  DWIO_ENSURE(lastStripe <= rowsInStripe.size());
-  DWIO_ENSURE(firstStripe <= lastStripe);
+  DWIO_ENSURE(stripeCeiling <= rowsInStripe.size());
+  DWIO_ENSURE(firstStripe <= stripeCeiling);
 
   std::vector<PrefetchUnit> res;
-  res.reserve(lastStripe - firstStripe);
+  res.reserve(stripeCeiling - firstStripe);
 
-  for (auto stripe = firstStripe; stripe < lastStripe; ++stripe) {
+  for (auto stripe = firstStripe; stripe < stripeCeiling; ++stripe) {
     res.push_back(
         {.rowCount = rowsInStripe[stripe],
          .prefetch = std::bind(&DwrfRowReader::prefetch, this, stripe)});
@@ -549,7 +558,7 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
 }
 
 DwrfRowReader::FetchResult DwrfRowReader::prefetch(uint32_t stripeToFetch) {
-  DWIO_ENSURE(stripeToFetch < lastStripe && stripeToFetch >= 0);
+  DWIO_ENSURE(stripeToFetch < stripeCeiling && stripeToFetch >= 0);
   prefetchHasOccurred_ = true;
 
   VLOG(1) << "Unlocked lock and calling fetch for " << stripeToFetch
@@ -591,7 +600,7 @@ void DwrfRowReader::safeFetchNextStripe() {
 }
 
 void DwrfRowReader::startNextStripe() {
-  if (newStripeReadyForRead || currentStripe >= lastStripe) {
+  if (newStripeReadyForRead || currentStripe >= stripeCeiling) {
     return;
   }
   columnReader_.reset();
