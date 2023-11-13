@@ -34,11 +34,12 @@ class Accumulator {
       int32_t fixedSize,
       bool usesExternalMemory,
       int32_t alignment,
+      TypePtr spillType,
       std::function<void(folly::Range<char**> groups, VectorPtr& result)>
-          extractFunction,
+          spillExtractFunction,
       std::function<void(folly::Range<char**> groups)> destroyFunction);
 
-  explicit Accumulator(Aggregate* aggregate);
+  explicit Accumulator(Aggregate* aggregate, TypePtr spillType);
 
   bool isFixedSize() const;
 
@@ -48,16 +49,19 @@ class Accumulator {
 
   int32_t alignment() const;
 
-  void destroy(folly::Range<char**> groups);
+  const TypePtr& spillType() const;
 
   void extractForSpill(folly::Range<char**> groups, VectorPtr& result) const;
+
+  void destroy(folly::Range<char**> groups);
 
  private:
   const bool isFixedSize_;
   const int32_t fixedSize_;
   const bool usesExternalMemory_;
   const int32_t alignment_;
-  std::function<void(folly::Range<char**>, VectorPtr&)> extractFunction_;
+  const TypePtr spillType_;
+  std::function<void(folly::Range<char**>, VectorPtr&)> spillExtractFunction_;
   std::function<void(folly::Range<char**> groups)> destroyFunction_;
 };
 

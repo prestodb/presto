@@ -353,7 +353,8 @@ std::vector<Accumulator> GroupingSet::accumulators(bool excludeToIntermediate) {
   for (auto& aggregate : aggregates_) {
     if (!excludeToIntermediate ||
         !aggregate.function->supportsToIntermediate()) {
-      accumulators.push_back(Accumulator{aggregate.function.get()});
+      accumulators.push_back(
+          Accumulator{aggregate.function.get(), aggregate.intermediateType});
     }
   }
 
@@ -440,7 +441,8 @@ void GroupingSet::initializeGlobalAggregation() {
   for (auto& aggregate : aggregates_) {
     auto& function = aggregate.function;
 
-    Accumulator accumulator{aggregate.function.get()};
+    Accumulator accumulator{
+        aggregate.function.get(), aggregate.intermediateType};
 
     // Accumulator offset must be aligned by their alignment size.
     offset = bits::roundUp(offset, accumulator.alignment());
@@ -934,6 +936,22 @@ void GroupingSet::ensureOutputFits() {
   spill(RowContainerIterator{});
 }
 
+RowTypePtr GroupingSet::makeSpillType() const {
+  auto rows = table_->rows();
+  auto types = rows->keyTypes();
+
+  for (const auto& accumulator : rows->accumulators()) {
+    types.push_back(accumulator.spillType());
+  }
+
+  std::vector<std::string> names;
+  for (auto i = 0; i < types.size(); ++i) {
+    names.push_back(fmt::format("s{}", i));
+  }
+
+  return ROW(std::move(names), std::move(types));
+}
+
 void GroupingSet::spill() {
   // NOTE: if the disk spilling is triggered by the memory arbitrator, then it
   // is possible that the grouping set hasn't processed any input data yet.
@@ -944,19 +962,11 @@ void GroupingSet::spill() {
 
   if (!hasSpilled()) {
     auto rows = table_->rows();
-    auto types = rows->keyTypes();
-    for (const auto& aggregate : aggregates_) {
-      types.push_back(aggregate.intermediateType);
-    }
-    std::vector<std::string> names;
-    for (auto i = 0; i < types.size(); ++i) {
-      names.push_back(fmt::format("s{}", i));
-    }
     VELOX_DCHECK(pool_.trackUsage());
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kAggregateInput,
         rows,
-        ROW(std::move(names), std::move(types)),
+        makeSpillType(),
         rows->keyTypes().size(),
         std::vector<CompareFlags>(),
         spillConfig_->filePath,
@@ -978,19 +988,11 @@ void GroupingSet::spill(const RowContainerIterator& rowIterator) {
   }
 
   auto* rows = table_->rows();
-  auto types = rows->keyTypes();
-  for (const auto& aggregate : aggregates_) {
-    types.push_back(aggregate.intermediateType);
-  }
-  std::vector<std::string> names;
-  for (auto i = 0; i < types.size(); ++i) {
-    names.push_back(fmt::format("s{}", i));
-  }
   VELOX_CHECK(pool_.trackUsage());
   spiller_ = std::make_unique<Spiller>(
       Spiller::Type::kAggregateOutput,
       rows,
-      ROW(std::move(names), std::move(types)),
+      makeSpillType(),
       spillConfig_->filePath,
       spillConfig_->writeBufferSize,
       spillConfig_->compressionKind,

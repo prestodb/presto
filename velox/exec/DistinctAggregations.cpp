@@ -43,6 +43,7 @@ class TypedDistinctAggregations : public DistinctAggregations {
         sizeof(AccumulatorType),
         false, // usesExternalMemory
         1, // alignment
+        nullptr,
         [](folly::Range<char**> /*groups*/, VectorPtr& /*result*/) {
           VELOX_UNREACHABLE();
         },

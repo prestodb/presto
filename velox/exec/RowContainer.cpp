@@ -48,12 +48,13 @@ setBit(char* bits, uint32_t idx) {
 }
 } // namespace
 
-Accumulator::Accumulator(Aggregate* aggregate)
+Accumulator::Accumulator(Aggregate* aggregate, TypePtr spillType)
     : isFixedSize_{aggregate->isFixedSize()},
       fixedSize_{aggregate->accumulatorFixedWidthSize()},
       usesExternalMemory_{aggregate->accumulatorUsesExternalMemory()},
       alignment_{aggregate->accumulatorAlignmentSize()},
-      extractFunction_{
+      spillType_{std::move(spillType)},
+      spillExtractFunction_{
           [aggregate](folly::Range<char**> groups, VectorPtr& result) {
             aggregate->extractAccumulators(
                 groups.data(), groups.size(), &result);
@@ -69,14 +70,16 @@ Accumulator::Accumulator(
     int32_t fixedSize,
     bool usesExternalMemory,
     int32_t alignment,
+    TypePtr spillType,
     std::function<void(folly::Range<char**> groups, VectorPtr& result)>
-        extractFunction,
+        spillExtractFunction,
     std::function<void(folly::Range<char**> groups)> destroyFunction)
     : isFixedSize_{isFixedSize},
       fixedSize_{fixedSize},
       usesExternalMemory_{usesExternalMemory},
       alignment_{alignment},
-      extractFunction_{extractFunction},
+      spillType_{std::move(spillType)},
+      spillExtractFunction_{spillExtractFunction},
       destroyFunction_{destroyFunction} {}
 
 bool Accumulator::isFixedSize() const {
@@ -99,10 +102,14 @@ void Accumulator::destroy(folly::Range<char**> groups) {
   destroyFunction_(groups);
 }
 
+const TypePtr& Accumulator::spillType() const {
+  return spillType_;
+}
+
 void Accumulator::extractForSpill(
     folly::Range<char**> groups,
     VectorPtr& result) const {
-  extractFunction_(groups, result);
+  spillExtractFunction_(groups, result);
 }
 
 // static

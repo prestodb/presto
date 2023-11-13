@@ -1057,64 +1057,15 @@ TEST_F(RowContainerTest, estimateRowSize) {
   EXPECT_EQ(0x440000, rowContainer->stringAllocator().retainedSize());
 }
 
-class AggregateWithAlignment : public Aggregate {
- public:
-  explicit AggregateWithAlignment(TypePtr resultType, int alignment)
-      : Aggregate(std::move(resultType)), alignment_(alignment) {}
-
-  int32_t accumulatorFixedWidthSize() const override {
-    return 42;
-  }
-
-  int32_t accumulatorAlignmentSize() const override {
-    return alignment_;
-  }
-
-  void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/) override {}
-
-  void addRawInput(
-      char** /*groups*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
-      bool /*mayPushdown*/) override {}
-
-  void extractValues(
-      char** /*groups*/,
-      int32_t /*numGroups*/,
-      VectorPtr* /*result*/) override {}
-
-  void addIntermediateResults(
-      char** /*groups*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
-      bool /*mayPushdown*/) override {}
-
-  void addSingleGroupRawInput(
-      char* /*group*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
-      bool /*mayPushdown*/) override {}
-
-  void addSingleGroupIntermediateResults(
-      char* /*group*/,
-      const SelectivityVector& /*rows*/,
-      const std::vector<VectorPtr>& /*args*/,
-      bool /*mayPushdown*/) override {}
-
-  void extractAccumulators(
-      char** /*groups*/,
-      int32_t /*numGroups*/,
-      VectorPtr* /*result*/) override {}
-
- private:
-  int alignment_;
-};
-
 TEST_F(RowContainerTest, alignment) {
-  AggregateWithAlignment aggregate(BIGINT(), 64);
-  std::vector<Accumulator> accumulators{Accumulator(&aggregate)};
+  std::vector<Accumulator> accumulators{Accumulator(
+      true, // isFixedSize
+      42, // fixedSize
+      false, // usesExternalMemory
+      64, // alignment
+      nullptr, // spillType
+      [](auto, auto) { VELOX_UNREACHABLE(); },
+      [](auto) {})};
   RowContainer data(
       {SMALLINT()},
       true,

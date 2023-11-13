@@ -53,8 +53,10 @@ void StreamingAggregation::initialize() {
     groupingKeyTypes.push_back(inputType->childAt(channel));
   }
 
-  auto numAggregates = aggregationNode_->aggregates().size();
+  const auto numAggregates = aggregationNode_->aggregates().size();
   aggregates_.reserve(numAggregates);
+  std::vector<Accumulator> accumulators;
+  accumulators.reserve(aggregates_.size());
   std::vector<std::optional<column_index_t>> maskChannels;
   maskChannels.reserve(numAggregates);
   for (auto i = 0; i < numAggregates; i++) {
@@ -90,6 +92,11 @@ void StreamingAggregation::initialize() {
         operatorCtx_->driverCtx()->queryConfig()));
     args_.push_back(channels);
     constantArgs_.push_back(constants);
+
+    const auto intermediateType = Aggregate::intermediateType(
+        aggregate.call->name(), aggregate.rawInputTypes);
+    accumulators.push_back(
+        Accumulator{aggregates_.back().get(), std::move(intermediateType)});
   }
 
   if (aggregationNode_->ignoreNullKeys()) {
@@ -97,12 +104,6 @@ void StreamingAggregation::initialize() {
   }
 
   masks_ = std::make_unique<AggregationMasks>(std::move(maskChannels));
-
-  std::vector<Accumulator> accumulators;
-  accumulators.reserve(aggregates_.size());
-  for (auto& aggregate : aggregates_) {
-    accumulators.push_back(Accumulator{aggregate.get()});
-  }
 
   rows_ = std::make_unique<RowContainer>(
       groupingKeyTypes,

@@ -127,6 +127,7 @@ Accumulator SortedAggregations::accumulator() const {
       sizeof(RowPointers),
       false,
       1,
+      nullptr,
       [](folly::Range<char**> /*groups*/, VectorPtr& /*result*/) {
         VELOX_UNREACHABLE();
       },
