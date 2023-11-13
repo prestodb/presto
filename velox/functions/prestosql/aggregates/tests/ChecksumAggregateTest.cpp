@@ -24,6 +24,9 @@ using namespace facebook::velox::functions::aggregate::test;
 
 namespace facebook::velox::aggregate::test {
 
+static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+static constexpr double kNaNF = std::numeric_limits<float>::quiet_NaN();
+
 class ChecksumAggregateTest : public AggregationTestBase {
  protected:
   void SetUp() override {
@@ -125,12 +128,16 @@ TEST_F(ChecksumAggregateTest, doubles) {
   assertSingleGroupChecksum<double>({{}}, "h8rrhbF5N54=");
   assertSingleGroupChecksum<double>({99.9}, "iVY+6I1lKyo=");
   assertSingleGroupChecksum<double>({1, 2, 3}, "AACEg9cR14o=");
+  assertSingleGroupChecksum<double>({kNaN, kNaN, kNaN}, "AACMau93L28=");
 
   assertGroupingChecksum<int8_t, double>(
       {'a', 'b', 'a'}, {1, 2, 3}, {"AACEI6XSDyU=", "AAAAYDI/x2U="});
-
   assertGroupingChecksum<int8_t, double>(
       {'a', 'b', 'a', 'a'}, {1, 2, 3, {}}, {"AAAAYDI/x2U=", "h8pvqVZMR8M="});
+  assertGroupingChecksum<int8_t, double>(
+      {1, 1, 2}, {kNaN, kNaN, kNaN}, {"AAAIR0qlH0o=", "AACEI6XSDyU="});
+  assertGroupingChecksum<int8_t, double>(
+      {1, 2}, {0.0, -0.0}, {"AAAAAAAAAAA=", "AAAAQMzUhO4="});
 }
 
 TEST_F(ChecksumAggregateTest, reals) {
@@ -138,12 +145,16 @@ TEST_F(ChecksumAggregateTest, reals) {
   assertSingleGroupChecksum<float>({{}}, "h8rrhbF5N54=");
   assertSingleGroupChecksum<float>({99.9}, "IX/UyPhj6MY=");
   assertSingleGroupChecksum<float>({1, 2, 3}, "b/j7Q4YtV+g=");
+  assertSingleGroupChecksum<float>({kNaNF, kNaNF, kNaNF}, "AmWPYoutLK0=");
 
   assertGroupingChecksum<int8_t, float>(
       {'a', 'b', 'a'}, {1, 2, 3}, {"Vswv9sY4wxY=", "GSzMTb/0k9E="});
-
   assertGroupingChecksum<int8_t, float>(
       {'a', 'b', 'a', 'a'}, {1, 2, 3, {}}, {"3ZYbfHiy+rQ=", "GSzMTb/0k9E="});
+  assertGroupingChecksum<int8_t, float>(
+      {1, 1, 2}, {kNaNF, kNaNF, kNaNF}, {"rJhf7Fwec3M=", "Vswvdi6PuTk="});
+  assertGroupingChecksum<int8_t, float>(
+      {1, 2}, {0.0, -0.0}, {"AAAAAAAAAAA=", "bAFBcIKzvC4="});
 }
 
 TEST_F(ChecksumAggregateTest, dates) {

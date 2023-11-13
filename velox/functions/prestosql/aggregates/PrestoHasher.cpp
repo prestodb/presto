@@ -15,6 +15,8 @@
  */
 #include "velox/functions/prestosql/aggregates/PrestoHasher.h"
 
+#include <type_traits>
+
 #define XXH_INLINE_ALL
 #include <xxhash.h>
 
@@ -61,6 +63,30 @@ FOLLY_ALWAYS_INLINE void hashIntegral(
     BufferPtr& hashes) {
   applyHashFunction(rows, vector, hashes, [&](auto row) {
     return hashInteger<T>(vector.valueAt<T>(row));
+  });
+}
+
+template <
+    typename T,
+    typename std::enable_if_t<
+        std::is_same_v<T, float> || std::is_same_v<T, double>,
+        int> = 0>
+FOLLY_ALWAYS_INLINE void hashFloating(
+    const DecodedVector& vector,
+    const SelectivityVector& rows,
+    BufferPtr& hashes) {
+  using IntegralType =
+      std::conditional_t<std::is_same_v<T, float>, int32_t, int64_t>;
+  applyHashFunction(rows, vector, hashes, [&](auto row) {
+    if (std::isnan(vector.valueAt<T>(row))) {
+      if constexpr (std::is_same_v<T, float>) {
+        return hashInteger<IntegralType>(0x7fc00000);
+      } else {
+        return hashInteger<IntegralType>(0x7ff8000000000000L);
+      }
+    } else {
+      return hashInteger<IntegralType>(vector.valueAt<IntegralType>(row));
+    }
   });
 }
 
@@ -155,7 +181,7 @@ template <>
 FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::REAL>(
     const SelectivityVector& rows,
     BufferPtr& hashes) {
-  hashIntegral<int32_t>(*vector_.get(), rows, hashes);
+  hashFloating<float>(*vector_.get(), rows, hashes);
 }
 
 template <>
@@ -180,7 +206,7 @@ template <>
 FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::DOUBLE>(
     const SelectivityVector& rows,
     BufferPtr& hashes) {
-  hashIntegral<int64_t>(*vector_.get(), rows, hashes);
+  hashFloating<double>(*vector_.get(), rows, hashes);
 }
 
 template <>
