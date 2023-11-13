@@ -221,7 +221,7 @@ class MemoryManager {
   const uint16_t alignment_;
   const bool checkUsageLeak_;
   const bool debugEnabled_;
-  // The destruction callback set for the allocated  root memory pools which are
+  // The destruction callback set for the allocated root memory pools which are
   // tracked by 'pools_'. It is invoked on the root pool destruction and removes
   // the pool from 'pools_'.
   const MemoryPoolImpl::DestructionCallback poolDestructionCb_;

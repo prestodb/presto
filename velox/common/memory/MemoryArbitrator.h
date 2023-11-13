@@ -173,6 +173,10 @@ class MemoryArbitrator {
     /// The total number of times of the reclaim attempts that end up failing
     /// due to reclaiming at non-reclaimable stage.
     uint64_t numNonReclaimableAttempts{0};
+    /// The total number of invoking reserveMemory method.
+    uint64_t numReserveRequest{0};
+    /// The total number of invoking releaseMemory method.
+    uint64_t numReleaseRequest{0};
 
     Stats(
         uint64_t _numRequests,
@@ -186,7 +190,9 @@ class MemoryArbitrator {
         uint64_t _maxCapacityBytes,
         uint64_t _freeCapacityBytes,
         uint64_t _reclaimTimeUs,
-        uint64_t _numNonReclaimableAttempts);
+        uint64_t _numNonReclaimableAttempts,
+        uint64_t _numReserveRequest,
+        uint64_t _numReleaseRequest);
 
     Stats() = default;
 

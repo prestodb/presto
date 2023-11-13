@@ -97,7 +97,15 @@ TEST_F(MemoryManagerTest, Ctor) {
     ASSERT_EQ(arbitrator->stats().maxCapacityBytes, kCapacity);
     ASSERT_EQ(
         manager.toString(),
-        "Memory Manager[capacity 4.00GB alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\nMemory Allocator[MALLOC capacity 4.00GB allocated bytes 0 allocated pages 0 mapped pages 0]\nARBITRATOR[SHARED CAPACITY[4.00GB] STATS[numRequests 0 numSucceeded 0 numAborted 0 numFailures 0 numNonReclaimableAttempts 0 queueTime 0us arbitrationTime 0us reclaimTime 0us shrunkMemory 0B reclaimedMemory 0B maxCapacity 4.00GB freeCapacity 4.00GB]]]");
+        "Memory Manager[capacity 4.00GB alignment 64B usedBytes 0B number of "
+        "pools 0\nList of root pools:\n\t__default_root__\n"
+        "Memory Allocator[MALLOC capacity 4.00GB allocated bytes 0 "
+        "allocated pages 0 mapped pages 0]\n"
+        "ARBITRATOR[SHARED CAPACITY[4.00GB] STATS[numRequests 0 numSucceeded 0 "
+        "numAborted 0 numFailures 0 numNonReclaimableAttempts 0 "
+        "numReserveRequest 0 numReleaseRequest 0 queueTime 0us "
+        "arbitrationTime 0us reclaimTime 0us shrunkMemory 0B "
+        "reclaimedMemory 0B maxCapacity 4.00GB freeCapacity 4.00GB]]]");
   }
   {
     // Test construction failure due to inconsistent allocator capacity setting.

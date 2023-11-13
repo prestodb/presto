@@ -47,7 +47,11 @@ TEST_F(MemoryArbitrationTest, stats) {
   stats.numNonReclaimableAttempts = 5;
   ASSERT_EQ(
       stats.toString(),
-      "STATS[numRequests 2 numSucceeded 0 numAborted 3 numFailures 100 numNonReclaimableAttempts 5 queueTime 230.00ms arbitrationTime 1.02ms reclaimTime 1.00ms shrunkMemory 95.37MB reclaimedMemory 9.77KB maxCapacity 0B freeCapacity 0B]");
+      "STATS[numRequests 2 numSucceeded 0 numAborted 3 numFailures 100 "
+      "numNonReclaimableAttempts 5 numReserveRequest 0 numReleaseRequest 0 "
+      "queueTime 230.00ms arbitrationTime 1.02ms reclaimTime 1.00ms "
+      "shrunkMemory 95.37MB reclaimedMemory 9.77KB "
+      "maxCapacity 0B freeCapacity 0B]");
 }
 
 TEST_F(MemoryArbitrationTest, create) {
@@ -121,9 +125,11 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
 TEST_F(MemoryArbitrationTest, arbitratorStats) {
   const MemoryArbitrator::Stats emptyStats;
   ASSERT_TRUE(emptyStats.empty());
-  const MemoryArbitrator::Stats anchorStats(5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5);
+  const MemoryArbitrator::Stats anchorStats(
+      5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5);
   ASSERT_FALSE(anchorStats.empty());
-  const MemoryArbitrator::Stats largeStats(8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8);
+  const MemoryArbitrator::Stats largeStats(
+      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8);
   ASSERT_FALSE(largeStats.empty());
   ASSERT_TRUE(!(anchorStats == largeStats));
   ASSERT_TRUE(anchorStats != largeStats);
@@ -132,9 +138,11 @@ TEST_F(MemoryArbitrationTest, arbitratorStats) {
   ASSERT_TRUE(anchorStats <= largeStats);
   ASSERT_TRUE(!(anchorStats >= largeStats));
   const auto delta = largeStats - anchorStats;
-  ASSERT_EQ(delta, MemoryArbitrator::Stats(3, 3, 3, 3, 3, 3, 3, 3, 8, 8, 3, 3));
+  ASSERT_EQ(
+      delta, MemoryArbitrator::Stats(3, 3, 3, 3, 3, 3, 3, 3, 8, 8, 3, 3, 3, 3));
 
-  const MemoryArbitrator::Stats smallStats(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
+  const MemoryArbitrator::Stats smallStats(
+      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
   ASSERT_TRUE(!(anchorStats == smallStats));
   ASSERT_TRUE(anchorStats != smallStats);
   ASSERT_TRUE(!(anchorStats < smallStats));
@@ -143,7 +151,7 @@ TEST_F(MemoryArbitrationTest, arbitratorStats) {
   ASSERT_TRUE(anchorStats >= smallStats);
 
   const MemoryArbitrator::Stats invalidStats(
-      2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 2);
+      2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 2, 8, 2);
   ASSERT_TRUE(!(anchorStats == invalidStats));
   ASSERT_TRUE(anchorStats != invalidStats);
   ASSERT_THROW(anchorStats < invalidStats, VeloxException);
