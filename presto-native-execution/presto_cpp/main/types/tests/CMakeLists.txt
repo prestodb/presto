@@ -81,3 +81,8 @@ target_link_libraries(
 
 set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
                                                      presto_link_job_pool)
+if(ON_APPLE_SILICON)
+  set_tests_properties(
+    presto_expressions_test PROPERTIES ENVIRONMENT
+                                       "DYLD_LIBRARY_PATH=/usr/local/lib")
+endif()

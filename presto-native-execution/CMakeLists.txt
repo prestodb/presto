@@ -215,4 +215,9 @@ else()
 endif()
 set(CMAKE_JOB_POOL_LINK presto_link_job_pool)
 
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64" AND ${CMAKE_SYSTEM_NAME} MATCHES
+                                                 "Darwin")
+  set(ON_APPLE_SILICON True)
+endif()
+
 add_subdirectory(presto_cpp)
