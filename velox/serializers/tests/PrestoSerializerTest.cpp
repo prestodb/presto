@@ -17,6 +17,7 @@
 #include <folly/Random.h>
 #include <gtest/gtest.h>
 #include <vector>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -552,6 +553,29 @@ TEST_P(PrestoSerializerTest, emptyArrayOfRowVector) {
   // The value of nullCount_ + nonNullCount_ of the inner RowVector is 0.
   auto arrayOfRow = makeArrayOfRowVector(ROW({UNKNOWN()}), {{}});
   testRoundTrip(arrayOfRow);
+}
+
+TEST_P(PrestoSerializerTest, typeMismatch) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3}),
+      makeFlatVector<std::string>({"a", "b", "c"}),
+  });
+
+  std::ostringstream out;
+  serialize(data, &out, nullptr);
+  auto serialized = out.str();
+
+  // Too many columns to deserialize.
+  VELOX_ASSERT_THROW(
+      deserialize(ROW({BIGINT(), VARCHAR(), BOOLEAN()}), serialized, nullptr),
+      "Number of columns in serialized data doesn't match "
+      "number of columns requested for deserialization");
+
+  // Wrong types of columns.
+  VELOX_ASSERT_THROW(
+      deserialize(ROW({BIGINT(), DOUBLE()}), serialized, nullptr),
+      "Serialized encoding is not compatible with requested type: DOUBLE. "
+      "Expected LONG_ARRAY. Got VARIABLE_WIDTH.");
 }
 
 INSTANTIATE_TEST_SUITE_P(

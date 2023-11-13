@@ -958,9 +958,9 @@ std::string readLengthPrefixedString(ByteStream* source) {
 
 void checkTypeEncoding(std::string_view encoding, const TypePtr& type) {
   auto kindEncoding = typeToEncodingName(type);
-  VELOX_CHECK(
+  VELOX_USER_CHECK(
       encoding == kindEncoding,
-      "Encoding to Type mismatch {} expected {} got {}",
+      "Serialized encoding is not compatible with requested type: {}. Expected {}. Got {}.",
       type->kindName(),
       kindEncoding,
       encoding);
@@ -2339,7 +2339,11 @@ void PrestoVectorSerde::deserialize(
   const auto& childTypes = type->asRow().children();
   if (!needCompression(*codec)) {
     const auto numColumns = source->read<int32_t>();
-    VELOX_CHECK_EQ(numColumns, type->size());
+    VELOX_USER_CHECK_EQ(
+        numColumns,
+        type->size(),
+        "Number of columns in serialized data doesn't match "
+        "number of columns requested for deserialization");
     readColumns(
         source, pool, childTypes, children, resultOffset, useLosslessTimestamp);
   } else {
@@ -2353,7 +2357,11 @@ void PrestoVectorSerde::deserialize(
     uncompressedSource.resetInput({byteRange});
 
     const auto numColumns = uncompressedSource.read<int32_t>();
-    VELOX_CHECK_EQ(numColumns, type->size());
+    VELOX_USER_CHECK_EQ(
+        numColumns,
+        type->size(),
+        "Number of columns in serialized data doesn't match "
+        "number of columns requested for deserialization");
     readColumns(
         &uncompressedSource,
         pool,
