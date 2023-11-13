@@ -293,6 +293,24 @@ class RowContainer {
     return numRows_;
   }
 
+  /// Copy key and dependent columns into a flat VARBINARY vector. All columns
+  /// of a row are copied into a single buffer. The format of that buffer is an
+  /// implementation detail. The data can be loaded back into the RowContainer
+  /// using 'storeSerializedRow'.
+  ///
+  /// Used for spilling as it is more efficient than converting from row to
+  /// columnar format.
+  void extractSerializedRows(
+      folly::Range<char**> rows,
+      const VectorPtr& result);
+
+  /// Copies serialized row produced by 'extractSerializedRow' into the
+  /// container.
+  void storeSerializedRow(
+      const FlatVector<StringView>& vector,
+      vector_size_t index,
+      char* row);
+
   /// Copies the values at 'col' into 'result' (starting at 'resultOffset')
   /// for the 'numRows' rows pointed to by 'rows'. If a 'row' is null, sets
   /// corresponding row in 'result' to null.
@@ -662,6 +680,10 @@ class RowContainer {
     return (row[nullByte] & nullMask) != 0;
   }
 
+  static inline bool isNullAt(const char* row, RowColumn rowColumn) {
+    return (row[rowColumn.nullByte()] & rowColumn.nullMask()) != 0;
+  }
+
   /// Creates a container to store a partition number for each row in this row
   /// container. This is used by parallel join build which is responsible for
   /// filling this. This function also marks this row container as immutable
@@ -713,6 +735,27 @@ class RowContainer {
   static inline T& valueAt(char* FOLLY_NONNULL group, int32_t offset) {
     return *reinterpret_cast<T*>(group + offset);
   }
+
+  /// Returns the size of a string or complex types value stored in the
+  /// specified row and column.
+  int32_t variableSizeAt(const char* row, column_index_t column);
+
+  /// Copies a string or complex type value from the specified row and column
+  /// into provided buffer. Stored the size of the data in the first 4 bytes of
+  /// the buffer. If the value is null, writes zero into the first 4 bytes of
+  /// destination and returns.
+  /// @return The number of bytes written to 'destination' including the 4 bytes
+  /// of the size.
+  int32_t
+  extractVariableSizeAt(const char* row, column_index_t column, char* output);
+
+  /// Copies a string or complex type value from 'data' into the specified row
+  /// and column. Expects first 4 bytes in 'data' to contain the size of the
+  /// string or complex value.
+  /// @return The number of bytes read from 'data': 4 bytes for size + that many
+  /// bytes.
+  int32_t
+  storeVariableSizeAt(const char* data, char* row, column_index_t column);
 
   template <TypeKind Kind>
   static void extractColumnTyped(

@@ -18,6 +18,7 @@
 #include "velox/exec/VectorHasher.h"
 #include "velox/exec/tests/utils/RowContainerTestBase.h"
 #include "velox/expression/VectorReaders.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -255,6 +256,27 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
     }
     auto usage = data.stringAllocator().cumulativeBytes();
     EXPECT_EQ(usage, sum);
+  }
+
+  std::vector<char*> store(
+      RowContainer& rowContainer,
+      const RowVectorPtr& data) {
+    std::vector<DecodedVector> decodedVectors;
+    for (auto& vector : data->children()) {
+      decodedVectors.emplace_back(*vector);
+    }
+
+    std::vector<char*> rows;
+    for (auto i = 0; i < data->size(); ++i) {
+      auto* row = rowContainer.newRow();
+      rows.push_back(row);
+
+      for (auto j = 0; j < decodedVectors.size(); ++j) {
+        rowContainer.store(decodedVectors[j], i, row, j);
+      }
+    }
+
+    return rows;
   }
 
   std::vector<char*> store(
@@ -1585,4 +1607,50 @@ TEST_F(RowContainerTest, partialWriteComplexTypedRow) {
 
   rowContainer->initializeFields(row);
   rowContainer->eraseRows(folly::Range<char**>(&row, 1));
+}
+
+TEST_F(RowContainerTest, extractSerializedRow) {
+  VectorFuzzer fuzzer(
+      {
+          .vectorSize = 100,
+          .nullRatio = 0.1,
+      },
+      pool());
+
+  for (auto i = 0; i < 100; ++i) {
+    SCOPED_TRACE(fmt::format("Iteration #: {}", i));
+
+    auto rowType = fuzzer.randRowType();
+    auto data = fuzzer.fuzzInputRow(rowType);
+
+    SCOPED_TRACE(data->toString());
+
+    RowContainer rowContainer{rowType->children(), pool()};
+
+    auto rows = store(rowContainer, data);
+
+    // Extract serialized rows.
+    auto serialized = BaseVector::create<FlatVector<StringView>>(
+        VARBINARY(), data->size(), pool());
+    rowContainer.extractSerializedRows(
+        folly::Range(rows.data(), rows.size()), serialized);
+
+    rowContainer.clear();
+    rows.clear();
+
+    // Load serialized rows back.
+    for (auto i = 0; i < data->size(); ++i) {
+      rows.push_back(rowContainer.newRow());
+      rowContainer.storeSerializedRow(*serialized, i, rows.back());
+    }
+
+    // Extract into regular vector.
+    auto copy = BaseVector::create<RowVector>(rowType, data->size(), pool());
+    for (auto i = 0; i < copy->childrenSize(); ++i) {
+      rowContainer.extractColumn(
+          rows.data(), copy->size(), i, copy->childAt(i));
+    }
+
+    assertEqualVectors(data, copy);
+  }
 }
