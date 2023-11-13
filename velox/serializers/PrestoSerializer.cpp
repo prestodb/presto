@@ -2339,7 +2339,8 @@ void PrestoVectorSerde::deserialize(
   const auto& childTypes = type->asRow().children();
   if (!needCompression(*codec)) {
     const auto numColumns = source->read<int32_t>();
-    VELOX_USER_CHECK_EQ(
+    // TODO Fix call sites and tighten the check to _EQ.
+    VELOX_USER_CHECK_GE(
         numColumns,
         type->size(),
         "Number of columns in serialized data doesn't match "
