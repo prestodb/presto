@@ -44,7 +44,7 @@ void serializeOne<TypeKind::VARCHAR>(
     ByteStream& stream) {
   auto string = vector.asUnchecked<SimpleVector<StringView>>()->valueAt(index);
   stream.appendOne<int32_t>(string.size());
-  stream.appendStringPiece(folly::StringPiece(string.data(), string.size()));
+  stream.appendStringView(string);
 }
 
 template <>
@@ -54,7 +54,7 @@ void serializeOne<TypeKind::VARBINARY>(
     ByteStream& stream) {
   auto string = vector.asUnchecked<SimpleVector<StringView>>()->valueAt(index);
   stream.appendOne<int32_t>(string.size());
-  stream.appendStringPiece(folly::StringPiece(string.data(), string.size()));
+  stream.appendStringView(string);
 }
 
 template <>

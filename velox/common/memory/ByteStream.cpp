@@ -236,7 +236,11 @@ void ByteStream::appendBool(bool value, int32_t count) {
   }
 }
 
-void ByteStream::appendStringPiece(folly::StringPiece value) {
+void ByteStream::appendStringView(StringView value) {
+  appendStringView((std::string_view)value);
+}
+
+void ByteStream::appendStringView(std::string_view value) {
   const int32_t bytes = value.size();
   int32_t offset = 0;
   for (;;) {

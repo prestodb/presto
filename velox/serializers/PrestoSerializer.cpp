@@ -1333,7 +1333,7 @@ inline void VectorStream::append(folly::Range<const StringView*> values) {
   for (auto& value : values) {
     auto size = value.size();
     appendLength(size);
-    values_.appendStringPiece(folly::StringPiece(value.data(), size));
+    values_.appendStringView(value);
   }
 }
 

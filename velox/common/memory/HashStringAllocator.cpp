@@ -581,7 +581,7 @@ void HashStringAllocator::copyMultipartNoInline(
   // Write the string as non-contiguous chunks.
   ByteStream stream(this, false, false);
   auto position = newWrite(stream, numBytes);
-  stream.appendStringPiece(folly::StringPiece(string->data(), numBytes));
+  stream.appendStringView(*string);
   finishWrite(stream, 0);
 
   // The stringView has a pointer to the first byte and the total

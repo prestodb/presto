@@ -51,7 +51,7 @@ StringView Strings::append(StringView value, HashStringAllocator& allocator) {
 
   // Copy the string and return a StringView over the copy.
   char* start = stream.writePosition();
-  stream.appendStringPiece(folly::StringPiece(value.data(), value.size()));
+  stream.appendStringView(value);
   currentBlock = allocator.finishWrite(stream, maxStringSize * 4).second;
   return StringView(start, value.size());
 }

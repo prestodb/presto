@@ -244,8 +244,8 @@ TEST_F(ByteStreamTest, newRangeAllocation) {
           "iteration {} allocation size {}",
           i,
           succinctBytes(testData.newRangeSizes[i])));
-      byteStream.appendStringPiece(
-          folly::StringPiece(std::string(newRangeSize, 'a')));
+      std::string value(newRangeSize, 'a');
+      byteStream.appendStringView(value);
       ASSERT_EQ(arena->size(), testData.expectedArenaAllocationSizes[i]);
       ASSERT_EQ(
           pool_->stats().numAllocs - prevAllocCount,
@@ -279,8 +279,8 @@ TEST_F(ByteStreamTest, randomRangeAllocationFromMultiStreamsTest) {
       } break;
       case 2: {
         const int size = folly::Random::rand32(rng_) % 8192 + 1;
-        byteStream->appendStringPiece(
-            folly::StringPiece(std::string(size, 'a')));
+        const std::string value(size, 'a');
+        byteStream->appendStringView(value);
       } break;
     }
   }

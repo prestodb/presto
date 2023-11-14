@@ -295,7 +295,7 @@ class ByteStream {
   template <typename T>
   void append(folly::Range<const T*> values) {
     if (current_->position + sizeof(T) * values.size() > current_->size) {
-      appendStringPiece(folly::StringPiece(
+      appendStringView(std::string_view(
           reinterpret_cast<const char*>(&values[0]),
           values.size() * sizeof(T)));
       return;
@@ -313,7 +313,9 @@ class ByteStream {
 
   void appendBool(bool value, int32_t count);
 
-  void appendStringPiece(folly::StringPiece value);
+  void appendStringView(StringView value);
+
+  void appendStringView(std::string_view value);
 
   template <typename T>
   void appendOne(const T& value) {
@@ -397,7 +399,7 @@ class IOBufOutputStream : public OutputStream {
   }
 
   void write(const char* s, std::streamsize count) override {
-    out_->appendStringPiece(folly::StringPiece(s, count));
+    out_->appendStringView(std::string_view(s, count));
     if (listener_) {
       listener_->onWrite(s, count);
     }

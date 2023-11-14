@@ -522,7 +522,7 @@ int32_t RowContainer::storeVariableSizeAt(
     if (size > 0) {
       ByteStream stream(stringAllocator_.get(), false, false);
       const auto position = stringAllocator_->newWrite(stream);
-      stream.appendStringPiece(folly::StringPiece(data + 4, size));
+      stream.appendStringView(std::string_view(data + 4, size));
       stringAllocator_->finishWrite(stream, 0);
       valueAt<std::string_view>(row, rowColumn.offset()) =
           std::string_view(reinterpret_cast<char*>(position.position), size);
