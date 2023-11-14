@@ -89,6 +89,7 @@ import com.facebook.presto.operator.aggregation.ReduceAggregationFunction;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
+import com.facebook.presto.operator.aggregation.arrayagg.SetAggregationFunction;
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.AlternativeMultimapAggregationFunction;
@@ -341,7 +342,6 @@ import static com.facebook.presto.operator.aggregation.TDigestAggregationFunctio
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG_WITH_WEIGHT;
 import static com.facebook.presto.operator.aggregation.TDigestAggregationFunction.TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION;
 import static com.facebook.presto.operator.aggregation.approxmostfrequent.ApproximateMostFrequent.APPROXIMATE_MOST_FREQUENT;
-import static com.facebook.presto.operator.aggregation.arrayagg.SetAggregationFunction.SET_AGG;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetUnionFunction.SET_UNION;
 import static com.facebook.presto.operator.aggregation.minmaxby.AlternativeMaxByAggregationFunction.ALTERNATIVE_MAX_BY;
 import static com.facebook.presto.operator.aggregation.minmaxby.AlternativeMinByAggregationFunction.ALTERNATIVE_MIN_BY;
@@ -871,7 +871,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .function(ARRAY_FLATTEN_FUNCTION)
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
-                .function(SET_AGG)
+                .aggregate(SetAggregationFunction.class)
                 .function(SET_UNION)
                 .function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg(), featuresConfig.getArrayAggGroupImplementation()))
                 .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript()))
