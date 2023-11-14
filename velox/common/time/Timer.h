@@ -19,6 +19,7 @@
 #include <folly/chrono/Hardware.h>
 #include <atomic>
 #include <chrono>
+#include <optional>
 
 namespace facebook::velox {
 
@@ -74,5 +75,26 @@ size_t getCurrentTimeMs();
 
 /// Returns the current epoch time in microseconds.
 size_t getCurrentTimeMicro();
+
+#ifndef NDEBUG
+// Used to override the current time for testing purposes.
+class ScopedTestTime {
+ public:
+  ScopedTestTime();
+  ~ScopedTestTime();
+
+  void setCurrentTestTimeMs(size_t currentTimeMs);
+  void setCurrentTestTimeMicro(size_t currentTimeUs);
+
+  static std::optional<size_t> getCurrentTestTimeMs();
+  static std::optional<size_t> getCurrentTestTimeMicro();
+
+ private:
+  // Used to verify only one instance of ScopedTestTime exists at a time.
+  static bool enabled_;
+  // The overridden value of current time only.
+  static std::optional<size_t> testTimeUs_;
+};
+#endif
 
 } // namespace facebook::velox
