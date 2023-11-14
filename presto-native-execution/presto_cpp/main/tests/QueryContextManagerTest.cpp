@@ -46,7 +46,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
           {"native_spill_compression_codec", "NONE"},
           {"native_join_spill_enabled", "false"},
           {"native_spill_write_buffer_size", "1024"},
-          {"native_debug.validate_output_from_operators", "true"},
+          {"native_debug_validate_output_from_operators", "true"},
           {"aggregation_spill_all", "true"}}};
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
       taskId, session);
