@@ -51,14 +51,28 @@ class FunctionBenchmarkBase {
     return exec::ExprSet({typed}, &execCtx_);
   }
 
+  void evaluate(
+      exec::ExprSet& exprSet,
+      const RowVectorPtr& data,
+      const SelectivityVector& rows,
+      VectorPtr& result) {
+    exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
+    std::vector<VectorPtr> results{result};
+    exprSet.eval(rows, evalCtx, results);
+
+    // If result was nullptr, we need to pick up the value that was created.
+    if (!result) {
+      result = results[0];
+    }
+  }
+
   VectorPtr evaluate(
       exec::ExprSet& exprSet,
       const RowVectorPtr& data,
       const SelectivityVector& rows) {
-    exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
-    std::vector<VectorPtr> results(1);
-    exprSet.eval(rows, evalCtx, results);
-    return results[0];
+    VectorPtr result;
+    evaluate(exprSet, data, rows, result);
+    return result;
   }
 
   VectorPtr evaluate(exec::ExprSet& exprSet, const RowVectorPtr& data) {

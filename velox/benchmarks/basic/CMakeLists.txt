@@ -21,6 +21,7 @@ set(velox_benchmark_deps
     velox_parse_expression
     velox_serialization
     velox_benchmark_builder
+    velox_vector_test_lib
     Folly::folly
     ${FOLLY_BENCHMARK}
     ${DOUBLE_CONVERSION}

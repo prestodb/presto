@@ -19,9 +19,7 @@
 
 #include <gflags/gflags.h>
 
-#include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
-#include "velox/functions/prestosql/ArithmeticImpl.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 DEFINE_int64(fuzzer_seed, 99887766, "Seed for random input dataset generator");
@@ -31,78 +29,224 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::test;
 
 namespace {
+const std::string_view kColName{"a"};
+
 class SimpleCastBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   explicit SimpleCastBenchmark() : FunctionBenchmarkBase() {}
 
-  RowVectorPtr makeRowVector(vector_size_t size) {
+  RowVectorPtr makeRowVector(const TypePtr& type, vector_size_t size) {
     VectorFuzzer::Options opts;
     opts.vectorSize = size;
     opts.nullRatio = 0;
-    VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
-    std::vector<VectorPtr> children;
-    children.emplace_back(fuzzer.fuzzFlat(TIMESTAMP())); // Col a
-    return std::make_shared<RowVector>(
-        pool(), inputType_, nullptr, size, std::move(children));
+    VectorFuzzer fuzzer(std::move(opts), pool(), FLAGS_fuzzer_seed);
+    VectorPtr input = fuzzer.fuzzFlat(type); // Col a
+    return vectorMaker_.rowVector(
+        std::vector<std::string>{std::string(kColName)},
+        std::vector<VectorPtr>{std::move(input)});
   }
 
-  static constexpr auto kNumSmallRuns = 10'000;
+  static constexpr auto kNumSmallRuns = 100;
   static constexpr auto kNumMediumRuns = 1000;
-  static constexpr auto kNumLargeRuns = 100;
+  static constexpr auto kNumLargeRuns = 10'000;
 
-  void runSmall(const std::string& expression) {
-    run(expression, kNumSmallRuns, smallRowVector_);
+  void runSmall(const TypePtr& inputType, const TypePtr& outputType) {
+    run(inputType, outputType, kNumSmallRuns);
   }
 
-  void runMedium(const std::string& expression) {
-    run(expression, kNumMediumRuns, mediumRowVector_);
+  void runMedium(const TypePtr& inputType, const TypePtr& outputType) {
+    run(inputType, outputType, kNumMediumRuns);
   }
 
-  void runLarge(const std::string& expression) {
-    run(expression, kNumLargeRuns, largeRowVector_);
+  void runLarge(const TypePtr& inputType, const TypePtr& outputType) {
+    run(inputType, outputType, kNumLargeRuns);
   }
 
-  // Compiles and runs the `expression` `iterations` number of times.
-  size_t run(
-      const std::string& expression,
-      size_t iterations,
-      const RowVectorPtr& input) {
+  size_t
+  run(const TypePtr& inputType, const TypePtr& outputType, size_t batchSize) {
     folly::BenchmarkSuspender suspender;
-    auto exprSet = compileExpression(expression, inputType_);
+    auto input = makeRowVector(inputType, batchSize);
+    auto castInput =
+        std::make_shared<facebook::velox::core::FieldAccessTypedExpr>(
+            inputType, std::string(kColName));
+    std::vector<facebook::velox::core::TypedExprPtr> expr{
+        std::make_shared<facebook::velox::core::CastTypedExpr>(
+            outputType, castInput, false)};
+    exec::ExprSet exprSet(expr, &execCtx_);
+    SelectivityVector rows(input->size());
+    VectorPtr result;
     suspender.dismiss();
 
     size_t count = 0;
-    for (auto i = 0; i < iterations; i++) {
-      count += evaluate(exprSet, input)->size();
+    for (auto i = 0; i < 1000; i++) {
+      evaluate(exprSet, input, rows, result);
+      count += result->size();
     }
     return count;
   }
-
- private:
-  const TypePtr inputType_ = ROW({
-      {"a", TIMESTAMP()},
-  });
-  const RowVectorPtr smallRowVector_ = makeRowVector(100);
-  const RowVectorPtr mediumRowVector_ = makeRowVector(1'000);
-  const RowVectorPtr largeRowVector_ = makeRowVector(10'000);
 };
+
+TypePtr buildStructType(
+    std::function<std::string(int)>&& nameGenerator,
+    const TypePtr& fieldType,
+    size_t numChildren) {
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+  for (int i = 0; i < numChildren; i++) {
+    names.push_back(nameGenerator(i));
+    types.push_back(fieldType);
+  }
+  return ROW(std::move(names), std::move(types));
+}
 
 std::unique_ptr<SimpleCastBenchmark> benchmark;
 
-BENCHMARK(castTimestampDate) {
+BENCHMARK(castTimestampDateSmall) {
   benchmark->setAdjustTimestampToTimezone("false");
-  benchmark->runSmall("cast (a as date)");
-  benchmark->runMedium("cast (a as date)");
-  benchmark->runLarge("cast (a as date)");
+  benchmark->runSmall(TIMESTAMP(), DATE());
 }
 
-BENCHMARK(castTimestampDateAdjustTimeZone) {
+BENCHMARK(castTimestampDateMedium) {
+  benchmark->setAdjustTimestampToTimezone("false");
+  benchmark->runMedium(TIMESTAMP(), DATE());
+}
+
+BENCHMARK(castTimestampDateLarge) {
+  benchmark->setAdjustTimestampToTimezone("false");
+  benchmark->runLarge(TIMESTAMP(), DATE());
+}
+
+BENCHMARK(castTimestampDateAdjustTimeZoneSmall) {
   benchmark->setTimezone("America/Los_Angeles");
   benchmark->setAdjustTimestampToTimezone("true");
-  benchmark->runSmall("cast (a as date)");
-  benchmark->runMedium("cast (a as date)");
-  benchmark->runLarge("cast (a as date)");
+  benchmark->runSmall(TIMESTAMP(), DATE());
 }
+
+BENCHMARK(castTimestampDateAdjustTimeZoneMedium) {
+  benchmark->setTimezone("America/Los_Angeles");
+  benchmark->setAdjustTimestampToTimezone("true");
+  benchmark->runMedium(TIMESTAMP(), DATE());
+}
+
+BENCHMARK(castTimestampDateAdjustTimeZoneLarge) {
+  benchmark->setTimezone("America/Los_Angeles");
+  benchmark->setAdjustTimestampToTimezone("true");
+  benchmark->runLarge(TIMESTAMP(), DATE());
+}
+
+BENCHMARK(castStructFewFieldsRenameSmall) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 3);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, INTEGER(), 3);
+  suspender.dismiss();
+
+  benchmark->runSmall(oldType, newType);
+}
+
+BENCHMARK(castStructFewFieldsRenameMedium) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 3);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, INTEGER(), 3);
+  suspender.dismiss();
+
+  benchmark->runMedium(oldType, newType);
+}
+
+BENCHMARK(castStructFewFieldsRenameLarge) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 3);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, INTEGER(), 3);
+  suspender.dismiss();
+
+  benchmark->runLarge(oldType, newType);
+}
+
+BENCHMARK(castStructManyFieldsRenameSmall) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 1000);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, INTEGER(), 1000);
+  suspender.dismiss();
+
+  benchmark->runSmall(oldType, newType);
+}
+
+BENCHMARK(castStructManyFieldsRenameMedium) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 1000);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, INTEGER(), 1000);
+  suspender.dismiss();
+
+  benchmark->runMedium(oldType, newType);
+}
+
+BENCHMARK(castStructManyFieldsRenameLarge) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 1000);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, INTEGER(), 1000);
+  suspender.dismiss();
+
+  benchmark->runLarge(oldType, newType);
+}
+
+BENCHMARK(castStructFewFieldsNestedCastSmall) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 3);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, BIGINT(), 3);
+  suspender.dismiss();
+
+  benchmark->runSmall(oldType, newType);
+}
+
+BENCHMARK(castStructFewFieldsNestedCastMedium) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 3);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, BIGINT(), 3);
+  suspender.dismiss();
+
+  benchmark->runMedium(oldType, newType);
+}
+
+BENCHMARK(castStructFewFieldsNestedCastLarge) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 3);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, BIGINT(), 3);
+  suspender.dismiss();
+
+  benchmark->runLarge(oldType, newType);
+}
+
+BENCHMARK(castStructManyFieldsNestedCastSmall) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 1000);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, BIGINT(), 1000);
+  suspender.dismiss();
+
+  benchmark->runSmall(oldType, newType);
+}
+
+BENCHMARK(castStructManyFieldsNestedCastMedium) {
+  folly::BenchmarkSuspender suspender;
+  auto oldType = buildStructType([](int) { return ""; }, INTEGER(), 1000);
+  auto newType = buildStructType(
+      [](int i) { return fmt::format("col{}", i); }, BIGINT(), 1000);
+  suspender.dismiss();
+
+  benchmark->runMedium(oldType, newType);
+}
+
+// castStructManyFieldsNestedCastLarge is skipped because it takes too long to
+// run.
+
 } // namespace
 
 int main(int argc, char* argv[]) {
