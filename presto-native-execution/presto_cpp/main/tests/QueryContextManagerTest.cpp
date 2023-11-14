@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/QueryContextManager.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "presto_cpp/main/TaskManager.h"
 
@@ -68,4 +69,50 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1L << 20);
 }
 
+TEST_F(QueryContextManagerTest, duplicateQueryRootPoolName) {
+  const protocol::TaskId fakeTaskId = "scan.0.0.1.0";
+  const protocol::SessionRepresentation fakeSession{.systemProperties = {}};
+  auto* queryCtxManager = taskManager_->getQueryContextManager();
+  struct {
+    bool hasPendingReference;
+    bool clearCache;
+    bool expectedNewPoolName;
+
+    std::string debugString() const {
+      return fmt::format(
+          "hasPendingReference: {}, clearCache: {}, expectedNewPoolName: {}",
+          hasPendingReference,
+          clearCache,
+          expectedNewPoolName);
+    }
+  } testSettings[] = {
+      {true, true, true},
+      {true, false, false},
+      {false, true, true},
+      {false, false, true}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    queryCtxManager->testingClearCache();
+
+    auto queryCtx =
+        queryCtxManager->findOrCreateQueryCtx(fakeTaskId, fakeSession);
+    const auto poolName = queryCtx->pool()->name();
+    ASSERT_THAT(poolName, testing::HasSubstr("scan_"));
+    if (!testData.hasPendingReference) {
+      queryCtx.reset();
+    }
+    if (testData.clearCache) {
+      queryCtxManager->testingClearCache();
+    }
+    auto newQueryCtx =
+        queryCtxManager->findOrCreateQueryCtx(fakeTaskId, fakeSession);
+    const auto newPoolName = newQueryCtx->pool()->name();
+    ASSERT_THAT(newPoolName, testing::HasSubstr("scan_"));
+    if (testData.expectedNewPoolName) {
+      ASSERT_NE(poolName, newPoolName);
+    } else {
+      ASSERT_EQ(poolName, newPoolName);
+    }
+  }
+}
 } // namespace facebook::presto

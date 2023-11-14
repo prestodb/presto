@@ -131,8 +131,15 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   }
 
   velox::core::QueryConfig queryConfig{std::move(configStrings)};
+  // NOTE: the monotonically increasing 'poolId' is appended to 'queryId' to
+  // ensure that the name of root memory pool instance is always unique. In some
+  // edge case, we found some background activities such as the long-running
+  // memory arbitration process will still hold the query root memory pool even
+  // though the query ctx has been evicted out of the cache. The query ctx cache
+  // is still indexed by the query id.
+  static std::atomic_uint64_t poolId{0};
   auto pool = memory::defaultMemoryManager().addRootPool(
-      queryId,
+      fmt::format("{}_{}", queryId, poolId++),
       queryConfig.queryMaxMemoryPerNode() != 0
           ? queryConfig.queryMaxMemoryPerNode()
           : SystemConfig::instance()->queryMaxMemoryPerNode(),
@@ -161,6 +168,15 @@ void QueryContextManager::visitAllContexts(
       visitor(it.first, queryCtxSP.get());
     }
   }
+}
+
+void QueryContextManager::testingClearCache() {
+  queryContextCache_.wlock()->testingClear();
+}
+
+void QueryContextCache::testingClear() {
+  queryCtxs_.clear();
+  queryIds_.clear();
 }
 
 } // namespace facebook::presto

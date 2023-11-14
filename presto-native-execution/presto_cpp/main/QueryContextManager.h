@@ -87,6 +87,8 @@ class QueryContextCache {
     return queryCtxs_;
   }
 
+  void testingClear();
+
  private:
   size_t capacity_;
 
@@ -106,10 +108,13 @@ class QueryContextManager {
       const protocol::TaskId& taskId,
       const protocol::SessionRepresentation& session);
 
-  // Calls the given functor for every present query context.
+  /// Calls the given functor for every present query context.
   void visitAllContexts(std::function<void(
                             const protocol::QueryId&,
                             const velox::core::QueryCtx*)> visitor) const;
+
+  /// Test method to clear the query context cache.
+  void testingClearCache();
 
  private:
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
