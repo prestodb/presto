@@ -34,7 +34,7 @@ class MockVectorSerde : public VectorSerde {
   };
 
   void deserialize(
-      ByteStream* source,
+      ByteInputStream* source,
       velox::memory::MemoryPool* pool,
       RowTypePtr type,
       RowVectorPtr* result,

@@ -50,9 +50,8 @@ struct RowPointers {
     }
   }
 
-  void read(HashStringAllocator& allocator, folly::Range<char**> rows) {
-    ByteStream stream(&allocator);
-    HashStringAllocator::prepareRead(firstBlock, stream);
+  void read(folly::Range<char**> rows) {
+    auto stream = HashStringAllocator::prepareRead(firstBlock);
 
     for (auto i = 0; i < size; ++i) {
       rows[i] = reinterpret_cast<char*>(stream.read<uintptr_t>());
@@ -162,7 +161,6 @@ void SortedAggregations::extractForSpill(
   for (auto i = 0; i < groups.size(); ++i) {
     auto* accumulator = reinterpret_cast<RowPointers*>(groups[i] + offset_);
     accumulator->read(
-        *allocator_,
         folly::Range(groupRows.data() + offset, accumulator->size));
     offset += accumulator->size;
   }
@@ -362,8 +360,7 @@ void SortedAggregations::extractValues(
     for (auto* group : groups) {
       auto* accumulator = reinterpret_cast<RowPointers*>(group + offset_);
       groupRows.resize(accumulator->size);
-      accumulator->read(
-          *allocator_, folly::Range(groupRows.data(), groupRows.size()));
+      accumulator->read(folly::Range(groupRows.data(), groupRows.size()));
 
       sortSingleGroup(groupRows, sortingSpec);
 

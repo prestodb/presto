@@ -22,6 +22,150 @@ std::string ByteRange::toString() const {
   return fmt::format("[{} starting at {}]", succinctBytes(size), position);
 }
 
+std::string ByteInputStream::toString() const {
+  std::stringstream oss;
+  oss << ranges_.size() << " ranges (position/size) [";
+  for (const auto& range : ranges_) {
+    oss << "(" << range.position << "/" << range.size
+        << (&range == current_ ? " current" : "") << ")";
+    if (&range != &ranges_.back()) {
+      oss << ",";
+    }
+  }
+  oss << "]";
+  return oss.str();
+}
+
+bool ByteInputStream::atEnd() const {
+  if (!current_) {
+    return false;
+  }
+  if (current_->position < current_->size) {
+    return false;
+  }
+
+  VELOX_CHECK(current_ >= ranges_.data() && current_ <= &ranges_.back());
+  return current_ == &ranges_.back();
+}
+
+size_t ByteInputStream::size() const {
+  size_t total = 0;
+  for (const auto& range : ranges_) {
+    total += range.size;
+  }
+  return total;
+}
+
+size_t ByteInputStream::remainingSize() const {
+  if (ranges_.empty()) {
+    return 0;
+  }
+  const auto* lastRange = &ranges_[ranges_.size() - 1];
+  auto cur = current_;
+  size_t total = cur->size - cur->position;
+  while (++cur <= lastRange) {
+    total += cur->size;
+  }
+  return total;
+}
+
+std::streampos ByteInputStream::tellp() const {
+  if (ranges_.empty()) {
+    return 0;
+  }
+  assert(current_);
+  int64_t size = 0;
+  for (auto& range : ranges_) {
+    if (&range == current_) {
+      return current_->position + size;
+    }
+    size += range.size;
+  }
+  VELOX_FAIL("ByteStream 'current_' is not in 'ranges_'.");
+}
+
+void ByteInputStream::seekp(std::streampos position) {
+  if (ranges_.empty() && position == 0) {
+    return;
+  }
+  int64_t toSkip = position;
+  for (auto& range : ranges_) {
+    if (toSkip <= range.size) {
+      current_ = &range;
+      current_->position = toSkip;
+      return;
+    }
+    toSkip -= range.size;
+  }
+  VELOX_FAIL("Seeking past end of ByteInputStream: {}", position);
+}
+
+void ByteInputStream::next(bool throwIfPastEnd) {
+  VELOX_CHECK(current_ >= &ranges_[0]);
+  size_t position = current_ - &ranges_[0];
+  VELOX_CHECK_LT(position, ranges_.size());
+  if (position == ranges_.size() - 1) {
+    if (throwIfPastEnd) {
+      VELOX_FAIL("Reading past end of ByteStream");
+    }
+    return;
+  }
+  ++current_;
+  current_->position = 0;
+}
+
+uint8_t ByteInputStream::readByte() {
+  if (current_->position < current_->size) {
+    return current_->buffer[current_->position++];
+  }
+  next();
+  return readByte();
+}
+
+void ByteInputStream::readBytes(uint8_t* bytes, int32_t size) {
+  int32_t offset = 0;
+  for (;;) {
+    int32_t available = current_->size - current_->position;
+    int32_t numUsed = std::min(available, size);
+    memcpy(bytes + offset, current_->buffer + current_->position, numUsed);
+    offset += numUsed;
+    size -= numUsed;
+    current_->position += numUsed;
+    if (!size) {
+      return;
+    }
+    next();
+  }
+}
+
+std::string_view ByteInputStream::nextView(int32_t size) {
+  if (current_->position == current_->size) {
+    if (current_ == &ranges_.back()) {
+      return std::string_view(nullptr, 0);
+    }
+    next();
+  }
+  VELOX_CHECK(current_->size);
+  auto position = current_->position;
+  auto viewSize = std::min(current_->size - current_->position, size);
+  current_->position += viewSize;
+  return std::string_view(
+      reinterpret_cast<char*>(current_->buffer) + position, viewSize);
+}
+
+void ByteInputStream::skip(int32_t size) {
+  for (;;) {
+    int32_t available = current_->size - current_->position;
+    int32_t numUsed = std::min(available, size);
+    size -= numUsed;
+    current_->position += numUsed;
+    if (!size) {
+      return;
+    }
+    next();
+  }
+}
+
 size_t ByteStream::size() const {
   if (ranges_.empty()) {
     return 0;
@@ -62,72 +206,6 @@ bool ByteStream::atEnd() const {
 
   VELOX_CHECK(current_ >= ranges_.data() && current_ <= &ranges_.back());
   return current_ == &ranges_.back();
-}
-
-void ByteStream::next(bool throwIfPastEnd) {
-  VELOX_CHECK(current_ >= &ranges_[0]);
-  size_t position = current_ - &ranges_[0];
-  VELOX_CHECK_LT(position, ranges_.size());
-  if (position == ranges_.size() - 1) {
-    if (throwIfPastEnd) {
-      VELOX_FAIL("Reading past end of ByteStream");
-    }
-    return;
-  }
-  ++current_;
-  current_->position = 0;
-}
-
-uint8_t ByteStream::readByte() {
-  if (current_->position < current_->size) {
-    return current_->buffer[current_->position++];
-  }
-  next();
-  return readByte();
-}
-
-void ByteStream::readBytes(uint8_t* bytes, int32_t size) {
-  int32_t offset = 0;
-  for (;;) {
-    int32_t available = current_->size - current_->position;
-    int32_t numUsed = std::min(available, size);
-    memcpy(bytes + offset, current_->buffer + current_->position, numUsed);
-    offset += numUsed;
-    size -= numUsed;
-    current_->position += numUsed;
-    if (!size) {
-      return;
-    }
-    next();
-  }
-}
-
-std::string_view ByteStream::nextView(int32_t size) {
-  if (current_->position == current_->size) {
-    if (current_ == &ranges_.back()) {
-      return std::string_view(nullptr, 0);
-    }
-    next();
-  }
-  VELOX_CHECK(current_->size);
-  auto position = current_->position;
-  auto viewSize = std::min(current_->size - current_->position, size);
-  current_->position += viewSize;
-  return std::string_view(
-      reinterpret_cast<char*>(current_->buffer) + position, viewSize);
-}
-
-void ByteStream::skip(int32_t size) {
-  for (;;) {
-    int32_t available = current_->size - current_->position;
-    int32_t numUsed = std::min(available, size);
-    size -= numUsed;
-    current_->position += numUsed;
-    if (!size) {
-      return;
-    }
-    next();
-  }
 }
 
 void ByteStream::appendBool(bool value, int32_t count) {

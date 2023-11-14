@@ -124,7 +124,7 @@ void VectorStreamGroup::estimateSerializedSize(
 
 // static
 void VectorStreamGroup::read(
-    ByteStream* source,
+    ByteInputStream* source,
     velox::memory::MemoryPool* pool,
     RowTypePtr type,
     RowVectorPtr* result,
@@ -168,8 +168,7 @@ RowVectorPtr IOBufToRowVector(
         const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
   }
 
-  ByteStream byteStream;
-  byteStream.resetInput(std::move(ranges));
+  ByteInputStream byteStream(std::move(ranges));
   RowVectorPtr outputVector;
 
   // If not supplied, use the default one.

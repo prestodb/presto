@@ -151,15 +151,14 @@ class MergeExchangeSource : public MergeSource {
         return BlockingReason::kWaitForProducer;
       }
     }
-    if (!inputStream_) {
-      inputStream_ = std::make_unique<ByteStream>();
+    if (!inputStream_.has_value()) {
       mergeExchange_->stats().wlock()->rawInputBytes += currentPage_->size();
-      currentPage_->prepareStreamForDeserialize(inputStream_.get());
+      inputStream_.emplace(currentPage_->prepareStreamForDeserialize());
     }
 
     if (!inputStream_->atEnd()) {
       VectorStreamGroup::read(
-          inputStream_.get(),
+          &inputStream_.value(),
           mergeExchange_->pool(),
           mergeExchange_->outputType(),
           &data);
@@ -173,7 +172,7 @@ class MergeExchangeSource : public MergeSource {
     if (inputStream_->atEnd()) {
       // Reached end of the stream.
       currentPage_ = nullptr;
-      inputStream_ = nullptr;
+      inputStream_.reset();
     }
 
     return BlockingReason::kNotBlocked;
@@ -189,7 +188,7 @@ class MergeExchangeSource : public MergeSource {
  private:
   MergeExchange* const mergeExchange_;
   std::unique_ptr<ExchangeClient> client_;
-  std::unique_ptr<ByteStream> inputStream_;
+  std::optional<ByteInputStream> inputStream_;
   std::unique_ptr<SerializedPage> currentPage_;
   bool atEnd_ = false;
 

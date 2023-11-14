@@ -67,8 +67,7 @@ class ContainerRowSerdeTest : public testing::Test,
       data->setNull(i, true);
     }
 
-    ByteStream in;
-    HashStringAllocator::prepareRead(position.header, in);
+    auto in = HashStringAllocator::prepareRead(position.header);
     for (auto i = 0; i < numRows; ++i) {
       ContainerRowSerde::deserialize(in, i, data.get());
     }
@@ -96,8 +95,7 @@ class ContainerRowSerdeTest : public testing::Test,
         mode};
 
     for (auto i = 0; i < expected.size(); ++i) {
-      ByteStream stream;
-      HashStringAllocator::prepareRead(positions.at(i).header, stream);
+      auto stream = HashStringAllocator::prepareRead(positions.at(i).header);
       ASSERT_EQ(
           expected.at(i),
           ContainerRowSerde::compareWithNulls(
@@ -119,11 +117,10 @@ class ContainerRowSerdeTest : public testing::Test,
         mode};
 
     for (auto i = 0; i < expected.size(); ++i) {
-      ByteStream leftStream;
-      HashStringAllocator::prepareRead(leftPositions.at(i).header, leftStream);
-      ByteStream rightStream;
-      HashStringAllocator::prepareRead(
-          rightPositions.at(i).header, rightStream);
+      auto leftStream =
+          HashStringAllocator::prepareRead(leftPositions.at(i).header);
+      auto rightStream =
+          HashStringAllocator::prepareRead(rightPositions.at(i).header);
       ASSERT_EQ(
           expected.at(i),
           ContainerRowSerde::compareWithNulls(
@@ -143,8 +140,7 @@ class ContainerRowSerdeTest : public testing::Test,
     DecodedVector decodedVector(*vector);
 
     for (auto i = 0; i < positions.size(); ++i) {
-      ByteStream stream;
-      HashStringAllocator::prepareRead(positions.at(i).header, stream);
+      auto stream = HashStringAllocator::prepareRead(positions.at(i).header);
       ASSERT_EQ(
           0, ContainerRowSerde::compare(stream, decodedVector, i, compareFlags))
           << "at " << i << ": " << vector->toString(i);

@@ -205,15 +205,15 @@ TEST_F(HashStringAllocatorTest, finishWrite) {
       replaceStart.offset() + 4);
 
   // Read back long and short strings.
-  HSA::prepareRead(longStart.header, stream);
+  auto inputStream = HSA::prepareRead(longStart.header);
 
   std::string copy;
   copy.resize(longString.size());
-  stream.readBytes(copy.data(), copy.size());
+  inputStream.readBytes(copy.data(), copy.size());
   ASSERT_EQ(copy, longString);
 
   copy.resize(4);
-  stream.readBytes(copy.data(), 4);
+  inputStream.readBytes(copy.data(), 4);
   ASSERT_EQ(copy, "abcd");
 
   allocator_->checkConsistency();
@@ -227,10 +227,10 @@ TEST_F(HashStringAllocatorTest, finishWrite) {
     stream.appendStringPiece(folly::StringPiece(largeString));
     allocator_->finishWrite(stream, 0);
 
-    HSA::prepareRead(start.header, stream);
+    auto inStream = HSA::prepareRead(start.header);
     std::string copy;
     copy.resize(largeString.size());
-    stream.readBytes(copy.data(), copy.size());
+    inStream.readBytes(copy.data(), copy.size());
     ASSERT_EQ(copy, largeString);
     allocator_->checkConsistency();
   }
@@ -310,10 +310,10 @@ TEST_F(HashStringAllocatorTest, rewrite) {
     stream.appendOne(67890LL);
     position = allocator_->finishWrite(stream, 0).second;
     EXPECT_EQ(3 * sizeof(int64_t), HSA::offset(header, position));
-    HSA::prepareRead(header, stream);
-    EXPECT_EQ(123456789012345LL, stream.read<int64_t>());
-    EXPECT_EQ(12345LL, stream.read<int64_t>());
-    EXPECT_EQ(67890LL, stream.read<int64_t>());
+    auto inStream = HSA::prepareRead(header);
+    EXPECT_EQ(123456789012345LL, inStream.read<int64_t>());
+    EXPECT_EQ(12345LL, inStream.read<int64_t>());
+    EXPECT_EQ(67890LL, inStream.read<int64_t>());
   }
   // The stream contains 3 int64_t's.
   auto end = HSA::seek(header, 3 * sizeof(int64_t));

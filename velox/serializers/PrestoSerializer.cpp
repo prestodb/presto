@@ -45,7 +45,7 @@ int64_t computeChecksum(
 }
 
 int64_t computeChecksum(
-    ByteStream* source,
+    ByteInputStream* source,
     int codecMarker,
     int numRows,
     int uncompressedSize) {
@@ -150,7 +150,7 @@ FOLLY_ALWAYS_INLINE bool needCompression(const folly::io::Codec& codec) {
 
 template <typename T>
 void readValues(
-    ByteStream* source,
+    ByteInputStream* source,
     vector_size_t size,
     vector_size_t offset,
     BufferPtr nulls,
@@ -176,7 +176,7 @@ void readValues(
 
 template <>
 void readValues<bool>(
-    ByteStream* source,
+    ByteInputStream* source,
     vector_size_t size,
     vector_size_t offset,
     BufferPtr nulls,
@@ -201,14 +201,14 @@ void readValues<bool>(
   }
 }
 
-Timestamp readTimestamp(ByteStream* source) {
+Timestamp readTimestamp(ByteInputStream* source) {
   int64_t millis = source->read<int64_t>();
   return Timestamp::fromMillis(millis);
 }
 
 template <>
 void readValues<Timestamp>(
-    ByteStream* source,
+    ByteInputStream* source,
     vector_size_t size,
     vector_size_t offset,
     BufferPtr nulls,
@@ -233,14 +233,14 @@ void readValues<Timestamp>(
   }
 }
 
-Timestamp readLosslessTimestamp(ByteStream* source) {
+Timestamp readLosslessTimestamp(ByteInputStream* source) {
   int64_t seconds = source->read<int64_t>();
   uint64_t nanos = source->read<uint64_t>();
   return Timestamp(seconds, nanos);
 }
 
 void readLosslessTimestampValues(
-    ByteStream* source,
+    ByteInputStream* source,
     vector_size_t size,
     vector_size_t offset,
     BufferPtr nulls,
@@ -265,8 +265,8 @@ void readLosslessTimestampValues(
   }
 }
 
-int128_t readJavaDecimal(ByteStream* source) {
-  // ByteStream does not support reading int128_t values.
+int128_t readJavaDecimal(ByteInputStream* source) {
+  // ByteInputStream does not support reading int128_t values.
   auto low = source->read<int64_t>();
   auto high = source->read<int64_t>();
   // 'high' is in signed magnitude representation.
@@ -279,7 +279,7 @@ int128_t readJavaDecimal(ByteStream* source) {
 }
 
 void readDecimalValues(
-    ByteStream* source,
+    ByteInputStream* source,
     vector_size_t size,
     vector_size_t offset,
     BufferPtr nulls,
@@ -305,7 +305,7 @@ void readDecimalValues(
 }
 
 vector_size_t readNulls(
-    ByteStream* source,
+    ByteInputStream* source,
     vector_size_t size,
     BaseVector& result,
     vector_size_t resultOffset) {
@@ -346,7 +346,7 @@ vector_size_t readNulls(
 
 template <typename T>
 void read(
-    ByteStream* source,
+    ByteInputStream* source,
     const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
@@ -377,7 +377,7 @@ void read(
 
 template <>
 void read<StringView>(
-    ByteStream* source,
+    ByteInputStream* source,
     const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
@@ -417,7 +417,7 @@ void read<StringView>(
 }
 
 void readColumns(
-    ByteStream* source,
+    ByteInputStream* source,
     velox::memory::MemoryPool* pool,
     const std::vector<TypePtr>& types,
     std::vector<VectorPtr>& result,
@@ -425,7 +425,7 @@ void readColumns(
     bool useLosslessTimestamp);
 
 void readConstantVector(
-    ByteStream* source,
+    ByteInputStream* source,
     const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
@@ -453,7 +453,7 @@ void readConstantVector(
 }
 
 void readDictionaryVector(
-    ByteStream* source,
+    ByteInputStream* source,
     const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
@@ -490,7 +490,7 @@ void readDictionaryVector(
 }
 
 void readArrayVector(
-    ByteStream* source,
+    ByteInputStream* source,
     const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
@@ -530,7 +530,7 @@ void readArrayVector(
 }
 
 void readMapVector(
-    ByteStream* source,
+    ByteInputStream* source,
     const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
@@ -586,7 +586,7 @@ void unpackTimestampWithTimeZone(
 }
 
 void readTimestampWithTimeZone(
-    ByteStream* source,
+    ByteInputStream* source,
     velox::memory::MemoryPool* pool,
     RowVector* result,
     vector_size_t resultOffset) {
@@ -918,7 +918,7 @@ void scatterStructNulls(
 }
 
 void readRowVector(
-    ByteStream* source,
+    ByteInputStream* source,
     const TypePtr& type,
     velox::memory::MemoryPool* pool,
     VectorPtr& result,
@@ -948,7 +948,7 @@ void readRowVector(
   readNulls(source, size, *result, resultOffset);
 }
 
-std::string readLengthPrefixedString(ByteStream* source) {
+std::string readLengthPrefixedString(ByteInputStream* source) {
   int32_t size = source->read<int32_t>();
   std::string value;
   value.resize(size);
@@ -967,7 +967,7 @@ void checkTypeEncoding(std::string_view encoding, const TypePtr& type) {
 }
 
 void readColumns(
-    ByteStream* source,
+    ByteInputStream* source,
     velox::memory::MemoryPool* pool,
     const std::vector<TypePtr>& types,
     std::vector<VectorPtr>& results,
@@ -976,7 +976,7 @@ void readColumns(
   static const std::unordered_map<
       TypeKind,
       std::function<void(
-          ByteStream * source,
+          ByteInputStream * source,
           const TypePtr& type,
           velox::memory::MemoryPool* pool,
           VectorPtr& result,
@@ -2286,7 +2286,7 @@ void PrestoVectorSerde::serializeEncoded(
 }
 
 void PrestoVectorSerde::deserialize(
-    ByteStream* source,
+    ByteInputStream* source,
     velox::memory::MemoryPool* pool,
     RowTypePtr type,
     RowVectorPtr* result,
@@ -2354,8 +2354,7 @@ void PrestoVectorSerde::deserialize(
     auto uncompress = codec->uncompress(compressBuf.get(), uncompressedSize);
     ByteRange byteRange{
         uncompress->writableData(), (int32_t)uncompress->length(), 0};
-    ByteStream uncompressedSource;
-    uncompressedSource.resetInput({byteRange});
+    ByteInputStream uncompressedSource({byteRange});
 
     const auto numColumns = uncompressedSource.read<int32_t>();
     VELOX_USER_CHECK_EQ(

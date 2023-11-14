@@ -96,7 +96,7 @@ class CompactRowVectorSerializer : public VectorSerializer {
 
 // Read from the stream until the full row is concatenated.
 std::string concatenatePartialRow(
-    ByteStream* source,
+    ByteInputStream* source,
     std::string_view rowFragment,
     CompactRowVectorSerializer::TRowSize rowSize) {
   std::string rowBuffer;
@@ -127,7 +127,7 @@ std::unique_ptr<VectorSerializer> CompactRowVectorSerde::createSerializer(
 }
 
 void CompactRowVectorSerde::deserialize(
-    ByteStream* source,
+    ByteInputStream* source,
     velox::memory::MemoryPool* pool,
     RowTypePtr type,
     RowVectorPtr* result,

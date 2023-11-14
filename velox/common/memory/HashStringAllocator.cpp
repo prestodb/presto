@@ -123,7 +123,7 @@ void HashStringAllocator::freeToPool(void* ptr, size_t size) {
 }
 
 // static
-void HashStringAllocator::prepareRead(const Header* begin, ByteStream& stream) {
+ByteInputStream HashStringAllocator::prepareRead(const Header* begin) {
   std::vector<ByteRange> ranges;
   auto header = const_cast<Header*>(begin);
   for (;;) {
@@ -134,7 +134,7 @@ void HashStringAllocator::prepareRead(const Header* begin, ByteStream& stream) {
     }
     header = header->nextContinued();
   }
-  stream.resetInput(std::move(ranges));
+  return ByteInputStream(std::move(ranges));
 }
 
 HashStringAllocator::Position HashStringAllocator::newWrite(
@@ -289,8 +289,7 @@ StringView HashStringAllocator::contiguousString(
     return view;
   }
 
-  ByteStream stream;
-  prepareRead(headerOf(view.data()), stream);
+  auto stream = prepareRead(headerOf(view.data()));
   storage.resize(view.size());
   stream.readBytes(storage.data(), view.size());
   return StringView(storage);

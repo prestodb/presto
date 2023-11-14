@@ -38,7 +38,7 @@ class UnsafeRowVectorSerde : public VectorSerde {
 
   // This method is used when reading data from the exchange.
   void deserialize(
-      ByteStream* source,
+      ByteInputStream* source,
       velox::memory::MemoryPool* pool,
       RowTypePtr type,
       RowVectorPtr* result,

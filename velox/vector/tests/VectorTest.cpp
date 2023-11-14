@@ -752,10 +752,10 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     }
   }
 
-  void prepareInput(ByteStream* input, std::string& string) {
+  ByteInputStream prepareInput(std::string& string) {
     // Put 'string' in 'input' in many pieces.
+    const int32_t size = string.size();
     std::vector<ByteRange> ranges;
-    int32_t size = string.size();
     for (int32_t i = 0; i < 10; ++i) {
       int32_t start = i * (size / 10);
       int32_t end = (i == 9) ? size : (i + 1) * (size / 10);
@@ -764,7 +764,8 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
       ranges.back().size = end - start;
       ranges.back().position = 0;
     }
-    input->resetInput(std::move(ranges));
+
+    return ByteInputStream(std::move(ranges));
   }
 
   void checkSizes(
@@ -868,11 +869,10 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto evenString = evenStream.str();
     checkSizes(source.get(), evenSizes, evenString);
 
-    ByteStream input;
-    prepareInput(&input, evenString);
+    auto evenInput = prepareInput(evenString);
 
     RowVectorPtr resultRow;
-    VectorStreamGroup::read(&input, pool_.get(), sourceRowType, &resultRow);
+    VectorStreamGroup::read(&evenInput, pool_.get(), sourceRowType, &resultRow);
     VectorPtr result = resultRow->childAt(0);
     switch (source->encoding()) {
       case VectorEncoding::Simple::FLAT:
@@ -899,9 +899,9 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     }
 
     auto oddString = oddStream.str();
-    prepareInput(&input, oddString);
+    auto oddInput = prepareInput(oddString);
 
-    VectorStreamGroup::read(&input, pool_.get(), sourceRowType, &resultRow);
+    VectorStreamGroup::read(&oddInput, pool_.get(), sourceRowType, &resultRow);
     result = resultRow->childAt(0);
     for (int32_t i = 0; i < oddIndices.size(); ++i) {
       EXPECT_TRUE(result->equalValueAt(source.get(), i, oddIndices[i].begin))

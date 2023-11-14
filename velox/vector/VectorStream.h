@@ -82,7 +82,7 @@ class VectorSerde {
       const Options* options = nullptr) = 0;
 
   virtual void deserialize(
-      ByteStream* source,
+      ByteInputStream* source,
       velox::memory::MemoryPool* pool,
       RowTypePtr type,
       RowVectorPtr* result,
@@ -101,7 +101,7 @@ class VectorSerde {
   /// @param resultOffset Must be greater than or equal to zero. If > 0, must be
   /// less than or equal to the size of 'result'.
   virtual void deserialize(
-      ByteStream* source,
+      ByteInputStream* source,
       velox::memory::MemoryPool* pool,
       RowTypePtr type,
       RowVectorPtr* result,
@@ -169,11 +169,26 @@ class VectorStreamGroup : public StreamArena {
 
   // Reads data in wire format. Returns the RowVector in 'result'.
   static void read(
-      ByteStream* source,
+      ByteInputStream* source,
       velox::memory::MemoryPool* pool,
       RowTypePtr type,
       RowVectorPtr* result,
       const VectorSerde::Options* options = nullptr);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  static void read(
+      ByteStream* source,
+      velox::memory::MemoryPool* pool,
+      RowTypePtr type,
+      RowVectorPtr* result) {
+    VELOX_CHECK(!source->ranges().empty());
+    ByteInputStream inputStream(source->ranges());
+    inputStream.seekp(source->tellp());
+    read(&inputStream, pool, type, result);
+
+    source->seekp(inputStream.tellp());
+  }
+#endif
 
  private:
   std::unique_ptr<VectorSerializer> serializer_;

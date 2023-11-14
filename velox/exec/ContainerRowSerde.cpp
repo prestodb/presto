@@ -183,10 +183,16 @@ void serializeSwitch(
 }
 
 // Copy from serialization to vector.
-void deserializeSwitch(ByteStream& in, vector_size_t index, BaseVector& result);
+void deserializeSwitch(
+    ByteInputStream& in,
+    vector_size_t index,
+    BaseVector& result);
 
 template <TypeKind Kind>
-void deserializeOne(ByteStream& in, vector_size_t index, BaseVector& result) {
+void deserializeOne(
+    ByteInputStream& in,
+    vector_size_t index,
+    BaseVector& result) {
   using T = typename TypeTraits<Kind>::NativeType;
   // Check that the vector is writable. This is faster than dynamic_cast.
   VELOX_CHECK_EQ(result.encoding(), VectorEncoding::Simple::FLAT);
@@ -195,7 +201,7 @@ void deserializeOne(ByteStream& in, vector_size_t index, BaseVector& result) {
 }
 
 void deserializeString(
-    ByteStream& in,
+    ByteInputStream& in,
     vector_size_t index,
     BaseVector& result) {
   VELOX_CHECK_EQ(result.encoding(), VectorEncoding::Simple::FLAT);
@@ -213,7 +219,7 @@ void deserializeString(
 
 template <>
 void deserializeOne<TypeKind::VARCHAR>(
-    ByteStream& in,
+    ByteInputStream& in,
     vector_size_t index,
     BaseVector& result) {
   deserializeString(in, index, result);
@@ -221,13 +227,13 @@ void deserializeOne<TypeKind::VARCHAR>(
 
 template <>
 void deserializeOne<TypeKind::VARBINARY>(
-    ByteStream& in,
+    ByteInputStream& in,
     vector_size_t index,
     BaseVector& result) {
   deserializeString(in, index, result);
 }
 
-std::vector<uint64_t> readNulls(ByteStream& in, int32_t size) {
+std::vector<uint64_t> readNulls(ByteInputStream& in, int32_t size) {
   auto n = bits::nwords(size);
   std::vector<uint64_t> nulls(n);
   for (auto i = 0; i < n; ++i) {
@@ -238,7 +244,7 @@ std::vector<uint64_t> readNulls(ByteStream& in, int32_t size) {
 
 template <>
 void deserializeOne<TypeKind::ROW>(
-    ByteStream& in,
+    ByteInputStream& in,
     vector_size_t index,
     BaseVector& result) {
   const auto& type = result.type()->as<TypeKind::ROW>();
@@ -264,8 +270,10 @@ void deserializeOne<TypeKind::ROW>(
 // Reads the size, null flags and deserializes from 'in', appending to
 // the end of 'elements'. Returns the number of added elements and
 // sets 'offset' to the index of the first added element.
-vector_size_t
-deserializeArray(ByteStream& in, BaseVector& elements, vector_size_t& offset) {
+vector_size_t deserializeArray(
+    ByteInputStream& in,
+    BaseVector& elements,
+    vector_size_t& offset) {
   auto size = in.read<int32_t>();
   auto nulls = readNulls(in, size);
   offset = elements.size();
@@ -282,7 +290,7 @@ deserializeArray(ByteStream& in, BaseVector& elements, vector_size_t& offset) {
 
 template <>
 void deserializeOne<TypeKind::ARRAY>(
-    ByteStream& in,
+    ByteInputStream& in,
     vector_size_t index,
     BaseVector& result) {
   VELOX_CHECK_EQ(result.encoding(), VectorEncoding::Simple::ARRAY);
@@ -298,7 +306,7 @@ void deserializeOne<TypeKind::ARRAY>(
 
 template <>
 void deserializeOne<TypeKind::MAP>(
-    ByteStream& in,
+    ByteInputStream& in,
     vector_size_t index,
     BaseVector& result) {
   VELOX_CHECK_EQ(result.encoding(), VectorEncoding::Simple::MAP);
@@ -317,7 +325,7 @@ void deserializeOne<TypeKind::MAP>(
 }
 
 void deserializeSwitch(
-    ByteStream& in,
+    ByteInputStream& in,
     vector_size_t index,
     BaseVector& result) {
   VELOX_DYNAMIC_TYPE_DISPATCH(
@@ -326,14 +334,14 @@ void deserializeSwitch(
 
 // Comparison of serialization and vector.
 std::optional<int32_t> compareSwitch(
-    ByteStream& stream,
+    ByteInputStream& stream,
     const BaseVector& vector,
     vector_size_t index,
     CompareFlags flags);
 
 template <TypeKind Kind>
 std::optional<int32_t> compare(
-    ByteStream& left,
+    ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
@@ -345,7 +353,7 @@ std::optional<int32_t> compare(
 }
 
 int compareStringAsc(
-    ByteStream& left,
+    ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
     bool equalsOnly) {
@@ -372,7 +380,7 @@ int compareStringAsc(
 
 template <>
 std::optional<int32_t> compare<TypeKind::VARCHAR>(
-    ByteStream& left,
+    ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
@@ -382,7 +390,7 @@ std::optional<int32_t> compare<TypeKind::VARCHAR>(
 
 template <>
 std::optional<int32_t> compare<TypeKind::VARBINARY>(
-    ByteStream& left,
+    ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
@@ -392,7 +400,7 @@ std::optional<int32_t> compare<TypeKind::VARBINARY>(
 
 template <>
 std::optional<int32_t> compare<TypeKind::ROW>(
-    ByteStream& left,
+    ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
@@ -426,7 +434,7 @@ std::optional<int32_t> compare<TypeKind::ROW>(
 }
 
 std::optional<int32_t> compareArrays(
-    ByteStream& left,
+    ByteInputStream& left,
     const BaseVector& elements,
     vector_size_t offset,
     vector_size_t rightSize,
@@ -461,7 +469,7 @@ std::optional<int32_t> compareArrays(
 }
 
 std::optional<int32_t> compareArrayIndices(
-    ByteStream& left,
+    ByteInputStream& left,
     const BaseVector& elements,
     folly::Range<const vector_size_t*> rightIndices,
     CompareFlags flags) {
@@ -497,7 +505,7 @@ std::optional<int32_t> compareArrayIndices(
 
 template <>
 std::optional<int32_t> compare<TypeKind::ARRAY>(
-    ByteStream& left,
+    ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
@@ -514,7 +522,7 @@ std::optional<int32_t> compare<TypeKind::ARRAY>(
 
 template <>
 std::optional<int32_t> compare<TypeKind::MAP>(
-    ByteStream& left,
+    ByteInputStream& left,
     const BaseVector& right,
     vector_size_t index,
     CompareFlags flags) {
@@ -532,7 +540,7 @@ std::optional<int32_t> compare<TypeKind::MAP>(
 }
 
 std::optional<int32_t> compareSwitch(
-    ByteStream& stream,
+    ByteInputStream& stream,
     const BaseVector& vector,
     vector_size_t index,
     CompareFlags flags) {
@@ -543,7 +551,7 @@ std::optional<int32_t> compareSwitch(
 // Returns a view over a serialized string with the string as a
 // contiguous array of bytes. This may use 'storage' for a temporary
 // copy.
-StringView readStringView(ByteStream& stream, std::string& storage) {
+StringView readStringView(ByteInputStream& stream, std::string& storage) {
   int32_t size = stream.read<int32_t>();
   auto view = stream.nextView(size);
   if (view.size() == size) {
@@ -558,15 +566,15 @@ StringView readStringView(ByteStream& stream, std::string& storage) {
 
 // Comparison of two serializations.
 std::optional<int32_t> compareSwitch(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* type,
     CompareFlags flags);
 
 template <TypeKind Kind>
 std::optional<int32_t> compare(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* /*type*/,
     CompareFlags flags) {
   using T = typename TypeTraits<Kind>::NativeType;
@@ -578,8 +586,8 @@ std::optional<int32_t> compare(
 
 template <>
 std::optional<int32_t> compare<TypeKind::VARCHAR>(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* /*type*/,
     CompareFlags flags) {
   std::string leftStorage;
@@ -592,8 +600,8 @@ std::optional<int32_t> compare<TypeKind::VARCHAR>(
 
 template <>
 std::optional<int32_t> compare<TypeKind::VARBINARY>(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* /*type*/,
     CompareFlags flags) {
   std::string leftStorage;
@@ -605,8 +613,8 @@ std::optional<int32_t> compare<TypeKind::VARBINARY>(
 }
 
 std::optional<int32_t> compareArrays(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* elementType,
     CompareFlags flags) {
   auto leftSize = left.read<int32_t>();
@@ -639,8 +647,8 @@ std::optional<int32_t> compareArrays(
 
 template <>
 std::optional<int32_t> compare<TypeKind::ROW>(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
   const auto& rowType = type->as<TypeKind::ROW>();
@@ -669,8 +677,8 @@ std::optional<int32_t> compare<TypeKind::ROW>(
 
 template <>
 std::optional<int32_t> compare<TypeKind::ARRAY>(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
   return compareArrays(left, right, type->childAt(0).get(), flags);
@@ -678,8 +686,8 @@ std::optional<int32_t> compare<TypeKind::ARRAY>(
 
 template <>
 std::optional<int32_t> compare<TypeKind::MAP>(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
   auto result = compareArrays(left, right, type->childAt(0).get(), flags);
@@ -690,8 +698,8 @@ std::optional<int32_t> compare<TypeKind::MAP>(
 }
 
 std::optional<int32_t> compareSwitch(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
   return VELOX_DYNAMIC_TYPE_DISPATCH(
@@ -699,29 +707,32 @@ std::optional<int32_t> compareSwitch(
 }
 
 // Hash functions.
-uint64_t hashSwitch(ByteStream& stream, const Type* type);
+uint64_t hashSwitch(ByteInputStream& stream, const Type* type);
 
 template <TypeKind Kind>
-uint64_t hashOne(ByteStream& stream, const Type* /*type*/) {
+uint64_t hashOne(ByteInputStream& stream, const Type* /*type*/) {
   using T = typename TypeTraits<Kind>::NativeType;
   return folly::hasher<T>()(stream.read<T>());
 }
 
 template <>
-uint64_t hashOne<TypeKind::VARCHAR>(ByteStream& stream, const Type* /*type*/) {
+uint64_t hashOne<TypeKind::VARCHAR>(
+    ByteInputStream& stream,
+    const Type* /*type*/) {
   std::string storage;
   return folly::hasher<StringView>()(readStringView(stream, storage));
 }
 
 template <>
 uint64_t hashOne<TypeKind::VARBINARY>(
-    ByteStream& stream,
+    ByteInputStream& stream,
     const Type* /*type*/) {
   std::string storage;
   return folly::hasher<StringView>()(readStringView(stream, storage));
 }
 
-uint64_t hashArray(ByteStream& in, uint64_t hash, const Type* elementType) {
+uint64_t
+hashArray(ByteInputStream& in, uint64_t hash, const Type* elementType) {
   auto size = in.read<int32_t>();
   auto nulls = readNulls(in, size);
   for (auto i = 0; i < size; ++i) {
@@ -737,7 +748,7 @@ uint64_t hashArray(ByteStream& in, uint64_t hash, const Type* elementType) {
 }
 
 template <>
-uint64_t hashOne<TypeKind::ROW>(ByteStream& in, const Type* type) {
+uint64_t hashOne<TypeKind::ROW>(ByteInputStream& in, const Type* type) {
   auto size = type->size();
   auto nulls = readNulls(in, size);
   uint64_t hash = BaseVector::kNullHash;
@@ -754,19 +765,19 @@ uint64_t hashOne<TypeKind::ROW>(ByteStream& in, const Type* type) {
 }
 
 template <>
-uint64_t hashOne<TypeKind::ARRAY>(ByteStream& in, const Type* type) {
+uint64_t hashOne<TypeKind::ARRAY>(ByteInputStream& in, const Type* type) {
   return hashArray(in, BaseVector::kNullHash, type->childAt(0).get());
 }
 
 template <>
-uint64_t hashOne<TypeKind::MAP>(ByteStream& in, const Type* type) {
+uint64_t hashOne<TypeKind::MAP>(ByteInputStream& in, const Type* type) {
   return hashArray(
       in,
       hashArray(in, BaseVector::kNullHash, type->childAt(0).get()),
       type->childAt(1).get());
 }
 
-uint64_t hashSwitch(ByteStream& in, const Type* type) {
+uint64_t hashSwitch(ByteInputStream& in, const Type* type) {
   return VELOX_DYNAMIC_TYPE_DISPATCH(hashOne, type->kind(), in, type);
 }
 
@@ -784,7 +795,7 @@ void ContainerRowSerde::serialize(
 
 // static
 void ContainerRowSerde::deserialize(
-    ByteStream& in,
+    ByteInputStream& in,
     vector_size_t index,
     BaseVector* result) {
   deserializeSwitch(in, index, *result);
@@ -792,7 +803,7 @@ void ContainerRowSerde::deserialize(
 
 // static
 int32_t ContainerRowSerde::compare(
-    ByteStream& left,
+    ByteInputStream& left,
     const DecodedVector& right,
     vector_size_t index,
     CompareFlags flags) {
@@ -804,8 +815,8 @@ int32_t ContainerRowSerde::compare(
 
 // static
 int32_t ContainerRowSerde::compare(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
   VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
@@ -814,7 +825,7 @@ int32_t ContainerRowSerde::compare(
 }
 
 std::optional<int32_t> ContainerRowSerde::compareWithNulls(
-    ByteStream& left,
+    ByteInputStream& left,
     const DecodedVector& right,
     vector_size_t index,
     CompareFlags flags) {
@@ -824,15 +835,15 @@ std::optional<int32_t> ContainerRowSerde::compareWithNulls(
 }
 
 std::optional<int32_t> ContainerRowSerde::compareWithNulls(
-    ByteStream& left,
-    ByteStream& right,
+    ByteInputStream& left,
+    ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
   return compareSwitch(left, right, type, flags);
 }
 
 // static
-uint64_t ContainerRowSerde::hash(ByteStream& in, const Type* type) {
+uint64_t ContainerRowSerde::hash(ByteInputStream& in, const Type* type) {
   return hashSwitch(in, type);
 }
 

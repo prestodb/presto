@@ -53,8 +53,7 @@ void ValueSet::read(
     const HashStringAllocator::Header* header) const {
   VELOX_CHECK_NOT_NULL(header);
 
-  ByteStream stream;
-  HashStringAllocator::prepareRead(header, stream);
+  auto stream = HashStringAllocator::prepareRead(header);
   exec::ContainerRowSerde::deserialize(stream, index, vector);
 }
 

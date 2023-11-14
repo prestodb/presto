@@ -99,8 +99,7 @@ class SerializeBenchmark {
 
     auto copy = BaseVector::create(rowType, data->size(), pool());
 
-    ByteStream in;
-    HashStringAllocator::prepareRead(position.header, in);
+    auto in = HashStringAllocator::prepareRead(position.header);
     for (auto i = 0; i < data->size(); ++i) {
       exec::ContainerRowSerde::deserialize(in, i, copy.get());
     }

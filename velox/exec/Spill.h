@@ -28,8 +28,12 @@
 
 namespace facebook::velox::exec {
 
-// Input stream backed by spill file.
-class SpillInput : public ByteStream {
+/// Input stream backed by spill file.
+///
+/// TODO Usage of ByteInputStream as base class is hacky and just happens to
+/// work. For example, ByteInputStream::size(), seekp(), tellp(),
+/// remainingSize() APIs do not work properly.
+class SpillInput : public ByteInputStream {
  public:
   // Reads from 'input' using 'buffer' for buffering reads.
   SpillInput(std::unique_ptr<ReadFile>&& input, BufferPtr buffer)
@@ -39,14 +43,14 @@ class SpillInput : public ByteStream {
     next(true);
   }
 
-  void next(bool throwIfPastEnd) override;
-
   // True if all of the file has been read into vectors.
-  bool atEnd() const {
+  bool atEnd() const override {
     return offset_ >= size_ && ranges()[0].position >= ranges()[0].size;
   }
 
  private:
+  void next(bool throwIfPastEnd) override;
+
   std::unique_ptr<ReadFile> input_;
   BufferPtr buffer_;
   const uint64_t size_;

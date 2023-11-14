@@ -437,15 +437,12 @@ void RowContainer::store(
   }
 }
 
-void RowContainer::prepareRead(
-    const char* row,
-    int32_t offset,
-    ByteStream& stream) {
+ByteInputStream RowContainer::prepareRead(const char* row, int32_t offset) {
   const auto& view = reinterpret_cast<const std::string_view*>(row + offset);
   // We set 'stream' to range over the ranges that start at the Header
   // immediately below the first character in the std::string_view.
-  HashStringAllocator::prepareRead(
-      HashStringAllocator::headerOf(view->data()), stream);
+  return HashStringAllocator::prepareRead(
+      HashStringAllocator::headerOf(view->data()));
 }
 
 int32_t RowContainer::variableSizeAt(const char* row, column_index_t column) {
@@ -488,9 +485,8 @@ int32_t RowContainer::extractVariableSizeAt(
                 .size() >= value.size()) {
       memcpy(output + 4, value.data(), size);
     } else {
-      ByteStream stream;
-      HashStringAllocator::prepareRead(
-          HashStringAllocator::headerOf(value.data()), stream);
+      auto stream = HashStringAllocator::prepareRead(
+          HashStringAllocator::headerOf(value.data()));
       stream.readBytes(output + 4, size);
     }
     return 4 + size;
@@ -499,8 +495,7 @@ int32_t RowContainer::extractVariableSizeAt(
   const auto value = valueAt<std::string_view>(row, rowColumn.offset());
   const auto size = value.size();
 
-  ByteStream stream;
-  prepareRead(row, rowColumn.offset(), stream);
+  auto stream = prepareRead(row, rowColumn.offset());
 
   memcpy(output, &size, 4);
   stream.readBytes(output + 4, size);
@@ -649,9 +644,8 @@ void RowContainer::extractString(
     return;
   }
   auto rawBuffer = values->getRawStringBufferWithSpace(value.size());
-  ByteStream stream;
-  HashStringAllocator::prepareRead(
-      HashStringAllocator::headerOf(value.data()), stream);
+  auto stream = HashStringAllocator::prepareRead(
+      HashStringAllocator::headerOf(value.data()));
   stream.readBytes(rawBuffer, value.size());
   values->setNoCopy(index, StringView(rawBuffer, value.size()));
 }
@@ -682,8 +676,7 @@ void RowContainer::storeComplexType(
   // stream.size() is the capacity
   // stream.size() - stream.remainingSize() is the size of the data + size of
   // 'next' links (8 bytes per link).
-  ByteStream readStream;
-  prepareRead(row, offset, readStream);
+  auto readStream = prepareRead(row, offset);
   const auto size = readStream.size();
   valueAt<std::string_view>(row, offset) =
       std::string_view(reinterpret_cast<char*>(position.position), size);
@@ -708,8 +701,7 @@ int RowContainer::compareComplexType(
     CompareFlags flags) {
   VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
-  ByteStream stream;
-  prepareRead(row, offset, stream);
+  auto stream = prepareRead(row, offset);
   return ContainerRowSerde::compare(stream, decoded, index, flags);
 }
 
@@ -729,10 +721,8 @@ int32_t RowContainer::compareComplexType(
     CompareFlags flags) {
   VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
 
-  ByteStream leftStream;
-  ByteStream rightStream;
-  prepareRead(left, leftOffset, leftStream);
-  prepareRead(right, rightOffset, rightStream);
+  auto leftStream = prepareRead(left, leftOffset);
+  auto rightStream = prepareRead(right, rightOffset);
   return ContainerRowSerde::compare(leftStream, rightStream, type, flags);
 }
 
@@ -772,8 +762,7 @@ void RowContainer::hashTyped(
       } else if (
           Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
           Kind == TypeKind::MAP) {
-        ByteStream in;
-        prepareRead(row, offset, in);
+        auto in = prepareRead(row, offset);
         hash = ContainerRowSerde::hash(in, type);
       } else {
         hash = folly::hasher<T>()(valueAt<T>(row, offset));

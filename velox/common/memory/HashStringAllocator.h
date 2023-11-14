@@ -237,11 +237,9 @@ class HashStringAllocator : public StreamArena {
         1;
   }
 
-  // Sets 'stream' to range over the data in the range of 'header' and
+  // Returns ByteInputStream over the data in the range of 'header' and
   // possible continuation ranges.
-  static void prepareRead(
-      const Header* FOLLY_NONNULL header,
-      ByteStream& stream);
+  static ByteInputStream prepareRead(const Header* header);
 
   // Returns the number of payload bytes between 'header->begin()' and
   // 'position'.

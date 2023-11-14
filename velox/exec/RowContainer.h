@@ -934,10 +934,7 @@ class RowContainer {
     }
   }
 
-  static void prepareRead(
-      const char* FOLLY_NONNULL row,
-      int32_t offset,
-      ByteStream& stream);
+  static ByteInputStream prepareRead(const char* row, int32_t offset);
 
   template <TypeKind Kind>
   void hashTyped(
@@ -1090,7 +1087,6 @@ class RowContainer {
       RowColumn column,
       int32_t resultOffset,
       const VectorPtr& result) {
-    ByteStream stream;
     auto nullByte = column.nullByte();
     auto nullMask = column.nullMask();
     auto offset = column.offset();
@@ -1108,7 +1104,7 @@ class RowContainer {
       if (!row || isNullAt(row, nullByte, nullMask)) {
         result->setNull(resultIndex, true);
       } else {
-        prepareRead(row, offset, stream);
+        auto stream = prepareRead(row, offset);
         ContainerRowSerde::deserialize(stream, resultIndex, result.get());
       }
     }

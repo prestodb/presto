@@ -39,8 +39,8 @@ SerializedPage::~SerializedPage() {
   }
 }
 
-void SerializedPage::prepareStreamForDeserialize(ByteStream* input) {
-  input->resetInput(std::move(ranges_));
+ByteInputStream SerializedPage::prepareStreamForDeserialize() {
+  return ByteInputStream(std::move(ranges_));
 }
 
 void ExchangeQueue::noMoreSources() {

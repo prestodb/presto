@@ -37,7 +37,13 @@ class SerializedPage {
 
   // Makes 'input' ready for deserializing 'this' with
   // VectorStreamGroup::read().
-  void prepareStreamForDeserialize(ByteStream* input);
+  ByteInputStream prepareStreamForDeserialize();
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  void prepareStreamForDeserialize(ByteStream* stream) {
+    stream->resetInput(std::move(ranges_));
+  }
+#endif
 
   std::unique_ptr<folly::IOBuf> getIOBuf() const {
     return iobuf_->clone();

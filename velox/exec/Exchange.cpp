@@ -109,8 +109,7 @@ RowVectorPtr Exchange::getOutput() {
   for (const auto& page : currentPages_) {
     rawInputBytes += page->size();
 
-    ByteStream inputStream;
-    page->prepareStreamForDeserialize(&inputStream);
+    auto inputStream = page->prepareStreamForDeserialize();
 
     while (!inputStream.atEnd()) {
       getSerde()->deserialize(

@@ -100,7 +100,7 @@ TEST_F(ByteStreamTest, outputStream) {
   EXPECT_EQ(0, mmapAllocator_->numAllocated());
 }
 
-TEST_F(ByteStreamTest, resetInput) {
+TEST_F(ByteStreamTest, inputStream) {
   uint8_t* const kFakeBuffer = reinterpret_cast<uint8_t*>(this);
   std::vector<ByteRange> byteRanges;
   size_t totalBytes{0};
@@ -110,12 +110,8 @@ TEST_F(ByteStreamTest, resetInput) {
     totalBytes += 4096 + i;
   }
   lastRangeEnd = byteRanges.back().size;
-  ByteStream byteStream;
-  ASSERT_EQ(byteStream.size(), 0);
-  ASSERT_EQ(byteStream.lastRangeEnd(), 0);
-  byteStream.resetInput(std::move(byteRanges));
+  ByteInputStream byteStream(std::move(byteRanges));
   ASSERT_EQ(byteStream.size(), totalBytes);
-  ASSERT_EQ(byteStream.lastRangeEnd(), lastRangeEnd);
 }
 
 TEST_F(ByteStreamTest, remainingSize) {
@@ -128,8 +124,7 @@ TEST_F(ByteStreamTest, remainingSize) {
     byteRanges.push_back(
         ByteRange{reinterpret_cast<uint8_t*>(buffers.back()), kBufferSize, 0});
   }
-  ByteStream byteStream;
-  byteStream.resetInput(std::move(byteRanges));
+  ByteInputStream byteStream(std::move(byteRanges));
   const int32_t kReadBytes = 2048;
   int32_t remainingSize = kSize * kBufferSize;
   uint8_t* tempBuffer = reinterpret_cast<uint8_t*>(pool_->allocate(kReadBytes));
@@ -155,19 +150,19 @@ TEST_F(ByteStreamTest, toString) {
     byteRanges.push_back(
         ByteRange{reinterpret_cast<uint8_t*>(buffers.back()), kBufferSize, 0});
   }
-  ByteStream byteStream;
-  byteStream.resetInput(std::move(byteRanges));
+  ByteInputStream byteStream(std::move(byteRanges));
   const int32_t kReadBytes = 2048;
   uint8_t* tempBuffer = reinterpret_cast<uint8_t*>(pool_->allocate(kReadBytes));
   for (int32_t i = 0; i < kSize / 2; i++) {
     byteStream.readBytes(tempBuffer, kReadBytes);
   }
-  std::string byteStreamStr = byteStream.toString();
+
   EXPECT_EQ(
-      byteStreamStr,
-      "ByteStream[lastRangeEnd 4096, 10 ranges "
+      byteStream.toString(),
+      "10 ranges "
       "(position/size) [(4096/4096),(4096/4096),(2048/4096 current),"
-      "(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096)]]");
+      "(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096),(0/4096)]");
+
   for (int32_t i = 0; i < kSize; i++) {
     pool_->free(buffers[i], kBufferSize);
   }
