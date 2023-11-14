@@ -46,7 +46,7 @@ std::string toVeloxConfig(const std::string& name) {
           {"native_spill_write_buffer_size",
            QueryConfig::kSpillWriteBufferSize},
           {"native_join_spill_enabled", QueryConfig::kJoinSpillEnabled},
-          {"native_debug.validate_output_from_operators",
+          {"native_debug_validate_output_from_operators",
            QueryConfig::kValidateOutputFromOperators}};
   auto it = kPrestoToVeloxMapping.find(name);
   return it == kPrestoToVeloxMapping.end() ? name : it->second;
