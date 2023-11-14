@@ -37,10 +37,6 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
     return !atEnd_;
   }
 
-  bool supportsFlowControlV2() const override {
-    return true;
-  }
-
   folly::SemiFuture<Response> request(
       uint32_t maxBytes,
       uint32_t maxWaitSeconds) override;

@@ -311,8 +311,7 @@ class Producer {
 };
 
 std::string toString(exec::SerializedPage* page) {
-  ByteStream input;
-  page->prepareStreamForDeserialize(&input);
+  auto input = page->prepareStreamForDeserialize();
 
   auto numBytes = input.read<int32_t>();
   char data[numBytes + 1];
