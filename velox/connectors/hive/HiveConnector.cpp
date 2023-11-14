@@ -48,6 +48,10 @@ using namespace facebook::velox::dwrf;
 
 namespace facebook::velox::connector::hive {
 
+bool isFileHandleCacheEnabled(const Config* properties) {
+  return properties ? HiveConfig::isFileHandleCacheEnabled(properties) : true;
+}
+
 int32_t numCachedFileHandles(const Config* properties) {
   return properties ? HiveConfig::numCacheFileHandles(properties) : 20'000;
 }
@@ -58,14 +62,22 @@ HiveConnector::HiveConnector(
     folly::Executor* FOLLY_NULLABLE executor)
     : Connector(id, properties),
       fileHandleFactory_(
-          std::make_unique<
-              SimpleLRUCache<std::string, std::shared_ptr<FileHandle>>>(
-              numCachedFileHandles(properties.get())),
+          isFileHandleCacheEnabled(properties.get())
+              ? std::make_unique<
+                    SimpleLRUCache<std::string, std::shared_ptr<FileHandle>>>(
+                    numCachedFileHandles(properties.get()))
+              : nullptr,
           std::make_unique<FileHandleGenerator>(properties)),
       executor_(executor) {
-  LOG(INFO) << "Hive connector " << connectorId() << " created with maximum of "
-            << numCachedFileHandles(properties.get())
-            << " cached file handles.";
+  if (isFileHandleCacheEnabled(properties.get())) {
+    LOG(INFO) << "Hive connector " << connectorId()
+              << " created with maximum of "
+              << numCachedFileHandles(properties.get())
+              << " cached file handles.";
+  } else {
+    LOG(INFO) << "Hive connector " << connectorId()
+              << " created with file handle cache disabled";
+  }
 }
 
 std::unique_ptr<DataSource> HiveConnector::createDataSource(

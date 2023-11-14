@@ -394,6 +394,11 @@ Hive Connector
      - 20000
      - Maximum number of entries in the file handle cache. The value must be non-negative. Zero value
        indicates infinite cache capacity.
+   * - file_handle_cache_enabled
+     - bool
+     - true
+     - Enables caching of file handles if true. Disables caching if false. File handle cache should be
+       disabled if files are not immutable, i.e. file content may change while file path stays the same.
 
 ``Amazon S3 Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -107,6 +107,10 @@ class HiveConfig {
   /// Maximum number of entries in the file handle cache.
   static constexpr const char* kNumCacheFileHandles = "num_cached_file_handles";
 
+  /// Enable file handle cache.
+  static constexpr const char* kEnableFileHandleCache =
+      "file_handle_cache_enabled";
+
   // TODO: Refactor and merge config and session property.
   static constexpr const char* kOrcWriterMaxStripeSize =
       "orc_optimized_writer_max_stripe_size";
@@ -158,6 +162,8 @@ class HiveConfig {
   static int32_t maxCoalescedDistanceBytes(const Config* config);
 
   static int32_t numCacheFileHandles(const Config* config);
+
+  static bool isFileHandleCacheEnabled(const Config* config);
 
   static uint64_t fileWriterFlushThresholdBytes(const Config* config);
 
