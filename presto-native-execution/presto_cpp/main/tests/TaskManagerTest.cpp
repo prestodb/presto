@@ -115,8 +115,7 @@ class Cursor {
           const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
     }
 
-    ByteStream input;
-    input.resetInput(std::move(byteRanges));
+    ByteInputStream input(std::move(byteRanges));
 
     std::vector<RowVectorPtr> vectors;
     while (!input.atEnd()) {
