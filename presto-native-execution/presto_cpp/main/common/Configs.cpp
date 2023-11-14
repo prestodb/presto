@@ -184,9 +184,9 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLogNumZombieTasks, 20),
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
-          STR_PROP(kExchangeMaxErrorDuration, "30s"),
+          STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
-          STR_PROP(kExchangeConnectTimeout, "0s"),
+          STR_PROP(kExchangeConnectTimeout, "20s"),
           BOOL_PROP(kExchangeImmediateBufferTransfer, true),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
