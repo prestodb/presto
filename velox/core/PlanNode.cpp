@@ -228,11 +228,10 @@ void addSortingKeys(
 } // namespace
 
 bool AggregationNode::canSpill(const QueryConfig& queryConfig) const {
-  // TODO: add spilling for aggregations with sorting or with distinct later:
+  // TODO: Add spilling for aggregations over distinct inputs.
   // https://github.com/facebookincubator/velox/issues/7454
-  // https://github.com/facebookincubator/velox/issues/7455
   for (const auto& aggregate : aggregates_) {
-    if (aggregate.distinct || !aggregate.sortingKeys.empty()) {
+    if (aggregate.distinct) {
       return false;
     }
   }

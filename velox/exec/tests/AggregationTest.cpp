@@ -1814,27 +1814,40 @@ TEST_F(AggregationTest, spillingForAggrsWithSorting) {
   auto vectors = makeVectors(rowType_, 100, 10);
   createDuckDbTable(vectors);
   auto spillDirectory = exec::test::TempDirectoryPath::create();
+
   core::PlanNodeId aggrNodeId;
-  auto task =
-      AssertQueryBuilder(duckDbQueryRunner_)
-          .spillDirectory(spillDirectory->path)
-          .config(QueryConfig::kSpillEnabled, "true")
-          .config(QueryConfig::kAggregationSpillEnabled, "true")
-          .config(QueryConfig::kTestingSpillPct, "100")
-          .plan(PlanBuilder()
-                    .values(vectors)
-                    .singleAggregation({"c1"}, {"count(c0 ORDER BY c2)"}, {})
-                    .capturePlanNodeId(aggrNodeId)
-                    .planNode())
-          .assertResults(
-              "SELECT c1, count(c0 ORDER BY c2) FROM tmp GROUP BY c1");
-  // Verify that spilling is not triggered.
-  const auto& queryConfig = task->queryCtx()->queryConfig();
-  ASSERT_TRUE(queryConfig.spillEnabled());
-  ASSERT_TRUE(queryConfig.aggregationSpillEnabled());
-  ASSERT_EQ(100, queryConfig.testingSpillPct());
-  ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
-  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+
+  auto testPlan = [&](const core::PlanNodePtr& plan, const std::string& sql) {
+    SCOPED_TRACE(sql);
+    auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                    .spillDirectory(spillDirectory->path)
+                    .config(QueryConfig::kSpillEnabled, "true")
+                    .config(QueryConfig::kAggregationSpillEnabled, "true")
+                    .config(QueryConfig::kTestingSpillPct, "100")
+                    .plan(plan)
+                    .assertResults(sql);
+
+    auto taskStats = exec::toPlanStats(task->taskStats());
+    auto& stats = taskStats.at(aggrNodeId);
+    checkSpillStats(stats, true);
+    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+  };
+
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .singleAggregation({"c0"}, {"array_agg(c1 ORDER BY c1)"}, {})
+                  .capturePlanNodeId(aggrNodeId)
+                  .planNode();
+  testPlan(plan, "SELECT c0, array_agg(c1 ORDER BY c1) FROM tmp GROUP BY 1");
+
+  plan = PlanBuilder()
+             .values(vectors)
+             .project({"c0 % 7", "c1"})
+             .singleAggregation({"p0"}, {"array_agg(c1 ORDER BY c1)"}, {})
+             .capturePlanNodeId(aggrNodeId)
+             .planNode();
+  testPlan(
+      plan, "SELECT c0 % 7, array_agg(c1 ORDER BY c1) FROM tmp GROUP BY 1");
 }
 
 TEST_F(AggregationTest, distinctSpillWithMemoryLimit) {

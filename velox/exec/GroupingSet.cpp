@@ -977,6 +977,9 @@ void GroupingSet::spill() {
   }
   ++(*numSpillRuns_);
   spiller_->spill();
+  if (sortedAggregations_) {
+    sortedAggregations_->clear();
+  }
   table_->clear();
 }
 
@@ -1141,6 +1144,11 @@ void GroupingSet::initializeRow(SpillMergeStream& stream, char* row) {
     aggregate.function->initializeNewGroups(
         &row, folly::Range<const vector_size_t*>(&zero, 1));
   }
+
+  if (sortedAggregations_ != nullptr) {
+    sortedAggregations_->initializeNewGroups(
+        &row, folly::Range<const vector_size_t*>(&zero, 1));
+  }
 }
 
 void GroupingSet::extractSpillResult(const RowVectorPtr& result) {
@@ -1167,6 +1175,13 @@ void GroupingSet::updateRow(SpillMergeStream& input, char* row) {
         row, mergeSelection_, mergeArgs_, false);
   }
   mergeSelection_.setValid(input.currentIndex(), false);
+
+  if (sortedAggregations_ != nullptr) {
+    const auto& vector =
+        input.current().childAt(aggregates_.size() + keyChannels_.size());
+    sortedAggregations_->addSingleGroupSpillInput(
+        row, vector, input.currentIndex());
+  }
 }
 
 void GroupingSet::abandonPartialAggregation() {

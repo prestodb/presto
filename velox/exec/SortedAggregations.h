@@ -62,11 +62,19 @@ class SortedAggregations {
 
   void addSingleGroupInput(char* group, const RowVectorPtr& input);
 
+  void addSingleGroupSpillInput(
+      char* group,
+      const VectorPtr& input,
+      vector_size_t index);
+
   void noMoreInput();
 
   /// Sorts input row for the specified groups, computes aggregations and stores
   /// results in the specified 'result' vector.
   void extractValues(folly::Range<char**> groups, const RowVectorPtr& result);
+
+  /// Clears all data accumulated so far. Used to release memory after spilling.
+  void clear();
 
  private:
   void addNewRow(char* group, char* newRow);
@@ -89,6 +97,8 @@ class SortedAggregations {
       std::vector<char*>& groupRows,
       const AggregateInfo& aggregate,
       std::vector<VectorPtr>& inputVectors);
+
+  void extractForSpill(folly::Range<char**> groups, VectorPtr& result) const;
 
   struct Hash {
     static uint64_t hashSortOrder(const core::SortOrder& sortOrder) {
