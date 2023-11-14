@@ -33,6 +33,7 @@ import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFu
 import com.facebook.presto.geospatial.BingTileFunctions;
 import com.facebook.presto.geospatial.BingTileOperators;
 import com.facebook.presto.geospatial.GeoFunctions;
+import com.facebook.presto.geospatial.H3HexFunctions;
 import com.facebook.presto.geospatial.KdbTreeCasts;
 import com.facebook.presto.geospatial.SpatialPartitioningAggregateFunction;
 import com.facebook.presto.geospatial.SpatialPartitioningInternalAggregateFunction;
@@ -736,6 +737,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(GeoFunctions.class)
                 .scalars(BingTileFunctions.class)
                 .scalars(BingTileOperators.class)
+                .scalars(H3HexFunctions.class)
                 .scalar(BingTileFunctions.BingTileCoordinatesFunction.class)
                 .scalars(SphericalGeoFunctions.class)
                 .scalars(KdbTreeCasts.class)
