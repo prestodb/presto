@@ -324,7 +324,7 @@ void HashStringAllocator::removeFromFreeList(Header* header) {
 HashStringAllocator::Header* FOLLY_NULLABLE
 HashStringAllocator::allocate(int32_t size, bool exactSize) {
   if (size > kMaxAlloc && exactSize) {
-    VELOX_CHECK(size <= Header::kSizeMask);
+    VELOX_CHECK_LE(size, Header::kSizeMask);
     auto header =
         reinterpret_cast<Header*>(allocateFromPool(size + sizeof(Header)));
     new (header) Header(size);

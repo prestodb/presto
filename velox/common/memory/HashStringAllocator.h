@@ -63,7 +63,7 @@ class HashStringAllocator : public StreamArena {
     static constexpr uint32_t kArenaEnd = 0xf0aeab0d;
 
     explicit Header(uint32_t size) : data_(size) {
-      VELOX_CHECK(size <= kSizeMask);
+      VELOX_CHECK_LE(size, kSizeMask);
     }
 
     bool isContinued() const {
@@ -115,7 +115,7 @@ class HashStringAllocator : public StreamArena {
     }
 
     void setSize(int32_t size) {
-      VELOX_CHECK(size <= kSizeMask);
+      VELOX_CHECK_LE(size, kSizeMask);
       data_ = size | (data_ & ~kSizeMask);
     }
 
