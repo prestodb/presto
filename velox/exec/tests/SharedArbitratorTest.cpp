@@ -314,7 +314,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     VectorFuzzer fuzzer(fuzzerOpts_, pool());
     vector_ = newVector();
     executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(32);
-    numAddPool_ = 0;
+    numAddedPools_ = 0;
   }
 
   void TearDown() override {
@@ -339,7 +339,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     memoryManager_ = std::make_unique<MemoryManager>(options);
     ASSERT_EQ(memoryManager_->arbitrator()->kind(), "SHARED");
     arbitrator_ = static_cast<SharedArbitrator*>(memoryManager_->arbitrator());
-    numAddPool_ = 0;
+    numAddedPools_ = 0;
   }
 
   RowVectorPtr newVector() {
@@ -378,7 +378,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
         configs,
         cache::AsyncDataCache::getInstance(),
         std::move(pool));
-    ++numAddPool_;
+    ++numAddedPools_;
     return queryCtx;
   }
 
@@ -390,7 +390,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
   VectorFuzzer::Options fuzzerOpts_;
   RowVectorPtr vector_;
   std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
-  uint64_t numAddPool_;
+  uint64_t numAddedPools_;
 };
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromOrderBy) {
@@ -683,7 +683,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
     ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
-    ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
+    ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
   }
 }
 
@@ -1177,7 +1177,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToAggregation) {
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
     ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
-    ASSERT_EQ(newStats.numReserveRequest, numAddPool_);
+    ASSERT_EQ(newStats.numReserves, numAddedPools_);
   }
 }
 
@@ -1469,7 +1469,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToJoinBuilder) {
     const auto newStats = arbitrator_->stats();
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
     ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
-    ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
+    ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
   }
 }
 
@@ -1802,7 +1802,7 @@ DEBUG_ONLY_TEST_F(
   memThread.join();
   waitForAllTasksToBeDeleted();
   ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 2);
-  ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
+  ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
 }
 
 DEBUG_ONLY_TEST_F(
@@ -2866,8 +2866,8 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromTableWriter) {
       ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 0);
       waitForAllTasksToBeDeleted(3'000'000);
     }
-    ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
-    ASSERT_EQ(arbitrator_->stats().numReleaseRequest, numAddPool_);
+    ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
+    ASSERT_EQ(arbitrator_->stats().numReleases, numAddedPools_);
   }
 }
 
@@ -2970,8 +2970,8 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromSortTableWriter) {
         ASSERT_EQ(updatedSpillStats, spillStats);
       }
     }
-    ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
-    ASSERT_EQ(arbitrator_->stats().numReleaseRequest, numAddPool_);
+    ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
+    ASSERT_EQ(arbitrator_->stats().numReleases, numAddedPools_);
   }
 }
 
@@ -3060,8 +3060,8 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, writerFlushThreshold) {
           writerFlushThreshold == 0 ? 0 : 1);
       waitForAllTasksToBeDeleted(3'000'000);
     }
-    ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
-    ASSERT_EQ(arbitrator_->stats().numReleaseRequest, numAddPool_);
+    ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
+    ASSERT_EQ(arbitrator_->stats().numReleases, numAddedPools_);
   }
 }
 
@@ -3140,7 +3140,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromNonReclaimableTableWriter) {
 
   ASSERT_EQ(arbitrator_->stats().numFailures, 1);
   ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 1);
-  ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
+  ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
 }
 
 DEBUG_ONLY_TEST_F(
@@ -3233,7 +3233,7 @@ DEBUG_ONLY_TEST_F(
   ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 0);
   ASSERT_EQ(arbitrator_->stats().numFailures, 0);
   ASSERT_GT(arbitrator_->stats().numReclaimedBytes, 0);
-  ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
+  ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
 }
 
 DEBUG_ONLY_TEST_F(
@@ -3323,7 +3323,7 @@ DEBUG_ONLY_TEST_F(
 
   ASSERT_EQ(arbitrator_->stats().numFailures, 1);
   ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 1);
-  ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
+  ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
   const auto updatedSpillStats = globalSpillStats();
   ASSERT_EQ(updatedSpillStats, spillStats);
 }
@@ -3480,7 +3480,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenRaclaimAndJoinFinish) {
   waitForAllTasksToBeDeleted();
   ASSERT_EQ(arbitrator_->stats().numFailures, 0);
   ASSERT_EQ(arbitrator_->stats().numReclaimedBytes, 0);
-  ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
+  ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
 }
 
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
@@ -3624,7 +3624,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, joinBuildSpillError) {
 
   waitForAllTasksToBeDeleted();
   ASSERT_EQ(arbitrator_->stats().numFailures, 1);
-  ASSERT_EQ(arbitrator_->stats().numReserveRequest, numAddPool_);
+  ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
 }
 
 TEST_F(SharedArbitrationTest, concurrentArbitration) {
@@ -3755,7 +3755,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
   controlThread.join();
 }
 
-TEST_F(SharedArbitrationTest, reserveReleaseCounter) {
+TEST_F(SharedArbitrationTest, reserveReleaseCounters) {
   for (int i = 0; i < 37; ++i) {
     folly::Random::DefaultGenerator rng(i);
     auto numRootPools = folly::Random::rand32(rng) % 11 + 3;
@@ -3770,9 +3770,9 @@ TEST_F(SharedArbitrationTest, reserveReleaseCounter) {
         threads.emplace_back([&]() {
           {
             std::lock_guard<std::mutex> l(mutex);
-            auto oldNum = arbitrator_->stats().numReserveRequest;
+            auto oldNum = arbitrator_->stats().numReserves;
             queries.emplace_back(newQueryCtx());
-            ASSERT_EQ(arbitrator_->stats().numReserveRequest, oldNum + 1);
+            ASSERT_EQ(arbitrator_->stats().numReserves, oldNum + 1);
           }
         });
       }
@@ -3780,11 +3780,11 @@ TEST_F(SharedArbitrationTest, reserveReleaseCounter) {
       for (auto& queryThread : threads) {
         queryThread.join();
       }
-      ASSERT_EQ(arbitrator_->stats().numReserveRequest, numRootPools);
-      ASSERT_EQ(arbitrator_->stats().numReleaseRequest, 0);
+      ASSERT_EQ(arbitrator_->stats().numReserves, numRootPools);
+      ASSERT_EQ(arbitrator_->stats().numReleases, 0);
     }
-    ASSERT_EQ(arbitrator_->stats().numReserveRequest, numRootPools);
-    ASSERT_EQ(arbitrator_->stats().numReleaseRequest, numRootPools);
+    ASSERT_EQ(arbitrator_->stats().numReserves, numRootPools);
+    ASSERT_EQ(arbitrator_->stats().numReleases, numRootPools);
   }
 }
 } // namespace facebook::velox::exec::test

@@ -286,8 +286,8 @@ MemoryArbitrator::Stats::Stats(
     uint64_t _freeCapacityBytes,
     uint64_t _reclaimTimeUs,
     uint64_t _numNonReclaimableAttempts,
-    uint64_t _numReserveRequest,
-    uint64_t _numReleaseRequest)
+    uint64_t _numReserves,
+    uint64_t _numReleases)
     : numRequests(_numRequests),
       numSucceeded(_numSucceeded),
       numAborted(_numAborted),
@@ -300,13 +300,13 @@ MemoryArbitrator::Stats::Stats(
       freeCapacityBytes(_freeCapacityBytes),
       reclaimTimeUs(_reclaimTimeUs),
       numNonReclaimableAttempts(_numNonReclaimableAttempts),
-      numReserveRequest(_numReserveRequest),
-      numReleaseRequest(_numReleaseRequest) {}
+      numReserves(_numReserves),
+      numReleases(_numReleases) {}
 
 std::string MemoryArbitrator::Stats::toString() const {
   return fmt::format(
       "STATS[numRequests {} numSucceeded {} numAborted {} numFailures {} "
-      "numNonReclaimableAttempts {} numReserveRequest {} numReleaseRequest {} "
+      "numNonReclaimableAttempts {} numReserves {} numReleases {} "
       "queueTime {} arbitrationTime {} reclaimTime {} shrunkMemory {} "
       "reclaimedMemory {} maxCapacity {} freeCapacity {}]",
       numRequests,
@@ -314,8 +314,8 @@ std::string MemoryArbitrator::Stats::toString() const {
       numAborted,
       numFailures,
       numNonReclaimableAttempts,
-      numReserveRequest,
-      numReleaseRequest,
+      numReserves,
+      numReleases,
       succinctMicros(queueTimeUs),
       succinctMicros(arbitrationTimeUs),
       succinctMicros(reclaimTimeUs),
@@ -341,8 +341,8 @@ MemoryArbitrator::Stats MemoryArbitrator::Stats::operator-(
   result.reclaimTimeUs = reclaimTimeUs - other.reclaimTimeUs;
   result.numNonReclaimableAttempts =
       numNonReclaimableAttempts - other.numNonReclaimableAttempts;
-  result.numReserveRequest = numReserveRequest - other.numReserveRequest;
-  result.numReleaseRequest = numReleaseRequest - other.numReleaseRequest;
+  result.numReserves = numReserves - other.numReserves;
+  result.numReleases = numReleases - other.numReleases;
   return result;
 }
 
@@ -360,8 +360,8 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              freeCapacityBytes,
              reclaimTimeUs,
              numNonReclaimableAttempts,
-             numReserveRequest,
-             numReleaseRequest) ==
+             numReserves,
+             numReleases) ==
       std::tie(
              other.numRequests,
              other.numSucceeded,
@@ -375,8 +375,8 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              other.freeCapacityBytes,
              other.reclaimTimeUs,
              other.numNonReclaimableAttempts,
-             other.numReserveRequest,
-             other.numReleaseRequest);
+             other.numReserves,
+             other.numReleases);
 }
 
 bool MemoryArbitrator::Stats::operator!=(const Stats& other) const {
@@ -408,8 +408,8 @@ bool MemoryArbitrator::Stats::operator<(const Stats& other) const {
   UPDATE_COUNTER(numReclaimedBytes);
   UPDATE_COUNTER(reclaimTimeUs);
   UPDATE_COUNTER(numNonReclaimableAttempts);
-  UPDATE_COUNTER(numReserveRequest);
-  UPDATE_COUNTER(numReleaseRequest);
+  UPDATE_COUNTER(numReserves);
+  UPDATE_COUNTER(numReleases);
 #undef UPDATE_COUNTER
   VELOX_CHECK(
       !((gtCount > 0) && (ltCount > 0)),
