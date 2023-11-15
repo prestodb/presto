@@ -75,10 +75,10 @@ public class IcebergPageSinkProvider
 
     private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle)
     {
-        HdfsContext hdfsContext = new HdfsContext(session, tableHandle.getSchemaName(), tableHandle.getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session, tableHandle.getSchemaName(), tableHandle.getTableName().getTableName());
         Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, tableHandle.getPartitionSpecAsJson());
-        LocationProvider locationProvider = getLocationProvider(new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName()),
+        LocationProvider locationProvider = getLocationProvider(new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName().getTableName()),
                 tableHandle.getOutputPath(), tableHandle.getStorageProperties());
         return new IcebergPageSink(
                 schema,

@@ -354,6 +354,81 @@ as a part of a SQL query by appending name to the table.
     ---------+------------------------------------------------------------------------------+-------------+--------------+--------------------+-----------------------------+--------------------------+----------------------+------------------+-------------------------------------------+--------------------------------------------+--------------+---------------+-------------
        0     | s3://my-bucket/ctas_nation/data/9f889274-6f74-4d28-8164-275eef99f660.parquet | PARQUET     |           25 |               1648 | {1=52, 2=222, 3=105, 4=757} | {1=25, 2=25, 3=25, 4=25} | {1=0, 2=0, 3=0, 4=0} |  NULL            | {1=0, 2=ALGERIA, 3=0, 4= haggle. careful} | {1=24, 2=VIETNAM, 3=4, 4=y final packaget} | NULL         | NULL          | NULL
 
+``$changelog`` Table
+^^^^^^^^^^^^^^^^^^^^
+
+This table lets you view which row-level changes have occurred to the table in a
+particular order over time. The ``$changelog`` table represents the history of
+changes to the table, while also making the data available to process through a
+query.
+
+The result of a changelog query always returns a static schema with four
+columns:
+
+1. ``operation``: (``VARCHAR``) indicating whether the row was inserted,
+   updated, or deleted.
+2. ``ordinal``: (``int``) A number indicating a relative order that a particular
+   change needs to be applied to the table relative to all other changes.
+3. ``snapshotid``: (``bigint``) Represents the snapshot a row-level
+   change was made in.
+4. ``rowdata``: (``row(T)``) which includes the data for the particular row. The
+   inner values of this type match the schema of the parent table.
+
+The changelog table can be queried with the following name format:
+
+.. code-block:: sql
+
+    ... FROM "<table>[@<begin snapshot ID>]$changelog[@<end snapshot ID>]"
+
+- ``<table>`` is the name of the table.
+- ``<begin snapshot ID>`` is the snapshot of the table you want to begin viewing
+  changes from. This parameter is optional. If absent, the oldest available
+  snapshot is used.
+- ``<end snapshot ID>`` is the last snapshot for which you want to view changes.
+  This parameter is optional. If absent, the most current snapshot of the
+  table is used.
+
+One use for the ``$changelog`` table would be to find when a record was inserted
+or removed from the table. To accomplish this, the  ``$changelog`` table can be
+used in conjunction with the ``$snapshots`` table. First, choose a snapshot ID
+from the ``$snapshots`` table to choose the starting point.
+
+.. code-block:: sql
+
+    SELECT * FROM "orders$snapshots";
+
+.. code-block:: text
+
+                    committed_at                 |     snapshot_id     |      parent_id      | operation |                                                                                       manifest_list                                                                                        |                                                                                                              summary
+    ---------------------------------------------+---------------------+---------------------+-----------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+     2023-09-26 08:45:20.930 America/Los_Angeles | 2423571386296047175 | NULL                | append    | file:/var/folders/g_/6_hxl7r16qdddw7956j_r88h0000gn/T/PrestoTest8140889264166671718/catalog/tpch/ctas_orders/metadata/snap-2423571386296047175-1-3f288b1c-95a9-406b-9e17-9cfe31a11b48.avro | {changed-partition-count=1, added-data-files=4, total-equality-deletes=0, added-records=100, total-position-deletes=0, added-files-size=9580, total-delete-files=0, total-files-size=9580, total-records=100, total-data-files=4}
+     2023-09-26 08:45:36.942 America/Los_Angeles | 8702997868627997320 | 2423571386296047175 | append    | file:/var/folders/g_/6_hxl7r16qdddw7956j_r88h0000gn/T/PrestoTest8140889264166671718/catalog/tpch/ctas_orders/metadata/snap-8702997868627997320-1-a2e1c714-7eed-4e2c-b144-dae4147ebaa4.avro | {changed-partition-count=1, added-data-files=1, total-equality-deletes=0, added-records=1, total-position-deletes=0, added-files-size=1687, total-delete-files=0, total-files-size=11267, total-records=101, total-data-files=5}
+     2023-09-26 08:45:39.866 America/Los_Angeles | 7615903782581283889 | 8702997868627997320 | append    | file:/var/folders/g_/6_hxl7r16qdddw7956j_r88h0000gn/T/PrestoTest8140889264166671718/catalog/tpch/ctas_orders/metadata/snap-7615903782581283889-1-d94c2114-fd22-4de2-9ab5-c0b5bf67282f.avro | {changed-partition-count=1, added-data-files=3, total-equality-deletes=0, added-records=3, total-position-deletes=0, added-files-size=4845, total-delete-files=0, total-files-size=16112, total-records=104, total-data-files=8}
+     2023-09-26 08:45:48.404 America/Los_Angeles |  677209275408372885 | 7615903782581283889 | append    | file:/var/folders/g_/6_hxl7r16qdddw7956j_r88h0000gn/T/PrestoTest8140889264166671718/catalog/tpch/ctas_orders/metadata/snap-677209275408372885-1-ad69e208-1440-459b-93e8-48e61f961758.avro  | {changed-partition-count=1, added-data-files=3, total-equality-deletes=0, added-records=5, total-position-deletes=0, added-files-size=4669, total-delete-files=0, total-files-size=20781, total-records=109, total-data-files=11}
+
+Now that we know the snapshots available to query in the changelog, we can see
+what changes were made to the table since it was created. Specifically, this
+example uses the earliest snapshot ID: ``2423571386296047175``
+
+.. code-block:: sql
+
+    SELECT * FROM "ctas_orders@2423571386296047175$changelog" ORDER BY ordinal;
+
+.. code-block:: text
+    
+     operation | ordinal |     snapshotid      |                                                                                                                   rowdata
+    -----------+---------+---------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+     INSERT    |       0 | 8702997868627997320 | {orderkey=37504, custkey=1291, orderstatus=O, totalprice=165509.83, orderdate=1996-03-04, orderpriority=5-LOW, clerk=Clerk#000000871, shippriority=0, comment=c theodolites alongside of the fluffily bold requests haggle quickly against }
+     INSERT    |       1 | 7615903782581283889 | {orderkey=12001, custkey=739, orderstatus=F, totalprice=138635.75, orderdate=1994-07-07, orderpriority=2-HIGH, clerk=Clerk#000000863, shippriority=0, comment=old, even theodolites. regular, special theodolites use furio}
+     INSERT    |       1 | 7615903782581283889 | {orderkey=17989, custkey=364, orderstatus=F, totalprice=133669.05, orderdate=1994-01-17, orderpriority=4-NOT SPECIFIED, clerk=Clerk#000000547, shippriority=0, comment=ously express excuses. even theodolit}
+     INSERT    |       1 | 7615903782581283889 | {orderkey=37504, custkey=1291, orderstatus=O, totalprice=165509.83, orderdate=1996-03-04, orderpriority=5-LOW, clerk=Clerk#000000871, shippriority=0, comment=c theodolites alongside of the fluffily bold requests haggle quickly against }
+     INSERT    |       2 |  677209275408372885 | {orderkey=17991, custkey=92, orderstatus=O, totalprice=20732.51, orderdate=1998-07-09, orderpriority=4-NOT SPECIFIED, clerk=Clerk#000000636, shippriority=0, comment= the quickly express accounts. iron}
+     INSERT    |       2 |  677209275408372885 | {orderkey=17989, custkey=364, orderstatus=F, totalprice=133669.05, orderdate=1994-01-17, orderpriority=4-NOT SPECIFIED, clerk=Clerk#000000547, shippriority=0, comment=ously express excuses. even theodolit}
+     INSERT    |       2 |  677209275408372885 | {orderkey=17990, custkey=458, orderstatus=O, totalprice=218031.58, orderdate=1998-03-18, orderpriority=3-MEDIUM, clerk=Clerk#000000340, shippriority=0, comment=ounts wake final foxe}
+     INSERT    |       2 |  677209275408372885 | {orderkey=18016, custkey=403, orderstatus=O, totalprice=174070.99, orderdate=1996-03-19, orderpriority=1-URGENT, clerk=Clerk#000000629, shippriority=0, comment=ly. quickly ironic excuses are furiously. carefully ironic pack}
+     INSERT    |       2 |  677209275408372885 | {orderkey=18017, custkey=958, orderstatus=F, totalprice=203091.02, orderdate=1993-03-26, orderpriority=1-URGENT, clerk=Clerk#000000830, shippriority=0, comment=sleep quickly bold requests. slyly pending pinto beans haggle in pla}
+
+
 SQL Support
 -----------
 

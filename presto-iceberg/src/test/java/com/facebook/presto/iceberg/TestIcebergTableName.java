@@ -27,16 +27,20 @@ public class TestIcebergTableName
     @Test
     public void testFrom()
     {
-        assertFrom("abc", "abc", TableType.DATA, Optional.empty());
+        assertFrom("abc", "abc", TableType.DATA);
         assertFrom("abc@123", "abc", TableType.DATA, Optional.of(123L));
-        assertFrom("abc$data", "abc", TableType.DATA, Optional.empty());
+        assertFrom("abc$data", "abc", TableType.DATA);
         assertFrom("xyz@456", "xyz", TableType.DATA, Optional.of(456L));
         assertFrom("xyz$data@456", "xyz", TableType.DATA, Optional.of(456L));
         assertFrom("abc$partitions@456", "abc", TableType.PARTITIONS, Optional.of(456L));
         assertFrom("abc$manifests@456", "abc", TableType.MANIFESTS, Optional.of(456L));
         assertFrom("abc$manifests@456", "abc", TableType.MANIFESTS, Optional.of(456L));
-        assertFrom("abc$history", "abc", TableType.HISTORY, Optional.empty());
-        assertFrom("abc$snapshots", "abc", TableType.SNAPSHOTS, Optional.empty());
+        assertFrom("abc$history", "abc", TableType.HISTORY);
+        assertFrom("abc$snapshots", "abc", TableType.SNAPSHOTS);
+        assertFrom("abc$changelog", "abc", TableType.CHANGELOG);
+        assertFrom("abc@123$changelog", "abc", TableType.CHANGELOG, Optional.of(123L));
+        assertFrom("abc$changelog@123", "abc", TableType.CHANGELOG, Optional.empty(), Optional.of(123L));
+        assertFrom("abc@123$changelog@124", "abc", TableType.CHANGELOG, Optional.of(123L), Optional.of(124L));
 
         assertInvalid("abc@xyz", "Invalid Iceberg table name: abc@xyz");
         assertInvalid("abc$what", "Invalid Iceberg table name (unknown type 'what'): abc$what");
@@ -57,11 +61,22 @@ public class TestIcebergTableName
         }
     }
 
-    private static void assertFrom(String inputName, String tableName, TableType tableType, Optional<Long> snapshotId)
+    private static void assertFrom(String inputName, String tableName, TableType tableType, Optional<Long> snapshotId, Optional<Long> changelogEndSnapshot)
     {
         IcebergTableName name = IcebergTableName.from(inputName);
         assertEquals(name.getTableName(), tableName);
         assertEquals(name.getTableType(), tableType);
         assertEquals(name.getSnapshotId(), snapshotId);
+        assertEquals(name.getChangelogEndSnapshot(), changelogEndSnapshot);
+    }
+
+    private static void assertFrom(String inputName, String tableName, TableType tableType, Optional<Long> snapshotId)
+    {
+        assertFrom(inputName, tableName, tableType, snapshotId, Optional.empty());
+    }
+
+    private static void assertFrom(String inputName, String tableName, TableType tableType)
+    {
+        assertFrom(inputName, tableName, tableType, Optional.empty(), Optional.empty());
     }
 }

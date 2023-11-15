@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.iceberg.changelog.ChangelogSplitInfo;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
@@ -29,6 +30,7 @@ import org.apache.iceberg.FileFormat;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -46,6 +48,8 @@ public class IcebergSplit
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final SplitWeight splitWeight;
     private final List<DeleteFile> deletes;
+    private final Optional<ChangelogSplitInfo> changelogSplitInfo;
+
     @JsonCreator
     public IcebergSplit(
             @JsonProperty("path") String path,
@@ -56,7 +60,8 @@ public class IcebergSplit
             @JsonProperty("partitionKeys") Map<Integer, HivePartitionKey> partitionKeys,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
-            @JsonProperty("deletes") List<DeleteFile> deletes)
+            @JsonProperty("deletes") List<DeleteFile> deletes,
+            @JsonProperty("changelogSplitInfo") Optional<ChangelogSplitInfo> changelogSplitInfo)
     {
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.path = requireNonNull(path, "path is null");
@@ -68,6 +73,7 @@ public class IcebergSplit
         this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
+        this.changelogSplitInfo = requireNonNull(changelogSplitInfo, "changelogSplitInfo is null");
     }
 
     @JsonProperty
@@ -112,6 +118,7 @@ public class IcebergSplit
     {
         return nodeSelectionStrategy;
     }
+
     @Override
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
@@ -134,6 +141,12 @@ public class IcebergSplit
         return deletes;
     }
 
+    @JsonProperty
+    public Optional<ChangelogSplitInfo> getChangelogSplitInfo()
+    {
+        return changelogSplitInfo;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -143,6 +156,7 @@ public class IcebergSplit
                 .put("length", length)
                 .put("nodeSelectionStrategy", nodeSelectionStrategy)
                 .put("splitWeight", splitWeight)
+                .put("changelogSplitInfo", changelogSplitInfo)
                 .build();
     }
 
@@ -155,6 +169,7 @@ public class IcebergSplit
                 .addValue(length)
                 .addValue(nodeSelectionStrategy)
                 .addValue(splitWeight)
+                .addValue(changelogSplitInfo)
                 .toString();
     }
 }
