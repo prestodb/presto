@@ -34,7 +34,6 @@ import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -108,16 +107,17 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocatio
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
-import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
+import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.mergeHiveStatistics;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -170,8 +170,7 @@ public class IcebergHiveMetadata
     protected boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName)
     {
         IcebergTableName name = IcebergTableName.from(schemaTableName.getTableName());
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
-        Optional<Table> hiveTable = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), name.getTableName());
+        Optional<Table> hiveTable = metastore.getTable(getMetastoreContext(session), schemaTableName.getSchemaName(), name.getTableName());
         if (!hiveTable.isPresent()) {
             return false;
         }
@@ -306,7 +305,7 @@ public class IcebergHiveMetadata
 
         return new IcebergWritableTableHandle(
                 schemaName,
-                tableName,
+                new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
                 SchemaParser.toJson(metadata.schema()),
                 PartitionSpecParser.toJson(metadata.spec()),
                 getColumns(metadata.schema(), metadata.spec(), typeManager),
@@ -319,6 +318,7 @@ public class IcebergHiveMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getTableName().getTableType() == DATA, "only the data table can be dropped");
         // TODO: support path override in Iceberg table creation
         org.apache.iceberg.Table table = getIcebergTable(session, handle.getSchemaTableName());
         Optional<Map<String, String>> tableProperties = tryGetProperties(table);
@@ -330,27 +330,15 @@ public class IcebergHiveMetadata
                 throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
             }
         }
-        metastore.dropTable(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName(), true);
+        metastore.dropTable(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName().getTableName(), true);
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.renameTable(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
-    }
-
-    @Override
-    protected ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
-    {
-        if (!metastore.getTable(getMetastoreContext(session), table.getSchemaName(), table.getTableName()).isPresent()) {
-            throw new TableNotFoundException(table);
-        }
-
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table);
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
-
-        return new ConnectorTableMetadata(table, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
+        verify(handle.getTableName().getTableType() == DATA, "only the data table can be renamed");
+        metastore.renameTable(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName().getTableName(), newTable.getSchemaName(), newTable.getTableName());
     }
 
     @Override
@@ -467,7 +455,7 @@ public class IcebergHiveMetadata
                 return new VariableReferenceExpression(Optional.empty(), columnHandle.getName(), columnHandle.getType());
             });
             RowExpression translatedPredicate = rowExpressionService.getDomainTranslator().toPredicate(predicate);
-            PartitionStatistics hiveStatistics = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName());
+            PartitionStatistics hiveStatistics = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName().getTableName());
             TableStatistics mergedStatistics = mergeHiveStatistics(icebergStatistics, hiveStatistics, mergeStrategy, icebergTable.spec());
             TableStatistics.Builder filteredStatsBuilder = TableStatistics.builder()
                     .setRowCount(mergedStatistics.getRowCount());
@@ -495,7 +483,7 @@ public class IcebergHiveMetadata
                             IcebergColumnHandle::getType)));
         }).orElseGet(() -> {
             if (!mergeStrategy.equals(HiveStatisticsMergeStrategy.NONE)) {
-                PartitionStatistics hiveStats = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName());
+                PartitionStatistics hiveStats = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName().getTableName());
                 return mergeHiveStatistics(icebergStatistics, hiveStats, mergeStrategy, icebergTable.spec());
             }
             return icebergStatistics;

@@ -198,15 +198,20 @@ public final class TypeConverter
         return Types.DecimalType.of(type.getPrecision(), type.getScale());
     }
 
-    private static org.apache.iceberg.types.Type fromRow(RowType type)
+    public static org.apache.iceberg.types.Type fromRow(RowType type, int startId)
     {
         List<Types.NestedField> fields = new ArrayList<>();
         for (RowType.Field field : type.getFields()) {
             String name = field.getName().orElseThrow(() ->
                     new PrestoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
-            fields.add(Types.NestedField.optional(fields.size() + 1, name, toIcebergType(field.getType())));
+            fields.add(Types.NestedField.optional(startId + fields.size() + 1, name, toIcebergType(field.getType())));
         }
         return Types.StructType.of(fields);
+    }
+
+    public static org.apache.iceberg.types.Type fromRow(RowType type)
+    {
+        return fromRow(type, 0);
     }
 
     private static org.apache.iceberg.types.Type fromArray(ArrayType type)

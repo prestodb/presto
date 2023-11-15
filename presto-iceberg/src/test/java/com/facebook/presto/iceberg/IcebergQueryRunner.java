@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.OptionalInt;
 
+import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -99,6 +100,8 @@ public final class IcebergQueryRunner
             OptionalInt nodeCount)
             throws Exception
     {
+        Logging logger = Logging.initialize();
+        logger.setLevel("org.apache.iceberg", WARN);
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema("tpch")

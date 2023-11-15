@@ -129,8 +129,6 @@ public class IcebergPlanOptimizer
             IcebergTableHandle newTableHandle = new IcebergTableHandle(
                     oldTableHandle.getSchemaName(),
                     oldTableHandle.getTableName(),
-                    oldTableHandle.getTableType(),
-                    oldTableHandle.getSnapshotId(),
                     oldTableHandle.isSnapshotSpecified(),
                     simplifiedColumnDomain,
                     oldTableHandle.getTableSchemaJson());

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -29,9 +28,7 @@ public class IcebergTableHandle
         implements ConnectorTableHandle
 {
     private final String schemaName;
-    private final String tableName;
-    private final TableType tableType;
-    private final Optional<Long> snapshotId;
+    private final IcebergTableName tableName;
     private final TupleDomain<IcebergColumnHandle> predicate;
     private final boolean snapshotSpecified;
     private final Optional<String> tableSchemaJson;
@@ -39,18 +36,14 @@ public class IcebergTableHandle
     @JsonCreator
     public IcebergTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("tableType") TableType tableType,
-            @JsonProperty("snapshotId") Optional<Long> snapshotId,
+            @JsonProperty("tableName") IcebergTableName tableName,
             @JsonProperty("snapshotSpecified") boolean snapshotSpecified,
             @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate,
             @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableType = requireNonNull(tableType, "tableType is null");
-        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-        this.snapshotSpecified = requireNonNull(snapshotSpecified, "specifiedSnapshot is null");
+        this.snapshotSpecified = snapshotSpecified;
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
     }
@@ -62,21 +55,9 @@ public class IcebergTableHandle
     }
 
     @JsonProperty
-    public String getTableName()
+    public IcebergTableName getTableName()
     {
         return tableName;
-    }
-
-    @JsonProperty
-    public TableType getTableType()
-    {
-        return tableType;
-    }
-
-    @JsonProperty
-    public Optional<Long> getSnapshotId()
-    {
-        return snapshotId;
     }
 
     @JsonProperty
@@ -99,12 +80,12 @@ public class IcebergTableHandle
 
     public SchemaTableName getSchemaTableName()
     {
-        return new SchemaTableName(schemaName, tableName);
+        return new SchemaTableName(schemaName, tableName.getTableName());
     }
 
     public SchemaTableName getSchemaTableNameWithType()
     {
-        return new SchemaTableName(schemaName, tableName + "$" + tableType.name().toLowerCase(Locale.ROOT));
+        return new SchemaTableName(schemaName, tableName.getTableNameWithType());
     }
 
     @Override
@@ -120,8 +101,6 @@ public class IcebergTableHandle
         IcebergTableHandle that = (IcebergTableHandle) o;
         return Objects.equals(schemaName, that.schemaName) &&
                 Objects.equals(tableName, that.tableName) &&
-                tableType == that.tableType &&
-                Objects.equals(snapshotId, that.snapshotId) &&
                 snapshotSpecified == that.snapshotSpecified &&
                 Objects.equals(predicate, that.predicate) &&
                 Objects.equals(tableSchemaJson, that.tableSchemaJson);
@@ -130,12 +109,12 @@ public class IcebergTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableType, snapshotId, snapshotSpecified, predicate, tableSchemaJson);
+        return Objects.hash(schemaName, tableName, predicate, snapshotSpecified, tableSchemaJson);
     }
 
     @Override
     public String toString()
     {
-        return getSchemaTableNameWithType() + "@" + snapshotId;
+        return tableName.toString();
     }
 }
