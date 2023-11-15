@@ -22,6 +22,10 @@ an :ref:`order-by-clause` within the aggregate function::
 General Aggregate Functions
 ---------------------------
 
+.. function:: any_value(x) -> [same as input]
+
+    This is an alias for :func:`arbitrary`.
+
 .. function:: arbitrary(x) -> [same as input]
 
     Returns an arbitrary non-null value of ``x``, if one exists.
