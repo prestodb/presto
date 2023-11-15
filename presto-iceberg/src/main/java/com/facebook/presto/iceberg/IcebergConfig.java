@@ -20,6 +20,7 @@ import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.hadoop.HadoopFileIO;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -31,6 +32,9 @@ import java.util.List;
 import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
 
 public class IcebergConfig
 {
@@ -48,7 +52,11 @@ public class IcebergConfig
     private boolean pushdownFilterEnabled;
 
     private HiveStatisticsMergeStrategy hiveStatisticsMergeStrategy = HiveStatisticsMergeStrategy.NONE;
-
+    private String fileIOImpl = HadoopFileIO.class.getName();
+    private boolean manifestCachingEnabled;
+    private long maxManifestCacheSize = IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
+    private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
+    private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
     @NotNull
     public FileFormat getFileFormat()
     {
@@ -225,5 +233,74 @@ public class IcebergConfig
     public boolean isPushdownFilterEnabled()
     {
         return pushdownFilterEnabled;
+    }
+
+    public boolean getManifestCachingEnabled()
+    {
+        return manifestCachingEnabled;
+    }
+
+    @Config("iceberg.io.manifest.cache-enabled")
+    @ConfigDescription("Enable/disable the manifest caching feature")
+    public IcebergConfig setManifestCachingEnabled(boolean manifestCachingEnabled)
+    {
+        this.manifestCachingEnabled = manifestCachingEnabled;
+        return this;
+    }
+
+    public String getFileIOImpl()
+    {
+        return fileIOImpl;
+    }
+
+    @NotNull
+    @Config("iceberg.io-impl")
+    @ConfigDescription("Custom FileIO implementation to use in a catalog")
+    public IcebergConfig setFileIOImpl(String fileIOImpl)
+    {
+        this.fileIOImpl = fileIOImpl;
+        return this;
+    }
+
+    public long getMaxManifestCacheSize()
+    {
+        return maxManifestCacheSize;
+    }
+
+    @Min(1)
+    @Config("iceberg.io.manifest.cache.max-total-bytes")
+    @ConfigDescription("Maximum total amount of bytes to cache in the manifest cache")
+    public IcebergConfig setMaxManifestCacheSize(long maxManifestCacheSize)
+    {
+        this.maxManifestCacheSize = maxManifestCacheSize;
+        return this;
+    }
+
+    public long getManifestCacheExpireDuration()
+    {
+        return manifestCacheExpireDuration;
+    }
+
+    @Min(0)
+    @Config("iceberg.io.manifest.cache.expiration-interval-ms")
+    @ConfigDescription("Maximum duration for which an entry stays in the manifest cache")
+    public IcebergConfig setManifestCacheExpireDuration(long manifestCacheExpireDuration)
+    {
+        this.manifestCacheExpireDuration = manifestCacheExpireDuration;
+        return this;
+    }
+
+    public long getManifestCacheMaxContentLength()
+    {
+        return manifestCacheMaxContentLength;
+    }
+
+    @Min(0)
+    @Config("iceberg.io.manifest.cache.max-content-length")
+    @ConfigDescription("Maximum length of a manifest file to be considered for caching in bytes")
+    public IcebergConfig setManifestCacheMaxContentLength(long manifestCacheMaxContentLength)
+    {
+        this.manifestCacheMaxContentLength = manifestCacheMaxContentLength;
+        return this;
     }
 }
