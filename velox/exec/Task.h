@@ -127,15 +127,6 @@ class Task : public std::enable_shared_from_this<Task> {
   /// nodes require splits and there are not enough of these.
   /// @param concurrentSplitGroups In grouped execution, maximum number of
   /// splits groups processed concurrently.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static void start(
-      std::shared_ptr<Task> self,
-      uint32_t maxDrivers,
-      uint32_t concurrentSplitGroups = 1) {
-    self->start(maxDrivers, concurrentSplitGroups);
-  }
-#endif
-
   void start(uint32_t maxDrivers, uint32_t concurrentSplitGroups = 1);
 
   /// If this returns true, this Task supports the single-threaded execution API

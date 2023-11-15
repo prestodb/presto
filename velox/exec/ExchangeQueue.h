@@ -39,12 +39,6 @@ class SerializedPage {
   // VectorStreamGroup::read().
   ByteInputStream prepareStreamForDeserialize();
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  void prepareStreamForDeserialize(ByteStream* stream) {
-    stream->resetInput(std::move(ranges_));
-  }
-#endif
-
   std::unique_ptr<folly::IOBuf> getIOBuf() const {
     return iobuf_->clone();
   }
@@ -113,16 +107,6 @@ class ExchangeQueue {
   /// size.
   std::vector<std::unique_ptr<SerializedPage>>
   dequeueLocked(uint32_t maxBytes, bool* atEnd, ContinueFuture* future);
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  std::unique_ptr<SerializedPage> dequeueLocked(
-      bool* atEnd,
-      ContinueFuture* future) {
-    auto pages = dequeueLocked(1, atEnd, future);
-    VELOX_CHECK_LE(pages.size(), 1);
-    return pages.empty() ? nullptr : std::move(pages.front());
-  }
-#endif
 
   /// Returns the total bytes held by SerializedPages in 'this'.
   uint64_t totalBytes() const {

@@ -175,21 +175,6 @@ class VectorStreamGroup : public StreamArena {
       RowVectorPtr* result,
       const VectorSerde::Options* options = nullptr);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static void read(
-      ByteStream* source,
-      velox::memory::MemoryPool* pool,
-      RowTypePtr type,
-      RowVectorPtr* result) {
-    VELOX_CHECK(!source->ranges().empty());
-    ByteInputStream inputStream(source->ranges());
-    inputStream.seekp(source->tellp());
-    read(&inputStream, pool, type, result);
-
-    source->seekp(inputStream.tellp());
-  }
-#endif
-
  private:
   std::unique_ptr<VectorSerializer> serializer_;
   VectorSerde* serde_{nullptr};

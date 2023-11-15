@@ -152,10 +152,6 @@ class WriteFileSink final : public FileSink {
 class LocalFileSink : public FileSink {
  public:
   LocalFileSink(const std::string& name, const Options& options);
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  LocalFileSink(const std::string& name, MetricsLogPtr metricLogger)
-      : LocalFileSink(name, {.metricLogger = std::move(metricLogger)}) {}
-#endif
 
   ~LocalFileSink() override {
     destroy();

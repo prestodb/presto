@@ -214,33 +214,6 @@ class ByteInputStream {
 /// seeking back to start to write a length header.
 class ByteStream {
  public:
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  /// For input.
-  ByteStream() : isBits_(false), isReverseBitOrder_(false) {}
-
-  void resetInput(std::vector<ByteRange>&& ranges) {
-    ranges_ = std::move(ranges);
-    current_ = &ranges_[0];
-  }
-
-  template <typename Char>
-  void readBytes(Char* data, int32_t size) {
-    ByteInputStream inputStream(ranges_);
-    inputStream.seekp(tellp());
-    inputStream.readBytes(data, size);
-    seekp(inputStream.tellp());
-  }
-
-  template <typename T>
-  T read() {
-    ByteInputStream inputStream(ranges_);
-    inputStream.seekp(tellp());
-    auto value = inputStream.read<T>();
-    seekp(inputStream.tellp());
-    return value;
-  }
-#endif
-
   /// For output.
   ByteStream(
       StreamArena* arena,
@@ -280,12 +253,6 @@ class ByteStream {
   /// capacities of non-last ranges + the greatest write position of
   /// the last range.
   size_t size() const;
-
-  /// Returns the remaining size left from current reading position.
-  size_t remainingSize() const;
-
-  /// For input. Returns true if all input has been read.
-  bool atEnd() const;
 
   int32_t lastRangeEnd() {
     updateEnd();

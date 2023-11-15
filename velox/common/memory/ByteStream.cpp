@@ -177,37 +177,6 @@ size_t ByteStream::size() const {
   return total + std::max(ranges_.back().position, lastRangeEnd_);
 }
 
-size_t ByteStream::remainingSize() const {
-  if (ranges_.empty()) {
-    return 0;
-  }
-  const auto* lastRange = &ranges_[ranges_.size() - 1];
-  auto cur = current_;
-  size_t total{0};
-  if (cur == lastRange) {
-    total += (std::max(cur->position, lastRangeEnd_) - cur->position);
-  } else {
-    total += cur->size - cur->position;
-  }
-
-  while (++cur <= lastRange) {
-    total += (cur == lastRange) ? lastRangeEnd_ : cur->size;
-  }
-  return total;
-}
-
-bool ByteStream::atEnd() const {
-  if (!current_) {
-    return false;
-  }
-  if (current_->position < current_->size) {
-    return false;
-  }
-
-  VELOX_CHECK(current_ >= ranges_.data() && current_ <= &ranges_.back());
-  return current_ == &ranges_.back();
-}
-
 void ByteStream::appendBool(bool value, int32_t count) {
   if (count == 1 && current_->size > current_->position) {
     bits::setBit(
