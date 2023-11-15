@@ -504,6 +504,7 @@ TEST_P(PrestoExchangeSourceTest, basic) {
   EXPECT_EQ(deltaPool, deltaQueue);
 
   producer->waitForDeleteResults();
+  exchangeCpuExecutor_->stop();
   serverWrapper.stop();
   EXPECT_EQ(pool_->currentBytes(), 0);
 
