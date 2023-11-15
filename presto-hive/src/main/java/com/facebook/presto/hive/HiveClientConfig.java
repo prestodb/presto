@@ -767,11 +767,13 @@ public class HiveClientConfig
         return this;
     }
 
+    @Deprecated
     public boolean isUseOrcColumnNames()
     {
         return useOrcColumnNames;
     }
 
+    @Deprecated
     @Config("hive.orc.use-column-names")
     @ConfigDescription("Access ORC columns using names from the file")
     public HiveClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
