@@ -13,9 +13,11 @@
 # limitations under the License.
 
 import unittest
-from scripts.signature import bias_signatures
+import unittest.mock
+from scripts.signature import bias_signatures, get_error_string
 from pathlib import Path
 import json
+import io
 
 
 def read_from_file(file_path):
@@ -64,6 +66,54 @@ class SignatureTest(unittest.TestCase):
         )
 
         self.assertEqual(bias_functions, "bar=10,foo=10")
+
+    @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
+    def get_bias_messaging(self, base_signatures, contender_signatures, mock_stdout):
+        test_bias(base_signatures, contender_signatures)
+        return mock_stdout.getvalue()
+
+    def assert_messaging(self, base_signatures, contender_signatures, expected_message):
+        test_bias(base_signatures, contender_signatures)
+        actual = self.get_bias_messaging(base_signatures, contender_signatures)
+        expected = get_error_string(expected_message)
+        expected += "\n"  # Add trailing newline for std output.
+        self.assertEquals(expected, actual)
+
+    def test_messaging(self):
+        # Remove a signature
+        self.assert_messaging(
+            """{"reverse": ["(array(T)) -> array(T)"]}""",
+            """{"reverse": []}""",
+            "reverse has its function signature '(array(T)) -> array(T)' removed.\n",
+        )
+
+        # Remove more than one signature
+        self.assert_messaging(
+            """{"reverse": ["(array(T)) -> array(T)", "(varchar) -> varchar"]}""",
+            """{"reverse": []}""",
+            """reverse has its function signature '(array(T)) -> array(T)' removed.\nreverse has its function signature '(varchar) -> varchar' removed.\n""",
+        )
+
+        # Mutate a signature
+        self.assert_messaging(
+            """{"reverse": ["(array(T)) -> array(T)"]}""",
+            """{"reverse": ["(array(T)) -> array(varchar)"]}""",
+            """'reverse(array(T)) -> array(T)' is changed to 'reverse(array(T)) -> array(varchar)'.\n""",
+        )
+
+        # Function repeated
+        self.assert_messaging(
+            """{"reverse": ["(array(T)) -> array(T)"]}""",
+            """{"reverse": ["(array(T)) -> array(T)", "(array(T)) -> array(T)"]}""",
+            "'reverse(array(T)) -> array(T)' is repeated 2 times.\n",
+        )
+
+        # Remove a udf
+        self.assert_messaging(
+            """{"reverse": ["(array(T)) -> array(T)"]}""",
+            """{}""",
+            "Function 'reverse' has been removed.\n",
+        )
 
 
 if __name__ == "__main__":
