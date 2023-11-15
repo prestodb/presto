@@ -143,7 +143,7 @@
         <module>presto-cli</module>
         <module>presto-benchmark-driver</module>
         <module>presto-server</module>
-        <module>presto-docs</module>
+<!--        <module>presto-docs</module>-->
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
         <module>presto-plugin-toolkit</module>
@@ -180,8 +180,8 @@
         <module>presto-clickhouse</module>
         <module>presto-hive-function-namespace</module>
         <module>presto-delta</module>
-        <module>presto-grpc-api</module>
-        <module>presto-grpc-testing-udf-server</module>
+<!--        <module>presto-grpc-api</module>-->
+<!--        <module>presto-grpc-testing-udf-server</module>-->
         <module>presto-lark-sheets</module>
         <module>presto-test-coverage</module>
         <module>presto-hudi</module>
