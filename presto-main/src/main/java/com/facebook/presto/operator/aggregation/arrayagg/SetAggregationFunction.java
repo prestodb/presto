@@ -38,7 +38,11 @@ public class SetAggregationFunction
 
     @InputFunction
     @TypeParameter("T")
-    public static void input(@TypeParameter("T") Type type, @AggregationState SetAggregationState state, @BlockPosition @SqlType("T") @NullablePosition Block block, @BlockIndex int position)
+    public static void input(
+            @TypeParameter("T") Type type,
+            @AggregationState SetAggregationState state,
+            @BlockPosition @SqlType("T") @NullablePosition Block block,
+            @BlockIndex int position)
     {
         SetOfValues set = state.get();
         if (set == null) {
@@ -52,7 +56,9 @@ public class SetAggregationFunction
     }
 
     @CombineFunction
-    public static void combine(@AggregationState SetAggregationState state, @AggregationState SetAggregationState otherState)
+    public static void combine(
+            @AggregationState SetAggregationState state,
+            @AggregationState SetAggregationState otherState)
     {
         if (state.get() != null && otherState.get() != null) {
             SetOfValues otherSet = otherState.get();
@@ -71,7 +77,9 @@ public class SetAggregationFunction
     }
 
     @OutputFunction("array(T)")
-    public static void output(@AggregationState SetAggregationState state, BlockBuilder out)
+    public static void output(
+            @AggregationState SetAggregationState state,
+            BlockBuilder out)
     {
         SetOfValues set = state.get();
         if (set == null) {
