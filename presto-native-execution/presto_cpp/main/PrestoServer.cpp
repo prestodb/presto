@@ -452,9 +452,6 @@ void PrestoServer::run() {
 
   unregisterConnectors();
 
-  PRESTO_SHUTDOWN_LOG(INFO) << "Releasing HTTP connection pools";
-  exchangeSourceConnectionPools_.destroy();
-
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining driver CPU Executor '" << driverExecutor_->getName()
       << "': threads: " << driverExecutor_->numActiveThreads() << "/"
@@ -469,6 +466,9 @@ void PrestoServer::run() {
         << connectorIoExecutor_->numThreads();
     connectorIoExecutor_->join();
   }
+
+  PRESTO_SHUTDOWN_LOG(INFO) << "Releasing HTTP connection pools";
+  exchangeSourceConnectionPools_.destroy();
 
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining exchange Http executor '" << exchangeHttpExecutor_->getName()
