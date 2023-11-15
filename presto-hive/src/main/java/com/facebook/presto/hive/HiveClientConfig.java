@@ -767,6 +767,7 @@ public class HiveClientConfig
         return this;
     }
 
+    @Deprecated
     public boolean isUseOrcColumnNames()
     {
         return useOrcColumnNames;
