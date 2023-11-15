@@ -18,6 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
@@ -30,6 +31,7 @@ import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
@@ -51,15 +53,20 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
@@ -83,12 +90,17 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 
+import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -125,8 +137,10 @@ import static com.facebook.presto.hive.benchmark.FileFormat.createPageSource;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.readSerializedPages;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -309,9 +323,11 @@ public class ParquetTester
             throws Exception
     {
         // just the values
+        System.out.println("Test read write values");
         testRoundTripType(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, singleLevelArray);
 
         // all nulls
+        System.out.println("Test read write all nulls");
         assertRoundTrip(objectInspectors, transformToNulls(writeValues), transformToNulls(readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
     }
 
@@ -326,15 +342,19 @@ public class ParquetTester
             throws Exception
     {
         // forward order
+        System.out.println("Test forward order");
         assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, singleLevelArray);
 
         // reverse order
+        System.out.println("Test reverse order");
         assertRoundTrip(objectInspectors, reverse(writeValues), reverse(readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
 
         // forward order with nulls
+        System.out.println("Test forward order with nulls");
         assertRoundTrip(objectInspectors, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
 
         // reverse order with nulls
+        System.out.println("Test reverse order with nulls");
         assertRoundTrip(objectInspectors, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), columnNames, columnTypes, parquetSchema, singleLevelArray);
     }
 
@@ -377,10 +397,10 @@ public class ParquetTester
                                 getIterators(writeValues),
                                 parquetSchema,
                                 singleLevelArray);
-                        assertFileContents(
+                        assertContents(
                                 session,
                                 tempFile.getFile(),
-                                getIterators(readValues),
+                                readValues,
                                 columnNames,
                                 columnTypes);
                     }
@@ -396,10 +416,10 @@ public class ParquetTester
                         OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
                         checkState(min.isPresent());
                         writeParquetFileFromPresto(tempFile.getFile(), columnTypes, columnNames, readValues, min.getAsInt(), compressionCodecName, version);
-                        assertFileContents(
+                        assertContents(
                                 session,
                                 tempFile.getFile(),
-                                getIterators(readValues),
+                                readValues,
                                 columnNames,
                                 columnTypes);
                     }
@@ -433,10 +453,10 @@ public class ParquetTester
                                 getStandardStructObjectInspector(columnNames, objectInspectors),
                                 getIterators(writeValues),
                                 parquetSchema);
-                        assertFileContents(
+                        assertContents(
                                 session,
                                 tempFile.getFile(),
-                                getIterators(readValues),
+                                readValues,
                                 columnNames,
                                 columnTypes);
                     }
@@ -512,6 +532,38 @@ public class ParquetTester
         }
     }
 
+    private static void assertContents(
+            ConnectorSession session,
+            File dataFile,
+            Iterable<?>[] expectedValues,
+            List<String> columnNames,
+            List<Type> columnTypes)
+            throws IOException, InterruptedException
+    {
+        // original test
+        assertFileContents(
+                session,
+                dataFile,
+                getIterators(expectedValues),
+                columnNames,
+                columnTypes);
+
+        // test velox parquet reader
+        try {
+            assertNativeReaderFileContents(
+                    session,
+                    dataFile,
+                    getIterators(expectedValues),
+                    columnNames,
+                    columnTypes);
+        }
+        catch (AssertionError e) {
+            // optional to print out expected values for debugging
+            //printValue(getIterators(expectedValues));
+            throw e;
+        }
+    }
+
     private static void assertFileContents(
             ConnectorSession session,
             File dataFile,
@@ -536,9 +588,93 @@ public class ParquetTester
         }
     }
 
+    private static void assertNativeReaderFileContents(
+            ConnectorSession session,
+            File dataFile,
+            Iterator<?>[] expectedValues,
+            List<String> columnNames,
+            List<Type> columnTypes)
+            throws IOException, InterruptedException
+    {
+        try (ConnectorPageSource pageSource = getFileFormat().createFileFormatReader(
+                session,
+                HDFS_ENVIRONMENT,
+                dataFile,
+                columnNames,
+                columnTypes); TempFile tempFile = new TempFile("native_parquet_reader_test", "parquet")) {
+            if (pageSource instanceof RecordPageSource) {
+                throw new IllegalStateException("not sure record page source is still used");
+            }
+            else {
+                String veloxParquetReaderPath = System.getProperty("velox_parquet_reader_path");
+                checkNotNull(veloxParquetReaderPath, "velox_parquet_reader_path is null. Set -Dvelox_parquet_reader_path=<path to velox-parquet-reader>");
+                String inputPath = dataFile.getAbsolutePath();
+
+                assertFalse(tempFile.getFile().exists());
+                assertTrue(tempFile.getFile().createNewFile());
+                String outputPath = tempFile.getFile().getAbsolutePath();
+
+                ProcessBuilder processBuilder = new ProcessBuilder(veloxParquetReaderPath, inputPath, outputPath);
+                processBuilder.redirectErrorStream(true);
+                Process process = processBuilder.start();
+
+                InputStream inputStream = process.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println(line);
+                }
+                int exitCode = process.waitFor();
+
+                try {
+                    assertEquals(exitCode, 0, "exitCode should be 0");
+                    List<SerializedPage> serializedPages = getSerializedPagesFrom(outputPath);
+                    PageConnectorPageSource pageConnectorPageSource = new PageConnectorPageSource(serializedPages);
+                    assertPageSource(columnTypes, expectedValues, pageConnectorPageSource);
+                    assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
+                    assertTrue(tempFile.getFile().delete());
+                }
+                catch (AssertionError e) {
+                    String failedParquetFilesDir = System.getProperty("failed_parquet_files_dir");
+                    if (failedParquetFilesDir != null) {
+                        System.out.println("Trying to copy test file to " + failedParquetFilesDir);
+                        java.nio.file.Path path = Paths.get(failedParquetFilesDir);
+                        Files.createDirectories(path);
+
+                        Preconditions.checkState(dataFile.exists(), "dataFile doesn't exist: " + dataFile.getAbsolutePath());
+                        Files.copy(dataFile.toPath(), Paths.get(failedParquetFilesDir + "/" + tempFile.getFile().getName()));
+                        System.out.println(String.format("Succeeded to copy test file %s to %s", dataFile.getAbsolutePath(), failedParquetFilesDir));
+                    }
+                    throw e;
+                }
+            }
+        }
+    }
+
+    private static List<SerializedPage> getSerializedPagesFrom(String fileName)
+            throws IOException
+    {
+        try (SliceInput input = new InputStreamSliceInput(Files.newInputStream(Paths.get(fileName)))) {
+            return ImmutableList.copyOf(readSerializedPages(input));
+        }
+    }
+
     private static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource)
     {
         assertPageSource(types, valuesByField, pageSource, Optional.empty());
+    }
+
+    protected static void printValue(Iterator<?>[] valuesByField)
+    {
+        int position = 0;
+        while (stream(valuesByField).allMatch(Iterator::hasNext)) {
+            List<Object> output = new ArrayList<>();
+            for (int field = 0; field < valuesByField.length; field++) {
+                output.add(valuesByField[field].next());
+            }
+            System.out.println("position " + position + ": " + output);
+            position++;
+        }
     }
 
     private static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource, Optional<Long> maxReadBlockSize)
@@ -766,7 +902,7 @@ public class ParquetTester
         }
     }
 
-    private Iterator<?>[] getIterators(Iterable<?>[] values)
+    private static Iterator<?>[] getIterators(Iterable<?>[] values)
     {
         return stream(values).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);
     }
@@ -978,6 +1114,71 @@ public class ParquetTester
                     throw new IllegalArgumentException("Unsupported type " + type);
                 }
             }
+        }
+    }
+
+    // A test page source that data is from serialized pages
+    static class PageConnectorPageSource
+            implements ConnectorPageSource
+    {
+
+        private final List<SerializedPage> serializedPages;
+        private final Iterator<SerializedPage> iterator;
+        private final PagesSerde pagesSerde;
+
+        public PageConnectorPageSource(List<SerializedPage> serializedPages)
+        {
+            BlockEncodingManager blockEncodingSerde = new BlockEncodingManager();
+            this.pagesSerde = new PagesSerdeFactory(blockEncodingSerde, false, false).createPagesSerde();
+            this.serializedPages = serializedPages;
+            this.iterator = serializedPages.iterator();
+        }
+
+        @Override
+        public long getCompletedBytes()
+        {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        public long getCompletedPositions()
+        {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        public long getReadTimeNanos()
+        {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return !iterator.hasNext();
+        }
+
+        @Override
+        public Page getNextPage()
+        {
+            if (iterator.hasNext()) {
+                SerializedPage next = iterator.next();
+                return pagesSerde.deserialize(next);
+            }
+            return null;
+        }
+
+        @Override
+        public long getSystemMemoryUsage()
+        {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+
         }
     }
 
