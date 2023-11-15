@@ -36,12 +36,14 @@ import java.util.concurrent.ExecutionException;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNessieReferenceHash;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNessieReferenceName;
+import static com.facebook.presto.iceberg.IcebergUtil.loadCachingProperties;
 import static com.facebook.presto.iceberg.nessie.AuthenticationType.BASIC;
 import static com.facebook.presto.iceberg.nessie.AuthenticationType.BEARER;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
 
 /**
@@ -58,11 +60,13 @@ public class IcebergResourceFactory
     private final NessieConfig nessieConfig;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
 
+    private final IcebergConfig icebergConfig;
+
     @Inject
     public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig, S3ConfigurationUpdater s3ConfigurationUpdater)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
-        requireNonNull(config, "config is null");
+        this.icebergConfig = requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
         this.catalogWarehouse = config.getCatalogWarehouse();
         this.hadoopConfigResources = config.getHadoopConfigResources();
@@ -132,6 +136,12 @@ public class IcebergResourceFactory
     public Map<String, String> getCatalogProperties(ConnectorSession session)
     {
         Map<String, String> properties = new HashMap<>();
+        if (icebergConfig.getManifestCachingEnabled()) {
+            loadCachingProperties(properties, icebergConfig);
+        }
+        if (icebergConfig.getFileIOImpl() != null) {
+            properties.put(FILE_IO_IMPL, icebergConfig.getFileIOImpl());
+        }
         if (catalogWarehouse != null) {
             properties.put(WAREHOUSE_LOCATION, catalogWarehouse);
         }
