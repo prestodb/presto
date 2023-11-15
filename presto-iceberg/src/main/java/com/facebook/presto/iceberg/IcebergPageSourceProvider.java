@@ -38,6 +38,7 @@ import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.hive.orc.OrcBatchPageSource;
 import com.facebook.presto.hive.orc.ProjectionBasedDwrfKeyProvider;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
+import com.facebook.presto.iceberg.changelog.ChangelogPageSource;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.PositionDeleteFilter;
@@ -699,7 +700,7 @@ public class IcebergPageSourceProvider
             ConnectorSession session,
             ConnectorSplit connectorSplit,
             ConnectorTableLayoutHandle layout,
-            List<ColumnHandle> columns,
+            List<ColumnHandle> desiredColumns,
             SplitContext splitContext)
     {
         IcebergTableLayoutHandle icebergLayout = (IcebergTableLayoutHandle) layout;
@@ -709,6 +710,11 @@ public class IcebergPageSourceProvider
 
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = icebergLayout.getTable();
+
+        List<ColumnHandle> columns = desiredColumns;
+        if (split.getChangelogSplitInfo().isPresent()) {
+            columns = (List<ColumnHandle>) (List<?>) split.getChangelogSplitInfo().get().getIcebergColumns();
+        }
 
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
@@ -731,7 +737,7 @@ public class IcebergPageSourceProvider
                 .forEach(regularColumns::add);
 
         // TODO: pushdownFilter for icebergLayout
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName().getTableName());
         ConnectorPageSourceWithRowPositions connectorPageSourceWithRowPositions = createDataPageSource(
                 session,
                 hdfsContext,
@@ -757,7 +763,11 @@ public class IcebergPageSourceProvider
                     .reduce(RowPredicate::and);
         });
 
-        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, deletePredicate);
+        ConnectorPageSource dataSource = new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, deletePredicate);
+        if (split.getChangelogSplitInfo().isPresent()) {
+            dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
+        }
+        return dataSource;
     }
 
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)

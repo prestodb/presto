@@ -79,6 +79,7 @@ import static com.facebook.presto.iceberg.Partition.toMap;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Long.parseLong;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
@@ -106,7 +107,7 @@ public class TableStatisticsMaker
 
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
     {
-        if (!tableHandle.getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
+        if (!tableHandle.getTableName().getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
@@ -140,7 +141,7 @@ public class TableStatisticsMaker
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(intersection))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
-                .useSnapshot(tableHandle.getSnapshotId().get())
+                .useSnapshot(tableHandle.getTableName().getSnapshotId().get())
                 .includeColumnStats();
 
         Partition summary = null;
@@ -217,7 +218,7 @@ public class TableStatisticsMaker
 
     private void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
-        Snapshot snapshot = tableHandle.getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
+        Snapshot snapshot = tableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
         if (snapshot == null) {
             // this may occur if the table has not been written to.
             return;
@@ -331,7 +332,7 @@ public class TableStatisticsMaker
 
     private Optional<StatisticsFile> getClosestStatisticsFileForSnapshot(IcebergTableHandle handle)
     {
-        Snapshot target = handle.getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
+        Snapshot target = handle.getTableName().getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
         return icebergTable.statisticsFiles()
                 .stream()
                 .min((first, second) -> {
@@ -381,7 +382,7 @@ public class TableStatisticsMaker
             Optional.ofNullable(blob.properties().get(ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY))
                     .ifPresent(ndvProp -> {
                         try {
-                            long ndv = Long.parseLong(ndvProp);
+                            long ndv = parseLong(ndvProp);
                             colStats.setDistinctValuesCount(Estimate.of(ndv));
                         }
                         catch (NumberFormatException e) {

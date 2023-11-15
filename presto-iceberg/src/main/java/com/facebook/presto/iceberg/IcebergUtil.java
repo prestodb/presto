@@ -27,6 +27,7 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HivePartition;
+import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ColumnHandle;
@@ -41,6 +42,8 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.ContentScanTask;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
@@ -58,6 +61,7 @@ import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.SnapshotUtil;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -67,6 +71,8 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -212,6 +218,11 @@ public final class IcebergUtil
             }
             return name.getSnapshotId();
         }
+
+        if (name.getTableType() == TableType.CHANGELOG) {
+            return Optional.ofNullable(SnapshotUtil.oldestAncestor(table)).map(Snapshot::snapshotId);
+        }
+
         return tryGetCurrentSnapshot(table).map(Snapshot::snapshotId);
     }
 
@@ -519,7 +530,7 @@ public final class IcebergUtil
             Constraint<ColumnHandle> constraint,
             List<IcebergColumnHandle> partitionColumns)
     {
-        IcebergTableName name = IcebergTableName.from(((IcebergTableHandle) tableHandle).getTableName());
+        IcebergTableName name = ((IcebergTableHandle) tableHandle).getTableName();
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(constraint.getSummary().simplify().transform(IcebergColumnHandle.class::cast)))
                 .useSnapshot(resolveSnapshotIdByName(icebergTable, name).get());
@@ -667,5 +678,38 @@ public final class IcebergUtil
         }
         // Iceberg tables don't partition by non-primitive-type columns.
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
+    }
+
+    public static Map<Integer, HivePartitionKey> getPartitionKeys(ContentScanTask<DataFile> scanTask)
+    {
+        StructLike partition = scanTask.file().partition();
+        PartitionSpec spec = scanTask.spec();
+        Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
+        Map<Integer, HivePartitionKey> partitionKeys = new HashMap<>();
+
+        fieldToIndex.forEach((field, index) -> {
+            int id = field.sourceId();
+            String colName = field.name();
+            org.apache.iceberg.types.Type type = spec.schema().findType(id);
+            Class<?> javaClass = type.typeId().javaClass();
+            Object value = partition.get(index, javaClass);
+
+            if (value == null) {
+                partitionKeys.put(id, new HivePartitionKey(colName, Optional.empty()));
+            }
+            else {
+                HivePartitionKey partitionValue;
+                if (type.typeId() == FIXED || type.typeId() == BINARY) {
+                    // this is safe because Iceberg PartitionData directly wraps the byte array
+                    partitionValue = new HivePartitionKey(colName, Optional.of(Base64.getEncoder().encodeToString(((ByteBuffer) value).array())));
+                }
+                else {
+                    partitionValue = new HivePartitionKey(colName, Optional.of(value.toString()));
+                }
+                partitionKeys.put(id, partitionValue);
+            }
+        });
+
+        return Collections.unmodifiableMap(partitionKeys);
     }
 }
