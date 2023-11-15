@@ -47,17 +47,17 @@ class GenericInPredicate : public exec::VectorFunction {
         return;
       }
 
-      const auto valueBaseRow = value->index(row);
-      if (valueBase->containsNullAt(valueBaseRow)) {
-        boolResult->setNull(row, true);
-        return;
-      }
-
       const auto arrayRow = inList->index(row);
       const auto offset = inListBaseArray->offsetAt(arrayRow);
       const auto size = inListBaseArray->sizeAt(arrayRow);
 
       VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
+
+      const auto valueBaseRow = value->index(row);
+      if (valueBase->containsNullAt(valueBaseRow)) {
+        boolResult->setNull(row, true);
+        return;
+      }
 
       bool hasNull = false;
       for (auto i = 0; i < size; ++i) {

@@ -975,5 +975,56 @@ TEST_F(InPredicateTest, nonConstantInList) {
   assertEqualVectors(expected, result, rows);
 }
 
+TEST_F(InPredicateTest, nonConstantComplexInList) {
+  auto data = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "null",
+          "[1, null, 3]",
+          "[1, null, 3]",
+          "[1, 2, 3]",
+      }),
+      makeArrayVector(
+          {0, 1, 1, 1},
+          makeArrayVectorFromJson<int32_t>({
+              "[1, 2, 3]",
+              "[1, 2, 3]",
+          }),
+          {1}),
+  });
+
+  auto expected = makeNullableFlatVector<bool>({
+      std::nullopt, // Input is null
+      std::nullopt, // in-list is null
+      std::nullopt, // in-list is empty
+      true,
+  });
+
+  auto in = std::make_shared<core::CallTypedExpr>(
+      BOOLEAN(),
+      std::vector<core::TypedExprPtr>{
+          field(ARRAY(INTEGER()), "c0"),
+          field(ARRAY(ARRAY(INTEGER())), "c1"),
+      },
+      "in");
+
+  auto tryIn = std::make_shared<core::CallTypedExpr>(
+      BOOLEAN(), std::vector<core::TypedExprPtr>{in}, "try");
+
+  // Evaluate "in" on all rows. Expect an error.
+  VELOX_ASSERT_THROW(evaluate(in, data), "IN list must not be empty");
+
+  // Evaluate "try(in)" on all rows.
+  auto result = evaluate(tryIn, data);
+  assertEqualVectors(expected, result);
+
+  // Evaluate "in" on a subset of rows that should not generate an error.
+  SelectivityVector rows(data->size());
+  rows.setValid(2, false);
+  rows.updateBounds();
+
+  result = evaluate(in, data, rows);
+  assertEqualVectors(expected, result, rows);
+}
+
 } // namespace
 } // namespace facebook::velox::functions
