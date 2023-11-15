@@ -41,7 +41,6 @@ public class IcebergHiveMetadataFactory
 
     @Inject
     public IcebergHiveMetadataFactory(
-            IcebergConfig config,
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
@@ -59,7 +58,6 @@ public class IcebergHiveMetadataFactory
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
-        requireNonNull(config, "config is null");
     }
 
     public ConnectorMetadata create()
