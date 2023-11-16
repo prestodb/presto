@@ -442,14 +442,14 @@ DwrfRowReader::prefetchUnits() {
 
 DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
   FetchStatus prevStatus;
-  stripeLoadStatuses_.withWLock([&](auto& loadRequestIssued) {
-    if (stripeIndex < 0 || stripeIndex >= loadRequestIssued.size()) {
+  stripeLoadStatuses_.withWLock([&](auto& stripeLoadStatus) {
+    if (stripeIndex < 0 || stripeIndex >= stripeLoadStatus.size()) {
       prevStatus = FetchStatus::ERROR;
     }
 
-    prevStatus = loadRequestIssued[stripeIndex];
+    prevStatus = stripeLoadStatus[stripeIndex];
     if (prevStatus == FetchStatus::NOT_STARTED) {
-      loadRequestIssued[stripeIndex] = FetchStatus::IN_PROGRESS;
+      stripeLoadStatus[stripeIndex] = FetchStatus::IN_PROGRESS;
     }
   });
 
