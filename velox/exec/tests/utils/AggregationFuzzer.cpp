@@ -195,6 +195,13 @@ class AggregationFuzzer {
       std::vector<std::string>& names,
       std::vector<TypePtr>& types);
 
+  // Similar to generateKeys, but restricts types to orderable types (i.e. no
+  // maps).
+  std::vector<std::string> generateSortingKeys(
+      const std::string& prefix,
+      std::vector<std::string>& names,
+      std::vector<TypePtr>& types);
+
   struct SignatureStats {
     /// Number of times a signature was chosen.
     size_t numRuns{0};
@@ -657,6 +664,22 @@ std::vector<std::string> AggregationFuzzer::generateKeys(
   return keys;
 }
 
+std::vector<std::string> AggregationFuzzer::generateSortingKeys(
+    const std::string& prefix,
+    std::vector<std::string>& names,
+    std::vector<TypePtr>& types) {
+  auto numKeys = boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
+  std::vector<std::string> keys;
+  for (auto i = 0; i < numKeys; ++i) {
+    keys.push_back(fmt::format("{}{}", prefix, i));
+
+    // Pick random, possibly complex, type.
+    types.push_back(vectorFuzzer_.randOrderableType(2));
+    names.push_back(keys.back());
+  }
+  return keys;
+}
+
 std::shared_ptr<InputGenerator> AggregationFuzzer::findInputGenerator(
     const CallableSignature& signature) {
   auto generatorIt = customInputGenerators_.find(signature.name);
@@ -828,7 +851,7 @@ void AggregationFuzzer::go() {
         ++stats_.numWindow;
 
         auto partitionKeys = generateKeys("p", argNames, argTypes);
-        auto sortingKeys = generateKeys("s", argNames, argTypes);
+        auto sortingKeys = generateSortingKeys("s", argNames, argTypes);
         auto input =
             generateInputDataWithRowNumber(argNames, argTypes, signature);
 
