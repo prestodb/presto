@@ -14,6 +14,8 @@
 
 namespace cpp2 facebook.presto.thrift
 
+include "thrift/annotation/cpp.thrift"
+
 enum TaskState {
   PLANNED = 0,
   RUNNING = 1,
@@ -74,7 +76,8 @@ struct ErrorCode {
 struct ExecutionFailureInfo {
   1: string type;
   2: string message;
-  3: optional ExecutionFailureInfo cause (cpp.ref_type = "shared");
+  @cpp.Ref{type = cpp.RefType.SharedMutable}
+  3: optional ExecutionFailureInfo cause;
   4: list<ExecutionFailureInfo> suppressed;
   5: list<string> stack;
   6: ErrorLocation errorLocation;
