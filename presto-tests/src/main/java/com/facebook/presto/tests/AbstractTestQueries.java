@@ -7173,6 +7173,11 @@ public abstract class AbstractTestQueries
                 "values ('+1')");
         assertQuery(session, "select transform(col1, x -> if(x, col2[2], 0)) from (values (array[false], array[0])) t(col1, col2)", "values array[0]");
         assertQuery(session, "select transform(arr1, x -> arr2[2]) from (values (array[], array[0])) t(arr1, arr2)", "values array[]");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> (x LIKE CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> x LIKE CONCAT('a', b)) FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(random() AS VARCHAR) AS b )", "values (false, array[])");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> regexp_like(x, CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> regexp_like(x, CONCAT('a', b))) FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(random() AS VARCHAR) AS b )", "values (false, array[])");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> (x LIKE CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> x LIKE CONCAT('a', b)) FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(1 AS VARCHAR) AS b )", "values (false, array[])");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> regexp_like(x, CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> regexp_like(x, CONCAT('a', b))) FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(1 AS VARCHAR) AS b )", "values (false, array[])");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> (x LIKE CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> x LIKE CONCAT('a', b) ESCAPE '#') FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(random() AS VARCHAR) AS b )", "values (false, array[])");
     }
 
     @Test

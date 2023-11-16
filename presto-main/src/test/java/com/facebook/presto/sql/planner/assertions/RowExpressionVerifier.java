@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -93,6 +94,8 @@ import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpres
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.AND;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
+import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
+import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -550,6 +553,12 @@ public final class RowExpressionVerifier
     @Override
     protected Boolean visitSymbolReference(SymbolReference expected, RowExpression actual)
     {
+        // LIKE will add a cast from VARCHAR to LIKE_PATTERN. However, LIKE_PATTERN is not a data type and can not add a cast(varchar as like_pattern) in test
+        // Hence match the cast argument here
+        if (actual instanceof CallExpression && functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle()) &&
+                (actual.getType().equals(LIKE_PATTERN) || actual.getType().equals(JONI_REGEXP))) {
+            actual = ((CallExpression) actual).getArguments().get(0);
+        }
         if (!(actual instanceof VariableReferenceExpression)) {
             return false;
         }
@@ -638,6 +647,19 @@ public final class RowExpressionVerifier
     protected Boolean visitNullLiteral(NullLiteral node, RowExpression actual)
     {
         return actual instanceof ConstantExpression && ((ConstantExpression) actual).getValue() == null;
+    }
+
+    @Override
+    protected Boolean visitLikePredicate(LikePredicate node, RowExpression actual)
+    {
+        if (!(actual instanceof CallExpression)) {
+            return false;
+        }
+        CallExpression callExpression = (CallExpression) actual;
+        if (!functionResolution.isLikeFunction(callExpression.getFunctionHandle())) {
+            return false;
+        }
+        return process(node.getValue(), callExpression.getArguments().get(0)) && process(node.getPattern(), callExpression.getArguments().get(1));
     }
 
     private <T extends Node> boolean process(List<T> expecteds, List<RowExpression> actuals)

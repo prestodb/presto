@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -36,6 +37,8 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.joni.Regex;
+import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Map;
@@ -209,6 +212,7 @@ public class PullUpExpressionInLambdaRules
     {
         // Bind expression will complicate the lambda expression, we apply this optimization before DesugarLambdaRule. And if there are bind expression, skip
         private static final List<SpecialFormExpression.Form> UNSUPPORTED_TYPES = ImmutableList.of(SpecialFormExpression.Form.BIND);
+        private static final List<Class<?>> SUPPORTED_JAVA_TYPES = ImmutableList.of(boolean.class, long.class, double.class, Slice.class, Block.class);
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final FunctionResolution functionResolution;
         private final List<VariableReferenceExpression> inputVariables;
@@ -239,8 +243,9 @@ public class PullUpExpressionInLambdaRules
                 if (!allArgumentsValid) {
                     candidates.addAll(validRowExpressionMap.entrySet().stream()
                             .filter(x -> x.getValue().equals(Boolean.TRUE))
-                            .filter(x -> isSupportedExpression(x.getKey()))
                             .map(Map.Entry::getKey)
+                            .map(x -> getArgumentForRegexTypeExpression(x))
+                            .filter(ValidExpressionExtractor::isSupportedExpression)
                             .collect(toImmutableList()));
                 }
                 return allArgumentsValid && determinismEvaluator.isDeterministic(call);
@@ -272,6 +277,19 @@ public class PullUpExpressionInLambdaRules
                 return getArgumentOfWhen(((SpecialFormExpression) expression).getArguments().get(0));
             }
             return expression;
+        }
+
+        // If the input is a CAST expression to cast to JoniRegexType or LikePatternType (underlying Java type is Regex.class) or is a like_pattern function, return the argument
+        // Still return even if it's not a cast/like_pattern expression, as these types will be filtered by the isSupportedExpression later
+        private RowExpression getArgumentForRegexTypeExpression(RowExpression rowExpression)
+        {
+            if (rowExpression.getType().getJavaType() == Regex.class && rowExpression instanceof CallExpression
+                    && (functionResolution.isCastFunction(((CallExpression) rowExpression).getFunctionHandle())
+                    || functionResolution.isLikePatternFunction(((CallExpression) rowExpression).getFunctionHandle()))) {
+                CallExpression castExpression = (CallExpression) rowExpression;
+                return getArgumentForRegexTypeExpression(castExpression.getArguments().get(0));
+            }
+            return rowExpression;
         }
 
         @Override
@@ -326,9 +344,11 @@ public class PullUpExpressionInLambdaRules
         }
 
         // WHEN expression should only exist within SWITCH expression, and will throw exception in RowExpressionInterpreter, also no byte code generator for standalone WHEN expression
+        // Pull out LikePatternType and JoniRegexpType out can lead to byte code generation failure because of the underlying Regex type.
         private static boolean isSupportedExpression(RowExpression expression)
         {
-            return expression instanceof CallExpression || (expression instanceof SpecialFormExpression && !((SpecialFormExpression) expression).getForm().equals(SpecialFormExpression.Form.WHEN));
+            return (expression instanceof CallExpression || (expression instanceof SpecialFormExpression && !((SpecialFormExpression) expression).getForm().equals(SpecialFormExpression.Form.WHEN)))
+                    && SUPPORTED_JAVA_TYPES.contains(expression.getType().getJavaType());
         }
     }
 

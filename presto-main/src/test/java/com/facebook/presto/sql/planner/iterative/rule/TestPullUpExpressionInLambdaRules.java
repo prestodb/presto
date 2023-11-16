@@ -321,4 +321,50 @@ public class TestPullUpExpressionInLambdaRules
                             p.values(p.variable("col1", new ArrayType(BOOLEAN)), p.variable("col2", new ArrayType(BIGINT)), p.variable("col3")));
                 }).doesNotFire();
     }
+
+    @Test
+    public void testLikeExpression()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("expr", new ArrayType(BOOLEAN));
+                    p.variable("col", VARCHAR);
+                    p.variable("arr1", new ArrayType(VARCHAR));
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", new ArrayType(BOOLEAN)), p.rowExpression("transform(arr1, x-> x like concat(col, 'a'))")).build(),
+                            p.values(p.variable("arr1", new ArrayType(VARCHAR)), p.variable("col", VARCHAR)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("expr", expression("transform(arr1, x -> x like concat_1)")),
+                                project(
+
+                                        ImmutableMap.of("concat_1", expression("concat(col, 'a')")),
+                                        values("arr1", "col"))));
+    }
+
+    @Test
+    public void testRegexpLikeExpression()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("expr", new ArrayType(BOOLEAN));
+                    p.variable("col", VARCHAR);
+                    p.variable("arr1", new ArrayType(VARCHAR));
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", new ArrayType(BOOLEAN)), p.rowExpression("transform(arr1, x-> regexp_like(x, concat(col, 'a')))")).build(),
+                            p.values(p.variable("arr1", new ArrayType(VARCHAR)), p.variable("col", VARCHAR)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("expr", expression("transform(arr1, x -> regexp_like(x, concat_1))")),
+                                project(
+
+                                        ImmutableMap.of("concat_1", expression("concat(col, 'a')")),
+                                        values("arr1", "col"))));
+    }
 }
