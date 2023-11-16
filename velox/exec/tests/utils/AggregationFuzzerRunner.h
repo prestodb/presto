@@ -91,6 +91,9 @@ class AggregationFuzzerRunner {
     /// transformation applies function 'f' to aggregation result.
     std::unordered_map<std::string, std::string> customVerificationFunctions;
 
+    std::unordered_map<std::string, std::shared_ptr<InputGenerator>>
+        customInputGenerators;
+
     /// Timestamp precision to use when generating inputs of type TIMESTAMP.
     VectorFuzzer::Options::TimestampPrecision timestampPrecision{
         VectorFuzzer::Options::TimestampPrecision::kNanoSeconds};
@@ -144,6 +147,7 @@ class AggregationFuzzerRunner {
         filteredSignatures,
         seed,
         options.customVerificationFunctions,
+        options.customInputGenerators,
         options.timestampPrecision,
         options.queryConfigs,
         planPath,

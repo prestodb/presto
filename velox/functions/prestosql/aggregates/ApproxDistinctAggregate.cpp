@@ -348,17 +348,32 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     decodedValue_.decode(*args[0], rows, true);
     if (args.size() > 1) {
       decodedMaxStandardError_.decode(*args[1], rows, true);
-      checkSetMaxStandardError();
+      checkSetMaxStandardError(rows);
     }
   }
 
-  void checkSetMaxStandardError() {
-    VELOX_USER_CHECK(
-        decodedMaxStandardError_.isConstantMapping(),
-        "Max standard error argument must be constant for all input rows");
+  void checkSetMaxStandardError(const SelectivityVector& rows) {
+    if (decodedMaxStandardError_.isConstantMapping()) {
+      const auto maxStandardError = decodedMaxStandardError_.valueAt<double>(0);
+      checkSetMaxStandardError(maxStandardError);
+      return;
+    }
 
-    auto maxStandardError = decodedMaxStandardError_.valueAt<double>(0);
-    checkSetMaxStandardError(maxStandardError);
+    rows.applyToSelected([&](auto row) {
+      VELOX_USER_CHECK(
+          !decodedMaxStandardError_.isNullAt(row),
+          "Max standard error cannot be null");
+      const auto maxStandardError =
+          decodedMaxStandardError_.valueAt<double>(row);
+      if (maxStandardError_ == -1) {
+        checkSetMaxStandardError(maxStandardError);
+      } else {
+        VELOX_USER_CHECK_EQ(
+            maxStandardError,
+            maxStandardError_,
+            "Max standard error argument must be constant for all input rows");
+      }
+    });
   }
 
   void checkSetMaxStandardError(double error) {
