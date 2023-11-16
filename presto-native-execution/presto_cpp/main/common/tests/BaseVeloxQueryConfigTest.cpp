@@ -25,7 +25,7 @@ using namespace velox::core;
 
 class BaseVeloxQueryConfigTest : public testing::Test {
  protected:
-  void setUpConfigFile(bool isMutable) {
+  void setUpConfigFile(bool isMutable, bool setupSystemConfig = false) {
     velox::filesystems::registerLocalFileSystem();
 
     char path[] = "/tmp/base_velox_query_config_test_XXXXXX";
@@ -35,6 +35,19 @@ class BaseVeloxQueryConfigTest : public testing::Test {
     }
     configFilePath = tempDirectoryPath;
     configFilePath += "/velox.properties";
+    systemConfigFilePath = tempDirectoryPath;
+    systemConfigFilePath += "/config.properties";
+
+    if (setupSystemConfig) {
+      auto fileSystem =
+          filesystems::getFileSystem(systemConfigFilePath, nullptr);
+      auto systemConfigFile =
+          fileSystem->openFileForWrite(systemConfigFilePath);
+      systemConfigFile->append(
+          fmt::format("{}=true\n", SystemConfig::kUseLegacyArrayAgg));
+      systemConfigFile->close();
+      SystemConfig::instance()->initialize(systemConfigFilePath);
+    }
 
     auto fileSystem = filesystems::getFileSystem(configFilePath, nullptr);
     auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
@@ -50,6 +63,7 @@ class BaseVeloxQueryConfigTest : public testing::Test {
   }
 
   std::string configFilePath;
+  std::string systemConfigFilePath;
   const std::string tzPropName{QueryConfig::kSessionTimezone};
 };
 
@@ -91,6 +105,18 @@ TEST_F(BaseVeloxQueryConfigTest, mutableConfig) {
   ASSERT_EQ(
       folly::Optional<std::string>{"TZ1"},
       ret = cfg->optionalProperty(tzPropName));
+}
+
+TEST_F(BaseVeloxQueryConfigTest, fromSystemConfig) {
+  auto cfg = BaseVeloxQueryConfig::instance();
+  ASSERT_FALSE(cfg->optionalProperty<bool>(
+                      std::string(QueryConfig::kPrestoArrayAggIgnoreNulls))
+                   .value());
+  setUpConfigFile(true, true);
+  cfg->initialize(configFilePath);
+  ASSERT_TRUE(cfg->optionalProperty<bool>(
+                     std::string(QueryConfig::kPrestoArrayAggIgnoreNulls))
+                  .value());
 }
 
 } // namespace facebook::presto::test

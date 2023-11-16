@@ -25,17 +25,13 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
   UnsafeRowExchangeSource(
       const std::string& taskId,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       const std::shared_ptr<ShuffleReader>& shuffle,
       velox::memory::MemoryPool* FOLLY_NONNULL pool)
       : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle) {}
 
   bool shouldRequestLocked() override {
     return !atEnd_;
-  }
-
-  bool supportsFlowControlV2() const override {
-    return true;
   }
 
   folly::SemiFuture<Response> request(
@@ -48,10 +44,10 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
 
   /// url needs to follow below format:
   /// batch://<taskid>?shuffleInfo=<serialized-shuffle-info>
-  static std::unique_ptr<velox::exec::ExchangeSource> createExchangeSource(
+  static std::shared_ptr<velox::exec::ExchangeSource> createExchangeSource(
       const std::string& url,
       int32_t destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
  private:

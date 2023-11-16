@@ -19,7 +19,7 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 
 namespace facebook::presto {
 
@@ -30,7 +30,10 @@ struct DriverCountStats {
 
 class TaskManager {
  public:
-  TaskManager();
+  TaskManager(
+      folly::Executor* driverExecutor,
+      folly::Executor* httpSrvExecutor,
+      folly::Executor* spillerExecutor);
 
   /// Invoked by Presto server shutdown to wait for all the tasks to complete
   /// and cleanup the completed tasks.
@@ -122,7 +125,7 @@ class TaskManager {
   std::string toString() const;
 
   QueryContextManager* getQueryContextManager() {
-    return &queryContextManager_;
+    return queryContextManager_.get();
   }
 
   /// Make upto target task threads to yield. Task candidate must have been on
@@ -176,9 +179,10 @@ class TaskManager {
   std::string nodeId_;
   folly::Synchronized<std::string> baseSpillDir_;
   int32_t oldTaskCleanUpMs_;
-  std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
+  std::shared_ptr<velox::exec::OutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
-  QueryContextManager queryContextManager_;
+  std::unique_ptr<QueryContextManager> queryContextManager_;
+  folly::Executor* httpSrvCpuExecutor_;
 };
 
 } // namespace facebook::presto

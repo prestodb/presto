@@ -7,10 +7,10 @@
     "node": ">=18"
   },
   "devDependencies": {
-    "@babel/core": "^7.22.11",
-    "@babel/preset-env": "^7.22.10",
-    "@babel/preset-flow": "^7.22.5",
-    "@babel/preset-react": "^7.22.5",
+    "@babel/core": "^7.23.2",
+    "@babel/preset-env": "^7.23.2",
+    "@babel/preset-flow": "^7.22.15",
+    "@babel/preset-react": "^7.22.15",
     "babel-loader": "9.1.3",
     "flow-bin": "^0.215.1",
     "webpack": "5.88.2",
@@ -23,7 +23,7 @@
     "react": "18.2.0",
     "react-data-table-component": "^7.5.4",
     "react-dom": "18.2.0",
-    "styled-components": "^6.0.8",
+    "styled-components": "^6.1.0",
     "vis-timeline": "^7.7.2"
   },
   "scripts": {

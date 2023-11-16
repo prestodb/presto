@@ -35,13 +35,6 @@ public class TestPrestoSparkNativeTpchConnectorQueries
     }
 
     @Override
-    protected void assertQuery(String sql)
-    {
-        super.assertQuery(sql);
-        PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
-    }
-
-    @Override
     public void testMissingTpchConnector()
     {
         super.testMissingTpchConnector(".*Catalog tpch does not exist*");

@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -22,6 +23,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveTypeTranslator;
+import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.ViewAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
@@ -108,6 +110,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.mergeHiveStatistics;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -130,9 +133,9 @@ import static org.apache.iceberg.Transactions.createTableTransaction;
 public class IcebergHiveMetadata
         extends IcebergAbstractMetadata
 {
+    private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
-    private final String prestoVersion;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
 
     private final FilterStatsCalculatorService filterStatsCalculatorService;
@@ -143,14 +146,13 @@ public class IcebergHiveMetadata
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            String prestoVersion,
+            NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             RowExpressionService rowExpressionService)
     {
-        super(typeManager, commitTaskCodec);
+        super(typeManager, commitTaskCodec, nodeVersion);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
     }
@@ -316,11 +318,14 @@ public class IcebergHiveMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         // TODO: support path override in Iceberg table creation
         org.apache.iceberg.Table table = getHiveIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
-        if (table.properties().containsKey(OBJECT_STORE_PATH) ||
-                table.properties().containsKey("write.folder-storage.path") || // Removed from Iceberg as of 0.14.0, but preserved for backward compatibility
-                table.properties().containsKey(WRITE_METADATA_LOCATION) ||
-                table.properties().containsKey(WRITE_DATA_LOCATION)) {
-            throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
+        Optional<Map<String, String>> tableProperties = tryGetProperties(table);
+        if (tableProperties.isPresent()) {
+            if (tableProperties.get().containsKey(OBJECT_STORE_PATH) ||
+                    tableProperties.get().containsKey("write.folder-storage.path") || // Removed from Iceberg as of 0.14.0, but preserved for backward compatibility
+                    tableProperties.get().containsKey(WRITE_METADATA_LOCATION) ||
+                    tableProperties.get().containsKey(WRITE_DATA_LOCATION)) {
+                throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
+            }
         }
         metastore.dropTable(getMetastoreContext(session), handle.getSchemaName(), handle.getTableName(), true);
     }
@@ -358,7 +363,7 @@ public class IcebergHiveMetadata
         Table table = createTableObjectForViewCreation(
                 session,
                 viewMetadata,
-                createIcebergViewProperties(session, prestoVersion),
+                createIcebergViewProperties(session, nodeVersion.toString()),
                 new HiveTypeTranslator(),
                 metastoreContext,
                 encodeViewData(viewData));
@@ -451,7 +456,7 @@ public class IcebergHiveMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
-        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
         HiveStatisticsMergeStrategy mergeStrategy = getHiveStatisticsMergeStrategy(session);
         return tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast).map(layoutHandle -> {
             TupleDomain<VariableReferenceExpression> predicate = layoutHandle.getTupleDomain().transform(icebergLayout -> {
@@ -507,7 +512,7 @@ public class IcebergHiveMetadata
                 .filter(column -> !column.isHidden())
                 .flatMap(meta -> metastore.getSupportedColumnStatistics(getMetastoreContext(session), meta.getType())
                         .stream()
-                        .map(statType -> new ColumnStatisticMetadata(meta.getName(), statType)))
+                        .map(statType -> statType.getColumnStatisticMetadata(meta.getName())))
                 .collect(toImmutableSet());
 
         Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);

@@ -31,7 +31,7 @@ public class TestJsonPrestoQueryPlanFunctions
 
         assertFunction("json_presto_query_plan_ids(json '" +
                         TestJsonPrestoQueryPlanFunctionUtils.joinPlan.replaceAll("'", "''") + "')",
-                new ArrayType(VARCHAR), ImmutableList.of("301", "302", "8", "239", "218", "272", "240", "241"));
+                new ArrayType(VARCHAR), ImmutableList.of("253", "313", "314", "8", "251", "284", "230", "252"));
     }
 
     @Test
@@ -40,11 +40,11 @@ public class TestJsonPrestoQueryPlanFunctions
         assertFunction("json_presto_query_plan_node_children(null, null)", new ArrayType(VARCHAR), null);
         assertFunction("json_presto_query_plan_node_children(null, '1')", new ArrayType(VARCHAR), null);
 
-        assertFunction("json_presto_query_plan_node_children(json '" + TestJsonPrestoQueryPlanFunctionUtils.joinPlan.replaceAll("'", "''") + "', '301')",
+        assertFunction("json_presto_query_plan_node_children(json '" + TestJsonPrestoQueryPlanFunctionUtils.joinPlan.replaceAll("'", "''") + "', '314')",
                 new ArrayType(VARCHAR), ImmutableList.of());
 
-        assertFunction("json_presto_query_plan_node_children(json '" + TestJsonPrestoQueryPlanFunctionUtils.joinPlan.replaceAll("'", "''") + "', '218')",
-                new ArrayType(VARCHAR), ImmutableList.of("239", "272"));
+        assertFunction("json_presto_query_plan_node_children(json '" + TestJsonPrestoQueryPlanFunctionUtils.joinPlan.replaceAll("'", "''") + "', '230')",
+                new ArrayType(VARCHAR), ImmutableList.of("251", "284"));
 
         assertFunction("json_presto_query_plan_node_children(json '" + TestJsonPrestoQueryPlanFunctionUtils.joinPlan.replaceAll("'", "''") + "', 'nonkey')",
                 new ArrayType(VARCHAR), null);

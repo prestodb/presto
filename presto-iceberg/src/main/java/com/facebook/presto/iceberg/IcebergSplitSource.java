@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -47,7 +48,6 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getNodeSelect
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.limit;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
@@ -149,7 +149,7 @@ public class IcebergSplitSource
                 HivePartitionKey partitionValue;
                 if (type.typeId() == FIXED || type.typeId() == BINARY) {
                     // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = new HivePartitionKey(colName, Optional.of(new String(((ByteBuffer) value).array(), UTF_8)));
+                    partitionValue = new HivePartitionKey(colName, Optional.of(Base64.getEncoder().encodeToString(((ByteBuffer) value).array())));
                 }
                 else {
                     partitionValue = new HivePartitionKey(colName, Optional.of(value.toString()));

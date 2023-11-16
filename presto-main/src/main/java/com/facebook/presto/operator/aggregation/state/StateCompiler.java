@@ -38,6 +38,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
 import com.google.common.collect.ImmutableList;
@@ -48,10 +49,12 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -146,9 +149,9 @@ public class StateCompiler
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateSerializerClass() != void.class) {
             try {
-                return (AccumulatorStateSerializer<T>) metadata.stateSerializerClass().getConstructor().newInstance();
+                return getAccumulatorStateMetadataInstance(metadata.stateSerializerClass(), fieldTypes);
             }
-            catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -176,6 +179,30 @@ public class StateCompiler
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static <T> T getAccumulatorStateMetadataInstance(Class<?> clazz, Map<String, Type> fieldTypes)
+            throws InvocationTargetException, InstantiationException, IllegalAccessException
+    {
+        Optional<Constructor<?>> constructor = Arrays.stream(clazz.getConstructors())
+                .filter(cons -> Modifier.isPublic(cons.getModifiers()))
+                .filter(cons -> Arrays.stream(cons.getParameters()).allMatch(param ->
+                        Type.class.equals(param.getType()) &&
+                                // parameter must have valid @TypeParameter annotation
+                                param.isAnnotationPresent(TypeParameter.class) &&
+                                fieldTypes.containsKey(param.getAnnotation(TypeParameter.class).value())))
+                // this will only run with n > 1 values left
+                .reduce((first, second) -> {
+                    throw new IllegalArgumentException("Multiple ambiguous annotated constructors in " + clazz + ". Only one valid constructor is allowed.");
+                });
+        if (!constructor.isPresent()) {
+            throw new IllegalArgumentException("Unable to find a suitable constructor for accumulator metadata class " + clazz);
+        }
+        Constructor<?> cons = constructor.get();
+        Object[] params = Arrays.stream(cons.getParameters())
+                .map(param -> fieldTypes.get(param.getAnnotation(TypeParameter.class).value()))
+                .toArray();
+        return (T) cons.newInstance(params);
     }
 
     private static void generateGetSerializedType(ClassDefinition definition, List<StateField> fields, CallSiteBinder callSiteBinder)
@@ -351,9 +378,9 @@ public class StateCompiler
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateFactoryClass() != void.class) {
             try {
-                return (AccumulatorStateFactory<T>) metadata.stateFactoryClass().getConstructor().newInstance();
+                return getAccumulatorStateMetadataInstance(metadata.stateFactoryClass(), fieldTypes);
             }
-            catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
                 throw new RuntimeException(e);
             }
         }

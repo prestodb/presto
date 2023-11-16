@@ -15,13 +15,18 @@
 #include <folly/Uri.h>
 #include <folly/init/Init.h>
 #include <folly/json.h>
-#include "presto_cpp/main/types/ParseTypeSignature.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/dwio/common/WriterFactory.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/serializers/PrestoSerializer.h"
+
+// ANTLR defines an INVALID_INDEX macro, and DuckDB has a constant variable of
+// the same name.  So we have to include TypeParser.h after Velox.
+// clang-format off
+#include "presto_cpp/main/types/TypeParser.h"
+// clang-format on
 
 using namespace facebook::velox;
 
@@ -45,28 +50,28 @@ void writeToFile(
     memory::MemoryPool* pool) {
   VELOX_CHECK_GT(data.size(), 0);
 
-  dwrf::WriterOptions options;
+  dwio::common::WriterOptions options;
   options.schema = data[0]->type();
   options.memoryPool = pool;
 
   auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
   auto sink =
       std::make_unique<dwio::common::WriteFileSink>(std::move(writeFile), path);
-  dwrf::Writer writer(std::move(sink), options);
+  auto writer = dwio::common::getWriterFactory(dwio::common::FileFormat::DWRF)
+                    ->createWriter(std::move(sink), options);
   for (const auto& vector : data) {
-    writer.write(vector);
+    writer->write(vector);
   }
-  writer.close();
+  writer->close();
 }
 
-std::unique_ptr<ByteStream> toByteStream(const std::string& input) {
-  auto byteStream = std::make_unique<ByteStream>();
-  ByteRange byteRange{
-      reinterpret_cast<uint8_t*>(const_cast<char*>(input.data())),
-      (int32_t)input.length(),
-      0};
-  byteStream->resetInput({byteRange});
-  return byteStream;
+ByteInputStream toByteStream(const std::string& input) {
+  std::vector<ByteRange> ranges;
+  ranges.push_back(
+      {reinterpret_cast<uint8_t*>(const_cast<char*>(input.data())),
+       (int32_t)input.length(),
+       0});
+  return ByteInputStream(std::move(ranges));
 }
 
 RowVectorPtr deserialize(
@@ -77,7 +82,7 @@ RowVectorPtr deserialize(
 
   auto serde = std::make_unique<serializer::presto::PrestoVectorSerde>();
   RowVectorPtr result;
-  serde->deserialize(byteStream.get(), pool, rowType, &result, nullptr);
+  serde->deserialize(&byteStream, pool, rowType, &result, nullptr);
   return result;
 }
 
@@ -121,9 +126,10 @@ class ServerResponse {
 
     std::vector<std::string> names;
     std::vector<TypePtr> types;
+    TypeParser parser;
     for (const auto& column : response_["columns"]) {
       names.push_back(column["name"].asString());
-      types.push_back(parseTypeSignature(column["type"].asString()));
+      types.push_back(parser.parse(column["type"].asString()));
     }
 
     auto rowType = ROW(std::move(names), std::move(types));
@@ -455,10 +461,13 @@ std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
 }
 
 std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
+  auto sessionPool = std::make_unique<proxygen::SessionPool>();
   auto client = std::make_shared<http::HttpClient>(
       eventBaseThread_.getEventBase(),
+      sessionPool.get(),
       coordinatorUri_,
       std::chrono::milliseconds(10'000),
+      std::chrono::milliseconds(20'000),
       pool_);
 
   auto response = ServerResponse(startQuery(sql, *client));
@@ -480,6 +489,8 @@ std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
     response.throwIfFailed();
   }
 
+  eventBaseThread_.getEventBase()->runInEventBaseThread(
+      [sessionPool = std::move(sessionPool)] {});
   return queryResults;
 }
 

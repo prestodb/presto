@@ -21,13 +21,15 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.useHBOForScaledWriters;
+import static com.facebook.presto.SystemSessionProperties.useHistoryBasedScaledWriters;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ScaledWriterRule
         implements Rule<TableWriterNode>
 {
+    private String statsSource;
+
     @Override
     public Pattern<TableWriterNode> getPattern()
     {
@@ -37,13 +39,26 @@ public class ScaledWriterRule
     @Override
     public boolean isEnabled(Session session)
     {
-        return useHBOForScaledWriters(session);
+        return useHistoryBasedScaledWriters(session);
+    }
+
+    @Override
+    public boolean isCostBased(Session session)
+    {
+        return true;
+    }
+
+    @Override
+    public String getStatsSource()
+    {
+        return statsSource;
     }
 
     @Override
     public Result apply(TableWriterNode node, Captures captures, Context context)
     {
         double taskNumber = context.getStatsProvider().getStats(node).getTableWriterNodeStatsEstimate().getTaskCountIfScaledWriter();
+        statsSource = context.getStatsProvider().getStats(node).getSourceInfo().getSourceInfoName();
         if (Double.isNaN(taskNumber)) {
             return Result.empty();
         }

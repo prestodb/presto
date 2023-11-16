@@ -27,16 +27,15 @@
 #include "velox/expression/Expr.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
-#include "presto_cpp/main/types/TypeSignatureTypeConverter.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include <velox/core/Expressions.h>
 #include "velox/common/compression/Compression.h"
 // clang-format on
 
+#include <folly/String.h>
 #include <folly/container/F14Set.h>
 
 using namespace facebook::velox;
@@ -47,16 +46,19 @@ namespace facebook::presto {
 
 namespace {
 
-TypePtr stringToType(const std::string& typeString) {
-  return TypeSignatureTypeConverter::parse(typeString);
+TypePtr stringToType(
+    const std::string& typeString,
+    const TypeParser& typeParser) {
+  return typeParser.parse(typeString);
 }
 
 std::vector<TypePtr> stringToTypes(
-    const std::shared_ptr<protocol::List<protocol::Type>>& typeStrings) {
+    const std::shared_ptr<protocol::List<protocol::Type>>& typeStrings,
+    const TypeParser& typeParser) {
   std::vector<TypePtr> types;
   types.reserve(typeStrings->size());
   for (const auto& typeString : *typeStrings) {
-    types.push_back(stringToType(typeString));
+    types.push_back(stringToType(typeString, typeParser));
   }
   return types;
 }
@@ -74,6 +76,7 @@ std::vector<std::string> getNames(const protocol::Assignments& assignments) {
 
 RowTypePtr toRowType(
     const std::vector<protocol::VariableReferenceExpression>& variables,
+    const TypeParser& typeParser,
     const std::unordered_set<std::string>& excludeNames = {}) {
   std::vector<std::string> names;
   std::vector<velox::TypePtr> types;
@@ -85,7 +88,7 @@ RowTypePtr toRowType(
       continue;
     }
     names.emplace_back(variable.name);
-    types.emplace_back(stringToType(variable.type));
+    types.emplace_back(stringToType(variable.type, typeParser));
   }
 
   return ROW(std::move(names), std::move(types));
@@ -122,7 +125,8 @@ std::vector<common::Subfield> toRequiredSubfields(
 }
 
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
-    const protocol::ColumnHandle* column) {
+    const protocol::ColumnHandle* column,
+    const TypeParser& typeParser) {
   velox::type::fbhive::HiveTypeParser hiveTypeParser;
   if (auto hiveColumn =
           dynamic_cast<const protocol::HiveColumnHandle*>(column)) {
@@ -131,7 +135,7 @@ std::shared_ptr<connector::ColumnHandle> toColumnHandle(
     return std::make_shared<connector::hive::HiveColumnHandle>(
         hiveColumn->name,
         toHiveColumnType(hiveColumn->columnType),
-        stringToType(hiveColumn->typeSignature),
+        stringToType(hiveColumn->typeSignature, typeParser),
         hiveTypeParser.parse(hiveColumn->hiveType),
         toRequiredSubfields(hiveColumn->requiredSubfields));
   }
@@ -689,11 +693,12 @@ std::unique_ptr<common::Filter> toFilter(
 
 std::unique_ptr<common::Filter> toFilter(
     const protocol::Domain& domain,
-    const VeloxExprConverter& exprConverter) {
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
   auto nullAllowed = domain.nullAllowed;
   if (auto sortedRangeSet =
           std::dynamic_pointer_cast<protocol::SortedRangeSet>(domain.values)) {
-    auto type = stringToType(sortedRangeSet->type);
+    auto type = stringToType(sortedRangeSet->type, typeParser);
     auto ranges = sortedRangeSet->ranges;
 
     if (ranges.empty()) {
@@ -799,16 +804,67 @@ std::unique_ptr<common::Filter> toFilter(
   VELOX_UNSUPPORTED("Unsupported filter found.");
 }
 
+template <TypeKind KIND>
+TypePtr fieldNamesToLowerCase(const TypePtr& type) {
+  return type;
+}
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::ARRAY>(const TypePtr& type);
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::MAP>(const TypePtr& type);
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::ROW>(const TypePtr& type);
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::ARRAY>(const TypePtr& type) {
+  auto& elementType = type->childAt(0);
+  return std::make_shared<ArrayType>(VELOX_DYNAMIC_TYPE_DISPATCH(
+      fieldNamesToLowerCase, elementType->kind(), elementType));
+}
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::MAP>(const TypePtr& type) {
+  auto& keyType = type->childAt(0);
+  auto& valueType = type->childAt(1);
+  return std::make_shared<MapType>(
+      VELOX_DYNAMIC_TYPE_DISPATCH(
+          fieldNamesToLowerCase, keyType->kind(), keyType),
+      VELOX_DYNAMIC_TYPE_DISPATCH(
+          fieldNamesToLowerCase, valueType->kind(), valueType));
+}
+
+template <>
+TypePtr fieldNamesToLowerCase<TypeKind::ROW>(const TypePtr& type) {
+  auto& rowType = type->asRow();
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+  names.reserve(type->size());
+  types.reserve(type->size());
+  for (int i = 0; i < rowType.size(); i++) {
+    std::string name = rowType.nameOf(i);
+    folly::toLowerAscii(name);
+    names.push_back(std::move(name));
+    auto& childType = rowType.childAt(i);
+    types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+        fieldNamesToLowerCase, childType->kind(), childType));
+  }
+  return std::make_shared<RowType>(std::move(names), std::move(types));
+}
+
 std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser,
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
         partitionColumns) {
   if (auto hiveLayout =
           std::dynamic_pointer_cast<const protocol::HiveTableLayoutHandle>(
               tableHandle.connectorTableLayout)) {
     for (const auto& entry : hiveLayout->partitionColumns) {
-      partitionColumns.emplace(entry.name, toColumnHandle(&entry));
+      partitionColumns.emplace(entry.name, toColumnHandle(&entry, typeParser));
     }
 
     connector::hive::SubfieldFilters subfieldFilters;
@@ -816,7 +872,7 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     for (const auto& domain : *domains) {
       auto filter = domain.second;
       subfieldFilters[common::Subfield(domain.first)] =
-          toFilter(domain.second, exprConverter);
+          toFilter(domain.second, exprConverter, typeParser);
     }
 
     auto remainingFilter =
@@ -839,8 +895,15 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
       names.reserve(hiveLayout->dataColumns.size());
       types.reserve(hiveLayout->dataColumns.size());
       for (auto& column : hiveLayout->dataColumns) {
-        names.push_back(column.name);
-        types.push_back(typeParser.parse(column.type));
+        std::string name = column.name;
+        folly::toLowerAscii(name);
+        names.emplace_back(std::move(name));
+        auto parsedType = typeParser.parse(column.type);
+        // The type from the metastore may have upper case letters
+        // in field names, convert them all to lower case to be
+        // compatible with Presto.
+        types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+            fieldNamesToLowerCase, parsedType->kind(), parsedType));
       }
       dataColumns = ROW(std::move(names), std::move(types));
     }
@@ -1122,6 +1185,7 @@ core::LocalPartitionNode::Type toLocalExchangeType(
 std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
 toHiveColumns(
     const protocol::List<protocol::HiveColumnHandle>& inputColumns,
+    TypeParser& typeParser,
     bool& hasPartitionColumn) {
   hasPartitionColumn = false;
   std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
@@ -1132,7 +1196,7 @@ toHiveColumns(
         columnHandle.columnType == protocol::ColumnType::PARTITION_KEY;
     hiveColumns.emplace_back(
         std::dynamic_pointer_cast<connector::hive::HiveColumnHandle>(
-            toColumnHandle(&columnHandle)));
+            toColumnHandle(&columnHandle, typeParser)));
   }
   return hiveColumns;
 }
@@ -1180,7 +1244,8 @@ std::vector<std::shared_ptr<const HiveSortingColumn>> toHiveSortingColumns(
 std::shared_ptr<HiveBucketProperty> toHiveBucketProperty(
     const std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>&
         inputColumns,
-    const std::shared_ptr<protocol::HiveBucketProperty>& bucketProperty) {
+    const std::shared_ptr<protocol::HiveBucketProperty>& bucketProperty,
+    const TypeParser& typeParser) {
   if (bucketProperty == nullptr) {
     return nullptr;
   }
@@ -1222,7 +1287,7 @@ std::shared_ptr<HiveBucketProperty> toHiveBucketProperty(
         bucketProperty->bucketedBy.size(),
         "Bucketed types is not set properly for presto native bucket function: {}",
         toJsonString(*bucketProperty));
-    bucketedTypes = stringToTypes(bucketProperty->types);
+    bucketedTypes = stringToTypes(bucketProperty->types, typeParser);
   }
 
   const auto sortedBy = toHiveSortingColumns(bucketProperty->sortedBy);
@@ -1326,7 +1391,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   const auto type = toLocalExchangeType(node->type);
 
-  const auto outputType = toRowType(node->partitioningScheme.outputLayout);
+  const auto outputType =
+      toRowType(node->partitioningScheme.outputLayout, typeParser_);
 
   // Different source nodes may have different output layouts.
   // Add ProjectNode on top of each source node to re-arrange the output columns
@@ -1336,7 +1402,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     std::vector<core::TypedExprPtr> projections;
     projections.reserve(outputType->size());
 
-    const auto desiredSourceOutput = toRowType(node->inputs[i]);
+    const auto desiredSourceOutput = toRowType(node->inputs[i], typeParser_);
 
     for (auto j = 0; j < outputType->size(); j++) {
       projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
@@ -1684,7 +1750,7 @@ VeloxQueryPlanConverterBase::generateAggregationNode(
         statisticsAggregation,
     core::AggregationNode::Step step,
     const protocol::PlanNodeId& id,
-    const std::shared_ptr<protocol::PlanNode>& source,
+    const core::PlanNodePtr& sourceVeloxPlan,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   if (statisticsAggregation == nullptr) {
@@ -1713,7 +1779,7 @@ VeloxQueryPlanConverterBase::generateAggregationNode(
       aggregateNames,
       aggregates,
       false, // ignoreNullKeys
-      toVeloxQueryPlan(source, tableWriteInfo, taskId));
+      sourceVeloxPlan);
 }
 
 std::vector<protocol::VariableReferenceExpression>
@@ -1766,7 +1832,8 @@ void VeloxQueryPlanConverterBase::toAggregations(
       const auto& signature = builtin->signature;
       aggregate.rawInputTypes.reserve(signature.argumentTypes.size());
       for (const auto& argumentType : signature.argumentTypes) {
-        aggregate.rawInputTypes.push_back(stringToType(argumentType));
+        aggregate.rawInputTypes.push_back(
+            stringToType(argumentType, typeParser_));
       }
     } else if (
         auto sqlFunction =
@@ -1782,12 +1849,14 @@ void VeloxQueryPlanConverterBase::toAggregations(
           auto pos = functionId.find(";", start + 1);
           if (pos == std::string::npos) {
             auto argumentType = functionId.substr(start + 1);
-            aggregate.rawInputTypes.push_back(stringToType(argumentType));
+            aggregate.rawInputTypes.push_back(
+                stringToType(argumentType, typeParser_));
             break;
           }
 
           auto argumentType = functionId.substr(start + 1, pos - start - 1);
-          aggregate.rawInputTypes.push_back(stringToType(argumentType));
+          aggregate.rawInputTypes.push_back(
+              stringToType(argumentType, typeParser_));
           pos = start + 1;
         }
       }
@@ -1821,7 +1890,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::ValuesNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& /* tableWriteInfo */,
     const protocol::TaskId& taskId) {
-  auto rowType = toRowType(node->outputVariables);
+  auto rowType = toRowType(node->outputVariables, typeParser_);
   vector_size_t numRows = node->rows.size();
   auto numColumns = rowType->size();
   std::vector<velox::VectorPtr> vectors;
@@ -1866,14 +1935,15 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TableScanNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& /* tableWriteInfo */,
     const protocol::TaskId& taskId) {
-  auto rowType = toRowType(node->outputVariables);
+  auto rowType = toRowType(node->outputVariables, typeParser_);
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   for (const auto& entry : node->assignments) {
-    assignments.emplace(entry.first.name, toColumnHandle(entry.second.get()));
+    assignments.emplace(
+        entry.first.name, toColumnHandle(entry.second.get(), typeParser_));
   }
-  auto connectorTableHandle =
-      toConnectorTableHandle(node->table, exprConverter_, assignments);
+  auto connectorTableHandle = toConnectorTableHandle(
+      node->table, exprConverter_, typeParser_, assignments);
   return std::make_shared<core::TableScanNode>(
       node->id, rowType, connectorTableHandle, assignments);
 }
@@ -1927,6 +1997,19 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->groupingSets.groupingSetCount == 1 &&
       node->groupingSets.globalGroupingSets.empty();
 
+  // groupIdField and globalGroupingSets are required for producing default
+  // output rows for global grouping sets when there are no input rows.
+  // Global grouping sets can be present without groupIdField in Final
+  // aggregations. But the default output is generated only for Single and
+  // Partial aggregations. Set both fields only when required for the
+  // aggregation.
+  std::optional<core::FieldAccessTypedExprPtr> groupIdField;
+  std::vector<vector_size_t> globalGroupingSets;
+  if (node->groupIdVariable && !node->groupingSets.globalGroupingSets.empty()) {
+    groupIdField = toVeloxExprs({*node->groupIdVariable.get()})[0];
+    globalGroupingSets = node->groupingSets.globalGroupingSets;
+  }
+
   return std::make_shared<core::AggregationNode>(
       node->id,
       step,
@@ -1935,6 +2018,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                  : std::vector<core::FieldAccessTypedExprPtr>{},
       aggregateNames,
       aggregates,
+      globalGroupingSets,
+      groupIdField,
       false, // ignoreNullKeys
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
@@ -2051,7 +2136,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
           toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
           toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
-          toRowType(node->outputVariables));
+          toRowType(node->outputVariables, typeParser_));
     }
     VELOX_UNSUPPORTED(
         "JoinNode has empty criteria that cannot be "
@@ -2077,7 +2162,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
       toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
       toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
-      toRowType(node->outputVariables));
+      toRowType(node->outputVariables, typeParser_));
 }
 
 velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -2146,7 +2231,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
       toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
       toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
-      toRowType(node->outputVariables));
+      toRowType(node->outputVariables, typeParser_));
 }
 
 std::shared_ptr<const core::TopNNode>
@@ -2221,8 +2306,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     VELOX_USER_CHECK_NOT_NULL(hiveOutputTableHandle);
 
     bool isPartitioned{false};
-    const auto inputColumns =
-        toHiveColumns(hiveOutputTableHandle->inputColumns, isPartitioned);
+    const auto inputColumns = toHiveColumns(
+        hiveOutputTableHandle->inputColumns, typeParser_, isPartitioned);
     VELOX_USER_CHECK(
         hiveOutputTableHandle->bucketProperty == nullptr || isPartitioned,
         "Bucketed table must be partitioned: {}",
@@ -2232,7 +2317,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         toLocationHandle(hiveOutputTableHandle->locationHandle),
         toFileFormat(hiveOutputTableHandle->tableStorageFormat, "TableWrite"),
         toHiveBucketProperty(
-            inputColumns, hiveOutputTableHandle->bucketProperty),
+            inputColumns, hiveOutputTableHandle->bucketProperty, typeParser_),
         std::optional(
             toFileCompressionKind(hiveOutputTableHandle->compressionCodec)));
   } else if (
@@ -2246,21 +2331,26 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     VELOX_USER_CHECK_NOT_NULL(hiveInsertTableHandle);
 
     bool isPartitioned{false};
-    const auto inputColumns =
-        toHiveColumns(hiveInsertTableHandle->inputColumns, isPartitioned);
+    const auto inputColumns = toHiveColumns(
+        hiveInsertTableHandle->inputColumns, typeParser_, isPartitioned);
     VELOX_USER_CHECK(
         hiveInsertTableHandle->bucketProperty == nullptr || isPartitioned,
         "Bucketed table must be partitioned: {}",
         toJsonString(*hiveInsertTableHandle));
 
+    const auto table = hiveInsertTableHandle->pageSinkMetadata.table;
+    VELOX_USER_CHECK_NOT_NULL(table, "Table must not be null for insert query");
     hiveTableHandle = std::make_shared<connector::hive::HiveInsertTableHandle>(
         inputColumns,
         toLocationHandle(hiveInsertTableHandle->locationHandle),
         toFileFormat(hiveInsertTableHandle->tableStorageFormat, "TableWrite"),
         toHiveBucketProperty(
-            inputColumns, hiveInsertTableHandle->bucketProperty),
+            inputColumns, hiveInsertTableHandle->bucketProperty, typeParser_),
         std::optional(
-            toFileCompressionKind(hiveInsertTableHandle->compressionCodec)));
+            toFileCompressionKind(hiveInsertTableHandle->compressionCodec)),
+        std::unordered_map<std::string, std::string>(
+            table->storage.serdeParameters.begin(),
+            table->storage.serdeParameters.end()));
   } else {
     VELOX_UNSUPPORTED(
         "Unsupported table writer handle: {}",
@@ -2270,29 +2360,33 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto insertTableHandle =
       std::make_shared<core::InsertTableHandle>(connectorId, hiveTableHandle);
 
-  const auto outputType = toRowType(generateOutputVariables(
-      {node->rowCountVariable,
-       node->fragmentVariable,
-       node->tableCommitContextVariable},
-      node->statisticsAggregation));
+  const auto outputType = toRowType(
+      generateOutputVariables(
+          {node->rowCountVariable,
+           node->fragmentVariable,
+           node->tableCommitContextVariable},
+          node->statisticsAggregation),
+      typeParser_);
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
   std::shared_ptr<core::AggregationNode> aggregationNode =
       generateAggregationNode(
           node->statisticsAggregation,
           core::AggregationNode::Step::kPartial,
           node->id,
-          node->source,
+          sourceVeloxPlan,
           tableWriteInfo,
           taskId);
   return std::make_shared<core::TableWriteNode>(
       node->id,
-      toRowType(node->columns),
+      toRowType(node->columns, typeParser_),
       node->columnNames,
       std::move(aggregationNode),
       std::move(insertTableHandle),
       node->partitioningScheme != nullptr,
       outputType,
       getCommitStrategy(),
-      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+      sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::TableWriteMergeNode>
@@ -2300,25 +2394,26 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TableWriterMergeNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
-  const auto outputType = toRowType(generateOutputVariables(
-      {node->rowCountVariable,
-       node->fragmentVariable,
-       node->tableCommitContextVariable},
-      node->statisticsAggregation));
+  const auto outputType = toRowType(
+      generateOutputVariables(
+          {node->rowCountVariable,
+           node->fragmentVariable,
+           node->tableCommitContextVariable},
+          node->statisticsAggregation),
+      typeParser_);
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
   std::shared_ptr<core::AggregationNode> aggregationNode =
       generateAggregationNode(
           node->statisticsAggregation,
           core::AggregationNode::Step::kIntermediate,
           node->id,
-          node->source,
+          sourceVeloxPlan,
           tableWriteInfo,
           taskId);
 
   return std::make_shared<core::TableWriteMergeNode>(
-      node->id,
-      outputType,
-      aggregationNode,
-      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+      node->id, outputType, aggregationNode, sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::UnnestNode>
@@ -2407,7 +2502,8 @@ std::pair<
     std::vector<core::SortOrder>>
 toSortFieldsAndOrders(
     const protocol::OrderingScheme* orderingScheme,
-    VeloxExprConverter& exprConverter) {
+    VeloxExprConverter& exprConverter,
+    const std::unordered_set<std::string>& partitionKeys) {
   std::vector<core::FieldAccessTypedExprPtr> sortFields;
   std::vector<core::SortOrder> sortOrders;
   if (orderingScheme != nullptr) {
@@ -2415,8 +2511,11 @@ toSortFieldsAndOrders(
     sortFields.reserve(nodeSpecOrdering.size());
     sortOrders.reserve(nodeSpecOrdering.size());
     for (const auto& spec : nodeSpecOrdering) {
-      sortFields.emplace_back(exprConverter.toVeloxExpr(spec.variable));
-      sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+      // Drop sorting keys that are present in partitioning keys.
+      if (partitionKeys.count(spec.variable.name) == 0) {
+        sortFields.emplace_back(exprConverter.toVeloxExpr(spec.variable));
+        sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+      }
     }
   }
   return {sortFields, sortOrders};
@@ -2430,12 +2529,16 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   std::vector<core::FieldAccessTypedExprPtr> partitionFields;
   partitionFields.reserve(node->specification.partitionBy.size());
+  std::unordered_set<std::string> partitionFieldNames;
   for (const auto& entry : node->specification.partitionBy) {
     partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
+    partitionFieldNames.emplace(partitionFields.back()->name());
   }
 
   auto [sortFields, sortOrders] = toSortFieldsAndOrders(
-      node->specification.orderingScheme.get(), exprConverter_);
+      node->specification.orderingScheme.get(),
+      exprConverter_,
+      partitionFieldNames);
 
   std::vector<std::string> windowNames;
   std::vector<core::WindowNode::Function> windowFunctions;
@@ -2462,10 +2565,11 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 namespace {
 
 core::WindowNode::Function makeRowNumberFunction(
-    const protocol::VariableReferenceExpression& rowNumberVariable) {
+    const protocol::VariableReferenceExpression& rowNumberVariable,
+    const TypeParser& typeParser) {
   core::WindowNode::Function function;
   function.functionCall = std::make_shared<core::CallTypedExpr>(
-      stringToType(rowNumberVariable.type),
+      stringToType(rowNumberVariable.type, typeParser),
       std::vector<core::TypedExprPtr>{},
       "presto.default.row_number");
 
@@ -2513,12 +2617,16 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   std::vector<core::FieldAccessTypedExprPtr> partitionFields;
   partitionFields.reserve(node->specification.partitionBy.size());
+  std::unordered_set<std::string> partitionFieldNames;
   for (const auto& entry : node->specification.partitionBy) {
     partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
+    partitionFieldNames.emplace(partitionFields.back()->name());
   }
 
   auto [sortFields, sortOrders] = toSortFieldsAndOrders(
-      node->specification.orderingScheme.get(), exprConverter_);
+      node->specification.orderingScheme.get(),
+      exprConverter_,
+      partitionFieldNames);
 
   std::optional<std::string> rowNumberColumnName;
   if (!node->partial) {
@@ -2720,7 +2828,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       setCellFromVariant(constValues.back(), 0, constExpr->value());
     }
   }
-  auto outputType = toRowType(partitioningScheme.outputLayout);
+  auto outputType = toRowType(partitioningScheme.outputLayout, typeParser_);
 
   if (auto systemPartitioningHandle =
           std::dynamic_pointer_cast<protocol::SystemPartitioningHandle>(
@@ -2837,7 +2945,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
             bucketToPartition,
             keyChannels,
             constValues),
-        toRowType(partitioningScheme.outputLayout),
+        toRowType(partitioningScheme.outputLayout, typeParser_),
         sourceNode);
     return planFragment;
   }
@@ -2852,7 +2960,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const protocol::TaskId& taskId) {
   return core::PartitionedOutputNode::single(
       node->id,
-      toRowType(node->outputVariables),
+      toRowType(node->outputVariables, typeParser_),
       VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           node->source, tableWriteInfo, taskId));
 }
@@ -2861,7 +2969,7 @@ velox::core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::RemoteSourceNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& /* tableWriteInfo */,
     const protocol::TaskId& taskId) {
-  auto rowType = toRowType(node->outputVariables);
+  auto rowType = toRowType(node->outputVariables, typeParser_);
   if (node->orderingScheme) {
     std::vector<core::FieldAccessTypedExprPtr> sortingKeys;
     std::vector<core::SortOrder> sortingOrders;
@@ -2959,7 +3067,7 @@ velox::core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::RemoteSourceNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& /* tableWriteInfo */,
     const protocol::TaskId& taskId) {
-  auto rowType = toRowType(node->outputVariables);
+  auto rowType = toRowType(node->outputVariables, typeParser_);
   // Broadcast exchange source.
   if (node->exchangeType == protocol::ExchangeNodeType::REPLICATE) {
     return std::make_shared<core::ExchangeNode>(node->id, rowType);

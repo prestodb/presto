@@ -471,7 +471,8 @@ public class RowExpressionRewriteRuleSet
                         node.getPreGroupedVariables(),
                         node.getStep(),
                         node.getHashVariable(),
-                        node.getGroupIdVariable());
+                        node.getGroupIdVariable(),
+                        node.getAggregationId());
                 return Result.ofPlanNode(aggregationNode);
             }
             return Result.empty();

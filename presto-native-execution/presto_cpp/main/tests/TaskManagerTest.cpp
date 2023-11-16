@@ -43,6 +43,8 @@ DECLARE_bool(velox_memory_leak_check_enabled);
 static const std::string kHiveConnectorId = "test-hive";
 
 using namespace facebook::velox;
+using namespace facebook::velox::exec;
+using namespace facebook::velox::exec::test;
 
 namespace facebook::presto {
 
@@ -113,8 +115,7 @@ class Cursor {
           const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
     }
 
-    ByteStream input;
-    input.resetInput(std::move(byteRanges));
+    ByteInputStream input(std::move(byteRanges));
 
     std::vector<RowVectorPtr> vectors;
     while (!input.atEnd()) {
@@ -150,7 +151,9 @@ class TaskManagerTest : public testing::Test {
     aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();
     exec::ExchangeSource::registerFactory(
-        [cpuExecutor = exchangeCpuExecutor_, ioExecutor = exchangeIoExecutor_](
+        [cpuExecutor = exchangeCpuExecutor_,
+         ioExecutor = exchangeIoExecutor_,
+         connectionPools = connectionPools_](
             const std::string& taskId,
             int destination,
             std::shared_ptr<exec::ExchangeQueue> queue,
@@ -161,7 +164,8 @@ class TaskManagerTest : public testing::Test {
               queue,
               pool,
               cpuExecutor.get(),
-              ioExecutor.get());
+              ioExecutor.get(),
+              *connectionPools);
         });
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();
@@ -179,12 +183,14 @@ class TaskManagerTest : public testing::Test {
     leafPool_ = memory::addDefaultLeafMemoryPool("TaskManagerTest.leaf");
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
 
-    taskManager_ = std::make_unique<TaskManager>();
-    taskResource_ =
-        std::make_unique<TaskResource>(*taskManager_.get(), leafPool_.get());
+    taskManager_ = std::make_unique<TaskManager>(
+        driverExecutor_.get(), httpSrvCpuExecutor_.get(), nullptr);
+    taskResource_ = std::make_unique<TaskResource>(
+        *taskManager_.get(), leafPool_.get(), httpSrvCpuExecutor_.get());
 
-    auto httpServer =
-        std::make_unique<http::HttpServer>(std::make_unique<http::HttpConfig>(
+    auto httpServer = std::make_unique<http::HttpServer>(
+        httpSrvIOExecutor_,
+        std::make_unique<http::HttpConfig>(
             folly::SocketAddress("127.0.0.1", 0)));
     taskResource_->registerUris(*httpServer.get());
 
@@ -602,7 +608,21 @@ class TaskManagerTest : public testing::Test {
       std::make_shared<folly::CPUThreadPoolExecutor>(1);
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_ =
       std::make_shared<folly::IOThreadPoolExecutor>(10);
+  std::shared_ptr<folly::CPUThreadPoolExecutor> driverExecutor_ =
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          4,
+          std::make_shared<folly::NamedThreadFactory>("Driver"));
+  std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_ =
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          4,
+          std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIOExecutor_ =
+      std::make_shared<folly::IOThreadPoolExecutor>(
+          8,
+          std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
   long splitSequenceId_{0};
+  std::shared_ptr<ConnectionPools> connectionPools_ =
+      std::make_shared<ConnectionPools>();
 };
 
 // Runs "select * from t where c0 % 5 = 0" query.
@@ -631,6 +651,56 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
   auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
 
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
+}
+
+TEST_F(TaskManagerTest, fecthFromFinishedTask) {
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i]->path, vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutputArbitrary({"c0", "c1"})
+                          .planFragment();
+
+  const protocol::TaskId taskId = "scan.0.0.1.0";
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, true, splitSequenceId));
+  const auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  const protocol::Duration longWait("300s");
+  const auto maxSize = protocol::DataSize("32MB");
+  auto resultRequestState = http::CallbackRequestHandlerState::create();
+  const auto destination = 0;
+  auto consumeCompleted = false;
+  // Keep consuming destination 0 until completed.
+  while (!consumeCompleted) {
+    auto results =
+        taskManager_
+            ->getResults(
+                taskId, destination, 0, maxSize, longWait, resultRequestState)
+            .getVia(folly::EventBaseManager::get()->getEventBase());
+    consumeCompleted = results->complete;
+  }
+  // Close destination 0 and triggers the task closure.
+  taskManager_->abortResults(taskId, destination);
+  auto prestoTask = taskManager_->tasks().at(taskId);
+  ASSERT_TRUE(waitForTaskStateChange(
+      prestoTask->task.get(), TaskState::kFinished, 3'000'000));
+
+  const auto newDestination = 1;
+  // Fetch destination 1 from the closed task.
+  auto newResult = taskManager_->getResults(
+      taskId, newDestination, 0, maxSize, longWait, resultRequestState);
+  // It should get an immediate complete signal instead of waiting for timeout.
+  ASSERT_TRUE(newResult.isReady());
+  ASSERT_TRUE(newResult.value()->complete);
 }
 
 TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {

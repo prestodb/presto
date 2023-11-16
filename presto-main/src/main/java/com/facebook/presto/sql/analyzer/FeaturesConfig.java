@@ -281,7 +281,10 @@ public class FeaturesConfig
     private boolean rewriteConstantArrayContainsToIn;
 
     private boolean preProcessMetadataCalls;
+    private boolean handleComplexEquiJoins;
     private boolean useHBOForScaledWriters;
+
+    private boolean usePartialAggregationHistory;
 
     private boolean removeRedundantCastToVarcharInJoin = true;
 
@@ -2819,6 +2822,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isUsePartialAggregationHistory()
+    {
+        return this.usePartialAggregationHistory;
+    }
+
+    @Config("optimizer.use-partial-aggregation-history")
+    @ConfigDescription("Use partial aggregation histories for splitting aggregations")
+    public FeaturesConfig setUsePartialAggregationHistory(boolean usePartialAggregationHistory)
+    {
+        this.usePartialAggregationHistory = usePartialAggregationHistory;
+        return this;
+    }
+
     public boolean isRemoveRedundantCastToVarcharInJoin()
     {
         return removeRedundantCastToVarcharInJoin;
@@ -2829,6 +2845,19 @@ public class FeaturesConfig
     public FeaturesConfig setRemoveRedundantCastToVarcharInJoin(boolean removeRedundantCastToVarcharInJoin)
     {
         this.removeRedundantCastToVarcharInJoin = removeRedundantCastToVarcharInJoin;
+        return this;
+    }
+
+    public boolean getHandleComplexEquiJoins()
+    {
+        return handleComplexEquiJoins;
+    }
+
+    @Config("optimizer.handle-complex-equi-joins")
+    @ConfigDescription("Handle complex equi-join conditions to open up join space for join reordering")
+    public FeaturesConfig setHandleComplexEquiJoins(boolean handleComplexEquiJoins)
+    {
+        this.handleComplexEquiJoins = handleComplexEquiJoins;
         return this;
     }
 }

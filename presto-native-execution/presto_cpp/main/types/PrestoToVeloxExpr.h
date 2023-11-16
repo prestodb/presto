@@ -14,14 +14,20 @@
 #pragma once
 
 #include <stdexcept>
+// antlr-common.h undefines the EOF macro that external/json/nlohmann/json.hpp
+// relies on, so include presto_protcol.h before TypeParser.h
+// clang-format off
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/main/types/TypeParser.h"
+// clang-format on
 #include "velox/core/Expressions.h"
 
 namespace facebook::presto {
 
 class VeloxExprConverter {
  public:
-  explicit VeloxExprConverter(velox::memory::MemoryPool* pool) : pool_(pool) {}
+  VeloxExprConverter(velox::memory::MemoryPool* pool, TypeParser* typeParser)
+      : pool_(pool), typeParser_(typeParser) {}
 
   std::shared_ptr<const velox::core::ConstantTypedExpr> toVeloxExpr(
       std::shared_ptr<protocol::ConstantExpression> pexpr) const;
@@ -60,7 +66,8 @@ class VeloxExprConverter {
   std::optional<velox::core::TypedExprPtr> tryConvertDate(
       const protocol::CallExpression& pexpr) const;
 
-  velox::memory::MemoryPool* pool_;
+  velox::memory::MemoryPool* const pool_;
+  TypeParser* const typeParser_;
 };
 
 } // namespace facebook::presto

@@ -43,6 +43,7 @@ public class TestIcebergConfig
                 .setCatalogCacheSize(10)
                 .setHadoopConfigResources(null)
                 .setHiveStatisticsMergeStrategy(HiveStatisticsMergeStrategy.NONE)
+                .setStatisticSnapshotRecordDifferenceWeight(0.0)
                 .setMaxPartitionsPerWriter(100)
                 .setMinimumAssignedSplitWeight(0.05)
                 .setParquetDereferencePushdownEnabled(true)
@@ -63,6 +64,7 @@ public class TestIcebergConfig
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .put("iceberg.enable-parquet-dereference-pushdown", "false")
                 .put("iceberg.enable-merge-on-read-mode", "true")
+                .put("iceberg.statistic-snapshot-record-difference-weight", "1.0")
                 .put("iceberg.hive-statistics-merge-strategy", "USE_NDV")
                 .build();
 
@@ -75,6 +77,7 @@ public class TestIcebergConfig
                 .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml")
                 .setMaxPartitionsPerWriter(222)
                 .setMinimumAssignedSplitWeight(0.01)
+                .setStatisticSnapshotRecordDifferenceWeight(1.0)
                 .setParquetDereferencePushdownEnabled(false)
                 .setMergeOnReadModeEnabled(true)
                 .setHiveStatisticsMergeStrategy(USE_NDV);

@@ -11,22 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.nativeworker;
+package com.facebook.presto.memory;
 
-import com.facebook.presto.testing.QueryRunner;
-
-public class TestNativeProbabilityFunctionQueries
-        extends AbstractTestNativeProbabilityFunctionQueries
+public enum HighMemoryTaskKillerStrategy
 {
-    @Override
-    protected QueryRunner createQueryRunner() throws Exception
-    {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false);
-    }
-
-    @Override
-    protected QueryRunner createExpectedQueryRunner() throws Exception
-    {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
-    }
+    FREE_MEMORY_ON_FULL_GC, //Kills high memory tasks if worker is running low memory and full GC is not able to reclaim enough memory
+    FREE_MEMORY_ON_FREQUENT_FULL_GC //Kills high memory tasks if worker if frequent full GC not able to reclaim enough memory
 }

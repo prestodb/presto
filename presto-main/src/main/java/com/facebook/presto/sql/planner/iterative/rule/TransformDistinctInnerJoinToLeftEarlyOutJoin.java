@@ -152,7 +152,8 @@ public class TransformDistinctInnerJoinToLeftEarlyOutJoin
                 aggregationNode.getPreGroupedVariables(),
                 aggregationNode.getStep(),
                 aggregationNode.getHashVariable(),
-                aggregationNode.getGroupIdVariable());
+                aggregationNode.getGroupIdVariable(),
+                aggregationNode.getAggregationId());
 
         return Result.ofPlanNode(newAggregationNode);
     }

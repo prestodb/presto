@@ -4,28 +4,26 @@ Deploy Presto From a Docker Image
 
 These steps were developed and tested on Mac OS X, on both Intel and Apple Silicon chips. 
 
-Following these steps, you will:
+Follow these steps to:
 
-- install the command line tools for brew, docker, and `colima <https://github.com/abiosoft/colima>`_ tools
+- install the command line tools for brew, docker, and `Colima <https://github.com/abiosoft/colima>`_
 - verify your Docker setup
-- pull the Docker image of the Presto server and the Presto CLI
-- start your local Presto server and Presto CLI
-- query your local Presto server using the Presto CLI
-- query a remote Presto server using the Presto CLI
+- pull the Docker image of the Presto server
+- start your local Presto server
 
-Installing brew, docker, and colima
+Installing brew, Docker, and Colima
 ===================================================
 
-This task shows how to install brew, then to use brew to install docker and colima. 
+This task shows how to install brew, then to use brew to install Docker and Colima. 
 
-Note: If you have Docker installed you can skip steps 1-3. It is recommended that you 
+Note: If you have Docker installed you can skip steps 1-3, but you should 
 verify your Docker setup by running the command in step 4.
 
 1. If you do not have brew installed, run the following command:
 
    ``/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"``
 
-2. To install the docker command line and `colima <https://github.com/abiosoft/colima>`_ tools, run the following command:
+2. To install the Docker command line and `Colima <https://github.com/abiosoft/colima>`_ tools, run the following command:
 
    ``brew install docker colima``
 
@@ -48,81 +46,54 @@ verify your Docker setup by running the command in step 4.
 Installing and Running the Presto Docker container
 ==================================================
 
-1. Run the following command to download the prestodb-sandbox container from `DockerHub <https://hub.docker.com/r/ahanaio/prestodb-sandbox>`_: 
+1. Download the latest non-edge Presto container from `Presto on DockerHub <https://hub.docker.com/r/prestodb/presto/tags>`_. Run the following command: 
 
-   ``docker pull ahanaio/prestodb-sandbox``
+   ``docker pull prestodb/latest``
 
    Downloading the container may take a few minutes. When the download completes, go on to the next step.
 
-2. To start the Presto server in the Docker container, run the following command:
+2. On your local system, create a file named ``config.properties`` containing the following text: 
 
-   ``docker run -p 8080:8080 --name presto ahanaio/prestodb-sandbox``
+   .. code-block:: none
 
-   This command also assigns the name ``presto`` for ``ahanaio/prestodb-sandbox``.
+    coordinator=true
+    node-scheduler.include-coordinator=true
+    http-server.http.port=8080
+    discovery-server.enabled=true
+    discovery.uri=http://localhost:8080
 
-   The Presto server begins logging startup information in the terminal window. Once you see a response similar to the following, the Presto server is running in the Docker container.
+3. On your local system, create a file named ``jvm.config`` containing the following text: 
+
+   .. code-block:: none
+
+    -server
+    -Xmx2G
+    -XX:+UseG1GC
+    -XX:G1HeapRegionSize=32M
+    -XX:+UseGCOverheadLimit
+    -XX:+ExplicitGCInvokesConcurrent
+    -XX:+HeapDumpOnOutOfMemoryError
+    -XX:+ExitOnOutOfMemoryError
+    -Djdk.attach.allowAttachSelf=true
+     
+4. To start the Presto server in the Docker container, run a command similar to the following example:
+
+   ``docker run -p 8080:8080 -it -v </local/path/to/config.properties>:/opt/presto-server/etc/config.properties -v </local/path/to/jvm.config>:/opt/presto-server/etc/jvm.config --name presto prestodb/presto:0.284``
+
+   Modify this example and replace ``</local/path/to/config.properties>`` and ``</local/path/to/jvm.config>`` with the paths to the ``config.properties`` and ``jvm.config`` files that you created.
+
+   This command also assigns the name ``presto`` for the newly-created container that uses the downloaded image ``prestodb/presto:0.284``.
+
+   The Presto server logs startup information in the terminal window. Once you see a response similar to the following, the Presto server is running in the Docker container.
 
    ``======== SERVER STARTED ========``
 
-3. To start the Presto CLI (command-line interface), open a new terminal window and run the following command:
-
-   ``docker exec -it presto presto-cli``
-
-   The presto prompt is shown:
-
-   ``presto>``
-
-   If the ``docker exec`` command returns an error similar to the following:
-   
-   ::
-    
-    "docker exec" requires at least 2 arguments.
-    See 'docker exec --help'.
-    Usage:  docker exec [OPTIONS] CONTAINER COMMAND [ARG...]
-    Execute a command in a running container``
-
-   the Presto server has not completed starting. Wait a little and try again, until the ``presto>`` prompt is shown.
-
-4. To verify that your Presto server and Presto CLI are communicating together, use the Presto CLI to query your local Presto server. Run the following command at the ``presto>`` prompt:
-
-   ``show catalogs;``
-
-   The response should be similar to the following:
-
-   ::
-
-    presto> show catalogs;
-    Catalog
-    ---------
-    jmx
-    memory
-    system
-    tpcds
-    tpch
-    (5 rows)
-    
-    Query 20230614_181140_00000_uutw6, FINISHED, 1 node
-    Splits: 19 total, 19 done (100.00%)
-    [Latency: client-side: 0:13, server-side: 0:11] [0 rows, 0B] [0 rows/s, 0B/s]
-    
-    presto>
-
-5. To use the Presto CLI in your local Docker image to connect to a remote Presto server, run the following command: 
-
-   ``docker exec -it presto presto-cli --server Presto-endpoint-URL --user username --password``
-
-   You will be prompted to enter the password for the Presto user, then the ``presto>`` prompt is shown.
-
-6. To verify your Presto server and Presto CLI are communicating together, use the Presto CLI to query your remote Presto server. 
-
-   Run the ``show catalogs;`` command at the ``presto>`` prompt and the result should be similar to step 4.
-
 Removing the Presto Docker container
 ====================================
-When you no longer want the Presto Docker container, run the following two commands: 
+To remove the Presto Docker container, run the following two commands: 
 
 ``docker stop presto``
 
 ``docker rm presto``
 
-The commands return the name of the container when they are successful. 
+These commands return the name of the container ``presto`` when they succeed. 

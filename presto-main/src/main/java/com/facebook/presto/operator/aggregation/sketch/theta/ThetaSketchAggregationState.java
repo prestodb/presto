@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.classloader_interface;
+package com.facebook.presto.operator.aggregation.sketch.theta;
 
-public enum RetryExecutionStrategy
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import org.apache.datasketches.theta.Union;
+
+@AccumulatorStateMetadata(stateSerializerClass = ThetaSketchStateSerializer.class, stateFactoryClass = ThetaSketchStateFactory.class)
+public interface ThetaSketchAggregationState
 {
-    DISABLE_BROADCAST_JOIN,
-    INCREASE_CONTAINER_SIZE,
-    INCREASE_HASH_PARTITION_COUNT
+    Union getSketch();
+
+    void setSketch(Union value);
 }

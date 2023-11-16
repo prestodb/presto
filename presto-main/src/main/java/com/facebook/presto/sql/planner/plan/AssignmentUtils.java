@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 import java.util.Collection;
@@ -49,6 +50,17 @@ public class AssignmentUtils
             }
         }
         return true;
+    }
+
+    public static Map<VariableReferenceExpression, RowExpression> getNonIdentityAssignments(Assignments assignments)
+    {
+        ImmutableMap.Builder<VariableReferenceExpression, RowExpression> nonIdentityAssignments = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
+            if (!assignment.getKey().equals(assignment.getValue())) {
+                nonIdentityAssignments.put(assignment);
+            }
+        }
+        return nonIdentityAssignments.build();
     }
 
     public static boolean isIdentity(Assignments assignments, VariableReferenceExpression output)

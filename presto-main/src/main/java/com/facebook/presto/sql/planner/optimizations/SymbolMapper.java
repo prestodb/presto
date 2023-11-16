@@ -184,7 +184,8 @@ public class SymbolMapper
                 mapAndDistinctVariable(node.getPreGroupedVariables()),
                 node.getStep(),
                 node.getHashVariable().map(this::map),
-                node.getGroupIdVariable().map(this::map));
+                node.getGroupIdVariable().map(this::map),
+                node.getAggregationId());
     }
 
     private Aggregation map(Aggregation aggregation)

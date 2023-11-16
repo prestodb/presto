@@ -328,6 +328,7 @@ public class TestIterativePlanFragmenter
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

@@ -67,6 +67,7 @@ class PeriodicServiceInventoryManager {
   const double backOffjitterParam_{0.1};
 
   folly::EventBaseThread eventBaseThread_;
+  std::unique_ptr<proxygen::SessionPool> sessionPool_;
   folly::SocketAddress serviceAddress_;
   std::shared_ptr<http::HttpClient> client_;
   std::atomic_bool stopped_{true};

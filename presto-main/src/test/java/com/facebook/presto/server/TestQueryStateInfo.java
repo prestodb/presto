@@ -306,6 +306,7 @@ public class TestQueryStateInfo
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableList.of(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
     }
 }

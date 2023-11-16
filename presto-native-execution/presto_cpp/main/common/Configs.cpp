@@ -137,7 +137,8 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, 16),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
-          NUM_PROP(kHttpExecThreads, 8),
+          NUM_PROP(kHttpExecThreads, std::thread::hardware_concurrency()),
+          NUM_PROP(kNumHttpCpuThreads, std::thread::hardware_concurrency()),
           NONE_PROP(kHttpServerHttpsPort),
           STR_PROP(kHttpServerHttpsEnabled, "false"),
           STR_PROP(
@@ -169,6 +170,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
           STR_PROP(kShuffleName, ""),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
+          STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           STR_PROP(kHttpEnableAccessLog, "false"),
           STR_PROP(kHttpEnableStatsFilter, "false"),
           STR_PROP(kHttpEnableEndpointLatencyFilter, "false"),
@@ -182,14 +184,18 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLogNumZombieTasks, 20),
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
-          STR_PROP(kExchangeMaxErrorDuration, "30s"),
+          STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
+          STR_PROP(kExchangeConnectTimeout, "20s"),
+          BOOL_PROP(kExchangeImmediateBufferTransfer, true),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
           NUM_PROP(kOldTaskCleanUpMs, 60'000),
+          BOOL_PROP(kEnableOldTaskCleanUp, true),
           STR_PROP(kInternalCommunicationJwtEnabled, "false"),
           STR_PROP(kInternalCommunicationSharedSecret, ""),
           NUM_PROP(kInternalCommunicationJwtExpirationSeconds, 300),
+          BOOL_PROP(kUseLegacyArrayAgg, false),
       };
 }
 
@@ -283,6 +289,10 @@ std::string SystemConfig::remoteFunctionServerCatalogName() const {
   return optionalProperty(kRemoteFunctionServerCatalogName).value();
 }
 
+std::string SystemConfig::remoteFunctionServerSerde() const {
+  return optionalProperty(kRemoteFunctionServerSerde).value();
+}
+
 int32_t SystemConfig::maxDriversPerTask() const {
   return optionalProperty<int32_t>(kMaxDriversPerTask).value();
 }
@@ -293,6 +303,10 @@ int32_t SystemConfig::concurrentLifespansPerTask() const {
 
 int32_t SystemConfig::httpExecThreads() const {
   return optionalProperty<int32_t>(kHttpExecThreads).value();
+}
+
+int32_t SystemConfig::numHttpCpuThreads() const {
+  return optionalProperty<int32_t>(kNumHttpCpuThreads).value();
 }
 
 int32_t SystemConfig::numIoThreads() const {
@@ -455,9 +469,18 @@ std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
       optionalProperty(kExchangeMaxErrorDuration).value());
 }
 
-std::chrono::duration<double> SystemConfig::exchangeRequestTimeout() const {
+std::chrono::duration<double> SystemConfig::exchangeRequestTimeoutMs() const {
   return velox::core::toDuration(
       optionalProperty(kExchangeRequestTimeout).value());
+}
+
+std::chrono::duration<double> SystemConfig::exchangeConnectTimeoutMs() const {
+  return velox::core::toDuration(
+      optionalProperty(kExchangeConnectTimeout).value());
+}
+
+bool SystemConfig::exchangeImmediateBufferTransfer() const {
+  return optionalProperty<bool>(kExchangeImmediateBufferTransfer).value();
 }
 
 int32_t SystemConfig::taskRunTimeSliceMicros() const {
@@ -470,6 +493,10 @@ bool SystemConfig::includeNodeInSpillPath() const {
 
 int32_t SystemConfig::oldTaskCleanUpMs() const {
   return optionalProperty<int32_t>(kOldTaskCleanUpMs).value();
+}
+
+bool SystemConfig::enableOldTaskCleanUp() const {
+  return optionalProperty<bool>(kEnableOldTaskCleanUp).value();
 }
 
 // The next three toggles govern the use of JWT for authentication
@@ -485,6 +512,10 @@ std::string SystemConfig::internalCommunicationSharedSecret() const {
 int32_t SystemConfig::internalCommunicationJwtExpirationSeconds() const {
   return optionalProperty<int32_t>(kInternalCommunicationJwtExpirationSeconds)
       .value();
+}
+
+bool SystemConfig::useLegacyArrayAgg() const {
+  return optionalProperty<bool>(kUseLegacyArrayAgg).value();
 }
 
 NodeConfig::NodeConfig() {
@@ -613,7 +644,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           BOOL_PROP(
               QueryConfig::kAggregationSpillEnabled,
               c.aggregationSpillEnabled()),
-          BOOL_PROP(QueryConfig::kAggregationSpillAll, c.aggregationSpillAll()),
           BOOL_PROP(QueryConfig::kJoinSpillEnabled, c.joinSpillEnabled()),
           BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
           NUM_PROP(
@@ -634,20 +664,27 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           NUM_PROP(
               QueryConfig::kJoinSpillPartitionBits, c.joinSpillPartitionBits()),
           NUM_PROP(
-              QueryConfig::kAggregationSpillPartitionBits,
-              c.aggregationSpillPartitionBits()),
-          NUM_PROP(
               QueryConfig::kSpillableReservationGrowthPct,
               c.spillableReservationGrowthPct()),
           BOOL_PROP(
-              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull()),
-      };
+              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull())};
+  update(*SystemConfig::instance());
 }
 
 BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
   static std::unique_ptr<BaseVeloxQueryConfig> instance =
       std::make_unique<BaseVeloxQueryConfig>();
   return instance.get();
+}
+
+void BaseVeloxQueryConfig::initialize(const std::string& filePath) {
+  ConfigBase::initialize(filePath);
+  update(*SystemConfig::instance());
+}
+
+void BaseVeloxQueryConfig::update(const SystemConfig& systemConfig) {
+  registeredProps_[velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls] =
+      bool2String(systemConfig.useLegacyArrayAgg());
 }
 
 } // namespace facebook::presto

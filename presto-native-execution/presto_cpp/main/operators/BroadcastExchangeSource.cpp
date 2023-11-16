@@ -16,7 +16,6 @@
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
-#include "presto_cpp/main/operators/BroadcastFactory.h"
 
 namespace facebook::presto::operators {
 
@@ -68,11 +67,11 @@ folly::F14FastMap<std::string, int64_t> BroadcastExchangeSource::stats() const {
 }
 
 // static
-std::unique_ptr<exec::ExchangeSource>
+std::shared_ptr<exec::ExchangeSource>
 BroadcastExchangeSource::createExchangeSource(
     const std::string& url,
     int destination,
-    std::shared_ptr<exec::ExchangeQueue> queue,
+    const std::shared_ptr<exec::ExchangeQueue>& queue,
     memory::MemoryPool* pool) {
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
@@ -95,10 +94,10 @@ BroadcastExchangeSource::createExchangeSource(
   }
 
   auto fileSystemBroadcast = BroadcastFactory(broadcastFileInfo->filePath_);
-  return std::make_unique<BroadcastExchangeSource>(
+  return std::make_shared<BroadcastExchangeSource>(
       uri.host(),
       destination,
-      std::move(queue),
+      queue,
       fileSystemBroadcast.createReader(std::move(broadcastFileInfo), pool),
       pool);
 }

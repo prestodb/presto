@@ -86,7 +86,10 @@ void PeriodicTaskManager::start() {
 
   VELOX_CHECK_NOT_NULL(taskManager_);
   addTaskStatsTask();
-  addOldTaskCleanupTask();
+
+  if (SystemConfig::instance()->enableOldTaskCleanUp()) {
+    addOldTaskCleanupTask();
+  }
 
   if (memoryAllocator_ != nullptr) {
     addMemoryAllocatorStatsTask();
@@ -178,9 +181,7 @@ void PeriodicTaskManager::updateTaskStats() {
       kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
   REPORT_ADD_STAT_VALUE(
       kCounterTotalPartitionedOutputBuffer,
-      velox::exec::PartitionedOutputBufferManager::getInstance()
-          .lock()
-          ->numBuffers());
+      velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
 }
 
 void PeriodicTaskManager::addTaskStatsTask() {

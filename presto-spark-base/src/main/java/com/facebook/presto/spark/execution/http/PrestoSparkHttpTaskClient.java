@@ -190,7 +190,7 @@ public class PrestoSparkHttpTaskClient
         });
     }
 
-    public ListenableFuture<BaseResponse<TaskInfo>> updateTask(
+    public BaseResponse<TaskInfo> updateTask(
             List<TaskSource> sources,
             PlanFragment planFragment,
             TableWriteInfo tableWriteInfo,
@@ -213,7 +213,7 @@ public class PrestoSparkHttpTaskClient
         URI batchTaskUri = uriBuilderFrom(taskUri)
                 .appendPath("batch")
                 .build();
-        return httpClient.executeAsync(
+        return httpClient.execute(
                 setContentTypeHeaders(false, preparePost())
                         .setUri(batchTaskUri)
                         .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestCodec.toBytes(batchTaskUpdateRequest)))

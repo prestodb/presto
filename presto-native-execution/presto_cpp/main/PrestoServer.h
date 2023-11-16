@@ -22,6 +22,7 @@
 #include "presto_cpp/main/CPUMon.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
+#include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
@@ -63,6 +64,7 @@ class SignalHandler;
 class TaskManager;
 class TaskResource;
 class PeriodicTaskManager;
+class SystemConfig;
 
 class PrestoServer {
  public:
@@ -144,6 +146,8 @@ class PrestoServer {
 
   void initializeVeloxMemory();
 
+  void initializeThreadPools();
+
  protected:
   void addServerPeriodicTasks();
 
@@ -172,6 +176,20 @@ class PrestoServer {
 
   // Executor for exchange data over http.
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpExecutor_;
+
+  // Executor for HTTP request dispatching
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIOExecutor_;
+
+  // Executor for HTTP request processing after dispatching
+  std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
+
+  // Executor for query engine driver executions.
+  std::shared_ptr<folly::CPUThreadPoolExecutor> driverExecutor_;
+
+  // Executor for spilling.
+  std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
+
+  ConnectionPools exchangeSourceConnectionPools_;
 
   // Instance of MemoryAllocator used for all query memory allocations.
   std::shared_ptr<velox::memory::MemoryAllocator> allocator_;

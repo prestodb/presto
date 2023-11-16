@@ -29,7 +29,6 @@ import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -101,12 +100,14 @@ public class MetadataQueryOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (!SystemSessionProperties.isOptimizeMetadataQueries(session) && !SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session)) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
-        return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
+        Optimizer optimizer = new Optimizer(session, metadata, idAllocator);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(optimizer, plan, null);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, optimizer.isPlanChanged());
     }
 
     private static class Optimizer
@@ -118,6 +119,7 @@ public class MetadataQueryOptimizer
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final boolean ignoreMetadataStats;
         private final int metastoreCallNumThreshold;
+        private boolean planChanged;
 
         private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
         {
@@ -127,6 +129,11 @@ public class MetadataQueryOptimizer
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.ignoreMetadataStats = SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session);
             this.metastoreCallNumThreshold = SystemSessionProperties.getOptimizeMetadataQueriesCallThreshold(session);
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -244,8 +251,7 @@ public class MetadataQueryOptimizer
             }
 
             // replace the tablescan node with a values node
-            session.getOptimizerInformationCollector().addInformation(
-                    new PlanOptimizerInformation(MetadataQueryOptimizer.class.getSimpleName(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            planChanged = true;
             return SimplePlanRewriter.rewriteWith(new Replacer(new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), inputs, rowsBuilder.build(), Optional.empty())), node);
         }
 
@@ -325,8 +331,7 @@ public class MetadataQueryOptimizer
                     return context.defaultRewrite(node);
                 }
             }
-            session.getOptimizerInformationCollector().addInformation(
-                    new PlanOptimizerInformation(MetadataQueryOptimizer.class.getSimpleName(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            planChanged = true;
             Assignments assignments = assignmentsBuilder.build();
             ValuesNode valuesNode = new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(new ArrayList<>(assignments.getExpressions())), Optional.empty());
             return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), valuesNode, assignments, LOCAL);

@@ -1024,7 +1024,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public synchronized Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
         while (lockedHiveTables.containsValue(hiveTableName)) {
@@ -1038,7 +1038,7 @@ public class FileHiveMetastore
         }
         long lockId = ++currentLockId;
         lockedHiveTables.put(lockId, hiveTableName);
-        return lockId;
+        return Optional.of(lockId);
     }
 
     @Override

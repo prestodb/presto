@@ -15,8 +15,7 @@
 #include <iostream>
 
 #include <antlr4-runtime/antlr4-runtime.h>
-#include "presto_cpp/main/types/ParseTypeSignature.h"
-#include "presto_cpp/main/types/TypeSignatureTypeConverter.h"
+#include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/main/types/antlr/TypeSignatureLexer.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -25,30 +24,36 @@
 using namespace facebook::velox;
 
 namespace facebook::presto {
-
-TypePtr parseTypeSignature(const std::string& signature) {
-  return TypeSignatureTypeConverter::parse(signature);
-}
-
-// static
-TypePtr TypeSignatureTypeConverter::parse(const std::string& text) {
-  antlr4::ANTLRInputStream input(text);
-  type::TypeSignatureLexer lexer(&input);
-  antlr4::CommonTokenStream tokens(&lexer);
-  type::TypeSignatureParser parser(&tokens);
-
-  parser.setErrorHandler(std::make_shared<antlr4::BailErrorStrategy>());
-
-  try {
-    auto ctx = parser.start();
-    TypeSignatureTypeConverter c;
-    return c.visit(ctx).as<TypePtr>();
-  } catch (const std::exception& e) {
-    VELOX_USER_FAIL("Failed to parse type [{}]: {}", text, e.what());
-  }
-}
-
 namespace {
+class TypeSignatureTypeConverter : public type::TypeSignatureBaseVisitor {
+ public:
+  virtual antlrcpp::Any visitStart(
+      type::TypeSignatureParser::StartContext* ctx) override;
+  virtual antlrcpp::Any visitNamed_type(
+      type::TypeSignatureParser::Named_typeContext* ctx) override;
+  virtual antlrcpp::Any visitType_spec(
+      type::TypeSignatureParser::Type_specContext* ctx) override;
+  virtual antlrcpp::Any visitType(
+      type::TypeSignatureParser::TypeContext* ctx) override;
+  virtual antlrcpp::Any visitSimple_type(
+      type::TypeSignatureParser::Simple_typeContext* ctx) override;
+  virtual antlrcpp::Any visitDecimal_type(
+      type::TypeSignatureParser::Decimal_typeContext* ctx) override;
+  virtual antlrcpp::Any visitVariable_type(
+      type::TypeSignatureParser::Variable_typeContext* ctx) override;
+  virtual antlrcpp::Any visitType_list(
+      type::TypeSignatureParser::Type_listContext* ctx) override;
+  virtual antlrcpp::Any visitRow_type(
+      type::TypeSignatureParser::Row_typeContext* ctx) override;
+  virtual antlrcpp::Any visitMap_type(
+      type::TypeSignatureParser::Map_typeContext* ctx) override;
+  virtual antlrcpp::Any visitArray_type(
+      type::TypeSignatureParser::Array_typeContext* ctx) override;
+  virtual antlrcpp::Any visitFunction_type(
+      type::TypeSignatureParser::Function_typeContext* ctx) override;
+  virtual antlrcpp::Any visitIdentifier(
+      type::TypeSignatureParser::IdentifierContext* ctx) override;
+};
 
 TypePtr typeFromString(const std::string& typeName) {
   auto upper = boost::to_upper_copy(typeName);
@@ -94,8 +99,6 @@ struct NamedType {
   std::string name;
   velox::TypePtr type;
 };
-
-} // namespace
 
 antlrcpp::Any TypeSignatureTypeConverter::visitStart(
     type::TypeSignatureParser::StartContext* ctx) {
@@ -209,5 +212,29 @@ antlrcpp::Any TypeSignatureTypeConverter::visitIdentifier(
         1, ctx->QUOTED_ID()->getText().length() - 2);
   }
 }
+}
 
+TypePtr TypeParser::parse(const std::string& text) const {
+  auto it = cache_.find(text);
+  if (it != cache_.end()) {
+    return it->second;
+  }
+
+  antlr4::ANTLRInputStream input(text);
+  type::TypeSignatureLexer lexer(&input);
+  antlr4::CommonTokenStream tokens(&lexer);
+  type::TypeSignatureParser parser(&tokens);
+
+  parser.setErrorHandler(std::make_shared<antlr4::BailErrorStrategy>());
+
+  try {
+    auto ctx = parser.start();
+    TypeSignatureTypeConverter c;
+    auto result = c.visit(ctx).as<TypePtr>();
+    cache_.insert({text, result});
+    return result;
+  } catch (const std::exception& e) {
+    VELOX_USER_FAIL("Failed to parse type [{}]: {}", text, e.what());
+  }
+}
 } // namespace facebook::presto

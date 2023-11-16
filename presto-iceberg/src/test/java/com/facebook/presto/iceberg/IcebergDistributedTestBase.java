@@ -13,17 +13,34 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
@@ -36,17 +53,24 @@ public class IcebergDistributedTestBase
         extends AbstractTestDistributedQueries
 {
     private final CatalogType catalogType;
+    private final Map<String, String> extraConnectorProperties;
+
+    protected IcebergDistributedTestBase(CatalogType catalogType, Map<String, String> extraConnectorProperties)
+    {
+        this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this.extraConnectorProperties = requireNonNull(extraConnectorProperties, "extraConnectorProperties is null");
+    }
 
     protected IcebergDistributedTestBase(CatalogType catalogType)
     {
-        this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this(catalogType, ImmutableMap.of());
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType);
+        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType, extraConnectorProperties);
     }
 
     @Override
@@ -125,6 +149,37 @@ public class IcebergDistributedTestBase
     }
 
     @Test
+    public void testDeleteWithPartitionSpecEvolution()
+    {
+        // Create a partitioned table and insert some value
+        assertQuerySucceeds("create table test_delete(a int, b varchar) with (partitioning = ARRAY['a'])");
+        assertQuerySucceeds("insert into test_delete values(1, '1001'), (1, '1002'), (2, '1003')");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 3L);
+
+        // Rename partition column would not affect metadata deletion filtering by it's value
+        assertQuerySucceeds("alter table test_delete rename column a to c");
+        assertQuerySucceeds("insert into test_delete(c, b) values(2, '1004')");
+        assertUpdate("DELETE FROM test_delete WHERE c = 2", 2L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 2L);
+
+        // Add a new partition column, and insert some value
+        assertQuerySucceeds("alter table test_delete add column d bigint with(partitioning = 'identity')");
+        assertQuerySucceeds("insert into test_delete values(1, '1001', 10001), (2, '1003', 10001), (3, '1004', 10003)");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 5L);
+
+        // Deletion fails, because column 'd' do not exists in older partition specs
+        String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely";
+        assertQueryFails("delete from test_delete where d = 1001", errorMessage);
+        assertQueryFails("delete from test_delete where d = 1001 and c = 2", errorMessage);
+
+        // Deletion succeeds, because column 'c' exists in all partition specs
+        assertUpdate("DELETE FROM test_delete WHERE c = 1", 3);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 2L);
+
+        assertQuerySucceeds("DROP TABLE test_delete");
+    }
+
+    @Test
     public void testRenamePartitionColumn()
     {
         assertQuerySucceeds("create table test_partitioned_table(a int, b varchar) with (partitioning = ARRAY['a'])");
@@ -140,6 +195,96 @@ public class IcebergDistributedTestBase
         assertEquals(getQueryRunner().execute("SELECT row_count FROM \"test_partitioned_table$partitions\" where c = 2").getOnlyValue(), 2L);
         assertEquals(getQueryRunner().execute("SELECT row_count FROM \"test_partitioned_table$partitions\" where c = 3").getOnlyValue(), 1L);
         assertQuerySucceeds("DROP TABLE test_partitioned_table");
+    }
+
+    @Test
+    public void testAddPartitionColumn()
+    {
+        // Create unPartitioned table and insert some data
+        assertQuerySucceeds("create table add_partition_column(a int)");
+        assertQuerySucceeds("insert into add_partition_column values 1, 2, 3");
+
+        // Add identity partition column
+        assertQuerySucceeds("alter table add_partition_column add column b timestamp with(partitioning = 'identity')");
+        assertQuerySucceeds("insert into add_partition_column values (4, timestamp '1984-12-08 00:10:00'), (5, timestamp '2001-01-08 12:10:01')");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM \"add_partition_column$partitions\"").getOnlyValue(), 3L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b is null").getOnlyValue(), 3L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '2001-01-08 12:10:01'").getOnlyValue(), 1L);
+
+        // Add truncate[2] partition column
+        assertQuerySucceeds("alter table add_partition_column add column c varchar with(partitioning = 'truncate(2)')");
+        assertQuerySucceeds("insert into add_partition_column values (6, timestamp '1984-12-08 00:10:00', 'hw1006'), (7, timestamp '1984-12-08 00:10:00', 'hw1007')");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM \"add_partition_column$partitions\"").getOnlyValue(), 4L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b is null and c_trunc is null").getOnlyValue(), 3L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '1984-12-08 00:10:00' and c_trunc is null").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '2001-01-08 12:10:01' and c_trunc is null").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '1984-12-08 00:10:00' and c_trunc = 'hw'").getOnlyValue(), 2L);
+
+        assertQuerySucceeds("DROP TABLE add_partition_column");
+
+        // Create partitioned table and insert some data
+        assertQuerySucceeds("create table add_partition_column(a int, b timestamp, c varchar) with (partitioning = ARRAY['b', 'truncate(c, 2)'])");
+        assertQuerySucceeds("insert into add_partition_column values(1, timestamp '1984-12-08 00:10:00', 'hw1001'), (2, timestamp '2001-01-08 12:10:01', 'hw1002')");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM \"add_partition_column$partitions\"").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '1984-12-08 00:10:00' and c_trunc = 'hw'").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '2001-01-08 12:10:01' and c_trunc = 'hw'").getOnlyValue(), 1L);
+
+        // Add bucket partition column
+        assertQuerySucceeds("alter table add_partition_column add column d bigint with(partitioning = 'bucket(2)')");
+        assertQuerySucceeds("insert into add_partition_column values(1, timestamp '1984-12-08 00:10:00', 'hw1001', 1234), (1, timestamp '1984-12-08 00:10:00', 'hw1001', 1344)");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM \"add_partition_column$partitions\"").getOnlyValue(), 4L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '1984-12-08 00:10:00' and c_trunc = 'hw' and d_bucket is null").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '2001-01-08 12:10:01' and c_trunc = 'hw' and d_bucket is null").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '1984-12-08 00:10:00' and c_trunc = 'hw' and d_bucket = 1").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"add_partition_column$partitions\" where b = timestamp '1984-12-08 00:10:00' and c_trunc = 'hw' and d_bucket = 0").getOnlyValue(), 1L);
+
+        // validate currently unsupported partition transform
+        assertQueryFails("alter table add_partition_column add column e timestamp with(partitioning = 'year')", "Currently unsupported partition transform: year");
+        assertQueryFails("alter table add_partition_column add column e timestamp with(partitioning = 'month')", "Currently unsupported partition transform: month");
+        assertQueryFails("alter table add_partition_column add column e timestamp with(partitioning = 'day')", "Currently unsupported partition transform: day");
+        assertQueryFails("alter table add_partition_column add column e timestamp with(partitioning = 'hour')", "Currently unsupported partition transform: hour");
+
+        // validate unknown partition transform, take 'other' and 'null' for example.
+        assertQueryFails("alter table add_partition_column add column e varchar with(partitioning = 'other')", "Unknown partition transform: other");
+        assertQueryFails("alter table add_partition_column add column e varchar with(partitioning = 'null')", "Unknown partition transform: null");
+
+        // validate wrong parameter of transform function
+        String ignoreErrorMessage = ".*";
+        long maxValue = Integer.MAX_VALUE + 1;
+        assertQueryFails("alter table add_partition_column add column e bigint with (partitioning = 'bucket(-1)')", ignoreErrorMessage);
+        assertQueryFails("alter table add_partition_column add column e bigint with (partitioning = 'bucket(0)')", ignoreErrorMessage);
+        assertQueryFails("alter table add_partition_column add column e bigint with (partitioning = 'bucket(1d2f)')", ignoreErrorMessage);
+        assertQueryFails("alter table add_partition_column add column e bigint with (partitioning = 'bucket(" + maxValue + ")')", ignoreErrorMessage);
+        assertQueryFails("alter table add_partition_column add column f varchar with (partitioning = 'truncate(-1)')", ignoreErrorMessage);
+        assertQueryFails("alter table add_partition_column add column f varchar with (partitioning = 'truncate(0)')", ignoreErrorMessage);
+        assertQueryFails("alter table add_partition_column add column f varchar with (partitioning = 'truncate(1d2f)')", ignoreErrorMessage);
+        assertQueryFails("alter table add_partition_column add column f varchar with (partitioning = 'truncate(" + maxValue + ")')", ignoreErrorMessage);
+        assertQuerySucceeds("DROP TABLE add_partition_column");
+
+        // validate try to add duplicate name in partition spec
+        assertQueryFails("create table add_partition_column(a_bucket int, a varchar) with (partitioning = ARRAY['a', 'bucket(a, 2)'])", ignoreErrorMessage);
+        assertQuerySucceeds("create table add_partition_column(a int, b_trunc varchar) with (partitioning = ARRAY['bucket(a, 2)', 'b_trunc'])");
+        assertQueryFails("alter table add_partition_column add column a_bucket bigint with (partitioning = 'identity')", ignoreErrorMessage);
+        assertQueryFails("alter table add_partition_column add column b varchar with (partitioning = 'truncate(2)')", ignoreErrorMessage);
+        assertQuerySucceeds("DROP TABLE add_partition_column");
+    }
+
+    @Test
+    public void testDropPartitionColumn()
+    {
+        assertQuerySucceeds("create table test_drop_partition_column(a int, b varchar) with (partitioning = ARRAY['a'])");
+        assertQuerySucceeds("insert into test_drop_partition_column values(1, '1001'), (2, '1002'), (3, '1003')");
+        String errorMessage = "This connector does not support dropping columns which exist in any of the table's partition specs";
+        assertQueryFails("alter table test_drop_partition_column drop column a", errorMessage);
+        assertQuerySucceeds("DROP TABLE test_drop_partition_column");
+
+        assertQuerySucceeds("create table test_drop_partition_column(a int)");
+        assertQuerySucceeds("insert into test_drop_partition_column values 1, 2, 3");
+        assertQuerySucceeds("alter table test_drop_partition_column add column b varchar with (partitioning = 'identity')");
+        assertQuerySucceeds("insert into test_drop_partition_column values(4, '1004'), (5, '1005')");
+        assertQueryFails("alter table test_drop_partition_column drop column b", errorMessage);
+        assertQuerySucceeds("DROP TABLE test_drop_partition_column");
     }
 
     @Test
@@ -194,6 +339,81 @@ public class IcebergDistributedTestBase
         assertEquals(actual, expectedParametrizedVarchar);
     }
 
+    @Test
+    public void testPartitionedByTimestampType()
+    {
+        // create iceberg table partitioned by column of TimestampType, and insert some data
+        assertQuerySucceeds("create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'])");
+        assertQuerySucceeds("insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
+
+        // validate return data of TimestampType
+        List<Object> timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(timestampColumnDatas.size(), 2);
+        assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        assertEquals(timestampColumnDatas.get(1), LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+
+        // validate column of TimestampType exists in query filter
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
+                LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(),
+                LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+
+        // validate column of TimestampType in system table "partitions"
+        assertEquals(getQueryRunner().execute("select count(*) FROM \"test_partition_columns$partitions\"").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(), 1L);
+
+        // validate column of TimestampType exists in delete filter
+        assertUpdate("delete from test_partition_columns WHERE b = timestamp '2001-01-08 12:01:01'", 1);
+        timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(timestampColumnDatas.size(), 1);
+        assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select b FROM test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
+                LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns$partitions\"").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+
+        assertQuerySucceeds("drop table test_partition_columns");
+    }
+
+    @Test
+    public void testPartitionedByVarbinaryType()
+    {
+        // create iceberg table partitioned by column of VarbinaryType, and insert some data
+        assertQuerySucceeds("drop table if exists test_partition_columns_varbinary");
+        assertQuerySucceeds("create table test_partition_columns_varbinary(a bigint, b varbinary) with (partitioning = ARRAY['b'])");
+        assertQuerySucceeds("insert into test_partition_columns_varbinary values(1, X'bcd1'), (2, X'e3bcd1')");
+
+        // validate return data of VarbinaryType
+        List<Object> varbinaryColumnDatas = getQueryRunner().execute("select b from test_partition_columns_varbinary order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(varbinaryColumnDatas.size(), 2);
+        assertEquals(varbinaryColumnDatas.get(0), new byte[] {(byte) 0xbc, (byte) 0xd1});
+        assertEquals(varbinaryColumnDatas.get(1), new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+
+        // validate column of VarbinaryType exists in query filter
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns_varbinary where b = X'bcd1'").getOnlyValue(),
+                new byte[] {(byte) 0xbc, (byte) 0xd1});
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns_varbinary where b = X'e3bcd1'").getOnlyValue(),
+                new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+
+        // validate column of VarbinaryType in system table "partitions"
+        assertEquals(getQueryRunner().execute("select count(*) FROM \"test_partition_columns_varbinary$partitions\"").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_varbinary$partitions\" where b = X'bcd1'").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_varbinary$partitions\" where b = X'e3bcd1'").getOnlyValue(), 1L);
+
+        // validate column of VarbinaryType exists in delete filter
+        assertUpdate("delete from test_partition_columns_varbinary WHERE b = X'bcd1'", 1);
+        varbinaryColumnDatas = getQueryRunner().execute("select b from test_partition_columns_varbinary order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(varbinaryColumnDatas.size(), 1);
+        assertEquals(varbinaryColumnDatas.get(0), new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+        assertEquals(getQueryRunner().execute("select b FROM test_partition_columns_varbinary where b = X'e3bcd1'").getOnlyValue(),
+                new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
+        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns_varbinary$partitions\"").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_varbinary$partitions\" where b = X'e3bcd1'").getOnlyValue(), 1L);
+
+        assertQuerySucceeds("drop table test_partition_columns_varbinary");
+    }
+
     @Override
     public void testDescribeOutput()
     {
@@ -221,10 +441,236 @@ public class IcebergDistributedTestBase
         assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
     }
 
-    private void assertExplainAnalyze(@Language("SQL") String query)
+    @Test
+    public void testReadWriteNDVs()
     {
-        String value = (String) computeActual(query).getOnlyValue();
+        assertUpdate("CREATE TABLE test_stat_ndv (col0 int)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_stat_ndv"));
+        assertTableColumnNames("test_stat_ndv", "col0");
 
-        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
+        // test that stats don't exist before analyze
+        TableStatistics stats = getTableStats("test_stat_ndv");
+        assertTrue(stats.getColumnStatistics().isEmpty());
+
+        // test after simple insert we get a good estimate
+        assertUpdate("INSERT INTO test_stat_ndv VALUES 1, 2, 3", 3);
+        getQueryRunner().execute("ANALYZE test_stat_ndv");
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+
+        // test after inserting the same values, we still get the same estimate
+        assertUpdate("INSERT INTO test_stat_ndv VALUES 1, 2, 3", 3);
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+
+        // test after ANALYZING with the new inserts that the NDV estimate is the same
+        getQueryRunner().execute("ANALYZE test_stat_ndv");
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+
+        // test after inserting a new value, but not analyzing, the estimate is the same.
+        assertUpdate("INSERT INTO test_stat_ndv VALUES 4", 1);
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+
+        // test that after analyzing, the updates stats show up.
+        getQueryRunner().execute("ANALYZE test_stat_ndv");
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(4.0));
+
+        // test adding a null value is successful, and analyze still runs successfully
+        assertUpdate("INSERT INTO test_stat_ndv VALUES NULL", 1);
+        assertQuerySucceeds("ANALYZE test_stat_ndv");
+        stats = getTableStats("test_stat_ndv");
+        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(4.0));
+
+        assertUpdate("DROP TABLE test_stat_ndv");
+    }
+
+    @Test
+    public void testReadWriteNDVsComplexTypes()
+    {
+        assertUpdate("CREATE TABLE test_stat_ndv_complex (col0 int, col1 date, col2 varchar, col3 row(c0 int))");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_stat_ndv_complex"));
+        assertTableColumnNames("test_stat_ndv_complex", "col0", "col1", "col2", "col3");
+
+        // test that stats don't exist before analyze
+        TableStatistics stats = getTableStats("test_stat_ndv_complex");
+        assertTrue(stats.getColumnStatistics().isEmpty());
+
+        // test after simple insert we get a good estimate
+        assertUpdate("INSERT INTO test_stat_ndv_complex VALUES (0, current_date, 't1', row(0))", 1);
+        getQueryRunner().execute("ANALYZE test_stat_ndv_complex");
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test after inserting the same values, we still get the same estimate
+        assertUpdate("INSERT INTO test_stat_ndv_complex VALUES (0, current_date, 't1', row(0))", 1);
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test after ANALYZING with the new inserts that the NDV estimate is the same
+        getQueryRunner().execute("ANALYZE test_stat_ndv_complex");
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test after inserting a new value, but not analyzing, the estimate is the same.
+        assertUpdate("INSERT INTO test_stat_ndv_complex VALUES (1, current_date + interval '1' day, 't2', row(1))", 1);
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(1.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test that after analyzing, the updates stats show up.
+        getQueryRunner().execute("ANALYZE test_stat_ndv_complex");
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        // test adding a null value is successful, and analyze still runs successfully
+        assertUpdate("INSERT INTO test_stat_ndv_complex VALUES (NULL, NULL, NULL, NULL)", 1);
+        assertQuerySucceeds("ANALYZE test_stat_ndv_complex");
+        stats = getTableStats("test_stat_ndv_complex");
+        assertEquals(columnStatsFor(stats, "col0").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col1").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col2").getDistinctValuesCount(), Estimate.of(2.0));
+        assertEquals(columnStatsFor(stats, "col3").getDistinctValuesCount(), Estimate.unknown());
+
+        assertUpdate("DROP TABLE test_stat_ndv_complex");
+    }
+
+    @Test
+    public void testNDVsAtSnapshot()
+    {
+        assertUpdate("CREATE TABLE test_stat_snap (col0 int, col1 varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_stat_snap"));
+        assertTableColumnNames("test_stat_snap", "col0", "col1");
+        assertEquals(getTableSnapshots("test_stat_snap").size(), 0);
+
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertUpdate("INSERT INTO test_stat_snap VALUES (0, '0')", 1);
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertUpdate("INSERT INTO test_stat_snap VALUES (1, '1')", 1);
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertUpdate("INSERT INTO test_stat_snap VALUES (2, '2')", 1);
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertUpdate("INSERT INTO test_stat_snap VALUES (3, '3')", 1);
+        assertQuerySucceeds("ANALYZE test_stat_snap");
+        assertEquals(getTableSnapshots("test_stat_snap").size(), 4);
+
+        List<Long> snaps = getTableSnapshots("test_stat_snap");
+        for (int i = 0; i < snaps.size(); i++) {
+            TableStatistics statistics = getTableStats("test_stat_snap", Optional.of(snaps.get(i)));
+            // assert either case as we don't have good control over the timing of when statistics files are written
+            ColumnStatistics col0Stats = columnStatsFor(statistics, "col0");
+            ColumnStatistics col1Stats = columnStatsFor(statistics, "col1");
+            System.out.printf("distinct @ %s count col0: %s%n", snaps.get(i), col0Stats.getDistinctValuesCount());
+            final int idx = i;
+            assertEither(
+                    () -> assertEquals(col0Stats.getDistinctValuesCount(), Estimate.of(idx)),
+                    () -> assertEquals(col0Stats.getDistinctValuesCount(), Estimate.of(idx + 1)));
+            assertEither(
+                    () -> assertEquals(col1Stats.getDistinctValuesCount(), Estimate.of(idx)),
+                    () -> assertEquals(col1Stats.getDistinctValuesCount(), Estimate.of(idx + 1)));
+        }
+        assertUpdate("DROP TABLE test_stat_snap");
+    }
+
+    @Test
+    public void testStatsByDistance()
+    {
+        assertUpdate("CREATE TABLE test_stat_dist (col0 int)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_stat_dist"));
+        assertTableColumnNames("test_stat_dist", "col0");
+        assertEquals(getTableSnapshots("test_stat_dist").size(), 0);
+
+        assertUpdate("INSERT INTO test_stat_dist VALUES 0", 1);
+        assertQuerySucceeds("ANALYZE test_stat_dist");
+        assertUpdate("INSERT INTO test_stat_dist VALUES 1", 1);
+        assertUpdate("INSERT INTO test_stat_dist VALUES 2", 1);
+        assertUpdate("INSERT INTO test_stat_dist VALUES 3", 1);
+        assertUpdate("INSERT INTO test_stat_dist VALUES 4", 1);
+        assertUpdate("INSERT INTO test_stat_dist VALUES 5", 1);
+        assertQuerySucceeds("ANALYZE test_stat_dist");
+        assertEquals(getTableSnapshots("test_stat_dist").size(), 6);
+        List<Long> snapshots = getTableSnapshots("test_stat_dist");
+        // set a high weight so the weighting calculation is mostly done by record count
+        Session weightedSession = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT, "10000000")
+                .build();
+        Function<Integer, Estimate> ndvs = (x) -> columnStatsFor(getTableStats("test_stat_dist", Optional.of(snapshots.get(x)), weightedSession), "col0")
+                .getDistinctValuesCount();
+        assertEquals(ndvs.apply(0).getValue(), 1);
+        assertEquals(ndvs.apply(1).getValue(), 1);
+        assertEquals(ndvs.apply(2).getValue(), 1);
+        assertEquals(ndvs.apply(3).getValue(), 6);
+        assertEquals(ndvs.apply(4).getValue(), 6);
+        assertEquals(ndvs.apply(5).getValue(), 6);
+        assertUpdate("DROP TABLE test_stat_dist");
+    }
+
+    private static void assertEither(Runnable first, Runnable second)
+    {
+        try {
+            first.run();
+        }
+        catch (AssertionError e) {
+            second.run();
+        }
+    }
+
+    private List<Long> getTableSnapshots(String tableName)
+    {
+        MaterializedResult result = getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at", tableName));
+        return result.getOnlyColumn().map(Long.class::cast).collect(Collectors.toList());
+    }
+
+    private TableStatistics getTableStats(String name)
+    {
+        return getTableStats(name, Optional.empty());
+    }
+
+    private TableStatistics getTableStats(String name, Optional<Long> snapshot)
+    {
+        return getTableStats(name, snapshot, getSession());
+    }
+
+    private TableStatistics getTableStats(String name, Optional<Long> snapshot, Session session)
+    {
+        TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session metadataSession = session.beginTransactionId(
+                transactionId,
+                getQueryRunner().getTransactionManager(),
+                new AllowAllAccessControl());
+        Metadata metadata = getDistributedQueryRunner().getMetadata();
+        MetadataResolver resolver = metadata.getMetadataResolver(metadataSession);
+        String tableName = snapshot.map(snap -> format("%s@%d", name, snap)).orElse(name);
+        String qualifiedName = format("%s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        TableHandle handle = resolver.getTableHandle(QualifiedObjectName.valueOf(qualifiedName)).get();
+        return metadata.getTableStatistics(metadataSession,
+                handle,
+                new ArrayList<>(resolver.getColumnHandles(handle).values()),
+                Constraint.alwaysTrue());
+    }
+
+    private static ColumnStatistics columnStatsFor(TableStatistics statistics, String name)
+    {
+        return statistics.getColumnStatistics().entrySet()
+                .stream().filter(entry -> ((IcebergColumnHandle) entry.getKey()).getName().equals(name))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .get();
     }
 }

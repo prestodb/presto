@@ -134,17 +134,16 @@ public class PredicatePushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(
-                new Rewriter(variableAllocator, idAllocator, metadata, effectivePredicateExtractor, sqlParser, session),
-                plan,
-                TRUE_CONSTANT);
+        Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, metadata, effectivePredicateExtractor, sqlParser, session);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, TRUE_CONSTANT);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     public static RowExpression createDynamicFilterExpression(String id, RowExpression input, FunctionAndTypeManager functionAndTypeManager)
@@ -181,6 +180,7 @@ public class PredicatePushDown
         private final LogicalRowExpressions logicalRowExpressions;
         private final FunctionAndTypeManager functionAndTypeManager;
         private final ExternalCallExpressionChecker externalCallExpressionChecker;
+        private boolean planChanged;
 
         private Rewriter(
                 VariableAllocator variableAllocator,
@@ -202,12 +202,18 @@ public class PredicatePushDown
             this.externalCallExpressionChecker = new ExternalCallExpressionChecker(functionAndTypeManager);
         }
 
+        public boolean isPlanChanged()
+        {
+            return planChanged;
+        }
+
         @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<RowExpression> context)
         {
             PlanNode rewrittenNode = context.defaultRewrite(node, TRUE_CONSTANT);
             if (!context.get().equals(TRUE_CONSTANT)) {
                 // Drop in a FilterNode b/c we cannot push our predicate down any further
+                planChanged = true;
                 rewrittenNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, context.get());
             }
             return rewrittenNode;
@@ -236,6 +242,7 @@ public class PredicatePushDown
             }
 
             if (modified) {
+                planChanged = true;
                 return new ExchangeNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -268,6 +275,7 @@ public class PredicatePushDown
             PlanNode rewrittenNode = context.defaultRewrite(node, logicalRowExpressions.combineConjuncts(conjuncts.get(true)));
 
             if (!conjuncts.get(false).isEmpty()) {
+                planChanged = true;
                 rewrittenNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, logicalRowExpressions.combineConjuncts(conjuncts.get(false)));
             }
 
@@ -307,6 +315,7 @@ public class PredicatePushDown
             nonInliningConjuncts.addAll(conjuncts.get(false));
 
             if (!nonInliningConjuncts.isEmpty()) {
+                planChanged = true;
                 rewrittenNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, logicalRowExpressions.combineConjuncts(nonInliningConjuncts));
             }
 
@@ -347,6 +356,7 @@ public class PredicatePushDown
 
             // All other conjuncts, if any, will be in the filter node.
             if (!conjuncts.get(false).isEmpty()) {
+                planChanged = true;
                 rewrittenNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, logicalRowExpressions.combineConjuncts(conjuncts.get(false)));
             }
 
@@ -363,6 +373,7 @@ public class PredicatePushDown
             PlanNode rewrittenNode = context.defaultRewrite(node, logicalRowExpressions.combineConjuncts(conjuncts.get(true)));
 
             if (!conjuncts.get(false).isEmpty()) {
+                planChanged = true;
                 rewrittenNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, logicalRowExpressions.combineConjuncts(conjuncts.get(false)));
             }
             return rewrittenNode;
@@ -390,6 +401,7 @@ public class PredicatePushDown
             }
 
             if (modified) {
+                planChanged = true;
                 return new UnionNode(node.getSourceLocation(), node.getId(), builder.build(), node.getOutputVariables(), node.getVariableMapping());
             }
 
@@ -402,12 +414,14 @@ public class PredicatePushDown
         {
             PlanNode rewrittenPlan = context.rewrite(node.getSource(), logicalRowExpressions.combineConjuncts(node.getPredicate(), context.get()));
             if (!(rewrittenPlan instanceof FilterNode)) {
+                planChanged = true;
                 return rewrittenPlan;
             }
 
             FilterNode rewrittenFilterNode = (FilterNode) rewrittenPlan;
             if (!areExpressionsEquivalent(rewrittenFilterNode.getPredicate(), node.getPredicate())
                     || node.getSource() != rewrittenFilterNode.getSource()) {
+                planChanged = true;
                 return rewrittenPlan;
             }
 
@@ -605,6 +619,7 @@ public class PredicatePushDown
                             .build();
                 }
 
+                planChanged = true;
                 output = new JoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -621,10 +636,12 @@ public class PredicatePushDown
             }
 
             if (!postJoinPredicate.equals(TRUE_CONSTANT)) {
+                planChanged = true;
                 output = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), output, postJoinPredicate);
             }
 
             if (!node.getOutputVariables().equals(output.getOutputVariables())) {
+                planChanged = true;
                 output = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), output, identityAssignments(node.getOutputVariables()), LOCAL);
             }
 
@@ -869,6 +886,7 @@ public class PredicatePushDown
 
             // See if we can rewrite left join in terms of a plain inner join
             if (node.getType() == SpatialJoinNode.Type.LEFT && canConvertOuterToInner(node.getRight().getOutputVariables(), inheritedPredicate)) {
+                planChanged = true;
                 node = new SpatialJoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -942,6 +960,7 @@ public class PredicatePushDown
                 leftSource = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), leftSource, leftProjections.build(), LOCAL);
                 rightSource = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), rightSource, rightProjections.build(), LOCAL);
 
+                planChanged = true;
                 output = new SpatialJoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -956,6 +975,7 @@ public class PredicatePushDown
             }
 
             if (!postJoinPredicate.equals(TRUE_CONSTANT)) {
+                planChanged = true;
                 output = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), output, postJoinPredicate);
             }
 
@@ -1439,9 +1459,11 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
+                planChanged = true;
                 output = new SemiJoinNode(node.getSourceLocation(), node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), node.getSemiJoinOutput(), node.getSourceHashVariable(), node.getFilteringSourceHashVariable(), node.getDistributionType(), node.getDynamicFilters());
             }
             if (!postJoinConjuncts.isEmpty()) {
+                planChanged = true;
                 output = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), output, logicalRowExpressions.combineConjuncts(postJoinConjuncts));
             }
             return output;
@@ -1523,6 +1545,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource() || !dynamicFilters.isEmpty()) {
+                planChanged = true;
                 output = new SemiJoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -1537,6 +1560,7 @@ public class PredicatePushDown
                         dynamicFilters);
             }
             if (!postJoinConjuncts.isEmpty()) {
+                planChanged = true;
                 output = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), output, logicalRowExpressions.combineConjuncts(postJoinConjuncts));
             }
             return output;
@@ -1607,6 +1631,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
+                planChanged = true;
                 output = new AggregationNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -1616,9 +1641,11 @@ public class PredicatePushDown
                         ImmutableList.of(),
                         node.getStep(),
                         node.getHashVariable(),
-                        node.getGroupIdVariable());
+                        node.getGroupIdVariable(),
+                        node.getAggregationId());
             }
             if (!postAggregationConjuncts.isEmpty()) {
+                planChanged = true;
                 output = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), output, logicalRowExpressions.combineConjuncts(postAggregationConjuncts));
             }
             return output;
@@ -1659,9 +1686,11 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
+                planChanged = true;
                 output = new UnnestNode(node.getSourceLocation(), node.getId(), rewrittenSource, node.getReplicateVariables(), node.getUnnestVariables(), node.getOrdinalityVariable());
             }
             if (!postUnnestConjuncts.isEmpty()) {
+                planChanged = true;
                 output = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), output, logicalRowExpressions.combineConjuncts(postUnnestConjuncts));
             }
             return output;
@@ -1679,6 +1708,7 @@ public class PredicatePushDown
             RowExpression predicate = simplifyExpression(context.get());
 
             if (!TRUE_CONSTANT.equals(predicate)) {
+                planChanged = true;
                 return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), node, predicate);
             }
 

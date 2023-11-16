@@ -487,6 +487,19 @@ Alter table operations are supported in the connector::
 
      ALTER TABLE iceberg.web.page_views DROP COLUMN location;
 
+To add a new column as a partition column, identify the transform functions for the column.
+The table is partitioned by the transformed value of the column::
+
+     ALTER TABLE iceberg.web.page_views ADD COLUMN zipcode VARCHAR WITH (partitioning = 'identity');
+
+     ALTER TABLE iceberg.web.page_views ADD COLUMN location VARCHAR WITH (partitioning = 'truncate(2)');
+
+     ALTER TABLE iceberg.web.page_views ADD COLUMN location VARCHAR WITH (partitioning = 'bucket(8)');
+
+.. note::
+
+    ``Day``, ``Month``, ``Year``, ``Hour`` partition column transform functions are not supported in the Presto Iceberg connector.
+
 TRUNCATE
 ^^^^^^^^
 

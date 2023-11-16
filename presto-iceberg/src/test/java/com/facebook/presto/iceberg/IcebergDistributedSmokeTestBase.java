@@ -33,6 +33,7 @@ import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
@@ -77,6 +78,15 @@ public class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testTimestampWithTimeZone()
+    {
+        assertQueryFails("CREATE TABLE test_timestamp_with_timezone (x timestamp with time zone)", "Iceberg column type timestamptz is not supported");
+        assertUpdate("CREATE TABLE test_timestamp_with_timezone (x timestamp)");
+        assertQueryFails("ALTER TABLE test_timestamp_with_timezone ADD COLUMN y timestamp with time zone", "Iceberg column type timestamptz is not supported");
+        dropTable(getSession(), "test_timestamp_with_timezone");
+    }
+
+    @Test
     @Override
     public void testDescribeTable()
     {
@@ -111,7 +121,7 @@ public class IcebergDistributedSmokeTestBase
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'PARQUET',\n" +
-                        "   format_version = '1',\n" +
+                        "   format_version = '2',\n" +
                         "   location = '%s'\n" +
                         ")", getLocation("tpch", "orders")));
     }
@@ -360,7 +370,7 @@ public class IcebergDistributedSmokeTestBase
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + fileFormat + "',\n" +
-                        "   format_version = '1',\n" +
+                        "   format_version = '2',\n" +
                         "   location = '%s',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
@@ -406,7 +416,7 @@ public class IcebergDistributedSmokeTestBase
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
                 "   format = 'ORC',\n" +
-                "   format_version = '1'\n" +
+                "   format_version = '2'\n" +
                 ")";
 
         assertUpdate(format(createTable, "test table comment"));
@@ -418,7 +428,7 @@ public class IcebergDistributedSmokeTestBase
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
                 "   format = 'ORC',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", getLocation("tpch", "test_table_comments"));
@@ -505,7 +515,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", getLocation("tpch", "test_create_table_like_original")));
@@ -518,7 +528,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s'\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
@@ -526,7 +536,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s'\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
@@ -534,7 +544,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
@@ -545,7 +555,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
         assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
                 "   format = 'ORC',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
@@ -945,5 +955,29 @@ public class IcebergDistributedSmokeTestBase
         finally {
             cleanupTableWithMergeOnRead(tableName);
         }
+    }
+
+    @Test
+    public void testTableStatisticsTimestamp()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_table_statistics_timestamp";
+        assertUpdate(session, format("CREATE TABLE %s (col TIMESTAMP)", tableName));
+
+        assertQuery(session, "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "  ('col', null, null, null, NULL, NULL, NULL), " +
+                        "  (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)");
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES TIMESTAMP '2021-01-02 09:04:05.321'", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES TIMESTAMP '2022-12-22 10:07:08.456'", 1);
+
+        assertQuery(session, "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "  ('col', 113.0, NULL, 0.0, NULL, '2021-01-02 09:04:05.321', '2022-12-22 10:07:08.456'), " +
+                        "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+        dropTable(session, tableName);
     }
 }

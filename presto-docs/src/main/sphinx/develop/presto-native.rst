@@ -76,6 +76,16 @@ The following properties allow the configuration of remote function execution:
 
     If empty, the function is registered as ``schema.function_name``.
 
+``remote-function-server.serde``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``"presto_page"``
+
+    The serialization/deserialization method to use when communicating with
+    the remote function server. Supported values are ``presto_page`` or
+    ``spark_unsafe_row``.
+
 ``remote-function-server.thrift.address``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -127,3 +137,58 @@ There is also an additional parameter:
     is valid.
     If the time period exceeds the parameter value, the request is rejected as
     authentication failure (HTTP 401).
+
+Async Data Cache and Prefetching
+--------------------------------
+
+``num-connector-io-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``integer``
+    * **Default value:** ``30``
+    * **Presto on Spark default value:** ``0``
+
+    Size of IO executor for connectors to do preload/prefetch.  Prefetch is
+    disabled if ``num-connector-io-threads`` is set to zero.
+
+``async-data-cache-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``bool``
+    * **Default value:** ``true``
+    * **Presto on Spark default value:** ``false``
+
+    Whether async data cache is enabled.  Setting ``async-data-cache-enabled``
+    to ``false`` disables split prefetching in table scan.
+
+``async-cache-ssd-gb``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``integer``
+    * **Default value:** ``0``
+
+    Size of the SSD cache when async data cache is enabled.  Must be zero if
+    ``async-data-cache-enabled`` is ``false``.
+
+``enable-old-task-cleanup``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``bool``
+    * **Default value:** ``true``
+    * **Presto on Spark default value:** ``false``
+
+    Enable periodic clean up of old tasks. This is ``true`` for Prestissimo,
+    however for Presto on Spark this defaults to ``false`` as zombie/stuck tasks
+    are handled by spark via speculative execution.
+
+``old-task-cleanup-ms``
+^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type** ``integer``
+    * **Default value:** ``60000``
+
+    Duration after which a task should be considered as old and will be eligible
+    for cleanup. Only applicable when ``enable-old-task-cleanup`` is ``true``.
+    Old task is defined as a PrestoTask which has not received heartbeat for at least
+    ``old-task-cleanup-ms``, or is not running and has an end time more than
+    ``old-task-cleanup-ms`` ago.

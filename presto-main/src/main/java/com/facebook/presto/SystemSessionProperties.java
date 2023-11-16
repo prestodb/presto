@@ -294,7 +294,9 @@ public final class SystemSessionProperties
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
     public static final String ENABLE_HISTORY_BASED_SCALED_WRITER = "enable_history_based_scaled_writer";
+    public static final String USE_PARTIAL_AGGREGATION_HISTORY = "use_partial_aggregation_history";
     public static final String REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN = "remove_redundant_cast_to_varchar_in_join";
+    public static final String HANDLE_COMPLEX_EQUI_JOINS = "handle_complex_equi_joins";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -311,7 +313,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
-    public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug.validate_output_from_operators";
+    public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1772,9 +1774,19 @@ public final class SystemSessionProperties
                         featuresConfig.isUseHBOForScaledWriters(),
                         false),
                 booleanProperty(
+                        USE_PARTIAL_AGGREGATION_HISTORY,
+                        "Use collected partial aggregation statistics from HBO",
+                        featuresConfig.isUsePartialAggregationHistory(),
+                        false),
+                booleanProperty(
                         REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN,
                         "If both left and right side of join clause are varchar cast from int/bigint, remove the cast here",
                         featuresConfig.isRemoveRedundantCastToVarcharInJoin(),
+                        false),
+                booleanProperty(
+                        HANDLE_COMPLEX_EQUI_JOINS,
+                        "Handle complex equi-join conditions to open up join space for join reordering",
+                        featuresConfig.getHandleComplexEquiJoins(),
                         false));
     }
 
@@ -2950,13 +2962,23 @@ public final class SystemSessionProperties
         return session.getSystemProperty(INFER_INEQUALITY_PREDICATES, Boolean.class);
     }
 
-    public static boolean useHBOForScaledWriters(Session session)
+    public static boolean useHistoryBasedScaledWriters(Session session)
     {
         return session.getSystemProperty(ENABLE_HISTORY_BASED_SCALED_WRITER, Boolean.class);
+    }
+
+    public static boolean usePartialAggregationHistory(Session session)
+    {
+        return session.getSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, Boolean.class);
     }
 
     public static boolean isRemoveRedundantCastToVarcharInJoinEnabled(Session session)
     {
         return session.getSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, Boolean.class);
+    }
+
+    public static boolean shouldHandleComplexEquiJoins(Session session)
+    {
+        return session.getSystemProperty(HANDLE_COMPLEX_EQUI_JOINS, Boolean.class);
     }
 }
