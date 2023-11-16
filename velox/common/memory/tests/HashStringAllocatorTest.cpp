@@ -544,5 +544,15 @@ TEST_F(HashStringAllocatorTest, strings) {
   allocator_->checkConsistency();
 }
 
+TEST_F(HashStringAllocatorTest, storeStringFast) {
+  allocator_->allocate(HashStringAllocator::kMinAlloc);
+  std::string s(allocator_->freeSpace() + sizeof(void*), 'x');
+  StringView sv(s);
+  allocator_->copyMultipart(reinterpret_cast<char*>(&sv), 0);
+  ASSERT_NE(sv.data(), s.data());
+  ASSERT_EQ(sv, StringView(s));
+  allocator_->checkConsistency();
+}
+
 } // namespace
 } // namespace facebook::velox

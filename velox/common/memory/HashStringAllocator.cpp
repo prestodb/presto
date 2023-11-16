@@ -537,12 +537,11 @@ inline bool HashStringAllocator::storeStringFast(
   } else {
     auto& freeList = free_[kNumFreeLists - 1];
     header = headerOf(freeList.next());
-    auto size = header->size();
-    if (roundedBytes > size) {
+    const auto spaceTaken = roundedBytes + sizeof(Header);
+    if (spaceTaken > header->size()) {
       return false;
     }
-    const auto spaceTaken = roundedBytes + sizeof(Header);
-    if (size - spaceTaken > kMaxAlloc) {
+    if (header->size() - spaceTaken > kMaxAlloc) {
       // The entry after allocation stays in the largest free list.
       // The size at the end of the block is changed in place.
       reinterpret_cast<int32_t*>(header->end())[-1] -= spaceTaken;
