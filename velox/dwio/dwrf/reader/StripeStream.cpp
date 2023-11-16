@@ -146,7 +146,7 @@ StripeStreamsBase::getIntDictionaryInitializerForNode(
 }
 
 void StripeStreamsImpl::loadStreams() {
-  auto& footer = *readState_->footer;
+  auto& stripeFooter = *readState_->stripeFooter;
 
   // HACK!!!
   // Column selector filters based on requested schema (ie, table schema), while
@@ -172,13 +172,13 @@ void StripeStreamsImpl::loadStreams() {
   };
 
   uint64_t streamOffset = 0;
-  for (auto& stream : footer.streams()) {
+  for (auto& stream : stripeFooter.streams()) {
     addStream(stream, streamOffset);
   }
 
   // update column encoding for each stream
-  for (uint32_t i = 0; i < footer.encoding_size(); ++i) {
-    auto& e = footer.encoding(i);
+  for (uint32_t i = 0; i < stripeFooter.encoding_size(); ++i) {
+    auto& e = stripeFooter.encoding(i);
     auto node = e.has_node() ? e.node() : i;
     if (projectedNodes.contains(node)) {
       encodings_[{node, e.has_sequence() ? e.sequence() : 0}] = i;
@@ -189,7 +189,8 @@ void StripeStreamsImpl::loadStreams() {
   auto& handler = readState_->handler;
   if (handler.isEncrypted()) {
     DWIO_ENSURE_EQ(
-        handler.getEncryptionGroupCount(), footer.encryptiongroups_size());
+        handler.getEncryptionGroupCount(),
+        stripeFooter.encryptiongroups_size());
     folly::F14FastSet<uint32_t> groupIndices;
     bits::forEachSetBit(
         projectedNodes.bits(), 0, projectedNodes.max() + 1, [&](uint32_t node) {
@@ -200,7 +201,7 @@ void StripeStreamsImpl::loadStreams() {
 
     // decrypt encryption groups
     for (auto index : groupIndices) {
-      auto& group = footer.encryptiongroups(index);
+      auto& group = stripeFooter.encryptiongroups(index);
       auto groupProto =
           readState_->readerBase
               ->readProtoFromString<proto::StripeEncryptionGroup>(
@@ -289,7 +290,8 @@ std::unique_ptr<dwio::common::SeekableInputStream> StripeStreamsImpl::getStream(
   if (!streamRead) {
     streamRead =
         // If stripeInput is null, it means the stripe was preloaded during
-        // initial footer io, and we can get from ReaderBase input.
+        // initial postscript and footer io, and we can get from ReaderBase
+        // input.
         (readState_->stripeInput ? readState_->stripeInput
                                  : &readState_->readerBase->getBufferedInput())
             ->enqueue(

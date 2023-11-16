@@ -33,15 +33,15 @@ class StripeReaderBase {
   // for testing purpose
   StripeReaderBase(
       const std::shared_ptr<ReaderBase>& reader,
-      const proto::StripeFooter* footer)
+      const proto::StripeFooter* stripeFooter)
       : reader_{reader},
         handler_{std::make_unique<encryption::DecryptionHandler>(
             reader_->getDecryptionHandler())},
-        footer_{const_cast<proto::StripeFooter*>(footer)},
+        stripeFooter_{const_cast<proto::StripeFooter*>(stripeFooter)},
         canLoad_{false} {
     // The footer is expected to be arena allocated and to stay
     // live for the lifetime of 'this'.
-    DWIO_ENSURE(footer->GetArena());
+    DWIO_ENSURE(stripeFooter->GetArena());
   }
 
   virtual ~StripeReaderBase() = default;
@@ -52,8 +52,9 @@ class StripeReaderBase {
 
   // Get footer of stripe currently being read
   const proto::StripeFooter& getStripeFooter() const {
-    DWIO_ENSURE_NOT_NULL(footer_, "stripe hasn't been initialized for read");
-    return *footer_;
+    DWIO_ENSURE_NOT_NULL(
+        stripeFooter_, "stripe hasn't been initialized for read");
+    return *stripeFooter_;
   }
 
   // Get footer of stripe at index i, if it's been loaded.
@@ -114,7 +115,7 @@ class StripeReaderBase {
   const std::unique_ptr<encryption::DecryptionHandler> handler_;
   std::unique_ptr<dwio::common::BufferedInput> stripeInput_;
   std::optional<uint32_t> lastStripeIndex_;
-  proto::StripeFooter* footer_ = nullptr;
+  proto::StripeFooter* stripeFooter_ = nullptr;
   bool canLoad_{true};
 
   // Map containing stripe blobs which have already been loaded.

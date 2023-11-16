@@ -205,17 +205,17 @@ class StripeStreamsBase : public StripeStreams {
 struct StripeReadState {
   std::shared_ptr<ReaderBase> readerBase;
   dwio::common::BufferedInput* stripeInput;
-  const proto::StripeFooter* footer;
+  const proto::StripeFooter* stripeFooter;
   const encryption::DecryptionHandler& handler;
 
   StripeReadState(
       std::shared_ptr<ReaderBase> readerBase,
       dwio::common::BufferedInput* stripeInput,
-      const proto::StripeFooter* footer,
+      const proto::StripeFooter* stripeFooter,
       const encryption::DecryptionHandler& handler)
       : readerBase{std::move(readerBase)},
         stripeInput{stripeInput},
-        footer{footer},
+        stripeFooter{stripeFooter},
         handler{handler} {}
 };
 
@@ -311,7 +311,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
       const EncodingKey& ek) const override {
     auto index = encodings_.find(ek);
     if (index != encodings_.end()) {
-      return readState_->footer->encoding(index->second);
+      return readState_->stripeFooter->encoding(index->second);
     }
     auto enc = decryptedEncodings_.find(ek);
     DWIO_ENSURE(

@@ -199,7 +199,7 @@ class DwrfRowReader : public StrideIndexProvider,
   // internal methods
 
   std::optional<size_t> estimatedRowSizeHelper(
-      const FooterWrapper& footer,
+      const FooterWrapper& fileFooter,
       const dwio::common::Statistics& stats,
       uint32_t nodeId) const;
 
@@ -301,9 +301,9 @@ class DwrfReader : public dwio::common::Reader {
   }
 
   std::optional<uint64_t> numberOfRows() const override {
-    auto& footer = readerBase_->getFooter();
-    if (footer.hasNumberOfRows()) {
-      return footer.numberOfRows();
+    auto& fileFooter = readerBase_->getFooter();
+    if (fileFooter.hasNumberOfRows()) {
+      return fileFooter.numberOfRows();
     }
     return std::nullopt;
   }
