@@ -143,4 +143,16 @@ public class TestingOutputBuffer
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean isAllPagesConsumed()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isDrainable()
+    {
+        throw new UnsupportedOperationException();
+    }
 }
