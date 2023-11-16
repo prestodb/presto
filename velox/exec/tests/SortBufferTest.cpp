@@ -110,7 +110,6 @@ TEST_F(SortBufferTest, singleKey) {
         inputType_,
         sortColumnIndices_,
         testData.sortCompareFlags,
-        10000,
         pool_.get(),
         &nonReclaimableSection_,
         &numSpillRuns_);
@@ -126,7 +125,7 @@ TEST_F(SortBufferTest, singleKey) {
 
     sortBuffer->addInput(data);
     sortBuffer->noMoreInput();
-    auto output = sortBuffer->getOutput();
+    auto output = sortBuffer->getOutput(10000);
     ASSERT_EQ(output->size(), 5);
     int resultIndex = 0;
     for (int expectedValue : testData.expectedResult) {
@@ -142,7 +141,6 @@ TEST_F(SortBufferTest, multipleKeys) {
       inputType_,
       sortColumnIndices_,
       sortCompareFlags_,
-      10000,
       pool_.get(),
       &nonReclaimableSection_,
       &numSpillRuns_);
@@ -158,7 +156,7 @@ TEST_F(SortBufferTest, multipleKeys) {
 
   sortBuffer->addInput(data);
   sortBuffer->noMoreInput();
-  auto output = sortBuffer->getOutput();
+  auto output = sortBuffer->getOutput(10000);
   ASSERT_EQ(output->size(), 5);
   ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(0), 5);
   ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(1), 3);
@@ -224,7 +222,6 @@ TEST_F(SortBufferTest, DISABLED_randomData) {
         testData.inputType,
         testData.sortColumnIndices,
         testData.sortCompareFlags,
-        1000,
         pool_.get(),
         &nonReclaimableSection_,
         &numSpillRuns_);
@@ -250,19 +247,19 @@ TEST_F(SortBufferTest, batchOutput) {
   struct {
     bool triggerSpill;
     std::vector<size_t> numInputRows;
-    size_t outputBatchSize;
-    std::vector<size_t> expectedOutputBufferSizes;
+    size_t maxOutputRows;
+    std::vector<size_t> expectedOutputRowCount;
 
     std::string debugString() const {
       const std::string numInputRowsStr = folly::join(",", numInputRows);
-      const std::string expectedOutputBufferSizesStr =
-          folly::join(",", expectedOutputBufferSizes);
+      const std::string expectedOutputRowCountStr =
+          folly::join(",", expectedOutputRowCount);
       return fmt::format(
-          "triggerSpill:{}, numInputRows:{}, outputBatchSize:{}, expectedOutputBufferSizes:{}",
+          "triggerSpill:{}, numInputRows:{}, maxOutputRows:{}, expectedOutputRowCount:{}",
           triggerSpill,
           numInputRowsStr,
-          outputBatchSize,
-          expectedOutputBufferSizesStr);
+          maxOutputRows,
+          expectedOutputRowCountStr);
     }
   } testSettings[] = {
       {false, {2, 3, 3}, 1, {1, 1, 1, 1, 1, 1, 1, 1}},
@@ -296,7 +293,6 @@ TEST_F(SortBufferTest, batchOutput) {
         inputType_,
         sortColumnIndices_,
         sortCompareFlags_,
-        testData.outputBatchSize,
         pool_.get(),
         &nonReclaimableSection_,
         &numSpillRuns_,
@@ -321,12 +317,12 @@ TEST_F(SortBufferTest, batchOutput) {
     auto spillStats = sortBuffer->spilledStats();
 
     int expectedOutputBufferIndex = 0;
-    RowVectorPtr output = sortBuffer->getOutput();
+    RowVectorPtr output = sortBuffer->getOutput(testData.maxOutputRows);
     while (output != nullptr) {
       ASSERT_EQ(
           output->size(),
-          testData.expectedOutputBufferSizes[expectedOutputBufferIndex++]);
-      output = sortBuffer->getOutput();
+          testData.expectedOutputRowCount[expectedOutputBufferIndex++]);
+      output = sortBuffer->getOutput(testData.maxOutputRows);
     }
 
     if (!testData.triggerSpill) {
@@ -391,7 +387,6 @@ TEST_F(SortBufferTest, spill) {
         inputType_,
         sortColumnIndices_,
         sortCompareFlags_,
-        1000,
         pool_.get(),
         &nonReclaimableSection_,
         &numSpillRuns_,
@@ -453,7 +448,6 @@ TEST_F(SortBufferTest, emptySpill) {
         inputType_,
         sortColumnIndices_,
         sortCompareFlags_,
-        1000,
         pool_.get(),
         &nonReclaimableSection_,
         &numSpillRuns_,

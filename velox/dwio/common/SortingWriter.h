@@ -27,7 +27,9 @@ class SortingWriter : public Writer {
  public:
   SortingWriter(
       std::unique_ptr<Writer> writer,
-      std::unique_ptr<exec::SortBuffer> sortBuffer);
+      std::unique_ptr<exec::SortBuffer> sortBuffer,
+      uint32_t maxOutputRowsConfig,
+      uint64_t maxOutputBytesConfig);
 
   void write(const VectorPtr& data) override;
 
@@ -68,7 +70,12 @@ class SortingWriter : public Writer {
 
   uint64_t reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats);
 
+  uint32_t outputBatchRows();
+
   const std::unique_ptr<Writer> outputWriter_;
+  const uint32_t maxOutputRowsConfig_;
+  const uint64_t maxOutputBytesConfig_;
+
   memory::MemoryPool* const sortPool_;
   const bool canReclaim_;
   std::unique_ptr<exec::SortBuffer> sortBuffer_;

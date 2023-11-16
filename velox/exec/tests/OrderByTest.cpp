@@ -401,19 +401,26 @@ TEST_F(OrderByTest, outputBatchRows) {
   struct {
     int numRowsPerBatch;
     int preferredOutBatchBytes;
+    int maxOutBatchRows;
     int expectedOutputVectors;
 
+    // TODO: add output size check with spilling enabled
     std::string debugString() const {
       return fmt::format(
-          "numRowsPerBatch:{}, preferredOutBatchSize:{}, expectedOutputVectors:{}",
+          "numRowsPerBatch:{}, preferredOutBatchBytes:{}, maxOutBatchRows:{}, expectedOutputVectors:{}",
           numRowsPerBatch,
           preferredOutBatchBytes,
+          maxOutBatchRows,
           expectedOutputVectors);
     }
-    // Output kPreferredOutputBatchRows by default and thus include all rows in
-    // a single vector.
-    // TODO(gaoge): change after determining output batch rows adaptively.
-  } testSettings[] = {{1024, 1, 1}};
+  } testSettings[] = {
+      {1024, 1, 100, 1024},
+      // estimated size per row is ~2092, set preferredOutBatchBytes to 20920,
+      // so each batch has 10 rows, so it would return 100 batches
+      {1000, 20920, 100, 100},
+      // same as above, but maxOutBatchRows is 1, so it would return 1000
+      // batches
+      {1000, 20920, 1, 1000}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -440,7 +447,9 @@ TEST_F(OrderByTest, outputBatchRows) {
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideConfigUnsafe(
         {{core::QueryConfig::kPreferredOutputBatchBytes,
-          std::to_string(testData.preferredOutBatchBytes)}});
+          std::to_string(testData.preferredOutBatchBytes)},
+         {core::QueryConfig::kMaxOutputBatchRows,
+          std::to_string(testData.maxOutBatchRows)}});
     CursorParameters params;
     params.planNode = plan;
     params.queryCtx = queryCtx;

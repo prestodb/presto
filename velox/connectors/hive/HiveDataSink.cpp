@@ -603,14 +603,15 @@ HiveDataSink::maybeCreateBucketSortWriter(
       inputType_,
       sortColumnIndices_,
       sortCompareFlags_,
-      // TODO: set batch size based on the query configs.
-      1000,
       sortPool,
       writerInfo_.back()->nonReclaimableSectionHolder.get(),
       &numSpillRuns_,
       spillConfig_);
   return std::make_unique<dwio::common::SortingWriter>(
-      std::move(writer), std::move(sortBuffer));
+      std::move(writer),
+      std::move(sortBuffer),
+      HiveConfig::sortWriterMaxOutputRows(connectorQueryCtx_->config()),
+      HiveConfig::sortWriterMaxOutputBytes(connectorQueryCtx_->config()));
 }
 
 void HiveDataSink::splitInputRowsAndEnsureWriters() {
