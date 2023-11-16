@@ -15,6 +15,11 @@
  */
 #include "velox/exec/tests/JoinFuzzer.h"
 #include <boost/random/uniform_int_distribution.hpp>
+#include "velox/common/file/FileSystems.h"
+#include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/dwio/dwrf/reader/DwrfReader.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -52,6 +57,14 @@ class JoinFuzzer {
   explicit JoinFuzzer(size_t initialSeed);
 
   void go();
+
+  struct PlanWithSplits {
+    core::PlanNodePtr plan;
+    std::unordered_map<
+        core::PlanNodeId,
+        std::vector<std::shared_ptr<velox::connector::ConnectorSplit>>>
+        splits;
+  };
 
  private:
   static VectorFuzzer::Options getFuzzerOptions() {
@@ -99,7 +112,7 @@ class JoinFuzzer {
       std::vector<std::string>& probeKeys,
       std::vector<std::string>& buildKeys);
 
-  RowVectorPtr execute(const core::PlanNodePtr& plan, bool injectSpill);
+  RowVectorPtr execute(const PlanWithSplits& plan, bool injectSpill);
 
   std::optional<MaterializedRowMultiset> computeDuckDbResult(
       const std::vector<RowVectorPtr>& probeInput,
@@ -110,15 +123,29 @@ class JoinFuzzer {
     return boost::random::uniform_int_distribution<int32_t>(min, max)(rng_);
   }
 
+  static inline const std::string kHiveConnectorId = "test-hive";
+
+  static std::shared_ptr<connector::ConnectorSplit> makeSplit(
+      const std::string& filePath);
+
   FuzzerGenerator rng_;
   size_t currentSeed_{0};
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> rootPool_{
+      memory::defaultMemoryManager().addRootPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild("leaf")};
   VectorFuzzer vectorFuzzer_;
 };
 
 JoinFuzzer::JoinFuzzer(size_t initialSeed)
     : vectorFuzzer_{getFuzzerOptions(), pool_.get()} {
+  filesystems::registerLocalFileSystem();
+  auto hiveConnector =
+      connector::getConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)
+          ->newConnector(kHiveConnectorId, nullptr);
+  connector::registerConnector(hiveConnector);
+
   seed(initialSeed);
 }
 
@@ -250,13 +277,15 @@ std::vector<RowVectorPtr> flatten(const std::vector<RowVectorPtr>& vectors) {
   return flatVectors;
 }
 
-RowVectorPtr JoinFuzzer::execute(
-    const core::PlanNodePtr& plan,
-    bool injectSpill) {
+RowVectorPtr JoinFuzzer::execute(const PlanWithSplits& plan, bool injectSpill) {
   LOG(INFO) << "Executing query plan: " << std::endl
-            << plan->toString(true, true);
+            << plan.plan->toString(true, true);
 
-  AssertQueryBuilder builder(plan);
+  AssertQueryBuilder builder(plan.plan);
+  for (const auto& [nodeId, nodeSplits] : plan.splits) {
+    builder.splits(nodeId, nodeSplits);
+  }
+
   std::shared_ptr<TempDirectoryPath> spillDirectory;
   if (injectSpill) {
     spillDirectory = exec::test::TempDirectoryPath::create();
@@ -458,7 +487,7 @@ std::vector<std::string> fieldNames(
   return names;
 }
 
-core::PlanNodePtr makeDefaultPlan(
+JoinFuzzer::PlanWithSplits makeDefaultPlan(
     core::JoinType joinType,
     bool nullAware,
     const std::vector<std::string>& probeKeys,
@@ -467,17 +496,52 @@ core::PlanNodePtr makeDefaultPlan(
     const std::vector<RowVectorPtr>& buildInput,
     const std::vector<std::string>& output) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  return PlanBuilder(planNodeIdGenerator)
-      .values(probeInput)
-      .hashJoin(
-          probeKeys,
-          buildKeys,
-          PlanBuilder(planNodeIdGenerator).values(buildInput).planNode(),
-          "" /*filter*/,
-          output,
-          joinType,
-          nullAware)
-      .planNode();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .values(probeInput)
+          .hashJoin(
+              probeKeys,
+              buildKeys,
+              PlanBuilder(planNodeIdGenerator).values(buildInput).planNode(),
+              "" /*filter*/,
+              output,
+              joinType,
+              nullAware)
+          .planNode();
+  return {plan, {}};
+}
+
+JoinFuzzer::PlanWithSplits makeDefaultPlanWithTableScan(
+    core::JoinType joinType,
+    bool nullAware,
+    const std::vector<std::string>& probeKeys,
+    const std::vector<std::string>& buildKeys,
+    const RowTypePtr& probeInputType,
+    const std::vector<std::shared_ptr<velox::connector::ConnectorSplit>>&
+        probeSplits,
+    const RowTypePtr& buildInputType,
+    const std::vector<std::shared_ptr<velox::connector::ConnectorSplit>>&
+        buildSplits,
+    const std::vector<std::string>& output) {
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId probeId;
+  core::PlanNodeId buildId;
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(probeInputType)
+                  .capturePlanNodeId(probeId)
+                  .hashJoin(
+                      probeKeys,
+                      buildKeys,
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(buildInputType)
+                          .capturePlanNodeId(buildId)
+                          .planNode(),
+                      "" /*filter*/,
+                      output,
+                      joinType,
+                      nullAware)
+                  .planNode();
+  return {plan, {{probeId, probeSplits}, {buildId, buildSplits}}};
 }
 
 std::vector<core::PlanNodePtr> makeSources(
@@ -502,13 +566,13 @@ void makeAlternativePlans(
     const core::PlanNodePtr& plan,
     const std::vector<RowVectorPtr>& probeInput,
     const std::vector<RowVectorPtr>& buildInput,
-    std::vector<core::PlanNodePtr>& plans) {
+    std::vector<JoinFuzzer::PlanWithSplits>& plans) {
   auto joinNode = std::dynamic_pointer_cast<const core::HashJoinNode>(plan);
   VELOX_CHECK_NOT_NULL(joinNode);
 
   // Flip join sides.
   if (auto flippedPlan = tryFlipJoinSides(*joinNode)) {
-    plans.push_back(flippedPlan);
+    plans.push_back({flippedPlan, {}});
   }
 
   // Parallelize probe and build sides.
@@ -516,39 +580,43 @@ void makeAlternativePlans(
   auto buildKeys = fieldNames(joinNode->rightKeys());
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  plans.push_back(PlanBuilder(planNodeIdGenerator)
-                      .localPartitionRoundRobin(
-                          makeSources(probeInput, planNodeIdGenerator))
-                      .hashJoin(
-                          probeKeys,
-                          buildKeys,
-                          PlanBuilder(planNodeIdGenerator)
-                              .localPartitionRoundRobin(
-                                  makeSources(buildInput, planNodeIdGenerator))
-                              .planNode(),
-                          "" /*filter*/,
-                          joinNode->outputType()->names(),
-                          joinNode->joinType(),
-                          joinNode->isNullAware())
-                      .planNode());
+  plans.push_back(
+      {PlanBuilder(planNodeIdGenerator)
+           .localPartitionRoundRobin(
+               makeSources(probeInput, planNodeIdGenerator))
+           .hashJoin(
+               probeKeys,
+               buildKeys,
+               PlanBuilder(planNodeIdGenerator)
+                   .localPartitionRoundRobin(
+                       makeSources(buildInput, planNodeIdGenerator))
+                   .planNode(),
+               "" /*filter*/,
+               joinNode->outputType()->names(),
+               joinNode->joinType(),
+               joinNode->isNullAware())
+           .planNode(),
+       {}});
 
   // Use OrderBy + MergeJoin (if join type is inner or left).
   if (joinNode->isInnerJoin() || joinNode->isLeftJoin()) {
     planNodeIdGenerator->reset();
-    plans.push_back(PlanBuilder(planNodeIdGenerator)
-                        .values(probeInput)
-                        .orderBy(probeKeys, false)
-                        .mergeJoin(
-                            probeKeys,
-                            buildKeys,
-                            PlanBuilder(planNodeIdGenerator)
-                                .values(buildInput)
-                                .orderBy(buildKeys, false)
-                                .planNode(),
-                            "" /*filter*/,
-                            asRowType(joinNode->outputType())->names(),
-                            joinNode->joinType())
-                        .planNode());
+    plans.push_back(
+        {PlanBuilder(planNodeIdGenerator)
+             .values(probeInput)
+             .orderBy(probeKeys, false)
+             .mergeJoin(
+                 probeKeys,
+                 buildKeys,
+                 PlanBuilder(planNodeIdGenerator)
+                     .values(buildInput)
+                     .orderBy(buildKeys, false)
+                     .planNode(),
+                 "" /*filter*/,
+                 asRowType(joinNode->outputType())->names(),
+                 joinNode->joinType())
+             .planNode(),
+         {}});
   }
 }
 
@@ -592,6 +660,45 @@ RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b) {
   }
 
   return ROW(std::move(names), std::move(types));
+}
+
+void writeToFile(
+    const std::string& path,
+    const VectorPtr& vector,
+    memory::MemoryPool* pool) {
+  dwrf::WriterOptions options;
+  options.schema = vector->type();
+  options.memoryPool = pool;
+  auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
+  auto sink =
+      std::make_unique<dwio::common::WriteFileSink>(std::move(writeFile), path);
+  dwrf::Writer writer(std::move(sink), options);
+  writer.write(vector);
+  writer.close();
+}
+
+// static
+std::shared_ptr<connector::ConnectorSplit> JoinFuzzer::makeSplit(
+    const std::string& filePath) {
+  return std::make_shared<connector::hive::HiveConnectorSplit>(
+      kHiveConnectorId, filePath, dwio::common::FileFormat::DWRF);
+}
+
+bool isTableScanSupported(const TypePtr& type) {
+  if (type->kind() == TypeKind::ROW && type->size() == 0) {
+    return false;
+  }
+  if (type->kind() == TypeKind::UNKNOWN) {
+    return false;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (!isTableScanSupported(type->childAt(i))) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 void JoinFuzzer::verify(core::JoinType joinType) {
@@ -658,14 +765,15 @@ void JoinFuzzer::verify(core::JoinType joinType) {
   auto expected = execute(plan, false /*injectSpill*/);
 
   // Verify results against DuckDB.
-  if (auto duckDbResult = computeDuckDbResult(probeInput, buildInput, plan)) {
+  if (auto duckDbResult =
+          computeDuckDbResult(probeInput, buildInput, plan.plan)) {
     VELOX_CHECK(
         assertEqualResults(
-            duckDbResult.value(), plan->outputType(), {expected}),
+            duckDbResult.value(), plan.plan->outputType(), {expected}),
         "Velox and DuckDB results don't match");
   }
 
-  std::vector<core::PlanNodePtr> altPlans;
+  std::vector<PlanWithSplits> altPlans;
   altPlans.push_back(makeDefaultPlan(
       joinType,
       nullAware,
@@ -674,8 +782,53 @@ void JoinFuzzer::verify(core::JoinType joinType) {
       flatProbeInput,
       flatBuildInput,
       output));
-  makeAlternativePlans(plan, probeInput, buildInput, altPlans);
-  makeAlternativePlans(plan, flatProbeInput, flatBuildInput, altPlans);
+  makeAlternativePlans(plan.plan, probeInput, buildInput, altPlans);
+  makeAlternativePlans(plan.plan, flatProbeInput, flatBuildInput, altPlans);
+
+  auto directory = exec::test::TempDirectoryPath::create();
+
+  if (isTableScanSupported(probeInput[0]->type()) &&
+      isTableScanSupported(buildInput[0]->type())) {
+    auto writerPool = rootPool_->addAggregateChild("writer");
+
+    std::vector<std::shared_ptr<connector::ConnectorSplit>> probeSplits;
+    for (auto i = 0; i < probeInput.size(); ++i) {
+      const std::string filePath =
+          fmt::format("{}/probe{}", directory->path, i);
+      writeToFile(filePath, probeInput[i], writerPool.get());
+      probeSplits.push_back(makeSplit(filePath));
+    }
+
+    std::vector<std::shared_ptr<connector::ConnectorSplit>> buildSplits;
+    for (auto i = 0; i < buildInput.size(); ++i) {
+      const std::string filePath =
+          fmt::format("{}/build{}", directory->path, i);
+      writeToFile(filePath, buildInput[i], writerPool.get());
+      buildSplits.push_back(makeSplit(filePath));
+    }
+
+    auto tableScanPlan = makeDefaultPlanWithTableScan(
+        joinType,
+        nullAware,
+        probeKeys,
+        buildKeys,
+        asRowType(probeInput[0]->type()),
+        probeSplits,
+        asRowType(buildInput[0]->type()),
+        buildSplits,
+        output);
+
+    altPlans.push_back(tableScanPlan);
+
+    auto joinNode =
+        std::dynamic_pointer_cast<const core::HashJoinNode>(tableScanPlan.plan);
+    VELOX_CHECK_NOT_NULL(joinNode);
+
+    // Flip join sides.
+    if (auto flippedPlan = tryFlipJoinSides(*joinNode)) {
+      altPlans.push_back({flippedPlan, tableScanPlan.splits});
+    }
+  }
 
   for (auto i = 0; i < altPlans.size(); ++i) {
     LOG(INFO) << "Testing plan #" << i;
@@ -687,7 +840,7 @@ void JoinFuzzer::verify(core::JoinType joinType) {
     if (FLAGS_enable_spill) {
       // Spilling for right semi project doesn't work yet.
       if (auto hashJoin = std::dynamic_pointer_cast<const core::HashJoinNode>(
-              altPlans[i])) {
+              altPlans[i].plan)) {
         if (hashJoin->isRightSemiProjectJoin()) {
           continue;
         }
