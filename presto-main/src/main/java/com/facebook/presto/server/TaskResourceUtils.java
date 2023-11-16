@@ -15,6 +15,8 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.DriverStats;
@@ -44,6 +46,21 @@ public class TaskResourceUtils
     {
         return httpHeaders.getAcceptableMediaTypes().stream()
                 .anyMatch(mediaType -> mediaType.toString().contains("application/x-thrift"));
+    }
+
+    public static TaskInfo failWithTaskInfo(
+            TaskInfo taskInfo)
+    {
+        return new TaskInfo(
+                taskInfo.getTaskId(),
+                TaskStatus.failWith(taskInfo.getTaskStatus(), TaskState.GRACEFUL_SHUTDOWN, ImmutableList.of()),
+                taskInfo.getLastHeartbeat(),
+                taskInfo.getOutputBuffers(),
+                taskInfo.getNoMoreSplits(),
+                taskInfo.getStats(),
+                taskInfo.isNeedsPlan(),
+                taskInfo.getMetadataUpdates(),
+                taskInfo.getNodeId());
     }
 
     public static TaskInfo convertToThriftTaskInfo(

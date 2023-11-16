@@ -27,6 +27,7 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -345,6 +346,7 @@ public class TestSqlTask
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),
                 new CounterStat(),
-                new SpoolingOutputBufferFactory(new FeaturesConfig()));
+                new SpoolingOutputBufferFactory(new FeaturesConfig()),
+                NodePoolType.DEFAULT);
     }
 }

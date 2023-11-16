@@ -14,9 +14,17 @@
 package com.facebook.presto.execution.executor;
 
 import com.facebook.airlift.testing.TestingTicker;
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TestSqlTaskExecution;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +49,7 @@ import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracki
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
+import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -51,6 +60,14 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTaskExecutor
 {
+    private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
+    private static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create();
+
+    private ScheduledSplit newScheduledSplit(int sequenceId, PlanNodeId planNodeId, Lifespan lifespan, int begin, int count)
+    {
+        return new ScheduledSplit(sequenceId, planNodeId, new Split(CONNECTOR_ID, TRANSACTION_HANDLE, new TestSqlTaskExecution.TestingSplit(begin, begin + count), lifespan, NON_CACHEABLE));
+    }
+
     @Test(invocationCount = 100)
     public void testTasksComplete()
             throws Exception
@@ -340,6 +357,43 @@ public class TestTaskExecutor
     }
 
     @Test
+    public void testGracefulShutdown()
+            throws InterruptedException
+    {
+        TestingTicker ticker = new TestingTicker();
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, QUERY_FAIR, ticker);
+        taskExecutor.start();
+
+        try {
+            TaskId taskId = new TaskId("test", 0, 0, 0, 0);
+            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            Phaser beginPhase = new Phaser();
+            beginPhase.register();
+            Phaser verificationComplete = new Phaser();
+            verificationComplete.register();
+
+            // force enqueue a split
+            for (int i = 1; i <= 30; i++) {
+                TestingJob driver = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
+                taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver));
+            }
+            new Thread(() -> taskExecutor.gracefulShutdown()).start();
+            while (!taskExecutor.isShuttingDownStarted()) {
+                MILLISECONDS.sleep(500);
+            }
+            assertEquals(taskHandle.getRunningLeafSplits(), 4);
+            assertEquals(taskHandle.getQueuedSplitSize(), 26);
+            // let the split continue to run
+            beginPhase.arriveAndDeregister();
+            verificationComplete.arriveAndDeregister();
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
+    @Test
     public void testLevelContributionCap()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
@@ -471,7 +525,8 @@ public class TestTaskExecutor
                 new Duration(1, SECONDS),
                 new EmbedVersion(new ServerConfig()),
                 new MultilevelSplitQueue(2),
-                Ticker.systemTicker());
+                Ticker.systemTicker(),
+                false);
         taskExecutor.start();
 
         try {
@@ -607,6 +662,12 @@ public class TestTaskExecutor
         {
         }
 
+        @Override
+        public ScheduledSplit getScheduledSplit()
+        {
+            return null;
+        }
+
         public Future<?> getCompletedFuture()
         {
             return completed;
@@ -648,6 +709,12 @@ public class TestTaskExecutor
         @Override
         public void close()
         {
+        }
+
+        @Override
+        public ScheduledSplit getScheduledSplit()
+        {
+            return null;
         }
     }
 }

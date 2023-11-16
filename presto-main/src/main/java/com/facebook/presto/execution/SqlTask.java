@@ -35,6 +35,7 @@ import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -60,6 +61,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
+import static com.facebook.presto.execution.TaskState.GRACEFUL_SHUTDOWN;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -72,6 +74,7 @@ public class SqlTask
     private static final Logger log = Logger.get(SqlTask.class);
 
     private final TaskId taskId;
+    private final NodePoolType poolType;
     private final TaskInstanceId taskInstanceId;
     private final URI location;
     private final String nodeId;
@@ -100,7 +103,8 @@ public class SqlTask
             Function<SqlTask, ?> onDone,
             DataSize maxBufferSize,
             CounterStat failedTasks,
-            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory,
+            NodePoolType poolType)
     {
         SqlTask sqlTask = new SqlTask(
                 taskId,
@@ -111,7 +115,8 @@ public class SqlTask
                 exchangeClientSupplier,
                 taskNotificationExecutor,
                 maxBufferSize,
-                spoolingOutputBufferFactory);
+                spoolingOutputBufferFactory,
+                poolType);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -125,7 +130,8 @@ public class SqlTask
             ExchangeClientSupplier exchangeClientSupplier,
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
-            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory,
+            NodePoolType poolType)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = new TaskInstanceId(UUID.randomUUID());
@@ -133,6 +139,7 @@ public class SqlTask
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
+        this.poolType = requireNonNull(poolType, "poolType is null");
         requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
@@ -188,6 +195,9 @@ public class SqlTask
                     // don't close buffers for a failed query
                     // closed buffers signal to upstream tasks that everything finished cleanly
                     outputBuffer.fail();
+                }
+                else if (newState == GRACEFUL_SHUTDOWN) {
+                    outputBuffer.destroy();
                 }
                 else {
                     outputBuffer.destroy();
@@ -277,6 +287,8 @@ public class SqlTask
         long fullGcCount = 0;
         long fullGcTimeInMillis = 0L;
         long totalCpuTimeInNanos = 0L;
+        List<ScheduledSplit> unprocessedSplits = ImmutableList.of();
+        boolean isTaskIdling = false;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
@@ -289,6 +301,8 @@ public class SqlTask
             fullGcCount = taskStats.getFullGcCount();
             fullGcTimeInMillis = taskStats.getFullGcTimeInMillis();
             totalCpuTimeInNanos = taskStats.getTotalCpuTimeInNanos();
+            unprocessedSplits = taskHolder.getFinalTaskInfo().getTaskStatus().getUnprocessedSplits();
+            isTaskIdling = taskHolder.getFinalTaskInfo().getTaskStatus().getIsTaskIdling();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -308,8 +322,9 @@ public class SqlTask
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTimeInMillis = taskContext.getFullGcTime().toMillis();
+            unprocessedSplits = taskHolder.getTaskExecution().getUnprocessedSplits();
+            isTaskIdling = taskHolder.getTaskExecution().isTaskIdling();
         }
-
         return new TaskStatus(
                 taskInstanceId.getUuidLeastSignificantBits(),
                 taskInstanceId.getUuidMostSignificantBits(),
@@ -331,7 +346,9 @@ public class SqlTask
                 totalCpuTimeInNanos,
                 taskStatusAgeInMillis,
                 queuedPartitionedSplitsWeight,
-                runningPartitionedSplitsWeight);
+                runningPartitionedSplitsWeight,
+                unprocessedSplits,
+                isTaskIdling);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

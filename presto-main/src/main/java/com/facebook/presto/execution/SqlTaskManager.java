@@ -39,6 +39,7 @@ import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
@@ -125,6 +126,7 @@ public class SqlTaskManager
     private final Map<String, Long> currentMemoryPoolAssignmentVersions = new Object2LongOpenHashMap<>();
 
     private final CounterStat failedTasks = new CounterStat();
+    private boolean enableGracefulShutdown;
 
     @Inject
     public SqlTaskManager(
@@ -146,7 +148,8 @@ public class SqlTaskManager
             OrderingCompiler orderingCompiler,
             FragmentResultCacheManager fragmentResultCacheManager,
             ObjectMapper objectMapper,
-            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory,
+            ServerConfig serverConfig)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -198,7 +201,8 @@ public class SqlTaskManager
                         },
                         maxBufferSize,
                         failedTasks,
-                        spoolingOutputBufferFactory)));
+                        spoolingOutputBufferFactory,
+                        serverConfig.getPoolType())));
     }
 
     private QueryContext createQueryContext(

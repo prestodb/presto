@@ -197,7 +197,7 @@ public class PrestoSparkTaskExecution
                 runners.add(driverRunnerFactory.createDriverRunner(null));
             }
         }
-        enqueueDriverSplitRunner(true, runners);
+        enqueueDriverSplitRunner(true, runners, ImmutableList.of());
         for (DriverSplitRunnerFactory driverRunnerFactory : driverRunnerFactoriesWithTaskLifeCycle) {
             driverRunnerFactory.noMoreDriverRunner();
             verify(driverRunnerFactory.isNoMoreDriverRunner());
@@ -236,12 +236,12 @@ public class PrestoSparkTaskExecution
             }
         }
 
-        enqueueDriverSplitRunner(false, runners.build());
+        enqueueDriverSplitRunner(false, runners.build(), splits);
 
         factory.noMoreDriverRunner();
     }
 
-    private synchronized void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners)
+    private synchronized void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners, List<ScheduledSplit> splits)
     {
         // schedule driver to be executed
         List<ListenableFuture<?>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
@@ -502,6 +502,12 @@ public class PrestoSparkTaskExecution
             if (driver != null) {
                 driver.close();
             }
+        }
+
+        @Override
+        public ScheduledSplit getScheduledSplit()
+        {
+            return null;
         }
     }
 }

@@ -97,6 +97,12 @@ public class TaskStateMachine
         transitionToDoneState(TaskState.CANCELED);
     }
 
+    public void gracefulShutdown(Throwable cause)
+    {
+        failureCauses.add(cause);
+        transitionToDoneState(TaskState.GRACEFUL_SHUTDOWN);
+    }
+
     public void abort()
     {
         transitionToDoneState(TaskState.ABORTED);
@@ -112,7 +118,6 @@ public class TaskStateMachine
     {
         requireNonNull(doneState, "doneState is null");
         checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
-
         taskState.setIf(doneState, currentState -> !currentState.isDone());
     }
 

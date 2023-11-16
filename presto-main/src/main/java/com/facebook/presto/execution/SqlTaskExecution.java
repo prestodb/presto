@@ -14,12 +14,14 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.executor.TaskHandle;
+import com.facebook.presto.execution.executor.TaskShutdownManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -61,6 +63,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getInitialSplitsPerNode;
@@ -108,6 +111,7 @@ public class SqlTaskExecution
     // In this case,
     // * a driver could belong to pipeline 1 and driver life cycle 42.
     // * another driver could belong to pipeline 3 and task-wide driver life cycle.
+    private static final Logger log = Logger.get(SqlTaskExecution.class);
 
     private final TaskId taskId;
     private final TaskStateMachine taskStateMachine;
@@ -259,12 +263,15 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor)
     {
+        TaskShutdownManager taskShutdownManager = new TaskShutdownManager(taskStateMachine, taskContext);
         TaskHandle taskHandle = taskExecutor.addTask(
                 taskStateMachine.getTaskId(),
                 outputBuffer::getUtilization,
                 getInitialSplitsPerNode(taskContext.getSession()),
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
-                getMaxDriversPerTask(taskContext.getSession()));
+                getMaxDriversPerTask(taskContext.getSession()),
+                Optional.of(taskShutdownManager),
+                Optional.of(outputBuffer));
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 taskExecutor.removeTask(taskHandle);
@@ -284,6 +291,11 @@ public class SqlTaskExecution
     public TaskContext getTaskContext()
     {
         return taskContext;
+    }
+
+    public AtomicBoolean getNoTaskAtGracefulShutdown()
+    {
+        return taskExecutor.getNoTaskAtGracefulShutdown();
     }
 
     public void addSources(List<TaskSource> sources)
@@ -452,10 +464,12 @@ public class SqlTaskExecution
                     }
 
                     // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
+                    ImmutableList.Builder<ScheduledSplit> scheduledSplits = ImmutableList.builder();
                     ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
                     for (ScheduledSplit scheduledSplit : pendingSplits.removeAllSplits()) {
                         // create a new driver for the split
                         runners.add(partitionedDriverRunnerFactory.createDriverRunner(scheduledSplit, lifespan));
+                        scheduledSplits.add(scheduledSplit);
                     }
                     enqueueDriverSplitRunner(false, runners.build());
 
@@ -606,6 +620,16 @@ public class SqlTaskExecution
         }
     }
 
+    public List<ScheduledSplit> getUnprocessedSplits()
+    {
+        return taskHandle.getUnprocessedSplits();
+    }
+
+    public boolean isTaskIdling()
+    {
+        return taskHandle.isTaskIdling();
+    }
+
     public synchronized Set<PlanNodeId> getNoMoreSplits()
     {
         ImmutableSet.Builder<PlanNodeId> noMoreSplits = ImmutableSet.builder();
@@ -647,8 +671,10 @@ public class SqlTaskExecution
             return;
         }
 
-        // Cool! All done!
-        taskStateMachine.finished();
+        if (!taskHandle.isShutdownInProgress()) {
+            // Cool! All done!
+            taskStateMachine.finished();
+        }
     }
 
     @Override
@@ -1097,6 +1123,12 @@ public class SqlTaskExecution
             if (driver != null) {
                 driver.close();
             }
+        }
+
+        @Override
+        public ScheduledSplit getScheduledSplit()
+        {
+            return partitionedSplit;
         }
     }
 
