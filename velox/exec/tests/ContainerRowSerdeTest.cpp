@@ -135,7 +135,7 @@ class ContainerRowSerdeTest : public testing::Test,
         true, // nullsFirst
         true, // ascending
         true,
-        CompareFlags::NullHandlingMode::NoStop};
+        CompareFlags::NullHandlingMode::kNullAsValue};
 
     DecodedVector decodedVector(*vector);
 
@@ -254,19 +254,19 @@ TEST_F(ContainerRowSerdeTest, compareNullsInArrayVector) {
       positions,
       {{0}, {1}, {-1}, std::nullopt, std::nullopt, std::nullopt},
       false,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareWithNulls(
       decodedVector,
       positions,
       {{0}, {1}, {1}, {1}, std::nullopt, {1}},
       true,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareWithNulls(
       decodedVector,
       positions,
       {{0}, {1}, {-1}, {1}, {0}, {-1}},
       false,
-      CompareFlags::NullHandlingMode::NoStop);
+      CompareFlags::NullHandlingMode::kNullAsValue);
 
   allocator_.clear();
 }
@@ -292,19 +292,19 @@ TEST_F(ContainerRowSerdeTest, compareNullsInMapVector) {
       positions,
       {{-1}, {0}, {1}, std::nullopt},
       false,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareWithNulls(
       decodedVector,
       positions,
       {{1}, {0}, {1}, std::nullopt},
       true,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareWithNulls(
       decodedVector,
       positions,
       {{1}, {0}, {1}, {0}},
       true,
-      CompareFlags::NullHandlingMode::NoStop);
+      CompareFlags::NullHandlingMode::kNullAsValue);
 
   allocator_.clear();
 }
@@ -321,13 +321,13 @@ TEST_F(ContainerRowSerdeTest, compareNullsInRowVector) {
       positions,
       {{0}, {-1}, {1}, std::nullopt},
       false,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareWithNulls(
       decodedVector,
       positions,
       {{0}, {-1}, {1}, {1}},
       false,
-      CompareFlags::NullHandlingMode::NoStop);
+      CompareFlags::NullHandlingMode::kNullAsValue);
 
   allocator_.clear();
 }
@@ -359,21 +359,21 @@ TEST_F(ContainerRowSerdeTest, compareNullsInArrayByteStream) {
       {{0}, {1}, {-1}, std::nullopt, std::nullopt, std::nullopt},
       ARRAY(BIGINT()),
       false,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareByteStreamWithNulls(
       leftPositions,
       rightPositions,
       {{0}, {1}, {1}, {1}, std::nullopt, {1}},
       ARRAY(BIGINT()),
       true,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareByteStreamWithNulls(
       leftPositions,
       rightPositions,
       {{0}, {1}, {-1}, {1}, {0}, {-1}},
       ARRAY(BIGINT()),
       false,
-      CompareFlags::NullHandlingMode::NoStop);
+      CompareFlags::NullHandlingMode::kNullAsValue);
 
   allocator_.clear();
 }
@@ -394,14 +394,14 @@ TEST_F(ContainerRowSerdeTest, compareNullsInRowByteStream) {
       {{0}, {-1}, {1}, std::nullopt},
       ROW({INTEGER(), INTEGER()}),
       false,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareByteStreamWithNulls(
       leftPositions,
       rightPositions,
       {{0}, {-1}, {1}, {1}},
       ROW({INTEGER(), INTEGER()}),
       false,
-      CompareFlags::NullHandlingMode::NoStop);
+      CompareFlags::NullHandlingMode::kNullAsValue);
 
   allocator_.clear();
 }
@@ -429,21 +429,21 @@ TEST_F(ContainerRowSerdeTest, compareNullsInMapByteStream) {
       {{-1}, {0}, {1}, std::nullopt},
       MAP(BIGINT(), BIGINT()),
       false,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareByteStreamWithNulls(
       leftPositions,
       rightPositions,
       {{1}, {0}, {1}, std::nullopt},
       MAP(BIGINT(), BIGINT()),
       true,
-      CompareFlags::NullHandlingMode::StopAtNull);
+      CompareFlags::NullHandlingMode::kStopAtNull);
   testCompareByteStreamWithNulls(
       leftPositions,
       rightPositions,
       {{1}, {0}, {1}, {0}},
       MAP(BIGINT(), BIGINT()),
       true,
-      CompareFlags::NullHandlingMode::NoStop);
+      CompareFlags::NullHandlingMode::kNullAsValue);
 
   allocator_.clear();
 }

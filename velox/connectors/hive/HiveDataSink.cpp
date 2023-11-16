@@ -344,7 +344,7 @@ HiveDataSink::HiveDataSink(
           {sortedProperty.at(i)->sortOrder().isNullsFirst(),
            sortedProperty.at(i)->sortOrder().isAscending(),
            false,
-           CompareFlags::NullHandlingMode::NoStop});
+           CompareFlags::NullHandlingMode::kNullAsValue});
     }
   }
 }

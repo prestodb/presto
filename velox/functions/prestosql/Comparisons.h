@@ -130,7 +130,7 @@ struct EqFunction : public TimestampWithTimezoneComparisonSupport<T> {
         false,
         false,
         /*euqalsOnly*/ true,
-        CompareFlags::NullHandlingMode::StopAtNull /*nullHandlingMode*/};
+        CompareFlags::NullHandlingMode::kStopAtNull /*nullHandlingMode*/};
     auto result = lhs.compare(rhs, kFlags);
     if (!result.has_value()) {
       return false;

@@ -121,7 +121,7 @@ inline void checkRowVectorBounds(const RowVectorPtr& v, vector_size_t idx) {
 
 bool compareRowVector(const RowVectorPtr& u, const RowVectorPtr& v) {
   CompareFlags compFlags;
-  compFlags.nullHandlingMode = CompareFlags::NullHandlingMode::NoStop;
+  compFlags.nullHandlingMode = CompareFlags::NullHandlingMode::kNullAsValue;
   compFlags.equalsOnly = true;
   if (u->size() != v->size()) {
     return false;

@@ -262,14 +262,14 @@ class BaseVector {
         false,
         false,
         true /*equalOnly*/,
-        CompareFlags::NullHandlingMode::NoStop /*nullHandlingMode**/};
-    // Will always have value because nullHandlingMode is NoStop.
+        CompareFlags::NullHandlingMode::kNullAsValue};
+    // Will always have value because nullHandlingMode is NullAsValue.
     return compare(other, index, otherIndex, kEqualValueAtFlags).value() == 0;
   }
 
   /// Returns true if this vector has the same value at the given index as the
   /// other vector at the other vector's index (including if both are null when
-  /// nullHandlingMode is NoStop), false otherwise. If nullHandlingMode is
+  /// nullHandlingMode is NullAsValue), false otherwise. If nullHandlingMode is
   /// StopAtNull, returns std::nullopt if null encountered.
   virtual std::optional<bool> equalValueAt(
       const BaseVector* other,
@@ -289,7 +289,7 @@ class BaseVector {
   /// than 'other' at 'otherIndex', 0 if equal and > 0 otherwise.
   /// When CompareFlags is DESCENDING, returns < 0 if 'this' at 'index' is
   /// larger than 'other' at 'otherIndex', 0 if equal and < 0 otherwise. If
-  /// flags.nullHandlingMode is not NoStop, the function may returns
+  /// flags.nullHandlingMode is not NullAsValue, the function may returns
   /// std::nullopt if null encountered.
   virtual std::optional<int32_t> compare(
       const BaseVector* other,
@@ -805,9 +805,9 @@ class BaseVector {
   compareNulls(bool thisNull, bool otherNull, CompareFlags flags) {
     DCHECK(thisNull || otherNull);
     switch (flags.nullHandlingMode) {
-      case CompareFlags::NullHandlingMode::StopAtNull:
+      case CompareFlags::NullHandlingMode::kStopAtNull:
         return std::nullopt;
-      case CompareFlags::NullHandlingMode::NoStop:
+      case CompareFlags::NullHandlingMode::kNullAsValue:
       default:
         break;
     }

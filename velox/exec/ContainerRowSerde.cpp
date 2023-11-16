@@ -809,7 +809,7 @@ int32_t ContainerRowSerde::compare(
     CompareFlags flags) {
   VELOX_DCHECK(
       !right.isNullAt(index), "Null top-level values are not supported");
-  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
+  VELOX_DCHECK(flags.nullAsValue(), "not supported null handling mode");
   return compareSwitch(left, *right.base(), right.index(index), flags).value();
 }
 
@@ -819,7 +819,7 @@ int32_t ContainerRowSerde::compare(
     ByteInputStream& right,
     const Type* type,
     CompareFlags flags) {
-  VELOX_DCHECK(!flags.mayStopAtNull(), "not supported null handling mode");
+  VELOX_DCHECK(flags.nullAsValue(), "not supported null handling mode");
 
   return compareSwitch(left, right, type, flags).value();
 }

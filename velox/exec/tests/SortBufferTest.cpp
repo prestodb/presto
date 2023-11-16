@@ -57,8 +57,8 @@ class SortBufferTest : public OperatorTestBase {
   // Specifies the sort columns ["c4", "c1"].
   std::vector<column_index_t> sortColumnIndices_{4, 1};
   std::vector<CompareFlags> sortCompareFlags_{
-      {true, true, false, CompareFlags::NullHandlingMode::NoStop},
-      {true, true, false, CompareFlags::NullHandlingMode::NoStop}};
+      {true, true, false, CompareFlags::NullHandlingMode::kNullAsValue},
+      {true, true, false, CompareFlags::NullHandlingMode::kNullAsValue}};
 
   const int64_t maxBytes_ = 20LL << 20; // 20 MB
   const std::shared_ptr<memory::MemoryPool> rootPool_{
@@ -94,12 +94,12 @@ TEST_F(SortBufferTest, singleKey) {
       {{{true,
          true,
          false,
-         CompareFlags::NullHandlingMode::NoStop}}, // Ascending
+         CompareFlags::NullHandlingMode::kNullAsValue}}, // Ascending
        {1, 2, 3, 4, 5}},
       {{{true,
          false,
          false,
-         CompareFlags::NullHandlingMode::NoStop}}, // Descending
+         CompareFlags::NullHandlingMode::kNullAsValue}}, // Descending
        {5, 4, 3, 2, 1}}};
 
   // Specifies the sort columns ["c1"].
@@ -194,7 +194,7 @@ TEST_F(SortBufferTest, DISABLED_randomData) {
             {"c4", DOUBLE()},
             {"c5", VARCHAR()}}),
        {2},
-       {{true, true, false, CompareFlags::NullHandlingMode::NoStop}}},
+       {{true, true, false, CompareFlags::NullHandlingMode::kNullAsValue}}},
       {ROW(
            {{"c0", BIGINT()},
             {"c1", INTEGER()},
@@ -203,8 +203,8 @@ TEST_F(SortBufferTest, DISABLED_randomData) {
             {"c4", DOUBLE()},
             {"c5", VARCHAR()}}),
        {4, 1},
-       {{true, true, false, CompareFlags::NullHandlingMode::NoStop},
-        {true, true, false, CompareFlags::NullHandlingMode::NoStop}}},
+       {{true, true, false, CompareFlags::NullHandlingMode::kNullAsValue},
+        {true, true, false, CompareFlags::NullHandlingMode::kNullAsValue}}},
       {ROW(
            {{"c0", BIGINT()},
             {"c1", INTEGER()},
@@ -213,8 +213,8 @@ TEST_F(SortBufferTest, DISABLED_randomData) {
             {"c4", DOUBLE()},
             {"c5", VARCHAR()}}),
        {4, 1},
-       {{true, true, false, CompareFlags::NullHandlingMode::NoStop},
-        {false, false, false, CompareFlags::NullHandlingMode::NoStop}}}};
+       {{true, true, false, CompareFlags::NullHandlingMode::kNullAsValue},
+        {false, false, false, CompareFlags::NullHandlingMode::kNullAsValue}}}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());

@@ -37,7 +37,8 @@ struct SingleValueAccumulator {
   /// then new value; >0 if stored value is greater than new value. If
   /// flags.nullHandlingMode is StopAtNull, returns std::nullopt
   /// in case of null array elements, map values, and struct fields.
-  /// If flags.nullHandlingMode is NoStop then NULL is considered equal to NULL.
+  /// If flags.nullHandlingMode is NullAsValue then NULL is considered equal to
+  /// NULL.
   std::optional<int32_t> compare(
       const DecodedVector& decoded,
       vector_size_t index,

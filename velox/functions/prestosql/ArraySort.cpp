@@ -45,7 +45,7 @@ BufferPtr sortElements(
 
   CompareFlags flags{.nullsFirst = false, .ascending = ascending};
   if (throwOnNestedNull) {
-    flags.nullHandlingMode = CompareFlags::NullHandlingMode::StopAtNull;
+    flags.nullHandlingMode = CompareFlags::NullHandlingMode::kStopAtNull;
   }
 
   auto decodedIndices = decodedElements->indices();

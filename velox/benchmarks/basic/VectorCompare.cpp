@@ -81,7 +81,7 @@ class VectorCompareBenchmark : public functions::test::FunctionBenchmarkBase {
       true,
       true,
       false,
-      CompareFlags::NullHandlingMode::NoStop};
+      CompareFlags::NullHandlingMode::kNullAsValue};
 
   const size_t vectorSize_;
   SelectivityVector rows_;

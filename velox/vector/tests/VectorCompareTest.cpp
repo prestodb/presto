@@ -36,7 +36,7 @@ class VectorCompareTest : public testing::Test,
       bool expectNull,
       bool equalsOnly = false) {
     CompareFlags testFlags;
-    testFlags.nullHandlingMode = CompareFlags::NullHandlingMode::StopAtNull;
+    testFlags.nullHandlingMode = CompareFlags::NullHandlingMode::kStopAtNull;
     testFlags.equalsOnly = equalsOnly;
 
     ASSERT_EQ(
@@ -60,7 +60,7 @@ TEST_F(VectorCompareTest, compareStopAtNullFlat) {
 // Test SimpleVector<ComplexType>::compare()
 TEST_F(VectorCompareTest, compareStopAtNullSimpleComplex) {
   CompareFlags testFlags;
-  testFlags.nullHandlingMode = CompareFlags::NullHandlingMode::StopAtNull;
+  testFlags.nullHandlingMode = CompareFlags::NullHandlingMode::kStopAtNull;
 
   auto flatVector =
       vectorMaker_.arrayVectorNullable<int32_t>({{{1, 2, 3}}, std::nullopt});

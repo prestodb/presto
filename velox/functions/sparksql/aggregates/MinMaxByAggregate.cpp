@@ -60,7 +60,7 @@ struct SparkComparator {
         true, // nullsFirst
         true, // ascending
         false, // equalsOnly
-        CompareFlags::NullHandlingMode::NoStop};
+        CompareFlags::NullHandlingMode::kNullAsValue};
     auto result = accumulator->compare(decoded, index, kCompareFlags);
     return result.value();
   }

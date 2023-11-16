@@ -26,7 +26,7 @@ CompareFlags fromSortOrderToCompareFlags(const core::SortOrder& sortOrder) {
       sortOrder.isNullsFirst(),
       sortOrder.isAscending(),
       false,
-      CompareFlags::NullHandlingMode::NoStop};
+      CompareFlags::NullHandlingMode::kNullAsValue};
 }
 } // namespace
 

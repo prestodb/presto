@@ -23,12 +23,17 @@ namespace facebook::velox {
 
 // Describes value collation in comparison.
 struct CompareFlags {
-  // NoStop: The compare doesn't stop at null.
-  // StopAtNull: The compare returns std::nullopt if null is encountered in rhs
-  // or lhs.
-  enum class NullHandlingMode { NoStop, StopAtNull };
+  enum class NullHandlingMode {
+    // This is the default null handling mode, in this mode nulls are treated as
+    // values such that:
+    //  - null == null is true,
+    //  - null == value is false.
+    //  - when equalsOnly=false null ordering is determined using the nullsFirst
+    // flag.
+    kNullAsValue,
+    kStopAtNull
+  };
 
-  // This flag will be ignored if nullHandlingMode is true.
   bool nullsFirst = true;
 
   bool ascending = true;
@@ -36,17 +41,21 @@ struct CompareFlags {
   // When true, comparison should return non-0 early when sizes mismatch.
   bool equalsOnly = false;
 
-  NullHandlingMode nullHandlingMode = NullHandlingMode::NoStop;
+  NullHandlingMode nullHandlingMode = NullHandlingMode::kNullAsValue;
 
-  bool mayStopAtNull() {
-    return nullHandlingMode == CompareFlags::NullHandlingMode::StopAtNull;
+  bool mayStopAtNull() const {
+    return nullHandlingMode == CompareFlags::NullHandlingMode::kStopAtNull;
+  }
+
+  bool nullAsValue() const {
+    return nullHandlingMode == CompareFlags::NullHandlingMode::kNullAsValue;
   }
 
   static std::string nullHandlingModeToStr(NullHandlingMode mode) {
     switch (mode) {
-      case CompareFlags::NullHandlingMode::NoStop:
-        return "NoStop";
-      case CompareFlags::NullHandlingMode::StopAtNull:
+      case CompareFlags::NullHandlingMode::kNullAsValue:
+        return "NullAsValue";
+      case CompareFlags::NullHandlingMode::kStopAtNull:
         return "StopAtNull";
       default:
         return fmt::format(
