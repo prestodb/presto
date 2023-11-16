@@ -46,7 +46,7 @@ class DuckDbQueryRunner {
 
   MaterializedRowMultiset execute(
       const std::string& sql,
-      const std::shared_ptr<const RowType>& resultRowType) {
+      const RowTypePtr& resultRowType) {
     MaterializedRowMultiset allRows;
     execute(
         sql,
@@ -60,7 +60,7 @@ class DuckDbQueryRunner {
 
   std::vector<MaterializedRow> executeOrdered(
       const std::string& sql,
-      const std::shared_ptr<const RowType>& resultRowType) {
+      const RowTypePtr& resultRowType) {
     std::vector<MaterializedRow> allRows;
     execute(
         sql,
@@ -76,7 +76,7 @@ class DuckDbQueryRunner {
 
   void execute(
       const std::string& sql,
-      const std::shared_ptr<const RowType>& resultRowType,
+      const RowTypePtr& resultRowType,
       std::function<void(std::vector<MaterializedRow>&)> resultCallback);
 };
 
@@ -154,13 +154,13 @@ void assertEmptyResults(const std::vector<RowVectorPtr>& results);
 
 void assertResults(
     const std::vector<RowVectorPtr>& results,
-    const std::shared_ptr<const RowType>& resultType,
+    const RowTypePtr& resultType,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner);
 
 void assertResultsOrdered(
     const std::vector<RowVectorPtr>& results,
-    const std::shared_ptr<const RowType>& resultType,
+    const RowTypePtr& resultType,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner,
     const std::vector<uint32_t>& sortingKeys);

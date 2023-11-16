@@ -339,7 +339,7 @@ velox::variant arrayVariantAt(
 
 std::vector<MaterializedRow> materialize(
     ::duckdb::DataChunk* dataChunk,
-    const std::shared_ptr<const RowType>& rowType) {
+    const RowTypePtr& rowType) {
   VELOX_CHECK_EQ(
       rowType->size(), dataChunk->GetTypes().size(), "Wrong number of columns");
 
@@ -880,7 +880,7 @@ DuckDBQueryResult DuckDbQueryRunner::execute(const std::string& sql) {
 
 void DuckDbQueryRunner::execute(
     const std::string& sql,
-    const std::shared_ptr<const RowType>& resultRowType,
+    const RowTypePtr& resultRowType,
     std::function<void(std::vector<MaterializedRow>&)> resultCallback) {
   auto duckDbResult = execute(sql);
 
@@ -1091,7 +1091,7 @@ bool assertEqualResults(
 
 void assertResults(
     const std::vector<RowVectorPtr>& results,
-    const std::shared_ptr<const RowType>& resultType,
+    const RowTypePtr& resultType,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner) {
   MaterializedRowMultiset actualRows;
@@ -1179,7 +1179,7 @@ static bool compareOrderedPartitionsVectors(
 
 void assertResultsOrdered(
     const std::vector<RowVectorPtr>& results,
-    const std::shared_ptr<const RowType>& resultType,
+    const RowTypePtr& resultType,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner,
     const std::vector<uint32_t>& sortingKeys) {
