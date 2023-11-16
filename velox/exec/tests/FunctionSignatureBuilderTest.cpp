@@ -86,7 +86,7 @@ TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
           .argumentType("T")
           .argumentType("array(M)")
           .build(),
-      "Type doesn't exist: M");
+      "Type doesn't exist: 'M'");
 
   // Only supported types.
   VELOX_ASSERT_THROW(
@@ -95,7 +95,7 @@ TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
           .returnType("nosuchtype")
           .argumentType("array(T)")
           .build(),
-      "Type doesn't exist: NOSUCHTYPE");
+      "Type doesn't exist: 'NOSUCHTYPE'");
 
   // Any Type.
   EXPECT_TRUE(
@@ -122,9 +122,9 @@ TEST_F(FunctionSignatureBuilderTest, typeParamTests) {
       FunctionSignatureBuilder()
           .typeVariable("T")
           .returnType("integer")
-          .argumentType("row(T ..., varchar)")
+          .argumentType("row(..., varchar)")
           .build(),
-      "Type doesn't exist: T ...");
+      "Type doesn't exist: '...'");
 
   // Type params cant have type params.
   VELOX_ASSERT_THROW(
@@ -134,7 +134,7 @@ TEST_F(FunctionSignatureBuilderTest, typeParamTests) {
           .returnType("integer")
           .argumentType("T(M)")
           .build(),
-      "Named type cannot have parameters : T(M)");
+      "Named type cannot have parameters: 'T(M)'");
 }
 
 TEST_F(FunctionSignatureBuilderTest, anyInReturn) {
