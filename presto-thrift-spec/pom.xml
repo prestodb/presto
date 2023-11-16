@@ -49,7 +49,6 @@
                         <phase>process-classes</phase>
                         <configuration>
                             <classes>
-                                <class>com.facebook.presto.execution.TaskStatus</class>
                             </classes>
                             <recursive>true</recursive>
                             <outputFile>target/presto-internal-${project.version}.thrift</outputFile>

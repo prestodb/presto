@@ -21,7 +21,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.airlift.stats.ExponentialDecay;
-import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
@@ -61,7 +60,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.server.thrift.ThriftCodecWrapper.wrapThriftCodec;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -109,10 +107,8 @@ public class HttpRemoteTaskFactory
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusJsonCodec,
             SmileCodec<TaskStatus> taskStatusSmileCodec,
-            ThriftCodec<TaskStatus> taskStatusThriftCodec,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             SmileCodec<TaskInfo> taskInfoSmileCodec,
-            ThriftCodec<TaskInfo> taskInfoThriftCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
             JsonCodec<PlanFragment> planFragmentJsonCodec,
@@ -140,14 +136,14 @@ public class HttpRemoteTaskFactory
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
         this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(communicationConfig, "communicationConfig is null");
-        binaryTransportEnabled = communicationConfig.isBinaryTransportEnabled();
-        thriftTransportEnabled = communicationConfig.isThriftTransportEnabled();
-        taskInfoThriftTransportEnabled = communicationConfig.isTaskInfoThriftTransportEnabled();
+        binaryTransportEnabled = false;
+        thriftTransportEnabled = false;
+        taskInfoThriftTransportEnabled = false;
         thriftProtocol = communicationConfig.getThriftProtocol();
         this.maxTaskUpdateSizeInBytes = toIntExact(requireNonNull(communicationConfig, "communicationConfig is null").getMaxTaskUpdateSize().toBytes());
 
         if (thriftTransportEnabled) {
-            this.taskStatusCodec = wrapThriftCodec(taskStatusThriftCodec);
+            this.taskStatusCodec = taskStatusJsonCodec;
         }
         else if (binaryTransportEnabled) {
             this.taskStatusCodec = taskStatusSmileCodec;
@@ -157,7 +153,7 @@ public class HttpRemoteTaskFactory
         }
 
         if (taskInfoThriftTransportEnabled) {
-            this.taskInfoCodec = wrapThriftCodec(taskInfoThriftCodec);
+            this.taskInfoCodec = taskInfoJsonCodec;
         }
         else if (binaryTransportEnabled) {
             this.taskInfoCodec = taskInfoSmileCodec;
