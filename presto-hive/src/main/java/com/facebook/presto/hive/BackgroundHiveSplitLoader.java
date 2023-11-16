@@ -109,11 +109,11 @@ public class BackgroundHiveSplitLoader
             implements ResumableTask
     {
         @Override
-        public TaskStatus process()
+        public ResumableTaskStatus process()
         {
             while (true) {
                 if (stopped) {
-                    return TaskStatus.finished();
+                    return ResumableTaskStatus.finished();
                 }
                 ListenableFuture<?> future;
                 taskExecutionLock.readLock().lock();
@@ -131,14 +131,14 @@ public class BackgroundHiveSplitLoader
                     // Otherwise, a race could occur where the split source is completed before we fail it.
                     hiveSplitSource.fail(e);
                     checkState(stopped);
-                    return TaskStatus.finished();
+                    return ResumableTaskStatus.finished();
                 }
                 finally {
                     taskExecutionLock.readLock().unlock();
                 }
                 invokeNoMoreSplitsIfNecessary();
                 if (!future.isDone()) {
-                    return TaskStatus.continueOn(future);
+                    return ResumableTaskStatus.continueOn(future);
                 }
             }
         }
