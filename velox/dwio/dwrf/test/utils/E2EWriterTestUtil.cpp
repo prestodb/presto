@@ -30,12 +30,12 @@ using namespace facebook::velox::memory;
 namespace facebook::velox::dwrf {
 
 /* static */ std::unique_ptr<Writer> E2EWriterTestUtil::createWriter(
-    std::unique_ptr<dwio::common::FileSink> sink,
+    std::unique_ptr<FileSink> sink,
     const std::shared_ptr<const Type>& type,
     const std::shared_ptr<Config>& config,
     std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory,
-    std::function<std::unique_ptr<LayoutPlanner>(
-        const dwio::common::TypeWithId&)> layoutPlannerFactory,
+    std::function<std::unique_ptr<LayoutPlanner>(const TypeWithId&)>
+        layoutPlannerFactory,
     const int64_t writerMemoryCap) {
   // write file to memory
   dwrf::WriterOptions options;

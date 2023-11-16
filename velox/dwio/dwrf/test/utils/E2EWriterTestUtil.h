@@ -82,6 +82,7 @@ class E2EWriterTestUtil {
       std::function<std::unique_ptr<LayoutPlanner>(
           const dwio::common::TypeWithId&)> layoutPlannerFactory = nullptr,
       const int64_t writerMemoryCap = std::numeric_limits<int64_t>::max());
+
   /**
    * Creates a writer with the supplied configuration and check the IO
    * characteristics and the content of its output. Uses writeData to perform

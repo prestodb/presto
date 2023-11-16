@@ -23,10 +23,10 @@ StripeDictionaryCache::DictionaryEntry::DictionaryEntry(
 
 BufferPtr StripeDictionaryCache::DictionaryEntry::getDictionaryBuffer(
     velox::memory::MemoryPool* pool) {
-  if (!dictionaryBuffer_) {
+  folly::call_once(onceFlag_, [&]() {
     dictionaryBuffer_ = dictGen_(pool);
     dictGen_ = nullptr;
-  }
+  });
   return dictionaryBuffer_;
 }
 

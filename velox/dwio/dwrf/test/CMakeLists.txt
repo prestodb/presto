@@ -429,6 +429,23 @@ target_link_libraries(
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
 
+add_executable(velox_dwrf_e2e_reader_test E2EReaderTest.cpp)
+add_test(velox_dwrf_e2e_reader_test velox_dwrf_e2e_reader_test)
+
+target_link_libraries(
+  velox_dwrf_e2e_reader_test
+  velox_dwrf_test_utils
+  velox_vector_fuzzer
+  velox_vector_test_lib
+  velox_link_libs
+  Folly::folly
+  fmt::fmt
+  lz4::lz4
+  lzo2::lzo2
+  zstd::zstd
+  ZLIB::ZLIB
+  ${TEST_LINK_LIBS})
+
 add_executable(velox_dwrf_writer_extended_test WriterExtendedTests.cpp)
 
 target_link_libraries(
