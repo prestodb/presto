@@ -354,7 +354,12 @@ public class StoragePartitionLoader
         return lastResult;
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<Partition> partition)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(
+            Path path,
+            ExtendedFileSystem fileSystem,
+            InternalHiveSplitFactory splitFactory,
+            boolean splittable,
+            Optional<Partition> partition)
     {
         boolean cacheable = isUseListDirectoryCache(session);
         if (partition.isPresent()) {
@@ -368,7 +373,7 @@ public class StoragePartitionLoader
                 hdfsContext.getIdentity(),
                 buildDirectoryContextProperties(session));
         return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
-                .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
+                .map(hiveFileInfo -> splitFactory.createInternalHiveSplit(hiveFileInfo, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .iterator();
