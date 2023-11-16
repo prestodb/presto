@@ -66,22 +66,28 @@ bool MallocAllocator::allocateNonContiguousWithoutRetry(
   std::vector<void*> pages;
   pages.reserve(mix.numSizes);
   for (int32_t i = 0; i < mix.numSizes; ++i) {
-    // Trigger allocation failure by breaking out the loop.
-    if (testingHasInjectedFailure(InjectedFailure::kAllocate)) {
-      break;
-    }
     MachinePageCount numSizeClassPages =
         mix.sizeCounts[i] * sizeClassSizes_[mix.sizeIndices[i]];
-    void* ptr;
-    stats_.recordAllocate(
-        AllocationTraits::pageBytes(sizeClassSizes_[mix.sizeIndices[i]]),
-        mix.sizeCounts[i],
-        [&]() {
-          ptr = ::malloc(
-              AllocationTraits::pageBytes(numSizeClassPages)); // NOLINT
-        });
+    void* ptr = nullptr;
+    // Trigger allocation failure by skipping malloc
+    if (!testingHasInjectedFailure(InjectedFailure::kAllocate)) {
+      stats_.recordAllocate(
+          AllocationTraits::pageBytes(sizeClassSizes_[mix.sizeIndices[i]]),
+          mix.sizeCounts[i],
+          [&]() {
+            ptr = ::malloc(
+                AllocationTraits::pageBytes(numSizeClassPages)); // NOLINT
+          });
+    }
     if (ptr == nullptr) {
       // Failed to allocate memory from memory.
+      const auto errorMsg = fmt::format(
+          "Malloc failed to allocate {} of memory while allocating for "
+          "non-contiguous allocation of {} pages",
+          succinctBytes(AllocationTraits::pageBytes(numSizeClassPages)),
+          numPages);
+      VELOX_MEM_LOG(WARNING) << errorMsg;
+      setAllocatorFailureMessage(errorMsg);
       break;
     }
     pages.emplace_back(ptr);
@@ -277,6 +283,14 @@ bool MallocAllocator::growContiguousWithoutRetry(
     reservationCB(AllocationTraits::pageBytes(increment), true);
   }
   if (!incrementUsage(AllocationTraits::pageBytes(increment))) {
+    const auto errorMsg = fmt::format(
+        "Exceeded memory allocator limit when allocating {} new pages for "
+        "total allocation of {} pages, the memory allocator capacity is"
+        " {} pages",
+        increment,
+        allocation.numPages(),
+        capacity_);
+    setAllocatorFailureMessage(errorMsg);
     if (reservationCB != nullptr) {
       reservationCB(AllocationTraits::pageBytes(increment), false);
     }

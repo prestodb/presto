@@ -68,26 +68,29 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
     return true;
   }
   const SizeMix mix = allocationSize(numPages, minSizeClass);
-  if (testingHasInjectedFailure(InjectedFailure::kCap)) {
-    if ((bytesFreed != 0) && (reservationCB != nullptr)) {
-      reservationCB(bytesFreed, false);
-    }
-    return false;
-  }
 
-  if (numAllocated_ + mix.totalPages > capacity_) {
-    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
-        << "Exceeding memory allocator limit when allocate " << mix.totalPages
-        << " pages with capacity of " << capacity_ << " pages";
+  if (numAllocated_ + mix.totalPages > capacity_ ||
+      testingHasInjectedFailure(InjectedFailure::kCap)) {
+    const std::string errorMsg = fmt::format(
+        "Exceeded memory allocator limit when allocating {} pages with "
+        "capacity of {} pages",
+        mix.totalPages,
+        capacity_);
+    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000) << errorMsg;
+    setAllocatorFailureMessage(errorMsg);
     if ((bytesFreed != 0) && (reservationCB != nullptr)) {
       reservationCB(bytesFreed, false);
     }
     return false;
   }
   if (numAllocated_.fetch_add(mix.totalPages) + mix.totalPages > capacity_) {
-    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
-        << "Exceeded memory allocator limit when allocate " << mix.totalPages
-        << " pages with capacity of " << capacity_ << " pages";
+    const std::string errorMsg = fmt::format(
+        "Exceeding memory allocator limit when allocating {} pages with "
+        "capacity of {} pages",
+        mix.totalPages,
+        capacity_);
+    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000) << errorMsg;
+    setAllocatorFailureMessage(errorMsg);
     numAllocated_.fetch_sub(mix.totalPages);
     if ((bytesFreed != 0) && (reservationCB != nullptr)) {
       reservationCB(bytesFreed, false);
@@ -129,8 +132,12 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
     if (!success) {
       // This does not normally happen since any size class can accommodate
       // all the capacity. 'allocatedPages_' must be out of sync.
-      VELOX_MEM_LOG(WARNING) << "Failed allocation in size class " << i
-                             << " for " << mix.sizeCounts[i] << " pages";
+      const std::string errorMsg = fmt::format(
+          "Failed allocation in size class {} for {} pages",
+          i,
+          mix.sizeCounts[i]);
+      VELOX_MEM_LOG(WARNING) << errorMsg;
+      setAllocatorFailureMessage(errorMsg);
       const auto failedPages = mix.totalPages - out.numPages();
       freeNonContiguous(out);
       numAllocated_.fetch_sub(failedPages);
@@ -148,9 +155,13 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
     return true;
   }
 
-  VELOX_MEM_LOG(WARNING) << "Could not advise away enough for " << newMapsNeeded
-                         << " pages with total allocation of << "
-                         << mix.totalPages << " pages";
+  const std::string errorMsg = fmt::format(
+      "Could not advise away enough for {} pages for total allocation "
+      "of {} pages",
+      newMapsNeeded,
+      mix.totalPages);
+  VELOX_MEM_LOG(WARNING) << errorMsg;
+  setAllocatorFailureMessage(errorMsg);
   freeNonContiguous(out);
   if (reservationCB != nullptr) {
     reservationCB(AllocationTraits::pageBytes(mix.totalPages), false);
@@ -337,10 +348,15 @@ bool MmapAllocator::allocateContiguousImpl(
   if (newPages > 0 &&
       (numAllocated > capacity_ ||
        testingHasInjectedFailure(InjectedFailure::kCap))) {
-    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
-        << "Exceeded memory allocator limit when allocate " << newPages
-        << " new pages for total allocation of " << numPages
-        << " pages, the memory allocator capacity is " << capacity_ << " pages";
+    const std::string errorMsg = fmt::format(
+        "Exceeded memory allocator limit when allocating {} new pages for "
+        "total allocation of {} pages, the memory allocator capacity is"
+        " {} pages",
+        newPages,
+        numPages,
+        capacity_);
+    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000) << errorMsg;
+    setAllocatorFailureMessage(errorMsg);
     rollbackAllocation(0);
     return false;
   }
@@ -349,9 +365,13 @@ bool MmapAllocator::allocateContiguousImpl(
   const int64_t numToMap = numPages - numCollateralUnmap;
   if (numToMap > 0) {
     if (!ensureEnoughMappedPages(numToMap)) {
-      VELOX_MEM_LOG(WARNING)
-          << "Could not advise away enough for " << numToMap
-          << " pages for total allocation of " << numPages << " pages";
+      const std::string errorMsg = fmt::format(
+          "Could not advise away enough for {} pages for total allocation "
+          "of {} pages",
+          numToMap,
+          numPages);
+      VELOX_MEM_LOG(WARNING) << errorMsg;
+      setAllocatorFailureMessage(errorMsg);
       rollbackAllocation(0);
       return false;
     }
@@ -379,9 +399,12 @@ bool MmapAllocator::allocateContiguousImpl(
   }
   // TODO: add handling of MAP_FAILED.
   if (data == nullptr) {
-    VELOX_MEM_LOG(ERROR) << "Mmap failed with " << numPages
-                         << " pages, use MmapArena "
-                         << (useMmapArena_ ? "true" : "false");
+    const std::string errorMsg = fmt::format(
+        "Mmap failed with {} pages use MmapArena {}",
+        numPages,
+        (useMmapArena_ ? "true" : "false"));
+    VELOX_MEM_LOG(ERROR) << errorMsg;
+    setAllocatorFailureMessage(errorMsg);
     // If the mmap failed, we have unmapped former 'allocation' and the extra to
     // be mapped.
     rollbackAllocation(numToMap);
@@ -434,10 +457,15 @@ bool MmapAllocator::growContiguousWithoutRetry(
   auto numAllocated = numAllocated_.fetch_add(increment) + increment;
   if (numAllocated > capacity_ ||
       testingHasInjectedFailure(InjectedFailure::kCap)) {
-    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
-        << "Exceeded memory allocator limit when adding " << increment
-        << " new pages for total allocation of " << allocation.numPages()
-        << " pages, the memory allocator capacity is " << capacity_ << " pages";
+    const std::string errorMsg = fmt::format(
+        "Exceeded memory allocator limit when allocating {} new pages for "
+        "total allocation of {} pages, the memory allocator capacity is"
+        " {} pages",
+        increment,
+        allocation.numPages(),
+        capacity_);
+    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000) << errorMsg;
+    setAllocatorFailureMessage(errorMsg);
     numAllocated_ -= increment;
     if (reservationCB != nullptr) {
       reservationCB(AllocationTraits::pageBytes(increment), false);
@@ -446,11 +474,15 @@ bool MmapAllocator::growContiguousWithoutRetry(
   }
 
   // Check if need to advise away
-  if (!ensureEnoughMappedPages(increment) ||
-      testingHasInjectedFailure(InjectedFailure::kMmap)) {
-    VELOX_MEM_LOG(WARNING) << "Could not advise away enough for " << increment
-                           << " pages for growing allocation of "
-                           << allocation.numPages() << " pages";
+  if (testingHasInjectedFailure(InjectedFailure::kMmap) ||
+      !ensureEnoughMappedPages(increment)) {
+    const std::string errorMsg = fmt::format(
+        "Could not advise away enough for {} pages for growing allocation "
+        "of {} pages",
+        increment,
+        allocation.numPages());
+    VELOX_MEM_LOG(WARNING) << errorMsg;
+    setAllocatorFailureMessage(errorMsg);
     if (reservationCB != nullptr) {
       reservationCB(AllocationTraits::pageBytes(increment), false);
     }

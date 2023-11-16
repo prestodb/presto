@@ -596,7 +596,14 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
                     "parent[MemoryCapExceptions] MMAP track-usage {}]<max "
                     "capacity 256.00MB capacity 256.00MB used 0B available 0B "
                     "reservation [used 0B, reserved 0B, min 0B] counters [allocs "
-                    "1, frees 0, reserves 0, releases 0, collisions 0])> Failed to evict from cache state: AsyncDataCache:\nCache size: 0B tinySize: 0B large size: 0B\nCache entries: 0 read pins: 0 write pins: 0 pinned shared: 0B pinned exclusive: 0B\n num write wait: 0 empty entries: 0\nCache access miss: 0 hit: 0 hit bytes: 0B eviction: 0 eviction checks: 0\nPrefetch entries: 0 bytes: 0B\nAlloc Megaclocks 0\nAllocated pages: 0 cached pages: 0\n",
+                    "1, frees 0, reserves 0, releases 0, collisions 0])> Failed to"
+                    " evict from cache state: AsyncDataCache:\nCache size: 0B "
+                    "tinySize: 0B large size: 0B\nCache entries: 0 read pins: "
+                    "0 write pins: 0 pinned shared: 0B pinned exclusive: 0B\n "
+                    "num write wait: 0 empty entries: 0\nCache access miss: 0 "
+                    "hit: 0 hit bytes: 0B eviction: 0 eviction checks: 0\nPrefetch"
+                    " entries: 0 bytes: 0B\nAlloc Megaclocks 0\nAllocated pages: 0"
+                    " cached pages: 0\n",
                     isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
                 ex.message());
           } else {
@@ -607,7 +614,10 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
                     "parent[MemoryCapExceptions] MMAP track-usage {}]<max "
                     "capacity 256.00MB capacity 256.00MB used 0B available 0B "
                     "reservation [used 0B, reserved 0B, min 0B] counters [allocs "
-                    "1, frees 0, reserves 0, releases 0, collisions 0])> ",
+                    "1, frees 0, reserves 0, releases 0, collisions 0])> "
+                    "Exceeded memory allocator limit when allocating 32769 "
+                    "new pages for total allocation of 32769 pages, the memory"
+                    " allocator capacity is 32768 pages",
                     isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
                 ex.message());
           }

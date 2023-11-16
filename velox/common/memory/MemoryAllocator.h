@@ -409,6 +409,10 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     isPersistentFailureInjection_ = false;
   }
 
+  /// Sets a thread level failure message describing the reason for the last
+  /// allocation failure.
+  void setAllocatorFailureMessage(std::string message);
+
   /// Returns extra information after returning false from any of the allocate
   /// functions. The error message is scoped to the most recent call on the
   /// thread. The message is cleared after return.
