@@ -20,7 +20,7 @@
 #include "velox/core/QueryCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
-#include "velox/expression/tests/FuzzerToolkit.h"
+#include "velox/expression/tests/utils/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/tests/FuzzerToolkit.h"
+#include "velox/expression/tests/utils/FuzzerToolkit.h"
 
 namespace facebook::velox::test {
 

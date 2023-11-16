@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/expression/tests/ArgumentTypeFuzzer.h"
+#include "velox/expression/tests/utils/ArgumentTypeFuzzer.h"
 
 #include <gtest/gtest.h>
 

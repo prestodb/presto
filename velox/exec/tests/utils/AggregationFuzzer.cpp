@@ -27,11 +27,11 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/SignatureBinder.h"
-#include "velox/expression/tests/ArgumentTypeFuzzer.h"
+#include "velox/expression/tests/utils/ArgumentTypeFuzzer.h"
 
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/expression/tests/FuzzerToolkit.h"
+#include "velox/expression/tests/utils/FuzzerToolkit.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"

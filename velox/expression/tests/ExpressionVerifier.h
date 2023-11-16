@@ -18,7 +18,7 @@
 
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
-#include "velox/expression/tests/FuzzerToolkit.h"
+#include "velox/expression/tests/utils/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/expression/tests/ArgumentTypeFuzzer.h"
+#include "velox/expression/tests/utils/ArgumentTypeFuzzer.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
