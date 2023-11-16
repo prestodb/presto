@@ -51,6 +51,13 @@ struct CompareFlags {
     return nullHandlingMode == CompareFlags::NullHandlingMode::kNullAsValue;
   }
 
+  // Helper method to construct compare flags with equalsOnly = true, in that
+  // case nullsFirst and ascending are not needed.
+  static constexpr CompareFlags equality(NullHandlingMode nullHandlingMode) {
+    return CompareFlags{
+        .equalsOnly = true, .nullHandlingMode = nullHandlingMode};
+  }
+
   static std::string nullHandlingModeToStr(NullHandlingMode mode) {
     switch (mode) {
       case CompareFlags::NullHandlingMode::kNullAsValue:

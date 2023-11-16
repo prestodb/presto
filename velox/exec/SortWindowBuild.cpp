@@ -234,8 +234,8 @@ void SortWindowBuild::loadNextPartitionFromSpill() {
 
     bool newPartition = false;
     if (!sortedRows_.empty()) {
-      CompareFlags compareFlags;
-      compareFlags.equalsOnly = true;
+      CompareFlags compareFlags =
+          CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
 
       for (auto i = 0; i < numPartitionKeys_; ++i) {
         if (data_->compare(

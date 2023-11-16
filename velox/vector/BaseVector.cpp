@@ -254,11 +254,7 @@ std::optional<bool> BaseVector::equalValueAt(
     vector_size_t index,
     vector_size_t otherIndex,
     CompareFlags::NullHandlingMode nullHandlingMode) const {
-  const CompareFlags compareFlags = {
-      .nullsFirst = false,
-      .ascending = false,
-      .equalsOnly = true,
-      .nullHandlingMode = nullHandlingMode};
+  const CompareFlags compareFlags = CompareFlags::equality(nullHandlingMode);
   std::optional<int32_t> result =
       compare(other, index, otherIndex, compareFlags);
   if (result.has_value()) {

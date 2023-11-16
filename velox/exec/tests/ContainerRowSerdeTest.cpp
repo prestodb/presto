@@ -131,11 +131,8 @@ class ContainerRowSerdeTest : public testing::Test,
   void testCompare(const VectorPtr& vector) {
     auto positions = serializeWithPositions(vector);
 
-    CompareFlags compareFlags{
-        true, // nullsFirst
-        true, // ascending
-        true,
-        CompareFlags::NullHandlingMode::kNullAsValue};
+    CompareFlags compareFlags =
+        CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
 
     DecodedVector decodedVector(*vector);
 

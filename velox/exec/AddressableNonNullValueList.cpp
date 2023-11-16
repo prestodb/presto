@@ -75,8 +75,8 @@ bool AddressableNonNullValueList::equalTo(
   auto leftStream = prepareRead(left, true /*skipHash*/);
   auto rightStream = prepareRead(right, true /*skipHash*/);
 
-  CompareFlags compareFlags;
-  compareFlags.equalsOnly = true;
+  CompareFlags compareFlags =
+      CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
   return exec::ContainerRowSerde::compare(
              leftStream, rightStream, type.get(), compareFlags) == 0;
 }
