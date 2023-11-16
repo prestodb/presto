@@ -581,7 +581,9 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getTotalCpuTimeInNanos(),
                     initialTaskStatus.getTaskAgeInMillis(),
                     initialTaskStatus.getQueuedPartitionedSplitsWeight(),
-                    initialTaskStatus.getRunningPartitionedSplitsWeight());
+                    initialTaskStatus.getRunningPartitionedSplitsWeight(),
+                    initialTaskStatus.getUnprocessedSplits(),
+                    initialTaskStatus.getIsTaskIdling());
         }
     }
 }
