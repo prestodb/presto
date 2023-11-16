@@ -19,6 +19,7 @@ Bitwise Functions
 .. function:: bitwise_arithmetic_shift_right(x, shift) -> [bigint]``
 
     Returns the arithmetic right shift operation on ``x`` shifted by ``shift`` in 2’s complement representation.
+    ``shift`` must not be negative.
 
 .. function:: bitwise_left_shift(x, shift) -> [bigint]``
 
@@ -27,6 +28,7 @@ Bitwise Functions
 .. function:: bitwise_logical_shift_right(x, shift, bits) -> [bigint]``
 
     Returns the logical right shift operation on ``x`` (treated as ``bits``-bit integer) shifted by ``shift``.
+    ``shift`` must not be negative.
 
 .. function:: bitwise_not(x) -> [bigint]
 
@@ -47,6 +49,7 @@ Bitwise Functions
 .. function:: bitwise_shift_left(x, shift, bits) -> [bigint]``
 
     Returns the left shift operation on ``x`` (treated as ``bits``-bit integer) shifted by ``shift``.
+    ``shift`` must not be negative.
 
 .. function:: bitwise_xor(x, y) -> [bigint]``
 
