@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -41,6 +42,7 @@ import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenterUtils;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
@@ -60,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -96,6 +99,7 @@ import static java.util.stream.Collectors.toSet;
 
 public class SectionExecutionFactory
 {
+    private static final Logger log = Logger.get(SectionExecutionFactory.class);
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeTaskMap nodeTaskMap;
@@ -173,12 +177,11 @@ public class SectionExecutionFactory
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
         TableWriteInfo tableWriteInfo = createTableWriteInfo(section.getPlan(), metadata, session);
-        Optional<Predicate<Node>> nodePredicate = getNodePoolSelectionPredicate(section.getPlan());
         List<StageExecutionAndScheduler> sectionStages = createStreamingLinkedStageExecutions(
                 session,
                 locationsConsumer,
                 section.getPlan().withBucketToPartition(bucketToPartition),
-                partitioningHandle -> partitioningCache.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(session, handle, nodePredicate)),
+                partitioningHandle -> partitioningCache.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(session, handle, getNodePoolSelectionPredicate(section.getPlan(), session, handle))),
                 tableWriteInfo,
                 Optional.empty(),
                 summarizeTaskInfo,
@@ -283,7 +286,7 @@ public class SectionExecutionFactory
     {
         Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session, tableWriteInfo);
         int maxTasksPerStage = getMaxTasksPerStage(session);
-        Optional<Predicate<Node>> nodePredicate = getNodePoolSelectionPredicate(plan);
+        Optional<Predicate<Node>> nodePredicate = getNodePoolSelectionPredicate(plan, session, partitioningHandle);
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // nodes are selected dynamically based on the constraints of the splits and the system load
             Map.Entry<PlanNodeId, SplitSource> entry = getOnlyElement(splitSources.entrySet());
@@ -345,7 +348,7 @@ public class SectionExecutionFactory
                 if (plan.getFragment().getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                     // no non-replicated remote source
                     boolean dynamicLifespanSchedule = plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule();
-                    bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, dynamicLifespanSchedule);
+                    bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, dynamicLifespanSchedule, nodePredicate);
 
                     // verify execution is consistent with planner's decision on dynamic lifespan schedule
                     verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
@@ -407,14 +410,52 @@ public class SectionExecutionFactory
         }
     }
 
-    private Optional<Predicate<Node>> getNodePoolSelectionPredicate(StreamingSubPlan plan)
+    private String getTaskIdentifier(com.facebook.presto.execution.TaskId failedTask)
     {
-        if (!isEnableWorkerIsolation || plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution()) {
+        return new StringBuilder()
+                .append("S")
+                .append(failedTask.getStageExecutionId().getStageId().getId())
+                .append(".")
+                .append(failedTask.getStageExecutionId().getId())
+                .append(".")
+                .append(failedTask.getId())
+                .append(".")
+                .append(failedTask.getAttemptNumber())
+                .toString();
+    }
+
+    private Optional<Predicate<Node>> getNodePoolSelectionPredicate(StreamingSubPlan plan, Session session, PartitioningHandle partitioningHandle)
+    {
+        if (!isEnableWorkerIsolation) {
             //skipping node pool based selection for grouped execution
             return Optional.empty();
         }
-        NodePoolType workerPoolType = plan.getFragment().isLeaf() ? LEAF : INTERMEDIATE;
+        //error out grouped execution query to clear the noise
+        checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution(), "Grouped execution not supported");
+        boolean hasLocalExchangeAtRoot = PlanFragment.containLocalExchange(plan.getFragment().getRoot());
+        boolean isLeafFragment = isLeafSourceFragment(plan, partitioningHandle);
+        NodePoolType workerPoolType = !isLeafFragment || hasLocalExchangeAtRoot ? INTERMEDIATE : LEAF;
+        //avoid splitting node for jmx connector
+        if (isLeafFragment && plan.getFragment().getRoot() instanceof TableScanNode && ((TableScanNode) plan.getFragment().getRoot()).getTable().getConnectorId().getCatalogName().equals("jmx")) {
+            return Optional.empty();
+        }
+        ConcurrentHashMap<PlanFragmentId, Session.Pair<NodePoolType, String>> fragmentToPoolTypeMapping = session.getFragmentToPoolTypeMapping();
+        Session.Pair<NodePoolType, String> nodePoolTypeStringPair = fragmentToPoolTypeMapping.get(plan.getFragment().getId());
+        if (nodePoolTypeStringPair != null && nodePoolTypeStringPair.getKey() != workerPoolType) {
+            log.error("Error in pool type evaluation, plan =%s,hasLocalExchangeAtRoot = %s, isLeaf=%s, plan in map =%s", plan.getFragment().getJsonRepresentation().orElse(null), hasLocalExchangeAtRoot, plan.getFragment().isLeaf(), nodePoolTypeStringPair.getValue());
+            throw new RuntimeException("Error in pool type evaluation");
+        }
+        else {
+            fragmentToPoolTypeMapping.put(plan.getFragment().getId(), new Session.Pair<>(workerPoolType, plan.getFragment().getJsonRepresentation().orElse("")));
+        }
+
         return Optional.of(node -> node.getPoolType().equals(workerPoolType));
+    }
+
+    private boolean isLeafSourceFragment(StreamingSubPlan plan, PartitioningHandle partitioningHandle)
+    {
+        boolean isTpch = partitioningHandle.getConnectorId().isPresent() && partitioningHandle.getConnectorId().get().getCatalogName().equals("tpch");
+        return plan.getFragment().isLeaf() && (partitioningHandle.equals(SOURCE_DISTRIBUTION) || isTpch);
     }
 
     private static Optional<int[]> getBucketToPartition(
