@@ -79,7 +79,7 @@ public final class HiveQueryRunner
     public static final String TPCDS_BUCKETED_SCHEMA = "tpcds_bucketed";
     public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Los_Angeles");
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -112,7 +112,7 @@ public final class HiveQueryRunner
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, List<String> tpcdsTableNames, Map<String, String> extraProperties, Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
+        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "legacy", ImmutableMap.of("hive.allow-drop-table", "true"), Optional.empty(), dataDirectory, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -472,7 +472,7 @@ public final class HiveQueryRunner
             dataDirectory = Optional.of(dataDirectoryFile.toPath());
         }
 
-        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8080"), dataDirectory);
+        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8080", "deprecated.legacy-array-agg", "true"), dataDirectory);
 
         try {
             queryRunner.installPlugin(new Plugin()
