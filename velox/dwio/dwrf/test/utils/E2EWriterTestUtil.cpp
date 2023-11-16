@@ -29,14 +29,13 @@ using namespace facebook::velox::memory;
 
 namespace facebook::velox::dwrf {
 
-/* static */ std::unique_ptr<Writer> E2EWriterTestUtil::writeData(
-    std::unique_ptr<FileSink> sink,
+/* static */ std::unique_ptr<Writer> E2EWriterTestUtil::createWriter(
+    std::unique_ptr<dwio::common::FileSink> sink,
     const std::shared_ptr<const Type>& type,
-    const std::vector<VectorPtr>& batches,
     const std::shared_ptr<Config>& config,
     std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory,
-    std::function<std::unique_ptr<LayoutPlanner>(const TypeWithId&)>
-        layoutPlannerFactory,
+    std::function<std::unique_ptr<LayoutPlanner>(
+        const dwio::common::TypeWithId&)> layoutPlannerFactory,
     const int64_t writerMemoryCap) {
   // write file to memory
   dwrf::WriterOptions options;
@@ -46,17 +45,40 @@ namespace facebook::velox::dwrf {
   options.flushPolicyFactory = flushPolicyFactory;
   options.layoutPlannerFactory = layoutPlannerFactory;
 
-  auto writer = std::make_unique<dwrf::Writer>(
+  return std::make_unique<dwrf::Writer>(
       std::move(sink),
       options,
       velox::memory::defaultMemoryManager().addRootPool());
+}
 
+/* static */ std::unique_ptr<Writer> E2EWriterTestUtil::writeData(
+    std::unique_ptr<Writer> writer,
+    const std::vector<VectorPtr>& batches) {
   for (size_t i = 0; i < batches.size(); ++i) {
     writer->write(batches[i]);
   }
 
   writer->close();
   return writer;
+}
+
+/* static */ std::unique_ptr<Writer> E2EWriterTestUtil::writeData(
+    std::unique_ptr<FileSink> sink,
+    const std::shared_ptr<const Type>& type,
+    const std::vector<VectorPtr>& batches,
+    const std::shared_ptr<Config>& config,
+    std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory,
+    std::function<std::unique_ptr<LayoutPlanner>(const TypeWithId&)>
+        layoutPlannerFactory,
+    const int64_t writerMemoryCap) {
+  auto writer = createWriter(
+      std::move(sink),
+      type,
+      config,
+      std::move(flushPolicyFactory),
+      std::move(layoutPlannerFactory),
+      writerMemoryCap);
+  return writeData(std::move(writer), batches);
 }
 
 /* static */ void E2EWriterTestUtil::testWriter(
