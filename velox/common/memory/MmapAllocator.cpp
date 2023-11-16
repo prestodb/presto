@@ -56,7 +56,7 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
     Allocation& out,
     ReservationCallback reservationCB,
     MachinePageCount minSizeClass) {
-  const MachinePageCount numFreed = freeInternal(out);
+  const MachinePageCount numFreed = freeNonContiguousInternal(out);
   const auto bytesFreed = AllocationTraits::pageBytes(numFreed);
   if (numFreed != 0) {
     numAllocated_.fetch_sub(numFreed);
@@ -172,7 +172,6 @@ bool MmapAllocator::ensureEnoughMappedPages(int32_t newMappedNeeded) {
   // We need to advise away a number of pages or we fail the alloc.
   const auto target = totalMaps - capacity_;
   const auto numAdvised = adviseAway(target);
-  numAdvisedPages_ += numAdvised;
   if (numAdvised >= target) {
     numMapped_.fetch_sub(numAdvised);
     return true;
@@ -182,13 +181,21 @@ bool MmapAllocator::ensureEnoughMappedPages(int32_t newMappedNeeded) {
 }
 
 int64_t MmapAllocator::freeNonContiguous(Allocation& allocation) {
-  const auto numFreed = freeInternal(allocation);
+  const auto numFreed = freeNonContiguousInternal(allocation);
   numAllocated_.fetch_sub(numFreed);
   return AllocationTraits::pageBytes(numFreed);
 }
 
-MachinePageCount MmapAllocator::freeInternal(Allocation& allocation) {
-  MachinePageCount numFreed = 0;
+MachinePageCount MmapAllocator::unmap(MachinePageCount targetPages) {
+  std::lock_guard<std::mutex> l(sizeClassBalanceMutex_);
+  const auto numAdvised = adviseAway(targetPages);
+  numMapped_.fetch_sub(numAdvised);
+  return numAdvised;
+}
+
+MachinePageCount MmapAllocator::freeNonContiguousInternal(
+    Allocation& allocation) {
+  MachinePageCount numFreed{0};
   if (allocation.empty()) {
     return numFreed;
   }
@@ -257,7 +264,7 @@ bool MmapAllocator::allocateContiguousImpl(
   // 'allocation' cover the new size, as other threads might grab the
   // transiently free pages.
   if (collateral != nullptr) {
-    numCollateralPages = freeInternal(*collateral);
+    numCollateralPages = freeNonContiguousInternal(*collateral);
   }
   const auto numLargeCollateralPages = allocation.numPages();
   if (numLargeCollateralPages > 0) {
@@ -538,6 +545,7 @@ MachinePageCount MmapAllocator::adviseAway(MachinePageCount target) {
       break;
     }
   }
+  numAdvisedPages_ += numAway;
   return numAway;
 }
 

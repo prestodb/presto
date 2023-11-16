@@ -18,10 +18,13 @@
 #include <folly/portability/SysUio.h>
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 
 #include <filesystem>
 #include <numeric>
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::cache {
 
@@ -81,6 +84,8 @@ bool SsdCache::startWrite() {
 void SsdCache::write(std::vector<CachePin> pins) {
   VELOX_CHECK_LE(numShards_, writesInProgress_);
 
+  TestValue::adjust("facebook::velox::cache::SsdCache::write", this);
+
   const auto startTimeUs = getCurrentTimeMicro();
 
   uint64_t bytes = 0;
@@ -116,6 +121,7 @@ void SsdCache::write(std::vector<CachePin> pins) {
         VELOX_SSD_CACHE_LOG(WARNING)
             << "Ignoring error in SsdFile::write: " << e.what();
       }
+      pinHolder->pins.clear();
       if (--writesInProgress_ == 0) {
         // Typically occurs every few GB. Allows detecting unusually slow rates
         // from failing devices.

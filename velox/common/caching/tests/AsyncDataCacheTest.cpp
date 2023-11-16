@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MmapAllocator.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include <folly/executors/IOThreadPoolExecutor.h>
@@ -28,11 +30,11 @@
 #include <gtest/gtest.h>
 
 #include <fcntl.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 
 using namespace facebook::velox;
 using namespace facebook::velox::cache;
+using namespace facebook::velox::common::testutil;
 
 using facebook::velox::memory::MemoryAllocator;
 
@@ -63,6 +65,10 @@ class AsyncDataCacheTest : public testing::Test {
  protected:
   static constexpr int32_t kNumFiles = 100;
 
+  static void SetUpTestCase() {
+    TestValue::enable();
+  }
+
   void SetUp() override {
     filesystems::registerLocalFileSystem();
   }
@@ -81,6 +87,12 @@ class AsyncDataCacheTest : public testing::Test {
   }
 
   void initializeCache(uint64_t maxBytes, int64_t ssdBytes = 0) {
+    if (cache_ != nullptr) {
+      cache_->shutdown();
+    }
+    cache_.reset();
+    allocator_.reset();
+
     std::unique_ptr<SsdCache> ssdCache;
     if (ssdBytes > 0) {
       // tmpfs does not support O_DIRECT, so turn this off for testing.
@@ -98,12 +110,6 @@ class AsyncDataCacheTest : public testing::Test {
           executor(),
           ssdBytes / 20);
     }
-
-    if (cache_ != nullptr) {
-      cache_->shutdown();
-    }
-    cache_.reset();
-    allocator_.reset();
 
     memory::MmapAllocator::Options options;
     options.capacity = maxBytes;
@@ -849,3 +855,211 @@ TEST_F(AsyncDataCacheTest, cacheStats) {
       "Allocated pages: 0 cached pages: 0\n";
   ASSERT_EQ(cache_->toString(false), expectedShortCacheOutput);
 }
+
+TEST_F(AsyncDataCacheTest, shrinkCache) {
+  constexpr uint64_t kRamBytes = 128UL << 20;
+  constexpr uint64_t kSsdBytes = 512UL << 20;
+  constexpr int kTinyDataSize = AsyncDataCacheEntry::kTinyDataSize - 1;
+  const int numEntries{10};
+  constexpr int kLargeDataSize = kTinyDataSize * 2;
+  ASSERT_LE(numEntries * (kTinyDataSize + kLargeDataSize), kRamBytes);
+
+  std::vector<RawFileCacheKey> tinyCacheKeys;
+  std::vector<RawFileCacheKey> largeCacheKeys;
+  std::vector<StringIdLease> fileLeases;
+  for (int i = 0; i < numEntries; ++i) {
+    fileLeases.emplace_back(
+        StringIdLease(fileIds(), fmt::format("shrinkCacheFile{}", i)));
+    tinyCacheKeys.emplace_back(RawFileCacheKey{fileLeases.back().id(), 0});
+    largeCacheKeys.emplace_back(
+        RawFileCacheKey{fileLeases.back().id(), kLargeDataSize});
+  }
+
+  struct {
+    bool shrinkAll;
+    bool hasSsd;
+    bool releaseAll;
+
+    std::string debugString() const {
+      return fmt::format(
+          "shrinkAll {}, hasSsd {}, releaseAll {}",
+          shrinkAll,
+          hasSsd,
+          releaseAll);
+    }
+  } testSettings[] = {
+      {true, false, false},
+      {true, true, false},
+      {true, false, true},
+      {true, true, true},
+      {false, false, true},
+      {false, true, true},
+      {false, false, false},
+      {false, true, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    initializeCache(kRamBytes, testData.hasSsd ? kSsdBytes : 0);
+    std::vector<CachePin> pins;
+    for (int i = 0; i < numEntries; ++i) {
+      auto tinyPin = cache_->findOrCreate(tinyCacheKeys[i], kTinyDataSize);
+      ASSERT_FALSE(tinyPin.empty());
+      ASSERT_TRUE(tinyPin.entry()->tinyData() != nullptr);
+      ASSERT_TRUE(tinyPin.entry()->data().empty());
+      ASSERT_FALSE(tinyPin.entry()->isPrefetch());
+      ASSERT_FALSE(tinyPin.entry()->ssdSaveable());
+      pins.push_back(std::move(tinyPin));
+      auto largePin = cache_->findOrCreate(largeCacheKeys[i], kLargeDataSize);
+      ASSERT_FALSE(largePin.entry()->tinyData() != nullptr);
+      ASSERT_FALSE(largePin.entry()->data().empty());
+      ASSERT_FALSE(largePin.entry()->isPrefetch());
+      ASSERT_FALSE(largePin.entry()->ssdSaveable());
+      pins.push_back(std::move(largePin));
+    }
+    auto stats = cache_->refreshStats();
+    ASSERT_EQ(stats.numEntries, numEntries * 2);
+    ASSERT_EQ(stats.numEmptyEntries, 0);
+    ASSERT_EQ(stats.numExclusive, numEntries * 2);
+    ASSERT_EQ(stats.numEvict, 0);
+    ASSERT_EQ(stats.numHit, 0);
+    ASSERT_EQ(stats.tinySize, kTinyDataSize * numEntries);
+    ASSERT_EQ(stats.largeSize, kLargeDataSize * numEntries);
+    ASSERT_EQ(stats.sharedPinnedBytes, 0);
+    ASSERT_GE(
+        stats.exclusivePinnedBytes,
+        (kTinyDataSize + kLargeDataSize) * numEntries);
+    ASSERT_EQ(stats.prefetchBytes, 0);
+    ASSERT_EQ(stats.numPrefetch, 0);
+
+    const auto numMappedPagesBeforeShrink = allocator_->numMapped();
+    ASSERT_GT(numMappedPagesBeforeShrink, 0);
+
+    // Everything gets pinged in memory.
+    VELOX_ASSERT_THROW(cache_->shrink(0), "");
+    ASSERT_EQ(cache_->shrink(testData.shrinkAll ? kRamBytes : 1), 0);
+
+    if (!testData.releaseAll) {
+      for (auto& pin : pins) {
+        pin.entry()->setExclusiveToShared();
+      }
+      pins.clear();
+      if (testData.shrinkAll) {
+        ASSERT_GE(
+            cache_->shrink(kRamBytes),
+            (kLargeDataSize + kTinyDataSize) * numEntries);
+      } else {
+        ASSERT_GE(cache_->shrink(2 * kTinyDataSize), kTinyDataSize);
+      }
+    } else {
+      pins.clear();
+      // We expect everything has been freed.
+      ASSERT_EQ(
+          cache_->shrink(testData.shrinkAll ? kRamBytes : 2 * kTinyDataSize),
+          0);
+    }
+    stats = cache_->refreshStats();
+    const auto numMappedPagesAfterShrink = allocator_->numMapped();
+    if (testData.shrinkAll || testData.releaseAll) {
+      ASSERT_EQ(stats.numEntries, 0);
+      ASSERT_EQ(stats.numEmptyEntries, 2 * numEntries);
+      ASSERT_EQ(stats.numExclusive, 0);
+      ASSERT_EQ(stats.numEvict, 2 * numEntries);
+      ASSERT_EQ(stats.numHit, 0);
+      ASSERT_EQ(stats.tinySize, 0);
+      ASSERT_EQ(stats.largeSize, 0);
+      ASSERT_EQ(stats.sharedPinnedBytes, 0);
+      ASSERT_GE(stats.exclusivePinnedBytes, 0);
+      ASSERT_EQ(stats.prefetchBytes, 0);
+      ASSERT_EQ(stats.numPrefetch, 0);
+      if (testData.shrinkAll) {
+        ASSERT_EQ(numMappedPagesAfterShrink, 0);
+      } else {
+        ASSERT_LT(numMappedPagesAfterShrink, numMappedPagesBeforeShrink);
+      }
+    } else {
+      ASSERT_LT(stats.numEntries, 2 * numEntries);
+      ASSERT_GT(stats.numEntries, 0);
+      ASSERT_GE(stats.numEmptyEntries, 1);
+      ASSERT_EQ(stats.numExclusive, 0);
+      ASSERT_GE(stats.numEvict, 1);
+      ASSERT_EQ(stats.numHit, 0);
+      ASSERT_GT(stats.tinySize, 0);
+      ASSERT_GT(stats.largeSize, 0);
+      ASSERT_EQ(stats.sharedPinnedBytes, 0);
+      ASSERT_GE(stats.exclusivePinnedBytes, 0);
+      ASSERT_EQ(stats.prefetchBytes, 0);
+      ASSERT_EQ(stats.numPrefetch, 0);
+      ASSERT_LT(numMappedPagesAfterShrink, numMappedPagesBeforeShrink);
+    }
+  }
+}
+
+DEBUG_ONLY_TEST_F(AsyncDataCacheTest, shrinkWithSsdWrite) {
+  constexpr uint64_t kRamBytes = 128UL << 20;
+  constexpr uint64_t kSsdBytes = 512UL << 20;
+  constexpr int kDataSize = 4096;
+  initializeCache(kRamBytes, kSsdBytes);
+  const int numEntries{10};
+  std::vector<CachePin> cachePins;
+  uint64_t offset = 0;
+  for (int i = 0; i < numEntries; ++i) {
+    cachePins.push_back(newEntry(offset, kDataSize));
+    offset += kDataSize;
+  }
+  for (auto& pin : cachePins) {
+    pin.entry()->setExclusiveToShared();
+  }
+
+  std::atomic_bool writeStartFlag{false};
+  folly::EventCount writeStartWait;
+  std::atomic_bool writeWaitFlag{true};
+  folly::EventCount writeWait;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::cache::SsdCache::write",
+      std::function<void(const SsdCache*)>(([&](const SsdCache* cache) {
+        writeStartFlag = true;
+        writeStartWait.notifyAll();
+        writeWait.await([&]() { return !writeWaitFlag.load(); });
+      })));
+
+  // Starts a write thread running at background.
+  std::thread ssdWriteThread([&]() {
+    cache_->ssdCache()->startWrite();
+    cache_->saveToSsd();
+  });
+
+  // Wait for the write thread to start, and block it while do cache shrink.
+  writeStartWait.await([&]() { return writeStartFlag.load(); });
+  ASSERT_TRUE(cache_->ssdCache()->writeInProgress());
+
+  cachePins.clear();
+  cache_->shrink(kRamBytes);
+  auto stats = cache_->refreshStats();
+  // Shrink can only reclaim some entries but not all as some of the cache
+  // entries have been pickup for ssd write which is not evictable.
+  ASSERT_LT(stats.numEntries, numEntries);
+  ASSERT_GT(stats.numEmptyEntries, 0);
+  ASSERT_GT(stats.numEvict, 0);
+  ASSERT_GT(stats.numShared, 0);
+  ASSERT_EQ(stats.numExclusive, 0);
+  ASSERT_EQ(stats.numWaitExclusive, 0);
+
+  // Wait for write to complete.
+  writeWaitFlag = false;
+  writeWait.notifyAll();
+  ssdWriteThread.join();
+  while (cache_->ssdCache()->writeInProgress()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
+  }
+
+  stats = cache_->refreshStats();
+  ASSERT_GT(stats.numEntries, stats.numEmptyEntries);
+
+  ASSERT_GT(cache_->shrink(kRamBytes), 0);
+  stats = cache_->refreshStats();
+  ASSERT_EQ(stats.numEntries, 0);
+  ASSERT_EQ(stats.numEmptyEntries, numEntries);
+}
+
+// TODO: add concurrent fuzzer test.

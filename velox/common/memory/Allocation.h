@@ -47,7 +47,7 @@ struct AllocationTraits {
   }
 
   /// Returns the round up page bytes.
-  FOLLY_ALWAYS_INLINE static MachinePageCount roundUpPageBytes(uint64_t bytes) {
+  FOLLY_ALWAYS_INLINE static uint64_t roundUpPageBytes(uint64_t bytes) {
     return bits::roundUp(bytes, kPageSize);
   }
 

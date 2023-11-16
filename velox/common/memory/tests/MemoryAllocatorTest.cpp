@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 #include "velox/common/memory/MemoryAllocator.h"
+#include <fstream>
+#include <thread>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/AllocationPool.h"
 #include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/memory/MmapArena.h"
 #include "velox/common/testutil/TestValue.h"
-
-#include <fstream>
-#include <thread>
 
 #include <folly/Random.h>
 #include <folly/Range.h>
@@ -1806,6 +1805,43 @@ TEST_F(MmapArenaTest, managedMmapArenasFreeError) {
     ASSERT_ANY_THROW(managedArenas->free(alloc1, kArenaCapacityBytes));
     managedArenas->free(alloc2, kArenaCapacityBytes);
     ASSERT_ANY_THROW(managedArenas->free(alloc2, kArenaCapacityBytes));
+  }
+}
+
+TEST_P(MemoryAllocatorTest, unmap) {
+  const int smallAllocationSize = 1024;
+  const int largeAllocationSize = 8192;
+  const int numAllocations = 10;
+  std::vector<void*> smallBuffers;
+  std::vector<void*> largeBuffers;
+  for (int i = 0; i < numAllocations; ++i) {
+    smallBuffers.push_back(instance_->allocateBytes(smallAllocationSize));
+    largeBuffers.push_back(instance_->allocateBytes(largeAllocationSize));
+  }
+  const auto numAllocated = instance_->numAllocated();
+  if (useMmap_) {
+    ASSERT_EQ(instance_->numMapped(), numAllocated);
+  } else {
+    ASSERT_EQ(instance_->numAllocated(), 0);
+    ASSERT_EQ(instance_->numMapped(), 0);
+  }
+  // Nothing can be unmapped.
+  ASSERT_EQ(instance_->unmap(numAllocated), 0);
+  for (const auto& smallBuffer : smallBuffers) {
+    instance_->freeBytes(smallBuffer, smallAllocationSize);
+  }
+  for (const auto& largeBuffer : largeBuffers) {
+    instance_->freeBytes(largeBuffer, largeAllocationSize);
+  }
+  ASSERT_EQ(instance_->numAllocated(), 0);
+  if (useMmap_) {
+    ASSERT_EQ(instance_->numMapped(), numAllocated);
+    ASSERT_EQ(instance_->unmap(numAllocated / 2), numAllocated / 2);
+    ASSERT_GT(instance_->unmap(numAllocated), 0);
+    ASSERT_EQ(instance_->numMapped(), 0);
+  } else {
+    ASSERT_EQ(instance_->numMapped(), 0);
+    ASSERT_EQ(instance_->unmap(numAllocated), 0);
   }
 }
 } // namespace facebook::velox::memory

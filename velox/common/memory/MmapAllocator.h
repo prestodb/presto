@@ -109,6 +109,8 @@ class MmapAllocator : public MemoryAllocator {
 
   int64_t freeNonContiguous(Allocation& allocation) override;
 
+  MachinePageCount unmap(MachinePageCount targetPages) override;
+
   void freeBytes(void* p, uint64_t bytes) noexcept override;
 
   /// Checks internal consistency of allocation data structures. Returns true if
@@ -360,7 +362,7 @@ class MmapAllocator : public MemoryAllocator {
 
   // Frees 'allocation and returns the number of freed pages. Does not
   // update 'numAllocated'.
-  MachinePageCount freeInternal(Allocation& allocation);
+  MachinePageCount freeNonContiguousInternal(Allocation& allocation);
 
   void markAllMapped(const Allocation& allocation);
 

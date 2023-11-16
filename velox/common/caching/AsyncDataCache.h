@@ -30,6 +30,7 @@
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/common/caching/StringIdMap.h"
 #include "velox/common/file/File.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryAllocator.h"
 
 namespace facebook::velox::cache {
@@ -235,6 +236,10 @@ class AsyncDataCacheEntry {
 
   uint64_t ssdOffset() const {
     return ssdOffset_;
+  }
+
+  bool ssdSaveable() const {
+    return ssdSaveable_;
   }
 
   void setTrackingId(TrackingId id) {
@@ -548,17 +553,17 @@ class CacheShard {
   /// graceful shutdown. The shard will no longer be valid after this call.
   void shutdown();
 
-  // removes 'bytesToFree' worth of entries or as many entries as are
-  // not pinned. This favors first removing older and less frequently
-  // used entries. If 'evictAllUnpinned' is true, anything that is
-  // not pinned is evicted at first sight. This is for out of memory
-  // emergencies. If 'pagesToAcquire' is set, up to this amount is added to
-  // 'allocation'. A smaller amount can be added if not enough evictable data is
-  // found.
-  void evict(
+  /// removes 'bytesToFree' worth of entries or as many entries as are
+  /// not pinned. This favors first removing older and less frequently
+  /// used entries. If 'evictAllUnpinned' is true, anything that is
+  /// not pinned is evicted at first sight. This is for out of memory
+  /// emergencies. If 'pagesToAcquire' is set, up to this amount is added
+  /// to 'allocation'. A smaller amount can be added if not enough evictable
+  /// data is found. The function returns the total evicted bytes.
+  uint64_t evict(
       uint64_t bytesToFree,
       bool evictAllUnpinned,
-      int32_t pagesToAcquire,
+      memory::MachinePageCount pagesToAcquire,
       memory::Allocation& acquiredAllocation);
 
   // Removes 'entry' from 'this'. Removes a possible promise from the entry
@@ -670,6 +675,8 @@ class AsyncDataCache : public memory::Cache {
   bool makeSpace(
       memory::MachinePageCount numPages,
       std::function<bool(memory::Allocation& allocation)> allocate) override;
+
+  uint64_t shrink(uint64_t targetBytes) override;
 
   memory::MemoryAllocator* allocator() const override {
     return allocator_;

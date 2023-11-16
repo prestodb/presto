@@ -67,6 +67,12 @@ class MallocAllocator : public MemoryAllocator {
 
   void freeBytes(void* p, uint64_t bytes) noexcept override;
 
+  MachinePageCount unmap(MachinePageCount targetPages) override {
+    // NOTE: MallocAllocator doesn't support unmap as it delegates all the
+    // memory allocations to std::malloc.
+    return 0;
+  }
+
   size_t totalUsedBytes() const override {
     return allocatedBytes_;
   }
