@@ -193,5 +193,59 @@ TEST(DecimalTest, valueInPrecisionRange) {
       DecimalUtil::kLongDecimalMin - 1, LongDecimalType::kMaxPrecision));
 }
 
+TEST(DecimalAggregateTest, adjustSumForOverflow) {
+  struct SumWithOverflow {
+    int128_t sum{0};
+    int64_t overflow{0};
+
+    void add(int128_t input) {
+      overflow += DecimalUtil::addWithOverflow(sum, sum, input);
+    }
+
+    std::optional<int128_t> adjustedSum() const {
+      return DecimalUtil::adjustSumForOverflow(sum, overflow);
+    }
+
+    void reset() {
+      sum = 0;
+      overflow = 0;
+    }
+  };
+
+  SumWithOverflow accumulator;
+  // kLongDecimalMax + kLongDecimalMax will trigger one upward overflow, and the
+  // final sum result calculated by DecimalUtil::addWithOverflow is negative.
+  // DecimalUtil::adjustSumForOverflow can adjust the sum to kLongDecimalMax
+  // correctly.
+  accumulator.add(DecimalUtil::kLongDecimalMax);
+  accumulator.add(DecimalUtil::kLongDecimalMax);
+  accumulator.add(DecimalUtil::kLongDecimalMin);
+  EXPECT_EQ(accumulator.adjustedSum(), DecimalUtil::kLongDecimalMax);
+
+  accumulator.reset();
+  // kLongDecimalMin + kLongDecimalMin will trigger one downward overflow, and
+  // the final sum result calculated by DecimalUtil::addWithOverflow is
+  // positive. DecimalUtil::adjustSumForOverflow can adjust the sum to
+  // kLongDecimalMin correctly.
+  accumulator.add(DecimalUtil::kLongDecimalMin);
+  accumulator.add(DecimalUtil::kLongDecimalMin);
+  accumulator.add(DecimalUtil::kLongDecimalMax);
+  EXPECT_EQ(accumulator.adjustedSum(), DecimalUtil::kLongDecimalMin);
+
+  accumulator.reset();
+  // These inputs will eventually trigger an upward overflow, and
+  // DecimalUtil::adjustSumForOverflow will return std::nullopt.
+  accumulator.add(DecimalUtil::kLongDecimalMax);
+  accumulator.add(DecimalUtil::kLongDecimalMax);
+  EXPECT_FALSE(accumulator.adjustedSum().has_value());
+
+  accumulator.reset();
+  // These inputs will eventually trigger a downward overflow, and
+  // DecimalUtil::adjustSumForOverflow will return std::nullopt.
+  accumulator.add(DecimalUtil::kLongDecimalMin);
+  accumulator.add(DecimalUtil::kLongDecimalMin);
+  EXPECT_FALSE(accumulator.adjustedSum().has_value());
+}
+
 } // namespace
 } // namespace facebook::velox

@@ -185,19 +185,11 @@ class DecimalSumAggregate
 
   virtual int128_t computeFinalValue(
       functions::aggregate::LongDecimalWithOverflowState* accumulator) final {
-    // Value is valid if the conditions below are true.
-    int128_t sum = accumulator->sum;
-    if ((accumulator->overflow == 1 && accumulator->sum < 0) ||
-        (accumulator->overflow == -1 && accumulator->sum > 0)) {
-      sum = static_cast<int128_t>(
-          DecimalUtil::kOverflowMultiplier * accumulator->overflow +
-          accumulator->sum);
-    } else {
-      VELOX_CHECK(accumulator->overflow == 0, "Decimal overflow");
-    }
-
-    DecimalUtil::valueInRange(sum);
-    return sum;
+    auto sum = DecimalUtil::adjustSumForOverflow(
+        accumulator->sum, accumulator->overflow);
+    VELOX_USER_CHECK(sum.has_value(), "Decimal overflow");
+    DecimalUtil::valueInRange(sum.value());
+    return sum.value();
   }
 };
 
