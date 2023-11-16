@@ -22,6 +22,10 @@ namespace {
 
 class GenericInPredicate : public exec::VectorFunction {
  public:
+  bool isDefaultNullBehavior() const override {
+    return false;
+  }
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -32,26 +36,15 @@ class GenericInPredicate : public exec::VectorFunction {
     auto* value = decodedArgs.at(0);
     auto* valueBase = value->base();
 
-    auto* inList = decodedArgs.at(1);
-
-    auto* inListBaseArray = inList->base()->as<ArrayVector>();
-    auto& inListElements = inListBaseArray->elements();
-
     context.ensureWritable(rows, BOOLEAN(), result);
     result->clearNulls(rows);
     auto* boolResult = result->asUnchecked<FlatVector<bool>>();
 
     context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
-      if (value->isNullAt(row) || inList->isNullAt(row)) {
+      if (value->isNullAt(row)) {
         boolResult->setNull(row, true);
         return;
       }
-
-      const auto arrayRow = inList->index(row);
-      const auto offset = inListBaseArray->offsetAt(arrayRow);
-      const auto size = inListBaseArray->sizeAt(arrayRow);
-
-      VELOX_USER_CHECK_GT(size, 0, "IN list must not be empty");
 
       const auto valueBaseRow = value->index(row);
       if (valueBase->containsNullAt(valueBaseRow)) {
@@ -60,11 +53,13 @@ class GenericInPredicate : public exec::VectorFunction {
       }
 
       bool hasNull = false;
-      for (auto i = 0; i < size; ++i) {
-        if (inListElements->containsNullAt(offset + i)) {
+      for (auto i = 1; i < args.size(); ++i) {
+        const auto baseRow = decodedArgs.at(i)->index(row);
+        if (decodedArgs.at(i)->isNullAt(row) ||
+            decodedArgs.at(i)->base()->containsNullAt(baseRow)) {
           hasNull = true;
-        } else if (inListElements->equalValueAt(
-                       valueBase, offset + i, valueBaseRow)) {
+        } else if (decodedArgs.at(i)->base()->equalValueAt(
+                       valueBase, baseRow, valueBaseRow)) {
           boolResult->set(row, true);
           return;
         }
@@ -339,14 +334,19 @@ class InPredicate : public exec::VectorFunction {
       const std::string& /*name*/,
       const std::vector<exec::VectorFunctionArg>& inputArgs,
       const core::QueryConfig& /*config*/) {
-    VELOX_CHECK_EQ(inputArgs.size(), 2);
+    VELOX_CHECK_GE(inputArgs.size(), 2);
     auto inListType = inputArgs[1].type;
-    VELOX_CHECK_EQ(inListType->kind(), TypeKind::ARRAY);
 
-    const auto& values = inputArgs[1].constantValue;
-    if (values == nullptr) {
+    if (inListType->equivalent(*inputArgs[0].type)) {
       return std::make_shared<GenericInPredicate>();
     }
+
+    VELOX_CHECK_EQ(inListType->kind(), TypeKind::ARRAY);
+    VELOX_CHECK_EQ(2, inputArgs.size());
+
+    const auto& values = inputArgs[1].constantValue;
+    VELOX_USER_CHECK_NOT_NULL(
+        values, "IN predicate supports only constant IN list");
 
     if (values->isNullAt(0)) {
       return std::make_shared<InPredicate>(nullptr, true);
@@ -524,17 +524,26 @@ class InPredicate : public exec::VectorFunction {
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     return {
+        // (T, array(T)) -> boolean for constant IN lists.
         exec::FunctionSignatureBuilder()
             .typeVariable("T")
             .returnType("boolean")
             .argumentType("T")
-            .argumentType("array(T)")
+            .constantArgumentType("array(T)")
             .build(),
         exec::FunctionSignatureBuilder()
             .typeVariable("T")
             .returnType("boolean")
             .argumentType("T")
-            .argumentType("array(unknown)")
+            .constantArgumentType("array(unknown)")
+            .build(),
+        // (T, T,...) -> boolean for non-constant IN lists.
+        exec::FunctionSignatureBuilder()
+            .typeVariable("T")
+            .returnType("boolean")
+            .argumentType("T")
+            .argumentType("T")
+            .variableArity()
             .build(),
     };
   }

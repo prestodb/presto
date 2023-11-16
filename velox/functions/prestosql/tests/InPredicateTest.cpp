@@ -924,106 +924,32 @@ TEST_F(InPredicateTest, structs) {
 
 TEST_F(InPredicateTest, nonConstantInList) {
   auto data = makeRowVector({
-      makeNullableFlatVector<int32_t>({1, 2, 3, 4, 5, 6, std::nullopt, 8}),
-      makeArrayVectorFromJson<int32_t>({
-          "[1, 2, 3]",
-          "[]",
-          "[1, 2]",
-          "null",
-          "[1, 2, null, 3, 4, 5]",
-          "[null, 2, null, 3]",
-          "[]",
-          "[1, 3, 5, 7, 9, 11]",
-      }),
+      makeNullableFlatVector<int32_t>({1, 2, 3, 4, std::nullopt}),
+      makeNullableFlatVector<int32_t>({1, 1, 1, std::nullopt, 1}),
+      makeNullableFlatVector<int32_t>({2, 3, std::nullopt, 2, 2}),
+      makeNullableFlatVector<int32_t>({3, 5, 3, 3, 3}),
   });
 
   auto expected = makeNullableFlatVector<bool>({
-      true, // 1 in [1, 2, 3]
-      std::nullopt, // 2 in [] -> error or null if under try
-      false, // 3 in [1, 2]
-      std::nullopt, // 4 in null
-      true, // 5 in [1, 2, null, 3, 4, 5]
-      std::nullopt, // 6 in [null, 2, null, 3]
-      std::nullopt, // null in []]
-      false, // 8 in [1, 3, 5, 7, 9, 11]
+      true, // 1 in (1, 2, 3)
+      false, // 2 in (1, 3, 5)
+      true, // 3 in (1, null, 3)
+      std::nullopt, // 4 in (null, 2, 3)
+      std::nullopt, // null in (1, 2, 3)
   });
 
   auto in = std::make_shared<core::CallTypedExpr>(
       BOOLEAN(),
       std::vector<core::TypedExprPtr>{
           field(INTEGER(), "c0"),
-          field(ARRAY(INTEGER()), "c1"),
+          field(INTEGER(), "c1"),
+          field(INTEGER(), "c2"),
+          field(INTEGER(), "c3"),
       },
       "in");
 
-  auto tryIn = std::make_shared<core::CallTypedExpr>(
-      BOOLEAN(), std::vector<core::TypedExprPtr>{in}, "try");
-
-  // Evaluate "in" on all rows. Expect an error.
-  VELOX_ASSERT_THROW(evaluate(in, data), "IN list must not be empty");
-
-  // Evaluate "try(in)" on all rows.
-  auto result = evaluate(tryIn, data);
+  auto result = evaluate(in, data);
   assertEqualVectors(expected, result);
-
-  // Evaluate "in" on a subset of rows that should not generate an error.
-  SelectivityVector rows(data->size());
-  rows.setValid(1, false);
-  rows.updateBounds();
-
-  result = evaluate(in, data, rows);
-  assertEqualVectors(expected, result, rows);
-}
-
-TEST_F(InPredicateTest, nonConstantComplexInList) {
-  auto data = makeRowVector({
-      makeArrayVectorFromJson<int32_t>({
-          "null",
-          "[1, null, 3]",
-          "[1, null, 3]",
-          "[1, 2, 3]",
-      }),
-      makeArrayVector(
-          {0, 1, 1, 1},
-          makeArrayVectorFromJson<int32_t>({
-              "[1, 2, 3]",
-              "[1, 2, 3]",
-          }),
-          {1}),
-  });
-
-  auto expected = makeNullableFlatVector<bool>({
-      std::nullopt, // Input is null
-      std::nullopt, // in-list is null
-      std::nullopt, // in-list is empty
-      true,
-  });
-
-  auto in = std::make_shared<core::CallTypedExpr>(
-      BOOLEAN(),
-      std::vector<core::TypedExprPtr>{
-          field(ARRAY(INTEGER()), "c0"),
-          field(ARRAY(ARRAY(INTEGER())), "c1"),
-      },
-      "in");
-
-  auto tryIn = std::make_shared<core::CallTypedExpr>(
-      BOOLEAN(), std::vector<core::TypedExprPtr>{in}, "try");
-
-  // Evaluate "in" on all rows. Expect an error.
-  VELOX_ASSERT_THROW(evaluate(in, data), "IN list must not be empty");
-
-  // Evaluate "try(in)" on all rows.
-  auto result = evaluate(tryIn, data);
-  assertEqualVectors(expected, result);
-
-  // Evaluate "in" on a subset of rows that should not generate an error.
-  SelectivityVector rows(data->size());
-  rows.setValid(2, false);
-  rows.updateBounds();
-
-  result = evaluate(in, data, rows);
-  assertEqualVectors(expected, result, rows);
 }
 
 } // namespace
