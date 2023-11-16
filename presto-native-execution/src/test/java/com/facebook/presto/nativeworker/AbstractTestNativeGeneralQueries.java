@@ -492,6 +492,12 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testIn()
+    {
+        assertQuery("SELECT linenumber IN (orderkey % 7, partkey % 5, suppkey % 3) FROM lineitem");
+    }
+
+    @Test
     public void testRegexp()
     {
         assertQuery("SELECT regexp_extract(key, '[^\\.]+'), regexp_extract(key, '([^\\.]+)\\.([^\\.]+)', 1), regexp_extract(key, '([^\\.]+)\\.([^\\.]+)', 2) FROM (" +

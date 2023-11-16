@@ -564,7 +564,7 @@ velox::ArrayVectorPtr toArrayOfComplexTypeVector(
     auto constant =
         dynamic_cast<const ConstantTypedExpr*>((*(begin + i)).get());
     if (constant == nullptr) {
-      VELOX_UNSUPPORTED("IN predicate supports only constant list of values");
+      return nullptr;
     }
     elements->copy(constant->valueVector().get(), i, 0, 1);
   }
@@ -588,7 +588,7 @@ velox::ArrayVectorPtr toArrayVector(
     auto constant =
         dynamic_cast<const ConstantTypedExpr*>((*(begin + i)).get());
     if (constant == nullptr) {
-      VELOX_UNSUPPORTED("IN predicate supports only constant list of values");
+      return nullptr;
     }
     const auto& value = constant->value();
     if (value.isNull()) {
@@ -631,6 +631,10 @@ TypedExprPtr convertInExpr(
           args.begin() + 1,
           args.end(),
           pool);
+  }
+
+  if (arrayVector == nullptr) {
+    return std::make_shared<CallTypedExpr>(velox::BOOLEAN(), args, "in");
   }
 
   auto constantVector =
