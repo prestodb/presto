@@ -188,41 +188,40 @@ template <>
 }
 
 template <TypeKind kind>
-velox::variant
-variantAt(::duckdb::DataChunk* dataChunk, int32_t row, int32_t column) {
+variant variantAt(::duckdb::DataChunk* dataChunk, int32_t row, int32_t column) {
   using T = typename KindToFlatVector<kind>::WrapperType;
-  return velox::variant(dataChunk->GetValue(column, row).GetValue<T>());
+  return variant(dataChunk->GetValue(column, row).GetValue<T>());
 }
 
 template <>
-velox::variant variantAt<TypeKind::VARCHAR>(
+variant variantAt<TypeKind::VARCHAR>(
     ::duckdb::DataChunk* dataChunk,
     int32_t row,
     int32_t column) {
-  return velox::variant(
+  return variant(
       StringView(::duckdb::StringValue::Get(dataChunk->GetValue(column, row))));
 }
 
 template <>
-velox::variant variantAt<TypeKind::VARBINARY>(
+variant variantAt<TypeKind::VARBINARY>(
     ::duckdb::DataChunk* dataChunk,
     int32_t row,
     int32_t column) {
-  return velox::variant(
+  return variant::binary(
       StringView(::duckdb::StringValue::Get(dataChunk->GetValue(column, row))));
 }
 
 template <>
-velox::variant variantAt<TypeKind::TIMESTAMP>(
+variant variantAt<TypeKind::TIMESTAMP>(
     ::duckdb::DataChunk* dataChunk,
     int32_t row,
     int32_t column) {
-  return velox::variant::timestamp(duckdbTimestampToVelox(
+  return variant::timestamp(duckdbTimestampToVelox(
       dataChunk->GetValue(column, row).GetValue<::duckdb::timestamp_t>()));
 }
 
 template <TypeKind kind>
-velox::variant variantAt(const ::duckdb::Value& value) {
+variant variantAt(const ::duckdb::Value& value) {
   if (value.type() == ::duckdb::LogicalType::INTERVAL) {
     return ::duckdb::Interval::GetMicro(value.GetValue<::duckdb::interval_t>());
   } else if (value.type() == ::duckdb::LogicalType::DATE) {
@@ -231,34 +230,32 @@ velox::variant variantAt(const ::duckdb::Value& value) {
     // NOTE: duckdb only support native cpp type for GetValue so we need to use
     // DeepCopiedType instead of WrapperType here.
     using T = typename TypeTraits<kind>::DeepCopiedType;
-    return velox::variant(value.GetValue<T>());
+    return variant(value.GetValue<T>());
   }
 }
 
 template <>
-velox::variant variantAt<TypeKind::TIMESTAMP>(const ::duckdb::Value& value) {
-  return velox::variant::timestamp(
+variant variantAt<TypeKind::TIMESTAMP>(const ::duckdb::Value& value) {
+  return variant::timestamp(
       duckdbTimestampToVelox(value.GetValue<::duckdb::timestamp_t>()));
 }
 
 template <>
-velox::variant variantAt<TypeKind::VARCHAR>(const ::duckdb::Value& value) {
-  return velox::variant(StringView(::duckdb::StringValue::Get(value)));
+variant variantAt<TypeKind::VARCHAR>(const ::duckdb::Value& value) {
+  return variant(StringView(::duckdb::StringValue::Get(value)));
 }
 
 template <>
-velox::variant variantAt<TypeKind::VARBINARY>(const ::duckdb::Value& value) {
-  return velox::variant(StringView(::duckdb::StringValue::Get(value)));
+variant variantAt<TypeKind::VARBINARY>(const ::duckdb::Value& value) {
+  return variant::binary(StringView(::duckdb::StringValue::Get(value)));
 }
 
 variant nullVariant(const TypePtr& type) {
   return variant(type->kind());
 }
 
-velox::variant rowVariantAt(
-    const ::duckdb::Value& vector,
-    const TypePtr& rowType) {
-  std::vector<velox::variant> values;
+variant rowVariantAt(const ::duckdb::Value& vector, const TypePtr& rowType) {
+  std::vector<variant> values;
   const auto& structValue = ::duckdb::StructValue::GetChildren(vector);
   for (size_t i = 0; i < structValue.size(); ++i) {
     auto currChild = structValue[i];
@@ -274,12 +271,10 @@ velox::variant rowVariantAt(
       values.push_back(value);
     }
   }
-  return velox::variant::row(std::move(values));
+  return variant::row(std::move(values));
 }
 
-velox::variant mapVariantAt(
-    const ::duckdb::Value& vector,
-    const TypePtr& mapType) {
+variant mapVariantAt(const ::duckdb::Value& vector, const TypePtr& mapType) {
   std::map<variant, variant> map;
 
   const auto& mapValue = ::duckdb::StructValue::GetChildren(vector);
@@ -309,10 +304,10 @@ velox::variant mapVariantAt(
     }
     map.insert({variantKey, variantValue});
   }
-  return velox::variant::map(map);
+  return variant::map(map);
 }
 
-velox::variant arrayVariantAt(
+variant arrayVariantAt(
     const ::duckdb::Value& vector,
     const TypePtr& arrayType) {
   std::vector<variant> array;
@@ -334,7 +329,7 @@ velox::variant arrayVariantAt(
       array.push_back(variant);
     }
   }
-  return velox::variant::array(std::move(array));
+  return variant::array(std::move(array));
 }
 
 std::vector<MaterializedRow> materialize(
@@ -389,14 +384,19 @@ std::vector<MaterializedRow> materialize(
 }
 
 template <TypeKind kind>
-velox::variant variantAt(VectorPtr vector, int32_t row) {
+variant variantAt(VectorPtr vector, int32_t row) {
   using T = typename KindToFlatVector<kind>::WrapperType;
-  return velox::variant(vector->as<SimpleVector<T>>()->valueAt(row));
+  return variant(vector->as<SimpleVector<T>>()->valueAt(row));
+}
+
+template <>
+variant variantAt<TypeKind::VARBINARY>(VectorPtr vector, int32_t row) {
+  return variant::binary(vector->as<SimpleVector<StringView>>()->valueAt(row));
 }
 
 variant variantAt(const VectorPtr& vector, vector_size_t row);
 
-velox::variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
+variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto arrayVector = vector->wrappedVector()->as<ArrayVector>();
   auto& elements = arrayVector->elements();
 
@@ -404,16 +404,16 @@ velox::variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto offset = arrayVector->offsetAt(wrappedRow);
   auto size = arrayVector->sizeAt(wrappedRow);
 
-  std::vector<velox::variant> array;
+  std::vector<variant> array;
   array.reserve(size);
   for (auto i = 0; i < size; i++) {
     auto innerRow = offset + i;
     array.push_back(variantAt(elements, innerRow));
   }
-  return velox::variant::array(array);
+  return variant::array(array);
 }
 
-velox::variant mapVariantAt(const VectorPtr& vector, vector_size_t row) {
+variant mapVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto mapVector = vector->wrappedVector()->as<MapVector>();
   auto& mapKeys = mapVector->mapKeys();
   auto& mapValues = mapVector->mapValues();
@@ -429,18 +429,18 @@ velox::variant mapVariantAt(const VectorPtr& vector, vector_size_t row) {
     auto value = variantAt(mapValues, innerRow);
     map.insert({key, value});
   }
-  return velox::variant::map(map);
+  return variant::map(map);
 }
 
-velox::variant rowVariantAt(const VectorPtr& vector, vector_size_t row) {
+variant rowVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto rowValues = vector->wrappedVector()->as<RowVector>();
   auto wrappedRow = vector->wrappedIndex(row);
 
-  std::vector<velox::variant> values;
+  std::vector<variant> values;
   for (auto& child : rowValues->children()) {
     values.push_back(variantAt(child, wrappedRow));
   }
-  return velox::variant::row(std::move(values));
+  return variant::row(std::move(values));
 }
 
 variant variantAt(const VectorPtr& vector, vector_size_t row) {
@@ -1404,9 +1404,7 @@ std::shared_ptr<Task> assertQuery(
   return result.first->task();
 }
 
-velox::variant readSingleValue(
-    const core::PlanNodePtr& plan,
-    int32_t maxDrivers) {
+variant readSingleValue(const core::PlanNodePtr& plan, int32_t maxDrivers) {
   CursorParameters params;
   params.planNode = plan;
   params.maxDrivers = maxDrivers;

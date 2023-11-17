@@ -452,4 +452,21 @@ TEST_F(QueryAssertionsTest, nullVariant) {
   assertQuery(plan, "SELECT * FROM tmp");
 }
 
+TEST_F(QueryAssertionsTest, varbinary) {
+  auto data = makeRowVector({makeFlatVector<std::string>(
+      {"Short string", "Longer strings...", "abc"}, VARBINARY())});
+
+  auto rowType = asRowType(data->type());
+
+  createDuckDbTable({data});
+
+  auto duckResult = duckDbQueryRunner_.execute("SELECT * FROM tmp", rowType);
+  ASSERT_EQ(duckResult.size(), data->size());
+  ASSERT_EQ(duckResult.begin()->begin()->kind(), TypeKind::VARBINARY);
+  ASSERT_TRUE(assertEqualResults(duckResult, rowType, {data}));
+
+  auto plan = PlanBuilder().values({data}).planNode();
+  assertQuery(plan, "SELECT * FROM tmp");
+}
+
 } // namespace facebook::velox::test

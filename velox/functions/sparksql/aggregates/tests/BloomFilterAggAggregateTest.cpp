@@ -32,7 +32,7 @@ class BloomFilterAggAggregateTest
     allowInputShuffle();
   }
 
-  std::string getSerializedBloomFilter(int32_t capacity) {
+  VectorPtr getSerializedBloomFilter(int32_t capacity) {
     BloomFilter bloomFilter;
     bloomFilter.reset(capacity);
     for (auto i = 0; i < 9; ++i) {
@@ -41,7 +41,7 @@ class BloomFilterAggAggregateTest
     std::string data;
     data.resize(bloomFilter.serializedSize());
     bloomFilter.serialize(data.data());
-    return data;
+    return makeConstant(StringView(data), 1, VARBINARY());
   }
 };
 } // namespace
@@ -49,10 +49,7 @@ class BloomFilterAggAggregateTest
 TEST_F(BloomFilterAggAggregateTest, basic) {
   auto vectors = {makeRowVector({makeFlatVector<int64_t>(
       100, [](vector_size_t row) { return row % 9; })})};
-  auto bloomFilter = getSerializedBloomFilter(4);
-  auto expected = {
-      makeRowVector({makeConstant<StringView>(StringView(bloomFilter), 1)})};
-
+  auto expected = {makeRowVector({getSerializedBloomFilter(4)})};
   testAggregations(vectors, {}, {"bloom_filter_agg(c0, 5, 64)"}, expected);
 }
 
@@ -60,21 +57,17 @@ TEST_F(BloomFilterAggAggregateTest, bloomFilterAggArgument) {
   auto vectors = {makeRowVector({makeFlatVector<int64_t>(
       100, [](vector_size_t row) { return row % 9; })})};
 
-  auto bloomFilter1 = getSerializedBloomFilter(3);
-  auto expected1 = {
-      makeRowVector({makeConstant<StringView>(StringView(bloomFilter1), 1)})};
+  auto expected1 = {makeRowVector({getSerializedBloomFilter(3)})};
   testAggregations(vectors, {}, {"bloom_filter_agg(c0, 6)"}, expected1);
+
   // This capacity is kMaxNumBits / 16.
-  auto bloomFilter2 = getSerializedBloomFilter(262144);
-  auto expected2 = {
-      makeRowVector({makeConstant<StringView>(StringView(bloomFilter2), 1)})};
+  auto expected2 = {makeRowVector({getSerializedBloomFilter(262144)})};
   testAggregations(vectors, {}, {"bloom_filter_agg(c0)"}, expected2);
 }
 
 TEST_F(BloomFilterAggAggregateTest, emptyInput) {
   auto vectors = {makeRowVector({makeFlatVector<int64_t>({})})};
-  auto expected = {makeRowVector(
-      {makeNullableFlatVector<StringView>({std::nullopt}, VARBINARY())})};
+  auto expected = {makeRowVector({makeNullConstant(TypeKind::VARBINARY, 1)})};
   testAggregations(vectors, {}, {"bloom_filter_agg(c0, 5, 64)"}, expected);
 }
 
@@ -91,9 +84,8 @@ TEST_F(BloomFilterAggAggregateTest, nullBloomFilter) {
 TEST_F(BloomFilterAggAggregateTest, config) {
   auto vector = {makeRowVector({makeFlatVector<int64_t>(
       100, [](vector_size_t row) { return row % 9; })})};
-  auto bloomFilter = getSerializedBloomFilter(100);
   std::vector<RowVectorPtr> expected = {
-      makeRowVector({makeConstant<StringView>(StringView(bloomFilter), 1)})};
+      makeRowVector({getSerializedBloomFilter(100)})};
 
   // This config will decide the bloom filter capacity, the expected value is
   // the serialized bloom filter, it should be consistent.
