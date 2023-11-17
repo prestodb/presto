@@ -48,6 +48,24 @@ public class TestTypeSignature
     }
 
     @Test
+    public void parseNamedTypeSignature()
+    {
+        assertRowSignature(
+                "cat.sch.pair:row(a bigint,b array(bigint),c row(a bigint))",
+                namedRowSignature("cat.sch.pair",
+                        namedParameter("a", false, signature("bigint")),
+                        namedParameter("b", false, array(signature("bigint"))),
+                        namedParameter("c", false, rowSignature(namedParameter("a", false, signature("bigint"))))));
+
+        // the UDT's name would be translated to lower case, and it's base type name case would be preserve
+        assertSignature(
+                "CAT.SCH.TROW:ROW(a CAT.SCH.TV:VARCHAR,b ARRAY(BIGINT),c ROW(a BIGINT))",
+                "cat.sch.trow:ROW",
+                ImmutableList.of("a cat.sch.tv:VARCHAR", "b ARRAY(BIGINT)", "c ROW(a BIGINT)"),
+                "cat.sch.trow:ROW(a cat.sch.tv:VARCHAR,b ARRAY(BIGINT),c ROW(a BIGINT))");
+    }
+
+    @Test
     public void parseRowSignature()
     {
         // row signature with named fields
@@ -195,6 +213,11 @@ public class TestTypeSignature
     private static TypeSignature rowSignature(NamedTypeSignature... columns)
     {
         return new TypeSignature("row", transform(asList(columns), TypeSignatureParameter::of));
+    }
+
+    private static TypeSignature namedRowSignature(String distinctTypeName, NamedTypeSignature... columns)
+    {
+        return new TypeSignature(distinctTypeName + ":row", transform(asList(columns), TypeSignatureParameter::of));
     }
 
     private static NamedTypeSignature namedParameter(String name, boolean delimited, TypeSignature value)
