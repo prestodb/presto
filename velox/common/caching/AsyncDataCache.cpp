@@ -678,7 +678,7 @@ bool AsyncDataCache::makeSpace(
     // with 'evictAllUnpinned' set to true.
     shards_[shardCounter_ & (kShardMask)]->evict(
         memory::AllocationTraits::pageBytes(
-            std::max<int32_t>(kMinEvictPages, numPages) * sizeMultiplier),
+            std::max<uint64_t>(kMinEvictPages, numPages) * sizeMultiplier),
         nthAttempt >= kNumShards,
         numPagesToAcquire,
         acquired);
@@ -699,7 +699,7 @@ uint64_t AsyncDataCache::shrink(uint64_t targetBytes) {
   for (int shard = 0; shard < shards_.size(); ++shard) {
     memory::Allocation unused;
     evictedBytes += shards_[shardCounter_++ & (kShardMask)]->evict(
-        std::max<int32_t>(minBytesToEvict, targetBytes - evictedBytes),
+        std::max<uint64_t>(minBytesToEvict, targetBytes - evictedBytes),
         // Cache shrink is triggered when server is under low memory pressure
         // so need to free up memory as soon as possible. So we always avoid
         // triggering ssd save to accelerate the cache evictions.
@@ -792,7 +792,7 @@ CacheStats AsyncDataCache::refreshStats() const {
 void AsyncDataCache::clear() {
   for (auto& shard : shards_) {
     memory::Allocation unused;
-    shard->evict(std::numeric_limits<int32_t>::max(), true, 0, unused);
+    shard->evict(std::numeric_limits<uint64_t>::max(), true, 0, unused);
     VELOX_CHECK(unused.empty());
   }
 }
