@@ -540,6 +540,8 @@ public abstract class AbstractTestNativeGeneralQueries
 
         assertQuery("SELECT array[1, 2, 3], array[0.1, NULL, 0.23, 0.00004], array['x', 'y', 'zetta']");
 
+        assertQuery("SELECT * FROM (VALUES (CAST('velox_binary_test' as VARBINARY)))");
+
         assertQuery("SELECT * FROM (VALUES (array[1, 23, 456])) as t(a)");
         assertQuery("SELECT * FROM (VALUES (array[1, NULL, 23, 456])) as t(a)");
 
