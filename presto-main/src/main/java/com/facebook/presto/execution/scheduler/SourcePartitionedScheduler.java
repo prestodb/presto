@@ -99,8 +99,9 @@ public class SourcePartitionedScheduler
     private State state = State.INITIALIZED;
 
     private SettableFuture<?> whenFinishedOrNewLifespanAdded = SettableFuture.create();
+    private boolean emptySplit;
 
-    private SourcePartitionedScheduler(
+    SourcePartitionedScheduler(
             SqlStageExecution stage,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
@@ -156,6 +157,17 @@ public class SourcePartitionedScheduler
             }
         };
     }
+    public static StageScheduler newSourcePartitionedSchedulerWithSplitRetryAsStageScheduler(
+            SqlStageExecution stage,
+            PlanNodeId partitionedNode,
+            SplitSource splitSource,
+            SplitPlacementPolicy splitPlacementPolicy,
+            int splitBatchSize)
+    {
+        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
+        sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
+        return new SplitRetrySourcePartitionedScheduler(sourcePartitionedScheduler, stage);
+    }
 
     /**
      * Obtains a {@code SourceScheduler} suitable for use in FixedSourcePartitionedScheduler.
@@ -204,6 +216,7 @@ public class SourcePartitionedScheduler
         dropListenersFromWhenFinishedOrNewLifespansAdded();
 
         int overallSplitAssignmentCount = 0;
+
         ImmutableSet.Builder<RemoteTask> overallNewTasks = ImmutableSet.builder();
         List<ListenableFuture<?>> overallBlockedFutures = new ArrayList<>();
         boolean anyBlockedOnPlacements = false;
@@ -244,6 +257,7 @@ public class SourcePartitionedScheduler
                                     new EmptySplit(splitSource.getConnectorId()),
                                     lifespan,
                                     NON_CACHEABLE));
+                            emptySplit = true;
                         }
                         scheduleGroup.state = ScheduleGroupState.NO_MORE_SPLITS;
                     }
@@ -340,14 +354,15 @@ public class SourcePartitionedScheduler
                     return ScheduleResult.nonBlocked(
                             true,
                             overallNewTasks.build(),
-                            overallSplitAssignmentCount);
+                            overallSplitAssignmentCount,
+                            emptySplit);
                 default:
                     throw new IllegalStateException("Unknown state");
             }
         }
 
         if (anyNotBlocked) {
-            return ScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount);
+            return ScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount, emptySplit);
         }
 
         if (anyBlockedOnPlacements) {
@@ -381,7 +396,8 @@ public class SourcePartitionedScheduler
                 overallNewTasks.build(),
                 nonCancellationPropagating(whenAnyComplete(overallBlockedFutures)),
                 blockedReason,
-                overallSplitAssignmentCount);
+                overallSplitAssignmentCount,
+                emptySplit);
     }
 
     private synchronized void dropListenersFromWhenFinishedOrNewLifespansAdded()
@@ -454,6 +470,7 @@ public class SourcePartitionedScheduler
                 .addAll(splitAssignment.keySet())
                 .addAll(noMoreSplitsNotification.keySet())
                 .build();
+
         for (InternalNode node : nodes) {
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()
                     .putAll(partitionedNode, splitAssignment.get(node))
@@ -466,6 +483,7 @@ public class SourcePartitionedScheduler
 
             newTasks.addAll(stage.scheduleSplits(
                     node,
+                    nodes,
                     splits,
                     noMoreSplits.build()));
         }
@@ -484,7 +502,7 @@ public class SourcePartitionedScheduler
         Set<InternalNode> scheduledNodes = stage.getScheduledNodes();
         Set<RemoteTask> newTasks = splitPlacementPolicy.getActiveNodes().stream()
                 .filter(node -> !scheduledNodes.contains(node))
-                .flatMap(node -> stage.scheduleSplits(node, ImmutableMultimap.of(), ImmutableMultimap.of()).stream())
+                .flatMap(node -> stage.scheduleSplits(node, scheduledNodes, ImmutableMultimap.of(), ImmutableMultimap.of()).stream())
                 .collect(toImmutableSet());
 
         // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits

@@ -431,8 +431,8 @@ public class LegacySqlQueryScheduler
                         stageExecution.beginScheduling();
 
                         // perform some scheduling work
-                        ScheduleResult result = stageExecutionAndScheduler.getStageScheduler()
-                                .schedule();
+                        StageScheduler stageScheduler = stageExecutionAndScheduler.getStageScheduler();
+                        ScheduleResult result = stageScheduler.schedule();
 
                         // Track leaf tasks if partial results are enabled
                         if (isPartialResultsEnabled(session) && stageExecutionAndScheduler.getStageExecution().getFragment().isLeaf()) {
@@ -444,7 +444,12 @@ public class LegacySqlQueryScheduler
 
                         // modify parent and children based on the results of the scheduling
                         if (result.isFinished()) {
-                            stageExecution.schedulingComplete();
+                            if (stageScheduler instanceof SourcePartitionedScheduler) {
+                                stageExecution.schedulingCompleteIfRetryingSplits();
+                            }
+                            else {
+                                stageExecution.schedulingComplete();
+                            }
                         }
                         else if (!result.getBlocked().isDone()) {
                             blockedStages.add(result.getBlocked());
@@ -468,6 +473,9 @@ public class LegacySqlQueryScheduler
                                     break;
                                 case NO_ACTIVE_DRIVER_GROUP:
                                     schedulerStats.getNoActiveDriverGroup().update(1);
+                                    break;
+                                case WAITING_FOR_SPLIT_RETRY:
+                                    schedulerStats.getWaitingForSplitRetry().update(1);
                                     break;
                                 default:
                                     throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());

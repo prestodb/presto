@@ -98,6 +98,7 @@ public class HttpRemoteTaskFactory
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
     private final DecayCounter taskUpdateRequestSize;
+    private boolean enableRetryForFailedSplits;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -179,6 +180,7 @@ public class HttpRemoteTaskFactory
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
         this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
+        this.enableRetryForFailedSplits = config.isEnableRetryForFailedSplits();
     }
 
     @Managed
@@ -250,6 +252,7 @@ public class HttpRemoteTaskFactory
                 queryManager,
                 taskUpdateRequestSize,
                 handleResolver,
-                connectorTypeSerdeManager);
+                connectorTypeSerdeManager,
+                enableRetryForFailedSplits);
     }
 }

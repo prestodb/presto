@@ -224,6 +224,7 @@ public class FixedSourcePartitionedScheduler
         int splitsScheduled = 0;
         Iterator<SourceScheduler> schedulerIterator = sourceSchedulers.iterator();
         List<Lifespan> driverGroupsToStart = ImmutableList.of();
+        boolean emptySplit = true;
         while (schedulerIterator.hasNext()) {
             synchronized (this) {
                 // if a source scheduler is closed while it is scheduling, we can get an error
@@ -241,6 +242,7 @@ public class FixedSourcePartitionedScheduler
                 if (schedule.getSplitsScheduled() > 0) {
                     stage.transitionToSchedulingSplits();
                 }
+                emptySplit = emptySplit & schedule.isEmptySplit();
                 splitsScheduled += schedule.getSplitsScheduled();
                 if (schedule.getBlockedReason().isPresent()) {
                     blocked.add(schedule.getBlocked());
@@ -263,10 +265,10 @@ public class FixedSourcePartitionedScheduler
         }
 
         if (allBlocked) {
-            return ScheduleResult.blocked(sourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled);
+            return ScheduleResult.blocked(sourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled, emptySplit);
         }
         else {
-            return ScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
+            return ScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newTasks, splitsScheduled, emptySplit);
         }
     }
 
