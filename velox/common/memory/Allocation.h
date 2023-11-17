@@ -171,7 +171,7 @@ class Allocation {
     VELOX_CHECK(numPages_ != 0 || pool_ == nullptr);
   }
 
-  void append(uint8_t* address, int32_t numPages);
+  void append(uint8_t* address, uint32_t numPages);
 
   void clear() {
     runs_.clear();
@@ -193,6 +193,7 @@ class Allocation {
   VELOX_FRIEND_TEST(MemoryAllocatorTest, allocationClass2);
   VELOX_FRIEND_TEST(AllocationTest, append);
   VELOX_FRIEND_TEST(AllocationTest, appendMove);
+  VELOX_FRIEND_TEST(AllocationTest, multiplePageRuns);
 };
 
 /// Represents a run of contiguous pages that do not belong to any size class.

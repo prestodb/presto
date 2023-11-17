@@ -1347,14 +1347,13 @@ TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
   }
 }
 
-TEST_P(MemoryAllocatorTest, badNonContiguousAllocation) {
+TEST_P(MemoryAllocatorTest, nonContiguousAllocationBounds) {
   // Set the num of pages to allocate exceeds one PageRun limit.
   constexpr MachinePageCount kNumPages =
       Allocation::PageRun::kMaxPagesInRun + 1;
   std::unique_ptr<Allocation> allocation(new Allocation());
-  ASSERT_THROW(
-      instance_->allocateNonContiguous(kNumPages, *allocation),
-      VeloxRuntimeError);
+  ASSERT_TRUE(instance_->allocateNonContiguous(kNumPages, *allocation));
+  instance_->freeNonContiguous(*allocation);
   ASSERT_TRUE(instance_->allocateNonContiguous(kNumPages - 1, *allocation));
   instance_->freeNonContiguous(*allocation);
 }

@@ -102,14 +102,6 @@ MemoryAllocator::SizeMix MemoryAllocator::allocationSize(
       ++numUnits;
       needed -= size;
     }
-    if (FOLLY_UNLIKELY(numUnits * size > Allocation::PageRun::kMaxPagesInRun)) {
-      VELOX_MEM_ALLOC_ERROR(fmt::format(
-          "Too many pages {} to allocate, the number of units {} at size class of {} exceeds the PageRun limit {}",
-          numPages,
-          numUnits,
-          size,
-          Allocation::PageRun::kMaxPagesInRun));
-    }
     mix.sizeCounts[mix.numSizes] = numUnits;
     pagesToAlloc += numUnits * size;
     mix.sizeIndices[mix.numSizes++] = sizeIndex;

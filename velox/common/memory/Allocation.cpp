@@ -30,12 +30,17 @@ Allocation::~Allocation() {
   }
 }
 
-void Allocation::append(uint8_t* address, int32_t numPages) {
+void Allocation::append(uint8_t* address, uint32_t numPages) {
   numPages_ += numPages;
   VELOX_CHECK(
       runs_.empty() || address != runs_.back().data(),
       "Appending a duplicate address into a PageRun");
-  runs_.emplace_back(address, numPages);
+  while (numPages > 0) {
+    const auto numPagesInRun = std::min(numPages, PageRun::kMaxPagesInRun);
+    runs_.emplace_back(address, numPagesInRun);
+    address += AllocationTraits::pageBytes(numPagesInRun);
+    numPages -= numPagesInRun;
+  }
 }
 void Allocation::appendMove(Allocation& other) {
   for (auto& run : other.runs_) {
