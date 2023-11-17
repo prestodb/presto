@@ -14,7 +14,14 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
+import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -37,6 +44,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -60,6 +68,14 @@ public class TestJdbcResultSet
     {
         Logging.initialize();
         server = new TestingPrestoServer();
+        server.getMetadata().getFunctionAndTypeManager().addFunctionNamespace(
+                "cat",
+                new InMemoryFunctionNamespaceManager(
+                        "sch",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(SQL, FunctionImplementationType.SQL),
+                                new NoopSqlFunctionExecutor()),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
     }
 
     @AfterClass(alwaysRun = true)
@@ -204,6 +220,16 @@ public class TestJdbcResultSet
             assertThrows(() -> rs.getTime(column));
             // TODO this should fail, as there no java.sql.Timestamp representation for TIMESTAMP '1970-01-01 00:14:15.227ó' in America/Bahia_Banderas
             assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1969, 12, 31, 15, 14, 15, 227_000_000)));
+        });
+
+        statement.execute("CREATE TYPE cat.sch.dist AS integer");
+        checkRepresentation("CAST(1 AS cat.sch.dist)", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(1), 1);
+        });
+
+        statement.execute("CREATE TYPE cat.sch.pair AS (fst integer, snd varchar)");
+        checkRepresentation("CAST((1,'1001') AS cat.sch.pair)", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(1), Lists.newArrayList(1, "1001"));
         });
     }
 
