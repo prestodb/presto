@@ -172,5 +172,18 @@ TEST_F(EntropyAggregationTest, mayHaveNulls) {
   testAggregations({data}, {"c0"}, {"entropy(c1)"}, {"a0"}, {expectedResult});
 }
 
+TEST_F(EntropyAggregationTest, allNulls) {
+  auto data = makeRowVector({makeAllNullFlatVector<int64_t>(10)});
+  auto expectedResult = makeRowVector({makeConstant(0.0, 1)});
+  testAggregations({data}, {}, {"entropy(c0)"}, {expectedResult});
+
+  data = makeRowVector(
+      {makeFlatVector<int32_t>({1, 1, 1, 2, 2, 2}),
+       makeNullableFlatVector<int32_t>(
+           {1, 1, std::nullopt, std::nullopt, std::nullopt, std::nullopt})});
+  expectedResult = makeRowVector({makeFlatVector<double>({1.0, 0.0})});
+  testAggregations({data}, {"c0"}, {"entropy(c1)"}, {"a0"}, {expectedResult});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

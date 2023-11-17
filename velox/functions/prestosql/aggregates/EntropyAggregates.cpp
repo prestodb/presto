@@ -273,7 +273,7 @@ class EntropyAggregate : public exec::Aggregate {
     for (int32_t i = 0; i < numGroups; ++i) {
       char* group = groups[i];
       if (isNull(group)) {
-        vector->setNull(i, true);
+        rawValues[i] = 0.0;
       } else {
         clearNull(rawNulls, i);
         EntropyAccumulator* accData = accumulator(group);
