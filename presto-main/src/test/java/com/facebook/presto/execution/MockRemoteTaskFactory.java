@@ -178,6 +178,7 @@ public class MockRemoteTaskFactory
         private final String nodeId;
 
         private final PlanFragment fragment;
+        private boolean isRetriedOnFailure;
         private boolean isTaskIdling;
 
         @GuardedBy("this")
@@ -422,6 +423,27 @@ public class MockRemoteTaskFactory
         }
 
         @Override
+        public synchronized void setIsRetried()
+        {
+            isRetriedOnFailure = true;
+        }
+
+        public synchronized boolean isRetried()
+        {
+            return isRetriedOnFailure;
+        }
+
+        public boolean isTaskIdling()
+        {
+            return getTaskStatus().getIsTaskIdling();
+        }
+
+        public boolean anyPendingSplitProcessed()
+        {
+            return false;
+        }
+
+        @Override
         public void start()
         {
             taskStateMachine.addStateChangeListener(newValue -> {
@@ -432,13 +454,14 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public void addSplits(Multimap<PlanNodeId, Split> splits)
+        public boolean addSplits(Multimap<PlanNodeId, Split> splits)
         {
             synchronized (this) {
                 this.splits.putAll(splits);
             }
             updateTaskStats();
             updateSplitQueueSpace();
+            return true;
         }
 
         @Override
@@ -559,6 +582,11 @@ public class MockRemoteTaskFactory
         public synchronized int getUnacknowledgedPartitionedSplitCount()
         {
             return unacknowledgedSplits;
+        }
+
+        @Override
+        public void updateLastTaskStatus(TaskStatus taskStatus)
+        {
         }
     }
 }

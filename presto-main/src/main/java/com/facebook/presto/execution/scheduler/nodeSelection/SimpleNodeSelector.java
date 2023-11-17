@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler.nodeSelection;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.InternalNodeInfo;
 import com.facebook.presto.execution.scheduler.ModularHashingNodeProvider;
@@ -277,15 +278,18 @@ public class SimpleNodeSelector
     private List<InternalNode> getEligibleNodes(int limit, NodeMap nodeMap, List<RemoteTask> existingTasks)
     {
         List<InternalNode> existingNodes = existingTasks.stream()
+                .filter(remoteTask -> remoteTask.getTaskStatus().getState() != TaskState.GRACEFUL_SHUTDOWN)
                 .map(remoteTask -> nodeMap.getActiveNodesByNodeId().get(remoteTask.getNodeId()))
                 // nodes may sporadically disappear from the nodeMap if the announcement is delayed
                 .filter(Objects::nonNull)
                 .collect(toList());
 
+        boolean anyGracefulFailedTask = existingTasks.stream().anyMatch(remoteTask -> remoteTask.getTaskStatus().getState() == TaskState.GRACEFUL_SHUTDOWN);
+
         int alreadySelectedNodeCount = existingNodes.size();
         int nodeCount = nodeMap.getActiveNodesByNodeId().size();
 
-        if (alreadySelectedNodeCount < limit && alreadySelectedNodeCount < nodeCount) {
+        if (!anyGracefulFailedTask && alreadySelectedNodeCount < limit && alreadySelectedNodeCount < nodeCount) {
             List<InternalNode> moreNodes = selectNodes(limit - alreadySelectedNodeCount, randomizedNodes(nodeMap, includeCoordinator, newHashSet(existingNodes)));
             existingNodes.addAll(moreNodes);
         }
