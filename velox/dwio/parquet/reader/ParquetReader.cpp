@@ -568,24 +568,16 @@ void ReaderBase::scheduleRowGroups(
     const std::vector<uint32_t>& rowGroupIds,
     int32_t currentGroup,
     StructColumnReader& reader) {
-  auto thisGroup = rowGroupIds[currentGroup];
-  auto nextGroup =
-      currentGroup + 1 < rowGroupIds.size() ? rowGroupIds[currentGroup + 1] : 0;
-  auto input = inputs_[thisGroup].get();
-  if (!input) {
-    inputs_[thisGroup] = reader.loadRowGroup(thisGroup, input_);
-  }
-  for (auto counter = 0; counter < options_.prefetchRowGroups(); ++counter) {
-    if (nextGroup) {
-      if (inputs_.count(nextGroup) == 0) {
-        inputs_[nextGroup] = reader.loadRowGroup(nextGroup, input_);
-      }
-    } else {
-      break;
+  auto numRowGroupsToLoad = std::min(
+      options_.prefetchRowGroups() + 1,
+      static_cast<int64_t>(rowGroupIds.size() - currentGroup));
+  for (auto i = 0; i < numRowGroupsToLoad; i++) {
+    auto thisGroup = rowGroupIds[currentGroup + i];
+    if (!inputs_[thisGroup]) {
+      inputs_[thisGroup] = reader.loadRowGroup(thisGroup, input_);
     }
-    nextGroup =
-        nextGroup + 1 < rowGroupIds.size() ? rowGroupIds[nextGroup + 1] : 0;
   }
+
   if (currentGroup >= 1) {
     inputs_.erase(rowGroupIds[currentGroup - 1]);
   }
