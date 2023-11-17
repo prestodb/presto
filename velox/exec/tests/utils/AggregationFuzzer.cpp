@@ -123,6 +123,10 @@ class AggregationFuzzer {
 
   static exec::Split makeSplit(const std::string& filePath);
 
+  std::vector<exec::Split> makeSplits(
+      const std::vector<RowVectorPtr>& inputs,
+      const std::string& path);
+
   PlanWithSplits deserialize(const folly::dynamic& obj);
 
   struct Stats {
@@ -143,6 +147,9 @@ class AggregationFuzzer {
 
     // Number of iterations using window expressions.
     size_t numWindow{0};
+
+    // Number of iterations using aggregations over sorted inputs.
+    size_t numSortedInputs{0};
 
     // Number of iterations where results were verified against reference DB,
     size_t numVerified{0};
@@ -244,6 +251,13 @@ class AggregationFuzzer {
       bool customVerification,
       const std::vector<std::string>& projections);
 
+  // Return 'true' if query plans failed.
+  bool verifySortedAggregation(
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& masks,
+      const std::vector<RowVectorPtr>& input);
+
   void verifyAggregation(const std::vector<PlanWithSplits>& plans);
 
   std::optional<MaterializedRowMultiset> computeReferenceResults(
@@ -254,7 +268,8 @@ class AggregationFuzzer {
       const core::PlanNodePtr& plan,
       const std::vector<exec::Split>& splits = {},
       bool injectSpill = false,
-      bool abandonPartial = false);
+      bool abandonPartial = false,
+      int32_t maxDrivers = 2);
 
   static bool hasPartialGroupBy(const core::PlanNodePtr& plan) {
     auto partialAgg = core::PlanNode::findFirstNode(
@@ -274,7 +289,8 @@ class AggregationFuzzer {
   void testPlans(
       const std::vector<PlanWithSplits>& plans,
       bool verifyResults,
-      const velox::test::ResultOrError& expected) {
+      const velox::test::ResultOrError& expected,
+      int32_t maxDrivers = 2) {
     for (auto i = 0; i < plans.size(); ++i) {
       const auto& planWithSplits = plans[i];
 
@@ -284,7 +300,8 @@ class AggregationFuzzer {
           false /*injectSpill*/,
           false /*abandonPartial*/,
           verifyResults,
-          expected);
+          expected,
+          maxDrivers);
 
       LOG(INFO) << "Testing plan #" << i << " with spilling";
       testPlan(
@@ -292,7 +309,8 @@ class AggregationFuzzer {
           true /*injectSpill*/,
           false /*abandonPartial*/,
           verifyResults,
-          expected);
+          expected,
+          maxDrivers);
 
       if (hasPartialGroupBy(planWithSplits.plan)) {
         LOG(INFO) << "Testing plan #" << i
@@ -302,7 +320,8 @@ class AggregationFuzzer {
             false /*injectSpill*/,
             true /*abandonPartial*/,
             verifyResults,
-            expected);
+            expected,
+            maxDrivers);
       }
     }
   }
@@ -312,7 +331,8 @@ class AggregationFuzzer {
       bool injectSpill,
       bool abandonPartial,
       bool verifyResults,
-      const velox::test::ResultOrError& expected);
+      const velox::test::ResultOrError& expected,
+      int32_t maxDrivers = 2);
 
   void printSignatureStats();
 
@@ -530,14 +550,12 @@ bool isDone(size_t i, T startTime) {
 
 std::string makeFunctionCall(
     const std::string& name,
-    const std::vector<std::string>& argNames) {
+    const std::vector<std::string>& argNames,
+    bool sortedInputs) {
   std::ostringstream call;
-  call << name << "(";
-  for (auto i = 0; i < argNames.size(); ++i) {
-    if (i > 0) {
-      call << ", ";
-    }
-    call << argNames[i];
+  call << name << "(" << folly::join(", ", argNames);
+  if (sortedInputs) {
+    call << " ORDER BY " << folly::join(", ", argNames);
   }
   call << ")";
 
@@ -808,6 +826,23 @@ void AggregationFuzzer::go(const std::string& planPath) {
   verifyAggregation(plans);
 }
 
+// Returns true if specified aggregate function can be applied to sorted inputs,
+// i.e. function takes 1 or more arguments (count(1) doesn't qualify) and types
+// of all arguments are orderable (no maps).
+bool canSortInputs(const CallableSignature& signature) {
+  if (signature.args.empty()) {
+    return false;
+  }
+
+  for (const auto& arg : signature.args) {
+    if (!arg->isOrderable()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void AggregationFuzzer::go() {
   VELOX_CHECK(
       FLAGS_steps > 0 || FLAGS_duration_sec > 0,
@@ -844,11 +879,12 @@ void AggregationFuzzer::go() {
 
       std::vector<TypePtr> argTypes = signature.args;
       std::vector<std::string> argNames = makeNames(argTypes.size());
-      auto call = makeFunctionCall(signature.name, argNames);
 
       // 10% of times test window operator.
       if (vectorFuzzer_.coinToss(0.1)) {
         ++stats_.numWindow;
+
+        auto call = makeFunctionCall(signature.name, argNames, false);
 
         auto partitionKeys = generateKeys("p", argNames, argTypes);
         auto sortingKeys = generateSortingKeys("s", argNames, argTypes);
@@ -866,6 +902,14 @@ void AggregationFuzzer::go() {
           signatureWithStats.second.numFailed++;
         }
       } else {
+        // Exclude approx_xxx aggregations since their results differ
+        // between Velox and reference DB even when input is sorted.
+        const bool sortedInputs = canSortInputs(signature) &&
+            (signature.name.find("approx_") == std::string::npos) &&
+            vectorFuzzer_.coinToss(0.2);
+
+        auto call = makeFunctionCall(signature.name, argNames, sortedInputs);
+
         // 20% of times use mask.
         std::vector<std::string> masks;
         if (vectorFuzzer_.coinToss(0.2)) {
@@ -885,28 +929,38 @@ void AggregationFuzzer::go() {
           groupingKeys = generateKeys("g", argNames, argTypes);
         }
 
-        std::vector<std::string> projections;
-        if (customVerification) {
-          // Add optional projection on the original result to make it order
-          // independent for comparison.
-          auto mitigation = customVerificationFunctions_.at(signature.name);
-          if (!mitigation.empty()) {
-            projections = groupingKeys;
-            projections.push_back(fmt::format(fmt::runtime(mitigation), "a0"));
-          }
-        }
-
         auto input = generateInputData(argNames, argTypes, signature);
 
-        bool failed = verifyAggregation(
-            groupingKeys,
-            {call},
-            masks,
-            input,
-            customVerification,
-            projections);
-        if (failed) {
-          signatureWithStats.second.numFailed++;
+        if (sortedInputs) {
+          ++stats_.numSortedInputs;
+          bool failed =
+              verifySortedAggregation(groupingKeys, {call}, masks, input);
+          if (failed) {
+            signatureWithStats.second.numFailed++;
+          }
+        } else {
+          std::vector<std::string> projections;
+          if (customVerification) {
+            // Add optional projection on the original result to make it order
+            // independent for comparison.
+            auto mitigation = customVerificationFunctions_.at(signature.name);
+            if (!mitigation.empty()) {
+              projections = groupingKeys;
+              projections.push_back(
+                  fmt::format(fmt::runtime(mitigation), "a0"));
+            }
+          }
+
+          bool failed = verifyAggregation(
+              groupingKeys,
+              {call},
+              masks,
+              input,
+              customVerification,
+              projections);
+          if (failed) {
+            signatureWithStats.second.numFailed++;
+          }
         }
       }
     }
@@ -963,7 +1017,8 @@ velox::test::ResultOrError AggregationFuzzer::execute(
     const core::PlanNodePtr& plan,
     const std::vector<exec::Split>& splits,
     bool injectSpill,
-    bool abandonPartial) {
+    bool abandonPartial,
+    int32_t maxDrivers) {
   LOG(INFO) << "Executing query plan: " << std::endl
             << plan->toString(true, true);
 
@@ -993,8 +1048,8 @@ velox::test::ResultOrError AggregationFuzzer::execute(
       builder.splits(splits);
     }
 
-    resultOrError.result = builder.maxDrivers(2).copyResults(pool_.get());
-    LOG(INFO) << resultOrError.result->toString();
+    resultOrError.result =
+        builder.maxDrivers(maxDrivers).copyResults(pool_.get());
   } catch (VeloxUserError& e) {
     // NOTE: velox user exception is accepted as it is caused by the invalid
     // fuzzer test inputs.
@@ -1014,10 +1069,11 @@ AggregationFuzzer::computeReferenceResults(
           sql.value(), input, plan->outputType());
     } catch (std::exception& e) {
       ++stats_.numReferenceQueryFailed;
-      LOG(WARNING) << "Couldn't get results from reference DB";
+      LOG(WARNING) << "Query failed in the reference DB";
       return std::nullopt;
     }
   } else {
+    LOG(INFO) << "Query not supported by the reference DB";
     ++stats_.numVerificationNotSupported;
   }
 
@@ -1220,9 +1276,14 @@ void AggregationFuzzer::testPlan(
     bool injectSpill,
     bool abandonPartial,
     bool verifyResults,
-    const velox::test::ResultOrError& expected) {
+    const velox::test::ResultOrError& expected,
+    int32_t maxDrivers) {
   auto actual = execute(
-      planWithSplits.plan, planWithSplits.splits, injectSpill, abandonPartial);
+      planWithSplits.plan,
+      planWithSplits.splits,
+      injectSpill,
+      abandonPartial,
+      maxDrivers);
 
   // Compare results or exceptions (if any). Fail is anything is different.
   if (expected.exceptionPtr || actual.exceptionPtr) {
@@ -1279,6 +1340,7 @@ bool AggregationFuzzer::verifyWindow(
                   plan->outputType(),
                   {resultOrError.result}),
               "Velox and reference DB results don't match");
+          LOG(INFO) << "Verified results against reference DB";
         }
       }
     } else {
@@ -1328,6 +1390,20 @@ bool isTableScanSupported(const TypePtr& type) {
 }
 } // namespace
 
+std::vector<exec::Split> AggregationFuzzer::makeSplits(
+    const std::vector<RowVectorPtr>& inputs,
+    const std::string& path) {
+  std::vector<exec::Split> splits;
+  auto writerPool = rootPool_->addAggregateChild("writer");
+  for (auto i = 0; i < inputs.size(); ++i) {
+    const std::string filePath = fmt::format("{}/{}", path, i);
+    writeToFile(filePath, inputs[i], writerPool.get());
+    splits.push_back(makeSplit(filePath));
+  }
+
+  return splits;
+}
+
 bool AggregationFuzzer::verifyAggregation(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
@@ -1352,16 +1428,9 @@ bool AggregationFuzzer::verifyAggregation(
   // Sometimes we generate zero-column input of type ROW({}) or a column of type
   // UNKNOWN(). Such data cannot be written to a file and therefore cannot
   // be tested with TableScan.
-  if (isTableScanSupported(input[0]->type()) && vectorFuzzer_.coinToss(0.5)) {
-    std::vector<exec::Split> splits;
-    auto writerPool = rootPool_->addAggregateChild("writer");
-    for (auto i = 0; i < input.size(); ++i) {
-      const std::string filePath = fmt::format("{}/{}", directory->path, i);
-      writeToFile(filePath, input[i], writerPool.get());
-      splits.push_back(makeSplit(filePath));
-    }
-
-    const auto inputRowType = asRowType(input[0]->type());
+  const auto inputRowType = asRowType(input[0]->type());
+  if (isTableScanSupported(inputRowType) && vectorFuzzer_.coinToss(0.5)) {
+    auto splits = makeSplits(input, directory->path);
 
     std::vector<core::PlanNodePtr> tableScanPlans;
     makeAlternativePlansWithTableScan(
@@ -1445,6 +1514,7 @@ bool AggregationFuzzer::verifyAggregation(
               firstPlan->outputType(),
               {resultOrError.result}),
           "Velox and reference DB results don't match");
+      LOG(INFO) << "Verified results against reference DB";
     }
 
     testPlans(plans, verifyResults, resultOrError);
@@ -1456,6 +1526,52 @@ bool AggregationFuzzer::verifyAggregation(
     }
     throw;
   }
+}
+
+bool AggregationFuzzer::verifySortedAggregation(
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::vector<std::string>& masks,
+    const std::vector<RowVectorPtr>& input) {
+  auto firstPlan = PlanBuilder()
+                       .values(input)
+                       .singleAggregation(groupingKeys, aggregates, masks)
+                       .planNode();
+
+  auto resultOrError = execute(firstPlan);
+  if (resultOrError.exceptionPtr) {
+    ++stats_.numFailed;
+  }
+
+  auto expectedResult = computeReferenceResults(firstPlan, input);
+  if (expectedResult && resultOrError.result) {
+    ++stats_.numVerified;
+    VELOX_CHECK(
+        assertEqualResults(
+            expectedResult.value(),
+            firstPlan->outputType(),
+            {resultOrError.result}),
+        "Velox and reference DB results don't match");
+    LOG(INFO) << "Verified results against reference DB";
+  }
+
+  const auto inputRowType = asRowType(input[0]->type());
+  if (isTableScanSupported(inputRowType)) {
+    auto directory = exec::test::TempDirectoryPath::create();
+    auto splits = makeSplits(input, directory->path);
+
+    std::vector<PlanWithSplits> plans;
+    plans.push_back(
+        {PlanBuilder()
+             .tableScan(inputRowType)
+             .singleAggregation(groupingKeys, aggregates, masks)
+             .planNode(),
+         splits});
+
+    testPlans(plans, true, resultOrError, 1);
+  }
+
+  return resultOrError.exceptionPtr != nullptr;
 }
 
 // verifyAggregation(std::vector<core::PlanNodePtr> plans) is tied to plan
@@ -1539,6 +1655,7 @@ void AggregationFuzzer::verifyAggregation(
         assertEqualResults(
             expectedResult.value(), plan->outputType(), {resultOrError.result}),
         "Velox and reference DB results don't match");
+    LOG(INFO) << "Verified results against reference DB";
   }
 
   // Test all plans.
@@ -1555,6 +1672,8 @@ void AggregationFuzzer::Stats::print(size_t numIterations) const {
             << printStat(numGroupBy, numIterations);
   LOG(INFO) << "Total distinct aggregations: "
             << printStat(numDistinct, numIterations);
+  LOG(INFO) << "Total aggregations over sorted inputs: "
+            << printStat(numSortedInputs, numIterations);
   LOG(INFO) << "Total window expressions: "
             << printStat(numWindow, numIterations);
   LOG(INFO) << "Total aggregations verified against reference DB: "

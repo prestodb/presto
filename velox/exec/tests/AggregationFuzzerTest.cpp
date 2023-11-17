@@ -260,6 +260,13 @@ int main(int argc, char** argv) {
 
   auto duckQueryRunner =
       std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();
+  duckQueryRunner->disableAggregateFunctions({
+      "skewness",
+      // DuckDB results on constant inputs are incorrect. Should be NaN,
+      // but DuckDB returns some random value.
+      "kurtosis",
+      "entropy",
+  });
 
   // List of functions that have known bugs that cause crashes or failures.
   static const std::unordered_set<std::string> skipFunctions = {

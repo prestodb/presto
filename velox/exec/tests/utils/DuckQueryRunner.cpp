@@ -39,6 +39,31 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
   return sql.str();
 }
 
+std::string toAggregateCallSql(
+    const core::CallTypedExprPtr& call,
+    const std::vector<core::FieldAccessTypedExprPtr>& sortingKeys,
+    const std::vector<core::SortOrder>& sortingOrders) {
+  std::stringstream sql;
+  sql << call->name() << "(";
+  for (auto i = 0; i < call->inputs().size(); ++i) {
+    appendComma(i, sql);
+    sql << std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+               call->inputs()[i])
+               ->name();
+  }
+
+  if (!sortingKeys.empty()) {
+    sql << " order by ";
+    for (auto i = 0; i < sortingKeys.size(); ++i) {
+      appendComma(i, sql);
+      sql << sortingKeys[i]->name() << " " << sortingOrders[i].toString();
+    }
+  }
+
+  sql << ")";
+  return sql.str();
+}
+
 bool isSupported(const TypePtr& type) {
   // DuckDB doesn't support nanosecond precision for timestamps.
   if (type->kind() == TypeKind::TIMESTAMP) {
@@ -73,6 +98,13 @@ std::unordered_set<std::string> getAggregateFunctions() {
 
 DuckQueryRunner::DuckQueryRunner()
     : aggregateFunctionNames_{getAggregateFunctions()} {}
+
+void DuckQueryRunner::disableAggregateFunctions(
+    const std::vector<std::string>& names) {
+  for (const auto& name : names) {
+    aggregateFunctionNames_.erase(name);
+  }
+}
 
 std::multiset<std::vector<velox::variant>> DuckQueryRunner::execute(
     const std::string& sql,
@@ -161,7 +193,8 @@ std::optional<std::string> DuckQueryRunner::toSql(
     for (auto i = 0; i < aggregates.size(); ++i) {
       appendComma(i, sql);
       const auto& aggregate = aggregates[i];
-      sql << toCallSql(aggregate.call);
+      sql << toAggregateCallSql(
+          aggregate.call, aggregate.sortingKeys, aggregate.sortingOrders);
 
       if (aggregate.mask != nullptr) {
         sql << " filter (where " << aggregate.mask->name() << ")";

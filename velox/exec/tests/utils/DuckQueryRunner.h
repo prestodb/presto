@@ -23,6 +23,11 @@ class DuckQueryRunner : public ReferenceQueryRunner {
  public:
   DuckQueryRunner();
 
+  /// Specify names of aggregate function to exclude from the list of supported
+  /// functions. Used to exclude functions that are non-determonistic, have bugs
+  /// or whose semantics differ from Velox.
+  void disableAggregateFunctions(const std::vector<std::string>& names);
+
   /// Supports AggregationNode and WindowNode with optional ProjectNode on top.
   /// Assumes that source of AggregationNode or Window Node is 'tmp' table.
   std::optional<std::string> toSql(const core::PlanNodePtr& plan) override;
