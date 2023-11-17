@@ -62,6 +62,16 @@ void StreamingAggregation::initialize() {
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode_->aggregates()[i];
 
+    if (!aggregate.sortingKeys.empty()) {
+      VELOX_UNSUPPORTED(
+          "Streaming aggregation doesn't support aggregations over sorted inputs yet");
+    }
+
+    if (aggregate.distinct) {
+      VELOX_UNSUPPORTED(
+          "Streaming aggregation doesn't support aggregations over distinct inputs yet");
+    }
+
     std::vector<column_index_t> channels;
     std::vector<VectorPtr> constants;
     for (auto& arg : aggregate.call->inputs()) {
@@ -100,7 +110,8 @@ void StreamingAggregation::initialize() {
   }
 
   if (aggregationNode_->ignoreNullKeys()) {
-    VELOX_NYI("Streaming aggregation doesn't support ignoring null keys yet");
+    VELOX_UNSUPPORTED(
+        "Streaming aggregation doesn't support ignoring null keys yet");
   }
 
   masks_ = std::make_unique<AggregationMasks>(std::move(maskChannels));

@@ -303,7 +303,7 @@ TEST_F(StreamingAggregationTest, partialStreaming) {
   testMultiKeyAggregation(keys, {"c0"});
 }
 
-// Test StreaingAggregation being closed without being initialized. Create a
+// Test StreamingAggregation being closed without being initialized. Create a
 // pipeline with Project followed by StreamingAggregation. Make
 // Project::initialize fail by using non-existent function.
 TEST_F(StreamingAggregationTest, closeUninitialized) {
@@ -331,4 +331,46 @@ TEST_F(StreamingAggregationTest, closeUninitialized) {
   VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan).copyResults(pool()),
       "Scalar function name not registered: do-not-exist");
+}
+
+TEST_F(StreamingAggregationTest, sortedAggregations) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row / 4; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row % 4; }),
+  });
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .streamingAggregation(
+                      {"c0"},
+                      {"array_agg(c1 order by c1 desc)"},
+                      {},
+                      core::AggregationNode::Step::kSingle,
+                      false)
+                  .planNode();
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "Streaming aggregation doesn't support aggregations over sorted inputs yet");
+}
+
+TEST_F(StreamingAggregationTest, distinctAggregations) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row / 4; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row % 3; }),
+  });
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .streamingAggregation(
+                      {"c0"},
+                      {"array_agg(distinct c1)"},
+                      {},
+                      core::AggregationNode::Step::kSingle,
+                      false)
+                  .planNode();
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "Streaming aggregation doesn't support aggregations over distinct inputs yet");
 }
