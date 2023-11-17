@@ -159,9 +159,12 @@ ResultOrError ExpressionVerifier::verify(
 
     exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, inputRowVector.get());
     exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
+    // This checks that input vectors did not change during evaluation.
     if (copiedInput) {
       SelectivityVector rows(copiedInput->size());
-      compareVectors(copiedInput, inputRowVector, rows);
+      // Flatten the input vector as an optimization if its very deeply nested.
+      auto flattenedInputVector = createCopy(inputRowVector);
+      compareVectors(copiedInput, flattenedInputVector, rows);
     }
   } catch (const VeloxUserError&) {
     if (!canThrow) {
@@ -190,9 +193,12 @@ ResultOrError ExpressionVerifier::verify(
 
     auto copy = createCopy(rowVector);
     exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
+    // This checks that input vectors did not change during evaluation.
     {
       SelectivityVector rows(copy->size());
-      compareVectors(copy, rowVector, rows);
+      // Flatten the input vector as an optimization if its very deeply nested.
+      auto flattenedInputVector = createCopy(rowVector);
+      compareVectors(copy, flattenedInputVector, rows);
     }
 
   } catch (const VeloxUserError&) {
