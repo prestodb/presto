@@ -543,7 +543,6 @@ public final class SqlStageExecution
         splitsScheduled.set(true);
 
         checkArgument(planFragment.getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
-        checkArgument(!planFragment.getStageExecutionDescriptor().isStageGroupedExecution(), "Unsupported Grouped Execution");
 
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);

@@ -545,15 +545,16 @@ public class SectionExecutionFactory
             //skipping node pool based selection for grouped execution
             return Optional.empty();
         }
-        //error out grouped execution query to clear the noise
-        checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution(), "Grouped execution not supported");
+
         boolean hasLocalExchangeAtRoot = PlanFragment.containLocalExchange(plan.getFragment().getRoot());
         boolean isLeafFragment = isLeafSourceFragment(plan, partitioningHandle);
-        NodePoolType workerPoolType = !isLeafFragment || hasLocalExchangeAtRoot ? INTERMEDIATE : LEAF;
+        boolean isGroupedExecution = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();
+        NodePoolType workerPoolType = !isLeafFragment || hasLocalExchangeAtRoot || isGroupedExecution ? INTERMEDIATE : LEAF;
         //avoid splitting node for jmx connector
         if (isLeafFragment && plan.getFragment().getRoot() instanceof TableScanNode && ((TableScanNode) plan.getFragment().getRoot()).getTable().getConnectorId().getCatalogName().equals("jmx")) {
             return Optional.empty();
         }
+
         ConcurrentHashMap<PlanFragmentId, Session.Pair<NodePoolType, String>> fragmentToPoolTypeMapping = session.getFragmentToPoolTypeMapping();
         Session.Pair<NodePoolType, String> nodePoolTypeStringPair = fragmentToPoolTypeMapping.get(plan.getFragment().getId());
         if (nodePoolTypeStringPair != null && nodePoolTypeStringPair.getKey() != workerPoolType) {
