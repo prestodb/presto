@@ -24,6 +24,7 @@
 #include "velox/core/QueryCtx.h"
 #include "velox/vector/arrow/Bridge.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::test {
 namespace {
@@ -661,6 +662,28 @@ TEST_F(ArrowBridgeArrayExportTest, arrayCrossValidate) {
   for (int i = 0; i < 5; ++i) {
     EXPECT_EQ(values.Value(i), i + 1);
   }
+}
+
+TEST_F(ArrowBridgeArrayExportTest, arrayDictionary) {
+  auto vec = ({
+    auto indices = makeBuffer<vector_size_t>({1, 2, 0});
+    auto wrapped = vectorMaker_.flatVector<int64_t>({1, 2, 3});
+    auto inner = BaseVector::wrapInDictionary(nullptr, indices, 3, wrapped);
+    auto offsets = makeBuffer<vector_size_t>({2, 0});
+    auto sizes = makeBuffer<vector_size_t>({1, 1});
+    std::make_shared<ArrayVector>(
+        pool_.get(), ARRAY(inner->type()), nullptr, 2, offsets, sizes, inner);
+  });
+
+  ArrowSchema schema;
+  ArrowArray data;
+  velox::exportToArrow(vec, schema);
+  velox::exportToArrow(vec, data, vec->pool());
+
+  auto result = importFromArrowAsViewer(schema, data, vec->pool());
+  test::assertEqualVectors(result, vec);
+  schema.release(&schema);
+  data.release(&data);
 }
 
 TEST_F(ArrowBridgeArrayExportTest, arrayGap) {

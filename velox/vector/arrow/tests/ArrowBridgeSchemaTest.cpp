@@ -257,13 +257,27 @@ class ArrowBridgeSchemaImportTest : public ArrowBridgeSchemaExportTest {
     return type;
   }
 
-  TypePtr testSchemaImportComplex(
+  TypePtr testSchemaDictionaryImport(const char* indexFmt, ArrowSchema schema) {
+    auto dictionarySchema = makeArrowSchema(indexFmt);
+    dictionarySchema.dictionary = &schema;
+
+    auto type = importFromArrow(dictionarySchema);
+    dictionarySchema.release(&dictionarySchema);
+    return type;
+  }
+
+  ArrowSchema makeComplexArrowSchema(
+      std::vector<ArrowSchema>& schemas,
+      std::vector<ArrowSchema*>& schemaPtrs,
+      std::vector<ArrowSchema>& mapSchemas,
+      std::vector<ArrowSchema*>& mapSchemaPtrs,
       const char* mainFormat,
       const std::vector<const char*>& childrenFormat,
       const std::vector<const char*>& colNames = {}) {
-    std::vector<ArrowSchema> schemas;
-    std::vector<ArrowSchema*> schemaPtrs;
-
+    schemas.clear();
+    schemaPtrs.clear();
+    mapSchemas.clear();
+    mapSchemaPtrs.clear();
     schemas.resize(childrenFormat.size());
     schemaPtrs.resize(childrenFormat.size());
 
@@ -278,18 +292,40 @@ class ArrowBridgeSchemaImportTest : public ArrowBridgeSchemaExportTest {
     auto mainSchema = makeArrowSchema(mainFormat);
     if (strcmp(mainFormat, "+m") == 0) {
       // Arrow wraps key and value in a struct.
-      auto child = makeArrowSchema("+s");
-      auto children = &child;
-      child.n_children = schemaPtrs.size();
-      child.children = schemaPtrs.data();
+      mapSchemas.resize(1);
+      mapSchemaPtrs.resize(1);
+      mapSchemas[0] = makeArrowSchema("+s");
+      auto* child = &mapSchemas[0];
+      mapSchemaPtrs[0] = &mapSchemas[0];
+      child->n_children = schemaPtrs.size();
+      child->children = schemaPtrs.data();
       mainSchema.n_children = 1;
-      mainSchema.children = &children;
-      return importFromArrow(mainSchema);
+      mainSchema.children = mapSchemaPtrs.data();
     } else {
       mainSchema.n_children = (int64_t)schemaPtrs.size();
       mainSchema.children = schemaPtrs.data();
-      return importFromArrow(mainSchema);
     }
+
+    return mainSchema;
+  }
+
+  TypePtr testSchemaImportComplex(
+      const char* mainFormat,
+      const std::vector<const char*>& childrenFormat,
+      const std::vector<const char*>& colNames = {}) {
+    std::vector<ArrowSchema> schemas;
+    std::vector<ArrowSchema> mapSchemas;
+    std::vector<ArrowSchema*> schemaPtrs;
+    std::vector<ArrowSchema*> mapSchemaPtrs;
+    auto type = importFromArrow(makeComplexArrowSchema(
+        schemas,
+        schemaPtrs,
+        mapSchemas,
+        mapSchemaPtrs,
+        mainFormat,
+        childrenFormat,
+        colNames));
+    return type;
   }
 };
 
@@ -431,6 +467,100 @@ TEST_F(ArrowBridgeSchemaTest, validateInArrow) {
     ASSERT_FALSE(schema.release);
     EXPECT_EQ(*actual, *ta);
   }
+}
+
+TEST_F(ArrowBridgeSchemaImportTest, dictionaryTypeTest) {
+  // Primitive types
+  EXPECT_EQ(DOUBLE(), testSchemaDictionaryImport("i", makeArrowSchema("g")));
+  EXPECT_EQ(BOOLEAN(), testSchemaDictionaryImport("i", makeArrowSchema("b")));
+  EXPECT_EQ(TINYINT(), testSchemaDictionaryImport("i", makeArrowSchema("c")));
+  EXPECT_EQ(INTEGER(), testSchemaDictionaryImport("i", makeArrowSchema("i")));
+  EXPECT_EQ(SMALLINT(), testSchemaDictionaryImport("i", makeArrowSchema("s")));
+  EXPECT_EQ(BIGINT(), testSchemaDictionaryImport("i", makeArrowSchema("l")));
+  EXPECT_EQ(REAL(), testSchemaDictionaryImport("i", makeArrowSchema("f")));
+  EXPECT_EQ(VARCHAR(), testSchemaDictionaryImport("i", makeArrowSchema("u")));
+
+  std::vector<ArrowSchema> schemas;
+  std::vector<ArrowSchema> mapSchemas;
+  std::vector<ArrowSchema*> mapSchemaPtrs;
+  std::vector<ArrowSchema*> schemaPtrs;
+
+  // Arrays
+  EXPECT_EQ(
+      *ARRAY(BIGINT()),
+      *testSchemaDictionaryImport(
+          "i",
+          makeComplexArrowSchema(
+              schemas, schemaPtrs, mapSchemas, mapSchemaPtrs, "+l", {"l"})));
+  EXPECT_EQ(
+      *ARRAY(TIMESTAMP()),
+      *testSchemaDictionaryImport(
+          "i",
+          makeComplexArrowSchema(
+              schemas, schemaPtrs, mapSchemas, mapSchemaPtrs, "+l", {"ttn"})));
+  EXPECT_EQ(
+      *ARRAY(DATE()),
+      *testSchemaDictionaryImport(
+          "i",
+          makeComplexArrowSchema(
+              schemas, schemaPtrs, mapSchemas, mapSchemaPtrs, "+l", {"tdD"})));
+  EXPECT_EQ(
+      *ARRAY(VARCHAR()),
+      *testSchemaDictionaryImport(
+          "i",
+          makeComplexArrowSchema(
+              schemas, schemaPtrs, mapSchemas, mapSchemaPtrs, "+l", {"U"})));
+
+  // Maps
+  EXPECT_EQ(
+      *MAP(VARCHAR(), BOOLEAN()),
+      *testSchemaDictionaryImport(
+          "i",
+          makeComplexArrowSchema(
+              schemas,
+              schemaPtrs,
+              mapSchemas,
+              mapSchemaPtrs,
+              "+m",
+              {"U", "b"})));
+  EXPECT_EQ(
+      *MAP(SMALLINT(), REAL()),
+      *testSchemaDictionaryImport(
+          "i",
+          makeComplexArrowSchema(
+              schemas,
+              schemaPtrs,
+              mapSchemas,
+              mapSchemaPtrs,
+              "+m",
+              {"s", "f"})));
+
+  // Rows
+  EXPECT_EQ(
+      *ROW({SMALLINT(), REAL()}),
+      *testSchemaDictionaryImport(
+          "i",
+          makeComplexArrowSchema(
+              schemas,
+              schemaPtrs,
+              mapSchemas,
+              mapSchemaPtrs,
+              "+s",
+              {"s", "f"})));
+
+  // Named Row
+  EXPECT_EQ(
+      *ROW({"col1", "col2"}, {SMALLINT(), REAL()}),
+      *testSchemaDictionaryImport(
+          "i",
+          makeComplexArrowSchema(
+              schemas,
+              schemaPtrs,
+              mapSchemas,
+              mapSchemaPtrs,
+              "+s",
+              {"s", "f"},
+              {"col1", "col2"})));
 }
 
 } // namespace
