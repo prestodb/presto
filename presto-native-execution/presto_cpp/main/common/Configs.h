@@ -196,6 +196,20 @@ class SystemConfig : public ConfigBase {
   /// NOTE: the query memory capacity is enforced by memory arbitrator so that
   /// this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
+
+  /// If true, enable memory pushback when the server is under low memory
+  /// condition.
+  static constexpr std::string_view kSystemMemPushbackEnabled{
+      "system-mem-pushback-enabled"};
+  /// Specifies the system memory limit and triggers memory pushback if the
+  /// server memory usage exceeds this limit. This only applies if
+  /// 'system-mem-pushback-enabled' is true.
+  static constexpr std::string_view kSystemMemLimitGb{"system-mem-limit-gb"};
+  /// Specifies the memory to shrink when memory pushback is triggered to help
+  /// get the server out of low memory condition. This only applies if
+  /// 'system-mem-pushback-enabled' is true.
+  static constexpr std::string_view kSystemMemShrinkGb{"system-mem-shrink-gb"};
+
   static constexpr std::string_view kAsyncDataCacheEnabled{
       "async-data-cache-enabled"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
@@ -433,7 +447,13 @@ class SystemConfig : public ConfigBase {
 
   int32_t shutdownOnsetSec() const;
 
-  int32_t systemMemoryGb() const;
+  uint32_t systemMemoryGb() const;
+
+  bool systemMemPushbackEnabled() const;
+
+  uint32_t systemMemLimitGb() const;
+
+  uint32_t systemMemShrinkGb() const;
 
   bool asyncDataCacheEnabled() const;
 
