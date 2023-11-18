@@ -102,7 +102,8 @@ SpillFile::SpillFile(
     const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
     common::CompressionKind compressionKind,
-    memory::MemoryPool* pool)
+    memory::MemoryPool* pool,
+    const std::unordered_map<std::string, std::string>& writeFileOptions)
     : id_(id),
       type_(std::move(type)),
       numSortingKeys_(numSortingKeys),
@@ -110,6 +111,7 @@ SpillFile::SpillFile(
       ordinal_(ordinalCounter_++),
       path_(fmt::format("{}-{}", path, ordinal_)),
       compressionKind_(compressionKind),
+      writeFileOptions_(filesystems::FileOptions{writeFileOptions, nullptr}),
       pool_(pool) {
   // NOTE: if the spilling operator has specified the sort comparison flags,
   // then it must match the number of sorting keys.
@@ -120,7 +122,7 @@ SpillFile::SpillFile(
 WriteFile& SpillFile::output() {
   if (!output_) {
     auto fs = filesystems::getFileSystem(path_, nullptr);
-    output_ = fs->openFileForWrite(path_);
+    output_ = fs->openFileForWrite(path_, writeFileOptions_);
   }
   return *output_;
 }
@@ -156,7 +158,8 @@ SpillFileList::SpillFileList(
     uint64_t writeBufferSize,
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
-    folly::Synchronized<SpillStats>* stats)
+    folly::Synchronized<SpillStats>* stats,
+    const std::unordered_map<std::string, std::string>& writeFileOptions)
     : type_(type),
       numSortingKeys_(numSortingKeys),
       sortCompareFlags_(sortCompareFlags),
@@ -164,6 +167,7 @@ SpillFileList::SpillFileList(
       targetFileSize_(targetFileSize),
       writeBufferSize_(writeBufferSize),
       compressionKind_(compressionKind),
+      writeFileOptions_(writeFileOptions),
       pool_(pool),
       stats_(stats) {
   // NOTE: if the associated spilling operator has specified the sort
@@ -186,7 +190,8 @@ WriteFile& SpillFileList::currentOutput() {
         sortCompareFlags_,
         fmt::format("{}-{}", path_, files_.size()),
         compressionKind_,
-        pool_));
+        pool_,
+        writeFileOptions_));
   }
   return files_.back()->output();
 }
@@ -311,7 +316,8 @@ SpillState::SpillState(
     uint64_t writeBufferSize,
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
-    folly::Synchronized<SpillStats>* stats)
+    folly::Synchronized<SpillStats>* stats,
+    const std::unordered_map<std::string, std::string>& writeFileOptions)
     : path_(path),
       maxPartitions_(maxPartitions),
       numSortingKeys_(numSortingKeys),
@@ -319,6 +325,7 @@ SpillState::SpillState(
       targetFileSize_(targetFileSize),
       writeBufferSize_(writeBufferSize),
       compressionKind_(compressionKind),
+      writeFileOptions_(writeFileOptions),
       pool_(pool),
       stats_(stats),
       files_(maxPartitions_) {}
@@ -358,7 +365,8 @@ uint64_t SpillState::appendToPartition(
         writeBufferSize_,
         compressionKind_,
         pool_,
-        stats_);
+        stats_,
+        writeFileOptions_);
   }
   updateSpilledInputBytes(rows->estimateFlatSize());
 

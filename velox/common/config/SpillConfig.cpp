@@ -30,7 +30,8 @@ SpillConfig::SpillConfig(
     int32_t _maxSpillLevel,
     uint64_t _writerFlushThresholdSize,
     int32_t _testSpillPct,
-    const std::string& _compressionKind)
+    const std::string& _compressionKind,
+    const std::unordered_map<std::string, std::string>& _writeFileOptions)
     : filePath(_filePath),
       maxFileSize(
           _maxFileSize == 0 ? std::numeric_limits<int64_t>::max()
@@ -45,7 +46,8 @@ SpillConfig::SpillConfig(
       maxSpillLevel(_maxSpillLevel),
       writerFlushThresholdSize(_writerFlushThresholdSize),
       testSpillPct(_testSpillPct),
-      compressionKind(common::stringToCompressionKind(_compressionKind)) {
+      compressionKind(common::stringToCompressionKind(_compressionKind)),
+      writeFileOptions(_writeFileOptions) {
   VELOX_USER_CHECK_GE(
       spillableReservationGrowthPct,
       minSpillableReservationPct,

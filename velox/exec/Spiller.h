@@ -55,7 +55,9 @@ class Spiller {
       uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
-      folly::Executor* executor);
+      folly::Executor* executor,
+      const std::unordered_map<std::string, std::string>& writeFileOptions =
+          {});
 
   Spiller(
       Type type,
@@ -65,7 +67,9 @@ class Spiller {
       uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
-      folly::Executor* executor);
+      folly::Executor* executor,
+      const std::unordered_map<std::string, std::string>& writeFileOptions =
+          {});
 
   Spiller(
       Type type,
@@ -76,7 +80,9 @@ class Spiller {
       uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
-      folly::Executor* executor);
+      folly::Executor* executor,
+      const std::unordered_map<std::string, std::string>& writeFileOptions =
+          {});
 
   Spiller(
       Type type,
@@ -88,7 +94,9 @@ class Spiller {
       uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
-      folly::Executor* executor);
+      folly::Executor* executor,
+      const std::unordered_map<std::string, std::string>& writeFileOptions =
+          {});
 
   Type type() const {
     return type_;
@@ -194,7 +202,8 @@ class Spiller {
       uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
-      folly::Executor* executor);
+      folly::Executor* executor,
+      const std::unordered_map<std::string, std::string>& writeFileOptions);
 
   // Invoked to spill. If 'startRowIter' is not null, then we only spill rows
   // from row container starting at the offset pointed by 'startRowIter'.

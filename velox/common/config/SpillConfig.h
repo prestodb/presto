@@ -36,7 +36,9 @@ struct SpillConfig {
       int32_t _maxSpillLevel,
       uint64_t _writerFlushThresholdSize,
       int32_t _testSpillPct,
-      const std::string& _compressionKind);
+      const std::string& _compressionKind,
+      const std::unordered_map<std::string, std::string>& _writeFileOptions =
+          {});
 
   /// Returns the hash join spilling level with given 'startBitOffset'.
   ///
@@ -103,5 +105,8 @@ struct SpillConfig {
 
   /// CompressionKind when spilling, CompressionKind_NONE means no compression.
   common::CompressionKind compressionKind;
+
+  /// Custom options passed to velox::FileSystem to create spill WriteFile.
+  std::unordered_map<std::string, std::string> writeFileOptions;
 };
 } // namespace facebook::velox::common

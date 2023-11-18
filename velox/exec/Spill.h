@@ -20,6 +20,7 @@
 
 #include "velox/common/compression/Compression.h"
 #include "velox/common/file/File.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/exec/TreeOfLosers.h"
 #include "velox/exec/UnorderedStreamReader.h"
 #include "velox/vector/ComplexVector.h"
@@ -27,7 +28,6 @@
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
-
 /// Input stream backed by spill file.
 ///
 /// TODO Usage of ByteInputStream as base class is hacky and just happens to
@@ -75,7 +75,8 @@ class SpillFile {
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
       common::CompressionKind compressionKind,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      const std::unordered_map<std::string, std::string>& writeFileOptions);
 
   uint32_t id() const {
     return id_;
@@ -145,6 +146,7 @@ class SpillFile {
   const int32_t ordinal_;
   const std::string path_;
   const common::CompressionKind compressionKind_;
+  const filesystems::FileOptions writeFileOptions_;
   memory::MemoryPool* const pool_;
 
   // Byte size of the backing file. Set when finishing writing.
@@ -252,7 +254,8 @@ class SpillFileList {
       uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
-      folly::Synchronized<SpillStats>* stats);
+      folly::Synchronized<SpillStats>* stats,
+      const std::unordered_map<std::string, std::string>& writeFileOptions);
 
   /// Adds 'rows' for the positions in 'indices' into 'this'. The indices
   /// must produce a view where the rows are sorted if sorting is desired.
@@ -303,6 +306,7 @@ class SpillFileList {
   const uint64_t targetFileSize_;
   const uint64_t writeBufferSize_;
   const common::CompressionKind compressionKind_;
+  const std::unordered_map<std::string, std::string> writeFileOptions_;
   memory::MemoryPool* const pool_;
   folly::Synchronized<SpillStats>* const stats_;
   uint32_t nextFileId_{0};
@@ -611,7 +615,9 @@ class SpillState {
       uint64_t writeBufferSize,
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
-      folly::Synchronized<SpillStats>* stats);
+      folly::Synchronized<SpillStats>* stats,
+      const std::unordered_map<std::string, std::string>& writeFileOptions =
+          {});
 
   /// Indicates if a given 'partition' has been spilled or not.
   bool isPartitionSpilled(int32_t partition) const {
@@ -701,6 +707,7 @@ class SpillState {
   const uint64_t targetFileSize_;
   const uint64_t writeBufferSize_;
   const common::CompressionKind compressionKind_;
+  const std::unordered_map<std::string, std::string> writeFileOptions_;
   memory::MemoryPool* const pool_;
   folly::Synchronized<SpillStats>* const stats_;
 
