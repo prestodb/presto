@@ -154,6 +154,9 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kSpillerSpillPath),
           NUM_PROP(kShutdownOnsetSec, 10),
           NUM_PROP(kSystemMemoryGb, 40),
+          STR_PROP(kSystemMemPushbackEnabled, "false"),
+          NUM_PROP(kSystemMemLimitGb, 55),
+          NUM_PROP(kSystemMemShrinkGb, 8),
           STR_PROP(kAsyncDataCacheEnabled, "true"),
           NUM_PROP(kAsyncCacheSsdGb, 0),
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
@@ -333,8 +336,20 @@ int32_t SystemConfig::shutdownOnsetSec() const {
   return optionalProperty<int32_t>(kShutdownOnsetSec).value();
 }
 
-int32_t SystemConfig::systemMemoryGb() const {
-  return optionalProperty<int32_t>(kSystemMemoryGb).value();
+uint32_t SystemConfig::systemMemoryGb() const {
+  return optionalProperty<uint32_t>(kSystemMemoryGb).value();
+}
+
+uint32_t SystemConfig::systemMemLimitGb() const {
+  return optionalProperty<uint32_t>(kSystemMemLimitGb).value();
+}
+
+uint32_t SystemConfig::systemMemShrinkGb() const {
+  return optionalProperty<uint32_t>(kSystemMemShrinkGb).value();
+}
+
+bool SystemConfig::systemMemPushbackEnabled() const {
+  return optionalProperty<bool>(kSystemMemPushbackEnabled).value();
 }
 
 uint64_t SystemConfig::asyncCacheSsdGb() const {
