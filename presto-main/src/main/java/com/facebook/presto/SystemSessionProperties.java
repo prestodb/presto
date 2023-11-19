@@ -32,6 +32,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMe
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.LeftJoinArrayContainsToInnerJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
@@ -287,6 +288,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN = "rewrite_cross_join_or_to_inner_join";
     public static final String REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN = "rewrite_cross_join_array_contains_to_inner_join";
     public static final String REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN = "rewrite_cross_join_array_not_contains_to_anti_join";
+    public static final String REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN = "rewrite_left_join_array_contains_to_equi_join";
     public static final String REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN = "rewrite_left_join_null_filter_to_semi_join";
     public static final String USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN = "use_broadcast_when_buildsize_small_probeside_unknown";
     public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
@@ -1735,6 +1737,18 @@ public final class SystemSessionProperties
                         featuresConfig.isRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin(),
                         false),
                 new PropertyMetadata<>(
+                        REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN,
+                        format("Set the strategy used to convert left join with array contains to inner join. Options are: %s",
+                                Stream.of(LeftJoinArrayContainsToInnerJoinStrategy.values())
+                                        .map(LeftJoinArrayContainsToInnerJoinStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        LeftJoinArrayContainsToInnerJoinStrategy.class,
+                        featuresConfig.getLeftJoinWithArrayContainsToEquiJoinStrategy(),
+                        false,
+                        value -> LeftJoinArrayContainsToInnerJoinStrategy.valueOf(((String) value).toUpperCase()),
+                        LeftJoinArrayContainsToInnerJoinStrategy::name),
+                new PropertyMetadata<>(
                         JOINS_NOT_NULL_INFERENCE_STRATEGY,
                         format("Set the strategy used NOT NULL filter inference on Join Nodes. Options are: %s",
                                 Stream.of(JoinNotNullInferenceStrategy.values())
@@ -2953,6 +2967,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteCrossJoinArrayNotContainsToAntiJoinEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN, Boolean.class);
+    }
+
+    public static LeftJoinArrayContainsToInnerJoinStrategy getLeftJoinArrayContainsToInnerJoinStrategy(Session session)
+    {
+        return session.getSystemProperty(REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN, LeftJoinArrayContainsToInnerJoinStrategy.class);
     }
 
     public static boolean isRewriteLeftJoinNullFilterToSemiJoinEnabled(Session session)

@@ -21,6 +21,7 @@ import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImpl
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.LeftJoinArrayContainsToInnerJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
@@ -244,6 +245,7 @@ public class TestFeaturesConfig
                 .setDefaultJoinSelectivityCoefficient(0)
                 .setRewriteCrossJoinWithOrFilterToInnerJoin(true)
                 .setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(true)
+                .setLeftJoinWithArrayContainsToEquiJoinStrategy(LeftJoinArrayContainsToInnerJoinStrategy.DISABLED)
                 .setRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin(true)
                 .setLeftJoinNullFilterToSemiJoin(true)
                 .setBroadcastJoinWithSmallBuildUnknownProbe(false)
@@ -444,6 +446,7 @@ public class TestFeaturesConfig
                 .put("optimizer.push-down-filter-expression-evaluation-through-cross-join", "DISABLED")
                 .put("optimizer.rewrite-cross-join-with-or-filter-to-inner-join", "false")
                 .put("optimizer.rewrite-cross-join-with-array-contains-filter-to-inner-join", "false")
+                .put("optimizer.left-join-with-array-contains-to-equi-join-strategy", "ALWAYS_ENABLED")
                 .put("optimizer.rewrite-cross-join-with-array-not-contains-filter-to-anti-join", "false")
                 .put("optimizer.default-join-selectivity-coefficient", "0.5")
                 .put("optimizer.rewrite-left-join-with-null-filter-to-semi-join", "false")
@@ -644,6 +647,7 @@ public class TestFeaturesConfig
                 .setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy.DISABLED)
                 .setRewriteCrossJoinWithOrFilterToInnerJoin(false)
                 .setRewriteCrossJoinWithArrayContainsFilterToInnerJoin(false)
+                .setLeftJoinWithArrayContainsToEquiJoinStrategy(LeftJoinArrayContainsToInnerJoinStrategy.ALWAYS_ENABLED)
                 .setRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin(false)
                 .setLeftJoinNullFilterToSemiJoin(false)
                 .setBroadcastJoinWithSmallBuildUnknownProbe(true)

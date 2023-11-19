@@ -77,6 +77,7 @@ import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
@@ -6933,6 +6934,72 @@ public abstract class AbstractTestQueries
         sql = "with t1 as (select * from (values (1, 'JAPAN'), (2, 'invalid_nation')) t(k, nation)) " +
                 "select t1.k, t1.nation from t1 where contains(transform((select array_agg(name) from nation), (x) ->lower(x)), lower(t1.nation))";
         assertQuery(enableOptimization, sql, "values (1, 'JAPAN')");
+    }
+
+    @Test
+    public void testLeftJoinWithArrayContainsCondition()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN, "ALWAYS_ENABLED")
+                .build();
+
+        String sql = "with t1 as (select * from (values (array[1, 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3, null], 10), (array[4, 5, 6, null, null], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3], 10), (array[4, 5, 6], 11), (array[null, 9], 12)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b'), (null, 'c'), (9, 'd'), (8, 'd')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b'), (null, null, 'c'), (12, 9, 'd'), (null, 8, 'd')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3, null, null], 10), (array[4, 5, 6, null, null], 11), (array[null, 9], 12)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b'), (null, 'c'), (9, 'd'), (8, 'd')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b'), (null, null, 'c'), (12, 9, 'd'), (null, 8, 'd')");
+
+        sql = "with t1 as (select * from (values (array[1, 1, 3], 10), (array[4, 4, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 1, 3, null, null], 10), (array[4, 4, 6, null, null], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, null, 3], 10), (array[4, null, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (null, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (NULL, NULL, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k) and t1.k > 10";
+        assertQuery(enableOptimization, sql, "values (NULL, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3], 1), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k) or t1.k = t2.k";
+        assertQuery(enableOptimization, sql, "values (1, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select array_agg(orderkey) orderkey, partkey from lineitem l where l.quantity < 5 group by partkey) " +
+                "select t1.partkey, o.orderkey, o.totalprice from orders o left join t1 on contains(t1.orderkey, o.orderkey) where o.totalprice < 2000";
+        // Because the UDF has different names in H2, which is `array_contains`
+        String h2Sql = "with t1 as (select array_agg(orderkey) orderkey, partkey from lineitem l where l.quantity < 5 group by partkey) " +
+                "select t1.partkey, o.orderkey, o.totalprice from orders o left join t1 on array_contains(t1.orderkey, o.orderkey) where o.totalprice < 2000";
+        assertQuery(enableOptimization, sql, h2Sql);
+
+        sql = "with t1 as (select array_agg(orderkey) orderkey, partkey from lineitem l where l.quantity < 5 group by partkey) " +
+                "select t1.partkey, o.orderkey, o.totalprice from orders o left join t1 on contains(t1.orderkey, o.orderkey) and t1.partkey < o.orderkey where o.totalprice < 2000";
+        h2Sql = "with t1 as (select array_agg(orderkey) orderkey, partkey from lineitem l where l.quantity < 5 group by partkey) " +
+                "select t1.partkey, o.orderkey, o.totalprice from orders o left join t1 on array_contains(t1.orderkey, o.orderkey) and t1.partkey < o.orderkey where o.totalprice < 2000";
+        assertQuery(enableOptimization, sql, h2Sql);
+
+        // Element type and array type does not match
+        sql = "with t1 as (select * from (values (array[cast(1 as bigint), 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (cast(1 as integer), 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (11, 4, 'b'), (10, 1, 'a')");
+
+        sql = "with t1 as (select * from (values (array[cast(1 as integer), 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (cast(1 as bigint), 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (11, 4, 'b'), (10, 1, 'a')");
     }
 
     @Test
