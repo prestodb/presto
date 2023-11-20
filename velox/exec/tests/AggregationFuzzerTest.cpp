@@ -174,8 +174,7 @@ class ApproxPercentileInputGenerator : public InputGenerator {
     const TypePtr& percentileType = types[percentileTypeIndex];
     if (percentileType->isDouble()) {
       if (!percentile_.has_value()) {
-        // Generate value in [0, 1] range.
-        percentile_ = boost::random::uniform_01<double>()(rng);
+        percentile_ = pickPercentile(fuzzer, rng);
       }
 
       inputs.push_back(BaseVector::createConstant(
@@ -185,9 +184,9 @@ class ApproxPercentileInputGenerator : public InputGenerator {
       VELOX_CHECK(percentileType->childAt(0)->isDouble());
 
       if (percentiles_.empty()) {
-        percentiles_.push_back(boost::random::uniform_01<double>()(rng));
-        percentiles_.push_back(boost::random::uniform_01<double>()(rng));
-        percentiles_.push_back(boost::random::uniform_01<double>()(rng));
+        percentiles_.push_back(pickPercentile(fuzzer, rng));
+        percentiles_.push_back(pickPercentile(fuzzer, rng));
+        percentiles_.push_back(pickPercentile(fuzzer, rng));
       }
 
       auto arrayVector =
@@ -223,6 +222,23 @@ class ApproxPercentileInputGenerator : public InputGenerator {
   }
 
  private:
+  double pickPercentile(VectorFuzzer& fuzzer, FuzzerGenerator& rng) {
+    // 10% of the times generate random value in [0, 1] range.
+    // 90% of the times use one of the common values.
+    if (fuzzer.coinToss(0.1)) {
+      return boost::random::uniform_01<double>()(rng);
+    }
+
+    static const std::vector<double> kPercentiles = {
+        0.1, 0.25, 0.5, 0.75, 0.90, 0.95, 0.99, 0.999, 0.9999};
+
+    const auto index =
+        boost::random::uniform_int_distribution<uint32_t>()(rng) %
+        kPercentiles.size();
+
+    return kPercentiles[index];
+  }
+
   std::optional<double> percentile_;
   std::vector<double> percentiles_;
   std::optional<double> accuracy_;
