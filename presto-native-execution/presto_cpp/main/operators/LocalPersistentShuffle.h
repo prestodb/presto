@@ -128,7 +128,7 @@ class LocalPersistentShuffleReader : public ShuffleReader {
       std::vector<std::string> partitionIds_,
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
-  velox::BufferPtr next() override;
+  folly::SemiFuture<velox::BufferPtr> next() override;
 
   void noMoreData(bool success) override;
 
