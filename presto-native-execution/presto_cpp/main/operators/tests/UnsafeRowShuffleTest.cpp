@@ -186,16 +186,17 @@ class TestShuffleReader : public ShuffleReader {
           readyPartitions)
       : partition_(partition), readyPartitions_(readyPartitions) {}
 
-  BufferPtr next() override {
+  folly::SemiFuture<BufferPtr> next() override {
     TestValue::adjust(
         "facebook::presto::operators::test::TestShuffleReader::next", this);
     if ((*readyPartitions_)[partition_].empty()) {
-      return nullptr;
+      BufferPtr buffer = nullptr;
+      return folly::makeSemiFuture<BufferPtr>(std::move(buffer));
     }
 
     auto buffer = (*readyPartitions_)[partition_].back();
     (*readyPartitions_)[partition_].pop_back();
-    return buffer;
+    return folly::makeSemiFuture<BufferPtr>(std::move(buffer));
   }
 
   void noMoreData(bool success) override {
