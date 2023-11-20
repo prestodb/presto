@@ -211,6 +211,7 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"          skippedSplits       [ ]* sum: 0, count: 1, min: 0, max: 0"},
        {"          skippedStrides      [ ]* sum: 0, count: 1, min: 0, max: 0"},
        {"          storageReadBytes    [ ]* sum: .+, count: 1, min: .+, max: .+"},
+       {"          totalRemainingFilterTime\\s+sum: .+, count: .+, min: .+, max: .+"},
        {"          totalScanTime       [ ]* sum: .+, count: .+, min: .+, max: .+"},
        {"    -- Project\\[expressions: \\(u_c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(u_c1:BIGINT, ROW\\[\"c1\"\\]\\)\\] -> u_c0:INTEGER, u_c1:BIGINT"},
        {"       Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1"},
@@ -302,6 +303,7 @@ TEST_F(PrintPlanWithStatsTest, partialAggregateWithTableScan) {
          {"        skippedSplits    [ ]* sum: 0, count: 1, min: 0, max: 0"},
          {"        skippedStrides   [ ]* sum: 0, count: 1, min: 0, max: 0"},
          {"        storageReadBytes [ ]* sum: .+, count: 1, min: .+, max: .+"},
+         {"        totalRemainingFilterTime\\s+sum: .+, count: .+, min: .+, max: .+"},
          {"        totalScanTime    [ ]* sum: .+, count: .+, min: .+, max: .+"}});
   }
 }
