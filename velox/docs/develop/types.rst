@@ -97,8 +97,8 @@ point in a number. For example, the number `123.45` has a precision of `5` and a
 scale of `2`. DECIMAL types are backed by `BIGINT` and `HUGEINT` physical types,
 which store the unscaled value. For example, the unscaled value of decimal
 `123.45` is `12345`. `BIGINT` is used upto 18 precision, and has a range of
-[:math:`-10^{18} + 1, +10^{18} - 1`]. `HUGEINT` is used starting from 19 precision
-upto 38 precision, with a range of [:math:`-10^{38} + 1, +10^{38} - 1`].
+:math:`[-10^{18} + 1, +10^{18} - 1]`. `HUGEINT` is used starting from 19 precision
+upto 38 precision, with a range of :math:`[-10^{38} + 1, +10^{38} - 1]`.
 
 All the three values, precision, scale, unscaled value are required to represent a
 decimal value.
