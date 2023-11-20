@@ -205,6 +205,7 @@ PlanBuilder& PlanBuilder::values(
     const std::vector<RowVectorPtr>& values,
     bool parallelizable,
     size_t repeatTimes) {
+  VELOX_CHECK_NULL(planNode_, "Values must be the source node");
   auto valuesCopy = values;
   planNode_ = std::make_shared<core::ValuesNode>(
       nextPlanNodeId(), std::move(valuesCopy), parallelizable, repeatTimes);
@@ -212,7 +213,7 @@ PlanBuilder& PlanBuilder::values(
 }
 
 PlanBuilder& PlanBuilder::exchange(const RowTypePtr& outputType) {
-  VELOX_CHECK_NULL(planNode_, "exchange() must be the first call");
+  VELOX_CHECK_NULL(planNode_, "Exchange must be the source node");
   planNode_ =
       std::make_shared<core::ExchangeNode>(nextPlanNodeId(), outputType);
   return *this;
@@ -250,6 +251,7 @@ parseOrderByClauses(
 PlanBuilder& PlanBuilder::mergeExchange(
     const RowTypePtr& outputType,
     const std::vector<std::string>& keys) {
+  VELOX_CHECK_NULL(planNode_, "MergeExchange must be the source node");
   auto [sortingKeys, sortingOrders] =
       parseOrderByClauses(keys, outputType, pool_);
 
@@ -292,6 +294,7 @@ PlanBuilder& PlanBuilder::projectExpressions(
 }
 
 PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
+  VELOX_CHECK_NOT_NULL(planNode_, "Project cannot be the source node");
   std::vector<std::shared_ptr<const core::IExpr>> expressions;
   for (auto i = 0; i < projections.size(); ++i) {
     expressions.push_back(parse::parseExpr(projections[i], options_));
@@ -307,6 +310,7 @@ PlanBuilder& PlanBuilder::optionalFilter(const std::string& optionalFilter) {
 }
 
 PlanBuilder& PlanBuilder::filter(const std::string& filter) {
+  VELOX_CHECK_NOT_NULL(planNode_, "Filter cannot be the source node");
   planNode_ = std::make_shared<core::FilterNode>(
       nextPlanNodeId(),
       parseExpr(filter, planNode_->outputType(), options_, pool_),
@@ -355,6 +359,7 @@ PlanBuilder& PlanBuilder::tableWrite(
     const std::vector<std::string>& sortBy,
     const dwio::common::FileFormat fileFormat,
     const std::vector<std::string>& aggregates) {
+  VELOX_CHECK_NOT_NULL(planNode_, "TableWrite cannot be the source node");
   auto rowType = planNode_->outputType();
 
   std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
@@ -907,6 +912,7 @@ PlanBuilder& PlanBuilder::localMerge(
 PlanBuilder& PlanBuilder::orderBy(
     const std::vector<std::string>& keys,
     bool isPartial) {
+  VELOX_CHECK_NOT_NULL(planNode_, "OrderBy cannot be the source node");
   auto [sortingKeys, sortingOrders] =
       parseOrderByClauses(keys, planNode_->outputType(), pool_);
 
@@ -920,6 +926,7 @@ PlanBuilder& PlanBuilder::topN(
     const std::vector<std::string>& keys,
     int32_t count,
     bool isPartial) {
+  VELOX_CHECK_NOT_NULL(planNode_, "TopN cannot be the source node");
   auto [sortingKeys, sortingOrders] =
       parseOrderByClauses(keys, planNode_->outputType(), pool_);
   planNode_ = std::make_shared<core::TopNNode>(
@@ -1030,6 +1037,8 @@ PlanBuilder& PlanBuilder::partitionedOutput(
     int numPartitions,
     bool replicateNullsAndAny,
     const std::vector<std::string>& outputLayout) {
+  VELOX_CHECK_NOT_NULL(
+      planNode_, "PartitionedOutput cannot be the source node");
   return partitionedOutput(
       keys,
       numPartitions,
@@ -1044,6 +1053,8 @@ PlanBuilder& PlanBuilder::partitionedOutput(
     bool replicateNullsAndAny,
     core::PartitionFunctionSpecPtr partitionFunctionSpec,
     const std::vector<std::string>& outputLayout) {
+  VELOX_CHECK_NOT_NULL(
+      planNode_, "PartitionedOutput cannot be the source node");
   auto outputType = outputLayout.empty()
       ? planNode_->outputType()
       : extract(planNode_->outputType(), outputLayout);
@@ -1061,6 +1072,8 @@ PlanBuilder& PlanBuilder::partitionedOutput(
 
 PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
     const std::vector<std::string>& outputLayout) {
+  VELOX_CHECK_NOT_NULL(
+      planNode_, "PartitionedOutput cannot be the source node");
   auto outputType = outputLayout.empty()
       ? planNode_->outputType()
       : extract(planNode_->outputType(), outputLayout);
@@ -1071,6 +1084,8 @@ PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
 
 PlanBuilder& PlanBuilder::partitionedOutputArbitrary(
     const std::vector<std::string>& outputLayout) {
+  VELOX_CHECK_NOT_NULL(
+      planNode_, "PartitionedOutput cannot be the source node");
   auto outputType = outputLayout.empty()
       ? planNode_->outputType()
       : extract(planNode_->outputType(), outputLayout);
@@ -1095,6 +1110,7 @@ PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
 PlanBuilder& PlanBuilder::localPartitionByBucket(
     const std::shared_ptr<connector::hive::HiveBucketProperty>&
         bucketProperty) {
+  VELOX_CHECK_NOT_NULL(planNode_, "LocalPartition cannot be the source node");
   std::vector<column_index_t> bucketChannels;
   for (const auto& bucketColumn : bucketProperty->bucketedBy()) {
     bucketChannels.push_back(
@@ -1203,6 +1219,7 @@ PlanBuilder& PlanBuilder::hashJoin(
     const std::vector<std::string>& outputLayout,
     core::JoinType joinType,
     bool nullAware) {
+  VELOX_CHECK_NOT_NULL(planNode_, "HashJoin cannot be the source node");
   VELOX_CHECK_EQ(leftKeys.size(), rightKeys.size());
 
   auto leftType = planNode_->outputType();
@@ -1253,6 +1270,7 @@ PlanBuilder& PlanBuilder::mergeJoin(
     const std::string& filter,
     const std::vector<std::string>& outputLayout,
     core::JoinType joinType) {
+  VELOX_CHECK_NOT_NULL(planNode_, "MergeJoin cannot be the source node");
   VELOX_CHECK_EQ(leftKeys.size(), rightKeys.size());
 
   auto leftType = planNode_->outputType();
@@ -1290,6 +1308,7 @@ PlanBuilder& PlanBuilder::nestedLoopJoin(
     const std::string& joinCondition,
     const std::vector<std::string>& outputLayout,
     core::JoinType joinType) {
+  VELOX_CHECK_NOT_NULL(planNode_, "NestedLoopJoin cannot be the source node");
   auto resultType = concat(planNode_->outputType(), right->outputType());
   auto outputType = extract(resultType, outputLayout);
 
@@ -1312,6 +1331,7 @@ PlanBuilder& PlanBuilder::unnest(
     const std::vector<std::string>& replicateColumns,
     const std::vector<std::string>& unnestColumns,
     const std::optional<std::string>& ordinalColumn) {
+  VELOX_CHECK_NOT_NULL(planNode_, "Unnest cannot be the source node");
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
       replicateFields;
   replicateFields.reserve(replicateColumns.size());
@@ -1542,6 +1562,7 @@ bool equalSortOrderList(
 PlanBuilder& PlanBuilder::window(
     const std::vector<std::string>& windowFunctions,
     bool inputSorted) {
+  VELOX_CHECK_NOT_NULL(planNode_, "Window cannot be the source node");
   VELOX_CHECK_GT(
       windowFunctions.size(),
       0,
@@ -1659,6 +1680,7 @@ PlanBuilder& PlanBuilder::topNRowNumber(
     const std::vector<std::string>& sortingKeys,
     int32_t limit,
     bool generateRowNumber) {
+  VELOX_CHECK_NOT_NULL(planNode_, "TopNRowNumber cannot be the source node");
   auto [sortingFields, sortingOrders] =
       parseOrderByClauses(sortingKeys, planNode_->outputType(), pool_);
   std::optional<std::string> rowNumberColumnName;
@@ -1679,6 +1701,7 @@ PlanBuilder& PlanBuilder::topNRowNumber(
 PlanBuilder& PlanBuilder::markDistinct(
     std::string markerKey,
     const std::vector<std::string>& distinctKeys) {
+  VELOX_CHECK_NOT_NULL(planNode_, "MarkDistinct cannot be the source node");
   planNode_ = std::make_shared<core::MarkDistinctNode>(
       nextPlanNodeId(),
       std::move(markerKey),
@@ -1735,26 +1758,31 @@ PlanBuilder::fields(
 
 std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
     column_index_t index) {
+  VELOX_CHECK_NOT_NULL(planNode_);
   return field(planNode_->outputType(), index);
 }
 
 std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
     const std::string& name) {
+  VELOX_CHECK_NOT_NULL(planNode_);
   return field(planNode_->outputType(), name);
 }
 
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
 PlanBuilder::fields(const std::vector<std::string>& names) {
+  VELOX_CHECK_NOT_NULL(planNode_);
   return fields(planNode_->outputType(), names);
 }
 
 std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
 PlanBuilder::fields(const std::vector<column_index_t>& indices) {
+  VELOX_CHECK_NOT_NULL(planNode_);
   return fields(planNode_->outputType(), indices);
 }
 
 std::vector<core::TypedExprPtr> PlanBuilder::exprs(
     const std::vector<std::string>& names) {
+  VELOX_CHECK_NOT_NULL(planNode_);
   auto flds = fields(planNode_->outputType(), names);
   std::vector<core::TypedExprPtr> expressions;
   expressions.reserve(flds.size());
@@ -1767,6 +1795,7 @@ std::vector<core::TypedExprPtr> PlanBuilder::exprs(
 
 core::TypedExprPtr PlanBuilder::inferTypes(
     const std::shared_ptr<const core::IExpr>& untypedExpr) {
+  VELOX_CHECK_NOT_NULL(planNode_);
   return core::Expressions::inferTypes(
       untypedExpr, planNode_->outputType(), pool_);
 }

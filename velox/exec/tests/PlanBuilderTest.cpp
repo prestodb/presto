@@ -33,6 +33,15 @@ class PlanBuilderTest : public testing::Test,
   }
 };
 
+TEST_F(PlanBuilderTest, invalidSourceNode) {
+  VELOX_ASSERT_THROW(
+      PlanBuilder().project({"c0 > 5"}).planNode(),
+      "Project cannot be the source node");
+  VELOX_ASSERT_THROW(
+      PlanBuilder().filter({"c0 > 5"}).planNode(),
+      "Filter cannot be the source node");
+}
+
 TEST_F(PlanBuilderTest, duplicateSubfield) {
   VELOX_ASSERT_THROW(
       PlanBuilder(pool_.get())
