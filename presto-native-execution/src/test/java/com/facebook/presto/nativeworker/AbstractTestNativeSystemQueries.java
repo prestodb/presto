@@ -32,9 +32,9 @@ public abstract class AbstractTestNativeSystemQueries
     @Test
     public void testTasks()
     {
-        assertQuery("select * from system.runtime.tasks");
-        //assertQueryFails("select * from system.runtime.tasks limit 1",
-        //        ".*system not registered.*");
+        //assertQuery("select * from system.runtime.tasks");
+        assertQueryFails("select * from system.runtime.tasks",
+                ".*system not registered.*");
     }
 
     @Test
