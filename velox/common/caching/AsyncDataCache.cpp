@@ -18,7 +18,8 @@
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
 
-#include <folly/executors/QueuedImmediateExecutor.h>
+#include "velox/common/base/Counters.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/FileIds.h"
 
@@ -694,26 +695,40 @@ bool AsyncDataCache::makeSpace(
 uint64_t AsyncDataCache::shrink(uint64_t targetBytes) {
   VELOX_CHECK_GT(targetBytes, 0);
 
+  REPORT_ADD_STAT_VALUE(kCounterCacheShrinkCount);
+  LOG(INFO) << "Try to shrink cache to free up "
+            << velox::succinctBytes(targetBytes) << "  memory";
+
   const uint64_t minBytesToEvict = 8UL << 20;
   uint64_t evictedBytes{0};
-  for (int shard = 0; shard < shards_.size(); ++shard) {
-    memory::Allocation unused;
-    evictedBytes += shards_[shardCounter_++ & (kShardMask)]->evict(
-        std::max<uint64_t>(minBytesToEvict, targetBytes - evictedBytes),
-        // Cache shrink is triggered when server is under low memory pressure
-        // so need to free up memory as soon as possible. So we always avoid
-        // triggering ssd save to accelerate the cache evictions.
-        true,
-        0,
-        unused);
-    VELOX_CHECK(unused.empty());
-    if (evictedBytes >= targetBytes) {
-      break;
+  uint64_t shrinkTimeUs{0};
+  {
+    MicrosecondTimer timer(&shrinkTimeUs);
+    for (int shard = 0; shard < shards_.size(); ++shard) {
+      memory::Allocation unused;
+      evictedBytes += shards_[shardCounter_++ & (kShardMask)]->evict(
+          std::max<uint64_t>(minBytesToEvict, targetBytes - evictedBytes),
+          // Cache shrink is triggered when server is under low memory pressure
+          // so need to free up memory as soon as possible. So we always avoid
+          // triggering ssd save to accelerate the cache evictions.
+          true,
+          0,
+          unused);
+      VELOX_CHECK(unused.empty());
+      if (evictedBytes >= targetBytes) {
+        break;
+      }
     }
+    // Call unmap to free up to 'targetBytes' unused memory space back to
+    // operating system after shrink.
+    allocator_->unmap(memory::AllocationTraits::numPages(targetBytes));
   }
-  // Call unmap to free up to 'targetBytes' unused memory space back to
-  // operating system after shrink.
-  allocator_->unmap(memory::AllocationTraits::numPages(targetBytes));
+
+  REPORT_ADD_HISTOGRAM_VALUE(kCounterCacheShrinkTimeMs, shrinkTimeUs / 1'000);
+  LOG(INFO) << "Freed " << velox::succinctBytes(evictedBytes)
+            << " cache memory, spent " << velox::succinctMicros(shrinkTimeUs)
+            << "\n"
+            << toString();
   return evictedBytes;
 }
 

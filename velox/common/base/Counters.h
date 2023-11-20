@@ -25,4 +25,9 @@ void registerVeloxCounters();
 
 constexpr folly::StringPiece kCounterHiveFileHandleGenerateLatencyMs{
     "velox.hive_file_handle_generate_latency_ms"};
+
+constexpr folly::StringPiece kCounterCacheShrinkCount{
+    "velox.cache_shrink_count"};
+
+constexpr folly::StringPiece kCounterCacheShrinkTimeMs{"velox.cache_shrink_ms"};
 } // namespace facebook::velox

@@ -24,6 +24,14 @@ void registerVeloxCounters() {
   // P50, P90, P99, and P100.
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterHiveFileHandleGenerateLatencyMs, 10, 0, 100000, 50, 90, 99, 100);
+
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterCacheShrinkCount, facebook::velox::StatType::COUNT);
+
+  // Track cache shrink latency in range of [0, 100s] and reports P50, P90, P99,
+  // and P100.
+  REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
+      kCounterCacheShrinkTimeMs, 10, 0, 100'000, 50, 90, 99, 100);
 }
 
 } // namespace facebook::velox
