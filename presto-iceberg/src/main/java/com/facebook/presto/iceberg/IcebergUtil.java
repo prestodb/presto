@@ -57,6 +57,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMME
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -69,6 +70,7 @@ import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.LocationProviders.locationsFor;
@@ -139,6 +141,15 @@ public final class IcebergUtil
             return name.getSnapshotId();
         }
         return tryGetCurrentSnapshot(table).map(Snapshot::snapshotId);
+    }
+
+    public static long getSnapshotIdAsOfTime(Table table, long millisUtc)
+    {
+        return table.history().stream()
+                .filter(logEntry -> logEntry.timestampMillis() <= millisUtc)
+                .max(comparing(HistoryEntry::timestampMillis))
+                .orElseThrow(() -> new PrestoException(ICEBERG_INVALID_TABLE_TIMESTAMP, format("No history found based on timestamp for table %s", table.name())))
+                .snapshotId();
     }
 
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)

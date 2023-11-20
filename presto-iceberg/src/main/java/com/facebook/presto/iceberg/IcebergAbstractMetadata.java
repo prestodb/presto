@@ -16,6 +16,9 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.hive.NodeVersion;
@@ -38,6 +41,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
@@ -90,6 +94,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPER
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
+import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
@@ -478,6 +483,12 @@ public abstract class IcebergAbstractMetadata
     @Override
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
+        return getTableHandle(session, tableName, Optional.empty());
+    }
+
+    @Override
+    public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> tableVersion)
+    {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
 
@@ -488,11 +499,18 @@ public abstract class IcebergAbstractMetadata
         // use a new schema table name that omits the table type
         Table table = getIcebergTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
 
+        Optional<Long> tableSnapshotId = tableVersion
+                .map(version -> {
+                    long tableVersionSnapshotId = getSnapshotIdForTableVersion(table, version);
+                    return Optional.of(tableVersionSnapshotId);
+                })
+                .orElseGet(() -> resolveSnapshotIdByName(table, name));
+
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
                 name.getTableName(),
                 name.getTableType(),
-                resolveSnapshotIdByName(table, name),
+                tableSnapshotId,
                 name.getSnapshotId().isPresent(),
                 TupleDomain.all());
     }
@@ -630,5 +648,27 @@ public abstract class IcebergAbstractMetadata
         deletes.commit();
         transaction.commitTransaction();
         return rowsDeleted.get();
+    }
+
+    private static long getSnapshotIdForTableVersion(Table table, ConnectorTableVersion tableVersion)
+    {
+        if (tableVersion.getVersionType() == ConnectorTableVersion.VersionType.TIMESTAMP) {
+            if (tableVersion.getVersionExpressionType() instanceof TimestampWithTimeZoneType) {
+                long millisUtc = new SqlTimestampWithTimeZone((long) tableVersion.getTableVersion()).getMillisUtc();
+                return getSnapshotIdAsOfTime(table, millisUtc);
+            }
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported table version expression type: " + tableVersion.getVersionExpressionType());
+        }
+        if (tableVersion.getVersionType() == ConnectorTableVersion.VersionType.VERSION) {
+            if (tableVersion.getVersionExpressionType() instanceof BigintType) {
+                long snapshotId = (long) tableVersion.getTableVersion();
+                if (table.snapshot(snapshotId) == null) {
+                    throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, "Iceberg snapshot ID does not exists: " + snapshotId);
+                }
+                return snapshotId;
+            }
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported table version expression type: " + tableVersion.getVersionExpressionType());
+        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported table version type: " + tableVersion.getVersionType());
     }
 }

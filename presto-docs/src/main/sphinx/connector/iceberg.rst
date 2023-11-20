@@ -657,7 +657,8 @@ Time Travel
 
 Iceberg and Presto Iceberg connector support time travel via table snapshots
 identified by unique snapshot IDs. The snapshot IDs are stored in the ``$snapshots``
-metadata table. We can rollback the state of a table to a previous snapshot ID.
+metadata table. You can rollback the state of a table to a previous snapshot ID.
+It also supports time travel query using VERSION (SYSTEM_VERSION) and TIMESTAMP (SYSTEM_TIME) options.
 
 Example Queries
 ^^^^^^^^^^^^^^^
@@ -743,6 +744,76 @@ exists as we've rolled back to the previous state.
      nationkey | name | regionkey | comment
     -----------+------+-----------+---------
     (0 rows)
+
+Time Travel using VERSION (SYSTEM_VERSION) and TIMESTAMP (SYSTEM_TIME)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use the Iceberg connector to access the historical data of a table.
+You can see how the table looked like at a certain point in time,
+even if the data has changed or been deleted since then.
+
+.. code-block:: sql
+
+    // snapshot ID 5300424205832769799
+    INSERT INTO ctas_nation VALUES(10, 'united states', 1, 'comment');
+
+    // snapshot ID 6891257133877048303
+    INSERT INTO ctas_nation VALUES(20, 'canada', 2, 'comment');
+
+    // snapshot ID 705548372863208787
+    INSERT INTO ctas_nation VALUES(30, 'mexico', 3, 'comment');
+
+    // snapshot ID for first record
+    SELECT * FROM ctas_nation FOR VERSION AS OF 5300424205832769799;
+
+    // snapshot ID for first record using SYSTEM_VERSION
+    SELECT * FROM ctas_nation FOR SYSTEM_VERSION AS OF 5300424205832769799;
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+    (1 row)
+
+In above example, SYSTEM_VERSION can be used as an alias for VERSION.
+
+You can access the historical data of a table using FOR TIMESTAMP AS OF TIMESTAMP.
+The query returns the table’s state using the table snapshot that is closest to the specified timestamp.
+In this example, SYSTEM_TIME can be used as an alias for TIMESTAMP.
+
+.. code-block:: sql
+
+    // In following query, timestamp string is matching with second inserted record.
+    SELECT * FROM ctas_nation FOR TIMESTAMP AS OF TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles';
+
+    // Same example using SYSTEM_TIME as an alias for TIMESTAMP
+    SELECT * FROM ctas_nation FOR SYSTEM_TIME AS OF TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+    (2 rows)
+
+The option following FOR TIMESTAMP AS OF can accept any expression that returns a timestamp with time zone value.
+For example, `TIMESTAMP '2023-10-17 13:29:46.822 America/Los_Angeles'` is a constant string for the expression.
+In the following query, the expression CURRENT_TIMESTAMP returns the current timestamp with time zone value.
+
+.. code-block:: sql
+
+    SELECT * FROM ctas_nation FOR TIMESTAMP AS OF CURRENT_TIMESTAMP;
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+            30 | mexico        |         3 | comment
+    (3 rows)
 
 Iceberg Connector Limitations
 -----------------------------
