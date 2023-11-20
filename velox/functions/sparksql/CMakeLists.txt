@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_subdirectory(specialforms)
 add_library(
   velox_functions_spark
   ArraySort.cpp
@@ -41,8 +42,13 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 target_link_libraries(
-  velox_functions_spark velox_functions_lib velox_functions_prestosql_impl
-  velox_is_null_functions velox_functions_util Folly::folly)
+  velox_functions_spark
+  velox_functions_lib
+  velox_functions_prestosql_impl
+  velox_functions_spark_specialforms
+  velox_is_null_functions
+  velox_functions_util
+  Folly::folly)
 
 set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
                                                    high_memory_pool)

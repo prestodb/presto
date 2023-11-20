@@ -250,6 +250,14 @@ class FunctionBaseTest : public testing::Test,
   static std::unordered_set<std::string> getSignatureStrings(
       const std::string& functionName);
 
+  /// Given an expression, a list of inputs and expected results, generate
+  /// dictionary-encoded and constant-encoded vectors, evaluate the expression
+  /// and verify the results.
+  void testEncodings(
+      const core::TypedExprPtr& expr,
+      const std::vector<VectorPtr>& inputs,
+      const VectorPtr& expected);
+
   std::shared_ptr<core::QueryCtx> queryCtx_{
       std::make_shared<core::QueryCtx>(executor_.get())};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
