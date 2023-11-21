@@ -139,14 +139,17 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   // Before calling 'request', the caller should have called
   // 'shouldRequestLocked' and received 'true' response. Hence, we expect
   // requestPending_ == true, atEnd_ == false.
-  // This call cannot be made concurrently from multiple threads.
   VELOX_CHECK(requestPending_);
-  VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
-
+  // This call cannot be made concurrently from multiple threads, but other
+  // calls that mutate promise_ can be called concurrently.
   auto promise = VeloxPromise<Response>("PrestoExchangeSource::request");
   auto future = promise.getSemiFuture();
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
+    promise_ = std::move(promise);
+  }
 
-  promise_ = std::move(promise);
   failedAttempts_ = 0;
   dataRequestRetryState_ =
       RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
