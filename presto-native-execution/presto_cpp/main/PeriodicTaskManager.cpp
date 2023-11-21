@@ -565,6 +565,7 @@ void PeriodicTaskManager::addSpillStatsUpdateTask() {
 }
 
 void PeriodicTaskManager::updateSpillStatsTask() {
+#if 0
   const auto updatedSpillStats = velox::exec::globalSpillStats();
   VELOX_CHECK_GE(updatedSpillStats, lastSpillStats_);
   const auto deltaSpillStats = updatedSpillStats - lastSpillStats_;
@@ -601,6 +602,7 @@ void PeriodicTaskManager::updateSpillStatsTask() {
       kCounterSpillPeakMemoryBytes, spillMemoryStats.peakBytes);
 
   lastSpillStats_ = updatedSpillStats;
+#endif
 }
 
 void PeriodicTaskManager::printHttpEndpointLatencyStats() {
