@@ -17,7 +17,6 @@
 #include "folly/executors/CPUThreadPoolExecutor.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/encode/Coding.h"
-#include "velox/dwio/common/ExecutorBarrier.h"
 #include "velox/dwio/common/exception/Exceptions.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
@@ -123,8 +122,7 @@ class ColumnReaderTestBase {
     const std::shared_ptr<const RowType>& rowType =
         std::dynamic_pointer_cast<const RowType>(requestedType);
     if (parallelDecoding()) {
-      barrier_ = std::make_unique<ExecutorBarrier>(
-          std::make_shared<folly::CPUThreadPoolExecutor>(2));
+      executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(2);
     }
     ColumnSelector cs(rowType, nodes, true);
     auto options = RowReaderOptions();
@@ -161,7 +159,7 @@ class ColumnReaderTestBase {
           fileTypeWithId,
           streams_,
           labels_,
-          barrier_.get());
+          executor_.get());
       selectiveColumnReader_ = nullptr;
     }
   }
@@ -171,9 +169,6 @@ class ColumnReaderTestBase {
       columnReader_->next(numValues, result);
     } else {
       selectiveColumnReader_->next(numValues, result, nullptr);
-    }
-    if (barrier_) {
-      barrier_->waitAll();
     }
   }
 
@@ -201,9 +196,6 @@ class ColumnReaderTestBase {
     } else {
       selectiveColumnReader_->next(readSize, batch, nullptr);
     }
-    if (barrier_) {
-      barrier_->waitAll();
-    }
 
     ASSERT_EQ(readSize, batch->size());
     ASSERT_EQ(nullCount, BaseVector::countNulls(batch->nulls(), batch->size()));
@@ -218,9 +210,8 @@ class ColumnReaderTestBase {
     } else {
       selectiveColumnReader_.reset(nullptr);
     }
-    if (barrier_) {
-      barrier_->waitAll();
-      barrier_.reset();
+    if (executor_) {
+      executor_.reset();
     }
   }
 
@@ -233,7 +224,7 @@ class ColumnReaderTestBase {
   StreamLabels labels_;
   std::unique_ptr<ColumnReader> columnReader_;
   std::unique_ptr<SelectiveColumnReader> selectiveColumnReader_;
-  std::unique_ptr<ExecutorBarrier> barrier_;
+  std::unique_ptr<folly::Executor> executor_;
 
  private:
   std::unique_ptr<common::ScanSpec> scanSpec_;
@@ -459,9 +450,6 @@ class SchemaMismatchTest : public TestWithParam<SchemaMismatchTestParam>,
     } else {
       asIsSelectiveColumnReader_->next(size, asIsBatch, nullptr);
     }
-    if (barrier_) {
-      barrier_->waitAll();
-    }
 
     // build columnReader_ and selectiveColumnReader_. They are used as
     // mismatch ColumnReaders
@@ -472,9 +460,6 @@ class SchemaMismatchTest : public TestWithParam<SchemaMismatchTestParam>,
       columnReader_->next(size, mismatchBatch, nullptr);
     } else {
       selectiveColumnReader_->next(size, mismatchBatch, nullptr);
-    }
-    if (barrier_) {
-      barrier_->waitAll();
     }
 
     ASSERT_EQ(asIsBatch->size(), mismatchBatch->size());
@@ -910,9 +895,6 @@ TEST_P(TestColumnReader, testIntegerRLEv2) {
         std::make_unique<common::BigintRange>(11, 20, false));
     buildReader(rowType, nullptr, {}, scanSpec.get());
     selectiveColumnReader_->next(size, batch, nullptr);
-    if (barrier_) {
-      barrier_->waitAll();
-    }
 
     auto rowVector = std::dynamic_pointer_cast<RowVector>(batch);
     ASSERT_NE(rowVector->childAt(0)->encoding(), VectorEncoding::Simple::LAZY);
@@ -1423,9 +1405,6 @@ TEST_P(StringReaderTests, testStringDictSkipNoNulls) {
       columnReader_->next(rowsRead, batch);
     } else {
       selectiveColumnReader_->next(rowsRead, batch, nullptr);
-    }
-    if (barrier_) {
-      barrier_->waitAll();
     }
 
     ASSERT_EQ(rowsRead, batch->size());
