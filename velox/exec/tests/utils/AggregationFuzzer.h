@@ -39,6 +39,59 @@ class InputGenerator {
   virtual void reset() = 0;
 };
 
+/// Verifies aggregation results either directly or by comparing with results
+/// from a logically equivalent plan or reference DB.
+///
+/// Can be used to sort results of array_agg before comparing (uses 'compare'
+/// API) or verify approx_distinct by comparing its results with results of
+/// count(distinct) (uses 'verify' API).
+class ResultVerifier {
+ public:
+  virtual ~ResultVerifier() = default;
+
+  /// Returns true if 'compare' API is supported. The verifier must support
+  /// either 'compare' or 'verify' API. If both are supported, 'compare' API is
+  /// used and 'verify' API is ignored.
+  virtual bool supportsCompare() = 0;
+
+  /// Return true if 'verify' API is support. The verifier must support either
+  /// 'compare' or 'verify' API.
+  virtual bool supportsVerify() = 0;
+
+  /// Called once before possibly multiple calls to 'compare' or 'verify' APIs
+  /// to specify the input data, grouping keys (may be empty), the aggregate
+  /// function and the name of the column that will store aggregate function
+  /// results.
+  ///
+  /// Can be used by array_distinct verifier to compute count(distinct) once and
+  /// re-use its results for multiple 'verify' calls.
+  virtual void initialize(
+      const std::vector<RowVectorPtr>& input,
+      const std::vector<std::string>& groupingKeys,
+      const core::AggregationNode::Aggregate& aggregate,
+      const std::string& aggregateName) = 0;
+
+  /// Compares results of two logically equivalent Velox plans or a Velox plan
+  /// and a reference DB query.
+  ///
+  /// 'initialize' must be called first. 'compare' may be called multiple times
+  /// after single 'initialize' call.
+  virtual bool compare(
+      const RowVectorPtr& result,
+      const RowVectorPtr& otherResult) = 0;
+
+  /// Verifies results of a Velox plan or reference DB query.
+  ///
+  /// 'initialize' must be called first. 'verify' may be called multiple times
+  /// after single 'initialize' call.
+  virtual bool verify(const RowVectorPtr& result) = 0;
+
+  /// Clears internal state after possibly multiple calls to 'compare' and
+  /// 'verify'. 'initialize' must be called again after 'reset' to allow calling
+  /// 'compare' or 'verify' again.
+  virtual void reset() = 0;
+};
+
 /// Runs the aggregation fuzzer.
 /// @param signatureMap Map of all aggregate function signatures.
 /// @param seed Random seed - Pass the same seed for reproducibility.
@@ -51,7 +104,8 @@ class InputGenerator {
 void aggregateFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t seed,
-    const std::unordered_map<std::string, std::string>& orderDependentFunctions,
+    const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>&
+        orderDependentFunctions,
     const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
         customInputGenerators,
     VectorFuzzer::Options::TimestampPrecision timestampPrecision,

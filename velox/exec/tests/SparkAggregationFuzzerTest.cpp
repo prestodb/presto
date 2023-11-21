@@ -57,13 +57,16 @@ int main(int argc, char** argv) {
   // doesn't depend on the order of inputs. If such transformation exists, it
   // can be specified to be used for results verification. If no transformation
   // is specified, results are not verified.
-  std::unordered_map<std::string, std::string> customVerificationFunctions = {
-      {"last", ""},
-      {"last_ignore_null", ""},
-      {"first", ""},
-      {"first_ignore_null", ""},
-      {"max_by", ""},
-      {"min_by", ""}};
+  std::unordered_map<
+      std::string,
+      std::shared_ptr<facebook::velox::exec::test::ResultVerifier>>
+      customVerificationFunctions = {
+          {"last", nullptr},
+          {"last_ignore_null", nullptr},
+          {"first", nullptr},
+          {"first_ignore_null", nullptr},
+          {"max_by", nullptr},
+          {"min_by", nullptr}};
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   auto duckQueryRunner =

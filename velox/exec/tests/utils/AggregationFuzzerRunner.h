@@ -89,7 +89,8 @@ class AggregationFuzzerRunner {
     /// Keys are function names. Values are optional transformations. "{}"
     /// should be used to indicate the original value, i.e. "f({})"
     /// transformation applies function 'f' to aggregation result.
-    std::unordered_map<std::string, std::string> customVerificationFunctions;
+    std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>
+        customVerificationFunctions;
 
     std::unordered_map<std::string, std::shared_ptr<InputGenerator>>
         customInputGenerators;

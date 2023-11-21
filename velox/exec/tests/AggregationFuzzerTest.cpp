@@ -21,7 +21,9 @@
 
 #include <boost/random/uniform_int_distribution.hpp>
 #include "velox/exec/tests/utils/AggregationFuzzerRunner.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/DuckQueryRunner.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/vector/FlatVector.h"
@@ -257,6 +259,66 @@ getCustomInputGenerators() {
   };
 }
 
+/// Applies specified SQL transformation to the results before comparing. For
+/// example, sorts an array before comparing results of array_agg.
+///
+/// Supports 'compare' API.
+class TransformResultVerifier : public ResultVerifier {
+ public:
+  /// @param transform fmt::format-compatible SQL expression to use to transform
+  /// aggregation results before comparison. The string must have a single
+  /// placeholder for the column name that contains aggregation results. For
+  /// example, "array_sort({})".
+  explicit TransformResultVerifier(const std::string& transform)
+      : transform_{transform} {}
+
+  static std::shared_ptr<ResultVerifier> create(const std::string& transform) {
+    return std::make_shared<TransformResultVerifier>(transform);
+  }
+
+  bool supportsCompare() override {
+    return true;
+  }
+
+  bool supportsVerify() override {
+    return false;
+  }
+
+  void initialize(
+      const std::vector<RowVectorPtr>& /*input*/,
+      const std::vector<std::string>& groupingKeys,
+      const core::AggregationNode::Aggregate& /*aggregate*/,
+      const std::string& aggregateName) override {
+    projections_ = groupingKeys;
+    projections_.push_back(
+        fmt::format(fmt::runtime(transform_), aggregateName));
+  }
+
+  bool compare(const RowVectorPtr& result, const RowVectorPtr& altResult)
+      override {
+    return assertEqualResults({transform(result)}, {transform(altResult)});
+  }
+
+  bool verify(const RowVectorPtr& /*result*/) override {
+    VELOX_UNSUPPORTED();
+  }
+
+  void reset() override {
+    projections_.clear();
+  }
+
+ private:
+  RowVectorPtr transform(const RowVectorPtr& data) {
+    VELOX_CHECK(!projections_.empty());
+    auto plan = PlanBuilder().values({data}).project(projections_).planNode();
+    return AssertQueryBuilder(plan).copyResults(data->pool());
+  }
+
+  const std::string transform_;
+
+  std::vector<std::string> projections_;
+};
+
 } // namespace
 } // namespace facebook::velox::exec::test
 
@@ -291,13 +353,17 @@ int main(int argc, char** argv) {
       "stddev_pop",
       // Lambda functions are not supported yet.
       "reduce_agg",
-      // TODO Allow skipping all companion functions, perhaps, by adding a flag
-      // to register API to disable registration of companion functions.
-      "approx_distinct_partial",
-      "approx_distinct_merge",
-      "approx_set_partial",
-      "approx_percentile_partial",
-      "approx_percentile_merge",
+  };
+
+  using facebook::velox::exec::test::TransformResultVerifier;
+
+  auto makeArrayVerifier = []() {
+    return TransformResultVerifier::create("\"$internal$canonicalize\"({})");
+  };
+
+  auto makeMapVerifier = []() {
+    return TransformResultVerifier::create(
+        "\"$internal$canonicalize\"(map_keys({}))");
   };
 
   // Functions whose results verification should be skipped. These can be
@@ -307,30 +373,33 @@ int main(int argc, char** argv) {
   // can be verified. If such transformation exists, it can be specified to be
   // used for results verification. If no transformation is specified, results
   // are not verified.
-  static const std::unordered_map<std::string, std::string>
+  static const std::unordered_map<
+      std::string,
+      std::shared_ptr<facebook::velox::exec::test::ResultVerifier>>
       customVerificationFunctions = {
           // Order-dependent functions.
-          {"approx_distinct", ""},
-          {"approx_set", ""},
-          {"approx_percentile", ""},
-          {"arbitrary", ""},
-          {"array_agg", "\"$internal$canonicalize\"({})"},
-          {"set_agg", "\"$internal$canonicalize\"({})"},
-          {"set_union", "\"$internal$canonicalize\"({})"},
-          {"map_agg", "\"$internal$canonicalize\"(map_keys({}))"},
-          {"map_union", "\"$internal$canonicalize\"(map_keys({}))"},
-          {"map_union_sum", "\"$internal$canonicalize\"(map_keys({}))"},
-          {"max_by", ""},
-          {"min_by", ""},
+          {"approx_distinct", nullptr},
+          {"approx_set", nullptr},
+          {"approx_percentile", nullptr},
+          {"arbitrary", nullptr},
+          {"array_agg", makeArrayVerifier()},
+          {"set_agg", makeArrayVerifier()},
+          {"set_union", makeArrayVerifier()},
+          {"map_agg", makeMapVerifier()},
+          {"map_union", makeMapVerifier()},
+          {"map_union_sum", makeMapVerifier()},
+          {"max_by", nullptr},
+          {"min_by", nullptr},
           {"multimap_agg",
-           "transform_values({}, (k, v) -> \"$internal$canonicalize\"(v))"},
+           TransformResultVerifier::create(
+               "transform_values({}, (k, v) -> \"$internal$canonicalize\"(v))")},
           // Semantically inconsistent functions
-          {"skewness", ""},
-          {"kurtosis", ""},
-          {"entropy", ""},
+          {"skewness", nullptr},
+          {"kurtosis", nullptr},
+          {"entropy", nullptr},
           // https://github.com/facebookincubator/velox/issues/6330
-          {"max_data_size_for_stats", ""},
-          {"sum_data_size_for_stats", ""},
+          {"max_data_size_for_stats", nullptr},
+          {"sum_data_size_for_stats", nullptr},
       };
 
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;

@@ -99,7 +99,7 @@ class AggregationFuzzer {
   AggregationFuzzer(
       AggregateFunctionSignatureMap signatureMap,
       size_t seed,
-      const std::unordered_map<std::string, std::string>&
+      const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>&
           customVerificationFunctions,
       const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
           customInputGenerators,
@@ -249,7 +249,7 @@ class AggregationFuzzer {
       const std::vector<std::string>& masks,
       const std::vector<RowVectorPtr>& input,
       bool customVerification,
-      const std::vector<std::string>& projections);
+      const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers);
 
   // Return 'true' if query plans failed.
   bool verifySortedAggregation(
@@ -288,7 +288,8 @@ class AggregationFuzzer {
 
   void testPlans(
       const std::vector<PlanWithSplits>& plans,
-      bool verifyResults,
+      bool customVerification,
+      const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
       const velox::test::ResultOrError& expected,
       int32_t maxDrivers = 2) {
     for (auto i = 0; i < plans.size(); ++i) {
@@ -299,7 +300,8 @@ class AggregationFuzzer {
           planWithSplits,
           false /*injectSpill*/,
           false /*abandonPartial*/,
-          verifyResults,
+          customVerification,
+          customVerifiers,
           expected,
           maxDrivers);
 
@@ -308,7 +310,8 @@ class AggregationFuzzer {
           planWithSplits,
           true /*injectSpill*/,
           false /*abandonPartial*/,
-          verifyResults,
+          customVerification,
+          customVerifiers,
           expected,
           maxDrivers);
 
@@ -319,24 +322,31 @@ class AggregationFuzzer {
             planWithSplits,
             false /*injectSpill*/,
             true /*abandonPartial*/,
-            verifyResults,
+            customVerification,
+            customVerifiers,
             expected,
             maxDrivers);
       }
     }
   }
 
+  // @param customVerification If false, results are compared as is. Otherwise,
+  // only row counts are compared.
+  // @param customVerifiers Custom verifier for each aggregate function. These
+  // can be null. If not null and customVerification is true, custom verifier is
+  // used to further verify the results.
   void testPlan(
       const PlanWithSplits& planWithSplits,
       bool injectSpill,
       bool abandonPartial,
-      bool verifyResults,
+      bool customVerification,
+      const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
       const velox::test::ResultOrError& expected,
       int32_t maxDrivers = 2);
 
   void printSignatureStats();
 
-  const std::unordered_map<std::string, std::string>
+  const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>
       customVerificationFunctions_;
   const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>
       customInputGenerators_;
@@ -368,7 +378,7 @@ class AggregationFuzzer {
 void aggregateFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t seed,
-    const std::unordered_map<std::string, std::string>&
+    const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>&
         customVerificationFunctions,
     const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
         customInputGenerators,
@@ -418,7 +428,7 @@ void printStats(
 AggregationFuzzer::AggregationFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t initialSeed,
-    const std::unordered_map<std::string, std::string>&
+    const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>&
         customVerificationFunctions,
     const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
         customInputGenerators,
@@ -939,16 +949,9 @@ void AggregationFuzzer::go() {
             signatureWithStats.second.numFailed++;
           }
         } else {
-          std::vector<std::string> projections;
+          std::shared_ptr<ResultVerifier> customVerifier;
           if (customVerification) {
-            // Add optional projection on the original result to make it order
-            // independent for comparison.
-            auto mitigation = customVerificationFunctions_.at(signature.name);
-            if (!mitigation.empty()) {
-              projections = groupingKeys;
-              projections.push_back(
-                  fmt::format(fmt::runtime(mitigation), "a0"));
-            }
+            customVerifier = customVerificationFunctions_.at(signature.name);
           }
 
           bool failed = verifyAggregation(
@@ -957,7 +960,7 @@ void AggregationFuzzer::go() {
               masks,
               input,
               customVerification,
-              projections);
+              {customVerifier});
           if (failed) {
             signatureWithStats.second.numFailed++;
           }
@@ -1084,7 +1087,6 @@ void makeAlternativePlansWithValues(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
-    const std::vector<std::string>& projections,
     const std::vector<RowVectorPtr>& inputVectors,
     std::vector<core::PlanNodePtr>& plans) {
   // Partial -> final aggregation plan.
@@ -1092,7 +1094,6 @@ void makeAlternativePlansWithValues(
                       .values(inputVectors)
                       .partialAggregation(groupingKeys, aggregates, masks)
                       .finalAggregation()
-                      .optionalProject(projections)
                       .planNode());
 
   // Partial -> intermediate -> final aggregation plan.
@@ -1101,7 +1102,6 @@ void makeAlternativePlansWithValues(
                       .partialAggregation(groupingKeys, aggregates, masks)
                       .intermediateAggregation()
                       .finalAggregation()
-                      .optionalProject(projections)
                       .planNode());
 
   // Partial -> local exchange -> final aggregation plan.
@@ -1122,7 +1122,6 @@ void makeAlternativePlansWithValues(
   plans.push_back(PlanBuilder(planNodeIdGenerator)
                       .localPartition(groupingKeys, sources)
                       .finalAggregation()
-                      .optionalProject(projections)
                       .planNode());
 }
 
@@ -1130,7 +1129,6 @@ void makeAlternativePlansWithTableScan(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
-    const std::vector<std::string>& projections,
     const RowTypePtr& inputRowType,
     std::vector<core::PlanNodePtr>& plans) {
   // Partial -> final aggregation plan.
@@ -1139,7 +1137,6 @@ void makeAlternativePlansWithTableScan(
                       .partialAggregation(groupingKeys, aggregates, masks)
                       .localPartition(groupingKeys)
                       .finalAggregation()
-                      .optionalProject(projections)
                       .planNode());
 
   // Partial -> intermediate -> final aggregation plan.
@@ -1149,7 +1146,6 @@ void makeAlternativePlansWithTableScan(
                       .localPartition(groupingKeys)
                       .intermediateAggregation()
                       .finalAggregation()
-                      .optionalProject(projections)
                       .planNode());
 }
 
@@ -1157,7 +1153,6 @@ void makeStreamingPlansWithValues(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
-    const std::vector<std::string>& projections,
     const std::vector<RowVectorPtr>& inputVectors,
     std::vector<core::PlanNodePtr>& plans) {
   // Single aggregation.
@@ -1170,7 +1165,6 @@ void makeStreamingPlansWithValues(
                           masks,
                           core::AggregationNode::Step::kSingle,
                           false)
-                      .optionalProject(projections)
                       .planNode());
 
   // Partial -> final aggregation plan.
@@ -1180,7 +1174,6 @@ void makeStreamingPlansWithValues(
           .orderBy(groupingKeys, false)
           .partialStreamingAggregation(groupingKeys, aggregates, masks)
           .finalAggregation()
-          .optionalProject(projections)
           .planNode());
 
   // Partial -> intermediate -> final aggregation plan.
@@ -1191,7 +1184,6 @@ void makeStreamingPlansWithValues(
           .partialStreamingAggregation(groupingKeys, aggregates, masks)
           .intermediateAggregation()
           .finalAggregation()
-          .optionalProject(projections)
           .planNode());
 
   // Partial -> local merge -> final aggregation plan.
@@ -1214,7 +1206,6 @@ void makeStreamingPlansWithValues(
   plans.push_back(PlanBuilder(planNodeIdGenerator)
                       .localMerge(groupingKeys, sources)
                       .finalAggregation()
-                      .optionalProject(projections)
                       .planNode());
 }
 
@@ -1222,7 +1213,6 @@ void makeStreamingPlansWithTableScan(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
-    const std::vector<std::string>& projections,
     const RowTypePtr& inputRowType,
     std::vector<core::PlanNodePtr>& plans) {
   // Single aggregation.
@@ -1235,7 +1225,6 @@ void makeStreamingPlansWithTableScan(
                           masks,
                           core::AggregationNode::Step::kSingle,
                           false)
-                      .optionalProject(projections)
                       .planNode());
 
   // Partial -> final aggregation plan.
@@ -1245,7 +1234,6 @@ void makeStreamingPlansWithTableScan(
           .orderBy(groupingKeys, false)
           .partialStreamingAggregation(groupingKeys, aggregates, masks)
           .finalAggregation()
-          .optionalProject(projections)
           .planNode());
 
   // Partial -> intermediate -> final aggregation plan.
@@ -1256,7 +1244,6 @@ void makeStreamingPlansWithTableScan(
           .partialStreamingAggregation(groupingKeys, aggregates, masks)
           .intermediateAggregation()
           .finalAggregation()
-          .optionalProject(projections)
           .planNode());
 
   // Partial -> local merge -> final aggregation plan.
@@ -1267,7 +1254,6 @@ void makeStreamingPlansWithTableScan(
           .partialStreamingAggregation(groupingKeys, aggregates, masks)
           .localMerge(groupingKeys)
           .finalAggregation()
-          .optionalProject(projections)
           .planNode());
 }
 
@@ -1275,7 +1261,8 @@ void AggregationFuzzer::testPlan(
     const PlanWithSplits& planWithSplits,
     bool injectSpill,
     bool abandonPartial,
-    bool verifyResults,
+    bool customVerification,
+    const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
     const velox::test::ResultOrError& expected,
     int32_t maxDrivers) {
   auto actual = execute(
@@ -1289,15 +1276,38 @@ void AggregationFuzzer::testPlan(
   if (expected.exceptionPtr || actual.exceptionPtr) {
     // Throws in case exceptions are not compatible.
     velox::test::compareExceptions(expected.exceptionPtr, actual.exceptionPtr);
-  } else if (verifyResults) {
+    return;
+  }
+
+  if (!customVerification) {
     VELOX_CHECK(
         assertEqualResults({expected.result}, {actual.result}),
         "Logically equivalent plans produced different results");
-  } else {
-    VELOX_CHECK_EQ(
-        expected.result->size(),
-        actual.result->size(),
-        "Logically equivalent plans produced different number of rows");
+    return;
+  }
+
+  VELOX_CHECK_EQ(
+      expected.result->size(),
+      actual.result->size(),
+      "Logically equivalent plans produced different number of rows");
+
+  for (auto& verifier : customVerifiers) {
+    if (verifier == nullptr) {
+      continue;
+    }
+
+    if (verifier->supportsCompare()) {
+      VELOX_CHECK(
+          verifier->compare(expected.result, actual.result),
+          "Logically equivalent plans produced different results");
+    } else if (verifier->supportsVerify()) {
+      VELOX_CHECK(
+          verifier->verify(actual.result),
+          "Result of a logically equivalent plan failed custom verification");
+    } else {
+      VELOX_UNREACHABLE(
+          "Custom verifier must support either 'compare' or 'verify' API.");
+    }
   }
 }
 
@@ -1410,12 +1420,29 @@ bool AggregationFuzzer::verifyAggregation(
     const std::vector<std::string>& masks,
     const std::vector<RowVectorPtr>& input,
     bool customVerification,
-    const std::vector<std::string>& projections) {
+    const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers) {
   auto firstPlan = PlanBuilder()
                        .values(input)
                        .singleAggregation(groupingKeys, aggregates, masks)
-                       .optionalProject(projections)
                        .planNode();
+
+  if (customVerification) {
+    const auto& aggregationNode =
+        std::dynamic_pointer_cast<const core::AggregationNode>(firstPlan);
+
+    for (auto i = 0; i < customVerifiers.size(); ++i) {
+      auto& verifier = customVerifiers[i];
+      if (verifier == nullptr) {
+        continue;
+      }
+
+      verifier->initialize(
+          input,
+          groupingKeys,
+          aggregationNode->aggregates()[i],
+          aggregationNode->aggregateNames()[i]);
+    }
+  }
 
   // Create all the plans upfront.
   std::vector<PlanWithSplits> plans;
@@ -1434,22 +1461,12 @@ bool AggregationFuzzer::verifyAggregation(
 
     std::vector<core::PlanNodePtr> tableScanPlans;
     makeAlternativePlansWithTableScan(
-        groupingKeys,
-        aggregates,
-        masks,
-        projections,
-        inputRowType,
-        tableScanPlans);
+        groupingKeys, aggregates, masks, inputRowType, tableScanPlans);
 
     if (!groupingKeys.empty()) {
       // Use OrderBy + StreamingAggregation on original input.
       makeStreamingPlansWithTableScan(
-          groupingKeys,
-          aggregates,
-          masks,
-          projections,
-          inputRowType,
-          tableScanPlans);
+          groupingKeys, aggregates, masks, inputRowType, tableScanPlans);
     }
 
     for (const auto& plan : tableScanPlans) {
@@ -1458,7 +1475,7 @@ bool AggregationFuzzer::verifyAggregation(
   } else {
     std::vector<core::PlanNodePtr> valuesPlans;
     makeAlternativePlansWithValues(
-        groupingKeys, aggregates, masks, projections, input, valuesPlans);
+        groupingKeys, aggregates, masks, input, valuesPlans);
 
     // Evaluate same plans on flat inputs.
     std::vector<RowVectorPtr> flatInput;
@@ -1470,16 +1487,16 @@ bool AggregationFuzzer::verifyAggregation(
     }
 
     makeAlternativePlansWithValues(
-        groupingKeys, aggregates, masks, projections, flatInput, valuesPlans);
+        groupingKeys, aggregates, masks, flatInput, valuesPlans);
 
     if (!groupingKeys.empty()) {
       // Use OrderBy + StreamingAggregation on original input.
       makeStreamingPlansWithValues(
-          groupingKeys, aggregates, masks, projections, input, valuesPlans);
+          groupingKeys, aggregates, masks, input, valuesPlans);
 
       // Use OrderBy + StreamingAggregation on flattened input.
       makeStreamingPlansWithValues(
-          groupingKeys, aggregates, masks, projections, flatInput, valuesPlans);
+          groupingKeys, aggregates, masks, flatInput, valuesPlans);
     }
 
     for (const auto& plan : valuesPlans) {
@@ -1497,10 +1514,11 @@ bool AggregationFuzzer::verifyAggregation(
       ++stats_.numFailed;
     }
 
-    const bool verifyResults = !customVerification || !projections.empty();
-
+    // TODO Use ResultVerifier::compare API to compare Velox results with
+    // reference DB results once reference query runner is updated to return
+    // results as Velox vectors.
     std::optional<MaterializedRowMultiset> expectedResult;
-    if (verifyResults) {
+    if (!customVerification) {
       expectedResult = computeReferenceResults(firstPlan, input);
     } else {
       ++stats_.numVerificationSkipped;
@@ -1517,7 +1535,7 @@ bool AggregationFuzzer::verifyAggregation(
       LOG(INFO) << "Verified results against reference DB";
     }
 
-    testPlans(plans, verifyResults, resultOrError);
+    testPlans(plans, customVerification, customVerifiers, resultOrError);
 
     return resultOrError.exceptionPtr != nullptr;
   } catch (...) {
@@ -1568,7 +1586,9 @@ bool AggregationFuzzer::verifySortedAggregation(
              .planNode(),
          splits});
 
-    testPlans(plans, true, resultOrError, 1);
+    // Set customVerification to false to trigger direct result comparison.
+    // TODO Figure out how to enable custom verify(), but not compare().
+    testPlans(plans, false, {}, resultOrError, 1);
   }
 
   return resultOrError.exceptionPtr != nullptr;
@@ -1581,16 +1601,9 @@ void AggregationFuzzer::verifyAggregation(
     const std::vector<PlanWithSplits>& plans) {
   VELOX_CHECK_GT(plans.size(), 0);
   const auto& plan = plans.front().plan;
-  auto node = dynamic_cast<const core::AggregationNode*>(plan.get());
-  auto projectionNode = dynamic_cast<const core::ProjectNode*>(plan.get());
-  VELOX_CHECK(node || projectionNode);
 
-  if (!node) {
-    VELOX_CHECK_GT(projectionNode->sources().size(), 0);
-    node = dynamic_cast<const core::AggregationNode*>(
-        projectionNode->sources()[0].get());
-    VELOX_CHECK_NOT_NULL(node, "Unable to create aggregation node!");
-  }
+  const auto node = dynamic_cast<const core::AggregationNode*>(plan.get());
+  VELOX_CHECK_NOT_NULL(node);
 
   // Get groupingKeys.
   auto groupingKeys = node->groupingKeys();
@@ -1611,10 +1624,6 @@ void AggregationFuzzer::verifyAggregation(
     }
   }
 
-  // Get projections.
-  auto projections =
-      projectionNode ? projectionNode->names() : std::vector<std::string>{};
-
   // Get inputs.
   std::vector<RowVectorPtr> input;
   input.reserve(node->sources().size());
@@ -1632,20 +1641,28 @@ void AggregationFuzzer::verifyAggregation(
   }
 
   // Get aggregations and determine if order dependent.
+  const int32_t numAggregates = node->aggregates().size();
+
   std::vector<std::string> aggregateStrings;
-  aggregateStrings.reserve(node->aggregates().size());
+  aggregateStrings.reserve(numAggregates);
 
   bool customVerification = false;
+  std::vector<std::shared_ptr<ResultVerifier>> customVerifiers(numAggregates);
   for (auto aggregate : node->aggregates()) {
     aggregateStrings.push_back(aggregate.call->toString());
-    customVerification |=
-        customVerificationFunctions_.count(aggregate.call->name()) != 0;
+
+    const auto& name = aggregate.call->name();
+    auto it = customVerificationFunctions_.find(name);
+    if (it != customVerificationFunctions_.end()) {
+      customVerification = true;
+      customVerifiers.push_back(it->second);
+    } else {
+      customVerifiers.push_back(nullptr);
+    }
   }
 
-  const bool verifyResults = !customVerification || !projections.empty();
-
   std::optional<MaterializedRowMultiset> expectedResult;
-  if (verifyResults) {
+  if (!customVerification) {
     expectedResult = computeReferenceResults(plan, input);
   }
 
@@ -1659,7 +1676,7 @@ void AggregationFuzzer::verifyAggregation(
   }
 
   // Test all plans.
-  testPlans(plans, verifyResults, resultOrError);
+  testPlans(plans, customVerification, customVerifiers, resultOrError);
 }
 
 void AggregationFuzzer::Stats::print(size_t numIterations) const {
