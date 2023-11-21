@@ -85,10 +85,8 @@ class E2EReaderTest : public testing::TestWithParam<ValueTypes> {};
 } // namespace
 
 TEST_P(E2EReaderTest, SharedDictionaryFlatmapReadAsStruct) {
-  const size_t batchCount = 2;
-  // Start with a size larger than stride to cover splitting into
-  // strides. Continue with smaller size for faster test.
-  size_t size = 1100;
+  const size_t batchCount = 10;
+  size_t size = 1;
   auto pool = memory::addDefaultLeafMemoryPool();
 
   std::vector<uint32_t> flatMapCols(GetParam().size());
@@ -149,7 +147,7 @@ TEST_P(E2EReaderTest, SharedDictionaryFlatmapReadAsStruct) {
       }
     }
     writer->write(std::move(batch));
-    size = 200;
+    size = std::min(size * 2, 2048UL);
   }
   writer->close();
   writer.reset();
@@ -175,6 +173,32 @@ TEST_P(E2EReaderTest, SharedDictionaryFlatmapReadAsStruct) {
 
   VectorPtr batch;
   while (rowReader->next(100, batch)) {
+    ASSERT_TRUE(type->isRow());
+    ASSERT_TRUE(batch->type()->isRow());
+    auto& schemaRow = type->as<TypeKind::ROW>();
+    auto& resultTypeRow = batch->type()->as<TypeKind::ROW>();
+    auto* batchRow = batch->as<RowVector>();
+    ASSERT_EQ(schemaRow.size(), resultTypeRow.size());
+    for (size_t col = 0, columns = schemaRow.size(); col < columns; ++col) {
+      ASSERT_TRUE(schemaRow.childAt(col)->isMap());
+      ASSERT_EQ(batchRow->childAt(col)->typeKind(), TypeKind::ROW);
+      ASSERT_TRUE(resultTypeRow.childAt(col)->isRow());
+      auto& schemaChild = schemaRow.childAt(col)->as<TypeKind::MAP>();
+      // Type should be ROW since it's struct encoding
+      auto& resultTypeChild = resultTypeRow.childAt(col)->as<TypeKind::ROW>();
+      auto* batchRowChild = batchRow->childAt(col)->as<RowVector>();
+      ASSERT_EQ(resultTypeChild.size(), batchRowChild->children().size());
+      for (uint32_t feature = 0, features = resultTypeChild.size();
+           feature < features;
+           ++feature) {
+        ASSERT_EQ(
+            schemaChild.valueType()->kind(),
+            resultTypeChild.childAt(feature)->kind());
+        ASSERT_EQ(
+            resultTypeChild.childAt(feature)->kind(),
+            batchRowChild->childAt(feature)->typeKind());
+      }
+    }
   }
 }
 
