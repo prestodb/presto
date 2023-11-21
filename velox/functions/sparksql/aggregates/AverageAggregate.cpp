@@ -84,7 +84,9 @@ class AverageAggregate
 ///     REAL            |     DOUBLE          |    DOUBLE
 ///     ALL INTs        |     DOUBLE          |    DOUBLE
 ///     DECIMAL         |     DECIMAL         |    DECIMAL
-exec::AggregateRegistrationResult registerAverage(const std::string& name) {
+exec::AggregateRegistrationResult registerAverage(
+    const std::string& name,
+    bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
   for (const auto& inputType :
@@ -187,7 +189,7 @@ exec::AggregateRegistrationResult registerAverage(const std::string& name) {
           }
         }
       },
-      /*registerCompanionFunctions*/ true);
+      withCompanionFunctions);
 }
 
 } // namespace facebook::velox::functions::aggregate::sparksql

@@ -21,13 +21,16 @@ namespace facebook::velox::aggregate::prestosql {
 extern exec::AggregateRegistrationResult registerApproxMostFrequentAggregate(
     const std::string& prefix);
 extern exec::AggregateRegistrationResult registerApproxPercentileAggregate(
-    const std::string& prefix);
+    const std::string& prefix,
+    bool withCompanionFunctions);
 extern exec::AggregateRegistrationResult registerArbitraryAggregate(
     const std::string& prefix);
 extern exec::AggregateRegistrationResult registerArrayAggAggregate(
-    const std::string& prefix);
+    const std::string& prefix,
+    bool withCompanionFunctions);
 extern exec::AggregateRegistrationResult registerAverageAggregate(
-    const std::string& prefix);
+    const std::string& prefix,
+    bool withCompanionFunctions);
 extern exec::AggregateRegistrationResult registerBitwiseXorAggregate(
     const std::string& prefix);
 extern exec::AggregateRegistrationResult registerChecksumAggregate(
@@ -61,7 +64,9 @@ extern exec::AggregateRegistrationResult registerSetAggAggregate(
 extern exec::AggregateRegistrationResult registerSetUnionAggregate(
     const std::string& prefix);
 
-extern void registerApproxDistinctAggregates(const std::string& prefix);
+extern void registerApproxDistinctAggregates(
+    const std::string& prefix,
+    bool withCompanionFunctions);
 extern void registerBitwiseAggregates(const std::string& prefix);
 extern void registerBoolAggregates(const std::string& prefix);
 extern void registerCentralMomentsAggregates(const std::string& prefix);
@@ -71,13 +76,15 @@ extern void registerMinMaxByAggregates(const std::string& prefix);
 extern void registerSumAggregate(const std::string& prefix);
 extern void registerVarianceAggregates(const std::string& prefix);
 
-void registerAllAggregateFunctions(const std::string& prefix) {
-  registerApproxDistinctAggregates(prefix);
+void registerAllAggregateFunctions(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
+  registerApproxDistinctAggregates(prefix, withCompanionFunctions);
   registerApproxMostFrequentAggregate(prefix);
-  registerApproxPercentileAggregate(prefix);
+  registerApproxPercentileAggregate(prefix, withCompanionFunctions);
   registerArbitraryAggregate(prefix);
-  registerArrayAggAggregate(prefix);
-  registerAverageAggregate(prefix);
+  registerArrayAggAggregate(prefix, withCompanionFunctions);
+  registerAverageAggregate(prefix, withCompanionFunctions);
   registerBitwiseAggregates(prefix);
   registerBitwiseXorAggregate(prefix);
   registerBoolAggregates(prefix);

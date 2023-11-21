@@ -57,14 +57,6 @@ class ApproxDistinctTest : public AggregationTestBase {
         {fmt::format("approx_set(c0, {})", maxStandardError)},
         {"cardinality(a0)"},
         {expected});
-    testAggregationsWithCompanion(
-        {vectors},
-        [](auto& /*builder*/) {},
-        {},
-        {fmt::format("approx_set(c0, {})", maxStandardError)},
-        {{values->type(), DOUBLE()}},
-        {"cardinality(a0)"},
-        {expected});
   }
 
   void testGlobalAgg(const VectorPtr& values, int64_t expectedResult) {
@@ -84,14 +76,6 @@ class ApproxDistinctTest : public AggregationTestBase {
 
     testAggregations(
         {vectors}, {}, {"approx_set(c0)"}, {"cardinality(a0)"}, {expected});
-    testAggregationsWithCompanion(
-        {vectors},
-        [](auto& /*builder*/) {},
-        {},
-        {"approx_set(c0)"},
-        {{values->type()}},
-        {"cardinality(a0)"},
-        {expected});
   }
 
   template <typename T, typename U>
@@ -130,14 +114,6 @@ class ApproxDistinctTest : public AggregationTestBase {
         {vectors},
         {"c0"},
         {"approx_set(c1)"},
-        {"c0", "cardinality(a0)"},
-        {expected});
-    testAggregationsWithCompanion(
-        {vectors},
-        [](auto& /*builder*/) {},
-        {"c0"},
-        {"approx_set(c1)"},
-        {{values->type()}},
         {"c0", "cardinality(a0)"},
         {expected});
   }

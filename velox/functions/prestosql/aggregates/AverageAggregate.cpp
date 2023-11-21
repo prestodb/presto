@@ -30,7 +30,8 @@ namespace facebook::velox::aggregate::prestosql {
 ///     ALL INTs        |     DOUBLE          |    DOUBLE
 ///     DECIMAL         |     DECIMAL         |    DECIMAL
 exec::AggregateRegistrationResult registerAverageAggregate(
-    const std::string& prefix) {
+    const std::string& prefix,
+    bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
   for (const auto& inputType : {"smallint", "integer", "bigint", "double"}) {
@@ -139,7 +140,7 @@ exec::AggregateRegistrationResult registerAverageAggregate(
           }
         }
       },
-      /*registerCompanionFunctions*/ true);
+      withCompanionFunctions);
 }
 
 } // namespace facebook::velox::aggregate::prestosql
