@@ -261,7 +261,8 @@ getCustomInputGenerators() {
 } // namespace facebook::velox::exec::test
 
 int main(int argc, char** argv) {
-  facebook::velox::aggregate::prestosql::registerAllAggregateFunctions();
+  facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(
+      "", false);
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
   facebook::velox::functions::prestosql::registerInternalFunctions();
 
@@ -310,19 +311,10 @@ int main(int argc, char** argv) {
       customVerificationFunctions = {
           // Order-dependent functions.
           {"approx_distinct", ""},
-          {"approx_distinct_partial", ""},
-          {"approx_distinct_merge", ""},
           {"approx_set", ""},
-          {"approx_set_partial", ""},
-          {"approx_set_merge", ""},
           {"approx_percentile", ""},
-          {"approx_percentile_partial", ""},
-          {"approx_percentile_merge", ""},
           {"arbitrary", ""},
           {"array_agg", "\"$internal$canonicalize\"({})"},
-          {"array_agg_partial", "\"$internal$canonicalize\"({})"},
-          {"array_agg_merge", "\"$internal$canonicalize\"({})"},
-          {"array_agg_merge_extract", "\"$internal$canonicalize\"({})"},
           {"set_agg", "\"$internal$canonicalize\"({})"},
           {"set_union", "\"$internal$canonicalize\"({})"},
           {"map_agg", "\"$internal$canonicalize\"(map_keys({}))"},
@@ -332,14 +324,6 @@ int main(int argc, char** argv) {
           {"min_by", ""},
           {"multimap_agg",
            "transform_values({}, (k, v) -> \"$internal$canonicalize\"(v))"},
-          // TODO: Skip result verification of companion functions that return
-          // complex types that contain floating-point fields for now, until we
-          // fix
-          // test utilities in QueryAssertions to tolerate floating-point
-          // imprecision in complex types.
-          // https://github.com/facebookincubator/velox/issues/4481
-          {"avg_partial", ""},
-          {"avg_merge", ""},
           // Semantically inconsistent functions
           {"skewness", ""},
           {"kurtosis", ""},
