@@ -325,7 +325,7 @@ void FlatVector<StringView>::copy(
       if (!asciiInfo.isAllAscii()) {
         invalidateIsAscii();
       } else {
-        asciiInfo.asciiSetRows().deselect(rows);
+        asciiInfo.writeLockedAsciiComputedRows()->deselect(rows);
       }
     }
   }
