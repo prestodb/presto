@@ -542,7 +542,7 @@ endif()
 set(xsimd_SOURCE BUNDLED)
 resolve_dependency(xsimd)
 
-if(VELOX_BUILD_TESTING)
+if(VELOX_BUILD_TESTING OR VELOX_BUILD_TEST_UTILS)
   set(cpr_SOURCE BUNDLED)
   resolve_dependency(cpr)
 endif()

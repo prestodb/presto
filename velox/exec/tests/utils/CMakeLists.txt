@@ -29,7 +29,8 @@ add_library(
   SumNonPODAggregate.cpp
   TpchQueryBuilder.cpp
   VectorTestUtil.cpp
-  PortUtil.cpp)
+  PortUtil.cpp
+  PrestoQueryRunner.cpp)
 
 target_link_libraries(
   velox_exec_test_lib
@@ -49,7 +50,10 @@ target_link_libraries(
   velox_tpch_connector
   velox_presto_serializer
   velox_functions_prestosql
-  velox_aggregates)
+  velox_aggregates
+  cpr::cpr
+  velox_type_parser
+  Folly::folly)
 
 add_library(velox_aggregation_fuzzer AggregationFuzzer.cpp)
 
