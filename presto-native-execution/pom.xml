@@ -156,6 +156,11 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>testing</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
