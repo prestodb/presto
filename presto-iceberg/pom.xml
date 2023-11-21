@@ -561,6 +561,7 @@
                             <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
                             <ignoredClassPattern>org.apache.parquet.*</ignoredClassPattern>
                             <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
                 </plugin>
