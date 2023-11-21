@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <cmath>
+#include <limits>
 #include <optional>
 
 #include <gmock/gmock.h>
@@ -30,6 +31,8 @@ constexpr double kInf = std::numeric_limits<double>::infinity();
 constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
 constexpr float kInfF = std::numeric_limits<float>::infinity();
 constexpr float kNanF = std::numeric_limits<float>::quiet_NaN();
+constexpr int64_t kLongMax = std::numeric_limits<int64_t>::max();
+constexpr int64_t kLongMin = std::numeric_limits<int64_t>::min();
 
 MATCHER(IsNan, "is NaN") {
   return arg && std::isnan(*arg);
@@ -59,6 +62,15 @@ class ArithmeticTest : public functions::test::FunctionBaseTest {
         ASSERT_EQ(result->valueAt(i), expected[i]) << "at " << i;
       }
     }
+  }
+
+  void assertExpression(
+      const std::string& expression,
+      const VectorPtr& arg0,
+      const VectorPtr& arg1,
+      const VectorPtr& expected) {
+    auto result = evaluate(expression, makeRowVector({arg0, arg1}));
+    test::assertEqualVectors(expected, result);
   }
 
   template <typename T, typename U = T, typename V = T>
@@ -115,6 +127,50 @@ TEST_F(ArithmeticTest, multiply) {
       {std::numeric_limits<int32_t>::min()},
       {-1},
       "integer overflow: -2147483648 * -1");
+
+  // Test multiplication of interval type with bigint.
+  auto intervalVector = makeNullableFlatVector<int64_t>(
+      {1, 2, 3, std::nullopt, 10, 20}, INTERVAL_DAY_TIME());
+  auto bigintVector = makeNullableFlatVector<int64_t>(
+      {1, std::nullopt, 3, 4, kLongMax, kLongMin});
+  auto expected = makeNullableFlatVector<int64_t>(
+      {1, std::nullopt, 9, std::nullopt, -10, 0}, INTERVAL_DAY_TIME());
+  assertExpression("c0 * c1", intervalVector, bigintVector, expected);
+  assertExpression("c1 * c0", intervalVector, bigintVector, expected);
+
+  // Test multiplication of interval type with double.
+  intervalVector = makeNullableFlatVector<int64_t>(
+      {1, 2, 3, std::nullopt, 10, 20, 30, 40, 1000, 1000, 1000, 1000},
+      INTERVAL_DAY_TIME());
+  auto doubleVector = makeNullableFlatVector<double>(
+      {-1.8,
+       2.1,
+       kNan,
+       4.2,
+       0.0,
+       -0.0,
+       kInf,
+       -kInf,
+       9223372036854775807.01,
+       -9223372036854775808.01,
+       1.7e308,
+       -1.7e308});
+  expected = makeNullableFlatVector<int64_t>(
+      {-1,
+       4,
+       0,
+       std::nullopt,
+       0,
+       0,
+       kLongMax,
+       kLongMin,
+       kLongMax,
+       kLongMin,
+       kLongMax,
+       kLongMin},
+      INTERVAL_DAY_TIME());
+  assertExpression("c0 * c1", intervalVector, doubleVector, expected);
+  assertExpression("c1 * c0", intervalVector, doubleVector, expected);
 }
 
 TEST_F(ArithmeticTest, mod) {

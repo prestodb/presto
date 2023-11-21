@@ -1,6 +1,45 @@
 =====================================
-Date and Time Functions
+Date and Time Functions and Operators
 =====================================
+
+Date and Time Operators
+-----------------------
+
+.. list-table::
+   :widths: 15 60 25
+   :header-rows: 1
+
+   * - Operator
+     - Example
+     - Result
+   * - ``*``
+     - ``interval '1' second * 2``
+     - ``0 00:00:02.000``
+   * - ``*``
+     - ``2 * interval '1' second``
+     - ``0 00:00:02.000``
+   * - ``*``
+     - ``interval '1' second * 0.001``
+     - ``0 00:00:00.001``
+   * - ``*``
+     - ``0.001 * interval '1' second``
+     - ``0 00:00:00.001``
+
+.. function:: multiply(interval day to second, x) -> interval day to second
+
+    Returns the result of multiplying ``interval day to second`` by ``x``.
+    ``x`` can be a bigint or double. Returns ``0`` when ``x`` is NaN. Returns
+    ``106751991167 07:12:55.807`` when ``x`` is infinity or when the
+    multiplication overflow in positive. Returns ``-106751991167 07:12:55.808``
+    when ``x`` is -infinity or when the multiplication overflow in negiative.
+
+.. function:: multiply(x, interval day to second) -> interval day to second
+
+    Returns the result of multiplying ``x`` by ``interval day to second``.
+    Same as ``multiply(interval day to second, x)``.
+
+Date and Time Functions
+-----------------------
 
 .. function:: current_date() -> date
 

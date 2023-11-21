@@ -24,6 +24,7 @@
 #include <functional>
 #include <limits>
 #include <system_error>
+#include <type_traits>
 
 #include "folly/CPortability.h"
 #include "velox/common/base/Exceptions.h"
@@ -66,6 +67,41 @@ struct MultiplyFunction {
   FOLLY_ALWAYS_INLINE void
   call(TInput& result, const TInput& a, const TInput& b) {
     result = multiply(a, b);
+  }
+};
+
+// Multiply function for IntervalDayTime * Double and Double * IntervalDayTime.
+template <typename T>
+struct IntervalMultiplyFunction {
+  FOLLY_ALWAYS_INLINE double sanitizeInput(double d) {
+    if UNLIKELY (std::isnan(d)) {
+      return 0;
+    }
+    return d;
+  }
+
+  template <
+      typename T1,
+      typename T2,
+      typename = std::enable_if_t<
+          (std::is_same_v<T1, int64_t> && std::is_same_v<T2, double>) ||
+          (std::is_same_v<T1, double> && std::is_same_v<T2, int64_t>)>>
+  FOLLY_ALWAYS_INLINE void call(int64_t& result, T1 a, T2 b) {
+    constexpr long kLongMax = std::numeric_limits<int64_t>::max();
+    constexpr long kLongMin = std::numeric_limits<int64_t>::min();
+    double resultDouble;
+    if constexpr (std::is_same_v<T1, double>) {
+      resultDouble = sanitizeInput(a) * b;
+    } else {
+      resultDouble = sanitizeInput(b) * a;
+    }
+    if LIKELY (
+        std::isfinite(resultDouble) && resultDouble >= kLongMin &&
+        resultDouble <= kLongMax) {
+      result = int64_t(resultDouble);
+    } else {
+      result = resultDouble > 0 ? kLongMax : kLongMin;
+    }
   }
 };
 
