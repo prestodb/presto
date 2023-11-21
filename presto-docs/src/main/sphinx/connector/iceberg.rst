@@ -49,7 +49,7 @@ Nessie catalog
 ^^^^^^^^^^^^^^
 
 To use a Nessie catalog, configure the catalog type as
-``iceberg.catalog.type=nessie``
+``iceberg.catalog.type=nessie``.
 
 .. code-block:: none
 
@@ -123,7 +123,7 @@ For more information about this configuration option and other related options, 
 
 For more information about troubleshooting OpenTelemetry traces, see `Troubleshooting traces <https://projectnessie.org/try/configuration/#troubleshooting-traces>`_.
 
-If an error similar to the following example is displayed, this is probably because you are interacting with an http server, and not https server. You need to set ``iceberg.nessie.uri`` to ``http://localhost:19120/api/v1``.
+If an error similar to the following example is displayed, this is probably because you are interacting with an http server, and not an https server. You need to set ``iceberg.nessie.uri`` to ``http://localhost:19120/api/v1``.
 
 .. code-block:: none
 
@@ -145,7 +145,8 @@ If an error similar to the following example is displayed, this is probably beca
 Hadoop catalog
 ^^^^^^^^^^^^^^
 
-Iceberg connector supports Hadoop catalog
+To use a Hadoop catalog, configure the catalog type as
+``iceberg.catalog.type=hadoop``
 
 .. code-block:: none
 
@@ -302,7 +303,7 @@ as a part of a SQL query by appending name to the table.
 
 ``$snapshots`` Table
 ^^^^^^^^^^^^^^^^^^^^
-* ``$snapshots`` : Details about the table snapshots, see the details `here <https://iceberg.apache.org/spec/#snapshots>`_.
+* ``$snapshots`` : Details about the table snapshots. For more information see `Snapshots <https://iceberg.apache.org/spec/#snapshots>`_ in the Iceberg Table Spec.
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$snapshots";
@@ -315,7 +316,7 @@ as a part of a SQL query by appending name to the table.
 
 ``$manifests`` Table
 ^^^^^^^^^^^^^^^^^^^^
-* ``$manifests`` : Details about the manifests of different table snapshots, see the details `here <https://iceberg.apache.org/spec/#manifests>`_.
+* ``$manifests`` : Details about the manifests of different table snapshots. For more information see `Manifests <https://iceberg.apache.org/spec/#manifests>`_ in the Iceberg Table Spec.
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$manifests";
@@ -356,12 +357,12 @@ SQL Support
 -----------
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
-(databases). Here are some examples of the SQL operations supported by Presto :
+(databases). Here are some examples of the SQL operations supported by Presto:
 
 CREATE SCHEMA
 ^^^^^^^^^^^^^^
 
-Create a new Iceberg schema named ``web`` that will store tables in an
+Create a new Iceberg schema named ``web`` that stores tables in an
 S3 bucket named ``my-bucket``::
 
     CREATE SCHEMA iceberg.web
@@ -479,7 +480,7 @@ SELECT table operations are supported for Iceberg format version 1 and version 2
 ALTER TABLE
 ^^^^^^^^^^^^
 
-Alter table operations are supported in the connector::
+Alter table operations are supported in the Iceberg connector::
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN zipcode VARCHAR;
 
@@ -503,7 +504,7 @@ The table is partitioned by the transformed value of the column::
 TRUNCATE
 ^^^^^^^^
 
-The iceberg connector can delete all of the data from tables without
+The Iceberg connector can delete all of the data from tables without
 dropping the table from the metadata catalog using ``TRUNCATE TABLE``.
 
 .. code-block:: sql
@@ -527,7 +528,7 @@ dropping the table from the metadata catalog using ``TRUNCATE TABLE``.
 DELETE
 ^^^^^^^^
 
-The iceberg connector can delete data in one or more entire partitions from tables by using ``DELETE FROM``. For example, to delete from the table ``lineitem``::
+The Iceberg connector can delete data in one or more entire partitions from tables by using ``DELETE FROM``. For example, to delete from the table ``lineitem``::
 
      DELETE FROM lineitem;
 
@@ -563,14 +564,14 @@ Drop the view ``view_page_views``::
 DROP SCHEMA
 ^^^^^^^^^^^^
 
-Drop a schema::
+Drop the schema ``iceberg.web``::
 
     DROP SCHEMA iceberg.web
 
 Schema Evolution
 -----------------
 
-Iceberg and Presto Iceberg connector support in-place table evolution, aka
+Iceberg and Presto Iceberg connector support in-place table evolution, also known as
 schema evolution, such as adding, dropping, and renaming columns. With schema
 evolution, users can evolve a table schema with SQL after enabling the Presto
 Iceberg connector.
@@ -662,8 +663,9 @@ metadata table. We can rollback the state of a table to a previous snapshot ID.
 Example Queries
 ^^^^^^^^^^^^^^^
 
-Similar to the example queries in `Schema Evolution`, let's create an Iceberg
-table named `ctas_nation`, created from the TPCH `nation` table.
+Similar to the example queries in `SCHEMA EVOLUTION`_, create an Iceberg
+table named `ctas_nation` from the TPCH `nation` table::
+
 
 .. code-block:: sql
 
