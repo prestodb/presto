@@ -11,38 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-add_subdirectory(parser)
-add_subdirectory(tz)
-add_subdirectory(fbhive)
+bison_target(
+  TypeParser TypeParser.yy ${CMAKE_CURRENT_BINARY_DIR}/TypeParser.yy.cc
+  DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/TypeParser.yy.h)
 
+flex_target(
+  TypeParserScanner TypeParser.ll ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp
+  COMPILE_FLAGS "-Cf --prefix=veloxtp")
+
+add_flex_bison_dependency(TypeParserScanner TypeParser)
+
+include_directories(${PROJECT_BINARY_DIR})
+include_directories(${FLEX_INCLUDE_DIRS})
 add_library(
-  velox_type
-  Conversions.cpp
-  DecimalUtil.cpp
-  DoubleUtil.cpp
-  Filter.cpp
-  HugeInt.cpp
-  StringView.cpp
-  StringView.h
-  Subfield.cpp
-  Timestamp.cpp
-  TimestampConversion.cpp
-  Tokenizer.cpp
-  Type.cpp
-  Variant.cpp)
-
-target_link_libraries(
-  velox_type
-  velox_type_tz
-  velox_common_base
-  velox_encode
-  velox_exception
-  velox_serialization
-  velox_external_date
-  Boost::headers
-  Folly::folly
-  re2::re2)
+  velox_type_parser ${BISON_TypeParser_OUTPUTS}
+                    ${FLEX_TypeParserScanner_OUTPUTS} Scanner.h TypeParser.h)
+target_link_libraries(velox_type_parser velox_common_base)

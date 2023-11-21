@@ -11,38 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()
 
-add_subdirectory(parser)
-add_subdirectory(tz)
-add_subdirectory(fbhive)
+add_executable(velox_type_parser_test TypeParserTest.cpp)
 
-add_library(
-  velox_type
-  Conversions.cpp
-  DecimalUtil.cpp
-  DoubleUtil.cpp
-  Filter.cpp
-  HugeInt.cpp
-  StringView.cpp
-  StringView.h
-  Subfield.cpp
-  Timestamp.cpp
-  TimestampConversion.cpp
-  Tokenizer.cpp
-  Type.cpp
-  Variant.cpp)
+add_test(NAME velox_type_parser_test COMMAND velox_type_parser_test)
 
-target_link_libraries(
-  velox_type
-  velox_type_tz
-  velox_common_base
-  velox_encode
-  velox_exception
-  velox_serialization
-  velox_external_date
-  Boost::headers
-  Folly::folly
-  re2::re2)
+target_link_libraries(velox_type_parser_test velox_type_parser velox_type gtest
+                      gtest_main gmock)
