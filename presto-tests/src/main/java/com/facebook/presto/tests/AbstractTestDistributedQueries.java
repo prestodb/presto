@@ -251,39 +251,46 @@ public abstract class AbstractTestDistributedQueries
         assertCreateTableAsSelect(
                 "test_select",
                 "SELECT orderdate, orderkey, totalprice FROM orders",
-                "SELECT count(*) FROM orders");
+                "SELECT count(*) FROM orders",
+                true);
 
         assertCreateTableAsSelect(
                 "test_group",
                 "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
-                "SELECT count(DISTINCT orderstatus) FROM orders");
+                "SELECT count(DISTINCT orderstatus) FROM orders",
+                true);
 
         assertCreateTableAsSelect(
                 "test_join",
                 "SELECT count(*) x FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
-                "SELECT 1");
+                "SELECT 1",
+                true);
 
         assertCreateTableAsSelect(
                 "test_limit",
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
-                "SELECT 10");
+                "SELECT 10",
+                true);
 
         assertCreateTableAsSelect(
                 "test_unicode",
                 "SELECT '\u2603' unicode",
-                "SELECT 1");
+                "SELECT 1",
+                true);
 
         assertCreateTableAsSelect(
                 "test_with_data",
                 "SELECT * FROM orders WITH DATA",
                 "SELECT * FROM orders",
-                "SELECT count(*) FROM orders");
+                "SELECT count(*) FROM orders",
+                true);
 
         assertCreateTableAsSelect(
                 "test_with_no_data",
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
-                "SELECT 0");
+                "SELECT 0",
+                true);
 
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
 
@@ -292,7 +299,8 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 0 UNION ALL " +
                         "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 1",
                 "SELECT orderdate, orderkey, totalprice FROM orders",
-                "SELECT count(*) FROM orders");
+                "SELECT count(*) FROM orders",
+                true);
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
@@ -301,7 +309,8 @@ public abstract class AbstractTestDistributedQueries
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM orders");
+                "SELECT count(*) + 1 FROM orders",
+                true);
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
@@ -310,7 +319,8 @@ public abstract class AbstractTestDistributedQueries
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM orders");
+                "SELECT count(*) + 1 FROM orders",
+                true);
 
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE analyze_test AS SELECT orderstatus FROM orders");
         assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders");
@@ -369,35 +379,6 @@ public abstract class AbstractTestDistributedQueries
     public void testExplainAnalyzeDDL()
     {
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
-    }
-
-    private void assertExplainAnalyze(@Language("SQL") String query)
-    {
-        String value = (String) computeActual(query).getOnlyValue();
-
-        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
-
-        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
-        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
-        assertUpdate(session, "DROP TABLE " + table);
-
-        assertFalse(getQueryRunner().tableExists(session, table));
     }
 
     // Flaky test: https://github.com/prestodb/presto/issues/20764

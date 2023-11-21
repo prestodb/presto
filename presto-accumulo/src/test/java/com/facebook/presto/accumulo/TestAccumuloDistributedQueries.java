@@ -85,19 +85,22 @@ public class TestAccumuloDistributedQueries
         this.assertCreateTableAsSelect(
                 "test_group",
                 "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
-                "SELECT count(DISTINCT orderstatus) FROM orders");
+                "SELECT count(DISTINCT orderstatus) FROM orders",
+                true);
 
         this.assertCreateTableAsSelect(
                 "test_with_data",
                 "SELECT * FROM orders WITH DATA",
                 "SELECT * FROM orders",
-                "SELECT count(*) FROM orders");
+                "SELECT count(*) FROM orders",
+                true);
 
         this.assertCreateTableAsSelect(
                 "test_with_no_data",
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
-                "SELECT 0");
+                "SELECT 0",
+                true);
     }
 
     @Test
