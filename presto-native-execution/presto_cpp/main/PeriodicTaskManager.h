@@ -142,7 +142,10 @@ class PeriodicTaskManager {
   int64_t lastHardPageFaults_{0};
   int64_t lastVoluntaryContextSwitches_{0};
   int64_t lastForcedContextSwitches_{0};
+  // Renabled this after update velox.
+#if 0
   velox::exec::SpillStats lastSpillStats_;
+#endif
   velox::memory::MemoryArbitrator::Stats lastArbitratorStats_;
 };
 
