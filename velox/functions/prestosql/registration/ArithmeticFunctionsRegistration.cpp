@@ -42,6 +42,11 @@ void registerSimpleFunctions(const std::string& prefix) {
       double,
       IntervalDayTime>({prefix + "multiply"});
   registerBinaryFloatingPoint<DivideFunction>({prefix + "divide"});
+  registerFunction<
+      IntervalDivideFunction,
+      IntervalDayTime,
+      IntervalDayTime,
+      double>({prefix + "divide"});
   registerBinaryFloatingPoint<ModulusFunction>({prefix + "mod"});
   registerUnaryNumeric<CeilFunction>({prefix + "ceil", prefix + "ceiling"});
   registerUnaryNumeric<FloorFunction>({prefix + "floor"});

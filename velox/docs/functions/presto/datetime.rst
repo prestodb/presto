@@ -24,6 +24,9 @@ Date and Time Operators
    * - ``*``
      - ``0.001 * interval '1' second``
      - ``0 00:00:00.001``
+   * - ``/``
+     - ``interval '15' second / 1.5``
+     - ``0 00:00:10.000``
 
 .. function:: multiply(interval day to second, x) -> interval day to second
 
@@ -37,6 +40,16 @@ Date and Time Operators
 
     Returns the result of multiplying ``x`` by ``interval day to second``.
     Same as ``multiply(interval day to second, x)``.
+
+.. function:: divide(interval day to second, x) -> interval day to second
+
+    Returns the result of ``interval day to second`` divided by ``x``. ``x`` is
+    a double. Returns ``0`` when ``x`` is NaN or is infinity. Returns
+    ``106751991167 07:12:55.807`` when ``x`` is ``0.0`` and
+    ``interval day to second`` is not ``0``, or when the division overflows in
+    positive. Returns ``-106751991167 07:12:55.808`` when ``x`` is ``-0.0`` and
+    ``interval day to second`` is not ``0``, or when the division overflows in
+    negiative.
 
 Date and Time Functions
 -----------------------

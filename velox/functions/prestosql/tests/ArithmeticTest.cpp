@@ -119,6 +119,43 @@ __attribute__((__no_sanitize__("float-divide-by-zero")))
       {5.25, kInfF, kNanF, 0.0});
   assertExpression<double>(
       "c0 / c1", {10.5, 9.2, 0.0, 0.0}, {2, 0, 0, -1}, {5.25, kInf, kNan, 0.0});
+
+  // Test interval divided by double.
+  auto intervalVector = makeNullableFlatVector<int64_t>(
+      {3, 6, 9, std::nullopt, 12, 15, 18, 21, 0, 0, 1}, INTERVAL_DAY_TIME());
+  auto doubleVector = makeNullableFlatVector<double>(
+      {0.5,
+       -2.0,
+       5.0,
+       1.0,
+       std::nullopt,
+       kNan,
+       kInf,
+       -kInf,
+       0.0,
+       -0.0,
+       0.00000001});
+  auto expected = makeNullableFlatVector<int64_t>(
+      {6, -3, 1, std::nullopt, std::nullopt, 0, 0, 0, 0, 0, 100000000},
+      INTERVAL_DAY_TIME());
+  assertExpression("c0 / c1", intervalVector, doubleVector, expected);
+
+  intervalVector = makeFlatVector<int64_t>(
+      {1, 1, 1, 1, kLongMax, kLongMin, kLongMax, kLongMin},
+      INTERVAL_DAY_TIME());
+  doubleVector = makeFlatVector<double>(
+      {0.0, -0.0, 4.9e-324, -4.9e-324, 0.1, 0.1, -0.1, -0.1});
+  expected = makeFlatVector<int64_t>(
+      {kLongMax,
+       kLongMin,
+       kLongMax,
+       kLongMin,
+       kLongMax,
+       kLongMin,
+       kLongMin,
+       kLongMax},
+      INTERVAL_DAY_TIME());
+  assertExpression("c0 / c1", intervalVector, doubleVector, expected);
 }
 
 TEST_F(ArithmeticTest, multiply) {
