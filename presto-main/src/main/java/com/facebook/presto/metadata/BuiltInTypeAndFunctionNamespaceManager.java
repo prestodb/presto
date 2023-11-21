@@ -103,6 +103,7 @@ import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximat
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximateSetSfmAggregationDefaultPrecision;
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountIfGaussianAggregation;
 import com.facebook.presto.operator.aggregation.noisyaggregation.SfmSketchMergeAggregation;
+import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
@@ -970,7 +971,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .function(DISTINCT_TYPE_DISTINCT_FROM_OPERATOR)
                 .functions(DISTINCT_TYPE_HASH_CODE_OPERATOR, DISTINCT_TYPE_XX_HASH_64_OPERATOR)
                 .function(DISTINCT_TYPE_INDETERMINATE_OPERATOR)
-                .codegenScalars(MapFilterFunction.class);
+                .codegenScalars(MapFilterFunction.class)
+                .aggregate(ReservoirSampleFunction.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:

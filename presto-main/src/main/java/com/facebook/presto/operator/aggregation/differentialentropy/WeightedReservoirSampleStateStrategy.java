@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
-import com.facebook.presto.operator.aggregation.reservoirsample.WeightedDoubleReservoirSample;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
