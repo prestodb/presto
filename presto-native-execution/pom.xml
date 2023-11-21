@@ -188,6 +188,7 @@
                         <ignoredClassPattern>com.esotericsoftware.minlog.Log</ignoredClassPattern>
                         <ignoredClassPattern>com.esotericsoftware.reflectasm.*</ignoredClassPattern>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
+                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
