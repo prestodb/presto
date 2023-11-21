@@ -420,8 +420,17 @@ using AggregateFunctionFactory = std::function<std::unique_ptr<Aggregate>(
 /// false without overwriting the registry.
 AggregateRegistrationResult registerAggregateFunction(
     const std::string& name,
-    std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
-    AggregateFunctionFactory factory,
+    const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
+    const AggregateFunctionFactory& factory,
+    bool registerCompanionFunctions = false,
+    bool overwrite = false);
+
+// Register an aggregation function with multiple names. Returns a vector of
+// AggregateRegistrationResult, one for each name at the corresponding index.
+std::vector<AggregateRegistrationResult> registerAggregateFunction(
+    const std::vector<std::string>& names,
+    const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
+    const AggregateFunctionFactory& factory,
     bool registerCompanionFunctions = false,
     bool overwrite = false);
 

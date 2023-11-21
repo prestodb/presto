@@ -55,8 +55,8 @@ getAggregateFunctionEntry(const std::string& name) {
 
 AggregateRegistrationResult registerAggregateFunction(
     const std::string& name,
-    std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
-    AggregateFunctionFactory factory,
+    const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
+    const AggregateFunctionFactory& factory,
     bool registerCompanionFunctions,
     bool overwrite) {
   auto sanitizedName = sanitizeName(name);
@@ -96,6 +96,21 @@ AggregateRegistrationResult registerAggregateFunction(
             name, signatures, overwrite);
   }
   return registered;
+}
+
+std::vector<AggregateRegistrationResult> registerAggregateFunction(
+    const std::vector<std::string>& names,
+    const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
+    const AggregateFunctionFactory& factory,
+    bool registerCompanionFunctions,
+    bool overwrite) {
+  auto size = names.size();
+  std::vector<AggregateRegistrationResult> registrationResults{size};
+  for (int i = 0; i < size; ++i) {
+    registrationResults[i] = registerAggregateFunction(
+        names[i], signatures, factory, registerCompanionFunctions, overwrite);
+  }
+  return registrationResults;
 }
 
 std::unordered_map<

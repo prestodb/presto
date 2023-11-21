@@ -24,6 +24,14 @@ struct AggregateRegistrationResult {
   bool mergeFunction{false};
   bool extractFunction{false};
   bool mergeExtractFunction{false};
+
+  bool operator==(const AggregateRegistrationResult& other) const {
+    return mainFunction == other.mainFunction &&
+        partialFunction == other.partialFunction &&
+        mergeFunction == other.mergeFunction &&
+        extractFunction == other.extractFunction &&
+        mergeExtractFunction == other.mergeExtractFunction;
+  }
 };
 
 } // namespace facebook::velox::exec
