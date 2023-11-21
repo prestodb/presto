@@ -655,6 +655,7 @@ after the ``OFFSET`` clause::
      4
     (2 rows)
 
+.. _sql-tablesample:
 
 TABLESAMPLE
 -----------

@@ -963,6 +963,117 @@ where :math:`f(x)` is the partial density function of :math:`x`.
     The function uses the stream summary data structure proposed in the paper
     `Efficient computation of frequent and top-k elements in data streams <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_ by A.Metwally, D.Agrawal and A.Abbadi.
 
+Reservoir Sample Functions
+-------------------------------
+
+Reservoir sample functions use a fixed sample size, as opposed to
+:ref:`TABLESAMPLE <sql-tablesample>`. Fixed sample sizes always result in a
+fixed total size while still guaranteeing that each record in dataset has an
+equal probability of being chosen. See [Vitter1985]_.
+
+.. function:: reservoir_sample(initial_sample: array(T), initial_processed_count: bigint, values_to_sample: T, desired_sample_size: int) -> row(processed_count: bigint, sample: array(T))
+
+    Computes a new reservoir sample given:
+    
+    - ``initial_sample``: an initial sample array, or ``NULL`` if creating a new
+      sample.
+    - ``initial_processed_count``: the number of records processed to generate
+      the initial sample array. This should be 0 or ``NULL`` if
+      ``initital_sample`` is ``NULL``.
+    - ``values_to_sample``: the column to sample from.
+    - ``desired_sample_size``: the size of reservoir sample.
+
+    The function outputs a single row type with two columns:
+
+    #. Processed count: The total number of rows the function sampled
+       from. It includes the total from the ``initial_processed_count``,
+       if provided.
+
+    #. Reservoir sample: An array with length equivalent to the minimum of
+       ``desired_sample_size`` and the number of values in the
+       ``values_to_sample`` argument.
+    
+
+    .. code-block:: sql
+
+        WITH result as (
+            SELECT
+                reservoir_sample(NULL, 0, col, 5) as reservoir
+            FROM (
+                VALUES
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 0
+            ) as t(col)
+        )
+        SELECT 
+            reservoir.processed_count, reservoir.sample
+        FROM result;
+
+    .. code-block:: none
+
+         processed_count |     sample
+        -----------------+-----------------
+                      10 | [1, 2, 8, 4, 5]
+
+    To merge older samples with new data, supply valid arguments to the
+    ``initial_sample`` argument and ``initial_processed_count`` arguments.
+
+    .. code-block:: sql
+
+        WITH initial_sample as (
+            SELECT
+                reservoir_sample(NULL, 0, col, 3) as reservoir
+            FROM (
+                VALUES
+                0, 1, 2, 3, 4
+            ) as t(col)
+        ),
+        new_sample as (
+            SELECT
+                reservoir_sample(
+                    (SELECT reservoir.sample FROM initial_sample), 
+                    (SELECT reservoir.processed_count FROM initial_sample), 
+                    col, 
+                    3
+                ) as result
+            FROM (
+                VALUES
+                5, 6, 7, 8, 9
+            ) as t(col)
+        )
+        SELECT 
+            result.processed_count, result.sample
+        FROM new_sample;
+
+    .. code-block:: none
+
+         processed_count |  sample
+        -----------------+-----------
+                      10 | [8, 3, 2]
+
+    To sample an entire row of a table, use a ``ROW`` type input with 
+    each subfield corresponding to the columns of the source table.
+
+    .. code-block:: sql
+
+        WITH result as (
+            SELECT
+                reservoir_sample(NULL, 0, CAST(row(idx, val) AS row(idx int, val varchar)), 2) as reservoir
+            FROM (
+                VALUES
+                (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd'), (5, 'e')
+            ) as t(idx, val)
+        )
+        SELECT 
+            reservoir.processed_count, reservoir.sample
+        FROM result;
+
+    .. code-block:: none
+
+         processed_count |              sample
+        -----------------+----------------------------------
+                       5 | [{idx=1, val=a}, {idx=5, val=e}]
+
+    
 
 ---------------------------
 
@@ -978,3 +1089,5 @@ where :math:`f(x)` is the partial density function of :math:`x`.
 
 .. [Efraimidis2006] Efraimidis, Pavlos S.; Spirakis, Paul G. (2006-03-16). "Weighted random sampling with a reservoir".
     Information Processing Letters. 97 (5): 181–185.
+
+.. [Vitter1985] Vitter, Jeffrey S. "Random sampling with a reservoir." ACM Transactions on Mathematical Software (TOMS) 11.1 (1985): 37-57.
