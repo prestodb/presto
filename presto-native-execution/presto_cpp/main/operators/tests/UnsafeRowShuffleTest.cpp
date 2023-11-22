@@ -597,9 +597,9 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     VectorFuzzer::Options opts;
     opts.vectorSize = 1000;
     opts.nullRatio = 0.1;
-    opts.containerHasNulls = false;
     opts.dictionaryHasNulls = false;
     opts.stringVariableLength = true;
+
     // UnsafeRows use microseconds to store timestamp.
     opts.timestampPrecision =
         VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;
@@ -611,8 +611,6 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     // assertEqualResults:
     // Limitations of assertEqualResults:
     // https://github.com/facebookincubator/velox/issues/2859
-    // Fuzzer issues with null-key maps:
-    // https://github.com/facebookincubator/velox/issues/2848
     auto rowType = ROW({
         {"c0", INTEGER()},
         {"c1", TINYINT()},
@@ -630,6 +628,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         {"c13", ARRAY(INTEGER())},
         {"c14", ARRAY(TINYINT())},
         {"c15", ROW({INTEGER(), VARCHAR(), ARRAY(INTEGER())})},
+        {"c16", MAP(TINYINT(), REAL())},
     });
 
     // Create a local file system storage based shuffle.
@@ -682,7 +681,6 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     opts.vectorSize = 10;
     opts.nullRatio = 0;
     opts.dictionaryHasNulls = false;
-    opts.containerHasNulls = false;
     opts.stringLength = 10000;
     opts.containerLength = 10000;
     opts.stringVariableLength = false;
