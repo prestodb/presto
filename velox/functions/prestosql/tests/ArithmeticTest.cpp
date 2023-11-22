@@ -92,6 +92,30 @@ class ArithmeticTest : public functions::test::FunctionBaseTest {
   }
 };
 
+TEST_F(ArithmeticTest, plus) {
+  // Test plus for intervals.
+  auto op1 = makeNullableFlatVector<int64_t>(
+      {-1, 2, -3, 4, kLongMax, -1, std::nullopt, 0}, INTERVAL_DAY_TIME());
+  auto op2 = makeNullableFlatVector<int64_t>(
+      {2, -3, -1, 1, 1, kLongMin, 0, std::nullopt}, INTERVAL_DAY_TIME());
+  auto expected = makeNullableFlatVector<int64_t>(
+      {1, -1, -4, 5, kLongMin, kLongMax, std::nullopt, std::nullopt},
+      INTERVAL_DAY_TIME());
+  assertExpression("c0 + c1", op1, op2, expected);
+}
+
+TEST_F(ArithmeticTest, minus) {
+  // Test plus for intervals.
+  auto op1 = makeNullableFlatVector<int64_t>(
+      {-1, 2, -3, 4, kLongMin, -1, std::nullopt, 0}, INTERVAL_DAY_TIME());
+  auto op2 = makeNullableFlatVector<int64_t>(
+      {2, 3, -4, 1, 1, kLongMax, 0, std::nullopt}, INTERVAL_DAY_TIME());
+  auto expected = makeNullableFlatVector<int64_t>(
+      {-3, -1, 1, 3, kLongMax, kLongMin, std::nullopt, std::nullopt},
+      INTERVAL_DAY_TIME());
+  assertExpression("c0 - c1", op1, op2, expected);
+}
+
 TEST_F(ArithmeticTest, divide)
 #if defined(__has_feature)
 #if __has_feature(__address_sanitizer__)

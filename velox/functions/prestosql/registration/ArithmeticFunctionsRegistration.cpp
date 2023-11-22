@@ -25,7 +25,17 @@ namespace facebook::velox::functions {
 namespace {
 void registerSimpleFunctions(const std::string& prefix) {
   registerBinaryFloatingPoint<PlusFunction>({prefix + "plus"});
+  registerFunction<
+      PlusFunction,
+      IntervalDayTime,
+      IntervalDayTime,
+      IntervalDayTime>({prefix + "plus"});
   registerBinaryFloatingPoint<MinusFunction>({prefix + "minus"});
+  registerFunction<
+      MinusFunction,
+      IntervalDayTime,
+      IntervalDayTime,
+      IntervalDayTime>({prefix + "minus"});
   registerBinaryFloatingPoint<MultiplyFunction>({prefix + "multiply"});
   registerFunction<MultiplyFunction, IntervalDayTime, IntervalDayTime, int64_t>(
       {prefix + "multiply"});

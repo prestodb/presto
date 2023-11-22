@@ -12,6 +12,12 @@ Date and Time Operators
    * - Operator
      - Example
      - Result
+   * - ``+``
+     - ``interval '1' second + interval '1' hour``
+     - ``0 01:00:01.000``
+   * - ``-``
+     - ``interval '1' hour - interval '1' second``
+     - ``0 00:59:59.000``
    * - ``*``
      - ``interval '1' second * 2``
      - ``0 00:00:02.000``
@@ -27,6 +33,20 @@ Date and Time Operators
    * - ``/``
      - ``interval '15' second / 1.5``
      - ``0 00:00:10.000``
+
+.. function:: plus(x, y) -> [same as x]
+
+    Returns the sum of ``x`` and ``y``. ``x`` and ``y`` are both intervals day
+    to second. Returns ``-106751991167 07:12:55.808`` when the addition
+    overflows in positive. Returns ``106751991167 07:12:55.807`` when the
+    addition overflows in negative.
+
+.. function:: minus(x, y) -> [same as x]
+
+    Returns the result of subtracting ``y`` from ``x``. ``x`` and ``y`` are
+    both intervals day to second. Returns ``-106751991167 07:12:55.808`` when
+    the subtraction overflows in positive. Returns ``106751991167 07:12:55.807``
+    when the subtraction overflows in negative.
 
 .. function:: multiply(interval day to second, x) -> interval day to second
 
