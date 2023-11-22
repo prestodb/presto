@@ -89,6 +89,12 @@ StringView convertToStringView(
   char* writePosition = startPosition;
   if (unscaledValue == 0) {
     *writePosition++ = '0';
+    if (scale > 0) {
+      *writePosition++ = '.';
+      // Append leading zeros.
+      std::memset(writePosition, '0', scale);
+      writePosition += scale;
+    }
   } else {
     if (unscaledValue < 0) {
       *writePosition++ = '-';

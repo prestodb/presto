@@ -1566,7 +1566,16 @@ TEST_F(CastExprTest, decimalToVarchar) {
       "c0",
       flatForInline,
       makeNullableFlatVector<StringView>(
-          {"1234567.89", "-3333333.33", "0", "0.05", "-0.09", std::nullopt}));
+          {"1234567.89",
+           "-3333333.33",
+           "0.00",
+           "0.05",
+           "-0.09",
+           std::nullopt}));
+
+  auto shortFlatForZero = makeNullableFlatVector<int64_t>({0}, DECIMAL(6, 0));
+  testComplexCast(
+      "c0", shortFlatForZero, makeNullableFlatVector<StringView>({"0"}));
 
   auto shortFlat = makeNullableFlatVector<int64_t>(
       {DecimalUtil::kShortDecimalMin,
@@ -1582,7 +1591,7 @@ TEST_F(CastExprTest, decimalToVarchar) {
       makeNullableFlatVector<StringView>(
           {"-0.999999999999999999",
            "-0.000000000000000003",
-           "0",
+           "0.000000000000000000",
            "0.000000000000000055",
            "0.999999999999999999",
            std::nullopt}));
@@ -1600,11 +1609,15 @@ TEST_F(CastExprTest, decimalToVarchar) {
       longFlat,
       makeNullableFlatVector<StringView>(
           {"-999999999999999999999999999999999.99999",
-           "0",
+           "0.00000",
            "999999999999999999999999999999999.99999",
            "-0.00001",
            "12089258196146291747.06175",
            std::nullopt}));
+
+  auto longFlatForZero = makeNullableFlatVector<int128_t>({0}, DECIMAL(25, 0));
+  testComplexCast(
+      "c0", longFlatForZero, makeNullableFlatVector<StringView>({"0"}));
 }
 
 TEST_F(CastExprTest, decimalToDecimal) {

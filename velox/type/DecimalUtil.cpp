@@ -23,7 +23,11 @@ std::string formatDecimal(uint8_t scale, int128_t unscaledValue) {
   VELOX_DCHECK_GE(scale, 0);
   VELOX_DCHECK_LT(
       static_cast<size_t>(scale), sizeof(DecimalUtil::kPowersOfTen));
+  const bool isFraction = (scale > 0);
   if (unscaledValue == 0) {
+    if (isFraction) {
+      return fmt::format("{:.{}f}", 0.0, scale);
+    }
     return "0";
   }
 
@@ -33,7 +37,6 @@ std::string formatDecimal(uint8_t scale, int128_t unscaledValue) {
   }
   int128_t integralPart = unscaledValue / DecimalUtil::kPowersOfTen[scale];
 
-  bool isFraction = (scale > 0);
   std::string fractionString;
   if (isFraction) {
     auto fraction =

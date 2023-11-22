@@ -114,7 +114,7 @@ TEST_F(VectorToStringTest, decimals) {
       "1: 35.610\n"
       "2: -314.159\n"
       "3: 0.007\n"
-      "4: 0");
+      "4: 0.000");
 
   auto longDecimalFlatVector =
       makeFlatVector<int128_t>({1000265, 35610, -314159, 7, 0}, DECIMAL(20, 4));
@@ -127,7 +127,7 @@ TEST_F(VectorToStringTest, decimals) {
       "1: 3.5610\n"
       "2: -31.4159\n"
       "3: 0.0007\n"
-      "4: 0");
+      "4: 0.0000");
 }
 
 TEST_F(VectorToStringTest, nullableDecimals) {

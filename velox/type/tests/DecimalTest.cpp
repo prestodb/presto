@@ -60,7 +60,7 @@ TEST(DecimalTest, decimalToString) {
   ASSERT_EQ("1.000", DecimalUtil::toString(1000, DECIMAL(20, 3)));
   ASSERT_EQ("0.0000001000", DecimalUtil::toString(1000, DECIMAL(20, 10)));
   ASSERT_EQ("-0.001000", DecimalUtil::toString(-1000, DECIMAL(20, 6)));
-  ASSERT_EQ("0", DecimalUtil::toString(0, DECIMAL(20, 9)));
+  ASSERT_EQ("0.000000000", DecimalUtil::toString(0, DECIMAL(20, 9)));
 
   const auto minShortDecimal =
       DecimalUtil::toString(DecimalUtil::kShortDecimalMin, DECIMAL(18, 0));

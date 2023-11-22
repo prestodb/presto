@@ -488,6 +488,7 @@ Valid examples
   SELECT cast(cast(-22.51 as DECIMAL(4, 2)) as varchar); -- '-22.51'
   SELECT cast(cast(0.123 as DECIMAL(3, 3)) as varchar); -- '0.123'
   SELECT cast(cast(1 as DECIMAL(6, 2)) as varchar); -- '1.00'
+  SELECT cast(cast(0 as DECIMAL(6, 2)) as varchar); -- '0.00'
 
 From TIMESTAMP
 ^^^^^^^^^^^^^^
