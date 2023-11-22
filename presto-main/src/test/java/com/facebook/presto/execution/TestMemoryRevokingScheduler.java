@@ -800,7 +800,9 @@ public class TestMemoryRevokingScheduler
                 new DataSize(32, MEGABYTE),
                 new CounterStat(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()),
-                NodePoolType.DEFAULT);
+                NodePoolType.DEFAULT,
+                false,
+                false);
     }
 
     private QueryContext getOrCreateQueryContext(QueryId queryId, MemoryPool memoryPool)

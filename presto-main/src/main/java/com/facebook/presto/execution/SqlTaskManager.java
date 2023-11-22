@@ -126,7 +126,6 @@ public class SqlTaskManager
     private final Map<String, Long> currentMemoryPoolAssignmentVersions = new Object2LongOpenHashMap<>();
 
     private final CounterStat failedTasks = new CounterStat();
-    private boolean enableGracefulShutdown;
 
     @Inject
     public SqlTaskManager(
@@ -149,7 +148,8 @@ public class SqlTaskManager
             FragmentResultCacheManager fragmentResultCacheManager,
             ObjectMapper objectMapper,
             SpoolingOutputBufferFactory spoolingOutputBufferFactory,
-            ServerConfig serverConfig)
+            ServerConfig serverConfig,
+            QueryManagerConfig queryManagerConfig)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -202,7 +202,9 @@ public class SqlTaskManager
                         maxBufferSize,
                         failedTasks,
                         spoolingOutputBufferFactory,
-                        serverConfig.getPoolType())));
+                        serverConfig.getPoolType(),
+                        queryManagerConfig.isEnableGracefulShutdown(),
+                        queryManagerConfig.isEnableRetryForFailedSplits())));
     }
 
     private QueryContext createQueryContext(

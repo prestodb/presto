@@ -178,6 +178,8 @@ public class TestHighMemoryTaskKiller
                 new DataSize(32, MEGABYTE),
                 new CounterStat(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()),
-                NodePoolType.DEFAULT);
+                NodePoolType.DEFAULT,
+                false,
+                false);
     }
 }
