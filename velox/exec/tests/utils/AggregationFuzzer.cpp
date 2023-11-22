@@ -74,7 +74,12 @@ DEFINE_string(
 DEFINE_bool(
     enable_window_reference_verification,
     false,
-    "When true, the results of the window aggregation will be compared to reference DB results");
+    "When true, the results of the window aggregation are compared to reference DB results");
+
+DEFINE_bool(
+    enable_sorted_aggregations,
+    false,
+    "When true, generates plans with aggregations over sorted inputs");
 
 DEFINE_bool(
     persist_and_run_once,
@@ -914,7 +919,8 @@ void AggregationFuzzer::go() {
       } else {
         // Exclude approx_xxx aggregations since their results differ
         // between Velox and reference DB even when input is sorted.
-        const bool sortedInputs = canSortInputs(signature) &&
+        const bool sortedInputs = FLAGS_enable_sorted_aggregations &&
+            canSortInputs(signature) &&
             (signature.name.find("approx_") == std::string::npos) &&
             vectorFuzzer_.coinToss(0.2);
 
