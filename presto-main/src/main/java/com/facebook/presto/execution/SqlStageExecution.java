@@ -495,21 +495,6 @@ public final class SqlStageExecution
         return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition, DEFAULT_TASK_ATTEMPT_NUMBER), ImmutableMultimap.of()));
     }
 
-    public boolean isNodeShutdown(InternalNode node)
-    {
-        Collection<RemoteTask> tasks = this.tasks.get(node);
-        if (tasks == null) {
-            return false;
-        }
-        for (RemoteTask task : tasks) {
-            if (task.getTaskStatus().getState() == TaskState.GRACEFUL_SHUTDOWN) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Set<InternalNode> nodes, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
     {
         requireNonNull(node, "node is null");
@@ -536,14 +521,16 @@ public final class SqlStageExecution
             task = tasks.iterator().next();
             boolean nodeNotShutDown = task.addSplits(splits);
 
-            if (!nodeNotShutDown) {
-                Optional<InternalNode> firstActiveNode = nodes.stream().filter(n -> n.getNodeIdentifier() != node.getNodeIdentifier()).findFirst();
-                if (!firstActiveNode.isPresent()) {
-                    throw new RuntimeException(String.format("Unable to find the next active nodes to assign the retried splits"));
+            if (isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled) {
+                if (!nodeNotShutDown) {
+                    Optional<InternalNode> firstActiveNode = nodes.stream().filter(n -> n.getNodeIdentifier() != node.getNodeIdentifier()).findFirst();
+                    if (!firstActiveNode.isPresent()) {
+                        throw new RuntimeException(String.format("Unable to find the next active nodes to assign the retried splits"));
+                    }
+                    Collection<RemoteTask> tasksToAssignRetriedSplits = this.tasks.get(firstActiveNode.get());
+                    boolean retriedNodeNotShutDown = tasksToAssignRetriedSplits.iterator().next().addSplits(splits);
+                    checkState(retriedNodeNotShutDown, "The node to assign the retried splits also shutdown");
                 }
-                Collection<RemoteTask> tasksToAssignRetriedSplits = this.tasks.get(firstActiveNode.get());
-                boolean retriedNodeNotShutDown = tasksToAssignRetriedSplits.iterator().next().addSplits(splits);
-                checkState(retriedNodeNotShutDown, "The node to assign the retried splits also shutdown");
             }
         }
 
@@ -611,7 +598,12 @@ public final class SqlStageExecution
 
     public Set<InternalNode> getScheduledNodes()
     {
-        return tasks.entrySet().stream().filter(entry -> entry.getValue().stream().noneMatch(remoteTask -> remoteTask.getTaskStatus().getState() == TaskState.GRACEFUL_SHUTDOWN)).map(entry -> entry.getKey()).collect(toImmutableSet());
+        if (isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled) {
+            return tasks.entrySet().stream().filter(entry -> entry.getValue().stream().noneMatch(remoteTask -> remoteTask.getTaskStatus().getState() == TaskState.GRACEFUL_SHUTDOWN)).map(entry -> entry.getKey()).collect(toImmutableSet());
+        }
+        else {
+            return ImmutableSet.copyOf(tasks.keySet());
+        }
     }
 
     public void recordGetSplitTime(long start)
@@ -634,7 +626,7 @@ public final class SqlStageExecution
         }
 
         TaskState taskState = taskStatus.getState();
-        if (taskState == TaskState.GRACEFUL_SHUTDOWN) {
+        if ((isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled) && taskState == TaskState.GRACEFUL_SHUTDOWN) {
             // no matter if it is possible to recover - the task is failed
             failedTasks.add(taskId);
 
@@ -654,7 +646,6 @@ public final class SqlStageExecution
                 try {
                     taskGracefulShutdownCallback.get().recover(taskId);
                     checkState(failedTask.getTaskStatus().getState() == TaskState.GRACEFUL_SHUTDOWN, "TaskStatus in the HttpRemoteTask not yet updated");
-                    checkState(failedTask.getTaskStatus().getUnprocessedSplits().size() == taskStatus.getUnprocessedSplits().size(), "unprocessed splits doesn't match");
                     failedTask.setIsRetried();
 
                     finishedTasks.add(taskId);
@@ -738,6 +729,7 @@ public final class SqlStageExecution
 
     public ListenableFuture<?> getBlocked()
     {
+        checkState(isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled, "isEnableGracefulShutdown or isRetryOfFailedSplitsEnabled should be true");
         return whenNoMoreRetry;
     }
 
@@ -749,6 +741,7 @@ public final class SqlStageExecution
 
     public synchronized boolean noMoreRetry()
     {
+        checkState(isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled, "isEnableGracefulShutdown or isRetryOfFailedSplitsEnabled should be true");
         checkState(planFragment.isLeaf());
         if (failedTasks.isEmpty()) {
             checkState(finishedTasks.isEmpty());
@@ -769,6 +762,7 @@ public final class SqlStageExecution
 
     private boolean noMoreRetryWithFailedTasks()
     {
+        checkState(isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled, "isEnableGracefulShutdown or isRetryOfFailedSplitsEnabled should be true");
         checkState(finishedTasks.size() != allTasks.size());
 
         if (!isFailedTasksBelowThreshold()) {

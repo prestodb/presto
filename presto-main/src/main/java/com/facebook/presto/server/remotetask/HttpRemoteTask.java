@@ -454,7 +454,8 @@ public final class HttpRemoteTask
     @Override
     public synchronized boolean isTaskIdling()
     {
-        return getTaskStatus().getIsTaskIdling() && pendingSplits.isEmpty() && !needsUpdate.get();
+        checkState(getTaskStatus().getIsTaskIdling().isPresent(), "getIsTaskIdling should not be null when split retry is enabled.");
+        return getTaskStatus().getIsTaskIdling().get() && pendingSplits.isEmpty() && !needsUpdate.get();
     }
 
     @Override
@@ -678,8 +679,9 @@ public final class HttpRemoteTask
     {
         if (enableRetryForFailedSplits) {
             checkState(lastTaskStatus.isPresent(), "lastTaskStatus is null when getAllUnprocessedSplits is called");
+            checkState(lastTaskStatus.get().getUnprocessedSplits().isPresent(), "unprocessedSplit is null when getAllUnprocessedSplits is called");
 
-            List<ScheduledSplit> unprocessedSplitsFromTaskStatus = lastTaskStatus.get().getUnprocessedSplits();
+            List<ScheduledSplit> unprocessedSplitsFromTaskStatus = lastTaskStatus.get().getUnprocessedSplits().get();
             unprocessedSplitsFromTaskStatus.addAll(pendingSplits.values());
             return unprocessedSplitsFromTaskStatus;
         }

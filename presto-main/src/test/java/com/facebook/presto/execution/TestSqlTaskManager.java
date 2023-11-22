@@ -304,7 +304,8 @@ public class TestSqlTaskManager
                 new NoOpFragmentResultCacheManager(),
                 new ObjectMapper(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()),
-                new ServerConfig());
+                new ServerConfig(),
+                new QueryManagerConfig());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)

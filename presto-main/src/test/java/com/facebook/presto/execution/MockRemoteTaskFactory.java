@@ -180,7 +180,6 @@ public class MockRemoteTaskFactory
         private final PlanFragment fragment;
         private boolean isRetriedOnFailure;
         private boolean isTaskIdling;
-
         @GuardedBy("this")
         private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
 
@@ -298,8 +297,8 @@ public class MockRemoteTaskFactory
                             System.currentTimeMillis() + 100 - stats.getCreateTime().getMillis(),
                             0L,
                             0L,
-                            ImmutableList.of(),
-                            isTaskIdling),
+                            Optional.of(ImmutableList.of()),
+                            Optional.of(isTaskIdling)),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -344,8 +343,8 @@ public class MockRemoteTaskFactory
                     System.currentTimeMillis() + 100 - stats.getCreateTime().getMillis(),
                     queuedSplitsInfo.getWeightSum(),
                     combinedSplitsInfo.getWeightSum() - queuedSplitsInfo.getWeightSum(),
-                    ImmutableList.of(),
-                    isTaskIdling);
+                    Optional.of(ImmutableList.of()),
+                    Optional.of(isTaskIdling));
         }
 
         private void updateTaskStats()
@@ -435,7 +434,7 @@ public class MockRemoteTaskFactory
 
         public boolean isTaskIdling()
         {
-            return getTaskStatus().getIsTaskIdling();
+            return getTaskStatus().getIsTaskIdling().get();
         }
 
         public boolean anyPendingSplitProcessed()

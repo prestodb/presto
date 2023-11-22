@@ -464,12 +464,10 @@ public class SqlTaskExecution
                     }
 
                     // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
-                    ImmutableList.Builder<ScheduledSplit> scheduledSplits = ImmutableList.builder();
                     ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
                     for (ScheduledSplit scheduledSplit : pendingSplits.removeAllSplits()) {
                         // create a new driver for the split
                         runners.add(partitionedDriverRunnerFactory.createDriverRunner(scheduledSplit, lifespan));
-                        scheduledSplits.add(scheduledSplit);
                     }
                     enqueueDriverSplitRunner(false, runners.build());
 

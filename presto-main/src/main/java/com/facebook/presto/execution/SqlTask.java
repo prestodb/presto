@@ -91,6 +91,8 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
     private final long creationTimeInMillis = System.currentTimeMillis();
+    private final boolean isEnableGracefulShutdown;
+    private final boolean isEnableRetryForFailedSplits;
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -104,7 +106,9 @@ public class SqlTask
             DataSize maxBufferSize,
             CounterStat failedTasks,
             SpoolingOutputBufferFactory spoolingOutputBufferFactory,
-            NodePoolType poolType)
+            NodePoolType poolType,
+            boolean isEnableGracefulShutdown,
+            boolean isEnableRetryForFailedSplits)
     {
         SqlTask sqlTask = new SqlTask(
                 taskId,
@@ -116,7 +120,9 @@ public class SqlTask
                 taskNotificationExecutor,
                 maxBufferSize,
                 spoolingOutputBufferFactory,
-                poolType);
+                poolType,
+                isEnableGracefulShutdown,
+                isEnableRetryForFailedSplits);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -131,7 +137,9 @@ public class SqlTask
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
             SpoolingOutputBufferFactory spoolingOutputBufferFactory,
-            NodePoolType poolType)
+            NodePoolType poolType,
+            boolean isEnableGracefulShutdown,
+            boolean isEnableRetryForFailedSplits)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = new TaskInstanceId(UUID.randomUUID());
@@ -144,6 +152,8 @@ public class SqlTask
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
         requireNonNull(spoolingOutputBufferFactory, "spoolingOutputBufferFactory is null");
+        this.isEnableGracefulShutdown = isEnableGracefulShutdown;
+        this.isEnableRetryForFailedSplits = isEnableRetryForFailedSplits;
 
         this.taskExchangeClientManager = new TaskExchangeClientManager(exchangeClientSupplier);
         outputBuffer = new LazyOutputBuffer(
@@ -196,7 +206,7 @@ public class SqlTask
                     // closed buffers signal to upstream tasks that everything finished cleanly
                     outputBuffer.fail();
                 }
-                else if (newState == GRACEFUL_SHUTDOWN) {
+                else if ((isEnableGracefulShutdown || isEnableRetryForFailedSplits) && newState == GRACEFUL_SHUTDOWN) {
                     outputBuffer.destroy();
                 }
                 else {
@@ -287,8 +297,8 @@ public class SqlTask
         long fullGcCount = 0;
         long fullGcTimeInMillis = 0L;
         long totalCpuTimeInNanos = 0L;
-        List<ScheduledSplit> unprocessedSplits = ImmutableList.of();
-        boolean isTaskIdling = false;
+        Optional<List<ScheduledSplit>> unprocessedSplits = Optional.empty();
+        Optional<Boolean> isTaskIdling = Optional.empty();
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
@@ -301,8 +311,11 @@ public class SqlTask
             fullGcCount = taskStats.getFullGcCount();
             fullGcTimeInMillis = taskStats.getFullGcTimeInMillis();
             totalCpuTimeInNanos = taskStats.getTotalCpuTimeInNanos();
-            unprocessedSplits = taskHolder.getFinalTaskInfo().getTaskStatus().getUnprocessedSplits();
-            isTaskIdling = taskHolder.getFinalTaskInfo().getTaskStatus().getIsTaskIdling();
+
+            if (isEnableGracefulShutdown || isEnableRetryForFailedSplits) {
+                unprocessedSplits = taskHolder.getFinalTaskInfo().getTaskStatus().getUnprocessedSplits();
+                isTaskIdling = taskHolder.getFinalTaskInfo().getTaskStatus().getIsTaskIdling();
+            }
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -322,8 +335,11 @@ public class SqlTask
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTimeInMillis = taskContext.getFullGcTime().toMillis();
-            unprocessedSplits = taskHolder.getTaskExecution().getUnprocessedSplits();
-            isTaskIdling = taskHolder.getTaskExecution().isTaskIdling();
+
+            if (isEnableGracefulShutdown || isEnableRetryForFailedSplits) {
+                unprocessedSplits = Optional.of(taskHolder.getTaskExecution().getUnprocessedSplits());
+                isTaskIdling = Optional.of(taskHolder.getTaskExecution().isTaskIdling());
+            }
         }
         return new TaskStatus(
                 taskInstanceId.getUuidLeastSignificantBits(),

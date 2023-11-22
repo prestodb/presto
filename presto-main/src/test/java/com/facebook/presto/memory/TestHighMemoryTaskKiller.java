@@ -179,6 +179,8 @@ public class TestHighMemoryTaskKiller
                 new CounterStat(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()));
                 new SpoolingOutputBufferFactory(new FeaturesConfig()),
-                NodePoolType.DEFAULT);
+                NodePoolType.DEFAULT,
+                false,
+                false);
     }
 }

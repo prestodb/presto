@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.execution.TaskState.PLANNED;
@@ -78,8 +79,8 @@ public class TaskStatus
 
     private final long totalCpuTimeInNanos;
     private final long taskAgeInMillis;
-    private final List<ScheduledSplit> unprocessedSplits;
-    private final boolean isTaskIdling;
+    private final Optional<List<ScheduledSplit>> unprocessedSplits;
+    private final Optional<Boolean> isTaskIdling;
 
     @JsonCreator
     @ThriftConstructor
@@ -105,8 +106,8 @@ public class TaskStatus
             @JsonProperty("taskAgeInMillis") long taskAgeInMillis,
             @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
             @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
-            @JsonProperty("unprocessedSplits") List<ScheduledSplit> unprocessedSplits,
-            @JsonProperty("isTaskIdling") boolean isTaskIdling)
+            @JsonProperty("unprocessedSplits") Optional<List<ScheduledSplit>> unprocessedSplits,
+            @JsonProperty("isTaskIdling") Optional<Boolean> isTaskIdling)
     {
         this.taskInstanceIdLeastSignificantBits = taskInstanceIdLeastSignificantBits;
         this.taskInstanceIdMostSignificantBits = taskInstanceIdMostSignificantBits;
@@ -294,14 +295,14 @@ public class TaskStatus
 
     @JsonProperty
     @ThriftField(22)
-    public List<ScheduledSplit> getUnprocessedSplits()
+    public Optional<List<ScheduledSplit>> getUnprocessedSplits()
     {
         return unprocessedSplits;
     }
 
     @JsonProperty
     @ThriftField(23)
-    public boolean getIsTaskIdling()
+    public Optional<Boolean> getIsTaskIdling()
     {
         return isTaskIdling;
     }
@@ -338,8 +339,8 @@ public class TaskStatus
                 0,
                 0L,
                 0L,
-                ImmutableList.of(),
-                false);
+                Optional.empty(),
+                Optional.empty());
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
