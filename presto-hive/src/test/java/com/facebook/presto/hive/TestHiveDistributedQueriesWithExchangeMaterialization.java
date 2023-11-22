@@ -190,6 +190,12 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     }
 
     @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
+    @Override
     public void testExcept()
     {
         // decimal type is not supported by the Hive hash code function

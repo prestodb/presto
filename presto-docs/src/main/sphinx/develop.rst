@@ -10,6 +10,7 @@ This guide is intended for Presto contributors and plugin developers.
     develop/spi-overview
     develop/connectors
     develop/example-http
+    develop/delete-and-update
     develop/types
     develop/functions
     develop/system-access-control

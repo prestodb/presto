@@ -114,6 +114,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
+    @Override
     public void testInsert()
     {
         @Language("SQL") String query = "SELECT cast(uuid() AS varchar) AS uuid, orderdate, orderkey FROM orders";

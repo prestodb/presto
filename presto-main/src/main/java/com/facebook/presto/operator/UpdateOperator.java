@@ -15,29 +15,32 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class DeleteOperator
+public class UpdateOperator
         extends AbstractRowChangeOperator
 {
-    public static class DeleteOperatorFactory
+    public static class UpdateOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final int rowIdChannel;
-        private final JsonCodec<TableCommitContext> tableCommitContextCodec;
+        private final List<Integer> columnValueAndRowIdChannels;
         private boolean closed;
 
-        public DeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, int rowIdChannel, JsonCodec<TableCommitContext> tableCommitContextCodec)
+        private final JsonCodec<TableCommitContext> tableCommitContextCodec;
+
+        public UpdateOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Integer> columnValueAndRowIdChannels, JsonCodec<TableCommitContext> tableCommitContextCodec)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.rowIdChannel = rowIdChannel;
+            this.columnValueAndRowIdChannels = ImmutableList.copyOf(requireNonNull(columnValueAndRowIdChannels, "columnValueAndRowIdChannels is null"));
             this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         }
 
@@ -45,8 +48,8 @@ public class DeleteOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, DeleteOperator.class.getSimpleName());
-            return new DeleteOperator(context, rowIdChannel, tableCommitContextCodec);
+            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, UpdateOperator.class.getSimpleName());
+            return new UpdateOperator(context, columnValueAndRowIdChannels, tableCommitContextCodec);
         }
 
         @Override
@@ -58,16 +61,16 @@ public class DeleteOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new DeleteOperatorFactory(operatorId, planNodeId, rowIdChannel, tableCommitContextCodec);
+            return new UpdateOperatorFactory(operatorId, planNodeId, columnValueAndRowIdChannels, tableCommitContextCodec);
         }
     }
 
-    private final int rowIdChannel;
+    private final List<Integer> columnValueAndRowIdChannels;
 
-    public DeleteOperator(OperatorContext operatorContext, int rowIdChannel, JsonCodec<TableCommitContext> tableCommitContextCodec)
+    public UpdateOperator(OperatorContext operatorContext, List<Integer> columnValueAndRowIdChannels, JsonCodec<TableCommitContext> tableCommitContextCodec)
     {
         super(operatorContext, tableCommitContextCodec);
-        this.rowIdChannel = rowIdChannel;
+        this.columnValueAndRowIdChannels = columnValueAndRowIdChannels;
     }
 
     @Override
@@ -76,8 +79,8 @@ public class DeleteOperator
         requireNonNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
-        Block rowIds = page.getBlock(rowIdChannel);
-        pageSource().deleteRows(rowIds);
-        rowCount += rowIds.getPositionCount();
+        // Call the UpdatablePageSource to update rows in the page supplied.
+        pageSource().updateRows(page, columnValueAndRowIdChannels);
+        rowCount += page.getPositionCount();
     }
 }

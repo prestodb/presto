@@ -217,4 +217,10 @@ public class TestSingleStoreDistributedQueries
     {
         // Delete is currently unsupported
     }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
 }

@@ -179,6 +179,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
     }

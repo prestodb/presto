@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -31,6 +32,12 @@ public class EmptySplitPageSource
     public void deleteRows(Block rowIds)
     {
         throw new UnsupportedOperationException("deleteRows called on EmptySplitPageSource");
+    }
+
+    @Override
+    public void updateRows(Page page, List<Integer> columnValueAndRowIdChannels)
+    {
+        throw new UnsupportedOperationException("updateRows called on EmptySplitPageSource");
     }
 
     @Override

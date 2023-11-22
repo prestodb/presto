@@ -449,6 +449,12 @@ public class TestAccessControlManager
         }
 
         @Override
+        public void checkCanUpdateTableColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> updatedColumns)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();

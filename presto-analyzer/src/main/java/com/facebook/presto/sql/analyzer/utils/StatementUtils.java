@@ -69,6 +69,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TruncateTable;
+import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.Use;
 import com.google.common.collect.ImmutableMap;
 
@@ -98,6 +99,7 @@ public final class StatementUtils
         builder.put(RefreshMaterializedView.class, QueryType.INSERT);
 
         builder.put(Delete.class, QueryType.DELETE);
+        builder.put(Update.class, QueryType.UPDATE);
 
         builder.put(ShowCatalogs.class, QueryType.DESCRIBE);
         builder.put(ShowCreate.class, QueryType.DESCRIBE);

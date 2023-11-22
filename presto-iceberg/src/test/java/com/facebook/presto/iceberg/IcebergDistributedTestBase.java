@@ -148,6 +148,12 @@ public class IcebergDistributedTestBase
         assertQuerySucceeds("DROP TABLE test_partitioned_drop");
     }
 
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
     @Test
     public void testDeleteWithPartitionSpecEvolution()
     {

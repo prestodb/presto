@@ -517,9 +517,14 @@ public interface ConnectorMetadata
      * These IDs will be passed to the {@code deleteRows()} method of the
      * {@link com.facebook.presto.spi.UpdatablePageSource} that created them.
      */
-    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support updates or deletes");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support updates");
     }
 
     /**
@@ -538,6 +543,16 @@ public interface ConnectorMetadata
     default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support update");
+    }
+
+    default void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support update");
     }
 
     /**

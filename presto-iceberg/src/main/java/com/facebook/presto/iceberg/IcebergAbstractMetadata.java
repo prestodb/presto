@@ -414,7 +414,7 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return primitiveIcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
     }
