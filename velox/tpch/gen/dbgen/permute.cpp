@@ -12,8 +12,8 @@
  *              sequences in TPC-H and TPC-R
  */
 
-#include "dbgen/config.h"
-#include "dbgen/dss.h"
+#include "dbgen/config.h" // @manual
+#include "dbgen/dss.h" // @manual
 
 DSS_HUGE NextRand(DSS_HUGE seed);
 void permute(long* set, int cnt, seed_t* seed);

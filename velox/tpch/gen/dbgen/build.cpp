@@ -16,11 +16,11 @@
 #if defined(SUN)
 #include <unistd.h>
 #endif
-#include "dbgen/dss.h"
-#include "dbgen/dsstypes.h"
+#include "dbgen/dss.h" // @manual
+#include "dbgen/dsstypes.h" // @manual
 
 #include <math.h>
-#include "dbgen/rng64.h"
+#include "dbgen/rng64.h" // @manual
 
 #define LEAP_ADJ(yr, mnth) ((LEAP(yr) && (mnth) >= 2) ? 1 : 0)
 #define JDAY_BASE 8035 /* start from 1/1/70 a la unix */

@@ -15,8 +15,9 @@
  */
 #pragma once
 
-#include "velox/external/duckdb/duckdb.hpp"
 #include "velox/type/Type.h"
+
+#include <duckdb.hpp> // @manual
 
 namespace facebook::velox {
 class variant;

@@ -31,6 +31,28 @@ commands:
             git submodule sync --recursive
             git submodule update --init --recursive
 
+  install-duckdb:
+    steps:
+      - run:
+          name: "Install DuckDB 0.8.1"
+          command: |
+            source /opt/rh/gcc-toolset-9/enable
+            set -xu
+            mkdir ~/duckdb-install && cd ~/duckdb-install
+            wget https://github.com/duckdb/duckdb/archive/refs/tags/v0.8.1.tar.gz
+            tar -xf v0.8.1.tar.gz
+            cd duckdb-0.8.1
+            mkdir build && cd build
+            CMAKE_FLAGS=(
+              "-DBUILD_UNITTESTS=OFF"
+              "-DENABLE_SANITIZER=OFF"
+              "-DENABLE_UBSAN=OFF"
+              "-DBUILD_SHELL=OFF"
+              "-DEXPORT_DLL_SYMBOLS=OFF"
+            )
+            cmake ${CMAKE_FLAGS[*]}  ..
+            make install -j 16
+
   setup-environment:
     steps:
       - run:
@@ -223,8 +245,11 @@ jobs:
 
   linux-build:
     executor: build
+    environment:
+      DuckDB_SOURCE: SYSTEM
     steps:
       - pre-steps
+      - install-duckdb
       - run:
           name: "Build"
           command: |
@@ -365,8 +390,10 @@ jobs:
       VELOX_DEPENDENCY_SOURCE: SYSTEM
       ICU_SOURCE: BUNDLED
       simdjson_SOURCE: BUNDLED
+      DuckDB_SOURCE: SYSTEM
     steps:
       - pre-steps
+      - install-duckdb
       - run:
           name: "Install Adapter Dependencies"
           command: |

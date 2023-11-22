@@ -11,16 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(velox_duckdb_conversion DuckConversion.cpp)
+add_library(velox_fastpforlib STATIC bitpacking.cpp)
 
-target_link_libraries(velox_duckdb_conversion velox_core velox_vector
-                      duckdb_static)
-
-add_library(velox_duckdb_parser DuckParser.cpp)
-
-target_link_libraries(velox_duckdb_parser velox_duckdb_conversion
-                      velox_parse_expression duckdb_static)
-
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()
+target_include_directories(
+  velox_fastpforlib PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)

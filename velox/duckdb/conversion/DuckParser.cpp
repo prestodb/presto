@@ -17,9 +17,22 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/PlanNode.h"
 #include "velox/duckdb/conversion/DuckConversion.h"
-#include "velox/external/duckdb/duckdb.hpp"
 #include "velox/parse/Expressions.h"
 #include "velox/type/Variant.h"
+
+#include <duckdb.hpp> // @manual
+#include <duckdb/parser/expression/between_expression.hpp> // @manual
+#include <duckdb/parser/expression/case_expression.hpp> // @manual
+#include <duckdb/parser/expression/cast_expression.hpp> // @manual
+#include <duckdb/parser/expression/comparison_expression.hpp> // @manual
+#include <duckdb/parser/expression/conjunction_expression.hpp> // @manual
+#include <duckdb/parser/expression/constant_expression.hpp> // @manual
+#include <duckdb/parser/expression/function_expression.hpp> // @manual
+#include <duckdb/parser/expression/lambda_expression.hpp> // @manual
+#include <duckdb/parser/expression/operator_expression.hpp> // @manual
+#include <duckdb/parser/expression/window_expression.hpp> // @manual
+#include <duckdb/parser/parser.hpp> // @manual
+#include <duckdb/parser/parser_options.hpp> // @manual
 
 namespace facebook::velox::duckdb {
 
@@ -387,8 +400,8 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
             ExpressionType::VALUE_CONSTANT) {
           auto constExpr =
               dynamic_cast<ConstantExpression*>(castExpr->child.get());
-          auto value =
-              constExpr->value.CastAs(castExpr->cast_type, !castExpr->try_cast);
+          auto value = constExpr->value.DefaultCastAs(
+              castExpr->cast_type, !castExpr->try_cast);
           values.emplace_back(duckValueToVariant(value));
           valueType = toVeloxType(castExpr->cast_type);
           continue;
@@ -557,7 +570,7 @@ std::shared_ptr<const core::IExpr> parseLambdaExpr(
     const ParseOptions& options) {
   const auto& lambdaExpr = dynamic_cast<::duckdb::LambdaExpression&>(expr);
   auto capture = parseExpr(*lambdaExpr.lhs, options);
-  auto body = parseExpr(*lambdaExpr.rhs, options);
+  auto body = parseExpr(*lambdaExpr.expr, options);
 
   // capture is either a core::FieldAccessExpr or a 'row' core::CallExpr with 2
   // or more core::FieldAccessExpr inputs.
@@ -629,8 +642,8 @@ std::shared_ptr<const core::IExpr> parseExpr(
   }
 }
 
-std::vector<std::unique_ptr<::duckdb::ParsedExpression>> parseExpression(
-    const std::string& exprString) {
+::duckdb::vector<::duckdb::unique_ptr<::duckdb::ParsedExpression>>
+parseExpression(const std::string& exprString) {
   ParserOptions options;
   options.preserve_identifier_case = false;
 
@@ -758,8 +771,7 @@ AggregateExpr parseAggregateExpr(
 
 namespace {
 WindowType parseWindowType(const WindowExpression& expr) {
-  auto windowType =
-      [&](const ::duckdb::WindowBoundary& boundary) -> WindowType {
+  auto windowType = [&](const WindowBoundary& boundary) -> WindowType {
     if (boundary == WindowBoundary::CURRENT_ROW_ROWS ||
         boundary == WindowBoundary::EXPR_FOLLOWING_ROWS ||
         boundary == WindowBoundary::EXPR_PRECEDING_ROWS) {

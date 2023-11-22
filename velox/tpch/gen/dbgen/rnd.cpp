@@ -19,13 +19,13 @@
  *
  */
 
-#include "dbgen/config.h"
+#include "dbgen/config.h" // @manual
 
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "dbgen/dss.h"
-#include "dbgen/rnd.h"
+#include "dbgen/dss.h" // @manual
+#include "dbgen/rnd.h" // @manual
 
 const char* tpch_env_config PROTO((const char* tag, const char* dflt));
 void NthElement(DSS_HUGE, DSS_HUGE*);

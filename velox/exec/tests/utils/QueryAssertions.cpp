@@ -110,12 +110,13 @@ template <>
     return ::duckdb::Value::EMPTYLIST(duckdb::fromVeloxType(elements->type()));
   }
 
-  std::vector<::duckdb::Value> array;
+  ::duckdb::vector<::duckdb::Value> array;
   array.reserve(size);
   for (auto i = 0; i < size; i++) {
     auto innerRow = offset + i;
     if (elements->isNullAt(innerRow)) {
-      array.emplace_back(::duckdb::Value(nullptr));
+      array.emplace_back(
+          ::duckdb::Value(duckdb::fromVeloxType(elements->type())));
     } else {
       array.emplace_back(VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
           duckValueAt, elements->typeKind(), elements, innerRow));
@@ -133,7 +134,7 @@ template <>
   auto rowRow = vector->wrappedIndex(row);
   auto rowType = asRowType(rowVector->type());
 
-  std::vector<std::pair<std::string, ::duckdb::Value>> fields;
+  ::duckdb::vector<std::pair<std::string, ::duckdb::Value>> fields;
   for (auto i = 0; i < rowType->size(); ++i) {
     if (rowVector->childAt(i)->isNullAt(rowRow)) {
       fields.push_back({rowType->nameOf(i), ::duckdb::Value(nullptr)});
@@ -161,30 +162,31 @@ template <>
   const auto& mapValues = mapVector->mapValues();
   auto offset = mapVector->offsetAt(mapRow);
   auto size = mapVector->sizeAt(mapRow);
+  auto mapType = ::duckdb::ListType::GetChildType(::duckdb::LogicalType::MAP(
+      duckdb::fromVeloxType(mapKeys->type()),
+      duckdb::fromVeloxType(mapValues->type())));
   if (size == 0) {
-    return ::duckdb::Value::MAP(
-        ::duckdb::Value::EMPTYLIST(duckdb::fromVeloxType(mapKeys->type())),
-        ::duckdb::Value::EMPTYLIST(duckdb::fromVeloxType(mapValues->type())));
+    return ::duckdb::Value::MAP(mapType, ::duckdb::vector<::duckdb::Value>());
   }
 
-  std::vector<::duckdb::Value> duckKeysVector;
-  std::vector<::duckdb::Value> duckValuesVector;
-  duckKeysVector.reserve(size);
-  duckValuesVector.reserve(size);
+  ::duckdb::vector<::duckdb::Value> duckMap;
   for (auto i = 0; i < size; i++) {
     auto innerRow = offset + i;
-    duckKeysVector.emplace_back(VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-        duckValueAt, mapKeys->typeKind(), mapKeys, innerRow));
+    auto key = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        duckValueAt, mapKeys->typeKind(), mapKeys, innerRow);
+    ::duckdb::Value value;
     if (mapValues->isNullAt(innerRow)) {
-      duckValuesVector.emplace_back(::duckdb::Value(nullptr));
+      value = ::duckdb::Value(duckdb::fromVeloxType(mapValues->type()));
     } else {
-      duckValuesVector.emplace_back(VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          duckValueAt, mapValues->typeKind(), mapValues, innerRow));
+      value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          duckValueAt, mapValues->typeKind(), mapValues, innerRow);
     }
+    ::duckdb::child_list_t<::duckdb::Value> mapStruct;
+    mapStruct.push_back(make_pair("key", key));
+    mapStruct.push_back(make_pair("value", value));
+    duckMap.push_back(::duckdb::Value::STRUCT(mapStruct));
   }
-  return ::duckdb::Value::MAP(
-      ::duckdb::Value::LIST(duckKeysVector),
-      ::duckdb::Value::LIST(duckValuesVector));
+  return ::duckdb::Value::MAP(mapType, duckMap);
 }
 
 template <TypeKind kind>
@@ -200,6 +202,15 @@ variant variantAt<TypeKind::VARCHAR>(
     int32_t column) {
   return variant(
       StringView(::duckdb::StringValue::Get(dataChunk->GetValue(column, row))));
+}
+
+template <>
+velox::variant variantAt<TypeKind::HUGEINT>(
+    ::duckdb::DataChunk* dataChunk,
+    int32_t row,
+    int32_t column) {
+  auto hugeInt = ::duckdb::HugeIntValue::Get(dataChunk->GetValue(column, row));
+  return velox::variant(HugeInt::build(hugeInt.upper, hugeInt.lower));
 }
 
 template <>
@@ -232,6 +243,12 @@ variant variantAt(const ::duckdb::Value& value) {
     using T = typename TypeTraits<kind>::DeepCopiedType;
     return variant(value.GetValue<T>());
   }
+}
+
+template <>
+velox::variant variantAt<TypeKind::HUGEINT>(const ::duckdb::Value& value) {
+  auto hugeInt = ::duckdb::HugeIntValue::Get(value);
+  return velox::variant(HugeInt::build(hugeInt.upper, hugeInt.lower));
 }
 
 template <>
@@ -277,30 +294,28 @@ variant rowVariantAt(const ::duckdb::Value& vector, const TypePtr& rowType) {
 variant mapVariantAt(const ::duckdb::Value& vector, const TypePtr& mapType) {
   std::map<variant, variant> map;
 
-  const auto& mapValue = ::duckdb::StructValue::GetChildren(vector);
-  VELOX_CHECK_EQ(mapValue.size(), 2);
-
   auto mapTypePtr = dynamic_cast<const MapType*>(mapType.get());
   auto keyType = mapTypePtr->keyType();
   auto valueType = mapTypePtr->valueType();
-  const auto& keyList = ::duckdb::ListValue::GetChildren(mapValue[0]);
-  const auto& valueList = ::duckdb::ListValue::GetChildren(mapValue[1]);
-  VELOX_CHECK_EQ(keyList.size(), valueList.size());
-  for (int i = 0; i < keyList.size(); i++) {
+
+  VELOX_CHECK_EQ(vector.type().id(), ::duckdb::LogicalTypeId::MAP);
+
+  const auto& valueList = ::duckdb::ListValue::GetChildren(vector);
+  for (int i = 0; i < valueList.size(); i++) {
     // TODO: Add support for complex key and value types.
     variant variantKey;
-    if (keyList[i].IsNull()) {
-      variantKey = nullVariant(keyType);
-    } else {
-      variantKey = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          variantAt, keyType->kind(), keyList[i]);
-    }
     variant variantValue;
-    if (valueList[i].IsNull()) {
+    auto value = ::duckdb::StructValue::GetChildren(valueList[i]);
+    // Map key cannot be null.
+    VELOX_CHECK(!value[0].IsNull())
+    variantKey = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        variantAt, keyType->kind(), value[0]);
+
+    if (value[1].IsNull()) {
       variantValue = nullVariant(valueType);
     } else {
       variantValue = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          variantAt, valueType->kind(), valueList[i]);
+          variantAt, valueType->kind(), value[1]);
     }
     map.insert({variantKey, variantValue});
   }
@@ -793,7 +808,10 @@ std::string generateUserFriendlyDiff(
 
 void verifyDuckDBResult(const DuckDBQueryResult& result, std::string_view sql) {
   VELOX_CHECK(
-      result->success, "DuckDB query failed: {}\n{}", result->error, sql);
+      !result->HasError(),
+      "DuckDB query failed: {}\n{}",
+      result->GetError(),
+      sql);
 }
 
 } // namespace
@@ -875,7 +893,7 @@ DuckDBQueryResult DuckDbQueryRunner::execute(const std::string& sql) {
   con.Query("PRAGMA default_null_order='NULLS LAST'");
   auto duckDbResult = con.Query(sql);
   verifyDuckDBResult(duckDbResult, sql);
-  return duckDbResult;
+  return std::move(duckDbResult);
 }
 
 void DuckDbQueryRunner::execute(
@@ -1095,13 +1113,16 @@ void assertResults(
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner) {
   MaterializedRowMultiset actualRows;
+  MaterializedRowMultiset expectedRows;
   for (const auto& vector : results) {
     auto rows = materialize(vector);
     std::copy(
         rows.begin(), rows.end(), std::inserter(actualRows, actualRows.end()));
   }
 
-  auto expectedRows = duckDbQueryRunner.execute(duckDbSql, resultType);
+  if (!duckDbSql.empty()) {
+    expectedRows = duckDbQueryRunner.execute(duckDbSql, resultType);
+  }
   const auto& actualType =
       (results.size() == 0) ? nullptr : results.at(0)->type();
   assertEqualResults(

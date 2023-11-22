@@ -10,8 +10,8 @@
  */
 #pragma once
 
-#include "dbgen/config.h"
-#include "dbgen/dss.h"
+#include "dbgen/config.h" // @manual
+#include "dbgen/dss.h" // @manual
 
 DSS_HUGE AdvanceRand64(DSS_HUGE nSeed, DSS_HUGE nCount);
 void dss_random64(DSS_HUGE* tgt, DSS_HUGE nLow, DSS_HUGE nHigh, seed_t* seed);

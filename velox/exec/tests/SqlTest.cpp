@@ -47,13 +47,16 @@ TEST_F(SqlTest, customScalarFunctions) {
 }
 
 TEST_F(SqlTest, customAggregateFunctions) {
-  planner_.registerAggregateFunction("count_if", {BOOLEAN()}, BIGINT());
+  // We need an aggregate that DuckDB does not support. 'every' fits the need.
+  // 'every' is an alias for bool_and().
+  planner_.registerAggregateFunction("every", {BOOLEAN()}, BOOLEAN());
 
   assertSql(
-      "SELECT count_if(x > 2) FROM UNNEST([1, 2, 3]) as t(x)", "SELECT 1");
+      "SELECT every(x) FROM UNNEST([true, false, true]) as t(x)",
+      "SELECT false");
   assertSql(
-      "SELECT x % 2, count_if(x > 0) FROM UNNEST([1, 2, 3]) as t(x) GROUP BY 1",
-      "VALUES (0, 1), (1, 2)");
+      "SELECT x, every(x) FROM UNNEST([true, false, true, false]) as t(x) GROUP BY 1",
+      "VALUES (true, true), (false, false)");
 }
 
 TEST_F(SqlTest, tableScan) {

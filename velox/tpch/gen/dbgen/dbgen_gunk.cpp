@@ -8,9 +8,9 @@
  *
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
-#include "dbgen/dbgen_gunk.hpp"
+#include "dbgen/dbgen_gunk.hpp" // @manual
 
-#include "dbgen/dss.h"
+#include "dbgen/dss.h" // @manual
 
 void load_dists(long textBufferSize, DBGenContext* ctx) {
   read_dist(tpch_env_config(DIST_TAG, DIST_DFLT), "p_cntr", &p_cntr_set);

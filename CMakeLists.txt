@@ -479,6 +479,9 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
     message(
       FATAL_ERROR "VELOX requires gcc > 8. Found ${CMAKE_CXX_COMPILER_VERSION}")
   endif()
+
+  # Find Threads library
+  find_package(Threads REQUIRED)
 else()
   set(FILESYSTEM "")
 endif()
@@ -525,10 +528,13 @@ endif()
 find_package(BISON 3.0.4 REQUIRED)
 find_package(FLEX 2.5.13 REQUIRED)
 
+if(${VELOX_ENABLE_DUCKDB})
+  set_source(DuckDB)
+  resolve_dependency(DuckDB)
+endif()
+
 include_directories(SYSTEM velox)
 include_directories(SYSTEM velox/external)
-include_directories(SYSTEM velox/external/duckdb)
-include_directories(SYSTEM velox/external/duckdb/tpch/dbgen/include)
 
 # these were previously vendored in third-party/
 if(NOT VELOX_DISABLE_GOOGLETEST)

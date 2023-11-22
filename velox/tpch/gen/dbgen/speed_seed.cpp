@@ -8,9 +8,9 @@
  *
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
-#include "dbgen/config.h"
-#include "dbgen/dss.h"
-#include "dbgen/rng64.h"
+#include "dbgen/config.h" // @manual
+#include "dbgen/dss.h" // @manual
+#include "dbgen/rng64.h" // @manual
 
 #include <stdio.h>
 #include <stdlib.h>

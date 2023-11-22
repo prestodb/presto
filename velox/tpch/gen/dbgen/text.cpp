@@ -19,7 +19,7 @@
 #define DECLARER
 #endif /* TEST */
 
-#include "dbgen/config.h"
+#include "dbgen/config.h" // @manual
 
 #include <stdlib.h>
 #ifndef WIN32
@@ -37,7 +37,7 @@
 #include <strings.h>
 #endif
 #if (defined(WIN32) && !defined(_POSIX_))
-#include <process.h>
+#include <process.h> // @manual
 #pragma warning(disable : 4201)
 #pragma warning(disable : 4214)
 #pragma warning(disable : 4514)
@@ -62,7 +62,7 @@
 #pragma warning(default : 4214)
 #endif
 
-#include "dbgen/dss.h"
+#include "dbgen/dss.h" // @manual
 
 /*
  * txt_vp() --

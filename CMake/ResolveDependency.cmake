@@ -43,7 +43,7 @@ macro(build_dependency dependency_name)
   include(${dependency_name_lower})
 endmacro()
 
-# * Macro to resolve thirparty dependencies.
+# * Macro to resolve third-party dependencies.
 #
 # Provides the macro resolve_dependency(). This macro will allow us to find the
 # dependency via the usage of find_package or use the custom
@@ -52,7 +52,7 @@ endmacro()
 #
 # resolve_dependency(dependency_name [...] )
 #
-# [...]: the macro will pass all arguments after DELPENDENCY_NAME on to
+# [...]: the macro will pass all arguments after DEPENDENCY_NAME on to
 # find_package. ${dependency_name}_SOURCE is expected to be set to either AUTO,
 # SYSTEM or BUNDLED. If ${dependency_name}_SOURCE is SYSTEM it will try to find
 # the corresponding package via find_package and if not found it will call the

@@ -28,8 +28,8 @@
  * set_state() -- initialize the RNG
  */
 
-#include "dbgen/config.h"
-#include "dbgen/dss.h"
+#include "dbgen/config.h" // @manual
+#include "dbgen/dss.h" // @manual
 
 #include <errno.h>
 #include <stdio.h>
@@ -49,7 +49,7 @@
 /* Lines added by Chuck McDevitt for WIN32 support */
 #ifdef WIN32
 #ifndef _POSIX_
-#include <io.h>
+#include <io.h> // @manual
 #ifndef S_ISREG
 #define S_ISREG(m) (((m)&_S_IFMT) == _S_IFREG)
 #define S_ISFIFO(m) (((m)&_S_IFMT) == _S_IFIFO)
@@ -75,7 +75,7 @@
 #endif
 #endif
 /* End of lines added by Chuck McDevitt for WIN32 support */
-#include "dbgen/dsstypes.h"
+#include "dbgen/dsstypes.h" // @manual
 
 static char alpha_num[65] =
     "0123456789abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ,";
@@ -234,7 +234,7 @@ long julian(long date) {
   return (result + offset);
 }
 
-#include "dbgen/dists_dss.h"
+#include "dbgen/dists_dss.h" // @manual
 
 static char
 read_line_into_buffer(char* buffer, size_t bufsiz, const char** src) {

@@ -16,8 +16,9 @@
 #pragma once
 
 #include "velox/core/PlanNode.h"
-#include "velox/external/duckdb/duckdb.hpp"
 #include "velox/parse/PlanNodeIdGenerator.h"
+
+#include <duckdb.hpp> // @manual
 
 namespace facebook::velox::core {
 
