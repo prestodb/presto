@@ -29,7 +29,6 @@ class DistinctAggregations {
   /// @param aggregates Non-empty list of
   /// aggregates that require inputs to be de-duplicated. All
   /// aggregates should have the same inputs.
-  /// Aggregates with multiple inputs are not supported.
   /// @param inputType Input row type for the aggregation operator.
   /// @param pool Memory pool.
   static std::unique_ptr<DistinctAggregations> create(
