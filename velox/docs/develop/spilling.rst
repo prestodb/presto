@@ -167,7 +167,7 @@ partition to create a sorted reader to restore the spilled partition state.
     std::unique_ptr<TreeOfLosers<SpillMergeStream>> Spiller::startMerge(
         int32_t partition);
 
-**unsorted spill restore**: Used by order by hash build and hash probe
+**unsorted spill restore**: Used by hash build and hash probe
 operators. The operator first calls Spiller::finishSpill() to mark the
 completion of spilling. The Spiller collects metadata for the spilled
 partitioned and returns these to the operator. The operator processes the
