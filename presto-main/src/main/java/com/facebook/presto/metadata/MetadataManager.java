@@ -20,7 +20,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
@@ -59,6 +58,7 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -328,9 +328,9 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<Block> tableVersionBlock)
+    public Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<ConnectorTableVersion> tableVersion)
     {
-        return getOptionalTableHandle(session, transactionManager, tableName, tableVersionBlock);
+        return getOptionalTableHandle(session, transactionManager, tableName, tableVersion);
     }
 
     @Override
