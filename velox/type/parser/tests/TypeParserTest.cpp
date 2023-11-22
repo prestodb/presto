@@ -42,11 +42,6 @@ static const TypePtr& TIMESTAMP_WITH_TIME_ZONE() {
   return instance;
 }
 
-static const TypePtr& TIMESTAMP_WITHOUT_TIME_ZONE() {
-  static const TypePtr instance{new CustomType()};
-  return instance;
-}
-
 class TypeFactories : public CustomTypeFactories {
  public:
   TypeFactories(const TypePtr& type) : type_(type) {}
@@ -67,16 +62,10 @@ class TestTypeSignature : public ::testing::Test {
  private:
   void SetUp() override {
     // Register custom types with and without spaces.
-    // Does not need any parser support.
     registerCustomType("json", std::make_unique<const TypeFactories>(JSON()));
-    // Needs and has parser support.
     registerCustomType(
         "timestamp with time zone",
         std::make_unique<const TypeFactories>(TIMESTAMP_WITH_TIME_ZONE()));
-    // Needs and does not have parser support.
-    registerCustomType(
-        "timestamp without time zone",
-        std::make_unique<const TypeFactories>(TIMESTAMP_WITHOUT_TIME_ZONE()));
   }
 };
 
@@ -121,7 +110,8 @@ TEST_F(TestTypeSignature, mapType) {
 }
 
 TEST_F(TestTypeSignature, invalidType) {
-  VELOX_ASSERT_THROW(parseType("blah()"), "Failed to parse type [blah()]");
+  VELOX_ASSERT_THROW(
+      parseType("blah()"), "Failed to parse type [blah]. Type not registered.");
 
   VELOX_ASSERT_THROW(parseType("array()"), "Failed to parse type [array()]");
 
@@ -131,7 +121,8 @@ TEST_F(TestTypeSignature, invalidType) {
 
   // Ensure this is not treated as a row type.
   VELOX_ASSERT_THROW(
-      parseType("rowxxx(a)"), "Failed to parse type [rowxxx(a)]");
+      parseType("rowxxx(a)"),
+      "Failed to parse type [rowxxx]. Type not registered.");
 }
 
 TEST_F(TestTypeSignature, rowType) {
@@ -145,6 +136,7 @@ TEST_F(TestTypeSignature, rowType) {
           {"a", "b", "c"},
           {BIGINT(), ARRAY(BIGINT()), ROW({"a"}, {BIGINT()})}));
 
+  // Quoted field name starting with number and scalar type.
   ASSERT_EQ(
       *parseType("row(\"12 tb\" bigint,b bigint,c bigint)"),
       *ROW({"12 tb", "b", "c"}, {BIGINT(), BIGINT(), BIGINT()}));
@@ -199,22 +191,22 @@ TEST_F(TestTypeSignature, rowType) {
 }
 
 TEST_F(TestTypeSignature, typesWithSpaces) {
-  // Type is handled by the parser but is not registered.
+  // Type is not registered.
   VELOX_ASSERT_THROW(
       parseType("row(time time with time zone)"),
       "Failed to parse type [time with time zone]. Type not registered.");
 
-  // Type is not handled by the parser but is registered.
-  VELOX_ASSERT_THROW(
-      parseType("row(col0 timestamp without time zone)"),
-      "Failed to parse type [row(col0 timestamp without time zone)]");
+  // Type is registered.
+  ASSERT_EQ(
+      *parseType("row(col0 timestamp with time zone)"),
+      *ROW({"col0"}, {TIMESTAMP_WITH_TIME_ZONE()}));
 
   ASSERT_EQ(
       *parseType("row(double double precision)"), *ROW({"double"}, {DOUBLE()}));
 
   VELOX_ASSERT_THROW(
       parseType("row(time with time zone)"),
-      "Failed to parse type [time with time zone]");
+      "Failed to parse type [with time zone]");
 
   ASSERT_EQ(*parseType("row(double precision)"), *ROW({DOUBLE()}));
 
@@ -224,13 +216,19 @@ TEST_F(TestTypeSignature, typesWithSpaces) {
   ASSERT_EQ(
       *parseType("row(INTERVAL YEAR TO month)"), *ROW({INTERVAL_YEAR_MONTH()}));
 
-  // quoted field names
+  // quoted field name with valid type with spaces.
   ASSERT_EQ(
       *parseType(
           "row(\"timestamp with time zone\" timestamp with time zone,\"double\" double)"),
       *ROW(
           {"timestamp with time zone", "double"},
           {TIMESTAMP_WITH_TIME_ZONE(), DOUBLE()}));
+
+  // quoted field name with invalid type with spaces.
+  VELOX_ASSERT_THROW(
+      parseType(
+          "row(\"timestamp with time zone\" timestamp timestamp with time zone)"),
+      "Failed to parse type [timestamp timestamp with time zone]. Type not registered.");
 }
 
 TEST_F(TestTypeSignature, intervalYearToMonthType) {

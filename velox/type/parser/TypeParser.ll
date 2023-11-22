@@ -38,7 +38,6 @@ QUOTED_ID         (['"'][[:alnum:][:space:]_]*['"'])
 NUMBER            ([[:digit:]]+)
 ROW               (ROW|STRUCT)
 VARIABLE          (VARCHAR|VARBINARY)
-TYPE_WITH_SPACES  ((DOUBLE[ ]PRECISION)|(TIME[ ]WITH[ ]TIME[ ]ZONE)|(TIMESTAMP[ ]WITH[ ]TIME[ ]ZONE)|(INTERVAL[ ]YEAR[ ]TO[ ]MONTH)|(INTERVAL[ ]DAY[ ]TO[ ]SECOND))
 
 %%
 
@@ -53,7 +52,6 @@ TYPE_WITH_SPACES  ((DOUBLE[ ]PRECISION)|(TIME[ ]WITH[ ]TIME[ ]ZONE)|(TIMESTAMP[ 
 {VARIABLE}         yylval->build<std::string>(YYText()); return Parser::token::VARIABLE;
 {NUMBER}           yylval->build<long long>(folly::to<int>(YYText())); return Parser::token::NUMBER;
 {WORD}             yylval->build<std::string>(YYText()); return Parser::token::WORD;
-{TYPE_WITH_SPACES} yylval->build<std::string>(YYText()); return Parser::token::TYPE_WITH_SPACES;
 {QUOTED_ID}        yylval->build<std::string>(YYText()); return Parser::token::QUOTED_ID;
 <<EOF>>            return Parser::token::YYEOF;
 .               /* no action on unmatched input */

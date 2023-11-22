@@ -21,17 +21,19 @@
 
 namespace facebook::velox {
 
-/// Parses a type string in Presto format to Velox type.
-/// Example type strings:
-///    row(col0 bigint, varchar)
-///    array(bigint)
-///    map(bigint, array(bigint))
-///    function(bigint,bigint,bigint)
-/// The parsing is case-insensitive. i.e. 'Row' and 'row' are equal.
-/// Field names for rows are optional.
-/// Quoted field names are supported.
-/// All custom types need to be registered. An error is thrown otherwise.
-/// Uses the Type::getType API to convert a string to Velox type.
-TypePtr parseType(const std::string& typeText);
+/// Normalize Presto types such as INT and DOUBLE PRECISION and convert to Velox
+/// type.
+TypePtr typeFromString(
+    const std::string& type,
+    bool failIfNotRegistered = true);
+
+/// Convert words with spaces to a Velox type.
+/// First check if all the words are a Velox type.
+/// Then check if the first word is a field name and the remaining words are a
+/// Velox type. If cannotHaveFieldName = true, then all words must be a Velox
+/// type.
+std::pair<std::string, TypePtr> inferTypeWithSpaces(
+    std::vector<std::string>& words,
+    bool cannotHaveFieldName = false);
 
 } // namespace facebook::velox

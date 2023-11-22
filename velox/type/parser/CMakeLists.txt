@@ -28,7 +28,6 @@ add_flex_bison_dependency(TypeParserScanner TypeParser)
 
 include_directories(${PROJECT_BINARY_DIR})
 include_directories(${FLEX_INCLUDE_DIRS})
-add_library(
-  velox_type_parser ${BISON_TypeParser_OUTPUTS}
-                    ${FLEX_TypeParserScanner_OUTPUTS} Scanner.h TypeParser.h)
+add_library(velox_type_parser ${BISON_TypeParser_OUTPUTS}
+                              ${FLEX_TypeParserScanner_OUTPUTS} ParserUtil.cpp)
 target_link_libraries(velox_type_parser velox_common_base)
