@@ -308,7 +308,8 @@ std::vector<uint32_t> SpillFileList::testingSpilledFileIds() const {
 }
 
 SpillState::SpillState(
-    const std::string& path,
+    common::GetSpillDirectoryPathCB getSpillDirPathCb,
+    const std::string& fileNamePrefix,
     int32_t maxPartitions,
     int32_t numSortingKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
@@ -318,7 +319,8 @@ SpillState::SpillState(
     memory::MemoryPool* pool,
     folly::Synchronized<SpillStats>* stats,
     const std::unordered_map<std::string, std::string>& writeFileOptions)
-    : path_(path),
+    : getSpillDirPathCb_(getSpillDirPathCb),
+      fileNamePrefix_(fileNamePrefix),
       maxPartitions_(maxPartitions),
       numSortingKeys_(numSortingKeys),
       sortCompareFlags_(sortCompareFlags),
@@ -354,13 +356,17 @@ uint64_t SpillState::appendToPartition(
   TestValue::adjust(
       "facebook::velox::exec::SpillState::appendToPartition", this);
 
+  VELOX_CHECK_NOT_NULL(
+      getSpillDirPathCb_, "Spill directory callback not specified.");
+  const std::string& spillDir = getSpillDirPathCb_();
+  VELOX_CHECK(!spillDir.empty(), "Spill directory does not exist");
   // Ensure that partition exist before writing.
   if (!files_.at(partition)) {
     files_[partition] = std::make_unique<SpillFileList>(
         std::static_pointer_cast<const RowType>(rows->type()),
         numSortingKeys_,
         sortCompareFlags_,
-        fmt::format("{}-spill-{}", path_, partition),
+        fmt::format("{}/{}-spill-{}", spillDir, fileNamePrefix_, partition),
         targetFileSize_,
         writeBufferSize_,
         compressionKind_,

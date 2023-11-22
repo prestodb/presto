@@ -42,9 +42,22 @@ class SortBufferTest : public OperatorTestBase {
     rng_.seed(123);
   }
 
-  common::SpillConfig getSpillConfig(const std::string& spillFilePath) const {
+  common::SpillConfig getSpillConfig(const std::string& spillDir) const {
     return common::SpillConfig(
-        spillFilePath, 0, 0, 0, executor_.get(), 5, 10, 0, 0, 0, 0, 0, "none");
+        [&]() -> const std::string& { return spillDir; },
+        "0.0.0",
+        0,
+        0,
+        0,
+        executor_.get(),
+        5,
+        10,
+        0,
+        0,
+        0,
+        0,
+        0,
+        "none");
   }
 
   const RowTypePtr inputType_ = ROW(
@@ -274,9 +287,9 @@ TEST_F(SortBufferTest, batchOutput) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto spillDirectory = exec::test::TempDirectoryPath::create();
-    auto filePath = makeOperatorSpillPath(spillDirectory->path, 0, 0, 0);
     auto spillConfig = common::SpillConfig(
-        filePath,
+        [&]() -> const std::string& { return spillDirectory->path; },
+        "0.0.0",
         1000,
         0,
         1000,
@@ -363,14 +376,14 @@ TEST_F(SortBufferTest, spill) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto spillDirectory = exec::test::TempDirectoryPath::create();
-    auto filePath = makeOperatorSpillPath(spillDirectory->path, 0, 0, 0);
     // memory pool limit is 20M
     // Set 'kSpillableReservationGrowthPct' to an extreme large value to trigger
     // memory reservation failure and thus trigger disk spilling.
     auto spillableReservationGrowthPct =
         testData.memoryReservationFailure ? 100000 : 100;
     auto spillConfig = common::SpillConfig(
-        filePath,
+        [&]() -> const std::string& { return spillDirectory->path; },
+        "0.0.0",
         1000,
         0,
         1000,
@@ -442,8 +455,7 @@ TEST_F(SortBufferTest, emptySpill) {
   for (bool hasPostSpillData : {false, true}) {
     SCOPED_TRACE(fmt::format("hasPostSpillData {}", hasPostSpillData));
     auto spillDirectory = exec::test::TempDirectoryPath::create();
-    auto filePath = makeOperatorSpillPath(spillDirectory->path, 0, 0, 0);
-    auto spillConfig = getSpillConfig(filePath);
+    auto spillConfig = getSpillConfig(spillDirectory->path);
     auto sortBuffer = std::make_unique<SortBuffer>(
         inputType_,
         sortColumnIndices_,

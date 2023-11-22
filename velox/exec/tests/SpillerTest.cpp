@@ -468,6 +468,11 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       uint64_t writeBufferSize,
       uint64_t minSpillRunSize,
       bool makeError) {
+    static const std::string kBadSpillDirPath = "/bad/path";
+    common::GetSpillDirectoryPathCB badSpillDirCb =
+        [&]() -> const std::string& { return kBadSpillDirPath; };
+    common::GetSpillDirectoryPathCB tempSpillDirCb =
+        [&]() -> const std::string& { return tempDirPath_->path; };
     stats_.clear();
 
     if (type_ == Spiller::Type::kHashJoinProbe) {
@@ -476,7 +481,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           type_,
           rowType_,
           hashBits_,
-          makeError ? "/bad/path" : tempDirPath_->path,
+          makeError ? badSpillDirCb : tempSpillDirCb,
+          "prefix",
           targetFileSize,
           writeBufferSize,
           compressionKind_,
@@ -493,7 +499,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           rowType_,
           rowContainer_->keyTypes().size(),
           compareFlags_,
-          makeError ? "/bad/path" : tempDirPath_->path,
+          makeError ? badSpillDirCb : tempSpillDirCb,
+          "prefix",
           writeBufferSize,
           compressionKind_,
           pool_.get(),
@@ -503,7 +510,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           type_,
           rowContainer_.get(),
           rowType_,
-          makeError ? "/bad/path" : tempDirPath_->path,
+          makeError ? badSpillDirCb : tempSpillDirCb,
+          "prefix",
           writeBufferSize,
           compressionKind_,
           pool_.get(),
@@ -515,7 +523,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           rowContainer_.get(),
           rowType_,
           hashBits_,
-          makeError ? "/bad/path" : tempDirPath_->path,
+          makeError ? badSpillDirCb : tempSpillDirCb,
+          "prefix",
           targetFileSize,
           writeBufferSize,
           compressionKind_,

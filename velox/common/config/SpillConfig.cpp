@@ -18,7 +18,8 @@
 
 namespace facebook::velox::common {
 SpillConfig::SpillConfig(
-    const std::string& _filePath,
+    GetSpillDirectoryPathCB _getSpillDirPathCb,
+    std::string _fileNamePrefix,
     uint64_t _maxFileSize,
     uint64_t _writeBufferSize,
     uint64_t _minSpillRunSize,
@@ -32,7 +33,8 @@ SpillConfig::SpillConfig(
     int32_t _testSpillPct,
     const std::string& _compressionKind,
     const std::unordered_map<std::string, std::string>& _writeFileOptions)
-    : filePath(_filePath),
+    : getSpillDirPathCb(std::move(_getSpillDirPathCb)),
+      fileNamePrefix(std::move(_fileNamePrefix)),
       maxFileSize(
           _maxFileSize == 0 ? std::numeric_limits<int64_t>::max()
                             : _maxFileSize),

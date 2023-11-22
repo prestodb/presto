@@ -28,6 +28,7 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::common::testutil;
@@ -1313,5 +1314,104 @@ TEST_F(TaskTest, driverCreationMemoryAllocationCheck) {
       VELOX_ASSERT_THROW(badTask->next(), "Unexpected memory pool allocations");
     }
   }
+}
+
+TEST_F(TaskTest, spillDirectoryLifecycleManagement) {
+  // Marks the spill directory as not already created and ensures that the Task
+  // handles creating it on first use and eventually deleting it on destruction.
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row % 300; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  core::PlanNodeId aggrNodeId;
+  const auto plan = PlanBuilder()
+                        .values({data})
+                        .singleAggregation({"c0"}, {"sum(c1)"}, {})
+                        .capturePlanNodeId(aggrNodeId)
+                        .planNode();
+  CursorParameters params;
+  params.planNode = plan;
+  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  params.queryCtx->testingOverrideConfigUnsafe(
+      {{core::QueryConfig::kSpillEnabled, "true"},
+       {core::QueryConfig::kAggregationSpillEnabled, "true"},
+       {core::QueryConfig::kTestingSpillPct, "100"}});
+  params.maxDrivers = 1;
+
+  auto cursor = std::make_unique<TaskCursor>(params);
+  std::shared_ptr<Task> task = cursor->task();
+  auto rootTempDir = exec::test::TempDirectoryPath::create();
+  auto tmpDirectoryPath =
+      rootTempDir->path + "/spillDirectoryLifecycleManagement";
+  task->setSpillDirectory(tmpDirectoryPath, false);
+
+  while (cursor->moveNext()) {
+  }
+  ASSERT_TRUE(waitForTaskCompletion(task.get(), 5'000'000));
+  EXPECT_EQ(exec::TaskState::kFinished, task->state());
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  auto& stats = taskStats.at(aggrNodeId);
+  ASSERT_GT(stats.spilledRows, 0);
+  cursor.reset(); // ensure 'task' has no other shared pointer.
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+}
+
+TEST_F(TaskTest, spillDirNotCreated) {
+  // Verify that no spill directory is created if spilling is not engaged.
+  const std::vector<RowVectorPtr> probeVectors = {makeRowVector(
+      {"t_c0", "t_c1"},
+      {
+          makeFlatVector<int64_t>({1, 2, 3, 4}),
+          makeFlatVector<int64_t>({10, 20, 30, 40}),
+      })};
+
+  const std::vector<RowVectorPtr> buildVectors = {makeRowVector(
+      {"u_c0"},
+      {
+          makeFlatVector<int64_t>({0, 1, 3, 5}),
+      })};
+
+  core::PlanNodeId hashJoinNodeId;
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  CursorParameters params;
+  // We use a hash join here as a Spiller object is created upfront which helps
+  // us ensure that the directory creation is delayed till spilling is executed.
+  params.planNode = PlanBuilder(planNodeIdGenerator)
+                        .values(probeVectors, true)
+                        .hashJoin(
+                            {"t_c0"},
+                            {"u_c0"},
+                            PlanBuilder(planNodeIdGenerator)
+                                .values(buildVectors, true)
+                                .planNode(),
+                            "",
+                            {"t_c0", "t_c1", "u_c0"})
+                        .capturePlanNodeId(hashJoinNodeId)
+                        .planNode();
+  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  params.queryCtx->testingOverrideConfigUnsafe(
+      {{core::QueryConfig::kSpillEnabled, "true"},
+       {core::QueryConfig::kJoinSpillEnabled, "true"},
+       {core::QueryConfig::kTestingSpillPct, "0"}});
+  params.maxDrivers = 1;
+
+  auto cursor = std::make_unique<TaskCursor>(params);
+  auto* task = cursor->task().get();
+  auto rootTempDir = exec::test::TempDirectoryPath::create();
+  auto tmpDirectoryPath = rootTempDir->path + "/spillDirNotCreated";
+  task->setSpillDirectory(tmpDirectoryPath, false);
+
+  while (cursor->moveNext()) {
+  }
+  ASSERT_TRUE(waitForTaskCompletion(task, 5'000'000));
+  EXPECT_EQ(exec::TaskState::kFinished, task->state());
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  auto& stats = taskStats.at(hashJoinNodeId);
+  ASSERT_EQ(stats.spilledRows, 0);
+  // Check for spill folder without destroying the Task object to ensure its
+  // destructor has not removed the directory if it was created earlier.
+  auto fs = filesystems::getFileSystem(tmpDirectoryPath, nullptr);
+  EXPECT_FALSE(fs->exists(tmpDirectoryPath));
 }
 } // namespace facebook::velox::exec::test

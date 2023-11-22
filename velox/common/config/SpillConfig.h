@@ -21,10 +21,16 @@
 #include "velox/common/compression/Compression.h"
 
 namespace facebook::velox::common {
+
+/// Defining type for a callback function that returns the spill directory path.
+/// Implementations can use it to ensure the path exists before returning.
+using GetSpillDirectoryPathCB = std::function<const std::string&()>;
+
 /// Specifies the config for spilling.
 struct SpillConfig {
   SpillConfig(
-      const std::string& _filePath,
+      GetSpillDirectoryPathCB _getSpillDirPathCb,
+      std::string _filePath,
       uint64_t _maxFileSize,
       uint64_t _writeBufferSize,
       uint64_t _minSpillRunSize,
@@ -50,8 +56,12 @@ struct SpillConfig {
   /// spill limit.
   bool exceedJoinSpillLevelLimit(uint8_t startBitOffset) const;
 
-  /// Filesystem path for spill files.
-  std::string filePath;
+  /// A callback function that returns the spill directory path. Implementations
+  /// can use it to ensure the path exists before returning.
+  GetSpillDirectoryPathCB getSpillDirPathCb;
+
+  /// Prefix for spill files.
+  std::string fileNamePrefix;
 
   /// The max spill file size. If it is zero, there is no limit on the spill
   /// file size.

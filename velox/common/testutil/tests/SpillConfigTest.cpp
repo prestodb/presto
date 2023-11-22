@@ -26,6 +26,7 @@ TEST(SpillConfig, spillLevel) {
   const uint8_t kInitialBitOffset = 16;
   const uint8_t kNumPartitionsBits = 3;
   const SpillConfig config(
+      []() { return ""; },
       "fakeSpillPath",
       0,
       0,
@@ -110,6 +111,7 @@ TEST(SpillConfig, spillLevelLimit) {
     const HashBitRange partitionBits(
         testData.startBitOffset, testData.startBitOffset + testData.numBits);
     const SpillConfig config(
+        []() { return ""; },
         "fakeSpillPath",
         0,
         0,
@@ -149,12 +151,13 @@ TEST(SpillConfig, spillableReservationPercentages) {
       {50, 100, true},
       {1, 50, true},
       {1, 1, false}};
-
+  const std::string emptySpillFolder = "";
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
     auto createConfigFn = [&]() {
       const SpillConfig config(
+          [&]() -> const std::string& { return emptySpillFolder; },
           "spillableReservationPercentages",
           0,
           0,

@@ -19,6 +19,7 @@
 #include <folly/container/F14Set.h>
 
 #include "velox/common/compression/Compression.h"
+#include "velox/common/config/SpillConfig.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/TreeOfLosers.h"
@@ -607,7 +608,8 @@ class SpillState {
   /// target size of a single file.  'pool' owns the memory for state and
   /// results.
   SpillState(
-      const std::string& path,
+      common::GetSpillDirectoryPathCB getSpillDirectoryPath,
+      const std::string& fileNamePrefix,
       int32_t maxPartitions,
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
@@ -700,7 +702,13 @@ class SpillState {
   void updateSpilledInputBytes(uint64_t bytes);
 
   const RowTypePtr type_;
-  const std::string path_;
+
+  // A callback function that returns the spill directory path. Implementations
+  // can use it to ensure the path exists before returning.
+  common::GetSpillDirectoryPathCB getSpillDirPathCb_;
+
+  /// Prefix for spill files.
+  const std::string fileNamePrefix_;
   const int32_t maxPartitions_;
   const int32_t numSortingKeys_;
   const std::vector<CompareFlags> sortCompareFlags_;

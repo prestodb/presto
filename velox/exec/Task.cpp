@@ -332,15 +332,40 @@ bool Task::allNodesReceivedNoMoreSplitsMessageLocked() const {
   return true;
 }
 
+const std::string& Task::getOrCreateSpillDirectory() {
+  VELOX_CHECK(!spillDirectory_.empty(), "Spill directory not set");
+  if (spillDirectoryCreated_) {
+    return spillDirectory_;
+  }
+
+  std::lock_guard<std::mutex> l(spillDirCreateMutex_);
+  if (spillDirectoryCreated_) {
+    return spillDirectory_;
+  }
+  try {
+    auto fileSystem = filesystems::getFileSystem(spillDirectory_, nullptr);
+    fileSystem->mkdir(spillDirectory_);
+  } catch (const std::exception& e) {
+    VELOX_FAIL(
+        "Failed to create spill directory '{}' for Task {}: {}",
+        spillDirectory_,
+        taskId(),
+        e.what());
+  }
+  spillDirectoryCreated_ = true;
+  return spillDirectory_;
+}
+
 void Task::removeSpillDirectoryIfExists() {
-  if (!spillDirectory_.empty()) {
-    try {
-      auto fs = filesystems::getFileSystem(spillDirectory_, nullptr);
-      fs->rmdir(spillDirectory_);
-    } catch (const std::exception& e) {
-      LOG(ERROR) << "Failed to remove spill directory '" << spillDirectory_
-                 << "' for Task " << taskId() << ": " << e.what();
-    }
+  if (spillDirectory_.empty() || !spillDirectoryCreated_) {
+    return;
+  }
+  try {
+    auto fs = filesystems::getFileSystem(spillDirectory_, nullptr);
+    fs->rmdir(spillDirectory_);
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "Failed to remove spill directory '" << spillDirectory_
+               << "' for Task " << taskId() << ": " << e.what();
   }
 }
 

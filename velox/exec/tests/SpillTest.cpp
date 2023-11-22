@@ -105,7 +105,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     runtimeStats_.clear();
     stats_.wlock()->reset();
 
-    spillPath_ = tempDir_->path + "/test";
+    fileNamePrefix_ = "test";
     values_.resize(numBatches * numRowsPerBatch);
     // Create a sequence of sorted 'values' in ascending order starting at -10.
     // Each distinct value occurs 'numDuplicates' times. The sequence total has
@@ -152,7 +152,8 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     // partitions produce an ascending sequence of integers without gaps.
     stats_.wlock()->reset();
     state_ = std::make_unique<SpillState>(
-        spillPath_,
+        [&]() -> const std::string& { return tempDir_->path; },
+        fileNamePrefix_,
         numPartitions,
         1,
         compareFlags,
@@ -398,7 +399,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
   common::CompressionKind compressionKind_;
   std::vector<std::optional<int64_t>> values_;
   std::vector<std::vector<RowVectorPtr>> batchesByPartition_;
-  std::string spillPath_;
+  std::string fileNamePrefix_;
   folly::Synchronized<SpillStats> stats_;
   std::unique_ptr<SpillState> state_;
   std::unordered_map<std::string, RuntimeMetric> runtimeStats_;
@@ -440,7 +441,8 @@ TEST_P(SpillTest, spillTimestamp) {
       Timestamp{Timestamp::kMinSeconds, 0}};
 
   SpillState state(
-      spillPath,
+      [&]() -> const std::string& { return tempDirectory->path; },
+      "test",
       1,
       1,
       emptyCompareFlags,

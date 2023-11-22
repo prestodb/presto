@@ -244,7 +244,9 @@ class E2EWriterTest : public testing::Test {
       int32_t minSpillableReservationPct,
       int32_t spillableReservationGrowthPct,
       uint64_t writerFlushThresholdSize = 0) {
+    static const std::string emptySpillFolder = "";
     return common::SpillConfig(
+        [&]() -> const std::string& { return emptySpillFolder; },
         "fakeSpillConfig",
         0,
         0,

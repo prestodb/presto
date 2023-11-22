@@ -62,7 +62,8 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
       const std::string& spillPath,
       uint64_t writerFlushThreshold) {
     return std::make_unique<SpillConfig>(
-        spillPath,
+        [&]() -> const std::string& { return spillPath; },
+        "",
         0,
         0,
         0,

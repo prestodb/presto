@@ -131,9 +131,15 @@ std::optional<common::SpillConfig> DriverCtx::makeSpillConfig(
   if (task->spillDirectory().empty()) {
     return std::nullopt;
   }
+  common::GetSpillDirectoryPathCB getSpillDirPathCb =
+      [this]() -> const std::string& {
+    return this->task->getOrCreateSpillDirectory();
+  };
+  const auto& spillFilePrefix =
+      fmt::format("{}_{}_{}", pipelineId, driverId, operatorId);
   return common::SpillConfig(
-      makeOperatorSpillPath(
-          task->spillDirectory(), pipelineId, driverId, operatorId),
+      getSpillDirPathCb,
+      spillFilePrefix,
       queryConfig.maxSpillFileSize(),
       queryConfig.spillWriteBufferSize(),
       queryConfig.minSpillRunSize(),
