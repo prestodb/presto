@@ -830,7 +830,7 @@ void HashBuild::recordSpillStats() {
     Operator::recordSpillStats(spillStats);
   } else if (exceededMaxSpillLevelLimit_) {
     exceededMaxSpillLevelLimit_ = false;
-    SpillStats spillStats;
+    common::SpillStats spillStats;
     spillStats.spillMaxLevelExceededCount = 1;
     Operator::recordSpillStats(spillStats);
   }

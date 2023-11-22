@@ -293,7 +293,7 @@ void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
       fmt::format("blocked{}Times", blockReason), RuntimeCounter(1));
 }
 
-void Operator::recordSpillStats(const SpillStats& spillStats) {
+void Operator::recordSpillStats(const common::SpillStats& spillStats) {
   VELOX_CHECK(noMoreInput_);
   auto lockedStats = stats_.wlock();
   lockedStats->spilledInputBytes += spillStats.spilledInputBytes;
@@ -354,7 +354,7 @@ void Operator::recordSpillStats(const SpillStats& spillStats) {
   if (numSpillRuns_ != 0) {
     lockedStats->addRuntimeStat(
         "spillRuns", RuntimeCounter{static_cast<int64_t>(numSpillRuns_)});
-    updateGlobalSpillRunStats(numSpillRuns_);
+    common::updateGlobalSpillRunStats(numSpillRuns_);
   }
 
   if (spillStats.spillMaxLevelExceededCount != 0) {
@@ -362,7 +362,7 @@ void Operator::recordSpillStats(const SpillStats& spillStats) {
         "exceededMaxSpillLevel",
         RuntimeCounter{
             static_cast<int64_t>(spillStats.spillMaxLevelExceededCount)});
-    updateGlobalMaxSpillLevelExceededCount(
+    common::updateGlobalMaxSpillLevelExceededCount(
         spillStats.spillMaxLevelExceededCount);
   }
 }

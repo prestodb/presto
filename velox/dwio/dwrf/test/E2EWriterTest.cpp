@@ -16,8 +16,8 @@
 
 #include <folly/Random.h>
 #include <random>
+#include "velox/common/base/SpillConfig.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/config/SpillConfig.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Statistics.h"

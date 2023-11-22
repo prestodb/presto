@@ -41,7 +41,7 @@ class SortWindowBuild : public WindowBuild {
 
   void spill() override;
 
-  std::optional<SpillStats> spilledStats() const override {
+  std::optional<common::SpillStats> spilledStats() const override {
     if (spiller_ == nullptr) {
       return std::nullopt;
     }

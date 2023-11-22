@@ -14,7 +14,6 @@
 add_subdirectory(base)
 add_subdirectory(caching)
 add_subdirectory(compression)
-add_subdirectory(config)
 add_subdirectory(encode)
 add_subdirectory(file)
 add_subdirectory(hyperloglog)

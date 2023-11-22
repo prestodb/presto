@@ -20,8 +20,8 @@
 #include <unordered_set>
 
 #include <folly/Executor.h>
+#include "velox/common/base/SpillConfig.h"
 #include "velox/common/compression/Compression.h"
-#include "velox/common/config/SpillConfig.h"
 #include "velox/common/io/Options.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/ColumnSelector.h"

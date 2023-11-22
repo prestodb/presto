@@ -26,13 +26,15 @@ add_library(
   RawVector.cpp
   RuntimeMetrics.cpp
   SimdUtil.cpp
+  SpillConfig.cpp
+  SpillStats.cpp
   StatsReporter.cpp
   SuccinctPrinter.cpp)
 
 target_link_libraries(
   velox_common_base
   PUBLIC velox_exception Folly::folly fmt::fmt xsimd
-  PRIVATE velox_process velox_test_util glog::glog)
+  PRIVATE velox_common_compression velox_process velox_test_util glog::glog)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

@@ -25,8 +25,6 @@ using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 namespace {
-constexpr int32_t kLogEveryN = 32;
-
 #define CHECK_NOT_FINALIZED() \
   VELOX_CHECK(!finalized_, "Spiller has been finalized")
 
@@ -452,12 +450,12 @@ void Spiller::runSpill() {
 
 void Spiller::updateSpillFillTime(uint64_t timeUs) {
   stats_.wlock()->spillFillTimeUs += timeUs;
-  updateGlobalSpillFillTime(timeUs);
+  common::updateGlobalSpillFillTime(timeUs);
 }
 
 void Spiller::updateSpillSortTime(uint64_t timeUs) {
   stats_.wlock()->spillSortTimeUs += timeUs;
-  updateGlobalSpillSortTime(timeUs);
+  common::updateGlobalSpillSortTime(timeUs);
 }
 
 bool Spiller::needSort() const {
@@ -642,7 +640,7 @@ std::string Spiller::typeName(Type type) {
   }
 }
 
-SpillStats Spiller::stats() const {
+common::SpillStats Spiller::stats() const {
   return stats_.copy();
 }
 } // namespace facebook::velox::exec

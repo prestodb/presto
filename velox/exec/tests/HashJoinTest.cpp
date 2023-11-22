@@ -66,9 +66,10 @@ std::function<void(Task* task)> makeAddSplit(
 }
 
 // Returns aggregated spilled stats by build and probe operators from 'task'.
-std::pair<SpillStats, SpillStats> taskSpilledStats(const exec::Task& task) {
-  SpillStats buildStats;
-  SpillStats probeStats;
+std::pair<common::SpillStats, common::SpillStats> taskSpilledStats(
+    const exec::Task& task) {
+  common::SpillStats buildStats;
+  common::SpillStats probeStats;
   auto stats = task.taskStats();
   for (auto& pipeline : stats.pipelineStats) {
     for (auto op : pipeline.operatorStats) {
@@ -6106,7 +6107,7 @@ TEST_F(HashJoinTest, exceededMaxSpillLevel) {
 
   auto tempDirectory = exec::test::TempDirectoryPath::create();
   const int exceededMaxSpillLevelCount =
-      globalSpillStats().spillMaxLevelExceededCount;
+      common::globalSpillStats().spillMaxLevelExceededCount;
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .numDrivers(1)
       .planNode(plan)
@@ -6127,7 +6128,7 @@ TEST_F(HashJoinTest, exceededMaxSpillLevel) {
       })
       .run();
   ASSERT_EQ(
-      globalSpillStats().spillMaxLevelExceededCount,
+      common::globalSpillStats().spillMaxLevelExceededCount,
       exceededMaxSpillLevelCount + 4);
 }
 } // namespace

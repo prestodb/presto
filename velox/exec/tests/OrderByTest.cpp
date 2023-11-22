@@ -37,8 +37,8 @@ using namespace facebook::velox::exec::test;
 
 namespace {
 // Returns aggregated spilled stats by 'task'.
-SpillStats spilledStats(const exec::Task& task) {
-  SpillStats spilledStats;
+common::SpillStats spilledStats(const exec::Task& task) {
+  common::SpillStats spilledStats;
   auto stats = task.taskStats();
   for (auto& pipeline : stats.pipelineStats) {
     for (auto op : pipeline.operatorStats) {

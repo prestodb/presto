@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/common/config/SpillConfig.h"
+#include "velox/common/base/SpillConfig.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/HashBitRange.h"

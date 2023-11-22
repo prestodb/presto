@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/common/config/SpillConfig.h"
+#include "velox/common/base/SpillConfig.h"
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::common {

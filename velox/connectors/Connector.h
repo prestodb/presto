@@ -17,9 +17,9 @@
 
 #include "velox/common/base/AsyncSource.h"
 #include "velox/common/base/RuntimeMetrics.h"
+#include "velox/common/base/SpillConfig.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/ScanTracker.h"
-#include "velox/common/config/SpillConfig.h"
 #include "velox/common/future/VeloxPromise.h"
 #include "velox/core/ExpressionEvaluator.h"
 #include "velox/vector/ComplexVector.h"

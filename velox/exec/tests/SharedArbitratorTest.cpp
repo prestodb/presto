@@ -3074,7 +3074,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromSortTableWriter) {
       std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(kMemoryCapacity);
       ASSERT_EQ(queryCtx->pool()->capacity(), 0);
 
-      const auto spillStats = globalSpillStats();
+      const auto spillStats = common::globalSpillStats();
 
       std::atomic<int> numInputs{0};
       SCOPED_TESTVALUE_SET(
@@ -3136,7 +3136,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromSortTableWriter) {
       ASSERT_EQ(arbitrator_->stats().numFailures, writerSpillEnabled ? 0 : 1);
       ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 0);
       waitForAllTasksToBeDeleted(3'000'000);
-      const auto updatedSpillStats = globalSpillStats();
+      const auto updatedSpillStats = common::globalSpillStats();
       if (writerSpillEnabled) {
         ASSERT_GT(updatedSpillStats.spilledBytes, spillStats.spilledBytes);
         ASSERT_GT(
@@ -3470,7 +3470,7 @@ DEBUG_ONLY_TEST_F(
               {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())})
           .planNode();
 
-  const auto spillStats = globalSpillStats();
+  const auto spillStats = common::globalSpillStats();
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   AssertQueryBuilder(duckDbQueryRunner_)
       .queryCtx(queryCtx)
@@ -3499,7 +3499,7 @@ DEBUG_ONLY_TEST_F(
   ASSERT_EQ(arbitrator_->stats().numFailures, 1);
   ASSERT_EQ(arbitrator_->stats().numNonReclaimableAttempts, 1);
   ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
-  const auto updatedSpillStats = globalSpillStats();
+  const auto updatedSpillStats = common::globalSpillStats();
   ASSERT_EQ(updatedSpillStats, spillStats);
 }
 

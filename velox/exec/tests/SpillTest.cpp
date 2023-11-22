@@ -259,7 +259,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
         compareFlags.empty() ? true : compareFlags[0].nullsFirst,
         compareFlags.empty() ? true : compareFlags[0].ascending));
 
-    const auto prevGStats = globalSpillStats();
+    const auto prevGStats = common::globalSpillStats();
     setupSpillState(
         targetFileSize,
         0,
@@ -279,7 +279,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     // NOTE: the following stats are not collected by spill state.
     ASSERT_EQ(stats.spillFillTimeUs, 0);
     ASSERT_EQ(stats.spillSortTimeUs, 0);
-    const auto newGStats = globalSpillStats();
+    const auto newGStats = common::globalSpillStats();
     ASSERT_EQ(
         prevGStats.spilledPartitions + stats.spilledPartitions,
         newGStats.spilledPartitions);
@@ -400,7 +400,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
   std::vector<std::optional<int64_t>> values_;
   std::vector<std::vector<RowVectorPtr>> batchesByPartition_;
   std::string fileNamePrefix_;
-  folly::Synchronized<SpillStats> stats_;
+  folly::Synchronized<common::SpillStats> stats_;
   std::unique_ptr<SpillState> state_;
   std::unordered_map<std::string, RuntimeMetric> runtimeStats_;
   std::unique_ptr<TestRuntimeStatWriter> statWriter_;
@@ -730,89 +730,3 @@ INSTANTIATE_TEST_SUITE_P(
         common::CompressionKind::CompressionKind_ZSTD,
         common::CompressionKind::CompressionKind_LZ4,
         common::CompressionKind::CompressionKind_GZIP));
-
-TEST(SpillTest, spillStats) {
-  SpillStats stats1;
-  ASSERT_TRUE(stats1.empty());
-  stats1.spillRuns = 100;
-  stats1.spilledInputBytes = 2048;
-  stats1.spilledBytes = 1024;
-  stats1.spilledPartitions = 1024;
-  stats1.spilledFiles = 1023;
-  stats1.spillWriteTimeUs = 1023;
-  stats1.spillFlushTimeUs = 1023;
-  stats1.spillDiskWrites = 1023;
-  stats1.spillSortTimeUs = 1023;
-  stats1.spillFillTimeUs = 1023;
-  stats1.spilledRows = 1023;
-  stats1.spillSerializationTimeUs = 1023;
-  stats1.spillMaxLevelExceededCount = 3;
-  ASSERT_FALSE(stats1.empty());
-  SpillStats stats2;
-  stats2.spillRuns = 100;
-  stats2.spilledInputBytes = 2048;
-  stats2.spilledBytes = 1024;
-  stats2.spilledPartitions = 1025;
-  stats2.spilledFiles = 1026;
-  stats2.spillWriteTimeUs = 1026;
-  stats2.spillFlushTimeUs = 1027;
-  stats2.spillDiskWrites = 1028;
-  stats2.spillSortTimeUs = 1029;
-  stats2.spillFillTimeUs = 1030;
-  stats2.spilledRows = 1031;
-  stats2.spillSerializationTimeUs = 1032;
-  stats2.spillMaxLevelExceededCount = 4;
-  ASSERT_TRUE(stats1 < stats2);
-  ASSERT_TRUE(stats1 <= stats2);
-  ASSERT_FALSE(stats1 > stats2);
-  ASSERT_FALSE(stats1 >= stats2);
-  ASSERT_TRUE(stats1 != stats2);
-  ASSERT_FALSE(stats1 == stats2);
-
-  ASSERT_TRUE(stats1 == stats1);
-  ASSERT_FALSE(stats1 != stats1);
-  ASSERT_FALSE(stats1 > stats1);
-  ASSERT_TRUE(stats1 >= stats1);
-  ASSERT_FALSE(stats1 < stats1);
-  ASSERT_TRUE(stats1 <= stats1);
-
-  SpillStats delta = stats2 - stats1;
-  ASSERT_EQ(delta.spilledInputBytes, 0);
-  ASSERT_EQ(delta.spilledBytes, 0);
-  ASSERT_EQ(delta.spilledPartitions, 1);
-  ASSERT_EQ(delta.spilledFiles, 3);
-  ASSERT_EQ(delta.spillWriteTimeUs, 3);
-  ASSERT_EQ(delta.spillFlushTimeUs, 4);
-  ASSERT_EQ(delta.spillDiskWrites, 5);
-  ASSERT_EQ(delta.spillSortTimeUs, 6);
-  ASSERT_EQ(delta.spillFillTimeUs, 7);
-  ASSERT_EQ(delta.spilledRows, 8);
-  ASSERT_EQ(delta.spillSerializationTimeUs, 9);
-  delta = stats1 - stats2;
-  ASSERT_EQ(delta.spilledInputBytes, 0);
-  ASSERT_EQ(delta.spilledBytes, 0);
-  ASSERT_EQ(delta.spilledPartitions, -1);
-  ASSERT_EQ(delta.spilledFiles, -3);
-  ASSERT_EQ(delta.spillWriteTimeUs, -3);
-  ASSERT_EQ(delta.spillFlushTimeUs, -4);
-  ASSERT_EQ(delta.spillDiskWrites, -5);
-  ASSERT_EQ(delta.spillSortTimeUs, -6);
-  ASSERT_EQ(delta.spillFillTimeUs, -7);
-  ASSERT_EQ(delta.spilledRows, -8);
-  ASSERT_EQ(delta.spillSerializationTimeUs, -9);
-  ASSERT_EQ(delta.spillMaxLevelExceededCount, -1);
-  stats1.spilledInputBytes = 2060;
-  stats1.spilledBytes = 1030;
-  VELOX_ASSERT_THROW(stats1 < stats2, "");
-  VELOX_ASSERT_THROW(stats1 > stats2, "");
-  VELOX_ASSERT_THROW(stats1 <= stats2, "");
-  VELOX_ASSERT_THROW(stats1 >= stats2, "");
-  ASSERT_TRUE(stats1 != stats2);
-  ASSERT_FALSE(stats1 == stats2);
-  const SpillStats zeroStats;
-  stats1.reset();
-  ASSERT_EQ(zeroStats, stats1);
-  ASSERT_EQ(
-      stats2.toString(),
-      "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] spillFillTimeUs[1.03ms] spillSortTime[1.03ms] spillSerializationTime[1.03ms] spillDiskWrites[1028] spillFlushTime[1.03ms] spillWriteTime[1.03ms] maxSpillExceededLimitCount[4]");
-}

@@ -64,7 +64,7 @@ class SortBuffer {
   }
 
   /// Returns the spiller stats including total bytes and rows spilled so far.
-  std::optional<SpillStats> spilledStats() const {
+  std::optional<common::SpillStats> spilledStats() const {
     if (spiller_ == nullptr) {
       return std::nullopt;
     }

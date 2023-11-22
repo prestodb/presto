@@ -15,8 +15,8 @@
  */
 #pragma once
 
+#include "velox/common/base/SpillConfig.h"
 #include "velox/common/compression/Compression.h"
-#include "velox/common/config/SpillConfig.h"
 #include "velox/exec/HashBitRange.h"
 #include "velox/exec/RowContainer.h"
 
@@ -189,7 +189,7 @@ class Spiller {
     return finalized_;
   }
 
-  SpillStats stats() const;
+  common::SpillStats stats() const;
 
   std::string toString() const;
 
@@ -313,7 +313,7 @@ class Spiller {
   // spillMergeStreamOverRows().
   bool finalized_{false};
 
-  folly::Synchronized<SpillStats> stats_;
+  folly::Synchronized<common::SpillStats> stats_;
   SpillState state_;
 
   // Collects the rows to spill for each partition.

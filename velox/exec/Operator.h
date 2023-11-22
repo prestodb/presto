@@ -678,7 +678,7 @@ class Operator : public BaseRuntimeStatWriter {
       std::optional<uint64_t> averageRowSize = std::nullopt) const;
 
   /// Invoked to record spill stats in operator stats.
-  void recordSpillStats(const SpillStats& spillStats);
+  void recordSpillStats(const common::SpillStats& spillStats);
 
   const std::unique_ptr<OperatorCtx> operatorCtx_;
   const RowTypePtr outputType_;

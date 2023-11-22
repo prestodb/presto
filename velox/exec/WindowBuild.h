@@ -48,7 +48,7 @@ class WindowBuild {
   virtual void spill() = 0;
 
   /// Returns the spiller stats including total bytes and rows spilled so far.
-  virtual std::optional<SpillStats> spilledStats() const = 0;
+  virtual std::optional<common::SpillStats> spilledStats() const = 0;
 
   // The Window operator invokes this function to indicate that no
   // more input rows will be passed from the Window operator to the
