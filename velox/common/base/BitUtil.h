@@ -714,7 +714,7 @@ inline uint64_t nextPowerOfTwo(uint64_t size) {
     return 0;
   }
   uint32_t bits = 63 - countLeadingZeros(size);
-  uint64_t lower = 1U << bits;
+  uint64_t lower = 1ULL << bits;
   // Size is a power of 2.
   if (lower == size) {
     return size;

@@ -499,6 +499,9 @@ TEST_F(BitUtilTest, nextPowerOfTwo) {
   EXPECT_EQ(nextPowerOfTwo(31), 32);
   EXPECT_EQ(nextPowerOfTwo(32), 32);
   EXPECT_EQ(nextPowerOfTwo(33), 64);
+  EXPECT_EQ(nextPowerOfTwo(1ULL << 32), 1ULL << 32);
+  EXPECT_EQ(nextPowerOfTwo((1ULL << 32) + 1), 1ULL << 33);
+  EXPECT_EQ(nextPowerOfTwo((1ULL << 62) + 1), 1ULL << 63);
 }
 
 TEST_F(BitUtilTest, isPowerOfTwo) {
