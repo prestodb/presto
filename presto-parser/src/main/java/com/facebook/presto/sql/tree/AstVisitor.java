@@ -657,6 +657,16 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitUpdate(Update node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitUpdateAssignment(UpdateAssignment node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitTruncateTable(TruncateTable node, C context)
     {
         return visitStatement(node, context);

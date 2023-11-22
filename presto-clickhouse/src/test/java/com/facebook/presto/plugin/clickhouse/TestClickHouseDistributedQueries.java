@@ -108,6 +108,12 @@ public class TestClickHouseDistributedQueries
         throw new SkipException("TODO: test not implemented yet");
     }
 
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
     @Test
     @Override
     public void testInsert()

@@ -20,6 +20,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -51,6 +53,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -76,8 +79,10 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -127,6 +132,7 @@ import static com.facebook.presto.sql.tree.WindowFrame.Type.ROWS;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -244,7 +250,7 @@ class QueryPlanner
     {
         RelationType descriptor = analysis.getOutputDescriptor(node.getTable());
         TableHandle handle = analysis.getTableHandle(node.getTable());
-        ColumnHandle rowIdHandle = metadata.getUpdateRowIdColumnHandle(session, handle);
+        ColumnHandle rowIdHandle = metadata.getDeleteRowIdColumnHandle(session, handle);
         Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle).getType();
 
         // add table columns
@@ -287,6 +293,104 @@ class QueryPlanner
                 variableAllocator.newVariable("fragment", VARBINARY));
 
         return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), builder.getRoot(), rowId, deleteNodeOutputVariables);
+    }
+
+    public UpdateNode plan(Update node)
+    {
+        RelationType descriptor = analysis.getOutputDescriptor(node.getTable());
+        TableHandle handle = analysis.getTableHandle(node.getTable());
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, handle);
+        List<ColumnMetadata> updatedColumnMetadata = analysis.getUpdatedColumns()
+                .orElseThrow(() -> new VerifyException("updated columns not set"));
+        Set<String> updatedColumnNames = updatedColumnMetadata.stream().map(ColumnMetadata::getName).collect(toImmutableSet());
+        List<ColumnHandle> updatedColumns = columnHandles.entrySet().stream()
+                .filter(entry -> updatedColumnNames.contains(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .collect(toImmutableList());
+        ColumnHandle rowIdHandle = metadata.getUpdateRowIdColumnHandle(session, handle, updatedColumns);
+        Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle).getType();
+
+        List<String> targetColumnNames = node.getAssignments().stream()
+                .map(assignment -> assignment.getName().getValue())
+                .collect(toImmutableList());
+
+        // Create lists of columnnames and SET expressions, in table column order
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
+        ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
+        for (Field field : descriptor.getAllFields()) {
+            String name = field.getName().get();
+            int index = targetColumnNames.indexOf(name);
+            if (index >= 0) {
+                VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().get(), field.getType());
+                outputVariablesBuilder.add(variable);
+                columns.put(variable, analysis.getColumn(field));
+                fields.add(field);
+                orderedColumnValuesBuilder.add(node.getAssignments().get(index).getValue());
+            }
+        }
+        List<Expression> orderedColumnValues = orderedColumnValuesBuilder.build();
+
+        // add rowId column
+        Field rowIdField = Field.newUnqualified(node.getLocation(), Optional.empty(), rowIdType);
+        VariableReferenceExpression rowIdVariable = variableAllocator.newVariable(getSourceLocation(node), "$rowId", rowIdField.getType());
+        outputVariablesBuilder.add(rowIdVariable);
+        columns.put(rowIdVariable, rowIdHandle);
+        fields.add(rowIdField);
+
+        // create table scan
+        List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
+        PlanNode tableScan = new TableScanNode(getSourceLocation(node), idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all());
+        Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
+        RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputVariables);
+
+        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
+        translations.setFieldMappings(relationPlan.getFieldMappings());
+        PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot());
+
+        if (node.getWhere().isPresent()) {
+            builder = filter(builder, node.getWhere().get(), node);
+        }
+
+        builder = builder.appendProjections(orderedColumnValues, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, sqlPlannerContext);
+
+        PlanAndMappings planAndMappings = coerce(builder, orderedColumnValues, analysis, idAllocator, variableAllocator, metadata);
+        builder = planAndMappings.getSubPlan();
+
+        ImmutableList.Builder<VariableReferenceExpression> updatedColumnValuesBuilder = ImmutableList.builder();
+        orderedColumnValues.forEach(columnValue -> updatedColumnValuesBuilder.add(planAndMappings.get(columnValue)));
+        VariableReferenceExpression rowId = new VariableReferenceExpression(Optional.empty(), builder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(rowIdField))).getName(), rowIdField.getType());
+        updatedColumnValuesBuilder.add(rowId);
+
+        List<VariableReferenceExpression> outputs = ImmutableList.of(
+                variableAllocator.newVariable("partialrows", BIGINT),
+                variableAllocator.newVariable("fragment", VARBINARY));
+
+        Optional<PlanNodeId> tableScanId = getIdForLeftTableScan(relationPlan.getRoot());
+        checkArgument(tableScanId.isPresent(), "tableScanId not present");
+
+        // create update node
+        return new UpdateNode(
+                getSourceLocation(node),
+                idAllocator.getNextId(),
+                builder.getRoot(),
+                rowId,
+                updatedColumnValuesBuilder.build(),
+                outputs);
+    }
+
+    private Optional<PlanNodeId> getIdForLeftTableScan(PlanNode node)
+    {
+        if (node instanceof TableScanNode) {
+            return Optional.of(node.getId());
+        }
+        List<PlanNode> sources = node.getSources();
+        if (sources.isEmpty()) {
+            return Optional.empty();
+        }
+        return getIdForLeftTableScan(sources.get(0));
     }
 
     private static List<VariableReferenceExpression> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)

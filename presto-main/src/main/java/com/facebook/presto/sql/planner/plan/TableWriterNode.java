@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.NewTableLayout;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -415,6 +416,65 @@ public class TableWriterNode
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class UpdateTarget
+            extends WriterTarget
+    {
+        private final TableHandle handle;
+        private final SchemaTableName schemaTableName;
+        private final List<String> updatedColumns;
+        private final List<ColumnHandle> updatedColumnHandles;
+
+        @JsonCreator
+        public UpdateTarget(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("updatedColumns") List<String> updatedColumns,
+                @JsonProperty("updatedColumnHandles") List<ColumnHandle> updatedColumnHandles)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            checkArgument(updatedColumns.size() == updatedColumnHandles.size(), "updatedColumns size %s must equal updatedColumnHandles size %s", updatedColumns.size(), updatedColumnHandles.size());
+            this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
+            this.updatedColumnHandles = requireNonNull(updatedColumnHandles, "updatedColumnHandles is null");
+        }
+
+        @JsonProperty
+        public TableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @JsonProperty
+        public List<String> getUpdatedColumns()
+        {
+            return updatedColumns;
+        }
+
+        @JsonProperty
+        public List<ColumnHandle> getUpdatedColumnHandles()
+        {
+            return updatedColumnHandles;
         }
 
         @Override

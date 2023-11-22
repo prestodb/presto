@@ -119,6 +119,12 @@ public class TestParquetDistributedQueries
     }
 
     @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
+    @Override
     public void testRenameColumn()
     {
         // Parquet field lookup use column name does not support Rename
