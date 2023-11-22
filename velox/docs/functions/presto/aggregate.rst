@@ -436,7 +436,7 @@ Statistical Aggregate Functions
 
 .. function:: stddev(x) -> double
 
-    This is an alias for stddev_samp().
+    This is an alias for :func:`stddev_samp`.
 
 .. function:: stddev_pop(x) -> double
 
@@ -448,7 +448,7 @@ Statistical Aggregate Functions
 
 .. function:: variance(x) -> double
 
-    This is an alias for var_samp().
+    This is an alias for :func:`var_samp`.
 
 .. function:: var_pop(x) -> double
 
