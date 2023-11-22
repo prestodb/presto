@@ -112,7 +112,6 @@ TEST_F(CompactRowSerializerTest, fuzz) {
   VectorFuzzer::Options opts;
   opts.vectorSize = 5;
   opts.nullRatio = 0.1;
-  opts.containerHasNulls = false;
   opts.dictionaryHasNulls = false;
   opts.stringVariableLength = true;
   opts.stringLength = 20;
@@ -129,7 +128,7 @@ TEST_F(CompactRowSerializerTest, fuzz) {
   SCOPED_TRACE(fmt::format("seed: {}", seed));
   VectorFuzzer fuzzer(opts, pool_.get(), seed);
 
-  auto data = fuzzer.fuzzRow(rowType);
+  auto data = fuzzer.fuzzInputRow(rowType);
   testRoundTrip(data);
 }
 

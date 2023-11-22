@@ -48,7 +48,6 @@ class UnsafeRowFuzzTests : public ::testing::Test {
     VectorFuzzer::Options opts;
     opts.vectorSize = kNumBuffers;
     opts.nullRatio = 0.1;
-    opts.containerHasNulls = false;
     opts.dictionaryHasNulls = false;
     opts.stringVariableLength = true;
     opts.stringLength = 20;

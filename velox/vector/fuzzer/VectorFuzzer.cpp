@@ -463,24 +463,28 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
   }
   // Arrays.
   else if (type->isArray()) {
-    return fuzzArray(
-        fuzzFlat(
-            type->asArray().elementType(),
-            getElementsVectorLength(opts_, size)),
-        size);
+    const auto& elementType = type->asArray().elementType();
+    auto elementsLength = getElementsVectorLength(opts_, size);
+
+    auto elements = opts_.containerHasNulls
+        ? fuzzFlat(elementType, elementsLength)
+        : fuzzFlatNotNull(elementType, elementsLength);
+    return fuzzArray(elements, size);
   }
   // Maps.
   else if (type->isMap()) {
     // Do not initialize keys and values inline in the fuzzMap call as C++ does
     // not specify the order they'll be called in, leading to inconsistent
     // results across platforms.
-    auto keys = opts_.normalizeMapKeys
-        ? fuzzFlatNotNull(
-              type->asMap().keyType(), getElementsVectorLength(opts_, size))
-        : fuzzFlat(
-              type->asMap().keyType(), getElementsVectorLength(opts_, size));
-    auto values = fuzzFlat(
-        type->asMap().valueType(), getElementsVectorLength(opts_, size));
+    const auto& keyType = type->asMap().keyType();
+    const auto& valueType = type->asMap().valueType();
+    auto length = getElementsVectorLength(opts_, size);
+
+    auto keys = opts_.normalizeMapKeys || !opts_.containerHasNulls
+        ? fuzzFlatNotNull(keyType, length)
+        : fuzzFlat(keyType, length);
+    auto values = opts_.containerHasNulls ? fuzzFlat(valueType, length)
+                                          : fuzzFlatNotNull(valueType, length);
     return fuzzMap(keys, values, size);
   }
   // Rows.
@@ -490,7 +494,9 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
     childrenVectors.reserve(rowType.children().size());
 
     for (const auto& childType : rowType.children()) {
-      childrenVectors.emplace_back(fuzzFlat(childType, size));
+      childrenVectors.emplace_back(
+          opts_.containerHasNulls ? fuzzFlat(childType, size)
+                                  : fuzzFlatNotNull(childType, size));
     }
 
     return fuzzRow(std::move(childrenVectors), rowType.names(), size);
@@ -533,23 +539,29 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
     case TypeKind::ROW:
       return fuzzRow(std::dynamic_pointer_cast<const RowType>(type), size);
 
-    case TypeKind::ARRAY:
-      return fuzzArray(
-          fuzz(
-              type->asArray().elementType(),
-              getElementsVectorLength(opts_, size)),
-          size);
+    case TypeKind::ARRAY: {
+      const auto& elementType = type->asArray().elementType();
+      auto elementsLength = getElementsVectorLength(opts_, size);
+
+      auto elements = opts_.containerHasNulls
+          ? fuzz(elementType, elementsLength)
+          : fuzzNotNull(elementType, elementsLength);
+      return fuzzArray(elements, size);
+    }
 
     case TypeKind::MAP: {
       // Do not initialize keys and values inline in the fuzzMap call as C++
       // does not specify the order they'll be called in, leading to
       // inconsistent results across platforms.
-      auto keys = opts_.normalizeMapKeys
-          ? fuzzNotNull(
-                type->asMap().keyType(), getElementsVectorLength(opts_, size))
-          : fuzz(type->asMap().keyType(), getElementsVectorLength(opts_, size));
-      auto values =
-          fuzz(type->asMap().valueType(), getElementsVectorLength(opts_, size));
+      const auto& keyType = type->asMap().keyType();
+      const auto& valueType = type->asMap().valueType();
+      auto length = getElementsVectorLength(opts_, size);
+
+      auto keys = opts_.normalizeMapKeys || !opts_.containerHasNulls
+          ? fuzzNotNull(keyType, length)
+          : fuzz(keyType, length);
+      auto values = opts_.containerHasNulls ? fuzz(valueType, length)
+                                            : fuzzNotNull(valueType, length);
       return fuzzMap(keys, values, size);
     }
 
@@ -619,7 +631,7 @@ ArrayVectorPtr VectorFuzzer::fuzzArray(
   return std::make_shared<ArrayVector>(
       pool_,
       ARRAY(elements->type()),
-      opts_.containerHasNulls ? fuzzNulls(size) : nullptr,
+      fuzzNulls(size),
       size,
       offsets,
       sizes,
@@ -676,7 +688,7 @@ MapVectorPtr VectorFuzzer::fuzzMap(
   return std::make_shared<MapVector>(
       pool_,
       MAP(keys->type(), values->type()),
-      opts_.containerHasNulls ? fuzzNulls(size) : nullptr,
+      fuzzNulls(size),
       size,
       offsets,
       sizes,
@@ -715,7 +727,7 @@ RowVectorPtr VectorFuzzer::fuzzRow(
   return std::make_shared<RowVector>(
       pool_,
       ROW(std::move(childrenNames), std::move(types)),
-      opts_.containerHasNulls ? fuzzNulls(size) : nullptr,
+      fuzzNulls(size),
       size,
       std::move(children));
 }
@@ -731,11 +743,7 @@ RowVectorPtr VectorFuzzer::fuzzRow(
   }
 
   return std::make_shared<RowVector>(
-      pool_,
-      ROW(std::move(types)),
-      opts_.containerHasNulls ? fuzzNulls(size) : nullptr,
-      size,
-      std::move(children));
+      pool_, ROW(std::move(types)), fuzzNulls(size), size, std::move(children));
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
@@ -749,14 +757,20 @@ RowVectorPtr VectorFuzzer::fuzzRow(
     vector_size_t size,
     bool allowTopLevelNulls) {
   std::vector<VectorPtr> children;
+  children.reserve(rowType->size());
+
   for (auto i = 0; i < rowType->size(); ++i) {
-    children.push_back(fuzz(rowType->childAt(i), size));
+    children.push_back(
+        opts_.containerHasNulls ? fuzz(rowType->childAt(i), size)
+                                : fuzzNotNull(rowType->childAt(i), size));
   }
 
-  auto nulls =
-      allowTopLevelNulls && opts_.containerHasNulls ? fuzzNulls(size) : nullptr;
   return std::make_shared<RowVector>(
-      pool_, rowType, nulls, size, std::move(children));
+      pool_,
+      rowType,
+      allowTopLevelNulls ? fuzzNulls(size) : nullptr,
+      size,
+      std::move(children));
 }
 
 BufferPtr VectorFuzzer::fuzzNulls(vector_size_t size) {

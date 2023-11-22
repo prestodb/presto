@@ -496,7 +496,6 @@ TEST_F(CompactRowTest, fuzz) {
   opts.vectorSize = 100;
   opts.containerLength = 5;
   opts.nullRatio = 0.1;
-  opts.containerHasNulls = true;
   opts.dictionaryHasNulls = false;
   opts.stringVariableLength = true;
   opts.stringLength = 20;
