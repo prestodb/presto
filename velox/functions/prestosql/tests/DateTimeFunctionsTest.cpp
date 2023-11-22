@@ -837,7 +837,84 @@ TEST_F(DateTimeFunctionsTest, plusMinusDateIntervalDayTime) {
   EXPECT_THROW(minus(baseDate, partDay), VeloxUserError);
 }
 
-TEST_F(DateTimeFunctionsTest, minusTimestampIntervalDayTime) {
+TEST_F(DateTimeFunctionsTest, plusMinusTimestampIntervalDayTime) {
+  constexpr int64_t kLongMax = std::numeric_limits<int64_t>::max();
+  constexpr int64_t kLongMin = std::numeric_limits<int64_t>::min();
+
+  const auto minus = [&](std::optional<Timestamp> timestamp,
+                         std::optional<int64_t> interval) {
+    return evaluateOnce<Timestamp>(
+        "c0 - c1",
+        makeRowVector({
+            makeNullableFlatVector<Timestamp>({timestamp}),
+            makeNullableFlatVector<int64_t>({interval}, INTERVAL_DAY_TIME()),
+        }));
+  };
+
+  EXPECT_EQ(std::nullopt, minus(std::nullopt, std::nullopt));
+  EXPECT_EQ(std::nullopt, minus(std::nullopt, 1));
+  EXPECT_EQ(std::nullopt, minus(Timestamp(0, 0), std::nullopt));
+  EXPECT_EQ(Timestamp(0, 0), minus(Timestamp(0, 0), 0));
+  EXPECT_EQ(Timestamp(0, 0), minus(Timestamp(10, 0), 10'000));
+  EXPECT_EQ(Timestamp(-10, 0), minus(Timestamp(10, 0), 20'000));
+  EXPECT_EQ(
+      Timestamp(-2, 50 * Timestamp::kNanosecondsInMillisecond),
+      minus(Timestamp(0, 50 * Timestamp::kNanosecondsInMillisecond), 2'000));
+  EXPECT_EQ(
+      Timestamp(-3, 995 * Timestamp::kNanosecondsInMillisecond),
+      minus(Timestamp(0, 0), 2'005));
+  EXPECT_EQ(
+      Timestamp(9223372036854774, 809000000),
+      minus(Timestamp(-1, 0), kLongMax));
+  EXPECT_EQ(
+      Timestamp(-9223372036854775, 192000000),
+      minus(Timestamp(1, 0), kLongMin));
+
+  const auto plusAndVerify = [&](std::optional<Timestamp> timestamp,
+                                 std::optional<int64_t> interval,
+                                 std::optional<Timestamp> expected) {
+    EXPECT_EQ(
+        expected,
+        evaluateOnce<Timestamp>(
+            "c0 + c1",
+            makeRowVector({
+                makeNullableFlatVector<Timestamp>({timestamp}),
+                makeNullableFlatVector<int64_t>(
+                    {interval}, INTERVAL_DAY_TIME()),
+            })));
+    EXPECT_EQ(
+        expected,
+        evaluateOnce<Timestamp>(
+            "c1 + c0",
+            makeRowVector({
+                makeNullableFlatVector<Timestamp>({timestamp}),
+                makeNullableFlatVector<int64_t>(
+                    {interval}, INTERVAL_DAY_TIME()),
+            })));
+  };
+
+  plusAndVerify(std::nullopt, std::nullopt, std::nullopt);
+  plusAndVerify(std::nullopt, 1, std::nullopt);
+  plusAndVerify(Timestamp(0, 0), std::nullopt, std::nullopt);
+  plusAndVerify(Timestamp(0, 0), 0, Timestamp(0, 0));
+  plusAndVerify(Timestamp(0, 0), 10'000, Timestamp(10, 0));
+  plusAndVerify(
+      Timestamp(0, 0),
+      20'005,
+      Timestamp(20, 5 * Timestamp::kNanosecondsInMillisecond));
+  plusAndVerify(
+      Timestamp(0, 0),
+      -30'005,
+      Timestamp(-31, 995 * Timestamp::kNanosecondsInMillisecond));
+  plusAndVerify(
+      Timestamp(1, 0), kLongMax, Timestamp(-9223372036854775, 191000000));
+  plusAndVerify(
+      Timestamp(0, 0), kLongMin, Timestamp(-9223372036854776, 192000000));
+  plusAndVerify(
+      Timestamp(-1, 0), kLongMin, Timestamp(9223372036854774, 808000000));
+}
+
+TEST_F(DateTimeFunctionsTest, minusTimestamp) {
   const auto minus = [&](std::optional<int64_t> t1, std::optional<int64_t> t2) {
     const auto timestamp1 = (t1.has_value()) ? Timestamp(t1.value(), 0)
                                              : std::optional<Timestamp>();

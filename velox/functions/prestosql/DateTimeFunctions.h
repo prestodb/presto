@@ -401,7 +401,7 @@ struct DatePlusIntervalDayTime {
 };
 
 template <typename T>
-struct TimestampMinusIntervalDayTime {
+struct TimestampMinusFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void call(
@@ -409,6 +409,60 @@ struct TimestampMinusIntervalDayTime {
       const arg_type<Timestamp>& a,
       const arg_type<Timestamp>& b) {
     result = a.toMillis() - b.toMillis();
+  }
+};
+
+template <typename T>
+struct TimestampPlusIntervalDayTime {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Timestamp>& result,
+      const arg_type<Timestamp>& a,
+      const arg_type<IntervalDayTime>& b)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+      __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+  {
+    result = Timestamp::fromMillisNoError(a.toMillis() + b);
+  }
+};
+
+template <typename T>
+struct IntervalDayTimePlusTimestamp {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Timestamp>& result,
+      const arg_type<IntervalDayTime>& a,
+      const arg_type<Timestamp>& b)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+      __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+  {
+    result = Timestamp::fromMillisNoError(a + b.toMillis());
+  }
+};
+
+template <typename T>
+struct TimestampMinusIntervalDayTime {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Timestamp>& result,
+      const arg_type<Timestamp>& a,
+      const arg_type<IntervalDayTime>& b)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+      __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+  {
+    result = Timestamp::fromMillisNoError(a.toMillis() - b);
   }
 };
 

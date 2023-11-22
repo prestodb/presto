@@ -167,6 +167,21 @@ struct Timestamp {
     return Timestamp(second, nano);
   }
 
+  static Timestamp fromMillisNoError(int64_t millis)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+      __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+  {
+    if (millis >= 0 || millis % 1'000 == 0) {
+      return Timestamp(millis / 1'000, (millis % 1'000) * 1'000'000);
+    }
+    auto second = millis / 1'000 - 1;
+    auto nano = ((millis - second * 1'000) % 1'000) * 1'000'000;
+    return Timestamp(second, nano);
+  }
+
   static Timestamp fromMicros(int64_t micros) {
     if (micros >= 0 || micros % 1'000'000 == 0) {
       return Timestamp(micros / 1'000'000, (micros % 1'000'000) * 1'000);

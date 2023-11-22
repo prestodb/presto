@@ -65,6 +65,21 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "plus"});
   registerFunction<
       TimestampMinusIntervalDayTime,
+      Timestamp,
+      Timestamp,
+      IntervalDayTime>({prefix + "minus"});
+  registerFunction<
+      TimestampPlusIntervalDayTime,
+      Timestamp,
+      Timestamp,
+      IntervalDayTime>({prefix + "plus"});
+  registerFunction<
+      IntervalDayTimePlusTimestamp,
+      Timestamp,
+      IntervalDayTime,
+      Timestamp>({prefix + "plus"});
+  registerFunction<
+      TimestampMinusFunction,
       IntervalDayTime,
       Timestamp,
       Timestamp>({prefix + "minus"});

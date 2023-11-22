@@ -15,9 +15,15 @@ Date and Time Operators
    * - ``+``
      - ``interval '1' second + interval '1' hour``
      - ``0 01:00:01.000``
+   * - ``+``
+     - ``timestamp '1970-01-01 00:00:00.000' + interval '1' second``
+     - ``1970-01-01 00:00:01.000``
    * - ``-``
      - ``interval '1' hour - interval '1' second``
      - ``0 00:59:59.000``
+   * - ``-``
+     - ``timestamp '1970-01-01 00:00:00.000' - interval '1' second``
+     - ``1969-12-31 23:59:59.000``
    * - ``*``
      - ``interval '1' second * 2``
      - ``0 00:00:02.000``
@@ -36,17 +42,21 @@ Date and Time Operators
 
 .. function:: plus(x, y) -> [same as x]
 
-    Returns the sum of ``x`` and ``y``. ``x`` and ``y`` are both intervals day
-    to second. Returns ``-106751991167 07:12:55.808`` when the addition
-    overflows in positive. Returns ``106751991167 07:12:55.807`` when the
-    addition overflows in negative.
+    Returns the sum of ``x`` and ``y``. Both ``x`` and ``y`` are intervals day
+    to second or one of them can be timestamp. For addition of two intervals day to
+    second, returns ``-106751991167 07:12:55.808`` when the addition overflows
+    in positive and returns ``106751991167 07:12:55.807`` when the addition
+    overflows in negative. When addition of a timestamp with an interval day to
+    second, overflowed results are wrapped around.
 
 .. function:: minus(x, y) -> [same as x]
 
-    Returns the result of subtracting ``y`` from ``x``. ``x`` and ``y`` are
-    both intervals day to second. Returns ``-106751991167 07:12:55.808`` when
-    the subtraction overflows in positive. Returns ``106751991167 07:12:55.807``
-    when the subtraction overflows in negative.
+    Returns the result of subtracting ``y`` from ``x``. Both ``x`` and ``y``
+    are intervals day to second or ``x`` can be timestamp. For subtraction of
+    two intervals day to second, returns ``-106751991167 07:12:55.808`` when
+    the subtraction overflows in positive and returns ``106751991167 07:12:55.807``
+    when the subtraction overflows in negative. For subtraction of an interval
+    day to second from a timestamp, overflowed results are wrapped around.
 
 .. function:: multiply(interval day to second, x) -> interval day to second
 
