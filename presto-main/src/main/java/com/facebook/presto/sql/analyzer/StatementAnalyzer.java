@@ -155,6 +155,8 @@ import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Update;
+import com.facebook.presto.sql.tree.UpdateAssignment;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
@@ -285,6 +287,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static java.lang.Math.toIntExact;
@@ -1967,6 +1970,87 @@ class StatementAnalyzer
         {
             NodeLocation nodeLocation = node.getLocation().get();
             return format("line %s:%s: %s", nodeLocation.getLineNumber(), nodeLocation.getColumnNumber(), description);
+        }
+
+        @Override
+        protected Scope visitUpdate(Update update, Optional<Scope> scope)
+        {
+            Table table = update.getTable();
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            MetadataHandle metadataHandle = analysis.getMetadataHandle();
+
+            if (getViewDefinition(session, metadataResolver, metadataHandle, tableName).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, update, "Updating into views is not supported");
+            }
+
+            if (getMaterializedViewDefinition(session, metadataResolver, metadataHandle, tableName).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, update, "Updating into materialized views is not supported");
+            }
+
+            TableColumnMetadata tableMetadata = getTableColumnsMetadata(session, metadataResolver, metadataHandle, tableName);
+
+            List<ColumnMetadata> allColumns = tableMetadata.getColumnsMetadata();
+
+            Map<String, ColumnMetadata> columns = allColumns.stream()
+                    .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
+
+            for (UpdateAssignment assignment : update.getAssignments()) {
+                String columnName = assignment.getName().getValue();
+                if (!columns.containsKey(columnName)) {
+                    throw new SemanticException(MISSING_COLUMN, assignment.getName(), "The UPDATE SET target column %s doesn't exist", columnName);
+                }
+            }
+
+            Set<String> assignmentTargets = update.getAssignments().stream()
+                    .map(assignment -> assignment.getName().getValue())
+                    .collect(toImmutableSet());
+            accessControl.checkCanUpdateTableColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, assignmentTargets);
+
+            List<ColumnMetadata> updatedColumns = allColumns.stream()
+                    .filter(column -> assignmentTargets.contains(column.getName()))
+                    .collect(toImmutableList());
+            analysis.setUpdateType("UPDATE");
+            analysis.setUpdatedColumns(updatedColumns);
+
+            // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks
+            StatementAnalyzer analyzer = new StatementAnalyzer(
+                    analysis,
+                    metadata,
+                    sqlParser,
+                    new AllowAllAccessControl(),
+                    session,
+                    warningCollector);
+
+            Scope tableScope = analyzer.analyze(table, scope);
+            update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
+
+            ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
+            for (UpdateAssignment assignment : update.getAssignments()) {
+                Expression expression = assignment.getValue();
+                ExpressionAnalysis analysis = analyzeExpression(expression, tableScope);
+                analysesBuilder.add(analysis);
+                expressionTypesBuilder.add(analysis.getType(expression));
+            }
+            List<ExpressionAnalysis> analyses = analysesBuilder.build();
+            List<Type> expressionTypes = expressionTypesBuilder.build();
+
+            List<Type> tableTypes = update.getAssignments().stream()
+                    .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
+                    .map(ColumnMetadata::getType)
+                    .collect(toImmutableList());
+
+            for (int index = 0; index < expressionTypes.size(); index++) {
+                Expression expression = update.getAssignments().get(index).getValue();
+                Type expressionType = expressionTypes.get(index);
+                Type targetType = tableTypes.get(index);
+                if (!targetType.equals(expressionType)) {
+                    analysis.addCoercion(expression, targetType, functionAndTypeResolver.isTypeOnlyCoercion(expressionType, targetType));
+                }
+                analysis.recordSubqueries(update, analyses.get(index));
+            }
+
+            return createAndAssignScope(update, scope, Field.newUnqualified(update.getLocation(), "rows", BIGINT));
         }
 
         private Scope analyzeJoinUsing(Join node, List<Identifier> columns, Optional<Scope> scope, Scope left, Scope right)
