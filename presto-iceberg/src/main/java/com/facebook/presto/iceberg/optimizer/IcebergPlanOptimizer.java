@@ -38,13 +38,12 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Table;
 
-import javax.inject.Inject;
-
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -57,7 +56,6 @@ public class IcebergPlanOptimizer
     private final StandardFunctionResolution functionResolution;
     private final IcebergTransactionManager transactionManager;
 
-    @Inject
     IcebergPlanOptimizer(StandardFunctionResolution functionResolution,
                          RowExpressionService rowExpressionService,
                          IcebergTransactionManager transactionManager)
@@ -70,6 +68,9 @@ public class IcebergPlanOptimizer
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
+        if (isPushdownFilterEnabled(session)) {
+            return maxSubplan;
+        }
         return rewriteWith(new FilterPushdownRewriter(functionResolution, rowExpressionService,
                 transactionManager, idAllocator, session), maxSubplan);
     }

@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.NONE;
 import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NDV;
 import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NULLS_FRACTIONS;
@@ -120,7 +121,8 @@ public class TestStatisticsUtil
                 .setColumnStatistics(new IcebergColumnHandle(
                                 new ColumnIdentity(1, "test", TypeCategory.PRIMITIVE, Collections.emptyList()),
                                 INTEGER,
-                                Optional.empty()),
+                                Optional.empty(),
+                                REGULAR),
                         ColumnStatistics.builder()
                                 .setNullsFraction(Estimate.of(0.1))
                                 .setRange(new DoubleRange(0.0, 1.0))
