@@ -18,8 +18,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -46,6 +44,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -151,7 +150,6 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
-import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
@@ -193,7 +191,6 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -206,6 +203,7 @@ import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_DELETE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_INSERT;
+import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
@@ -275,6 +273,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.TIMESTAMP;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.VERSION;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
@@ -1340,10 +1339,21 @@ class StatementAnalyzer
                 return tableColumnsMetadata.getTableHandle();
             }
         }
+
+        private VersionType toVersionType(TableVersionType type)
+        {
+            switch (type) {
+                case TIMESTAMP:
+                    return VersionType.TIMESTAMP;
+                case VERSION:
+                    return VersionType.VERSION;
+            }
+            throw new SemanticException(NOT_SUPPORTED, type.toString(), "Table version type not supported.");
+        }
         private Optional<TableHandle> processTableVersion(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
             Expression asOfExpr = table.getTableVersionExpression().get().getAsOfExpression();
-            TableVersionExpression.TableVersionType tableVersionType = table.getTableVersionExpression().get().getTableVersionType();
+            TableVersionType tableVersionType = table.getTableVersionExpression().get().getTableVersionType();
             ExpressionAnalysis expressionAnalysis = analyzeExpression(asOfExpr, scope.get());
             analysis.recordSubqueries(table, expressionAnalysis);
             Type asOfExprType = expressionAnalysis.getType(asOfExpr);
@@ -1366,13 +1376,8 @@ class StatementAnalyzer
                 }
             }
 
-            // Two block entries for table version type and expression.
-            BlockBuilder blockBuilder = asOfExprType.createBlockBuilder(null, 2);
-            writeNativeValue(asOfExprType, blockBuilder, tableVersionType.ordinal());
-            writeNativeValue(asOfExprType, blockBuilder, evalAsOfExpr);
-            Block block = blockBuilder.build();
-
-            return metadata.getHandleVersion(session, name, Optional.of(block));
+            ConnectorTableVersion tableVersion = new ConnectorTableVersion(toVersionType(tableVersionType), asOfExprType, evalAsOfExpr);
+            return metadata.getHandleVersion(session, name, Optional.of(tableVersion));
         }
 
         private Scope getScopeFromTable(Table table, Optional<Scope> scope)

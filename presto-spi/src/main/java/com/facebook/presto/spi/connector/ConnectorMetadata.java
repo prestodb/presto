@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.connector;
 
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
@@ -89,7 +88,7 @@ public interface ConnectorMetadata
     /**
      * Returns an error for connectors which do not support table version AS OF expression.
      */
-    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<Block> tableVersionBlock)
+    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> tableVersion)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support table version AS OF expression");
     }
