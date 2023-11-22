@@ -221,7 +221,7 @@ public final class SqlFormatter
         @Override
         protected Void visitExecute(Execute node, Integer indent)
         {
-            append(indent, "EXECUTE ");
+            append(indent, "EXECUTE " + (node.isBatchExecution() ? "BATCH " : ""));
             builder.append(node.getName());
             List<Expression> parameters = node.getParameters();
             if (!parameters.isEmpty()) {

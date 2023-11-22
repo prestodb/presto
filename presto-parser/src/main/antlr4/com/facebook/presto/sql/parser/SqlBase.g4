@@ -133,7 +133,8 @@ statement
     | ROLLBACK WORK?                                                   #rollback
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
-    | EXECUTE identifier (USING expression (',' expression)*)?         #execute
+    | EXECUTE (BATCH)? identifier
+         (USING expression (',' expression)*)?                         #execute
     | DESCRIBE INPUT identifier                                        #describeInput
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     ;
@@ -646,6 +647,7 @@ ESCAPE: 'ESCAPE';
 EXCEPT: 'EXCEPT';
 EXCLUDING: 'EXCLUDING';
 EXECUTE: 'EXECUTE';
+BATCH: 'BATCH';
 EXISTS: 'EXISTS';
 EXPLAIN: 'EXPLAIN';
 EXTRACT: 'EXTRACT';

@@ -2262,14 +2262,25 @@ public class TestSqlParser
     @Test
     public void testExecute()
     {
-        assertStatement("EXECUTE myquery", new Execute(identifier("myquery"), emptyList()));
+        assertStatement("EXECUTE myquery", new Execute(identifier("myquery"), emptyList(), false));
+        assertStatement("EXECUTE BATCH myquery", new Execute(identifier("myquery"), emptyList(), true));
     }
 
     @Test
     public void testExecuteWithUsing()
     {
         assertStatement("EXECUTE myquery USING 1, 'abc', ARRAY ['hello']",
-                new Execute(identifier("myquery"), ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello"))))));
+                new Execute(identifier("myquery"), ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello")))), false));
+        assertStatement("EXECUTE BATCH myquery USING 1, 'abc', ARRAY ['hello']",
+                new Execute(identifier("myquery"), ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello")))), true));
+        assertStatement("EXECUTE BATCH myquery USING (1, 'abc', ARRAY ['hello'])",
+                new Execute(identifier("myquery"), ImmutableList.of(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello")))))), true));
+        assertStatement("EXECUTE BATCH myquery USING (1, 'abc', ARRAY ['hello']), (2, 'bcd', ARRAY ['hello2'])",
+                new Execute(identifier("myquery"),
+                        ImmutableList.of(
+                                new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello"))))),
+                                new Row(ImmutableList.of(new LongLiteral("2"), new StringLiteral("bcd"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello2")))))),
+                        true));
     }
 
     @Test

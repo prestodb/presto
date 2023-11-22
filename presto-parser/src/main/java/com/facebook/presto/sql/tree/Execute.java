@@ -27,22 +27,24 @@ public class Execute
 {
     private final Identifier name;
     private final List<Expression> parameters;
+    private final boolean batchExecution;
 
-    public Execute(NodeLocation location, Identifier name, List<Expression> parameters)
+    public Execute(NodeLocation location, Identifier name, List<Expression> parameters, boolean batchExecution)
     {
-        this(Optional.of(location), name, parameters);
+        this(Optional.of(location), name, parameters, batchExecution);
     }
 
-    public Execute(Identifier name, List<Expression> parameters)
+    public Execute(Identifier name, List<Expression> parameters, boolean batchExecution)
     {
-        this(Optional.empty(), name, parameters);
+        this(Optional.empty(), name, parameters, batchExecution);
     }
 
-    private Execute(Optional<NodeLocation> location, Identifier name, List<Expression> parameters)
+    private Execute(Optional<NodeLocation> location, Identifier name, List<Expression> parameters, boolean batchExecution)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.parameters = requireNonNull(ImmutableList.copyOf(parameters), "parameters is null");
+        this.batchExecution = batchExecution;
     }
 
     public Identifier getName()
@@ -53,6 +55,11 @@ public class Execute
     public List<Expression> getParameters()
     {
         return parameters;
+    }
+
+    public boolean isBatchExecution()
+    {
+        return batchExecution;
     }
 
     @Override
@@ -70,7 +77,7 @@ public class Execute
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, parameters);
+        return Objects.hash(name, parameters, batchExecution);
     }
 
     @Override
@@ -84,7 +91,8 @@ public class Execute
         }
         Execute o = (Execute) obj;
         return Objects.equals(name, o.name) &&
-                Objects.equals(parameters, o.parameters);
+                Objects.equals(parameters, o.parameters) &&
+                batchExecution == o.batchExecution;
     }
 
     @Override
@@ -93,6 +101,7 @@ public class Execute
         return toStringHelper(this)
                 .add("name", name)
                 .add("parameters", parameters)
+                .add("batchExecution", batchExecution)
                 .toString();
     }
 }

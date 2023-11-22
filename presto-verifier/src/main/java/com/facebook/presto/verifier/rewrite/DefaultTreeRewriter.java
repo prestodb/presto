@@ -283,7 +283,7 @@ public class DefaultTreeRewriter<C>
             return node;
         }
 
-        return new Execute(node.getName(), parameters);
+        return new Execute(node.getName(), parameters, node.isBatchExecution());
     }
 
     @Override

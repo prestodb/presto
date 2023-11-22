@@ -660,7 +660,8 @@ class AstBuilder
         return new Execute(
                 getLocation(context),
                 (Identifier) visit(context.identifier()),
-                visit(context.expression(), Expression.class));
+                visit(context.expression(), Expression.class),
+                context.BATCH() != null);
     }
 
     @Override
