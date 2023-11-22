@@ -13,8 +13,15 @@
  */
 package com.facebook.presto.iceberg.optimizer;
 
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.iceberg.IcebergResourceFactory;
+import com.facebook.presto.iceberg.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
@@ -29,9 +36,25 @@ public class IcebergPlanOptimizerProvider
 
     @Inject
     public IcebergPlanOptimizerProvider(
-            Set<ConnectorPlanOptimizer> planOptimizers)
+            IcebergTransactionManager transactionManager,
+            RowExpressionService rowExpressionService,
+            StandardFunctionResolution functionResolution,
+            FunctionMetadataManager functionMetadataManager,
+            IcebergResourceFactory resourceFactory,
+            HdfsEnvironment hdfsEnvironment,
+            TypeManager typeManager)
     {
-        this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        requireNonNull(transactionManager, "transactionManager is null");
+        requireNonNull(rowExpressionService, "rowExpressionService is null");
+        requireNonNull(functionResolution, "functionResolution is null");
+        requireNonNull(functionMetadataManager, "functionMetadataManager is null");
+        requireNonNull(resourceFactory, "resourceFactory is null");
+        requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        requireNonNull(typeManager, "typeManager is null");
+        this.planOptimizers = ImmutableSet.of(
+                new IcebergPlanOptimizer(functionResolution, rowExpressionService, transactionManager),
+                new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, resourceFactory, hdfsEnvironment, typeManager),
+                new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager));
     }
 
     @Override
@@ -43,6 +66,6 @@ public class IcebergPlanOptimizerProvider
     @Override
     public Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers()
     {
-        return ImmutableSet.of();
+        return planOptimizers;
     }
 }

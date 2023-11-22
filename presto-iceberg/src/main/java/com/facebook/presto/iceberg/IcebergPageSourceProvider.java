@@ -649,8 +649,12 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             SplitContext splitContext)
     {
-        IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableLayoutHandle icebergLayout = (IcebergTableLayoutHandle) layout;
+        if (icebergLayout.isPushdownFilterEnabled()) {
+            throw new PrestoException(NOT_SUPPORTED, "Filter Pushdown not supported for Iceberg Java Connector");
+        }
+
+        IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = icebergLayout.getTable();
 
         List<IcebergColumnHandle> icebergColumns = columns.stream()

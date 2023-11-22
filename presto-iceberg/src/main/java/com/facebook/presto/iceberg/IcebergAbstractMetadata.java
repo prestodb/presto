@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.spi.ColumnHandle;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -43,6 +45,9 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
@@ -90,6 +95,11 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.MetadataUtils.createPredicate;
+import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredicate;
+import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
+import static com.facebook.presto.hive.MetadataUtils.getPredicate;
+import static com.facebook.presto.hive.MetadataUtils.getSubfieldPredicate;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
@@ -131,13 +141,22 @@ public abstract class IcebergAbstractMetadata
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
     protected final NodeVersion nodeVersion;
+    protected final RowExpressionService rowExpressionService;
+    private final StandardFunctionResolution functionResolution;
 
     protected Transaction transaction;
 
-    public IcebergAbstractMetadata(TypeManager typeManager, JsonCodec<CommitTaskData> commitTaskCodec, NodeVersion nodeVersion)
+    public IcebergAbstractMetadata(
+            TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
+            JsonCodec<CommitTaskData> commitTaskCodec,
+            NodeVersion nodeVersion)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
     }
 
@@ -165,17 +184,19 @@ public abstract class IcebergAbstractMetadata
         TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), Predicates.in(getPartitionKeyColumnHandles(icebergTable, typeManager))));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
 
-        ConnectorTableLayout layout = new ConnectorTableLayout(new IcebergTableLayoutHandle.Builder()
-                .setPartitionColumns(getPartitionKeyColumnHandles(icebergTable, typeManager))
-                .setDomainPredicate(constraint.getSummary().transform(IcebergAbstractMetadata::toSubfield))
-                .setRemainingPredicate(TRUE_CONSTANT)
-                .setPredicateColumns(predicateColumns)
-                .setRequestedColumns(requestedColumns)
-                .setPushdownFilterEnabled(isPushdownFilterEnabled(session))
-                .setPartitionColumnPredicate(partitionColumnPredicate)
-                .setPartitions(Optional.empty())
-                .setTable(handle)
-                .build());
+        ConnectorTableLayout layout = getTableLayout(
+                session,
+                new IcebergTableLayoutHandle.Builder()
+                        .setPartitionColumns(getPartitionKeyColumnHandles(icebergTable, typeManager))
+                        .setDomainPredicate(constraint.getSummary().transform(IcebergAbstractMetadata::toSubfield))
+                        .setRemainingPredicate(TRUE_CONSTANT)
+                        .setPredicateColumns(predicateColumns)
+                        .setRequestedColumns(requestedColumns)
+                        .setPushdownFilterEnabled(isPushdownFilterEnabled(session))
+                        .setPartitionColumnPredicate(partitionColumnPredicate)
+                        .setPartitions(Optional.empty())
+                        .setTable(handle)
+                        .build());
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
@@ -192,10 +213,57 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        IcebergTableHandle tableHandle = ((IcebergTableLayoutHandle) handle).getTable();
-        Table table = getIcebergTable(session, tableHandle.getSchemaTableName());
-        validateTableMode(session, table);
-        return new ConnectorTableLayout(handle);
+        IcebergTableLayoutHandle icebergTableLayoutHandle = (IcebergTableLayoutHandle) handle;
+
+        IcebergTableHandle tableHandle = icebergTableLayoutHandle.getTable();
+        if (!tableExists(session, tableHandle.getSchemaTableName())) {
+            return null;
+        }
+
+        Table icebergTable = getIcebergTable(session, tableHandle.getSchemaTableName());
+        validateTableMode(session, icebergTable);
+
+        if (!isPushdownFilterEnabled(session)) {
+            return new ConnectorTableLayout(handle);
+        }
+
+        List<ColumnHandle> partitionColumns = ImmutableList.copyOf(icebergTableLayoutHandle.getPartitionColumns());
+        List<HivePartition> partitions = icebergTableLayoutHandle.getPartitions().get();
+
+        Optional<DiscretePredicates> discretePredicates = getDiscretePredicates(partitionColumns, partitions);
+
+        TupleDomain<ColumnHandle> predicate;
+        RowExpression subfieldPredicate;
+        if (isPushdownFilterEnabled(session)) {
+            Map<String, ColumnHandle> predicateColumns = icebergTableLayoutHandle.getPredicateColumns().entrySet()
+                    .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            predicate = getPredicate(icebergTableLayoutHandle, partitionColumns, partitions, predicateColumns);
+
+            // capture subfields from domainPredicate to add to remainingPredicate
+            // so those filters don't get lost
+            Map<String, com.facebook.presto.common.type.Type> columnTypes = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
+                    .collect(toImmutableMap(IcebergColumnHandle::getName, icebergColumnHandle -> getColumnMetadata(session, tableHandle, icebergColumnHandle).getType()));
+
+            subfieldPredicate = getSubfieldPredicate(session, icebergTableLayoutHandle, columnTypes, functionResolution, rowExpressionService);
+        }
+        else {
+            predicate = createPredicate(partitionColumns, partitions);
+            subfieldPredicate = TRUE_CONSTANT;
+        }
+
+        // combine subfieldPredicate with remainingPredicate
+        RowExpression combinedRemainingPredicate = getCombinedRemainingPredicate(icebergTableLayoutHandle, subfieldPredicate);
+
+        return new ConnectorTableLayout(
+                icebergTableLayoutHandle,
+                Optional.empty(),
+                predicate,
+                Optional.empty(),
+                Optional.empty(),
+                discretePredicates,
+                ImmutableList.of(),
+                Optional.of(combinedRemainingPredicate));
     }
 
     protected Optional<SystemTable> getIcebergSystemTable(SchemaTableName tableName, Table table)
@@ -349,6 +417,12 @@ public abstract class IcebergAbstractMetadata
     public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return primitiveIcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
+    }
+
+    @Override
+    public boolean isLegacyGetLayoutSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return !isPushdownFilterEnabled(session);
     }
 
     protected List<ColumnMetadata> getColumnMetadatas(Table table)
