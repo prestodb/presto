@@ -1414,6 +1414,15 @@ std::vector<exec::Split> AggregationFuzzer::makeSplits(
   return splits;
 }
 
+void resetCustomVerifiers(
+    const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers) {
+  for (auto& verifier : customVerifiers) {
+    if (verifier != nullptr) {
+      verifier->reset();
+    }
+  }
+}
+
 bool AggregationFuzzer::verifyAggregation(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
@@ -1443,6 +1452,12 @@ bool AggregationFuzzer::verifyAggregation(
           aggregationNode->aggregateNames()[i]);
     }
   }
+
+  SCOPE_EXIT {
+    if (customVerification) {
+      resetCustomVerifiers(customVerifiers);
+    }
+  };
 
   // Create all the plans upfront.
   std::vector<PlanWithSplits> plans;
@@ -1518,10 +1533,20 @@ bool AggregationFuzzer::verifyAggregation(
     // reference DB results once reference query runner is updated to return
     // results as Velox vectors.
     std::optional<MaterializedRowMultiset> expectedResult;
-    if (!customVerification) {
-      expectedResult = computeReferenceResults(firstPlan, input);
-    } else {
-      ++stats_.numVerificationSkipped;
+    if (resultOrError.result != nullptr) {
+      if (!customVerification) {
+        expectedResult = computeReferenceResults(firstPlan, input);
+      } else {
+        ++stats_.numVerificationSkipped;
+
+        for (auto& verifier : customVerifiers) {
+          if (verifier != nullptr && verifier->supportsVerify()) {
+            VELOX_CHECK(
+                verifier->verify(resultOrError.result),
+                "Aggregation results failed custom verification");
+          }
+        }
+      }
     }
 
     if (expectedResult && resultOrError.result) {
