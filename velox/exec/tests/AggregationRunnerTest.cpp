@@ -66,7 +66,7 @@ static void checkDirForExpectedFiles() {
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
-  folly::init(&argc, &argv);
+  folly::Init init(&argc, &argv);
 
   if (!FLAGS_aggregation_fuzzer_repro_path.empty()) {
     checkDirForExpectedFiles();

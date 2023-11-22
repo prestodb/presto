@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
-  folly::init(&argc, &argv);
+  folly::Init init(&argc, &argv);
 
   // The following list are the Spark UDFs that hit issues
   // For rlike you need the following combo in the only list:

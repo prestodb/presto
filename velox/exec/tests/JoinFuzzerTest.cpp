@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
-  folly::init(&argc, &argv);
+  folly::Init init(&argc, &argv);
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return JoinFuzzerRunner::run(initialSeed);

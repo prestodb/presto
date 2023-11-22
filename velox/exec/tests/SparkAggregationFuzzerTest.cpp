@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
-  folly::init(&argc, &argv);
+  folly::Init init(&argc, &argv);
 
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable. Constant argument of bloom_filter_agg cause
