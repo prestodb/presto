@@ -21,6 +21,10 @@ General Aggregate Functions
 
     Returns an arbitrary non-null value of ``x``, if one exists.
 
+.. function:: any_value(x) -> [same as x]
+
+    This is an alias for :func:`arbitrary(x)`.
+
 .. function:: array_agg(x) -> array<[same as x]>
 
     Returns an array created from the input ``x`` elements. Ignores null

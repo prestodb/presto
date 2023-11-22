@@ -23,6 +23,7 @@ const char* const kApproxMostFrequent = "approx_most_frequent";
 const char* const kApproxPercentile = "approx_percentile";
 const char* const kApproxSet = "approx_set";
 const char* const kArbitrary = "arbitrary";
+const char* const kAnyValue = "any_value";
 const char* const kArrayAgg = "array_agg";
 const char* const kAvg = "avg";
 const char* const kBitwiseAnd = "bitwise_and_agg";

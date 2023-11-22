@@ -23,8 +23,7 @@ extern exec::AggregateRegistrationResult registerApproxMostFrequentAggregate(
 extern exec::AggregateRegistrationResult registerApproxPercentileAggregate(
     const std::string& prefix,
     bool withCompanionFunctions);
-extern exec::AggregateRegistrationResult registerArbitraryAggregate(
-    const std::string& prefix);
+void registerArbitraryAggregate(const std::string& prefix);
 extern exec::AggregateRegistrationResult registerArrayAggAggregate(
     const std::string& prefix,
     bool withCompanionFunctions);

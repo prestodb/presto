@@ -256,8 +256,7 @@ class NonNumericArbitrary : public exec::Aggregate {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerArbitraryAggregate(
-    const std::string& prefix) {
+void registerArbitraryAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -266,11 +265,11 @@ exec::AggregateRegistrationResult registerArbitraryAggregate(
           .argumentType("T")
           .build()};
 
-  auto name = prefix + kArbitrary;
-  return exec::registerAggregateFunction(
-      name,
+  std::vector<std::string> names = {prefix + kArbitrary, prefix + kAnyValue};
+  exec::registerAggregateFunction(
+      names,
       std::move(signatures),
-      [name](
+      [name = names.front()](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
           const TypePtr& /*resultType*/,
