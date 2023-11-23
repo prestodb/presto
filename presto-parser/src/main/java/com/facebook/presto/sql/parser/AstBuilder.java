@@ -1300,7 +1300,7 @@ class AstBuilder
     public Node visitTableName(SqlBaseParser.TableNameContext context)
     {
         if (context.tableVersionExpression() != null) {
-            return new Table(getLocation(context), getQualifiedName(context.qualifiedName()), (TableVersionExpression) visit(context.tableVersionExpression()));
+            return new Table(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()), (TableVersionExpression) visit(context.tableVersionExpression()));
         }
 
         return new Table(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()));
