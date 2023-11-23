@@ -6,18 +6,13 @@ Map Functions
 
     Returns value for given ``key``, or ``NULL`` if the key is not contained in the map.
 
-.. spark:function:: map() -> map(unknown, unknown)
+.. spark:function:: map(K, V, K, V, ...) -> map(K,V)
 
-    Returns an empty map. ::
+    Returns a map created using the given key/value pairs. Keys are not allowed to be null. ::
 
-        SELECT map(); -- {}
+        SELECT map(1, 2, 3, 4); -- {1 -> 2, 3 -> 4}
 
-.. spark:function:: map(array(K), array(V)) -> map(K,V)
-   :noindex:
-
-    Returns a map created using the given key/value arrays. Duplicate map key will cause exception. ::
-
-        SELECT map(ARRAY[1,3], ARRAY[2,4]); -- {1 -> 2, 3 -> 4}
+        SELECT map(array(1, 2), array(3, 4)); -- {[1, 2] -> [3, 4]}
 
 .. spark:function:: map_filter(map(K,V), func) -> map(K,V)
 

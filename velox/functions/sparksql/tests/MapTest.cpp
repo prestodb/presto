@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/VeloxException.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
+#include "velox/type/Variant.h"
 
 #include <stdint.h>
 
@@ -25,19 +28,20 @@ namespace {
 class MapTest : public SparkFunctionBaseTest {
  protected:
   template <typename K = int64_t, typename V = std::string>
-  void mapSimple(
+  void testMap(
       const std::string& expression,
       const std::vector<VectorPtr>& parameters,
-      bool expectException = false,
-      const VectorPtr& expected = nullptr) {
-    if (expectException) {
-      ASSERT_THROW(
-          evaluate<MapVector>(expression, makeRowVector(parameters)),
-          std::exception);
-    } else {
-      auto result = evaluate<MapVector>(expression, makeRowVector(parameters));
-      ::facebook::velox::test::assertEqualVectors(result, expected);
-    }
+      const VectorPtr& expected) {
+    auto result = evaluate<MapVector>(expression, makeRowVector(parameters));
+    ::facebook::velox::test::assertEqualVectors(expected, result);
+  }
+
+  void testMapFails(
+      const std::string& expression,
+      const std::vector<VectorPtr>& parameters,
+      const std::string errorMsg) {
+    VELOX_ASSERT_USER_THROW(
+        evaluate<MapVector>(expression, makeRowVector(parameters)), errorMsg);
   }
 };
 
@@ -46,7 +50,7 @@ TEST_F(MapTest, Basics) {
   auto inputVector2 = makeNullableFlatVector<int64_t>({4, 5, 6});
   auto mapVector =
       makeMapVector<int64_t, int64_t>({{{1, 4}}, {{2, 5}}, {{3, 6}}});
-  mapSimple("map(c0, c1)", {inputVector1, inputVector2}, false, mapVector);
+  testMap("map(c0, c1)", {inputVector1, inputVector2}, mapVector);
 }
 
 TEST_F(MapTest, Nulls) {
@@ -55,55 +59,157 @@ TEST_F(MapTest, Nulls) {
       makeNullableFlatVector<int64_t>({std::nullopt, 5, std::nullopt});
   auto mapVector = makeMapVector<int64_t, int64_t>(
       {{{1, std::nullopt}}, {{2, 5}}, {{3, std::nullopt}}});
-  mapSimple("map(c0, c1)", {inputVector1, inputVector2}, false, mapVector);
+  testMap("map(c0, c1)", {inputVector1, inputVector2}, mapVector);
 }
 
-TEST_F(MapTest, DifferentTypes) {
+TEST_F(MapTest, differentTypes) {
   auto inputVector1 = makeNullableFlatVector<int64_t>({1, 2, 3});
   auto inputVector2 = makeNullableFlatVector<double>({4.0, 5.0, 6.0});
   auto mapVector =
       makeMapVector<int64_t, double>({{{1, 4.0}}, {{2, 5.0}}, {{3, 6.0}}});
-  mapSimple("map(c0, c1)", {inputVector1, inputVector2}, false, mapVector);
+  testMap("map(c0, c1)", {inputVector1, inputVector2}, mapVector);
 }
 
 TEST_F(MapTest, boolType) {
   auto inputVector1 = makeNullableFlatVector<bool>({1, 1, 0});
   auto inputVector2 = makeNullableFlatVector<bool>({0, 0, 1});
   auto mapVector = makeMapVector<bool, bool>({{{1, 0}}, {{1, 0}}, {{0, 1}}});
-  mapSimple("map(c0, c1)", {inputVector1, inputVector2}, false, mapVector);
+  testMap("map(c0, c1)", {inputVector1, inputVector2}, mapVector);
 }
 
-TEST_F(MapTest, Wide) {
+TEST_F(MapTest, wide) {
   auto inputVector1 = makeNullableFlatVector<int64_t>({1, 2, 3});
   auto inputVector2 = makeNullableFlatVector<double>({4.0, 5.0, 6.0});
   auto inputVector11 = makeNullableFlatVector<int64_t>({10, 20, 30});
   auto inputVector22 = makeNullableFlatVector<double>({4.1, 5.1, 6.1});
   auto mapVector = makeMapVector<int64_t, double>(
       {{{1, 4.0}, {10, 4.1}}, {{2, 5.0}, {20, 5.1}}, {{3, 6.0}, {30, 6.1}}});
-  mapSimple(
+  testMap(
       "map(c0, c1, c2, c3)",
       {inputVector1, inputVector2, inputVector11, inputVector22},
-      false,
       mapVector);
 }
 
-TEST_F(MapTest, ErrorCases) {
+TEST_F(MapTest, errorCases) {
+  auto inputVectorInt64 = makeNullableFlatVector<int64_t>({1, 2, 3});
+  auto inputVectorDouble = makeNullableFlatVector<double>({4.0, 5.0, 6.0});
+  auto nullInputVector = makeNullableFlatVector<int64_t>({1, std::nullopt, 3});
+
   // Number of args
-  auto inputVector1 = makeNullableFlatVector<int64_t>({1, 2, 3});
-  auto inputVector2 = makeNullableFlatVector<double>({4.0, 5.0, 6.0});
-  auto mapVector =
-      makeMapVector<int64_t, double>({{{1, 4.0}}, {{2, 5.0}}, {{3, 6.0}}});
-  mapSimple("map(c0)", {inputVector1}, true);
-  mapSimple(
-      "map(c0, c1, c2)", {inputVector1, inputVector2, inputVector1}, true);
+  testMapFails(
+      "map(c0)",
+      {inputVectorInt64},
+      "Scalar function signature is not supported: map(BIGINT)");
+  testMapFails(
+      "map(c0, c1, c2)",
+      {inputVectorInt64, inputVectorDouble, inputVectorInt64},
+      "Scalar function signature is not supported: map(BIGINT, DOUBLE, BIGINT)");
+
+  testMapFails(
+      "map(c0, c1, c2, c3, c4, c5, c6, c7)",
+      {inputVectorDouble,
+       inputVectorDouble,
+       inputVectorDouble,
+       inputVectorDouble,
+       inputVectorDouble,
+       inputVectorDouble,
+       inputVectorDouble,
+       inputVectorDouble},
+      "Scalar function signature is not supported: map(DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE)");
 
   // Types of args
-  auto inputVector11 = makeNullableFlatVector<double>({10.0, 20.0, 30.0});
-  auto inputVector22 = makeNullableFlatVector<double>({4.1, 5.1, 6.1});
-  mapSimple(
+  testMapFails(
       "map(c0, c1, c2, c3)",
-      {inputVector1, inputVector2, inputVector11, inputVector22},
-      true);
+      {inputVectorInt64,
+       inputVectorDouble,
+       inputVectorDouble,
+       inputVectorDouble},
+      "Scalar function signature is not supported: map(BIGINT, DOUBLE, DOUBLE, DOUBLE)");
+  testMapFails(
+      "map(c0, c1, c2, c3)",
+      {inputVectorDouble,
+       inputVectorInt64,
+       inputVectorDouble,
+       inputVectorDouble},
+      "Scalar function signature is not supported: map(DOUBLE, BIGINT, DOUBLE, DOUBLE)");
+
+  testMapFails(
+      "map(c0, c1)",
+      {nullInputVector, inputVectorDouble},
+      "Cannot use null as map key");
+}
+
+TEST_F(MapTest, complexTypes) {
+  auto makeSingleMapVector = [&](const VectorPtr& keyVector,
+                                 const VectorPtr& valueVector) {
+    return makeMapVector(
+        {
+            0,
+        },
+        keyVector,
+        valueVector);
+  };
+
+  auto makeSingleRowVector = [&](vector_size_t size = 1,
+                                 vector_size_t base = 0) {
+    return makeRowVector({
+        makeFlatVector<int64_t>(size, [&](auto row) { return row + base; }),
+    });
+  };
+
+  auto testSingleMap = [&](const VectorPtr& keyVector,
+                           const VectorPtr& valueVector) {
+    testMap(
+        "map(c0, c1)",
+        {keyVector, valueVector},
+        makeSingleMapVector(keyVector, valueVector));
+  };
+
+  auto arrayKey = makeArrayVectorFromJson<int64_t>({"[1, 2, 3]"});
+  auto arrayValue = makeArrayVectorFromJson<int64_t>({"[1, 3, 5]"});
+  auto nullArrayValue = makeArrayVectorFromJson<int64_t>({"null"});
+
+  testSingleMap(makeSingleRowVector(), makeSingleRowVector(1, 2));
+
+  testSingleMap(arrayKey, arrayValue);
+
+  testSingleMap(
+      makeSingleMapVector(makeSingleRowVector(), makeSingleRowVector(1, 3)),
+      makeSingleMapVector(makeSingleRowVector(), makeSingleRowVector(1, 2)));
+
+  testSingleMap(
+      makeSingleMapVector(
+          makeSingleMapVector(makeSingleRowVector(), makeSingleRowVector()),
+          makeSingleRowVector()),
+      makeSingleMapVector(
+          arrayKey,
+          makeSingleMapVector(makeSingleRowVector(), makeSingleRowVector())));
+
+  testSingleMap(arrayKey, nullArrayValue);
+
+  auto mixedArrayKey1 = makeArrayVector<int64_t>({{1, 2, 3}});
+  auto mixedRowValue1 = makeSingleRowVector();
+  auto mixedArrayKey2 = makeArrayVector<int64_t>({{4, 5}});
+  auto mixedRowValue2 = makeSingleRowVector(1, 1);
+  auto mixedMapResult = makeSingleMapVector(
+      makeArrayVector<int64_t>({{1, 2, 3}, {4, 5}}), makeSingleRowVector(2, 0));
+  testMap(
+      "map(c0, c1, c2, c3)",
+      {mixedArrayKey1, mixedRowValue1, mixedArrayKey2, mixedRowValue2},
+      mixedMapResult);
+
+  auto arrayMapResult1 = makeMapVector(
+      {
+          0,
+          1,
+      },
+      makeArrayVector<int64_t>({{1, 2, 3}, {7, 9}}),
+      makeArrayVector<int64_t>({{1, 2}, {4, 6}}));
+  testMap(
+      "map(c0, c1)",
+      {makeArrayVector<int64_t>({{1, 2, 3}, {7, 9}}),
+       makeArrayVector<int64_t>({{1, 2}, {4, 6}})},
+      arrayMapResult1);
 }
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
