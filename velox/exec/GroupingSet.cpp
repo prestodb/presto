@@ -227,10 +227,6 @@ void GroupingSet::noMoreInput() {
     spill();
   }
 
-  if (sortedAggregations_) {
-    sortedAggregations_->noMoreInput();
-  }
-
   ensureOutputFits();
 }
 

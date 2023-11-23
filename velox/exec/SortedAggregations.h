@@ -67,8 +67,6 @@ class SortedAggregations {
       const VectorPtr& input,
       vector_size_t index);
 
-  void noMoreInput();
-
   /// Sorts input row for the specified groups, computes aggregations and stores
   /// results in the specified 'result' vector.
   void extractValues(folly::Range<char**> groups, const RowVectorPtr& result);

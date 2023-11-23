@@ -267,8 +267,6 @@ bool SortedAggregations::compareRowsWithKeys(
   return false;
 }
 
-void SortedAggregations::noMoreInput() {}
-
 void SortedAggregations::sortSingleGroup(
     std::vector<char*>& groupRows,
     const SortingSpec& sortingSpec) {
