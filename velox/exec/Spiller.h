@@ -125,11 +125,6 @@ class Spiller {
   /// spill any data buffered in row container before call this.
   void spill(uint32_t partition, const RowVectorPtr& spillVector);
 
-  /// Invoked to finalize the spiller and flush any buffered spill to disk.
-  void finalizeSpill();
-
-  std::unique_ptr<TreeOfLosers<SpillMergeStream>> startMerge();
-
   /// Extracts up to 'maxRows' or 'maxBytes' from 'rows' into 'spillVector'. The
   /// extract starts at nextBatchIndex and updates nextBatchIndex to be the
   /// index of the first non-extracted element of 'rows'. Returns the byte size
@@ -141,9 +136,12 @@ class Spiller {
       RowVectorPtr& spillVector,
       size_t& nextBatchIndex);
 
-  /// Finishes spilling and accumulate the spilled partition data in
-  /// 'partitionSet' by spill partition id.
+  /// Finishes spilling and accumulate the spilled partition metadata in
+  /// 'partitionSet' indexed by spill partition id.
   void finishSpill(SpillPartitionSet& partitionSet);
+
+  /// Finishes spilling and expects single partition.
+  SpillPartition finishSpill();
 
   const SpillState& state() const {
     return state_;
@@ -223,6 +221,9 @@ class Spiller {
   // rows for the spill partition  'partition'. finishSpill()
   // first and 'partition' must specify a partition that has started spilling.
   std::unique_ptr<SpillMergeStream> spillMergeStreamOverRows(int32_t partition);
+
+  // Invoked to finalize the spiller and flush any buffered spill to disk.
+  void finalizeSpill();
 
   // Represents a run of rows from a spillable partition of
   // a RowContainer. Rows that hash to the same partition are accumulated here

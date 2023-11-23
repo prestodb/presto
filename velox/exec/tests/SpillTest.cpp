@@ -331,8 +331,11 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     ASSERT_EQ(prevGStats.spilledBytes + totalFileBytes, newGStats.spilledBytes);
 
     for (auto partition = 0; partition < state_->maxPartitions(); ++partition) {
+      auto spillFiles = state_->files(partition);
+      auto spillPartition =
+          SpillPartition(SpillPartitionId{0, partition}, std::move(spillFiles));
+      auto merge = spillPartition.createOrderedReader();
       int numReadBatches = 0;
-      auto merge = state_->startMerge(partition, nullptr);
       // We expect all the rows in dense increasing order.
       for (auto i = 0; i < numBatches * numRowsPerBatch; ++i) {
         auto stream = merge->next();
@@ -367,6 +370,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
       // We do two append writes per each input batch.
       ASSERT_EQ(numBatches, numReadBatches);
     }
+
     const auto finalStats = stats_.copy();
     ASSERT_EQ(
         finalStats.toString(),
@@ -460,7 +464,10 @@ TEST_P(SpillTest, spillTimestamp) {
   state.finishWrite(partitionIndex);
   EXPECT_TRUE(state.hasFiles(partitionIndex));
 
-  auto merge = state.startMerge(partitionIndex, nullptr);
+  SpillPartition spillPartition(SpillPartitionId{0, 0}, state.files(0));
+  auto merge = spillPartition.createOrderedReader();
+  ASSERT_TRUE(merge != nullptr);
+  ASSERT_TRUE(spillPartition.createOrderedReader() == nullptr);
   for (auto i = 0; i < timeValues.size(); ++i) {
     auto stream = merge->next();
     ASSERT_NE(nullptr, stream);
@@ -562,7 +569,7 @@ TEST_P(SpillTest, spillPartitionSet) {
           fmt::format(
               "SPILLED PARTITION[ID:{} FILES:0 SIZE:0B]", id.toString()));
       // Expect an empty reader.
-      auto reader = spillPartitions.back()->createReader();
+      auto reader = spillPartitions.back()->createUnorderedReader();
       ASSERT_FALSE(reader->nextBatch(output));
     }
 
@@ -634,7 +641,7 @@ TEST_P(SpillTest, spillPartitionSet) {
               i,
               expectedPartitionFiles[i],
               succinctBytes(expectedPartitionSizes[i])));
-      auto reader = spillPartitions[i]->createReader();
+      auto reader = spillPartitions[i]->createUnorderedReader();
       for (int j = 0; j < numBatchesPerPartition; ++j) {
         ASSERT_TRUE(reader->nextBatch(output));
         for (int row = 0; row < numRowsPerBatch; ++row) {
@@ -648,7 +655,7 @@ TEST_P(SpillTest, spillPartitionSet) {
     // Check spill partition state after creating the reader.
     ASSERT_EQ(0, spillPartitions[i]->numFiles());
     {
-      auto reader = spillPartitions[i]->createReader();
+      auto reader = spillPartitions[i]->createUnorderedReader();
       ASSERT_FALSE(reader->nextBatch(output));
     }
   }
@@ -694,7 +701,7 @@ TEST_P(SpillTest, spillPartitionSpilt) {
     // Read verification.
     int batchIdx = 0;
     for (int32_t i = 0; i < numShards; ++i) {
-      auto reader = spillPartitionShards[i]->createReader();
+      auto reader = spillPartitionShards[i]->createUnorderedReader();
       RowVectorPtr output;
       while (reader->nextBatch(output)) {
         for (int row = 0; row < numRowsPerBatch; ++row) {

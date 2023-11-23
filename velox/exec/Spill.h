@@ -508,7 +508,11 @@ class SpillPartition {
 
   /// Invoked to create an unordered stream reader from this spill partition.
   /// The created reader will take the ownership of the spill files.
-  std::unique_ptr<UnorderedStreamReader<BatchStream>> createReader();
+  std::unique_ptr<UnorderedStreamReader<BatchStream>> createUnorderedReader();
+
+  /// Invoked to create an ordered stream reader from this spill partition.
+  /// The created reader will take the ownership of the spill files.
+  std::unique_ptr<TreeOfLosers<SpillMergeStream>> createOrderedReader();
 
   std::string toString() const;
 
@@ -600,13 +604,6 @@ class SpillState {
   /// returns an empty list if either the partition has not been spilled or has
   /// no spilled data.
   SpillFiles files(int32_t partition);
-
-  /// Starts reading values for 'partition'. If 'extra' is non-null, it can be
-  /// a stream of rows from a RowContainer so as to merge unspilled data with
-  /// spilled data.
-  std::unique_ptr<TreeOfLosers<SpillMergeStream>> startMerge(
-      int32_t partition,
-      std::unique_ptr<SpillMergeStream>&& extra);
 
   bool hasFiles(int32_t partition) const {
     return partition < files_.size() && files_[partition];

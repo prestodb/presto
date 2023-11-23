@@ -280,10 +280,10 @@ void TopNRowNumber::noMoreInput() {
     // spilled data.
     spill();
 
-    spiller_->finalizeSpill();
+    VELOX_CHECK_NULL(merge_);
+    auto spillPartition = spiller_->finishSpill();
+    merge_ = spillPartition.createOrderedReader();
     recordSpillStats(spiller_->stats());
-
-    merge_ = spiller_->startMerge();
   } else {
     outputRows_.resize(outputBatchSize_);
   }

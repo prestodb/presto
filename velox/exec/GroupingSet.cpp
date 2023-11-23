@@ -1036,9 +1036,10 @@ bool GroupingSet::getOutputWithSpill(
     }
 
     VELOX_CHECK_EQ(table_->rows()->numRows(), 0);
-    spiller_->finalizeSpill();
 
-    merge_ = spiller_->startMerge();
+    VELOX_CHECK_NULL(merge_);
+    auto spillPartition = spiller_->finishSpill();
+    merge_ = spillPartition.createOrderedReader();
   }
   VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);
   if (merge_ == nullptr) {

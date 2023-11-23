@@ -211,7 +211,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     LOG(INFO) << "Setup reader to read spilled input from "
               << spillPartition->toString()
               << ", memory pool: " << pool()->name();
-    spillInputReader_ = spillPartition->createReader();
+    spillInputReader_ = spillPartition->createUnorderedReader();
 
     const auto startBit = spillPartition->id().partitionBitOffset() +
         spillConfig.joinPartitionBits;

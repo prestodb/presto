@@ -367,27 +367,6 @@ uint64_t SpillState::appendToPartition(
   return files_[partition]->write(rows, folly::Range<IndexRange*>(&range, 1));
 }
 
-std::unique_ptr<TreeOfLosers<SpillMergeStream>> SpillState::startMerge(
-    int32_t partition,
-    std::unique_ptr<SpillMergeStream>&& extra) {
-  VELOX_CHECK_LT(partition, files_.size());
-  std::vector<std::unique_ptr<SpillMergeStream>> result;
-  auto list = std::move(files_[partition]);
-  if (list != nullptr) {
-    for (auto& file : list->files()) {
-      result.push_back(FileSpillMergeStream::create(std::move(file)));
-    }
-  }
-  if (extra != nullptr) {
-    result.push_back(std::move(extra));
-  }
-  // Check if the partition is empty or not.
-  if (FOLLY_UNLIKELY(result.empty())) {
-    return nullptr;
-  }
-  return std::make_unique<TreeOfLosers<SpillMergeStream>>(std::move(result));
-}
-
 SpillFiles SpillState::files(int32_t partition) {
   VELOX_CHECK_LT(partition, files_.size());
 
@@ -463,7 +442,7 @@ std::string SpillPartition::toString() const {
 }
 
 std::unique_ptr<UnorderedStreamReader<BatchStream>>
-SpillPartition::createReader() {
+SpillPartition::createUnorderedReader() {
   std::vector<std::unique_ptr<BatchStream>> streams;
   streams.reserve(files_.size());
   for (auto& file : files_) {
@@ -472,6 +451,21 @@ SpillPartition::createReader() {
   files_.clear();
   return std::make_unique<UnorderedStreamReader<BatchStream>>(
       std::move(streams));
+}
+
+std::unique_ptr<TreeOfLosers<SpillMergeStream>>
+SpillPartition::createOrderedReader() {
+  std::vector<std::unique_ptr<SpillMergeStream>> streams;
+  streams.reserve(files_.size());
+  for (auto& file : files_) {
+    streams.push_back(FileSpillMergeStream::create(std::move(file)));
+  }
+  files_.clear();
+  // Check if the partition is empty or not.
+  if (FOLLY_UNLIKELY(streams.empty())) {
+    return nullptr;
+  }
+  return std::make_unique<TreeOfLosers<SpillMergeStream>>(std::move(streams));
 }
 
 uint32_t FileSpillMergeStream::id() const {

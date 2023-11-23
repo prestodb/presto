@@ -138,11 +138,9 @@ void SortBuffer::noMoreInput() {
 
     // Finish spill, and we shouldn't get any rows from non-spilled partition as
     // there is only one hash partition for SortBuffer.
-    spiller_->finalizeSpill();
-    VELOX_CHECK_LE(spiller_->stats().spilledPartitions, 1);
-
     VELOX_CHECK_NULL(spillMerger_);
-    spillMerger_ = spiller_->startMerge();
+    auto spillPartition = spiller_->finishSpill();
+    spillMerger_ = spillPartition.createOrderedReader();
   }
 }
 

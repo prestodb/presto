@@ -211,8 +211,13 @@ void SortWindowBuild::noMoreInput() {
     // spilled data.
     spill();
 
-    spiller_->finalizeSpill();
-    merge_ = spiller_->startMerge();
+    SpillPartitionSet spillPartitionSet;
+    spiller_->finishSpill(spillPartitionSet);
+    VELOX_CHECK_LE(spillPartitionSet.size(), 1);
+    VELOX_CHECK_NULL(merge_);
+    auto& spillPartition = spillPartitionSet.begin()->second;
+    VELOX_CHECK_NOT_NULL(spillPartition);
+    merge_ = spillPartition->createOrderedReader();
   } else {
     // At this point we have seen all the input rows. The operator is
     // being prepared to output rows now.
