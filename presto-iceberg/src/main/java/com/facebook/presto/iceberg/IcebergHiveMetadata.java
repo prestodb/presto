@@ -14,7 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -133,7 +132,6 @@ import static org.apache.iceberg.Transactions.createTableTransaction;
 public class IcebergHiveMetadata
         extends IcebergAbstractMetadata
 {
-    private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
@@ -350,11 +348,6 @@ public class IcebergHiveMetadata
         return new ConnectorTableMetadata(table, columns, createMetadataProperties(icebergTable), getTableComment(icebergTable));
     }
 
-    public ExtendedHiveMetastore getMetastore()
-    {
-        return metastore;
-    }
-
     @Override
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
@@ -456,7 +449,7 @@ public class IcebergHiveMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
-        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
         HiveStatisticsMergeStrategy mergeStrategy = getHiveStatisticsMergeStrategy(session);
         return tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast).map(layoutHandle -> {
             TupleDomain<VariableReferenceExpression> predicate = layoutHandle.getTupleDomain().transform(icebergLayout -> {

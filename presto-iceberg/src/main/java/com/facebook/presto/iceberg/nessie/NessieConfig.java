@@ -151,11 +151,6 @@ public class NessieConfig
         return compressionEnabled;
     }
 
-    public boolean isCompressionDisabled()
-    {
-        return !compressionEnabled;
-    }
-
     @Config("iceberg.nessie.client-builder-impl")
     @ConfigDescription("Configure the custom ClientBuilder implementation class to be used")
     public NessieConfig setClientBuilderImpl(String clientBuilderImpl)

@@ -19,7 +19,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
-import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -72,8 +71,7 @@ public class IcebergPageSource
     public IcebergPageSource(
             List<IcebergColumnHandle> columns,
             Map<Integer, HivePartitionKey> partitionKeys,
-            ConnectorPageSource delegate,
-            TimeZoneKey timeZoneKey)
+            ConnectorPageSource delegate)
     {
         int size = requireNonNull(columns, "columns is null").size();
         requireNonNull(partitionKeys, "partitionKeys is null");
@@ -88,7 +86,7 @@ public class IcebergPageSource
             if (partitionKeys.containsKey(column.getId())) {
                 HivePartitionKey icebergPartition = partitionKeys.get(column.getId());
                 Type type = column.getType();
-                Object prefilledValue = deserializePartitionValue(type, icebergPartition.getValue().orElse(null), column.getName(), timeZoneKey);
+                Object prefilledValue = deserializePartitionValue(type, icebergPartition.getValue().orElse(null), column.getName());
                 prefilledBlocks[outputIndex] = nativeValueToBlock(type, prefilledValue);
                 delegateIndexes[outputIndex] = -1;
             }
@@ -188,7 +186,7 @@ public class IcebergPageSource
         }
     }
 
-    private static Object deserializePartitionValue(Type type, String valueString, String name, TimeZoneKey timeZoneKey)
+    private static Object deserializePartitionValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
             return null;

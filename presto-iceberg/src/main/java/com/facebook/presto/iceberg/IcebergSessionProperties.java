@@ -33,7 +33,6 @@ import org.apache.parquet.column.ParquetProperties;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -43,7 +42,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -103,7 +101,7 @@ public final class IcebergSessionProperties
                         "The compression codec to use when writing files",
                         VARCHAR,
                         HiveCompressionCodec.class,
-                        hiveClientConfig.getCompressionCodec(),
+                        icebergConfig.getCompressionCodec(),
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
                         HiveCompressionCodec::name),
@@ -406,23 +404,6 @@ public final class IcebergSessionProperties
     public static boolean isOrcOptimizedWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_OPTIMIZED_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session)
-    {
-        boolean validate = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
-        double percentage = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, Double.class);
-
-        checkArgument(percentage >= 0.0 && percentage <= 100.0);
-
-        // session property can disabled validation
-        if (!validate) {
-            return false;
-        }
-
-        // session property can not force validation when sampling is enabled
-        // todo change this if session properties support null
-        return ThreadLocalRandom.current().nextDouble(100) < percentage;
     }
 
     public static OrcWriteValidation.OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)

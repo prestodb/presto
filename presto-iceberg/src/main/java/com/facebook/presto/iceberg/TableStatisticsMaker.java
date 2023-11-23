@@ -15,7 +15,6 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
@@ -57,7 +56,6 @@ import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -76,18 +74,14 @@ import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpressio
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticSnapshotRecordDifferenceWeight;
-import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Streams.stream;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
 
@@ -96,20 +90,18 @@ public class TableStatisticsMaker
     private static final Logger log = Logger.get(TableStatisticsMaker.class);
     private static final String ICEBERG_THETA_SKETCH_BLOB_TYPE_ID = "apache-datasketches-theta-v1";
     private static final String ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY = "ndv";
-    private final TypeManager typeManager;
     private final Table icebergTable;
     private final ConnectorSession session;
 
-    private TableStatisticsMaker(TypeManager typeManager, Table icebergTable, ConnectorSession session)
+    private TableStatisticsMaker(Table icebergTable, ConnectorSession session)
     {
-        this.typeManager = typeManager;
         this.icebergTable = icebergTable;
         this.session = session;
     }
 
-    public static TableStatistics getTableStatistics(ConnectorSession session, TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
+    public static TableStatistics getTableStatistics(ConnectorSession session, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
     {
-        return new TableStatisticsMaker(typeManager, icebergTable, session).makeTableStatistics(tableHandle, constraint, columns);
+        return new TableStatisticsMaker(icebergTable, session).makeTableStatistics(tableHandle, constraint, columns);
     }
 
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
@@ -144,10 +136,6 @@ public class TableStatisticsMaker
         List<Types.NestedField> nonPartitionPrimitiveColumns = columns.stream()
                 .filter(column -> !identityPartitionIds.contains(column.fieldId()) && column.type().isPrimitiveType())
                 .collect(toImmutableList());
-
-        List<IcebergColumnHandle> columnHandles = getColumns(icebergTable.schema(), typeManager);
-        Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
-                .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(intersection))
@@ -222,9 +210,9 @@ public class TableStatisticsMaker
         return result.build();
     }
 
-    public static void writeTableStatistics(NodeVersion nodeVersion, TypeManager typeManager, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
+    public static void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
     {
-        new TableStatisticsMaker(typeManager, icebergTable, session).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
+        new TableStatisticsMaker(icebergTable, session).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
     }
 
     private void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
@@ -283,51 +271,6 @@ public class TableStatisticsMaker
                 throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "failed to write statistics file", e);
             }
         }
-    }
-
-    private static Optional<StatisticsFile> getLatestStatisticsFile(Table table, Optional<Long> snapshotId)
-    {
-        if (table.statisticsFiles().isEmpty()) {
-            return Optional.empty();
-        }
-
-        Map<Long, StatisticsFile> statsFileBySnapshot = table.statisticsFiles().stream()
-                .collect(toImmutableMap(
-                        StatisticsFile::snapshotId,
-                        identity(),
-                        (file1, file2) -> {
-                            throw new PrestoException(
-                                    ICEBERG_INVALID_METADATA,
-                                    format("Table '%s' has duplicate statistics files '%s' and '%s' for snapshot ID %s",
-                                            table, file1.path(), file2.path(), file1.snapshotId()));
-                        }));
-
-        return stream(snapshotWalk(table, snapshotId.orElse(table.currentSnapshot().snapshotId())))
-                .map(statsFileBySnapshot::get)
-                .filter(Objects::nonNull)
-                .findFirst();
-    }
-
-    public static Iterator<Long> snapshotWalk(Table table, Long startSnapshot)
-    {
-        return new Iterator<Long>()
-        {
-            private Long currentSnapshot = startSnapshot;
-
-            @Override
-            public boolean hasNext()
-            {
-                return currentSnapshot != null && table.snapshot(currentSnapshot) != null;
-            }
-
-            @Override
-            public Long next()
-            {
-                Snapshot snapshot = table.snapshot(currentSnapshot);
-                currentSnapshot = snapshot.parentId();
-                return snapshot.snapshotId();
-            }
-        };
     }
 
     public void updateColumnSizes(Partition summary, Map<Integer, Long> addedColumnSizes)
