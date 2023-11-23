@@ -86,6 +86,13 @@ class FlatVector final : public SimpleVector<T> {
         values_ || BaseVector::nulls_,
         "FlatVector needs to either have values or nulls");
     if (!values_) {
+      // Make sure that all rows are null.
+      auto cnt =
+          bits::countNonNulls(BaseVector::rawNulls_, 0, BaseVector::length_);
+      VELOX_CHECK_EQ(
+          0,
+          cnt,
+          "FlatVector with null values buffer must have all rows set to null")
       return;
     }
     auto byteSize = BaseVector::byteSize<T>(BaseVector::length_);
@@ -228,8 +235,9 @@ class FlatVector final : public SimpleVector<T> {
   Range<T> asRange() const;
 
   void set(vector_size_t idx, T value) {
-    VELOX_DCHECK(idx < BaseVector::length_);
-    VELOX_DCHECK(!values_->isView());
+    VELOX_DCHECK_LT(idx, BaseVector::length_);
+    ensureValues();
+    VELOX_DCHECK(!values_->isView())
     rawValues_[idx] = value;
     if (BaseVector::nulls_) {
       BaseVector::setNull(idx, false);
@@ -488,6 +496,12 @@ class FlatVector final : public SimpleVector<T> {
   }
 
  private:
+  void ensureValues() {
+    if (rawValues_ == nullptr) {
+      mutableRawValues();
+    }
+  }
+
   void copyValuesAndNulls(
       const BaseVector* source,
       const SelectivityVector& rows,

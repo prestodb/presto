@@ -39,7 +39,9 @@ Range<bool> FlatVector<bool>::asRange() const {
 
 template <>
 void FlatVector<bool>::set(vector_size_t idx, bool value) {
-  VELOX_DCHECK(idx < BaseVector::length_);
+  VELOX_DCHECK_LT(idx, BaseVector::length_);
+  ensureValues();
+  VELOX_DCHECK(!values_->isView())
   if (BaseVector::rawNulls_) {
     BaseVector::setNull(idx, false);
   }
@@ -101,7 +103,9 @@ void FlatVector<StringView>::prepareForReuse() {
 
 template <>
 void FlatVector<StringView>::set(vector_size_t idx, StringView value) {
-  VELOX_DCHECK(idx < BaseVector::length_);
+  VELOX_DCHECK_LT(idx, BaseVector::length_);
+  ensureValues();
+  VELOX_DCHECK(!values_->isView())
   if (BaseVector::rawNulls_) {
     BaseVector::setNull(idx, false);
   }
@@ -124,12 +128,13 @@ template <>
 void FlatVector<StringView>::setNoCopy(
     const vector_size_t idx,
     const StringView& value) {
-  VELOX_DCHECK(idx < BaseVector::length_);
-  VELOX_DCHECK(!values_->isView());
-  rawValues_[idx] = value;
+  VELOX_DCHECK_LT(idx, BaseVector::length_);
+  ensureValues();
+  VELOX_DCHECK(!values_->isView())
   if (BaseVector::nulls_) {
     BaseVector::setNull(idx, false);
   }
+  rawValues_[idx] = value;
 }
 
 template <>
