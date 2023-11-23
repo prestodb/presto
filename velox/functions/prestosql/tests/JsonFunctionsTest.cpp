@@ -197,10 +197,11 @@ TEST_F(JsonFunctionsTest, jsonParse) {
   EXPECT_EQ(jsonParse(R"({"k1":"v1"})"), R"({"k1":"v1"})");
   EXPECT_EQ(jsonParse(R"(["k1", "v1"])"), R"(["k1", "v1"])");
 
-  VELOX_ASSERT_THROW(jsonParse(R"({"k1":})"), "expected json value");
   VELOX_ASSERT_THROW(
-      jsonParse(R"({:"k1"})"), "json parse error on line 0 near `:\"k1\"}");
-  VELOX_ASSERT_THROW(jsonParse(R"(not_json)"), "expected json value");
+      jsonParse(R"({"k1":})"), "The JSON document has an improper structure");
+  VELOX_ASSERT_THROW(
+      jsonParse(R"({:"k1"})"), "The JSON document has an improper structure");
+  VELOX_ASSERT_THROW(jsonParse(R"(not_json)"), "Problem while parsing an atom");
 
   EXPECT_EQ(jsonParseWithTry(R"(not_json)"), std::nullopt);
   EXPECT_EQ(jsonParseWithTry(R"({"k1":})"), std::nullopt);
@@ -223,7 +224,7 @@ TEST_F(JsonFunctionsTest, jsonParse) {
 
   VELOX_ASSERT_THROW(
       evaluate("json_parse(c0)", data),
-      "json parse error on line 0 near `:': parsing didn't consume all input");
+      "missing or superfluous commas, braces, missing keys, etc.");
 
   data = makeRowVector({makeFlatVector<StringView>(
       {R"("This is a long sentence")", R"("This is some other sentence")"})});
@@ -251,6 +252,13 @@ TEST_F(JsonFunctionsTest, jsonParse) {
       {R"("This is a long sentence")", R"("This is some other sentence")"},
       JSON());
   velox::test::assertEqualVectors(expected, result);
+
+  try {
+    jsonParse(R"({"k1":})");
+    FAIL() << "Error expected";
+  } catch (const VeloxUserError& e) {
+    ASSERT_EQ(e.context(), "json_parse(c0)");
+  }
 }
 
 TEST_F(JsonFunctionsTest, isJsonScalarSignatures) {

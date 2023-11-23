@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/prestosql/json/SIMDJsonWrapper.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox::functions {
@@ -70,6 +71,14 @@ class JsonParseFunction : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
+    folly::call_once(initializeErrors_, [this] {
+      // Initilize errors here so that we get the proper exception context.
+      for (int i = 1; i < simdjson::NUM_ERROR_CODES; ++i) {
+        simdjson::simdjson_error e(static_cast<simdjson::error_code>(i));
+        errors_[i] = toVeloxException(std::make_exception_ptr(e));
+      }
+    });
+
     VectorPtr localResult;
 
     // Input can be constant or flat.
@@ -77,12 +86,12 @@ class JsonParseFunction : public exec::VectorFunction {
     // validation of JSON syntax that doesn't allocate memory or copy data.
     assert(args.size() > 0);
     const auto& arg = args[0];
+    static_assert(simdjson::SIMDJSON_PADDING <= AlignedBuffer::kPaddedSize);
     if (arg->isConstantEncoding()) {
       auto value = arg->as<ConstantVector<StringView>>()->valueAt(0);
-      try {
-        folly::parseJson(value);
-      } catch (const std::exception& e) {
-        context.setErrors(rows, std::current_exception());
+      auto parsed = parser_.parse(value.data(), value.size(), false);
+      if (parsed.error() != simdjson::SUCCESS) {
+        context.setErrors(rows, errors_[parsed.error()]);
         return;
       }
       localResult = std::make_shared<ConstantVector<StringView>>(
@@ -93,8 +102,13 @@ class JsonParseFunction : public exec::VectorFunction {
       auto stringBuffers = flatInput->stringBuffers();
       VELOX_CHECK_LE(rows.end(), flatInput->size());
 
-      context.applyToSelectedNoThrow(
-          rows, [&](auto row) { folly::parseJson(flatInput->valueAt(row)); });
+      rows.applyToSelected([&](auto row) {
+        auto value = flatInput->valueAt(row);
+        auto parsed = parser_.parse(value.data(), value.size(), false);
+        if (parsed.error() != simdjson::SUCCESS) {
+          context.setVeloxExceptionError(row, errors_[parsed.error()]);
+        }
+      });
       localResult = std::make_shared<FlatVector<StringView>>(
           context.pool(),
           JSON(),
@@ -114,6 +128,11 @@ class JsonParseFunction : public exec::VectorFunction {
                 .argumentType("varchar")
                 .build()};
   }
+
+ private:
+  mutable folly::once_flag initializeErrors_;
+  mutable std::exception_ptr errors_[simdjson::NUM_ERROR_CODES];
+  mutable simdjson::dom::parser parser_;
 };
 
 } // namespace
@@ -123,8 +142,13 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     JsonFormatFunction::signatures(),
     std::make_unique<JsonFormatFunction>());
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_json_parse,
     JsonParseFunction::signatures(),
-    std::make_unique<JsonParseFunction>());
+    [](const std::string& /*name*/,
+       const std::vector<exec::VectorFunctionArg>&,
+       const velox::core::QueryConfig&) {
+      return std::make_shared<JsonParseFunction>();
+    });
+
 } // namespace facebook::velox::functions
