@@ -164,6 +164,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
@@ -199,6 +200,8 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NO
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.TableVersionExpression.timestampExpression;
+import static com.facebook.presto.sql.tree.TableVersionExpression.versionExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -1296,6 +1299,10 @@ class AstBuilder
     @Override
     public Node visitTableName(SqlBaseParser.TableNameContext context)
     {
+        if (context.tableVersionExpression() != null) {
+            return new Table(getLocation(context), getQualifiedName(context.qualifiedName()), (TableVersionExpression) visit(context.tableVersionExpression()));
+        }
+
         return new Table(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()));
     }
 
@@ -1453,6 +1460,23 @@ class AstBuilder
     }
 
     // ************** value expressions **************
+
+    @Override
+    public Node visitTableVersion(SqlBaseParser.TableVersionContext context)
+    {
+        Expression child = (Expression) visit(context.valueExpression());
+
+        switch (context.tableVersionType.getType()) {
+            case SqlBaseLexer.SYSTEM_TIME:
+            case SqlBaseLexer.TIMESTAMP:
+                return timestampExpression(getLocation(context), child);
+            case SqlBaseLexer.SYSTEM_VERSION:
+            case SqlBaseLexer.VERSION:
+                return versionExpression(getLocation(context), child);
+            default:
+                throw new UnsupportedOperationException("Unsupported Type: " + context.tableVersionType.getText());
+        }
+    }
 
     @Override
     public Node visitArithmeticUnary(SqlBaseParser.ArithmeticUnaryContext context)

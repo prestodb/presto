@@ -693,7 +693,7 @@ public class HiveSplitManager
         for (Map.Entry<String, Optional<Partition>> entry : partitions.entrySet()) {
             ImmutableSet.Builder<ColumnHandle> redundantColumnDomainsBuilder = ImmutableSet.builder();
             if (!entry.getValue().isPresent()) {
-                throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
+                throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, format("Partition no longer exists: %s.%s/%s", tableName.getSchemaName(), tableName.getTableName(), entry.getKey()));
             }
             boolean pruned = false;
             if (partitionStatistics.containsKey(entry.getKey())) {

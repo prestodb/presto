@@ -761,9 +761,9 @@ public final class PlanMatchPattern
         return this;
     }
 
-    public PlanMatchPattern withJoinBuildKeyStatistics(double expectedJoinBuildKeyCount, double expectedNullJoinBuildKeyCount)
+    public PlanMatchPattern withJoinStatistics(double expectedJoinBuildKeyCount, double expectedNullJoinBuildKeyCount, double expectedJoinProbeKeyCount, double expectedNullJoinProbeKeyCount)
     {
-        matchers.add(new StatsJoinBuildKeyCountMatcher(expectedJoinBuildKeyCount, expectedNullJoinBuildKeyCount));
+        matchers.add(new StatsJoinKeyCountMatcher(expectedJoinBuildKeyCount, expectedNullJoinBuildKeyCount, expectedJoinProbeKeyCount, expectedNullJoinProbeKeyCount));
         return this;
     }
 

@@ -88,7 +88,7 @@ public class KeyBasedSampler
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
             List<String> sampledFields = new ArrayList<>(2);
@@ -103,10 +103,10 @@ public class KeyBasedSampler
                 }
             }
 
-            return rewritten;
+            return PlanOptimizerResult.optimizerResult(rewritten, true);
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter

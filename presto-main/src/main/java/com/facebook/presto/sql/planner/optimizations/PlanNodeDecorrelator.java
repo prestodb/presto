@@ -185,6 +185,7 @@ public class PlanNodeDecorrelator
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
 
             return Optional.of(new DecorrelationResult(
@@ -241,7 +242,8 @@ public class PlanNodeDecorrelator
                     ImmutableList.of(),
                     decorrelatedAggregation.getStep(),
                     decorrelatedAggregation.getHashVariable(),
-                    decorrelatedAggregation.getGroupIdVariable());
+                    decorrelatedAggregation.getGroupIdVariable(),
+                    decorrelatedAggregation.getAggregationId());
 
             boolean atMostSingleRow = newAggregation.getGroupingSetCount() == 1
                     && constantVariables.containsAll(newAggregation.getGroupingKeys());

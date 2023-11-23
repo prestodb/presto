@@ -377,6 +377,9 @@ public abstract class AbstractBlockEncodingBuffer
             bufferAllocator.returnArray(nullsBuffer);
             nullsBuffer = null;
         }
+
+        // Recycle the decodedBlock. It will be set by setupDecodedBlocksAndPositions in the next call.
+        decodedBlock = null;
     }
 
     protected void serializeNullsTo(SliceOutput output)

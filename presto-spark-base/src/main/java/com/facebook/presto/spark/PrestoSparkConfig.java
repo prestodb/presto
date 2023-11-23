@@ -67,6 +67,7 @@ public class PrestoSparkConfig
     private boolean adaptiveQueryExecutionEnabled;
     private boolean adaptiveJoinSideSwitchingEnabled;
     private String nativeExecutionBroadcastBasePath;
+    private boolean nativeTriggerCoredumpWhenUnresponsiveEnabled;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -489,6 +490,19 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setNativeExecutionBroadcastBasePath(String nativeExecutionBroadcastBasePath)
     {
         this.nativeExecutionBroadcastBasePath = nativeExecutionBroadcastBasePath;
+        return this;
+    }
+
+    public boolean isNativeTriggerCoredumpWhenUnresponsiveEnabled()
+    {
+        return nativeTriggerCoredumpWhenUnresponsiveEnabled;
+    }
+
+    @Config("native-trigger-coredump-when-unresponsive-enabled")
+    @ConfigDescription("Trigger coredump of the native execution process when it becomes unresponsive")
+    public PrestoSparkConfig setNativeTriggerCoredumpWhenUnresponsiveEnabled(boolean nativeTriggerCoredumpWhenUnresponsiveEnabled)
+    {
+        this.nativeTriggerCoredumpWhenUnresponsiveEnabled = nativeTriggerCoredumpWhenUnresponsiveEnabled;
         return this;
     }
 }

@@ -143,7 +143,8 @@ public class RewriteSpatialPartitioningAggregation
                         node.getPreGroupedVariables(),
                         node.getStep(),
                         node.getHashVariable(),
-                        node.getGroupIdVariable()));
+                        node.getGroupIdVariable(),
+                        node.getAggregationId()));
     }
 
     private static boolean isFunctionNameMatch(RowExpression rowExpression, String expectedName)

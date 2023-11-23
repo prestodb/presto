@@ -252,18 +252,18 @@ public class TestHistoryBasedStatsTracking
     {
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
-                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinBuildKeyStatistics(Double.NaN, Double.NaN)));
+                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
-                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(Double.NaN).withJoinBuildKeyStatistics(Double.NaN, Double.NaN)));
+                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
 
         executeAndTrackHistory("SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'");
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
-                anyTree(node(JoinNode.class, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinBuildKeyStatistics(1500, 0)), anyTree(any()))));
+                anyTree(node(JoinNode.class, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinStatistics(1500, 0, 2204, 0)), anyTree(any()))));
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
-                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(1915).withJoinBuildKeyStatistics(22, 0)));
+                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(1915).withJoinStatistics(22, 0, 2204, 0)));
         // Check that output size doesn't include hash variables
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
@@ -271,16 +271,92 @@ public class TestHistoryBasedStatsTracking
     }
 
     @Test
-    public void testJoinWithNull()
+    public void testJoinWithBuildNull()
     {
         assertPlan(
                 "SELECT O.totalprice, C.name FROM orders O JOIN (SELECT name, custkey FROM customer UNION ALL SELECT * FROM (VALUES ('unknown', NULL)) t(name, custkey)) C ON C.custkey = O.custkey AND YEAR(O.orderdate) = 1995",
-                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinBuildKeyStatistics(Double.NaN, Double.NaN)));
+                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
 
         executeAndTrackHistory("SELECT O.totalprice, C.name FROM orders O JOIN (SELECT name, custkey FROM customer UNION ALL SELECT * FROM (VALUES ('unknown', NULL)) t(name, custkey)) C ON C.custkey = O.custkey AND YEAR(O.orderdate) = 1995");
         assertPlan(
                 "SELECT O.totalprice, C.name FROM orders O JOIN (SELECT name, custkey FROM customer UNION ALL SELECT * FROM (VALUES ('unknown', NULL)) t(name, custkey)) C ON C.custkey = O.custkey AND YEAR(O.orderdate) = 1995",
-                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinBuildKeyStatistics(1501, 1)));
+                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinStatistics(1501, 1, 2204, 0)));
+    }
+
+    @Test
+    public void testJoinWithProbeNull()
+    {
+        String sql = "SELECT\n" +
+                "    O.totalprice,\n" +
+                "    C.name\n" +
+                "FROM (\n" +
+                "    SELECT\n" +
+                "        totalprice,\n" +
+                "        custkey,\n" +
+                "        orderdate\n" +
+                "    FROM orders\n" +
+                "\n" +
+                "    UNION ALL\n" +
+                "\n" +
+                "    SELECT\n" +
+                "        *\n" +
+                "    FROM (\n" +
+                "        VALUES\n" +
+                "            (10.0, NULL, date '1995-09-20')\n" +
+                "    )\n" +
+                ") O\n" +
+                "JOIN customer C\n" +
+                "    ON C.custkey = O.custkey\n" +
+                "    AND YEAR(O.orderdate) = 1995";
+        assertPlan(sql, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
+
+        executeAndTrackHistory(sql);
+        assertPlan(sql, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinStatistics(1500, 0, 2205, 1)));
+    }
+
+    @Test
+    public void testJoinNull()
+    {
+        String sql = "SELECT\n" +
+                "    O.totalprice,\n" +
+                "    C.name\n" +
+                "FROM (\n" +
+                "    SELECT\n" +
+                "        totalprice,\n" +
+                "        custkey,\n" +
+                "        orderdate\n" +
+                "    FROM orders\n" +
+                "\n" +
+                "    UNION ALL\n" +
+                "\n" +
+                "    SELECT\n" +
+                "        *\n" +
+                "    FROM (\n" +
+                "        VALUES\n" +
+                "            (10.0, NULL, DATE '1995-09-20')\n" +
+                "    )\n" +
+                ") O\n" +
+                "JOIN (\n" +
+                "    SELECT\n" +
+                "        name,\n" +
+                "        custkey\n" +
+                "    FROM customer\n" +
+                "\n" +
+                "    UNION ALL\n" +
+                "\n" +
+                "    SELECT\n" +
+                "        *\n" +
+                "    FROM (\n" +
+                "        VALUES\n" +
+                "            ('unknown', NULL)\n" +
+                "    ) t(name, custkey)\n" +
+                ") C\n" +
+                "    ON C.custkey = O.custkey\n" +
+                "    AND YEAR(O.orderdate) = 1995";
+        assertPlan(sql, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
+
+        executeAndTrackHistory(sql);
+        assertPlan(sql, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinStatistics(1501, 1, 2205, 1)));
     }
 
     @Test

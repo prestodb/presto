@@ -84,8 +84,8 @@ public class PlanNodeCanonicalInfo
                     continue;
                 }
                 PlanNode statsEquivalentPlanNode = node.getStatsEquivalentPlanNode().get();
-                Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, strategy);
-                Optional<List<PlanStatistics>> inputTableStatistics = planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode);
+                Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, strategy, true);
+                Optional<List<PlanStatistics>> inputTableStatistics = planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode, true);
                 if (hash.isPresent() && inputTableStatistics.isPresent()) {
                     result.add(new CanonicalPlanWithInfo(new CanonicalPlan(statsEquivalentPlanNode, strategy), new PlanNodeCanonicalInfo(hash.get(), inputTableStatistics.get())));
                 }

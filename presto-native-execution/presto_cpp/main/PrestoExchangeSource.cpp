@@ -20,11 +20,9 @@
 
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/common/Counters.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/exec/Operator.h"
 
 using namespace facebook::velox;
 
@@ -46,7 +44,7 @@ std::string extractTaskId(const std::string& path) {
 
 void onFinalFailure(
     const std::string& errorMessage,
-    std::shared_ptr<exec::ExchangeQueue> queue) {
+    const std::shared_ptr<exec::ExchangeQueue>& queue) {
   VLOG(1) << errorMessage;
 
   queue->setError(errorMessage);
@@ -73,10 +71,11 @@ std::string bodyAsString(
 PrestoExchangeSource::PrestoExchangeSource(
     const folly::Uri& baseUri,
     int destination,
-    std::shared_ptr<exec::ExchangeQueue> queue,
+    const std::shared_ptr<exec::ExchangeQueue>& queue,
     memory::MemoryPool* pool,
     folly::CPUThreadPoolExecutor* driverExecutor,
-    folly::IOThreadPoolExecutor* httpExecutor,
+    folly::EventBase* ioEventBase,
+    proxygen::SessionPool* sessionPool,
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers)
     : ExchangeSource(extractTaskId(baseUri.path()), destination, queue, pool),
@@ -87,24 +86,28 @@ PrestoExchangeSource::PrestoExchangeSource(
       ciphers_(ciphers),
       immediateBufferTransfer_(
           SystemConfig::instance()->exchangeImmediateBufferTransfer()),
-      driverExecutor_(driverExecutor),
-      httpExecutor_(httpExecutor) {
+      driverExecutor_(driverExecutor) {
   folly::SocketAddress address;
   if (folly::IPAddress::validate(host_)) {
     address = folly::SocketAddress(folly::IPAddress(host_), port_);
   } else {
     address = folly::SocketAddress(host_, port_, true);
   }
-  auto timeoutMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-      SystemConfig::instance()->exchangeRequestTimeout());
+  const auto requestTimeoutMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          SystemConfig::instance()->exchangeRequestTimeoutMs());
+  const auto connectTimeoutMs =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          SystemConfig::instance()->exchangeConnectTimeoutMs());
   VELOX_CHECK_NOT_NULL(driverExecutor_);
-  VELOX_CHECK_NOT_NULL(httpExecutor_);
+  VELOX_CHECK_NOT_NULL(ioEventBase);
   VELOX_CHECK_NOT_NULL(pool_);
-  auto* ioEventBase = httpExecutor_->getEventBase();
   httpClient_ = std::make_shared<http::HttpClient>(
       ioEventBase,
+      sessionPool,
       address,
-      timeoutMs,
+      requestTimeoutMs,
+      connectTimeoutMs,
       immediateBufferTransfer_ ? pool_ : nullptr,
       clientCertAndKeyPath_,
       ciphers_,
@@ -136,14 +139,17 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   // Before calling 'request', the caller should have called
   // 'shouldRequestLocked' and received 'true' response. Hence, we expect
   // requestPending_ == true, atEnd_ == false.
-  // This call cannot be made concurrently from multiple threads.
   VELOX_CHECK(requestPending_);
-  VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
-
+  // This call cannot be made concurrently from multiple threads, but other
+  // calls that mutate promise_ can be called concurrently.
   auto promise = VeloxPromise<Response>("PrestoExchangeSource::request");
   auto future = promise.getSemiFuture();
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
+    promise_ = std::move(promise);
+  }
 
-  promise_ = std::move(promise);
   failedAttempts_ = 0;
   dataRequestRetryState_ =
       RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -335,12 +341,12 @@ void PrestoExchangeSource::processDataError(
     const std::string& path,
     uint32_t maxBytes,
     uint32_t maxWaitSeconds,
-    const std::string& error,
-    bool retry) {
+    const std::string& error) {
   ++failedAttempts_;
-  if (retry && !dataRequestRetryState_.isExhausted()) {
+  if (!dataRequestRetryState_.isExhausted()) {
     VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
-            << path << " - Retrying: " << error;
+            << path << ", duration: " << dataRequestRetryState_.durationMs()
+            << "ms - Retrying: " << error;
 
     doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWaitSeconds);
     return;
@@ -348,11 +354,12 @@ void PrestoExchangeSource::processDataError(
 
   onFinalFailure(
       fmt::format(
-          "Failed to fetch data from {}:{} {} - Exhausted after {} retries: {}",
+          "Failed to fetch data from {}:{} {} - Exhausted after {} retries, duration {}ms: {}",
           host_,
           port_,
           path,
           failedAttempts_,
+          dataRequestRetryState_.durationMs(),
           error),
       queue_);
 
@@ -454,34 +461,75 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::getSelfPtr() {
   return std::dynamic_pointer_cast<PrestoExchangeSource>(shared_from_this());
 }
 
+const ConnectionPool& ConnectionPools::get(
+    const proxygen::Endpoint& endpoint,
+    folly::IOThreadPoolExecutor* ioExecutor) {
+  return *pools_.withULockPtr([&](auto ulock) -> const ConnectionPool* {
+    auto it = ulock->find(endpoint);
+    if (it != ulock->end()) {
+      return it->second.get();
+    }
+    auto wlock = ulock.moveFromUpgradeToWrite();
+    auto& pool = (*wlock)[endpoint];
+    if (!pool) {
+      pool = std::make_unique<ConnectionPool>();
+      pool->eventBase = ioExecutor->getEventBase();
+      pool->sessionPool = std::make_unique<proxygen::SessionPool>(nullptr, 10);
+      // Creation of the timer is not thread safe, so we do it here instead of
+      // in the constructor of HttpClient.
+      pool->eventBase->timer();
+    }
+    return pool.get();
+  });
+}
+
+void ConnectionPools::destroy() {
+  pools_.withWLock([](auto& pools) {
+    for (auto& [_, pool] : pools) {
+      pool->eventBase->runInEventBaseThread(
+          [sessionPool = std::move(pool->sessionPool)] {});
+    }
+    pools.clear();
+  });
+}
+
 // static
-std::unique_ptr<exec::ExchangeSource> PrestoExchangeSource::create(
+std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     const std::string& url,
     int destination,
-    std::shared_ptr<exec::ExchangeQueue> queue,
-    memory::MemoryPool* pool,
-    folly::CPUThreadPoolExecutor* driverExecutor,
-    folly::IOThreadPoolExecutor* httpExecutor) {
-  if (strncmp(url.c_str(), "http://", 7) == 0) {
-    return std::make_unique<PrestoExchangeSource>(
-        folly::Uri(url),
+    const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
+    velox::memory::MemoryPool* memoryPool,
+    folly::CPUThreadPoolExecutor* cpuExecutor,
+    folly::IOThreadPoolExecutor* ioExecutor,
+    ConnectionPools& connectionPools) {
+  folly::Uri uri(url);
+  if (uri.scheme() == "http") {
+    proxygen::Endpoint ep(uri.host(), uri.port(), false);
+    auto& connPool = connectionPools.get(ep, ioExecutor);
+    return std::make_shared<PrestoExchangeSource>(
+        uri,
         destination,
         queue,
-        pool,
-        driverExecutor,
-        httpExecutor);
-  } else if (strncmp(url.c_str(), "https://", 8) == 0) {
-    const auto systemConfig = SystemConfig::instance();
+        memoryPool,
+        cpuExecutor,
+        connPool.eventBase,
+        connPool.sessionPool.get());
+  }
+  if (uri.scheme() == "https") {
+    proxygen::Endpoint ep(uri.host(), uri.port(), true);
+    auto& connPool = connectionPools.get(ep, ioExecutor);
+    const auto* systemConfig = SystemConfig::instance();
     const auto clientCertAndKeyPath =
         systemConfig->httpsClientCertAndKeyPath().value_or("");
     const auto ciphers = systemConfig->httpsSupportedCiphers();
-    return std::make_unique<PrestoExchangeSource>(
-        folly::Uri(url),
+    return std::make_shared<PrestoExchangeSource>(
+        uri,
         destination,
         queue,
-        pool,
-        driverExecutor,
-        httpExecutor,
+        memoryPool,
+        cpuExecutor,
+        connPool.eventBase,
+        connPool.sessionPool.get(),
         clientCertAndKeyPath,
         ciphers);
   }

@@ -76,6 +76,16 @@ The following properties allow the configuration of remote function execution:
 
     If empty, the function is registered as ``schema.function_name``.
 
+``remote-function-server.serde``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``"presto_page"``
+
+    The serialization/deserialization method to use when communicating with
+    the remote function server. Supported values are ``presto_page`` or
+    ``spark_unsafe_row``.
+
 ``remote-function-server.thrift.address``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

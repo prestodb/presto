@@ -125,4 +125,16 @@ public class CanonicalJoinNode
     {
         return Objects.hash(sources, type, criteria, filters, outputVariables);
     }
+
+    @Override
+    public String toString()
+    {
+        return "CanonicalJoinNode{" +
+                "sources=" + sources +
+                ", type=" + type +
+                ", criteria=" + criteria +
+                ", filters=" + filters +
+                ", outputVariables=" + outputVariables +
+                '}';
+    }
 }

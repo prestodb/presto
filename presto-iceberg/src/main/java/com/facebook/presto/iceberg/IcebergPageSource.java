@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -51,6 +52,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTI
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
@@ -222,7 +224,7 @@ public class IcebergPageSource
                 return value;
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
-                return utf8Slice(valueString);
+                return wrappedBuffer(Base64.getDecoder().decode(valueString));
             }
             if (isShortDecimal(type) || isLongDecimal(type)) {
                 DecimalType decimalType = (DecimalType) type;

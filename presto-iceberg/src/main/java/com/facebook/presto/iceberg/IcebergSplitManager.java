@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -28,34 +26,20 @@ import org.apache.iceberg.util.TableScanUtil;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.iceberg.CatalogType.HADOOP;
-import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
-import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
-import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
         implements ConnectorSplitManager
 {
     private final IcebergTransactionManager transactionManager;
-    private final HdfsEnvironment hdfsEnvironment;
-    private final IcebergResourceFactory resourceFactory;
-    private final CatalogType catalogType;
 
     @Inject
-    public IcebergSplitManager(
-            IcebergConfig config,
-            IcebergResourceFactory resourceFactory,
-            IcebergTransactionManager transactionManager,
-            HdfsEnvironment hdfsEnvironment)
+    public IcebergSplitManager(IcebergTransactionManager transactionManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
-        requireNonNull(config, "config is null");
-        this.catalogType = config.getCatalogType();
     }
 
     @Override
@@ -72,15 +56,7 @@ public class IcebergSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        Table icebergTable;
-        if (catalogType == HADOOP || catalogType == NESSIE) {
-            icebergTable = getNativeIcebergTable(resourceFactory, session, table.getSchemaTableName());
-        }
-        else {
-            ExtendedHiveMetastore metastore = ((IcebergHiveMetadata) transactionManager.get(transaction)).getMetastore();
-            icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
-        }
-
+        Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(table.getPredicate()))
                 .useSnapshot(table.getSnapshotId().get());

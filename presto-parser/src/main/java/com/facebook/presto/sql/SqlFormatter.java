@@ -401,6 +401,10 @@ public final class SqlFormatter
         protected Void visitTable(Table node, Integer indent)
         {
             builder.append(formatName(node.getName()));
+            if (node.getTableVersionExpression().isPresent()) {
+                builder.append(' ');
+                process(node.getTableVersionExpression().get(), indent);
+            }
 
             return null;
         }

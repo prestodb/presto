@@ -181,9 +181,7 @@ void PeriodicTaskManager::updateTaskStats() {
       kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
   REPORT_ADD_STAT_VALUE(
       kCounterTotalPartitionedOutputBuffer,
-      velox::exec::PartitionedOutputBufferManager::getInstance()
-          .lock()
-          ->numBuffers());
+      velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
 }
 
 void PeriodicTaskManager::addTaskStatsTask() {
@@ -567,6 +565,7 @@ void PeriodicTaskManager::addSpillStatsUpdateTask() {
 }
 
 void PeriodicTaskManager::updateSpillStatsTask() {
+#if 0
   const auto updatedSpillStats = velox::exec::globalSpillStats();
   VELOX_CHECK_GE(updatedSpillStats, lastSpillStats_);
   const auto deltaSpillStats = updatedSpillStats - lastSpillStats_;
@@ -603,6 +602,7 @@ void PeriodicTaskManager::updateSpillStatsTask() {
       kCounterSpillPeakMemoryBytes, spillMemoryStats.peakBytes);
 
   lastSpillStats_ = updatedSpillStats;
+#endif
 }
 
 void PeriodicTaskManager::printHttpEndpointLatencyStats() {

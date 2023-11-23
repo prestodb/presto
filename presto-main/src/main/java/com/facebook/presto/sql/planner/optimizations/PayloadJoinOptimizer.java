@@ -133,13 +133,15 @@ public class PayloadJoinOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         if (isEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new PayloadJoinOptimizer.Rewriter(session, this.metadata, types, functionAndTypeManager, idAllocator, variableAllocator), plan, new JoinContext());
+            Rewriter rewriter = new PayloadJoinOptimizer.Rewriter(session, this.metadata, types, functionAndTypeManager, idAllocator, variableAllocator);
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new JoinContext());
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     @Override
@@ -163,6 +165,7 @@ public class PayloadJoinOptimizer
         private final FunctionAndTypeManager functionAndTypeManager;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final VariableAllocator variableAllocator;
+        private boolean planChanged;
 
         private Rewriter(Session session, Metadata metadata, TypeProvider types, FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator)
         {
@@ -172,6 +175,11 @@ public class PayloadJoinOptimizer
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -246,6 +254,7 @@ public class PayloadJoinOptimizer
                 return restrictOutput(payloadJoin, planNodeIdAllocator, outputVariables);
             }
 
+            planChanged = true;
             return newJoinNode;
         }
 
@@ -372,6 +381,7 @@ public class PayloadJoinOptimizer
                     singleGroupingSet(groupingKeys),
                     ImmutableList.of(),
                     SINGLE,
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
 

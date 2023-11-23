@@ -23,43 +23,28 @@
 namespace facebook::presto::http {
 HttpClient::HttpClient(
     folly::EventBase* eventBase,
+    proxygen::SessionPool* sessionPool,
     const folly::SocketAddress& address,
-    std::chrono::milliseconds timeout,
+    std::chrono::milliseconds transactionTimeout,
+    std::chrono::milliseconds connectTimeout,
     std::shared_ptr<velox::memory::MemoryPool> pool,
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
+      sessionPool_(sessionPool),
       address_(address),
-      timer_(folly::HHWheelTimer::newTimer(
-          eventBase_,
-          std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
-          folly::AsyncTimeout::InternalEnum::NORMAL,
-          timeout)),
+      transactionTimer_(transactionTimeout, eventBase),
+      connectTimeout_(connectTimeout),
       pool_(std::move(pool)),
       clientCertAndKeyPath_(clientCertAndKeyPath),
       ciphers_(ciphers),
       reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
       maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()) {
-  sessionPool_ = std::make_unique<proxygen::SessionPool>(nullptr, 10);
   // clientCertAndKeyPath_ and ciphers_ both needed to be set for https. For
   // http, both need to be unset. One set and another is not set is not a valid
   // configuration.
   VELOX_CHECK_EQ(clientCertAndKeyPath_.empty(), ciphers_.empty());
-}
-
-HttpClient::~HttpClient() {
-  if (sessionPool_) {
-    // Make sure to destroy SessionPool on the EventBase thread.
-    //
-    // NOTE: we can't run the destruction callback inline in EventBase thread
-    // and wait for it to complete. The reason is that the http dtor is executed
-    // by driver close, there might be some other concurrent activity such as
-    // memory arbitration running on the EventBase thread to wait for the driver
-    // to close.
-    eventBase_->runInEventBaseThread(
-        [sessionPool = std::move(sessionPool_)] {});
-  }
 }
 
 HttpResponse::HttpResponse(
@@ -285,19 +270,36 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   std::shared_ptr<HttpClient> client_;
 };
 
+// Responsible for making an HTTP request. The request will be made in 2
+// phases:
+// 1. Connection establishment: An RTT(HTTP) or a series of RTTs(HTTPS) that
+// establishes a connection with the server side. This phase will be timed out
+// by 'connectTimeout_'
+// 2. Transaction: The phase where actual application request is sent to server
+// and response received from server. This phase will be timed out by
+// 'transactionTimer_', also known as request timeout.
+//
+// NOTE: HTTP connection establishment on the proxygen::HTTPServer side can be
+// handled directly in kernel. Whereas HTTPS connection establishment needs to
+// be handled by proxygen::HTTPServer's request handling thread pool. So for
+// HTTPS, connections will not be established if server's request handling
+// thread pool is fully occupied, resulting in long connect time. This needs to
+// be taken into consideration when setting timeouts.
 class ConnectionHandler : public proxygen::HTTPConnector::Callback {
  public:
   ConnectionHandler(
       const std::shared_ptr<ResponseHandler>& responseHandler,
       proxygen::SessionPool* sessionPool,
-      folly::HHWheelTimer* timer,
+      proxygen::WheelTimerInstance transactionTimeout,
+      std::chrono::milliseconds connectTimeout,
       folly::EventBase* eventBase,
       const folly::SocketAddress& address,
       const std::string& clientCertAndKeyPath,
       const std::string& ciphers)
       : responseHandler_(responseHandler),
         sessionPool_(sessionPool),
-        timer_(timer),
+        transactionTimer_(transactionTimeout),
+        connectTimeout_(connectTimeout),
         eventBase_(eventBase),
         address_(address),
         clientCertAndKeyPath_(clientCertAndKeyPath),
@@ -308,15 +310,17 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   }
 
   void connect() {
-    connector_ = std::make_unique<proxygen::HTTPConnector>(this, timer_);
+    connector_ =
+        std::make_unique<proxygen::HTTPConnector>(this, transactionTimer_);
     if (useHttps()) {
       auto context = std::make_shared<folly::SSLContext>();
       context->loadCertKeyPairFromFiles(
           clientCertAndKeyPath_.c_str(), clientCertAndKeyPath_.c_str());
       context->setCiphersOrThrow(ciphers_);
-      connector_->connectSSL(eventBase_, address_, context);
+      connector_->connectSSL(
+          eventBase_, address_, context, nullptr, connectTimeout_);
     } else {
-      connector_->connect(eventBase_, address_);
+      connector_->connect(eventBase_, address_, connectTimeout_);
     }
   }
 
@@ -336,14 +340,19 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   }
 
  private:
-  std::shared_ptr<ResponseHandler> responseHandler_;
-  proxygen::SessionPool* sessionPool_;
-  std::unique_ptr<proxygen::HTTPConnector> connector_;
-  folly::HHWheelTimer* timer_;
-  folly::EventBase* eventBase_;
+  const std::shared_ptr<ResponseHandler> responseHandler_;
+  proxygen::SessionPool* const sessionPool_;
+  // The request processing timer after the connection succeeds.
+  const proxygen::WheelTimerInstance transactionTimer_;
+  // The connect timeout used to timeout the duration from starting connection
+  // to connect success
+  const std::chrono::milliseconds connectTimeout_;
+  folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
   const std::string clientCertAndKeyPath_;
   const std::string ciphers_;
+
+  std::unique_ptr<proxygen::HTTPConnector> connector_;
 };
 
 folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
@@ -367,8 +376,9 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
 
     auto connectionHandler = new ConnectionHandler(
         responseHandler,
-        sessionPool_.get(),
-        timer_.get(),
+        sessionPool_,
+        transactionTimer_,
+        connectTimeout_,
         eventBase_,
         address_,
         clientCertAndKeyPath_,

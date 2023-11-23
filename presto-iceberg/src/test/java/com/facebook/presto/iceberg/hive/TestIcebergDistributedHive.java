@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.hive;
 
 import com.facebook.presto.iceberg.IcebergDistributedTestBase;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
@@ -24,7 +25,19 @@ public class TestIcebergDistributedHive
 {
     public TestIcebergDistributedHive()
     {
-        super(HIVE);
+        super(HIVE, ImmutableMap.of("iceberg.hive-statistics-merge-strategy", "USE_NULLS_FRACTION_AND_NDV"));
+    }
+
+    @Override
+    public void testNDVsAtSnapshot()
+    {
+        // ignore because HMS doesn't support statistics versioning
+    }
+
+    @Override
+    public void testStatsByDistance()
+    {
+        // ignore because HMS doesn't support statistics versioning
     }
 
     @Test

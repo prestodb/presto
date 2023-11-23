@@ -242,17 +242,17 @@ void registerExchangeSource(const std::string& shuffleName) {
       [shuffleName](
           const std::string& taskId,
           int destination,
-          std::shared_ptr<exec::ExchangeQueue> queue,
+          const std::shared_ptr<exec::ExchangeQueue>& queue,
           memory::MemoryPool* FOLLY_NONNULL pool)
-          -> std::unique_ptr<exec::ExchangeSource> {
+          -> std::shared_ptr<exec::ExchangeSource> {
         if (strncmp(taskId.c_str(), "batch://", 8) == 0) {
           auto uri = folly::Uri(taskId);
           for (auto& pair : uri.getQueryParams()) {
             if (pair.first == "shuffleInfo") {
-              return std::make_unique<UnsafeRowExchangeSource>(
+              return std::make_shared<UnsafeRowExchangeSource>(
                   taskId,
                   destination,
-                  std::move(queue),
+                  queue,
                   ShuffleInterfaceFactory::factory(shuffleName)
                       ->createReader(pair.second, destination, pool),
                   pool);
@@ -484,7 +484,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
     auto writerTaskId = makeTaskId("leaf", 0);
     auto writerTask = makeTask(writerTaskId, writerPlan, 0);
-    exec::Task::start(writerTask, numMapDrivers);
+    writerTask->start(numMapDrivers);
 
     ASSERT_TRUE(exec::test::waitForTaskCompletion(writerTask.get(), 5'000'000));
 
@@ -597,9 +597,9 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     VectorFuzzer::Options opts;
     opts.vectorSize = 1000;
     opts.nullRatio = 0.1;
-    opts.containerHasNulls = false;
     opts.dictionaryHasNulls = false;
     opts.stringVariableLength = true;
+
     // UnsafeRows use microseconds to store timestamp.
     opts.timestampPrecision =
         VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;
@@ -611,8 +611,6 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     // assertEqualResults:
     // Limitations of assertEqualResults:
     // https://github.com/facebookincubator/velox/issues/2859
-    // Fuzzer issues with null-key maps:
-    // https://github.com/facebookincubator/velox/issues/2848
     auto rowType = ROW({
         {"c0", INTEGER()},
         {"c1", TINYINT()},
@@ -630,6 +628,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         {"c13", ARRAY(INTEGER())},
         {"c14", ARRAY(TINYINT())},
         {"c15", ROW({INTEGER(), VARCHAR(), ARRAY(INTEGER())})},
+        {"c16", MAP(TINYINT(), REAL())},
     });
 
     // Create a local file system storage based shuffle.
@@ -682,7 +681,6 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     opts.vectorSize = 10;
     opts.nullRatio = 0;
     opts.dictionaryHasNulls = false;
-    opts.containerHasNulls = false;
     opts.stringLength = 10000;
     opts.containerLength = 10000;
     opts.stringVariableLength = false;

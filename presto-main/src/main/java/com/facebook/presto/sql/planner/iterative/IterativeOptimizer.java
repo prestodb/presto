@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
@@ -98,15 +99,18 @@ public class IterativeOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         // only disable new rules if we have legacy rules to fall back to
         if (!SystemSessionProperties.isNewOptimizerEnabled(session) && !legacyRules.isEmpty()) {
+            boolean planChanged = false;
             for (PlanOptimizer optimizer : legacyRules) {
-                plan = optimizer.optimize(plan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                PlanOptimizerResult planOptimizerResult = optimizer.optimize(plan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                plan = planOptimizerResult.getPlanNode();
+                planChanged = planChanged || planOptimizerResult.isOptimizerTriggered();
             }
 
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, planChanged);
         }
 
         Memo memo;
@@ -132,10 +136,10 @@ public class IterativeOptimizer
         boolean planChanged = exploreGroup(memo.getRootGroup(), context, matcher);
         context.collectOptimizerInformation();
         if (!planChanged) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        return memo.extract();
+        return PlanOptimizerResult.optimizerResult(memo.extract(), true);
     }
 
     private boolean exploreGroup(int group, Context context, Matcher matcher)

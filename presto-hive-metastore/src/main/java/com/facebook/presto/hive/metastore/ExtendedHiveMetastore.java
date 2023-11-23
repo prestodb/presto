@@ -131,7 +131,7 @@ public interface ExtendedHiveMetastore
 
     void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration);
 
-    default long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    default Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         throw new NotSupportedException("Lock is not supported by default");
     }

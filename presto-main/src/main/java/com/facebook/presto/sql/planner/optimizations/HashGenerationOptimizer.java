@@ -113,7 +113,7 @@ public class HashGenerationOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -122,9 +122,9 @@ public class HashGenerationOptimizer
         requireNonNull(idAllocator, "idAllocator is null");
         if (isEnabled(session)) {
             PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, functionAndTypeManager).accept(plan, new HashComputationSet());
-            return result.getNode();
+            return PlanOptimizerResult.optimizerResult(result.getNode(), true);
         }
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter
@@ -196,7 +196,8 @@ public class HashGenerationOptimizer
                             node.getPreGroupedVariables(),
                             node.getStep(),
                             hashVariable,
-                            node.getGroupIdVariable()),
+                            node.getGroupIdVariable(),
+                            node.getAggregationId()),
                     hashVariable.isPresent() ? ImmutableMap.of(groupByHash.get(), hashVariable.get()) : ImmutableMap.of());
         }
 

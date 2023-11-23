@@ -5,6 +5,7 @@ Release Notes
 .. toctree::
     :maxdepth: 1
 
+    release/release-0.284
     Release-0.283 [2023-08-08] <release/release-0.283>
     release/release-0.282
     release/release-0.281

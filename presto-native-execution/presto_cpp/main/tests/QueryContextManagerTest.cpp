@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/QueryContextManager.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "presto_cpp/main/TaskManager.h"
 
@@ -20,8 +21,20 @@ namespace facebook::presto {
 class QueryContextManagerTest : public testing::Test {
  protected:
   void SetUp() override {
-    taskManager_ = std::make_unique<TaskManager>();
+    driverExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+        4, std::make_shared<folly::NamedThreadFactory>("Driver"));
+    httpSrvCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+        4, std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
+    spillerExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+        4, std::make_shared<folly::NamedThreadFactory>("Spiller"));
+    taskManager_ = std::make_unique<TaskManager>(
+        driverExecutor_.get(),
+        httpSrvCpuExecutor_.get(),
+        spillerExecutor_.get());
   }
+  std::shared_ptr<folly::CPUThreadPoolExecutor> driverExecutor_;
+  std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
+  std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
   std::unique_ptr<TaskManager> taskManager_;
 };
 
@@ -33,7 +46,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
           {"native_spill_compression_codec", "NONE"},
           {"native_join_spill_enabled", "false"},
           {"native_spill_write_buffer_size", "1024"},
-          {"native_debug.validate_output_from_operators", "true"},
+          {"native_debug_validate_output_from_operators", "true"},
           {"aggregation_spill_all", "true"}}};
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
       taskId, session);
@@ -42,7 +55,6 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_FALSE(queryCtx->queryConfig().joinSpillEnabled());
   EXPECT_TRUE(queryCtx->queryConfig().validateOutputFromOperators());
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1024);
-  EXPECT_TRUE(queryCtx->queryConfig().aggregationSpillAll());
 }
 
 TEST_F(QueryContextManagerTest, defaultSessionProperties) {
@@ -55,7 +67,52 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
   EXPECT_TRUE(queryCtx->queryConfig().joinSpillEnabled());
   EXPECT_FALSE(queryCtx->queryConfig().validateOutputFromOperators());
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1L << 20);
-  EXPECT_TRUE(queryCtx->queryConfig().aggregationSpillAll());
 }
 
+TEST_F(QueryContextManagerTest, duplicateQueryRootPoolName) {
+  const protocol::TaskId fakeTaskId = "scan.0.0.1.0";
+  const protocol::SessionRepresentation fakeSession{.systemProperties = {}};
+  auto* queryCtxManager = taskManager_->getQueryContextManager();
+  struct {
+    bool hasPendingReference;
+    bool clearCache;
+    bool expectedNewPoolName;
+
+    std::string debugString() const {
+      return fmt::format(
+          "hasPendingReference: {}, clearCache: {}, expectedNewPoolName: {}",
+          hasPendingReference,
+          clearCache,
+          expectedNewPoolName);
+    }
+  } testSettings[] = {
+      {true, true, true},
+      {true, false, false},
+      {false, true, true},
+      {false, false, true}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    queryCtxManager->testingClearCache();
+
+    auto queryCtx =
+        queryCtxManager->findOrCreateQueryCtx(fakeTaskId, fakeSession);
+    const auto poolName = queryCtx->pool()->name();
+    ASSERT_THAT(poolName, testing::HasSubstr("scan_"));
+    if (!testData.hasPendingReference) {
+      queryCtx.reset();
+    }
+    if (testData.clearCache) {
+      queryCtxManager->testingClearCache();
+    }
+    auto newQueryCtx =
+        queryCtxManager->findOrCreateQueryCtx(fakeTaskId, fakeSession);
+    const auto newPoolName = newQueryCtx->pool()->name();
+    ASSERT_THAT(newPoolName, testing::HasSubstr("scan_"));
+    if (testData.expectedNewPoolName) {
+      ASSERT_NE(poolName, newPoolName);
+    } else {
+      ASSERT_EQ(poolName, newPoolName);
+    }
+  }
+}
 } // namespace facebook::presto

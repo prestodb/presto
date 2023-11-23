@@ -22,15 +22,27 @@
 namespace facebook::presto {
 namespace {
 
+using velox::functions::remote::PageFormat;
+
 std::string genFunctionName(
     const std::string& baseFunctionName,
     const std::string& schemaName,
-    const std::string& prefix) {
+    const std::string_view& prefix) {
   auto name = schemaName.empty()
       ? baseFunctionName
       : fmt::format("{}.{}", schemaName, baseFunctionName);
 
   return prefix.empty() ? name : fmt::format("{}.{}", prefix, name);
+}
+
+PageFormat fromSerdeString(const std::string_view& serdeName) {
+  if (serdeName == "presto_page") {
+    return PageFormat::PRESTO_PAGE;
+  } else if (serdeName == "spark_unsafe_row") {
+    return PageFormat::SPARK_UNSAFE_ROW;
+  } else {
+    VELOX_FAIL("Unknown serde name for remote function server: '{}'", serdeName)
+  }
 }
 
 // Reads file at `filePath`, decodes the json signatures and registers them as
@@ -39,13 +51,15 @@ std::string genFunctionName(
 size_t processFile(
     const fs::path& filePath,
     const folly::SocketAddress& location,
-    const std::string& prefix) {
+    const std::string_view& prefix,
+    const std::string_view& serde) {
   std::ifstream stream{filePath};
   std::stringstream buffer;
   buffer << stream.rdbuf();
 
   velox::functions::RemoteVectorFunctionMetadata metadata;
   metadata.location = location;
+  metadata.serdeFormat = fromSerdeString(serde);
 
   // First group possible functions with the same name but different
   // schemas.
@@ -75,18 +89,19 @@ size_t processFile(
 size_t registerRemoteFunctions(
     const std::string& inputPath,
     const folly::SocketAddress& location,
-    const std::string& prefix) {
+    const std::string_view& prefix,
+    const std::string_view& serde) {
   size_t signaturesCount = 0;
   const fs::path path{inputPath};
 
   if (fs::is_directory(path)) {
     for (auto& entryPath : fs::recursive_directory_iterator(path)) {
       if (entryPath.is_regular_file()) {
-        signaturesCount += processFile(entryPath, location, prefix);
+        signaturesCount += processFile(entryPath, location, prefix, serde);
       }
     }
   } else if (fs::is_regular_file(path)) {
-    signaturesCount += processFile(path, location, prefix);
+    signaturesCount += processFile(path, location, prefix, serde);
   }
   return signaturesCount;
 }

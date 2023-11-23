@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -119,18 +118,14 @@ public class SimplifyPlanWithEmptyInput
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
             Rewriter rewriter = new Rewriter(idAllocator);
             PlanNode rewrittenNode = SimplePlanRewriter.rewriteWith(rewriter, plan);
-            if (rewriter.isPlanChanged()) {
-                session.getOptimizerInformationCollector().addInformation(
-                        new PlanOptimizerInformation(SimplifyPlanWithEmptyInput.class.getSimpleName(), true, Optional.empty(), Optional.empty(), Optional.of(false), Optional.empty()));
-            }
-            return rewrittenNode;
+            return PlanOptimizerResult.optimizerResult(rewrittenNode, rewriter.isPlanChanged());
         }
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter

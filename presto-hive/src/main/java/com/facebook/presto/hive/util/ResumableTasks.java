@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.hive.util.ResumableTask.ResumableTaskStatus;
 
 import java.util.concurrent.Executor;
 
@@ -32,7 +33,7 @@ public final class ResumableTasks
             @Override
             public void run()
             {
-                ResumableTask.TaskStatus status = safeProcessTask(task);
+                ResumableTaskStatus status = safeProcessTask(task);
                 if (!status.isFinished()) {
                     // if task is not complete, schedule it it to run again when the future finishes
                     status.getContinuationFuture().addListener(this, executor);
@@ -41,14 +42,14 @@ public final class ResumableTasks
         });
     }
 
-    private static ResumableTask.TaskStatus safeProcessTask(ResumableTask task)
+    private static ResumableTaskStatus safeProcessTask(ResumableTask task)
     {
         try {
             return task.process();
         }
         catch (Throwable t) {
             log.warn(t, "ResumableTask completed exceptionally");
-            return ResumableTask.TaskStatus.finished();
+            return ResumableTaskStatus.finished();
         }
     }
 }

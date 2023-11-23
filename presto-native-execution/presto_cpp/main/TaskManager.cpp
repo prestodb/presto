@@ -107,7 +107,7 @@ void getData(
     long destination,
     long token,
     protocol::DataSize maxSize,
-    exec::PartitionedOutputBufferManager& bufferManager) {
+    exec::OutputBufferManager& bufferManager) {
   if (promiseHolder == nullptr) {
     // promise/future is expired.
     return;
@@ -272,11 +272,16 @@ struct ZombieTaskStatsSet {
 };
 } // namespace
 
-TaskManager::TaskManager()
-    : bufferManager_(
-          velox::exec::PartitionedOutputBufferManager::getInstance().lock()) {
-  VELOX_CHECK_NOT_NULL(
-      bufferManager_, "invalid PartitionedOutputBufferManager");
+TaskManager::TaskManager(
+    folly::Executor* driverExecutor,
+    folly::Executor* httpSrvCpuExecutor,
+    folly::Executor* spillerExecutor)
+    : bufferManager_(velox::exec::OutputBufferManager::getInstance().lock()),
+      queryContextManager_(std::make_unique<QueryContextManager>(
+          driverExecutor,
+          spillerExecutor)),
+      httpSrvCpuExecutor_(httpSrvCpuExecutor) {
+  VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
 void TaskManager::setBaseUri(const std::string& baseUri) {
@@ -308,7 +313,7 @@ TaskMap TaskManager::tasks() const {
 }
 
 const QueryContextManager* TaskManager::getQueryContextManager() const {
-  return &queryContextManager_;
+  return queryContextManager_.get();
 }
 
 void TaskManager::abortResults(const TaskId& taskId, long bufferId) {
@@ -501,7 +506,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       LOG(INFO) << "Starting task " << taskId << " with " << maxDrivers
                 << " max drivers.";
     }
-    exec::Task::start(execTask, maxDrivers, concurrentLifespans);
+    execTask->start(maxDrivers, concurrentLifespans);
 
     prestoTask->taskStarted = true;
     resultRequests = std::move(prestoTask->resultRequests);
@@ -633,7 +638,10 @@ size_t TaskManager::cleanOldTasks() {
       bool eraseTask{false};
       if (prestoTask->task != nullptr) {
         if (prestoTask->task->state() != exec::TaskState::kRunning) {
-          if (prestoTask->task->timeSinceEndMs() >= oldTaskCleanUpMs_) {
+          // Since the state is not running, we know the task has been
+          // terminated. We use termination time instead of end time as the
+          // former does not include time waiting for results to be consumed.
+          if (prestoTask->task->timeSinceTerminationMs() >= oldTaskCleanUpMs_) {
             // Not running and old.
             eraseTask = true;
           }
@@ -716,7 +724,6 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
     std::optional<protocol::TaskState> currentState,
     std::optional<protocol::Duration> maxWait,
     std::shared_ptr<http::CallbackRequestHandlerState> state) {
-  auto eventBase = folly::EventBaseManager::get()->getEventBase();
   auto [promise, future] =
       folly::makePromiseContract<std::unique_ptr<protocol::TaskInfo>>();
   auto prestoTask = findOrCreateTask(taskId);
@@ -724,7 +731,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
     // Return current TaskInfo without waiting.
     promise.setValue(
         std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
-    return std::move(future).via(eventBase);
+    return std::move(future).via(httpSrvCpuExecutor_);
   }
 
   uint64_t maxWaitMicros =
@@ -740,8 +747,9 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
       keepPromiseAlive(promiseHolder, state);
       prestoTask->infoRequest = folly::to_weak_ptr(promiseHolder);
 
-      return std::move(future).via(eventBase).onTimeout(
-          std::chrono::microseconds(maxWaitMicros), [prestoTask]() {
+      return std::move(future)
+          .via(httpSrvCpuExecutor_)
+          .onTimeout(std::chrono::microseconds(maxWaitMicros), [prestoTask]() {
             return std::make_unique<protocol::TaskInfo>(
                 prestoTask->updateInfo());
           });
@@ -751,7 +759,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
   if (currentState.value() != info.taskStatus.state ||
       isFinalState(info.taskStatus.state)) {
     promise.setValue(std::make_unique<protocol::TaskInfo>(info));
-    return std::move(future).via(eventBase);
+    return std::move(future).via(httpSrvCpuExecutor_);
   }
 
   auto promiseHolder =
@@ -759,7 +767,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
           std::move(promise));
 
   prestoTask->task->stateChangeFuture(maxWaitMicros)
-      .via(eventBase)
+      .via(httpSrvCpuExecutor_)
       .thenValue([promiseHolder, prestoTask](auto&& /*done*/) {
         promiseHolder->promise.setValue(
             std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
@@ -771,7 +779,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
             promiseHolder->promise.setValue(
                 std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
           });
-  return std::move(future).via(eventBase);
+  return std::move(future).via(httpSrvCpuExecutor_);
 }
 
 folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
@@ -807,7 +815,6 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
 
   auto timeoutFn = [this, token]() { return createTimeOutResult(token); };
 
-  auto eventBase = folly::EventBaseManager::get()->getEventBase();
   try {
     auto prestoTask = findOrCreateTask(taskId);
 
@@ -840,7 +847,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
         // If the task has finished, then send completion result.
         if (prestoTask->task->state() == exec::kFinished) {
           promiseHolder->promise.setValue(createCompleteResult(token));
-          return std::move(future).via(eventBase);
+          return std::move(future).via(httpSrvCpuExecutor_);
         }
         // If task is not running let the request timeout. The task may have
         // failed at creation time and the coordinator hasn't yet caught up.
@@ -853,8 +860,9 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
               maxSize,
               *bufferManager_);
         }
-        return std::move(future).via(eventBase).onTimeout(
-            std::chrono::microseconds(maxWaitMicros), timeoutFn);
+        return std::move(future)
+            .via(httpSrvCpuExecutor_)
+            .onTimeout(std::chrono::microseconds(maxWaitMicros), timeoutFn);
       }
 
       std::lock_guard<std::mutex> l(prestoTask->mutex);
@@ -874,15 +882,16 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
       request->token = token;
       request->maxSize = maxSize;
       prestoTask->resultRequests.insert({destination, std::move(request)});
-      return std::move(future).via(eventBase).onTimeout(
-          std::chrono::microseconds(maxWaitMicros), timeoutFn);
+      return std::move(future)
+          .via(httpSrvCpuExecutor_)
+          .onTimeout(std::chrono::microseconds(maxWaitMicros), timeoutFn);
     }
   } catch (const velox::VeloxException& e) {
     promiseHolder->promise.setException(e);
-    return std::move(future).via(eventBase);
+    return std::move(future).via(httpSrvCpuExecutor_);
   } catch (const std::exception& e) {
     promiseHolder->promise.setException(e);
-    return std::move(future).via(eventBase);
+    return std::move(future).via(httpSrvCpuExecutor_);
   }
 }
 
@@ -891,7 +900,6 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
     std::optional<protocol::TaskState> currentState,
     std::optional<protocol::Duration> maxWait,
     std::shared_ptr<http::CallbackRequestHandlerState> state) {
-  auto eventBase = folly::EventBaseManager::get()->getEventBase();
   auto [promise, future] =
       folly::makePromiseContract<std::unique_ptr<protocol::TaskStatus>>();
 
@@ -915,8 +923,9 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
 
       keepPromiseAlive(promiseHolder, state);
       prestoTask->statusRequest = folly::to_weak_ptr(promiseHolder);
-      return std::move(future).via(eventBase).onTimeout(
-          std::chrono::microseconds(maxWaitMicros), [prestoTask]() {
+      return std::move(future)
+          .via(httpSrvCpuExecutor_)
+          .onTimeout(std::chrono::microseconds(maxWaitMicros), [prestoTask]() {
             return std::make_unique<protocol::TaskStatus>(
                 prestoTask->updateStatus());
           });
@@ -927,7 +936,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
 
   if (currentState.value() != status.state || isFinalState(status.state)) {
     promise.setValue(std::make_unique<protocol::TaskStatus>(status));
-    return std::move(future).via(eventBase);
+    return std::move(future).via(httpSrvCpuExecutor_);
   }
 
   auto promiseHolder =
@@ -935,7 +944,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
           std::move(promise));
 
   prestoTask->task->stateChangeFuture(maxWaitMicros)
-      .via(eventBase)
+      .via(httpSrvCpuExecutor_)
       .thenValue([promiseHolder, prestoTask](auto&& /*done*/) {
         promiseHolder->promise.setValue(
             std::make_unique<protocol::TaskStatus>(prestoTask->updateStatus()));
@@ -948,7 +957,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
                 std::make_unique<protocol::TaskStatus>(
                     prestoTask->updateStatus()));
           });
-  return std::move(future).via(eventBase);
+  return std::move(future).via(httpSrvCpuExecutor_);
 }
 
 void TaskManager::removeRemoteSource(

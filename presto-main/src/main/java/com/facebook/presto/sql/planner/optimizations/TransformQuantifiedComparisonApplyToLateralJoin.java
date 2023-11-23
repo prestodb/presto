@@ -87,9 +87,11 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return rewriteWith(new Rewriter(functionResolution, idAllocator, variableAllocator, logicalRowExpressions), plan, null);
+        Rewriter rewriter = new Rewriter(functionResolution, idAllocator, variableAllocator, logicalRowExpressions);
+        PlanNode rewrittenPlan = rewriteWith(rewriter, plan, null);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class Rewriter
@@ -99,6 +101,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
         private final LogicalRowExpressions logicalRowExpressions;
+        private boolean planChanged;
 
         public Rewriter(StandardFunctionResolution functionResolution, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, LogicalRowExpressions logicalRowExpressions)
         {
@@ -106,6 +109,11 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.logicalRowExpressions = requireNonNull(logicalRowExpressions, "logicalRowExpressions is null");
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -122,6 +130,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
             QuantifiedComparisonExpression quantifiedComparison = (QuantifiedComparisonExpression) expression;
 
+            planChanged = true;
             return rewriteQuantifiedApplyNode(node, quantifiedComparison, context);
         }
 
@@ -192,6 +201,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     globalAggregation(),
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
 

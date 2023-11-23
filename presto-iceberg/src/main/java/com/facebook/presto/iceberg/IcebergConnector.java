@@ -61,6 +61,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> columnProperties;
     private final ConnectorAccessControl accessControl;
     private final Set<Procedure> procedures;
     private final Set<ConnectorPlanOptimizer> planOptimizers;
@@ -77,6 +78,7 @@ public class IcebergConnector
             List<PropertyMetadata<?>> sessionProperties,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
+            List<PropertyMetadata<?>> columnProperties,
             ConnectorAccessControl accessControl,
             Set<Procedure> procedures,
             Set<ConnectorPlanOptimizer> planOptimizers)
@@ -92,6 +94,7 @@ public class IcebergConnector
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
+        this.columnProperties = ImmutableList.copyOf(requireNonNull(columnProperties, "columnProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
@@ -168,6 +171,12 @@ public class IcebergConnector
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getColumnProperties()
+    {
+        return columnProperties;
     }
 
     @Override

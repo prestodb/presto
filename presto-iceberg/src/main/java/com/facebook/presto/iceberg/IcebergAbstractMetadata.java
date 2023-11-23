@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveWrittenPartitions;
+import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -37,11 +38,15 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
@@ -65,6 +70,7 @@ import org.apache.iceberg.types.Types;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,12 +92,16 @@ import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
+import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
+import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
+import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
 import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -108,13 +118,15 @@ public abstract class IcebergAbstractMetadata
 
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
+    protected final NodeVersion nodeVersion;
 
     protected Transaction transaction;
 
-    public IcebergAbstractMetadata(TypeManager typeManager, JsonCodec<CommitTaskData> commitTaskCodec)
+    public IcebergAbstractMetadata(TypeManager typeManager, JsonCodec<CommitTaskData> commitTaskCodec, NodeVersion nodeVersion)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
     }
 
     protected abstract Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName);
@@ -132,6 +144,9 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
+        IcebergTableHandle tableHandle = ((IcebergTableLayoutHandle) handle).getTable();
+        Table table = getIcebergTable(session, tableHandle.getSchemaTableName());
+        validateTableMode(session, table);
         return new ConnectorTableLayout(handle);
     }
 
@@ -337,6 +352,38 @@ public abstract class IcebergAbstractMetadata
         return new Schema(icebergSchema.asStructType().fields());
     }
 
+    @Override
+    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
+    {
+        return getTableHandle(session, tableName);
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .flatMap(meta -> getSupportedColumnStatistics(meta.getName(), meta.getType()).stream())
+                .collect(toImmutableSet());
+
+        Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);
+        return new TableStatisticsMetadata(columnStatistics, tableStatistics, Collections.emptyList());
+    }
+
+    @Override
+    public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return tableHandle;
+    }
+
+    @Override
+    public void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        TableStatisticsMaker.writeTableStatistics(nodeVersion, typeManager, icebergTableHandle, icebergTable, session, computedStatistics);
+    }
+
     public void rollback()
     {
         // TODO: cleanup open transaction
@@ -348,9 +395,23 @@ public abstract class IcebergAbstractMetadata
         if (!column.isNullable()) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
         }
+
+        Type columnType = toIcebergType(column.getType());
+
+        if (columnType.equals(Types.TimestampType.withZone())) {
+            throw new PrestoException(NOT_SUPPORTED, format("Iceberg column type %s is not supported", columnType));
+        }
+
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType()), column.getComment()).commit();
+        Transaction transaction = icebergTable.newTransaction();
+        transaction.updateSchema().addColumn(column.getName(), columnType, column.getComment()).commit();
+        if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
+            String transform = (String) column.getProperties().get(PARTITIONING_PROPERTY);
+            transaction.updateSpec().addField(getPartitionColumnName(column.getName(), transform),
+                    getTransformTerm(column.getName(), transform)).commit();
+        }
+        transaction.commitTransaction();
     }
 
     @Override
@@ -359,6 +420,17 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+
+        // Currently drop partition column used in any partition specs of a table would introduce some problems in Iceberg.
+        // So we explicitly disallow dropping partition columns until Iceberg fix this problem.
+        // See https://github.com/apache/iceberg/issues/4563
+        boolean shouldNotDropPartitionColumn = icebergTable.specs().values().stream()
+                .flatMap(partitionSpec -> partitionSpec.fields().stream())
+                .anyMatch(field -> field.sourceId() == handle.getId());
+        if (shouldNotDropPartitionColumn) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns which exist in any of the table's partition specs");
+        }
+
         icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
     }
 
@@ -381,6 +453,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        validateTableMode(session, icebergTable);
 
         return beginIcebergTableInsert(table, icebergTable);
     }
@@ -399,7 +472,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        return TableStatisticsMaker.getTableStatistics(session, typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
     }
 
     @Override
@@ -414,7 +487,6 @@ public abstract class IcebergAbstractMetadata
 
         // use a new schema table name that omits the table type
         Table table = getIcebergTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
-        validateTableMode(session, table);
 
         return new IcebergTableHandle(
                 tableName.getSchemaName(),

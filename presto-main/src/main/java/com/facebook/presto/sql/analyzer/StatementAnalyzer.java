@@ -18,14 +18,18 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -147,6 +151,7 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
@@ -188,10 +193,12 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
@@ -268,6 +275,8 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.TIMESTAMP;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.VERSION;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.util.MetadataUtils.getMaterializedViewDefinition;
 import static com.facebook.presto.util.MetadataUtils.getTableColumnsMetadata;
@@ -1279,7 +1288,7 @@ class StatementAnalyzer
             }
 
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), name);
-            Optional<TableHandle> tableHandle = tableColumnsMetadata.getTableHandle();
+            Optional<TableHandle> tableHandle = getTableHandle(tableColumnsMetadata, table, name, scope);
 
             Map<String, ColumnHandle> columnHandles = tableColumnsMetadata.getColumnHandles();
 
@@ -1318,6 +1327,51 @@ class StatementAnalyzer
             }
 
             return createAndAssignScope(table, scope, fields.build());
+        }
+
+        private Optional<TableHandle> getTableHandle(TableColumnMetadata tableColumnsMetadata, Table table, QualifiedObjectName name, Optional<Scope> scope)
+        {
+            // Process table version AS OF expression
+            if (table.getTableVersionExpression().isPresent()) {
+                return processTableVersion(table, name, scope);
+            }
+            else {
+                return tableColumnsMetadata.getTableHandle();
+            }
+        }
+        private Optional<TableHandle> processTableVersion(Table table, QualifiedObjectName name, Optional<Scope> scope)
+        {
+            Expression asOfExpr = table.getTableVersionExpression().get().getAsOfExpression();
+            TableVersionExpression.TableVersionType tableVersionType = table.getTableVersionExpression().get().getTableVersionType();
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(asOfExpr, scope.get());
+            analysis.recordSubqueries(table, expressionAnalysis);
+            Type asOfExprType = expressionAnalysis.getType(asOfExpr);
+            if (asOfExprType == UNKNOWN) {
+                throw new PrestoException(INVALID_ARGUMENTS, format("Table version AS OF expression cannot be NULL for %s", name.toString()));
+            }
+            Object evalAsOfExpr = evaluateConstantExpression(asOfExpr, asOfExprType, metadata, session, analysis.getParameters());
+            if (tableVersionType == TIMESTAMP) {
+                if (!(asOfExprType instanceof TimestampWithTimeZoneType)) {
+                    throw new SemanticException(TYPE_MISMATCH, asOfExpr,
+                            "Type %s is invalid. Supported table version AS OF expression type is Timestamp with Time Zone.",
+                            asOfExprType.getDisplayName());
+                }
+            }
+            if (tableVersionType == VERSION) {
+                if (!(asOfExprType instanceof BigintType)) {
+                    throw new SemanticException(TYPE_MISMATCH, asOfExpr,
+                            "Type %s is invalid. Supported table version AS OF expression type is BIGINT",
+                            asOfExprType.getDisplayName());
+                }
+            }
+
+            // Two block entries for table version type and expression.
+            BlockBuilder blockBuilder = asOfExprType.createBlockBuilder(null, 2);
+            writeNativeValue(asOfExprType, blockBuilder, tableVersionType.ordinal());
+            writeNativeValue(asOfExprType, blockBuilder, evalAsOfExpr);
+            Block block = blockBuilder.build();
+
+            return metadata.getHandleVersion(session, name, Optional.of(block));
         }
 
         private Scope getScopeFromTable(Table table, Optional<Scope> scope)

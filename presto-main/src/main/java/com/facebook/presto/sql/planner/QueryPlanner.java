@@ -686,7 +686,8 @@ class QueryPlanner
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
-                groupIdVariable);
+                groupIdVariable,
+                Optional.empty());
 
         subPlan = new PlanBuilder(aggregationTranslations, aggregationNode);
 
@@ -1125,6 +1126,7 @@ class QueryPlanner
                             singleGroupingSet(subPlan.getRoot().getOutputVariables()),
                             ImmutableList.of(),
                             AggregationNode.Step.SINGLE,
+                            Optional.empty(),
                             Optional.empty(),
                             Optional.empty()));
         }
