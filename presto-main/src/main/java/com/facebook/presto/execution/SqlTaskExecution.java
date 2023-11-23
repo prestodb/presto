@@ -620,12 +620,24 @@ public class SqlTaskExecution
 
     public List<ScheduledSplit> getUnprocessedSplits()
     {
-        return taskHandle.getUnprocessedSplits();
+        if (taskHandle == null) {
+            // This could be called by createTaskStatus before a TaskHandle is created.
+            return ImmutableList.of();
+        }
+        else {
+            return taskHandle.getUnprocessedSplits();
+        }
     }
 
     public boolean isTaskIdling()
     {
-        return taskHandle.isTaskIdling();
+        if (taskHandle == null) {
+            // This could be called by createTaskStatus before a TaskHandle is created.
+            return false;
+        }
+        else {
+            return taskHandle.isTaskIdling();
+        }
     }
 
     public synchronized Set<PlanNodeId> getNoMoreSplits()
