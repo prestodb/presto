@@ -127,6 +127,8 @@ public class ExchangeClient
 
     private final LocalMemoryContext systemMemoryContext;
     private final Executor pageBufferClientCallbackExecutor;
+    private final boolean isEnableGracefulShutdown;
+    private final boolean isEnableRetryForFailedSplits;
 
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
@@ -142,7 +144,9 @@ public class ExchangeClient
             DriftClient<ThriftTaskClient> driftClient,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            boolean isEnableGracefulShutdown,
+            boolean isEnableRetryForFailedSplits)
     {
         checkArgument(responseSizeExponentialMovingAverageDecayingAlpha >= 0.0 && responseSizeExponentialMovingAverageDecayingAlpha <= 1.0, "responseSizeExponentialMovingAverageDecayingAlpha must be between 0 and 1: %s", responseSizeExponentialMovingAverageDecayingAlpha);
         this.bufferCapacity = bufferCapacity.toBytes();
@@ -158,6 +162,8 @@ public class ExchangeClient
         this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.responseSizeExponentialMovingAverage = new ExponentialMovingAverage(responseSizeExponentialMovingAverageDecayingAlpha, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        this.isEnableGracefulShutdown = isEnableGracefulShutdown;
+        this.isEnableRetryForFailedSplits = isEnableRetryForFailedSplits;
     }
 
     public ExchangeClientStatus getStatus()
@@ -206,7 +212,7 @@ public class ExchangeClient
         switch (location.getScheme().toLowerCase(Locale.ENGLISH)) {
             case "http":
             case "https":
-                resultClient = new HttpRpcShuffleClient(httpClient, location, asyncPageTransportLocation);
+                resultClient = new HttpRpcShuffleClient(httpClient, location, asyncPageTransportLocation, isEnableGracefulShutdown, isEnableRetryForFailedSplits);
                 break;
             case "thrift":
                 resultClient = new ThriftRpcShuffleClient(driftClient, location);

@@ -97,7 +97,9 @@ public class TestExchangeOperator
                 new TestingDriftClient<>(),
                 scheduler,
                 systemMemoryUsageListener,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                false,
+                false);
     }
 
     @AfterClass(alwaysRun = true)
