@@ -184,7 +184,7 @@ public class TestSqlFunctions
         assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), -2L);
 
         assertQueryFails("CREATE FUNCTION testing.test.invalid(e testing.enum.not_exist) RETURNS boolean RETURN e IS NOT NULL", ".*Unknown type testing.enum.not_exist");
-        assertQueryFails("CREATE FUNCTION testing.test.is_uk(country testing.enum.country) RETURNS boolean RETURN country = testing.enum.country.UK", ".*'testing.enum.country.uk' cannot be resolved");
+        assertQueryFails("CREATE FUNCTION testing.test.is_uk(country testing.enum.country) RETURNS boolean RETURN country = testing.enum.country.UK", ".*'testing.enum.country.UK' cannot be resolved");
     }
 
     @Test

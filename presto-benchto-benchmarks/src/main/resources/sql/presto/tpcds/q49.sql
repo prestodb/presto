@@ -69,7 +69,7 @@ FROM
          AND ("d_moy" = 12)
       GROUP BY "cs"."cs_item_sk"
    )  in_cat
-)  "CATALOG"
+)  "catalog"
 WHERE ("catalog"."return_rank" <= 10)
    OR ("catalog"."currency_rank" <= 10)
 UNION SELECT
