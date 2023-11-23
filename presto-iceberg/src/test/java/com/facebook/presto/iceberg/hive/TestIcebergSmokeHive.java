@@ -66,53 +66,6 @@ public class TestIcebergSmokeHive
         };
     }
 
-    /*
-    @Test(expectedExceptions = Exception.class)
-    public void testFailedConcurrentInserts()
-    {
-        int concurrency = 4;
-        final Session session = getSession();
-        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail (col0 INTEGER, col1 VARCHAR) WITH (format = 'ORC', commit_retries = " + concurrency + ")");
-
-        final String[] strings = {"one", "two", "three", "four", "five", "six", "seven"};
-        final CountDownLatch countDownLatch = new CountDownLatch(7);
-        AtomicInteger value = new AtomicInteger(0);
-        Set<Throwable> errors = new CopyOnWriteArraySet<>();
-        List<Thread> threads = Stream.generate(() -> new Thread(() -> {
-            int i = value.getAndIncrement();
-            try {
-                getQueryRunner().execute(session, format("INSERT INTO test_concurrent_insert_fail VALUES(%s, '%s')", i + 1, strings[i]));
-            }
-            catch (Throwable throwable) {
-                errors.add(throwable);
-            }
-            finally {
-                countDownLatch.countDown();
-            }
-        })).limit(7).collect(Collectors.toList());
-
-        threads.forEach(Thread::start);
-
-        try {
-            final int seconds = 10;
-            if (!countDownLatch.await(seconds, TimeUnit.SECONDS)) {
-                fail(format("Failed to insert in %s seconds", seconds));
-            }
-            if (!errors.isEmpty()) {
-                fail(format("Failed to insert concurrently: %s", errors.stream().map(Throwable::getMessage).collect(Collectors.joining(" & "))));
-            }
-            assertQuery(session, "SELECT count(*) FROM test_concurrent_insert_fail", "SELECT " + 7);
-            assertQuery(session, "SELECT * FROM test_concurrent_insert_fail", "VALUES(1, 'one'), (2, 'two'), (3, 'three'), (4, 'four'), (5, 'five'), (6, 'six'), (7, 'seven')");
-        }
-        catch (InterruptedException e) {
-            fail("Interrupted when await insertion", e);
-        }
-        finally {
-            dropTable(session, "test_concurrent_insert_fail");
-        }
-    }
-     */
-
     @Test(dataProvider = "concurrencyValues")
     public void testSuccessfulConcurrentInsert(int concurrency)
     {
