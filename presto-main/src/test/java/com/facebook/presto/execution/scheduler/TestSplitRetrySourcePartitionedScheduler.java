@@ -442,7 +442,7 @@ public class TestSplitRetrySourcePartitionedScheduler
                 queryExecutor,
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()), false, false);
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()), true, true);
 
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)
                 .withBuffer(OUT, 0)
