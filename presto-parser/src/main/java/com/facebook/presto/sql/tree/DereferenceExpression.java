@@ -76,7 +76,7 @@ public class DereferenceExpression
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
         List<String> parts = tryParseParts(expression.base, expression.field.getValue());
-        return parts == null ? null : QualifiedName.of(parts);
+        return parts == null ? null : QualifiedName.of(parts, true);
     }
 
     public static Expression from(QualifiedName name)
