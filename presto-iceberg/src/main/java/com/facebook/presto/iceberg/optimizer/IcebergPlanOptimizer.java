@@ -15,7 +15,6 @@ package com.facebook.presto.iceberg.optimizer;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
@@ -56,18 +55,15 @@ public class IcebergPlanOptimizer
 {
     private final RowExpressionService rowExpressionService;
     private final StandardFunctionResolution functionResolution;
-    private final TypeManager typeManager;
     private final IcebergTransactionManager transactionManager;
 
     @Inject
     IcebergPlanOptimizer(StandardFunctionResolution functionResolution,
                          RowExpressionService rowExpressionService,
-                         TypeManager typeManager,
                          IcebergTransactionManager transactionManager)
     {
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
 
@@ -75,7 +71,7 @@ public class IcebergPlanOptimizer
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
         return rewriteWith(new FilterPushdownRewriter(functionResolution, rowExpressionService,
-                typeManager, transactionManager, idAllocator, session), maxSubplan);
+                transactionManager, idAllocator, session), maxSubplan);
     }
 
     private static class FilterPushdownRewriter
@@ -84,21 +80,18 @@ public class IcebergPlanOptimizer
         private final ConnectorSession session;
         private final RowExpressionService rowExpressionService;
         private final StandardFunctionResolution functionResolution;
-        private final TypeManager typeManager;
         private final PlanNodeIdAllocator idAllocator;
         private final IcebergTransactionManager transactionManager;
 
         public FilterPushdownRewriter(
                 StandardFunctionResolution functionResolution,
                 RowExpressionService rowExpressionService,
-                TypeManager typeManager,
                 IcebergTransactionManager transactionManager,
                 PlanNodeIdAllocator idAllocator,
                 ConnectorSession session)
         {
             this.functionResolution = functionResolution;
             this.rowExpressionService = rowExpressionService;
-            this.typeManager = typeManager;
             this.transactionManager = transactionManager;
             this.idAllocator = idAllocator;
             this.session = session;

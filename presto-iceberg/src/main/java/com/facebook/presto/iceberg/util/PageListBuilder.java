@@ -134,16 +134,6 @@ public final class PageListBuilder
         column.closeEntry();
     }
 
-    public void appendVarcharArray(Iterable<String> values)
-    {
-        BlockBuilder column = nextColumn();
-        BlockBuilder array = column.beginBlockEntry();
-        for (String value : values) {
-            VARCHAR.writeString(array, value);
-        }
-        column.closeEntry();
-    }
-
     public void appendVarcharVarcharMap(Map<String, String> values)
     {
         BlockBuilder column = nextColumn();

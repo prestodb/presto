@@ -33,11 +33,10 @@ public class IcebergTransactionManager
         return metadata;
     }
 
-    public ConnectorMetadata remove(ConnectorTransactionHandle transaction)
+    public void remove(ConnectorTransactionHandle transaction)
     {
         ConnectorMetadata metadata = transactions.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
-        return metadata;
     }
 
     public void put(ConnectorTransactionHandle transaction, ConnectorMetadata metadata)

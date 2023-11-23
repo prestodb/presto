@@ -29,7 +29,6 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -63,7 +62,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Lists.reverse;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
@@ -115,19 +113,6 @@ public final class IcebergUtil
     public static Table getNativeIcebergTable(IcebergResourceFactory resourceFactory, ConnectorSession session, SchemaTableName table)
     {
         return resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
-    }
-
-    public static long resolveSnapshotId(Table table, long snapshotId)
-    {
-        if (table.snapshot(snapshotId) != null) {
-            return snapshotId;
-        }
-
-        return reverse(table.history()).stream()
-                .filter(entry -> entry.timestampMillis() <= snapshotId)
-                .map(HistoryEntry::snapshotId)
-                .findFirst()
-                .orElseThrow(() -> new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", snapshotId, table)));
     }
 
     public static Optional<Long> resolveSnapshotIdByName(Table table, IcebergTableName name)
