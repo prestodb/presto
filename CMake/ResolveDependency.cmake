@@ -54,7 +54,7 @@ endmacro()
 #
 # [...]: the macro will pass all arguments after DEPENDENCY_NAME on to
 # find_package. ${dependency_name}_SOURCE is expected to be set to either AUTO,
-# SYSTEM or BUNDLED. If ${dependency_name}_SOURCE is SYSTEM it will try to find
+# SYSTEM or BUNDLED. If ${dependency_name}_SOURCE is AUTO it will try to find
 # the corresponding package via find_package and if not found it will call the
 # build_dependency macro to download and build the third party dependency. If
 # ${dependency_name}_SOURCE is SYSTEM it will force to find via find_package. If
