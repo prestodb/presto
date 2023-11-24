@@ -99,7 +99,7 @@ void TableWriter::abortDataSink() {
   auto abortGuard = folly::makeGuard([this]() { closed_ = true; });
   if (dataSink_ != nullptr) {
     try {
-      dataSink_->close(false);
+      dataSink_->abort();
     } catch (const std::exception& e) {
       LOG(WARNING) << "Failed to abort data sink from table writer: "
                    << toString() << ", error: " << e.what();
@@ -112,7 +112,7 @@ std::vector<std::string> TableWriter::closeDataSink() {
   VELOX_CHECK(!closed_);
   VELOX_CHECK_NOT_NULL(dataSink_);
   auto closeGuard = folly::makeGuard([this]() { closed_ = true; });
-  return dataSink_->close(true);
+  return dataSink_->close();
 }
 
 void TableWriter::addInput(RowVectorPtr input) {
@@ -136,7 +136,7 @@ void TableWriter::addInput(RowVectorPtr input) {
 
   dataSink_->appendData(mappedInput);
   numWrittenRows_ += input->size();
-  updateWrittenBytes();
+  updateStats(dataSink_->stats());
 
   if (aggregation_ != nullptr) {
     aggregation_->addInput(input);
@@ -167,8 +167,7 @@ RowVectorPtr TableWriter::getOutput() {
 
   finished_ = true;
   const std::vector<std::string> fragments = closeDataSink();
-  updateWrittenBytes();
-  updateNumWrittenFiles();
+  updateStats(dataSink_->stats());
 
   if (outputType_->size() == 1) {
     // NOTE: this is for non-prestissimo use cases.
@@ -181,10 +180,10 @@ RowVectorPtr TableWriter::getOutput() {
             pool(), 1, false /*isNull*/, BIGINT(), numWrittenRows_)});
   }
 
-  vector_size_t numOutputRows = fragments.size() + 1;
+  const vector_size_t numOutputRows = fragments.size() + 1;
 
   // Page layout:
-  // row     fragments     context    [partition]    [stats]
+  // row     fragments     context    [partition]     [stats]
   // X         null          X        [null]          [null]
   // null       X            X        [null]          [null]
   // null       X            X        [null]          [null]
@@ -242,16 +241,22 @@ std::string TableWriter::createTableCommitContext(bool lastOutput) {
   // clang-format on
 }
 
-void TableWriter::updateWrittenBytes() {
-  const auto writtenBytes = dataSink_->getCompletedBytes();
-  auto lockedStats = stats_.wlock();
-  lockedStats->physicalWrittenBytes = writtenBytes;
-}
-
-void TableWriter::updateNumWrittenFiles() {
-  auto lockedStats = stats_.wlock();
-  lockedStats->addRuntimeStat(
-      "numWrittenFiles", RuntimeCounter(dataSink_->numWrittenFiles()));
+void TableWriter::updateStats(const connector::DataSink::Stats& stats) {
+  {
+    auto lockedStats = stats_.wlock();
+    lockedStats->physicalWrittenBytes = stats.numWrittenBytes;
+    if (!closed_) {
+      // NOTE: the other stats is only set when hive data sink is closed.
+      VELOX_CHECK_EQ(stats.numWrittenFiles, 0);
+      VELOX_CHECK(stats.spillStats.empty());
+      return;
+    }
+    lockedStats->addRuntimeStat(
+        "numWrittenFiles", RuntimeCounter(stats.numWrittenFiles));
+  }
+  if (!stats.spillStats.empty()) {
+    recordSpillStats(stats.spillStats);
+  }
 }
 
 void TableWriter::close() {

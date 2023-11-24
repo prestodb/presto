@@ -16,7 +16,6 @@
 
 #include "velox/common/base/SpillStats.h"
 #include "velox/common/base/Exceptions.h"
-
 #include "velox/common/base/SuccinctPrinter.h"
 
 namespace facebook::velox::common {

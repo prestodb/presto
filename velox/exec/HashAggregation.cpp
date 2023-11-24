@@ -214,7 +214,6 @@ void HashAggregation::initialize() {
       aggregationNode_->globalGroupingSets(),
       groupIdChannel,
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
-      &numSpillRuns_,
       &nonReclaimableSection_,
       operatorCtx_.get());
 
@@ -300,12 +299,9 @@ void HashAggregation::updateRuntimeStats() {
 
 void HashAggregation::recordSpillStats() {
   auto spillStatsOr = groupingSet_->spilledStats();
-  if (!spillStatsOr.has_value()) {
-    return;
+  if (spillStatsOr.has_value()) {
+    Operator::recordSpillStats(spillStatsOr.value());
   }
-  VELOX_CHECK_EQ(spillStatsOr.value().spillRuns, 0);
-  spillStatsOr.value().spillRuns = numSpillRuns_;
-  Operator::recordSpillStats(spillStatsOr.value());
 }
 
 void HashAggregation::prepareOutput(vector_size_t size) {

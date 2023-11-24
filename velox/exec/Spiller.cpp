@@ -398,6 +398,8 @@ std::unique_ptr<Spiller::SpillStatus> Spiller::writeSpill(int32_t partition) {
 }
 
 void Spiller::runSpill() {
+  ++stats_.wlock()->spillRuns;
+
   std::vector<std::shared_ptr<AsyncSource<SpillStatus>>> writes;
   for (auto partition = 0; partition < spillRuns_.size(); ++partition) {
     VELOX_CHECK(

@@ -65,7 +65,6 @@ OrderBy::OrderBy(
       sortCompareFlags,
       pool(),
       &nonReclaimableSection_,
-      &numSpillRuns_,
       spillConfig_.has_value() ? &(spillConfig_.value()) : nullptr,
       operatorCtx_->driverCtx()->queryConfig().orderBySpillMemoryThreshold());
 }
@@ -125,7 +124,7 @@ void OrderBy::abort() {
 
 void OrderBy::recordSpillStats() {
   VELOX_CHECK_NOT_NULL(sortBuffer_);
-  const auto spillStats = sortBuffer_->spilledStats();
+  auto spillStats = sortBuffer_->spilledStats();
   if (spillStats.has_value()) {
     Operator::recordSpillStats(spillStats.value());
   }

@@ -36,7 +36,6 @@ class SortBuffer {
       const std::vector<CompareFlags>& sortCompareFlags,
       velox::memory::MemoryPool* pool,
       tsan_atomic<bool>* nonReclaimableSection,
-      uint32_t* numSpillRuns,
       const common::SpillConfig* spillConfig = nullptr,
       uint64_t spillMemoryThreshold = 0);
 
@@ -89,8 +88,6 @@ class SortBuffer {
   // TableWriter to indicate if this sort buffer object is under non-reclaimable
   // execution section or not.
   tsan_atomic<bool>* const nonReclaimableSection_;
-  // A recorder for number of spill runs passed in from order by operator.
-  uint32_t* const numSpillRuns_;
   const common::SpillConfig* const spillConfig_;
   // The maximum size that an SortBuffer can hold in memory before spilling.
   // Zero indicates no limit.

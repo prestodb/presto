@@ -81,9 +81,8 @@ class SortBufferTest : public OperatorTestBase {
   const std::shared_ptr<folly::Executor> executor_{
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency())};
-  tsan_atomic<bool> nonReclaimableSection_{false};
-  uint32_t numSpillRuns_;
 
+  tsan_atomic<bool> nonReclaimableSection_{false};
   folly::Random::DefaultGenerator rng_;
 };
 
@@ -124,8 +123,7 @@ TEST_F(SortBufferTest, singleKey) {
         sortColumnIndices_,
         testData.sortCompareFlags,
         pool_.get(),
-        &nonReclaimableSection_,
-        &numSpillRuns_);
+        &nonReclaimableSection_);
 
     RowVectorPtr data = makeRowVector(
         {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
@@ -155,8 +153,7 @@ TEST_F(SortBufferTest, multipleKeys) {
       sortColumnIndices_,
       sortCompareFlags_,
       pool_.get(),
-      &nonReclaimableSection_,
-      &numSpillRuns_);
+      &nonReclaimableSection_);
 
   RowVectorPtr data = makeRowVector(
       {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
@@ -236,8 +233,7 @@ TEST_F(SortBufferTest, DISABLED_randomData) {
         testData.sortColumnIndices,
         testData.sortCompareFlags,
         pool_.get(),
-        &nonReclaimableSection_,
-        &numSpillRuns_);
+        &nonReclaimableSection_);
 
     const std::shared_ptr<memory::MemoryPool> fuzzerPool =
         memory::addDefaultLeafMemoryPool("VectorFuzzer");
@@ -308,7 +304,6 @@ TEST_F(SortBufferTest, batchOutput) {
         sortCompareFlags_,
         pool_.get(),
         &nonReclaimableSection_,
-        &numSpillRuns_,
         testData.triggerSpill ? &spillConfig : nullptr,
         0);
     ASSERT_EQ(sortBuffer->canSpill(), testData.triggerSpill);
@@ -402,7 +397,6 @@ TEST_F(SortBufferTest, spill) {
         sortCompareFlags_,
         pool_.get(),
         &nonReclaimableSection_,
-        &numSpillRuns_,
         testData.spillEnabled ? &spillConfig : nullptr,
         testData.spillMemoryThreshold);
 
@@ -462,7 +456,6 @@ TEST_F(SortBufferTest, emptySpill) {
         sortCompareFlags_,
         pool_.get(),
         &nonReclaimableSection_,
-        &numSpillRuns_,
         &spillConfig,
         0);
 

@@ -672,7 +672,6 @@ void HashBuild::runSpill(const std::vector<Operator*>& spillOperators) {
   for (auto& spillOp : spillOperators) {
     HashBuild* build = dynamic_cast<HashBuild*>(spillOp);
     VELOX_CHECK_NOT_NULL(build);
-    ++build->numSpillRuns_;
     build->addAndClearSpillTarget(targetRows, targetBytes);
   }
   VELOX_CHECK_GT(targetRows, 0);
@@ -1133,7 +1132,6 @@ void HashBuild::reclaim(
   auto* spillExecutor = spillConfig()->executor;
   for (auto* op : operators) {
     HashBuild* buildOp = static_cast<HashBuild*>(op);
-    ++buildOp->numSpillRuns_;
     spillTasks.push_back(
         std::make_shared<AsyncSource<SpillResult>>([buildOp]() {
           try {

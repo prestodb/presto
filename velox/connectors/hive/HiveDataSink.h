@@ -354,12 +354,16 @@ struct HiveWriterInfo {
       std::shared_ptr<memory::MemoryPool> _sortPool)
       : writerParameters(std::move(parameters)),
         nonReclaimableSectionHolder(new tsan_atomic<bool>(false)),
+        spillStats(new common::SpillStats()),
         writerPool(std::move(_writerPool)),
         sinkPool(std::move(_sinkPool)),
         sortPool(std::move(_sortPool)) {}
 
   const HiveWriterParameters writerParameters;
   const std::unique_ptr<tsan_atomic<bool>> nonReclaimableSectionHolder;
+  /// Collects the spill stats from sort writer if the spilling has been
+  /// triggered.
+  const std::unique_ptr<common::SpillStats> spillStats;
   const std::shared_ptr<memory::MemoryPool> writerPool;
   const std::shared_ptr<memory::MemoryPool> sinkPool;
   const std::shared_ptr<memory::MemoryPool> sortPool;
@@ -420,15 +424,23 @@ class HiveDataSink : public DataSink {
 
   void appendData(RowVectorPtr input) override;
 
-  int64_t getCompletedBytes() const override;
+  Stats stats() const override;
 
-  int32_t numWrittenFiles() const override;
+  std::vector<std::string> close() override;
 
-  std::vector<std::string> close(bool success) override;
+  void abort() override;
 
   bool canReclaim() const;
 
  private:
+  enum class State { kRunning = 0, kAborted = 1, kClosed = 2 };
+
+  static std::string stateString(State state);
+
+  // Validates the state transition from 'oldState' to 'newState'.
+  void checkStateTransition(State oldState, State newState);
+  void setState(State newState);
+
   class WriterReclaimer : public exec::MemoryReclaimer {
    public:
     static std::unique_ptr<memory::MemoryReclaimer> create(
@@ -517,23 +529,14 @@ class HiveDataSink : public DataSink {
 
   HiveWriterParameters::UpdateMode getUpdateMode() const;
 
-  FOLLY_ALWAYS_INLINE bool closedOrAborted() const {
-    VELOX_CHECK(!(closed_ && aborted_));
-    return closed_ || aborted_;
-  }
-
-  FOLLY_ALWAYS_INLINE void checkNotClosed() const {
-    VELOX_CHECK(!closed_, "Hive data sink has been closed");
-  }
-
-  FOLLY_ALWAYS_INLINE void checkNotAborted() const {
-    VELOX_CHECK(!aborted_, "Hive data sink hash been aborted");
+  FOLLY_ALWAYS_INLINE void checkRunning() const {
+    VELOX_CHECK_EQ(state_, State::kRunning, "Hive data sink is not running");
   }
 
   // Invoked to write 'input' to the specified file writer.
   void write(size_t index, const VectorPtr& input);
 
-  void closeInternal(bool abort);
+  void closeInternal();
 
   const RowTypePtr inputType_;
   const std::shared_ptr<const HiveInsertTableHandle> insertTableHandle_;
@@ -551,10 +554,8 @@ class HiveDataSink : public DataSink {
   std::vector<column_index_t> sortColumnIndices_;
   std::vector<CompareFlags> sortCompareFlags_;
 
-  bool closed_{false};
-  bool aborted_{false};
+  State state_{State::kRunning};
 
-  uint32_t numSpillRuns_{0};
   tsan_atomic<bool> nonReclaimableSection_{false};
 
   // The map from writer id to the writer index in 'writers_' and 'writerInfo_'.

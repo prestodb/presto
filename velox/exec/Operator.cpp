@@ -351,10 +351,11 @@ void Operator::recordSpillStats(const common::SpillStats& spillStats) {
                 Timestamp::kNanosecondsInMicrosecond),
             RuntimeCounter::Unit::kNanos});
   }
-  if (numSpillRuns_ != 0) {
+  if (spillStats.spillRuns != 0) {
     lockedStats->addRuntimeStat(
-        "spillRuns", RuntimeCounter{static_cast<int64_t>(numSpillRuns_)});
-    common::updateGlobalSpillRunStats(numSpillRuns_);
+        "spillRuns",
+        RuntimeCounter{static_cast<int64_t>(spillStats.spillRuns)});
+    common::updateGlobalSpillRunStats(spillStats.spillRuns);
   }
 
   if (spillStats.spillMaxLevelExceededCount != 0) {

@@ -186,11 +186,7 @@ class TableWriter : public Operator {
 
   void abortDataSink();
 
-  // Updates physicalWrittenBytes in OperatorStats with current written bytes.
-  void updateWrittenBytes();
-
-  // Updates numWrittenFiles in runtimeStats.
-  void updateNumWrittenFiles();
+  void updateStats(const connector::DataSink::Stats& stats);
 
   std::string createTableCommitContext(bool lastOutput);
 

@@ -357,8 +357,7 @@ bool HiveDataSink::canReclaim() const {
 }
 
 void HiveDataSink::appendData(RowVectorPtr input) {
-  checkNotAborted();
-  checkNotClosed();
+  checkRunning();
 
   // Write to unpartitioned table.
   if (!isPartitioned()) {
@@ -404,6 +403,19 @@ void HiveDataSink::write(size_t index, const VectorPtr& input) {
   writerInfo_[index]->numWrittenRows += input->size();
 }
 
+std::string HiveDataSink::stateString(State state) {
+  switch (state) {
+    case State::kRunning:
+      return "RUNNING";
+    case State::kClosed:
+      return "CLOSED";
+    case State::kAborted:
+      return "ABORTED";
+    default:
+      VELOX_UNREACHABLE("BAD STATE: {}", static_cast<int>(state));
+  }
+}
+
 void HiveDataSink::computePartitionAndBucketIds(const RowVectorPtr& input) {
   VELOX_CHECK(isPartitioned());
   partitionIdGenerator_->run(input, partitionIds_);
@@ -412,18 +424,31 @@ void HiveDataSink::computePartitionAndBucketIds(const RowVectorPtr& input) {
   }
 }
 
-int64_t HiveDataSink::getCompletedBytes() const {
-  checkNotAborted();
-
-  int64_t completedBytes{0};
-  for (const auto& ioStats : ioStats_) {
-    completedBytes += ioStats->rawBytesWritten();
+DataSink::Stats HiveDataSink::stats() const {
+  Stats stats;
+  if (state_ == State::kAborted) {
+    return stats;
   }
-  return completedBytes;
-}
 
-int32_t HiveDataSink::numWrittenFiles() const {
-  return writers_.size();
+  int64_t numWrittenBytes{0};
+  for (const auto& ioStats : ioStats_) {
+    numWrittenBytes += ioStats->rawBytesWritten();
+  }
+  stats.numWrittenBytes = numWrittenBytes;
+
+  if (state_ != State::kClosed) {
+    return stats;
+  }
+
+  stats.numWrittenFiles = writers_.size();
+  for (int i = 0; i < writerInfo_.size(); ++i) {
+    const auto& info = writerInfo_.at(i);
+    VELOX_CHECK_NOT_NULL(info);
+    if (!info->spillStats->empty()) {
+      stats.spillStats += *info->spillStats;
+    }
+  }
+  return stats;
 }
 
 std::shared_ptr<memory::MemoryPool> HiveDataSink::createWriterPool(
@@ -445,19 +470,36 @@ void HiveDataSink::setMemoryReclaimers(HiveWriterInfo* writerInfo) {
   // writer.
 }
 
-std::vector<std::string> HiveDataSink::close(bool success) {
-  TestValue::adjust(
-      "facebook::velox::connector::hive::HiveDataSink::close", this);
-  closeInternal(!success);
-  if (!success) {
-    VELOX_CHECK(aborted_);
-    return {};
+void HiveDataSink::setState(State newState) {
+  checkStateTransition(state_, newState);
+  state_ = newState;
+}
+
+/// Validates the state transition from 'oldState' to 'newState'.
+void HiveDataSink::checkStateTransition(State oldState, State newState) {
+  switch (oldState) {
+    case State::kRunning:
+      if (newState == State::kAborted || newState == State::kClosed) {
+        return;
+      }
+      break;
+    case State::kAborted:
+      [[fallthrough]];
+    case State::kClosed:
+      [[fallthrough]];
+    default:
+      break;
   }
-  VELOX_CHECK(closed_);
+  VELOX_FAIL("Unexpected state transition from {} to {}", oldState, newState);
+}
+
+std::vector<std::string> HiveDataSink::close() {
+  checkRunning();
+  state_ = State::kClosed;
+  closeInternal();
 
   std::vector<std::string> partitionUpdates;
   partitionUpdates.reserve(writerInfo_.size());
-
   for (int i = 0; i < writerInfo_.size(); ++i) {
     const auto& info = writerInfo_.at(i);
     VELOX_CHECK_NOT_NULL(info);
@@ -487,26 +529,24 @@ std::vector<std::string> HiveDataSink::close(bool success) {
   return partitionUpdates;
 }
 
-void HiveDataSink::closeInternal(bool abort) {
-  if (closedOrAborted()) {
-    if (abort) {
-      // We can't call abort on a closed data sink.
-      VELOX_CHECK(aborted_, "Can't abort a closed hive data sink");
-    } else {
-      // We can't call close on an aborted data sink.
-      VELOX_CHECK(closed_, "Can't close an aborted hive data sink");
-    }
-    return;
-  }
+void HiveDataSink::abort() {
+  checkRunning();
+  state_ = State::kAborted;
+  closeInternal();
+}
 
-  if (!abort) {
-    closed_ = true;
+void HiveDataSink::closeInternal() {
+  VELOX_CHECK_NE(state_, State::kRunning);
+
+  TestValue::adjust(
+      "facebook::velox::connector::hive::HiveDataSink::closeInternal", this);
+
+  if (state_ == State::kClosed) {
     for (int i = 0; i < writers_.size(); ++i) {
       WRITER_NON_RECLAIMABLE_SECTION_GUARD(i);
       writers_[i]->close();
     }
   } else {
-    aborted_ = true;
     for (int i = 0; i < writers_.size(); ++i) {
       WRITER_NON_RECLAIMABLE_SECTION_GUARD(i);
       writers_[i]->abort();
@@ -605,13 +645,13 @@ HiveDataSink::maybeCreateBucketSortWriter(
       sortCompareFlags_,
       sortPool,
       writerInfo_.back()->nonReclaimableSectionHolder.get(),
-      &numSpillRuns_,
       spillConfig_);
   return std::make_unique<dwio::common::SortingWriter>(
       std::move(writer),
       std::move(sortBuffer),
       HiveConfig::sortWriterMaxOutputRows(connectorQueryCtx_->config()),
-      HiveConfig::sortWriterMaxOutputBytes(connectorQueryCtx_->config()));
+      HiveConfig::sortWriterMaxOutputBytes(connectorQueryCtx_->config()),
+      writerInfo_.back()->spillStats.get());
 }
 
 void HiveDataSink::splitInputRowsAndEnsureWriters() {

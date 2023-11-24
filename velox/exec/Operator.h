@@ -713,9 +713,6 @@ class Operator : public BaseRuntimeStatWriter {
 
   std::unordered_map<column_index_t, std::shared_ptr<common::Filter>>
       dynamicFilters_;
-
-  /// The number of times that spilling run on this operator.
-  uint32_t numSpillRuns_{0};
 };
 
 /// Given a row type returns indices for the specified subset of columns.

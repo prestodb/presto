@@ -246,7 +246,6 @@ void HashProbe::maybeSetupSpillInput(
   // If 'spillInputPartitionIds_' is not empty, then we set up a spiller to
   // spill the incoming probe inputs.
   const auto& spillConfig = spillConfig_.value();
-  ++numSpillRuns_;
   spiller_ = std::make_unique<Spiller>(
       Spiller::Type::kHashJoinProbe,
       probeType_,

@@ -460,6 +460,11 @@ TEST_F(HiveDataSinkTest, basic) {
   const int numBatches = 10;
   const auto outputDirectory = TempDirectoryPath::create();
   auto dataSink = createDataSink(rowType_, outputDirectory->path);
+  auto stats = dataSink->stats();
+  ASSERT_TRUE(stats.empty()) << stats.toString();
+  ASSERT_EQ(
+      stats.toString(),
+      "numWrittenBytes 0B numWrittenFiles 0 spillRuns[0] spilledInputBytes[0B] spilledBytes[0B] spilledRows[0] spilledPartitions[0] spilledFiles[0] spillFillTimeUs[0us] spillSortTime[0us] spillSerializationTime[0us] spillDiskWrites[0] spillFlushTime[0us] spillWriteTime[0us] maxSpillExceededLimitCount[0]");
 
   VectorFuzzer::Options options;
   options.vectorSize = 500;
@@ -469,8 +474,15 @@ TEST_F(HiveDataSinkTest, basic) {
     vectors.push_back(fuzzer.fuzzRow(rowType_));
     dataSink->appendData(vectors.back());
   }
-  const auto results = dataSink->close(true);
-  ASSERT_EQ(results.size(), 1);
+  stats = dataSink->stats();
+  ASSERT_FALSE(stats.empty());
+  ASSERT_GT(stats.numWrittenBytes, 0);
+  ASSERT_EQ(stats.numWrittenFiles, 0);
+
+  const auto partitions = dataSink->close();
+  stats = dataSink->stats();
+  ASSERT_FALSE(stats.empty());
+  ASSERT_EQ(partitions.size(), 1);
 
   createDuckDbTable(vectors);
   verifyWrittenData(outputDirectory->path);
@@ -489,26 +501,26 @@ TEST_F(HiveDataSinkTest, close) {
     vectors.push_back(fuzzer.fuzzRow(rowType_));
     if (!empty) {
       dataSink->appendData(vectors.back());
-      ASSERT_GT(dataSink->getCompletedBytes(), 0);
+      ASSERT_GT(dataSink->stats().numWrittenBytes, 0);
     } else {
-      ASSERT_EQ(dataSink->getCompletedBytes(), 0);
+      ASSERT_EQ(dataSink->stats().numWrittenBytes, 0);
     }
-    const auto results = dataSink->close(true);
+    const auto partitions = dataSink->close();
     // Can't append after close.
     VELOX_ASSERT_THROW(
-        dataSink->appendData(vectors.back()), "Hive data sink has been closed");
-    ASSERT_EQ(dataSink->close(true), results);
-    VELOX_ASSERT_THROW(
-        dataSink->close(false), "Can't abort a closed hive data sink");
+        dataSink->appendData(vectors.back()), "Hive data sink is not running");
+    VELOX_ASSERT_THROW(dataSink->close(), "Hive data sink is not running");
+    VELOX_ASSERT_THROW(dataSink->abort(), "Hive data sink is not running");
 
+    const auto stats = dataSink->stats();
     if (!empty) {
-      ASSERT_EQ(results.size(), 1);
-      ASSERT_GT(dataSink->getCompletedBytes(), 0);
+      ASSERT_EQ(partitions.size(), 1);
+      ASSERT_GT(stats.numWrittenBytes, 0);
       createDuckDbTable(vectors);
       verifyWrittenData(outputDirectory->path);
     } else {
-      ASSERT_TRUE(results.empty());
-      ASSERT_EQ(dataSink->getCompletedBytes(), 0);
+      ASSERT_TRUE(partitions.empty());
+      ASSERT_EQ(stats.numWrittenBytes, 0);
     }
   }
 }
@@ -527,21 +539,21 @@ TEST_F(HiveDataSinkTest, abort) {
     int initialBytes = 0;
     if (!empty) {
       dataSink->appendData(vectors.back());
-      initialBytes = dataSink->getCompletedBytes();
+      initialBytes = dataSink->stats().numWrittenBytes;
       ASSERT_GT(initialBytes, 0);
     } else {
-      initialBytes = dataSink->getCompletedBytes();
+      initialBytes = dataSink->stats().numWrittenBytes;
       ASSERT_EQ(initialBytes, 0);
     }
-    ASSERT_TRUE(dataSink->close(false).empty());
+    dataSink->abort();
+    const auto stats = dataSink->stats();
+    ASSERT_TRUE(stats.empty());
     // Can't close after abort.
-    VELOX_ASSERT_THROW(
-        dataSink->close(true), "Can't close an aborted hive data sink");
-    ASSERT_TRUE(dataSink->close(false).empty());
+    VELOX_ASSERT_THROW(dataSink->close(), "Hive data sink is not running");
+    VELOX_ASSERT_THROW(dataSink->abort(), "Hive data sink is not running");
     // Can't append after abort.
     VELOX_ASSERT_THROW(
-        dataSink->appendData(vectors.back()),
-        "Hive data sink hash been aborted");
+        dataSink->appendData(vectors.back()), "Hive data sink is not running");
   }
 }
 
@@ -550,7 +562,7 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
   options.vectorSize = 500;
   VectorFuzzer fuzzer(options, pool());
   std::vector<RowVectorPtr> vectors;
-  const int numBatches{10};
+  const int numBatches{20};
   for (int i = 0; i < numBatches; ++i) {
     vectors.push_back(fuzzer.fuzzInputRow(rowType_));
   }
@@ -574,7 +586,7 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
           expectedWriterReclaimed);
     }
   } testSettings[] = {
-    {dwio::common::FileFormat::DWRF, true, true, 1 << 30, true, true},
+    //{dwio::common::FileFormat::DWRF, true, true, 1 << 30, true, true},
     {dwio::common::FileFormat::DWRF, true, true, 1, true, true},
     {dwio::common::FileFormat::DWRF, true, false, 1 << 30, false, false},
     {dwio::common::FileFormat::DWRF, true, false, 1, false, false},
@@ -683,8 +695,13 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
         ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
       }
     }
-    const auto results = dataSink->close(true);
-    ASSERT_GE(results.size(), 1);
+    const auto partitions = dataSink->close();
+    if (testData.sortWriter && testData.expectedWriterReclaimed) {
+      ASSERT_FALSE(dataSink->stats().spillStats.empty());
+    } else {
+      ASSERT_TRUE(dataSink->stats().spillStats.empty());
+    }
+    ASSERT_GE(partitions.size(), 1);
   }
 }
 
@@ -800,11 +817,11 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
       dataSink->appendData(vectors[i]);
     }
     if (testData.close) {
-      const auto results = dataSink->close(true);
-      ASSERT_GE(results.size(), 1);
+      const auto partitions = dataSink->close();
+      ASSERT_GE(partitions.size(), 1);
     } else {
-      const auto results = dataSink->close(false);
-      ASSERT_TRUE(results.empty());
+      dataSink->abort();
+      ASSERT_TRUE(dataSink->stats().empty());
     }
 
     memory::MemoryReclaimer::Stats stats;

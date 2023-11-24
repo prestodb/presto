@@ -29,7 +29,8 @@ class SortingWriter : public Writer {
       std::unique_ptr<Writer> writer,
       std::unique_ptr<exec::SortBuffer> sortBuffer,
       uint32_t maxOutputRowsConfig,
-      uint64_t maxOutputBytesConfig);
+      uint64_t maxOutputBytesConfig,
+      velox::common::SpillStats* spillStats);
 
   void write(const VectorPtr& data) override;
 
@@ -75,9 +76,10 @@ class SortingWriter : public Writer {
   const std::unique_ptr<Writer> outputWriter_;
   const uint32_t maxOutputRowsConfig_;
   const uint64_t maxOutputBytesConfig_;
-
   memory::MemoryPool* const sortPool_;
   const bool canReclaim_;
+  velox::common::SpillStats* const spillStats_;
+
   std::unique_ptr<exec::SortBuffer> sortBuffer_;
 };
 

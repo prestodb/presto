@@ -21,6 +21,7 @@
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/dwio/common/WriterFactory.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -3037,15 +3038,15 @@ DEBUG_ONLY_TEST_P(UnpartitionedTableWriterTest, dataSinkAbortError) {
         VELOX_FAIL("inject writer error");
       }));
 
-  std::atomic<bool> triggerCloseErrorOnce{true};
+  std::atomic<bool> triggerAbortErrorOnce{true};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::connector::hive::HiveDataSink::close",
+      "facebook::velox::connector::hive::HiveDataSink::closeInternal",
       std::function<void(const HiveDataSink*)>(
           [&](const HiveDataSink* /*unused*/) {
-            if (!triggerCloseErrorOnce.exchange(false)) {
+            if (!triggerAbortErrorOnce.exchange(false)) {
               return;
             }
-            VELOX_FAIL("inject close error");
+            VELOX_FAIL("inject abort error");
           }));
 
   auto outputDirectory = TempDirectoryPath::create();
@@ -3055,6 +3056,8 @@ DEBUG_ONLY_TEST_P(UnpartitionedTableWriterTest, dataSinkAbortError) {
                   .planNode();
   VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan).copyResults(pool()), "inject writer error");
+  ASSERT_FALSE(triggerWriterErrorOnce);
+  ASSERT_FALSE(triggerAbortErrorOnce);
 }
 
 TEST_P(BucketSortOnlyTableWriterTest, sortWriterSpill) {
@@ -3076,12 +3079,26 @@ TEST_P(BucketSortOnlyTableWriterTest, sortWriterSpill) {
       commitStrategy_);
 
   const auto spillStats = globalSpillStats();
-  assertQueryWithWriterConfigs(op, fmt::format("SELECT {}", 5 * 500), true);
+  auto task =
+      assertQueryWithWriterConfigs(op, fmt::format("SELECT {}", 5 * 500), true);
   verifyTableWriterOutput(outputDirectory->path, rowType_);
-  // TODO: add to check task spill stats later.
   const auto updatedSpillStats = globalSpillStats();
   ASSERT_GT(updatedSpillStats.spilledBytes, spillStats.spilledBytes);
   ASSERT_GT(updatedSpillStats.spilledPartitions, spillStats.spilledPartitions);
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  auto& stats = taskStats.at(tableWriteNodeId_);
+  ASSERT_GT(stats.spilledRows, 0);
+  ASSERT_GT(stats.spilledBytes, 0);
+  // One spilled partition per each written files.
+  const int numWrittenFiles = stats.customStats["numWrittenFiles"].sum;
+  ASSERT_GE(stats.spilledPartitions, numWrittenFiles);
+  ASSERT_GT(stats.customStats["spillRuns"].sum, 0);
+  ASSERT_GT(stats.customStats["spillFillTime"].sum, 0);
+  ASSERT_GT(stats.customStats["spillSortTime"].sum, 0);
+  ASSERT_GT(stats.customStats["spillSerializationTime"].sum, 0);
+  ASSERT_GT(stats.customStats["spillFlushTime"].sum, 0);
+  ASSERT_GT(stats.customStats["spillDiskWrites"].sum, 0);
+  ASSERT_GT(stats.customStats["spillWriteTime"].sum, 0);
 }
 
 DEBUG_ONLY_TEST_P(BucketSortOnlyTableWriterTest, outputBatchRows) {

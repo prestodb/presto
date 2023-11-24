@@ -18,6 +18,7 @@
 #include "velox/common/base/AsyncSource.h"
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/base/SpillConfig.h"
+#include "velox/common/base/SpillStats.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/common/future/VeloxPromise.h"
@@ -135,29 +136,33 @@ CommitStrategy stringToCommitStrategy(const std::string& strategy);
 /// to be thread-safe.
 class DataSink {
  public:
+  struct Stats {
+    uint64_t numWrittenBytes{0};
+    uint32_t numWrittenFiles{0};
+    common::SpillStats spillStats;
+
+    bool empty() const;
+
+    std::string toString() const;
+  };
+
   virtual ~DataSink() = default;
 
   /// Add the next data (vector) to be written. This call is blocking.
   /// TODO maybe at some point we want to make it async.
   virtual void appendData(RowVectorPtr input) = 0;
 
-  /// Returns the number of bytes written on disk by this data sink so far.
-  virtual int64_t getCompletedBytes() const {
-    return 0;
-  }
-
-  /// Returns the number of files written on disk by this data sink so far.
-  virtual int32_t numWrittenFiles() const {
-    return 0;
-  }
+  /// Returns the stats of this data sink.
+  virtual Stats stats() const = 0;
 
   /// Called once after all data has been added via possibly multiple calls to
   /// appendData(). The function returns the metadata of written data in string
-  /// form on success. If 'success' is false, this function aborts any pending
-  /// data processing inside this data sink.
-  ///
-  /// NOTE: we don't expect any appendData() calls on a closed data sink object.
-  virtual std::vector<std::string> close(bool success) = 0;
+  /// form. We don't expect any appendData() calls on a closed data sink object.
+  virtual std::vector<std::string> close() = 0;
+
+  /// Called to abort this data sink object and we don't expect any appendData()
+  /// calls on an aborted data sink object.
+  virtual void abort() = 0;
 };
 
 class DataSource {
