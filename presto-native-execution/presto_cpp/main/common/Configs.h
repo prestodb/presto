@@ -322,6 +322,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeConnectTimeout{
       "exchange.http-client.connect-timeout"};
 
+  /// Whether connection pool should be enabled for exchange HTTP client.
+  static constexpr std::string_view kExchangeEnableConnectionPool{
+      "exchange.http-client.enable-connection-pool"};
+
   /// The maximum timeslice for a task on thread if there are threads queued.
   static constexpr std::string_view kTaskRunTimeSliceMicros{
       "task-run-timeslice-micros"};
@@ -520,6 +524,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> exchangeRequestTimeoutMs() const;
 
   std::chrono::duration<double> exchangeConnectTimeoutMs() const;
+
+  bool exchangeEnableConnectionPool() const;
 
   bool exchangeImmediateBufferTransfer() const;
 

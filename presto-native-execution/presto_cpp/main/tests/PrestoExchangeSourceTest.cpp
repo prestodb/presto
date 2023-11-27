@@ -441,7 +441,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         pool != nullptr ? pool : pool_.get(),
         exchangeCpuExecutor_.get(),
         exchangeIoExecutor_.get(),
-        connectionPools_);
+        &connectionPools_);
   }
 
   void requestNextPage(
