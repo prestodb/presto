@@ -43,6 +43,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_GRACEFUL_SHUTDOWN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
@@ -118,14 +119,16 @@ public class MockExchangeRequestProcessor
             status = HttpStatus.NO_CONTENT;
         }
 
+        ImmutableListMultimap.Builder<String, String> builder = ImmutableListMultimap.builder();
+        builder.put(CONTENT_TYPE, PRESTO_PAGES);
+        builder.put(PRESTO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()));
+        builder.put(PRESTO_PAGE_TOKEN, String.valueOf(result.getToken()));
+        builder.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()));
+        builder.put(PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete()));
+        builder.put(PRESTO_GRACEFUL_SHUTDOWN, String.valueOf(false));
         return new TestingResponse(
                 status,
-                ImmutableListMultimap.of(
-                        CONTENT_TYPE, PRESTO_PAGES,
-                        PRESTO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()),
-                        PRESTO_PAGE_TOKEN, String.valueOf(result.getToken()),
-                        PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
-                        PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())),
+                builder.build(),
                 bytes);
     }
 
