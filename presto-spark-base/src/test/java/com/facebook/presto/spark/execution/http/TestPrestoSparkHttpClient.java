@@ -89,6 +89,7 @@ import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static com.facebook.presto.client.NodeVersion.UNKNOWN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_GRACEFUL_SHUTDOWN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
@@ -1084,6 +1085,7 @@ public class TestPrestoSparkHttpClient
                 headers.put(HeaderName.of(PRESTO_BUFFER_COMPLETE), String.valueOf(bufferComplete));
                 headers.put(HeaderName.of(PRESTO_TASK_INSTANCE_ID), taskId);
                 headers.put(HeaderName.of(CONTENT_TYPE), PRESTO_PAGES_TYPE.toString());
+                headers.put(HeaderName.of(PRESTO_GRACEFUL_SHUTDOWN), String.valueOf(false));
                 return new TestingResponse(
                         httpStatus.code(),
                         httpStatus.toString(),

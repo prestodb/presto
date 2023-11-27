@@ -29,6 +29,7 @@ import io.airlift.slice.DynamicSliceOutput;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_GRACEFUL_SHUTDOWN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
@@ -72,6 +73,7 @@ public class TestingExchangeHttpClientHandler
         if (page != null) {
             headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
             headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
+            headers.put(PRESTO_GRACEFUL_SHUTDOWN, String.valueOf(false));
             DynamicSliceOutput output = new DynamicSliceOutput(256);
             PagesSerdeUtil.writePages(PAGES_SERDE, output, page);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
@@ -79,11 +81,13 @@ public class TestingExchangeHttpClientHandler
         else if (taskBuffer.isFinished()) {
             headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
             headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(true));
+            headers.put(PRESTO_GRACEFUL_SHUTDOWN, String.valueOf(false));
             return new TestingResponse(HttpStatus.OK, headers.build(), new byte[0]);
         }
         else {
             headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
             headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
+            headers.put(PRESTO_GRACEFUL_SHUTDOWN, String.valueOf(false));
             return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
         }
     }
