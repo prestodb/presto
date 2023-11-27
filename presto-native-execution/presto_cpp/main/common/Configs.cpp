@@ -137,8 +137,8 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, 16),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
-          NUM_PROP(kHttpExecThreads, std::thread::hardware_concurrency()),
-          NUM_PROP(kNumHttpCpuThreads, std::thread::hardware_concurrency()),
+          NUM_PROP(kHttpServerNumIoThreadsHwMultiplier, 1.0),
+          NUM_PROP(kHttpServerNumCpuThreadsHwMultiplier, 1.0),
           NONE_PROP(kHttpServerHttpsPort),
           STR_PROP(kHttpServerHttpsEnabled, "false"),
           STR_PROP(
@@ -305,12 +305,12 @@ int32_t SystemConfig::concurrentLifespansPerTask() const {
   return optionalProperty<int32_t>(kConcurrentLifespansPerTask).value();
 }
 
-int32_t SystemConfig::httpExecThreads() const {
-  return optionalProperty<int32_t>(kHttpExecThreads).value();
+double SystemConfig::numHttpIoThreadsHwMultiplier() const {
+  return optionalProperty<double>(kHttpServerNumIoThreadsHwMultiplier).value();
 }
 
-int32_t SystemConfig::numHttpCpuThreads() const {
-  return optionalProperty<int32_t>(kNumHttpCpuThreads).value();
+double SystemConfig::numHttpCpuThreadsHwMultiplier() const {
+  return optionalProperty<double>(kHttpServerNumCpuThreadsHwMultiplier).value();
 }
 
 int32_t SystemConfig::numIoThreads() const {

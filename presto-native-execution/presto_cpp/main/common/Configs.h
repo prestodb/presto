@@ -164,8 +164,17 @@ class SystemConfig : public ConfigBase {
       "task.max-drivers-per-task"};
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
-  static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
-  static constexpr std::string_view kNumHttpCpuThreads{"num-http-cpu-threads"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for HTTP IO executor: hw_concurrency x multiplier. 1.0 is default.
+  static constexpr std::string_view kHttpServerNumIoThreadsHwMultiplier{
+      "http-server.num-io-threads-hw-multiplier"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for HTTP CPU executor: hw_concurrency x multiplier. 1.0 is default.
+  static constexpr std::string_view kHttpServerNumCpuThreadsHwMultiplier{
+      "http-server.num-cpu-threads-hw-multiplier"};
+
   static constexpr std::string_view kHttpServerHttpsPort{
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
@@ -433,9 +442,9 @@ class SystemConfig : public ConfigBase {
 
   int32_t concurrentLifespansPerTask() const;
 
-  int32_t httpExecThreads() const;
+  double numHttpIoThreadsHwMultiplier() const;
 
-  int32_t numHttpCpuThreads() const;
+  double numHttpCpuThreadsHwMultiplier() const;
 
   /// Size of global IO executor.
   int32_t numIoThreads() const;
