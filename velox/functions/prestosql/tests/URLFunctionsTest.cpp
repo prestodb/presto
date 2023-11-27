@@ -23,11 +23,11 @@ class URLFunctionsTest : public functions::test::FunctionBaseTest {
  protected:
   void validate(
       const std::string& url,
-      const std::string& expectedProtocol,
-      const std::string& expectedHost,
-      const std::string& expectedPath,
-      const std::string& expectedFragment,
-      const std::string& expectedQuery,
+      const std::optional<std::string>& expectedProtocol,
+      const std::optional<std::string>& expectedHost,
+      const std::optional<std::string>& expectedPath,
+      const std::optional<std::string>& expectedFragment,
+      const std::optional<std::string>& expectedQuery,
       const std::optional<int32_t> expectedPort) {
     const auto extractFn = [&](const std::string& fn,
                                const std::optional<std::string>& a) {
@@ -40,7 +40,7 @@ class URLFunctionsTest : public functions::test::FunctionBaseTest {
     };
 
     EXPECT_EQ(extractFn("protocol", url), expectedProtocol);
-    EXPECT_EQ(extractFn("host", url).value(), expectedHost);
+    EXPECT_EQ(extractFn("host", url), expectedHost);
     EXPECT_EQ(extractFn("path", url), expectedPath);
     EXPECT_EQ(extractFn("fragment", url), expectedFragment);
     EXPECT_EQ(extractFn("query", url), expectedQuery);
@@ -97,7 +97,23 @@ TEST_F(URLFunctionsTest, validateURL) {
       "",
       "",
       std::nullopt);
-  validate("foo", "", "", "", "", "", std::nullopt);
+  validate(
+      "https://www.ucu.edu.uy/agenda/evento/%%UCUrlCompartir%%",
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt);
+  validate("foo", "", "", "foo", "", "", std::nullopt);
+  validate(
+      "foo ",
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt);
 }
 
 TEST_F(URLFunctionsTest, extractPath) {
@@ -105,10 +121,18 @@ TEST_F(URLFunctionsTest, extractPath) {
     return evaluateOnce<std::string>("url_extract_path(c0)", url);
   };
 
-  ASSERT_EQ(
+  EXPECT_EQ(
       "/media/set/Books and Magazines.php",
       extractPath(
           "https://www.cnn.com/media/set/Books%20and%20Magazines.php?foo=bar"));
+
+  EXPECT_EQ(
+      "java-net@java.sun.com", extractPath("mailto:java-net@java.sun.com"));
+  EXPECT_EQ(
+      std::nullopt,
+      extractPath("https://www.ucu.edu.uy/agenda/evento/%%UCUrlCompartir%%"));
+  EXPECT_EQ("foo", extractPath("foo"));
+  EXPECT_EQ(std::nullopt, extractPath("BAD URL!"));
 }
 
 TEST_F(URLFunctionsTest, extractParameter) {

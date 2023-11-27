@@ -25,7 +25,7 @@ bool matchAuthorityAndPath(
     boost::cmatch& authorityMatch,
     bool& hasAuthority) {
   static const boost::regex kAuthorityAndPathRegex("//([^/]*)(/.*)?");
-  auto authorityAndPath = submatch(urlMatch, 2);
+  auto authorityAndPath = submatch(urlMatch, 3);
   if (!boost::regex_match(
           authorityAndPath.begin(),
           authorityAndPath.end(),
