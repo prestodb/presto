@@ -1859,7 +1859,7 @@ public class ExpressionAnalyzer
     {
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
-        Analysis analysis = new Analysis(null, parameters, isDescribe);
+        Analysis analysis = new Analysis(null, MultiLineParameters.from(parameters), isDescribe);
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());
@@ -1995,7 +1995,7 @@ public class ExpressionAnalyzer
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
                 types,
-                analysis.getParameters(),
+                analysis.getParameters().getFirstRowOfParametersIfExists(),
                 warningCollector,
                 analysis.isDescribe(),
                 ImmutableMap.of());
@@ -2018,7 +2018,7 @@ public class ExpressionAnalyzer
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
                 types,
-                analysis.getParameters(),
+                analysis.getParameters().getFirstRowOfParametersIfExists(),
                 warningCollector,
                 analysis.isDescribe(),
                 outerScopeSymbolTypes);

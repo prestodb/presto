@@ -251,7 +251,7 @@ public class LogicalPlanner
                 destination,
                 getOutputTableColumns(plan, analysis.getColumnAliases()),
                 analysis.getCreateTableProperties(),
-                analysis.getParameters(),
+                analysis.getParameters().getFirstRowOfParametersIfExists(),
                 analysis.getCreateTableComment());
         Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
         Optional<NewTableLayout> preferredShuffleLayout = metadata.getPreferredShuffleLayoutForNewTable(session, destination.getCatalogName(), tableMetadata);

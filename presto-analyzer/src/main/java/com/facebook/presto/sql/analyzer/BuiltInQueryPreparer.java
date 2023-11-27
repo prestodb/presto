@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -118,6 +119,21 @@ public class BuiltInQueryPreparer
     private static void validateParameters(Statement node, List<Expression> parameterValues)
     {
         int parameterCount = getParameterCount(node);
+        if (parameterCount > 0 && parameterValues.isEmpty()) {
+            throw new SemanticException(INVALID_PARAMETER_USAGE, node, "Incorrect number of parameters: expected %s but found %s", parameterCount, 0);
+        }
+        for (Expression expression : parameterValues) {
+            if (!(expression instanceof Row)) {
+                validateSingleRowParameter(parameterCount, node, ImmutableList.of(expression));
+            }
+            else {
+                validateSingleRowParameter(parameterCount, node, ((Row) expression).getItems());
+            }
+        }
+    }
+
+    private static void validateSingleRowParameter(int parameterCount, Statement node, List<Expression> parameterValues)
+    {
         if (parameterValues.size() != parameterCount) {
             throw new SemanticException(INVALID_PARAMETER_USAGE, node, "Incorrect number of parameters: expected %s but found %s", parameterCount, parameterValues.size());
         }

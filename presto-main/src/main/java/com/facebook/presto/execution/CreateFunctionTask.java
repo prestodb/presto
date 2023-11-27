@@ -27,13 +27,13 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.MultiLineParameters;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.RoutineBody;
 import com.facebook.presto.transaction.TransactionManager;
@@ -42,7 +42,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -83,7 +82,7 @@ public class CreateFunctionTask
     @Override
     public ListenableFuture<?> execute(CreateFunction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        Map<NodeRef<com.facebook.presto.sql.tree.Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        MultiLineParameters parameterLookup = parameterExtractor(statement, parameters);
         Session session = stateMachine.getSession();
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector());
         Analysis analysis = analyzer.analyze(statement);

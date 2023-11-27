@@ -41,7 +41,6 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
-import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -94,7 +93,7 @@ public class Analysis
 {
     @Nullable
     private final Statement root;
-    private final Map<NodeRef<Parameter>, Expression> parameters;
+    private final MultiLineParameters parameters;
     private String updateType;
 
     private final Map<NodeRef<Table>, NamedQuery> namedQueries = new LinkedHashMap<>();
@@ -189,10 +188,10 @@ public class Analysis
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
 
-    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
+    public Analysis(@Nullable Statement root, MultiLineParameters parameters, boolean isDescribe)
     {
         this.root = root;
-        this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameterMap is null"));
+        this.parameters = requireNonNull(parameters, "parameterMap is null");
         this.isDescribe = isDescribe;
     }
 
@@ -797,7 +796,7 @@ public class Analysis
                 .orElse(emptyList());
     }
 
-    public Map<NodeRef<Parameter>, Expression> getParameters()
+    public MultiLineParameters getParameters()
     {
         return parameters;
     }

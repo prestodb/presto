@@ -84,7 +84,7 @@ public class TestPrepareTask
     @Test
     public void testPrepareInvalidStatement()
     {
-        Statement statement = new Execute(identifier("foo"), emptyList());
+        Statement statement = new Execute(identifier("foo"), emptyList(), false);
         String sqlString = "PREPARE my_query FROM EXECUTE foo";
         try {
             executePrepare("my_query", statement, sqlString, TEST_SESSION);

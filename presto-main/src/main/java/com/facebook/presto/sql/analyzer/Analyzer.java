@@ -24,7 +24,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -54,7 +53,7 @@ public class Analyzer
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
     private final List<Expression> parameters;
-    private final Map<NodeRef<Parameter>, Expression> parameterLookup;
+    private final MultiLineParameters parameterLookup;
     private final WarningCollector warningCollector;
     private final MetadataExtractor metadataExtractor;
 
@@ -65,7 +64,7 @@ public class Analyzer
             AccessControl accessControl,
             Optional<QueryExplainer> queryExplainer,
             List<Expression> parameters,
-            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            MultiLineParameters parameterLookup,
             WarningCollector warningCollector)
     {
         this(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, Optional.empty());
@@ -78,7 +77,7 @@ public class Analyzer
             AccessControl accessControl,
             Optional<QueryExplainer> queryExplainer,
             List<Expression> parameters,
-            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            MultiLineParameters parameterLookup,
             WarningCollector warningCollector,
             Optional<ExecutorService> metadataExtractorExecutor)
     {

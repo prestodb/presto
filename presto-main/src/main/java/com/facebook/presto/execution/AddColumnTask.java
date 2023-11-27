@@ -113,7 +113,7 @@ public class AddColumnTask
                 sqlProperties,
                 session,
                 metadata,
-                parameterExtractor(statement, parameters));
+                parameterExtractor(statement, parameters).getFirstRowOfParametersIfExists());
 
         ColumnMetadata column = new ColumnMetadata(
                 element.getName().getValue(),

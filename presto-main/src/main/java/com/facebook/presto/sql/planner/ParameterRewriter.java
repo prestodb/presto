@@ -43,7 +43,13 @@ public class ParameterRewriter
     public ParameterRewriter(Analysis analysis)
     {
         this.analysis = analysis;
-        this.parameters = analysis.getParameters();
+        this.parameters = analysis.getParameters().getFirstRowOfParametersIfExists();
+    }
+
+    public ParameterRewriter(Analysis analysis, int rowIdx)
+    {
+        this.analysis = analysis;
+        this.parameters = analysis.getParameters().getRowOfParameters(rowIdx);
     }
 
     @Override

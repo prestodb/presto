@@ -20,6 +20,7 @@ import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
+import com.facebook.presto.sql.analyzer.MultiLineParameters;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -30,12 +31,9 @@ import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
@@ -58,7 +56,7 @@ final class ExplainRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameter,
-            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            MultiLineParameters parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {

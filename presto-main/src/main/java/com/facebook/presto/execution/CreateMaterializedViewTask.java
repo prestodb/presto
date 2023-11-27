@@ -28,12 +28,11 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.MaterializedViewColumnMappingExtractor;
+import com.facebook.presto.sql.analyzer.MultiLineParameters;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -89,7 +88,7 @@ public class CreateMaterializedViewTask
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
         accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
 
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        MultiLineParameters parameterLookup = parameterExtractor(statement, parameters);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, warningCollector);
         Analysis analysis = analyzer.analyze(statement);
 
@@ -107,7 +106,7 @@ public class CreateMaterializedViewTask
                 sqlProperties,
                 session,
                 metadata,
-                parameterLookup);
+                parameterLookup.getFirstRowOfParametersIfExists());
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
                 toSchemaTableName(viewName),

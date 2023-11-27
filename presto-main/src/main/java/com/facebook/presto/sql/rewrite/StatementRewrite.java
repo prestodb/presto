@@ -17,16 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.sql.analyzer.MultiLineParameters;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -50,7 +48,7 @@ public final class StatementRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            MultiLineParameters parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
@@ -69,7 +67,7 @@ public final class StatementRewrite
                 Optional<QueryExplainer> queryExplainer,
                 Statement node,
                 List<Expression> parameters,
-                Map<NodeRef<Parameter>, Expression> parameterLookup,
+                MultiLineParameters parameterLookup,
                 AccessControl accessControl,
                 WarningCollector warningCollector);
     }

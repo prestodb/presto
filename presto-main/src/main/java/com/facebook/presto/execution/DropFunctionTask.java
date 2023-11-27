@@ -19,18 +19,16 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.MultiLineParameters;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
@@ -68,7 +66,7 @@ public class DropFunctionTask
     @Override
     public ListenableFuture<?> execute(DropFunction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        MultiLineParameters parameterLookup = parameterExtractor(statement, parameters);
         Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector());
         analyzer.analyze(statement);
         Optional<List<TypeSignature>> parameterTypes = statement.getParameterTypes().map(types -> types.stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()));

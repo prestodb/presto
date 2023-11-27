@@ -38,6 +38,7 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.QueryUtil;
+import com.facebook.presto.sql.analyzer.MultiLineParameters;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -58,9 +59,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
-import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -168,7 +167,7 @@ final class ShowQueriesRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            MultiLineParameters parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {

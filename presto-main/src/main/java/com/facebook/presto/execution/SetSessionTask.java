@@ -76,7 +76,7 @@ public class SetSessionTask
         Object objectValue;
 
         try {
-            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, parameterExtractor(statement, parameters));
+            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, parameterExtractor(statement, parameters).getFirstRowOfParametersIfExists());
         }
         catch (SemanticException e) {
             throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY,

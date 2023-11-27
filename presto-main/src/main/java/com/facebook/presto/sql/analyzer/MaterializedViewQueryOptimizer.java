@@ -771,7 +771,7 @@ public class MaterializedViewQueryOptimizer
                     accessControl,
                     sqlParser,
                     scope,
-                    new Analysis(null, ImmutableMap.of(), false),
+                    new Analysis(null, MultiLineParameters.EMPTY, false),
                     expression,
                     WarningCollector.NOOP);
         }

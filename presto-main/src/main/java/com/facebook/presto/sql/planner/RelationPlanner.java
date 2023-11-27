@@ -769,25 +769,41 @@ class RelationPlanner
         }
 
         ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
+        if (analysis.getParameters().size() > 0) {
+            for (int i = 0; i < analysis.getParameters().size(); i++) {
+                buildRow(node, i, rowsBuilder, context, scope);
+            }
+        }
+        else {
+            // rowIdx == -1 implies no parameters exists
+            buildRow(node, -1, rowsBuilder, context, scope);
+        }
+
+        context.incrementLeafNodes(session);
+        ValuesNode valuesNode = new ValuesNode(getSourceLocation(node), idAllocator.getNextId(),
+                outputVariablesBuilder.build(), rowsBuilder.build(), Optional.empty());
+        return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
+    }
+
+    private void buildRow(Values node, int rowIdx,
+                          ImmutableList.Builder<List<RowExpression>> rowsBuilder,
+                          SqlPlannerContext context, Scope scope)
+    {
         for (Expression row : node.getRows()) {
             ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
             if (row instanceof Row) {
                 for (Expression item : ((Row) row).getItems()) {
-                    values.add(rewriteRow(item, context));
+                    values.add(rewriteRow(item, context, rowIdx));
                 }
             }
             else {
-                values.add(rewriteRow(row, context));
+                values.add(rewriteRow(row, context, rowIdx));
             }
             rowsBuilder.add(values.build());
         }
-
-        context.incrementLeafNodes(session);
-        ValuesNode valuesNode = new ValuesNode(getSourceLocation(node), idAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build(), Optional.empty());
-        return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
     }
 
-    private RowExpression rewriteRow(Expression row, SqlPlannerContext context)
+    private RowExpression rewriteRow(Expression row, SqlPlannerContext context, int rowIdx)
     {
         // resolve enum literals
         Expression expression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -804,7 +820,7 @@ class RelationPlanner
             }
         }, row);
         expression = Coercer.addCoercions(expression, analysis);
-        expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), expression);
+        expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis, rowIdx), expression);
         return rowExpression(expression, context);
     }
 

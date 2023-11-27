@@ -92,7 +92,7 @@ public class CreateTableTask
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters).getFirstRowOfParametersIfExists();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (tableHandle.isPresent()) {

@@ -611,7 +611,7 @@ class StatementAnalyzer
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
-                    analysis.getParameters());
+                    analysis.getParameters().getFirstRowOfParametersIfExists());
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
 
@@ -936,7 +936,7 @@ class StatementAnalyzer
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
-            createConstantAnalyzer(metadata, session, analysis.getParameters(), warningCollector, analysis.isDescribe())
+            createConstantAnalyzer(metadata, session, analysis.getParameters().getFirstRowOfParametersIfExists(), warningCollector, analysis.isDescribe())
                     .analyze(node.getValue(), createScope(scope));
             return createAndAssignScope(node, scope);
         }
@@ -1360,7 +1360,7 @@ class StatementAnalyzer
             if (asOfExprType == UNKNOWN) {
                 throw new PrestoException(INVALID_ARGUMENTS, format("Table version AS OF expression cannot be NULL for %s", name.toString()));
             }
-            Object evalAsOfExpr = evaluateConstantExpression(asOfExpr, asOfExprType, metadata, session, analysis.getParameters());
+            Object evalAsOfExpr = evaluateConstantExpression(asOfExpr, asOfExprType, metadata, session, analysis.getParameters().getFirstRowOfParametersIfExists());
             if (tableVersionType == TIMESTAMP) {
                 if (!(asOfExprType instanceof TimestampWithTimeZoneType)) {
                     throw new SemanticException(TYPE_MISMATCH, asOfExpr,
@@ -1622,7 +1622,7 @@ class StatementAnalyzer
                     sqlParser,
                     TypeProvider.empty(),
                     relation.getSamplePercentage(),
-                    analysis.getParameters(),
+                    analysis.getParameters().getFirstRowOfParametersIfExists(),
                     warningCollector,
                     analysis.isDescribe());
             ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
@@ -1632,7 +1632,7 @@ class StatementAnalyzer
             });
             try {
                 samplePercentageObject = evaluateConstantExpression(relation.getSamplePercentage(), DOUBLE, metadata, session,
-                        analysis.getParameters());
+                        analysis.getParameters().getFirstRowOfParametersIfExists());
             }
             catch (SemanticException e) {
                 if (e.getCode() == TYPE_MISMATCH) {

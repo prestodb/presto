@@ -114,6 +114,7 @@ class AggregationAnalyzer
 
     private final FunctionAndTypeResolver functionAndTypeResolver;
     private final Analysis analysis;
+    private final Map<NodeRef<Parameter>, Expression> parameters;
 
     private final Scope sourceScope;
     private final Optional<Scope> orderByScope;
@@ -176,11 +177,12 @@ class AggregationAnalyzer
         this.orderByScope = orderByScope;
         this.functionAndTypeResolver = functionAndTypeResolver;
         this.analysis = analysis;
+        this.parameters = analysis.getParameters().getFirstRowOfParametersIfExists();
         this.warningCollector = warningCollector;
         this.session = session;
         this.functionResolution = new FunctionResolution(functionAndTypeResolver);
         this.expressions = groupByExpressions.stream()
-                .map(e -> ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters()), e))
+                .map(e -> ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), e))
                 .collect(toImmutableList());
 
         this.columnReferences = analysis.getColumnReferenceFields();
@@ -679,7 +681,6 @@ class AggregationAnalyzer
             if (analysis.isDescribe()) {
                 return true;
             }
-            Map<NodeRef<Parameter>, Expression> parameters = analysis.getParameters();
             checkArgument(node.getPosition() < parameters.size(), "Invalid parameter number %s, max values is %s", node.getPosition(), parameters.size() - 1);
             return process(parameters.get(NodeRef.of(node)), context);
         }

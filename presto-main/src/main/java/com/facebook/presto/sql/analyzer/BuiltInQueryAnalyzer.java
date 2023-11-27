@@ -90,7 +90,7 @@ public class BuiltInQueryAnalyzer
                 session.getWarningCollector(),
                 Optional.of(metadataExtractorExecutor));
 
-        Analysis analysis = analyzer.analyzeSemantic(((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery).getStatement(), false);
+        Analysis analysis = analyzer.analyzeSemantic(builtInPreparedQuery.getStatement(), false);
         return new BuiltInQueryAnalysis(analysis);
     }
 
