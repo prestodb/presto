@@ -202,7 +202,7 @@ public class BaseJdbcClient
             try (ResultSet resultSet = getTables(connection, Optional.of(schemaTableName.getSchemaName()), Optional.of(schemaTableName.getTableName()))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
-                    if (schemaTableName.getSchemaName().equals(resultSet.getString("TABLE_SCHEM")) && schemaTableName.getTableName().equals(resultSet.getString("TABLE_NAME"))) {
+                    if (schemaTableName.getTableName().equals(resultSet.getString("TABLE_NAME"))) {
                         tableHandles.add(new JdbcTableHandle(
                                 connectorId,
                                 schemaTableName,
@@ -232,7 +232,7 @@ public class BaseJdbcClient
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
-                    if (tableHandle.getSchemaName().equals(resultSet.getString("TABLE_SCHEM")) && tableHandle.getTableName().equals(resultSet.getString("TABLE_NAME"))) {
+                    if (tableHandle.getTableName().equals(resultSet.getString("TABLE_NAME"))) {
                         JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                                 resultSet.getInt("DATA_TYPE"),
                                 resultSet.getString("TYPE_NAME"),
@@ -525,7 +525,7 @@ public class BaseJdbcClient
             String sql = format(
                     "ALTER TABLE %s DROP COLUMN %s",
                     quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    column.getColumnName());
+                    quoted(column.getColumnName()));
             execute(connection, sql);
         }
         catch (SQLException e) {
