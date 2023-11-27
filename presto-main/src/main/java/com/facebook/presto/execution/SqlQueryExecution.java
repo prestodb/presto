@@ -142,6 +142,7 @@ public class SqlQueryExecution
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
     private final QueryAnalysis queryAnalysis;
     private final AnalyzerContext analyzerContext;
+    private final QueryManagerConfig queryManagerConfig;
 
     private SqlQueryExecution(
             QueryAnalyzer queryAnalyzer,
@@ -167,7 +168,8 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             PlanChecker planChecker,
             PartialResultQueryManager partialResultQueryManager,
-            PlanCanonicalInfoProvider planCanonicalInfoProvider)
+            PlanCanonicalInfoProvider planCanonicalInfoProvider,
+            QueryManagerConfig queryManagerConfig)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");
@@ -192,6 +194,7 @@ public class SqlQueryExecution
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
             this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), idAllocator, new VariableAllocator(), stateMachine.getSession());
+            this.queryManagerConfig = queryManagerConfig;
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -651,7 +654,8 @@ public class SqlQueryExecution
                     planChecker,
                     metadata,
                     sqlParser,
-                    partialResultQueryManager);
+                    partialResultQueryManager,
+                    queryManagerConfig);
         }
         else {
             return SqlQueryScheduler.createSqlQueryScheduler(
@@ -874,6 +878,7 @@ public class SqlQueryExecution
         private final PlanChecker planChecker;
         private final PartialResultQueryManager partialResultQueryManager;
         private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
+        private final QueryManagerConfig queryManagerConfig;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -918,6 +923,7 @@ public class SqlQueryExecution
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
             this.historyBasedPlanStatisticsManager = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null");
+            this.queryManagerConfig = config;
         }
 
         @Override
@@ -958,7 +964,8 @@ public class SqlQueryExecution
                     costCalculator,
                     planChecker,
                     partialResultQueryManager,
-                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());
+                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider(),
+                    queryManagerConfig);
         }
     }
 }

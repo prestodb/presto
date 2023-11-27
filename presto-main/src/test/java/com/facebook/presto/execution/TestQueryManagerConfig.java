@@ -80,8 +80,8 @@ public class TestQueryManagerConfig
                 .setRateLimiterCacheLimit(1000)
                 .setRateLimiterCacheWindowMinutes(5)
                 .setEnableWorkerIsolation(false)
-                .setEnableGracefulShutdown(true)
-                .setEnableRetryForFailedSplits(true));
+                .setEnableGracefulShutdown(false)
+                .setEnableRetryForFailedSplits(false));
     }
 
     @Test
@@ -132,8 +132,8 @@ public class TestQueryManagerConfig
                 .put("query-manager.rate-limiter-cache-limit", "10000")
                 .put("query-manager.rate-limiter-cache-window-minutes", "60")
                 .put("query-manager.enable-worker-isolation", "true")
-                .put("query-manager.enable-graceful-shutdown", "false")
-                .put("query-manager.enable-retry-of-failed-splits", "false")
+                .put("query-manager.enable-graceful-shutdown", "true")
+                .put("query-manager.enable-retry-of-failed-splits", "true")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -181,8 +181,8 @@ public class TestQueryManagerConfig
                 .setRateLimiterCacheLimit(10000)
                 .setRateLimiterCacheWindowMinutes(60)
                 .setEnableWorkerIsolation(true)
-                .setEnableGracefulShutdown(false)
-                .setEnableRetryForFailedSplits(false);
+                .setEnableGracefulShutdown(true)
+                .setEnableRetryForFailedSplits(true);
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }
