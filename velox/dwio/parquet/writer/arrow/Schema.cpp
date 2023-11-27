@@ -28,7 +28,7 @@
 #include <utility>
 
 #include "arrow/util/logging.h"
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 
 using facebook::velox::parquet::arrow::format::SchemaElement;
 

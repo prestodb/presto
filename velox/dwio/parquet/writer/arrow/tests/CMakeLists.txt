@@ -38,7 +38,6 @@ target_link_libraries(
   gmock
   gtest
   gtest_main
-  parquet
   arrow
   arrow_testing)
 
@@ -53,4 +52,4 @@ add_library(
   XxHasher.cpp)
 
 target_link_libraries(velox_dwio_arrow_parquet_writer_test_lib
-                      velox_dwio_arrow_parquet_writer_lib parquet arrow gtest)
+                      velox_dwio_arrow_parquet_writer_lib arrow gtest)

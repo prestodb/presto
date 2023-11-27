@@ -45,7 +45,7 @@
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Schema.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
@@ -64,8 +64,6 @@ using arrow::internal::checked_cast;
 using arrow::internal::MultiplyWithOverflow;
 using arrow::internal::SubtractWithOverflow;
 using std::string_view;
-
-using ::parquet::ParquetException;
 
 template <typename T>
 using ArrowPoolVector = std::vector<T, ::arrow::stl::allocator<T>>;

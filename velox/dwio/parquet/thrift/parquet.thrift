@@ -37,7 +37,6 @@
  * File format description for the parquet file format
  */
 
-cpp_include "parquet/windows_compatibility.h"
 namespace cpp parquet.format
 namespace java org.apache.parquet.format
 

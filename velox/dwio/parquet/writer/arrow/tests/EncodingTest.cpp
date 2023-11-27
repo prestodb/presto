@@ -47,7 +47,7 @@
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Schema.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
@@ -60,7 +60,6 @@ using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
 using arrow::util::SafeLoad;
 using arrow::util::SafeLoadAs;
-using ::parquet::ParquetException;
 using std::string_view;
 
 template <typename T>

@@ -27,8 +27,8 @@
 #include "arrow/io/caching.h"
 #include "arrow/type.h"
 #include "arrow/util/type_fwd.h"
-#include "parquet/exception.h"
 #include "velox/dwio/parquet/writer/arrow/Encryption.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Schema.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
@@ -39,7 +39,6 @@
 
 namespace facebook::velox::parquet::arrow {
 
-using namespace ::parquet;
 using facebook::velox::parquet::arrow::util::CodecOptions;
 
 /// \brief Feature selection when writing Parquet files

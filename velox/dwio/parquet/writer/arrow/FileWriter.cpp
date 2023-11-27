@@ -26,9 +26,9 @@
 
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "parquet/exception.h"
 #include "velox/dwio/parquet/writer/arrow/ColumnWriter.h"
 #include "velox/dwio/parquet/writer/arrow/EncryptionInternal.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/FileEncryptorInternal.h"
 #include "velox/dwio/parquet/writer/arrow/PageIndex.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"

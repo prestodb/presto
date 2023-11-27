@@ -83,7 +83,7 @@ class PageReader {
   /// filled.
   int32_t getLengthsAndNulls(
       LevelMode mode,
-      const ::parquet::internal::LevelInfo& info,
+      const arrow::LevelInfo& info,
       int32_t begin,
       int32_t end,
       int32_t maxItems,
@@ -356,8 +356,8 @@ class PageReader {
   // Decoder for single bit definition levels. the arrow decoders are used for
   // multibit levels pending fixing RleBpDecoder for the case.
   std::unique_ptr<RleBpDecoder> defineDecoder_;
-  std::unique_ptr<arrow::util::RleDecoder> repeatDecoder_;
-  std::unique_ptr<arrow::util::RleDecoder> wideDefineDecoder_;
+  std::unique_ptr<::arrow::util::RleDecoder> repeatDecoder_;
+  std::unique_ptr<::arrow::util::RleDecoder> wideDefineDecoder_;
 
   // True for a leaf column for which repdefs are loaded for the whole column
   // chunk. This is typically the leaftmost leaf of a list. Other leaves under
@@ -466,7 +466,7 @@ class PageReader {
   dwio::common::BitConcatenation nullConcatenation_;
 
   // LevelInfo for reading nulls for the leaf column 'this' represents.
-  ::parquet::internal::LevelInfo leafInfo_;
+  arrow::LevelInfo leafInfo_;
 
   // Base values of dictionary when reading a string dictionary.
   VectorPtr dictionaryValues_;

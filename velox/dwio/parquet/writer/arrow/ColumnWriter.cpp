@@ -71,7 +71,6 @@ using arrow::bit_util::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 using arrow::util::RleEncoder;
-using ::parquet::ParquetException;
 
 namespace bit_util = arrow::bit_util;
 

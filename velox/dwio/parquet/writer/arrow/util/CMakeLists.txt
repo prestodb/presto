@@ -22,11 +22,5 @@ add_library(
   Hashing.cpp
   Crc32.cpp)
 
-target_link_libraries(
-  velox_dwio_arrow_parquet_writer_util_lib
-  parquet
-  arrow
-  Snappy::snappy
-  zstd::zstd
-  ZLIB::ZLIB
-  lz4::lz4)
+target_link_libraries(velox_dwio_arrow_parquet_writer_util_lib arrow
+                      Snappy::snappy zstd::zstd ZLIB::ZLIB lz4::lz4)

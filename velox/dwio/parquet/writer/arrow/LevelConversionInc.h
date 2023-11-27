@@ -29,7 +29,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/simd.h"
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/LevelComparison.h"
 
 #ifndef PARQUET_IMPL_NAMESPACE
@@ -37,8 +37,6 @@
 #endif
 
 namespace facebook::velox::parquet::arrow::internal::PARQUET_IMPL_NAMESPACE {
-
-using ::parquet::ParquetException;
 
 // clang-format off
 /* Python code to generate lookup table:

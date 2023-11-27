@@ -27,6 +27,7 @@ add_library(
   Encoding.cpp
   Encryption.cpp
   EncryptionInternal.cpp
+  Exception.cpp
   FileEncryptorInternal.cpp
   FileDecryptorInternal.cpp
   FileWriter.cpp
@@ -49,6 +50,5 @@ target_link_libraries(
   velox_dwio_arrow_parquet_writer_thrift_lib
   velox_dwio_common
   velox_arrow_bridge
-  parquet
   arrow
   fmt::fmt)

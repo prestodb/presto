@@ -24,12 +24,11 @@
 
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
 #include "velox/dwio/parquet/writer/arrow/generated/parquet_types.h"
 
 using arrow::internal::checked_cast;
-using parquet::ParquetException;
 
 namespace facebook::velox::parquet::arrow {
 

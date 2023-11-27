@@ -25,7 +25,7 @@
 
 #include "arrow/util/spaced.h"
 
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
 
@@ -303,7 +303,7 @@ class TypedDecoder : virtual public Decoder {
       int values_to_read = num_values - null_count;
       int values_read = Decode(buffer, values_to_read);
       if (values_read != values_to_read) {
-        throw ::parquet::ParquetException(
+        throw ParquetException(
             "Number of values / definition_levels read did not match");
       }
 

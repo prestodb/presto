@@ -106,7 +106,7 @@ class MapColumnReader : public dwio::common::SelectiveMapColumnReader {
   RepeatedLengths lengths_;
   RepeatedLengths keyLengths_;
   RepeatedLengths elementLengths_;
-  ::parquet::internal::LevelInfo levelInfo_;
+  arrow::LevelInfo levelInfo_;
 };
 
 class ListColumnReader : public dwio::common::SelectiveListColumnReader {
@@ -160,7 +160,7 @@ class ListColumnReader : public dwio::common::SelectiveListColumnReader {
 
  private:
   RepeatedLengths lengths_;
-  ::parquet::internal::LevelInfo levelInfo_;
+  arrow::LevelInfo levelInfo_;
 };
 
 /// Sets nulls and lengths for 'reader' and its children for the

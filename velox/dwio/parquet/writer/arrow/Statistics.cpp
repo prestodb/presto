@@ -34,8 +34,8 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
-#include "parquet/exception.h"
 #include "velox/dwio/parquet/writer/arrow/Encoding.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Schema.h"
 
@@ -43,7 +43,6 @@ using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::ResizableBuffer;
 using arrow::internal::checked_cast;
-using ::parquet::ParquetException;
 
 namespace facebook::velox::parquet::arrow {
 namespace {

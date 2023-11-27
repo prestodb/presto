@@ -24,7 +24,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/ThriftInternal.h"
 #include "velox/dwio/parquet/writer/arrow/generated/parquet_types.h"
 #include "velox/dwio/parquet/writer/arrow/tests/BloomFilter.h"

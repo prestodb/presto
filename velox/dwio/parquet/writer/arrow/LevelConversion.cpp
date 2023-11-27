@@ -26,7 +26,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 
 #include "velox/dwio/parquet/writer/arrow/LevelComparison.h"
 #define PARQUET_IMPL_NAMESPACE standard
@@ -37,7 +37,6 @@ namespace facebook::velox::parquet::arrow {
 namespace {
 
 using ::arrow::internal::CpuInfo;
-using ::parquet::ParquetException;
 using ::std::optional;
 
 template <typename OffsetType>

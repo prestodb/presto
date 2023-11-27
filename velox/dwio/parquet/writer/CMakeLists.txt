@@ -22,6 +22,5 @@ target_link_libraries(
   velox_dwio_arrow_parquet_writer_util_lib
   velox_dwio_common
   velox_arrow_bridge
-  parquet
   arrow
   fmt::fmt)

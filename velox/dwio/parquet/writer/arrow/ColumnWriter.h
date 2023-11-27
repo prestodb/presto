@@ -22,7 +22,7 @@
 #include <cstring>
 #include <memory>
 
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
 #include "velox/dwio/parquet/writer/arrow/util/Compression.h"
@@ -83,7 +83,7 @@ class PARQUET_EXPORT LevelEncoder {
 
   int32_t len() {
     if (encoding_ != Encoding::RLE) {
-      throw ::parquet::ParquetException("Only implemented for RLE encoding");
+      throw ParquetException("Only implemented for RLE encoding");
     }
     return rle_length_;
   }

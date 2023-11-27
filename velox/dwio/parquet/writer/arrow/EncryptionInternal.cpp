@@ -28,9 +28,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/exception.h"
-
-using parquet::ParquetException;
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 
 namespace facebook::velox::parquet::arrow::encryption {
 

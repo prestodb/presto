@@ -32,7 +32,7 @@ bool containsList(const ParquetTypeWithId& type) {
   return false;
 }
 } // namespace
-using ::parquet::internal::LevelInfo;
+using arrow::LevelInfo;
 
 bool ParquetTypeWithId::hasNonRepeatedLeaf() const {
   if (type()->kind() == TypeKind::ARRAY) {

@@ -23,11 +23,9 @@
 #include <string>
 #include <utility>
 
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Schema.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
-
-using ::parquet::ParquetException;
 
 namespace facebook::velox::parquet::arrow {
 

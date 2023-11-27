@@ -38,9 +38,9 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/parallel.h"
 
-#include "parquet/exception.h"
 #include "velox/dwio/parquet/writer/arrow/ArrowSchema.h"
 #include "velox/dwio/parquet/writer/arrow/ColumnWriter.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/FileWriter.h"
 #include "velox/dwio/parquet/writer/arrow/PathInternal.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"

@@ -36,7 +36,7 @@
 
 #include "arrow/util/logging.h"
 
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/FileDecryptorInternal.h"
 #include "velox/dwio/parquet/writer/arrow/FileEncryptorInternal.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"

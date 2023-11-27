@@ -17,7 +17,7 @@
 // Adapted from Apache Arrow.
 
 #include "velox/dwio/parquet/writer/arrow/tests/BloomFilterReader.h"
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Metadata.h"
 #include "velox/dwio/parquet/writer/arrow/tests/BloomFilter.h"
 

@@ -32,7 +32,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
-#include "parquet/exception.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
 #include "velox/dwio/parquet/writer/arrow/tests/BloomFilter.h"

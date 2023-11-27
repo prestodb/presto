@@ -36,9 +36,9 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
-#include "parquet/exception.h"
 
 #include "velox/dwio/parquet/writer/arrow/EncryptionInternal.h"
+#include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/FileDecryptorInternal.h"
 #include "velox/dwio/parquet/writer/arrow/FileWriter.h"
 #include "velox/dwio/parquet/writer/arrow/Metadata.h"
