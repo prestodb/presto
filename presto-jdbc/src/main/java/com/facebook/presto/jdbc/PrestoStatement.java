@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.client.ResultForPrepare;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
@@ -26,6 +29,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,7 +37,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.jdbc.PrestoResultSet.resultsException;
 import static com.google.common.base.Verify.verifyNotNull;
 import static java.lang.Math.toIntExact;
@@ -42,6 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class PrestoStatement
         implements Statement
 {
+    private static final JsonCodec<ResultForPrepare> RESULT_FOR_PREPARE_CODEC = jsonCodec(ResultForPrepare.class);
     private final AtomicLong maxRows = new AtomicLong();
     private final AtomicInteger queryTimeoutSeconds = new AtomicInteger();
     private final AtomicInteger fetchSize = new AtomicInteger();
@@ -56,6 +63,8 @@ public class PrestoStatement
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
     private final Consumer<QueryStats> progressConsumer = value -> progressCallback.get().ifPresent(callback -> callback.accept(value));
     private final AtomicInteger statementDepth = new AtomicInteger(0);
+    private boolean insertValuesWithParameter;
+    private List<Integer> insertValidateTypes;
 
     PrestoStatement(PrestoConnection connection)
     {
@@ -230,7 +239,22 @@ public class PrestoStatement
         return internalExecute(sql);
     }
 
+    boolean executeBatch(String sql)
+            throws SQLException
+    {
+        if (connection().shouldStartTransaction()) {
+            internalExecute(connection().getStartTransactionSql());
+        }
+        return internalExecute(sql, true);
+    }
+
     final boolean internalExecute(String sql)
+            throws SQLException
+    {
+        return internalExecute(sql, false);
+    }
+
+    final boolean internalExecute(String sql, boolean batch)
             throws SQLException
     {
         clearCurrentResults();
@@ -276,29 +300,12 @@ public class PrestoStatement
                 }
             }
 
-            // check if this is a query
-            if (intercepted || client.currentStatusInfo().getUpdateType() == null) {
-                currentResult.set(resultSet);
-                if (shouldIntercept) {
-                    resultSet = connection().invokeQueryInterceptorsPost(sql, this, resultSet);
-                    verifyNotNull(resultSet, "invokeQueryInterceptorsPost should never return a null ResultSet");
-                    currentResult.set(resultSet);
-                }
-                return true;
+            if (batch) {
+                return handleBatchResult(resultSet);
             }
-
-            // this is an update, not a query
-            while (resultSet.next()) {
-                // ignore rows
+            else {
+                return handleResult(sql, resultSet, warningsManager, shouldIntercept, intercepted);
             }
-
-            connection().updateSession(client);
-
-            Long updateCount = client.finalStatusInfo().getUpdateCount();
-            currentUpdateCount.set((updateCount != null) ? updateCount : 0);
-            currentUpdateType.set(client.finalStatusInfo().getUpdateType());
-            warningsManager.addWarnings(client.finalStatusInfo().getWarnings());
-            return false;
         }
         catch (ClientException e) {
             throw new SQLException(e.getMessage(), e);
@@ -318,6 +325,72 @@ public class PrestoStatement
                 }
             }
         }
+    }
+
+    private boolean handleResult(String sql, PrestoResultSet resultSet, WarningsManager warningsManager,
+                                 boolean shouldIntercept, boolean intercepted)
+            throws SQLException
+    {
+        StatementClient client = executingClient.get();
+        // check if this is a query
+        if (intercepted || client.currentStatusInfo().getUpdateType() == null) {
+            currentResult.set(resultSet);
+            if (shouldIntercept) {
+                resultSet = connection().invokeQueryInterceptorsPost(sql, this, resultSet);
+                verifyNotNull(resultSet, "invokeQueryInterceptorsPost should never return a null ResultSet");
+                currentResult.set(resultSet);
+            }
+            return true;
+        }
+
+        // handle prepare statement
+        if ("PREPARE".equals(client.currentStatusInfo().getUpdateType())) {
+            if (!resultSet.next()) {
+                throw new SQLException("Prepare do not return message");
+            }
+            connection().updateSession(client);
+            ResultForPrepare message = RESULT_FOR_PREPARE_CODEC.fromBytes(resultSet.getBytes(1));
+            this.insertValuesWithParameter = message.isInsertValuesWithParameter();
+            this.insertValidateTypes = message.getTypesForValidate().stream()
+                    .map(TypeSignature::parseTypeSignature)
+                    .map(ColumnInfo::getType)
+                    .collect(Collectors.toList());
+            return false;
+        }
+
+        // this is an update, not a query
+        while (resultSet.next()) {
+            // ignore rows
+        }
+
+        connection().updateSession(client);
+
+        Long updateCount = client.finalStatusInfo().getUpdateCount();
+        currentUpdateCount.set((updateCount != null) ? updateCount : 0);
+        currentUpdateType.set(client.finalStatusInfo().getUpdateType());
+        warningsManager.addWarnings(client.finalStatusInfo().getWarnings());
+        return false;
+    }
+
+    private boolean handleBatchResult(PrestoResultSet resultSet)
+    {
+        StatementClient client = executingClient.get();
+        currentResult.set(resultSet);
+
+        if (client.currentStatusInfo().getUpdateType() == null) {
+            return true;
+        }
+        return false;
+    }
+
+    public List<Integer> getInsertValidateTypes()
+    {
+        return insertValidateTypes;
+    }
+
+    public boolean isInsertValuesWithParameter()
+    {
+        return insertValuesWithParameter;
     }
 
     private void clearCurrentResults()

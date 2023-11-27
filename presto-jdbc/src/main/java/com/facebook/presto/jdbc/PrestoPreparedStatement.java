@@ -42,6 +42,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -71,7 +72,8 @@ public class PrestoPreparedStatement
         extends PrestoStatement
         implements PreparedStatement
 {
-    private final Map<Integer, String> parameters = new HashMap<>();
+    private final Map<Integer, String> currentParameters = new HashMap<>();
+    private final List<String[]> allParameters = new ArrayList<>();
     private final String statementName;
     private final String originalSql;
     private boolean isClosed;
@@ -132,10 +134,58 @@ public class PrestoPreparedStatement
     }
 
     @Override
+    public int[] executeBatch() throws SQLException
+    {
+        if (!isInsertValuesWithParameter()) {
+            throw new SQLException("Execute batch is only supported for insert values with parameter statement");
+        }
+        String batchExecuteSql = getBatchExecuteSql();
+        // if there is no parameter set, return an empty array directly
+        if (batchExecuteSql == null) {
+            return new int[] {};
+        }
+        super.executeBatch(batchExecuteSql);
+        ResultSet rs = getResultSet();
+
+        // executeBatch() would get a result of Array[Integer] type from server, and transform it to a int[]
+        int[] res = new int[0];
+        while (rs.next()) {
+            res = Arrays.stream((Object[]) (rs.getArray(1).getArray()))
+                    .map(Integer.class::cast)
+                    .mapToInt(Integer::valueOf).toArray();
+        }
+        rs.close();
+        return res;
+    }
+
+    @Override
+    public void clearBatch()
+            throws SQLException
+    {
+        this.allParameters.clear();
+    }
+
+    private void validateParameterType(int parameterIndex, int sqlType)
+            throws SQLException
+    {
+        int targetType = getInsertValidateTypes().get(parameterIndex - 1);
+        if (targetType != Types.NULL && !canBeSetTo(targetType, sqlType)) {
+            throw new SQLException(format("Parameter type incompatible at index %d", parameterIndex));
+        }
+    }
+
+    // TODO: do parameter type check in jdbc client
+    private boolean canBeSetTo(int targetType, int dataType)
+    {
+        return true;
+    }
+
+    @Override
     public void setNull(int parameterIndex, int sqlType)
             throws SQLException
     {
         checkOpen();
+        validateParameterType(parameterIndex, sqlType);
         setParameter(parameterIndex, typedNull(sqlType));
     }
 
@@ -144,6 +194,7 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         checkOpen();
+        validateParameterType(parameterIndex, Types.BOOLEAN);
         setParameter(parameterIndex, formatBooleanLiteral(x));
     }
 
@@ -152,6 +203,7 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         checkOpen();
+        validateParameterType(parameterIndex, Types.TINYINT);
         setParameter(parameterIndex, formatLiteral("TINYINT", Byte.toString(x)));
     }
 
@@ -160,6 +212,7 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         checkOpen();
+        validateParameterType(parameterIndex, Types.SMALLINT);
         setParameter(parameterIndex, formatLiteral("SMALLINT", Short.toString(x)));
     }
 
@@ -168,6 +221,7 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         checkOpen();
+        validateParameterType(parameterIndex, Types.INTEGER);
         setParameter(parameterIndex, formatLiteral("INTEGER", Integer.toString(x)));
     }
 
@@ -176,6 +230,7 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         checkOpen();
+        validateParameterType(parameterIndex, Types.BIGINT);
         setParameter(parameterIndex, formatLiteral("BIGINT", Long.toString(x)));
     }
 
@@ -184,6 +239,7 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         checkOpen();
+        validateParameterType(parameterIndex, Types.FLOAT);
         setParameter(parameterIndex, formatLiteral("REAL", Float.toString(x)));
     }
 
@@ -192,6 +248,7 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         checkOpen();
+        validateParameterType(parameterIndex, Types.DOUBLE);
         setParameter(parameterIndex, formatLiteral("DOUBLE", Double.toString(x)));
     }
 
@@ -204,6 +261,7 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.DECIMAL);
         }
         else {
+            validateParameterType(parameterIndex, Types.DECIMAL);
             setParameter(parameterIndex, formatLiteral("DECIMAL", x.toString()));
         }
     }
@@ -217,6 +275,7 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.VARCHAR);
         }
         else {
+            validateParameterType(parameterIndex, Types.VARCHAR);
             setParameter(parameterIndex, formatStringLiteral(x));
         }
     }
@@ -230,6 +289,7 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.VARBINARY);
         }
         else {
+            validateParameterType(parameterIndex, Types.VARBINARY);
             setParameter(parameterIndex, formatBinaryLiteral(x));
         }
     }
@@ -243,6 +303,7 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.DATE);
         }
         else {
+            validateParameterType(parameterIndex, Types.DATE);
             setParameter(parameterIndex, formatLiteral("DATE", DATE_FORMATTER.print(x.getTime())));
         }
     }
@@ -256,6 +317,7 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.TIME);
         }
         else {
+            validateParameterType(parameterIndex, Types.TIME);
             setParameter(parameterIndex, formatLiteral("TIME", TIME_FORMATTER.print(x.getTime())));
         }
     }
@@ -269,6 +331,7 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.TIMESTAMP);
         }
         else {
+            validateParameterType(parameterIndex, Types.TIMESTAMP);
             setParameter(parameterIndex, formatLiteral("TIMESTAMP", TIMESTAMP_FORMATTER.print(x.getTime())));
         }
     }
@@ -299,7 +362,7 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         checkOpen();
-        parameters.clear();
+        currentParameters.clear();
     }
 
     @Override
@@ -430,7 +493,21 @@ public class PrestoPreparedStatement
     public void addBatch()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "addBatch");
+        if (!isInsertValuesWithParameter()) {
+            throw new SQLException("Add batch is only supported for insert values with parameter statement");
+        }
+        List<Integer> insertValidateTypes = getInsertValidateTypes();
+        if (currentParameters.size() != insertValidateTypes.size()) {
+            throw new SQLException("Parameters is not compatible");
+        }
+        String[] parameters = new String[insertValidateTypes.size()];
+        for (int index = 0; index < insertValidateTypes.size(); index++) {
+            if (!currentParameters.containsKey(index)) {
+                throw new SQLException("No value specified for parameter " + (index + 1));
+            }
+            parameters[index] = currentParameters.get(index);
+        }
+        allParameters.add(parameters);
     }
 
     @Override
@@ -756,20 +833,48 @@ public class PrestoPreparedStatement
         if (parameterIndex < 1) {
             throw new SQLException("Parameter index out of bounds: " + parameterIndex);
         }
-        parameters.put(parameterIndex - 1, value);
+        currentParameters.put(parameterIndex - 1, value);
     }
 
     private void formatParametersTo(StringBuilder builder)
             throws SQLException
     {
         List<String> values = new ArrayList<>();
-        for (int index = 0; index < parameters.size(); index++) {
-            if (!parameters.containsKey(index)) {
+        for (int index = 0; index < currentParameters.size(); index++) {
+            if (!currentParameters.containsKey(index)) {
                 throw new SQLException("No value specified for parameter " + (index + 1));
             }
-            values.add(parameters.get(index));
+            values.add(currentParameters.get(index));
+        }
+        if (!values.isEmpty()) {
+            builder.append("(");
+            Joiner.on(", ").appendTo(builder, values);
+            builder.append(")");
+        }
+    }
+
+    private void formatBatchParametersTo(StringBuilder builder)
+            throws SQLException
+    {
+        List<String> values = new ArrayList<>();
+        for (String[] parameters : allParameters) {
+            values.add("(" + Joiner.on(", ").join(parameters) + ")");
         }
         Joiner.on(", ").appendTo(builder, values);
+    }
+
+    private String getBatchExecuteSql()
+            throws SQLException
+    {
+        if (allParameters.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("EXECUTE BATCH ").append(statementName).append(" USING ");
+        formatBatchParametersTo(sql);
+        allParameters.clear();
+        return sql.toString();
     }
 
     private String getExecuteSql()
@@ -777,7 +882,7 @@ public class PrestoPreparedStatement
     {
         StringBuilder sql = new StringBuilder();
         sql.append("EXECUTE ").append(statementName);
-        if (!parameters.isEmpty()) {
+        if (!currentParameters.isEmpty()) {
             sql.append(" USING ");
             formatParametersTo(sql);
         }

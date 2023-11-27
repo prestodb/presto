@@ -206,7 +206,7 @@ class ColumnInfo
         }
     }
 
-    private static int getType(TypeSignature type)
+    static int getType(TypeSignature type)
     {
         switch (type.getBase()) {
             case "array":
