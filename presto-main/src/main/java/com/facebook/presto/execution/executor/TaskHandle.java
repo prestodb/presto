@@ -173,11 +173,6 @@ public class TaskHandle
         return true;
     }
 
-    synchronized int getQueuedLeafSplits()
-    {
-        return queuedLeafSplits.size();
-    }
-
     synchronized int getRunningLeafSplits()
     {
         return runningLeafSplits.size();

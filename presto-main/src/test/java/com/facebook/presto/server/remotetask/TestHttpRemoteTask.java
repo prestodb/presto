@@ -22,7 +22,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.json.smile.SmileModule;
-import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec;
 import com.facebook.drift.codec.utils.DurationToMillisThriftCodec;
