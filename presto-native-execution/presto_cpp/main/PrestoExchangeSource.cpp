@@ -493,6 +493,21 @@ void ConnectionPools::destroy() {
   });
 }
 
+namespace {
+
+std::pair<folly::EventBase*, proxygen::SessionPool*> getSessionPool(
+    ConnectionPools* connectionPools,
+    folly::IOThreadPoolExecutor* ioExecutor,
+    const proxygen::Endpoint& ep) {
+  if (!connectionPools) {
+    return {ioExecutor->getEventBase(), nullptr};
+  }
+  auto& connPool = connectionPools->get(ep, ioExecutor);
+  return {connPool.eventBase, connPool.sessionPool.get()};
+}
+
+} // namespace
+
 // static
 std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     const std::string& url,
@@ -501,23 +516,25 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     velox::memory::MemoryPool* memoryPool,
     folly::CPUThreadPoolExecutor* cpuExecutor,
     folly::IOThreadPoolExecutor* ioExecutor,
-    ConnectionPools& connectionPools) {
+    ConnectionPools* connectionPools) {
   folly::Uri uri(url);
   if (uri.scheme() == "http") {
     proxygen::Endpoint ep(uri.host(), uri.port(), false);
-    auto& connPool = connectionPools.get(ep, ioExecutor);
+    auto [eventBase, sessionPool] =
+        getSessionPool(connectionPools, ioExecutor, ep);
     return std::make_shared<PrestoExchangeSource>(
         uri,
         destination,
         queue,
         memoryPool,
         cpuExecutor,
-        connPool.eventBase,
-        connPool.sessionPool.get());
+        eventBase,
+        sessionPool);
   }
   if (uri.scheme() == "https") {
     proxygen::Endpoint ep(uri.host(), uri.port(), true);
-    auto& connPool = connectionPools.get(ep, ioExecutor);
+    auto [eventBase, sessionPool] =
+        getSessionPool(connectionPools, ioExecutor, ep);
     const auto* systemConfig = SystemConfig::instance();
     const auto clientCertAndKeyPath =
         systemConfig->httpsClientCertAndKeyPath().value_or("");
@@ -528,8 +545,8 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         queue,
         memoryPool,
         cpuExecutor,
-        connPool.eventBase,
-        connPool.sessionPool.get(),
+        eventBase,
+        sessionPool,
         clientCertAndKeyPath,
         ciphers);
   }

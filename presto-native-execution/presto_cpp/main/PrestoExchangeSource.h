@@ -141,7 +141,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       velox::memory::MemoryPool* memoryPool,
       folly::CPUThreadPoolExecutor* cpuExecutor,
       folly::IOThreadPoolExecutor* ioExecutor,
-      ConnectionPools& connectionPools);
+      ConnectionPools* connectionPools);
 
   /// Completes the future returned by 'request()' if it hasn't completed
   /// already.

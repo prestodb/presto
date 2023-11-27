@@ -32,7 +32,6 @@ HttpClient::HttpClient(
     const std::string& ciphers,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
-      sessionPool_(sessionPool),
       address_(address),
       transactionTimer_(transactionTimeout, eventBase),
       connectTimeout_(connectTimeout),
@@ -40,11 +39,23 @@ HttpClient::HttpClient(
       clientCertAndKeyPath_(clientCertAndKeyPath),
       ciphers_(ciphers),
       reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
-      maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()) {
+      maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()),
+      sessionPool_(sessionPool) {
   // clientCertAndKeyPath_ and ciphers_ both needed to be set for https. For
   // http, both need to be unset. One set and another is not set is not a valid
   // configuration.
   VELOX_CHECK_EQ(clientCertAndKeyPath_.empty(), ciphers_.empty());
+  if (!sessionPool_) {
+    sessionPoolHolder_ = std::make_unique<proxygen::SessionPool>();
+    sessionPool_ = sessionPoolHolder_.get();
+  }
+}
+
+HttpClient::~HttpClient() {
+  if (sessionPoolHolder_) {
+    eventBase_->runInEventBaseThread(
+        [sessionPool = std::move(sessionPoolHolder_)] {});
+  }
 }
 
 HttpResponse::HttpResponse(

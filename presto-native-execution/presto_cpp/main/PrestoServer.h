@@ -189,7 +189,7 @@ class PrestoServer {
   // Executor for spilling.
   std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
 
-  ConnectionPools exchangeSourceConnectionPools_;
+  std::unique_ptr<ConnectionPools> exchangeSourceConnectionPools_;
 
   // Instance of MemoryAllocator used for all query memory allocations.
   std::shared_ptr<velox::memory::MemoryAllocator> allocator_;

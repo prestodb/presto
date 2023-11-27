@@ -315,6 +315,11 @@ void PrestoServer::run() {
                            << exchangeHttpExecutor_->numThreads()
                            << " threads.";
 
+  if (systemConfig->exchangeEnableConnectionPool()) {
+    PRESTO_STARTUP_LOG(INFO) << "Enable exchange Http Client connection pool.";
+    exchangeSourceConnectionPools_ = std::make_unique<ConnectionPools>();
+  }
+
   facebook::velox::exec::ExchangeSource::registerFactory(
       [this](
           const std::string& taskId,
@@ -328,7 +333,7 @@ void PrestoServer::run() {
             pool,
             driverExecutor_.get(),
             exchangeHttpExecutor_.get(),
-            exchangeSourceConnectionPools_);
+            exchangeSourceConnectionPools_.get());
       });
 
   facebook::velox::exec::ExchangeSource::registerFactory(
@@ -467,8 +472,10 @@ void PrestoServer::run() {
     connectorIoExecutor_->join();
   }
 
-  PRESTO_SHUTDOWN_LOG(INFO) << "Releasing HTTP connection pools";
-  exchangeSourceConnectionPools_.destroy();
+  if (exchangeSourceConnectionPools_) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Releasing exchange HTTP connection pools";
+    exchangeSourceConnectionPools_->destroy();
+  }
 
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining exchange Http executor '" << exchangeHttpExecutor_->getName()
