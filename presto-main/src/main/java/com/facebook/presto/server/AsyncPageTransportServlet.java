@@ -215,7 +215,7 @@ public class AsyncPageTransportServlet
                             response.setHeader(PRESTO_BUFFER_COMPLETE, String.valueOf(bufferResult.isBufferComplete()));
                         }
 
-                        response.setHeader(PRESTO_GRACEFUL_SHUTDOWN, String.valueOf(shutdownHandler.isShutdownRequested()));
+                        response.setHeader(PRESTO_GRACEFUL_SHUTDOWN, String.valueOf(shutdownHandler.isGracefulShutdownRequested()));
 
                         List<SerializedPage> serializedPages = bufferResult.getSerializedPages();
                         if (serializedPages.isEmpty()) {
