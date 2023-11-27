@@ -16,15 +16,33 @@ package com.facebook.presto.resourcemanager;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.UnexpectedResponseException;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.ColumnHandleJacksonModule;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.FunctionHandleJacksonModule;
+import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.PartitioningHandleJacksonModule;
+import com.facebook.presto.metadata.SplitJacksonModule;
+import com.facebook.presto.metadata.TransactionHandleJacksonModule;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tpch.TpchHandleResolver;
+import com.facebook.presto.type.TypeDeserializer;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -33,8 +51,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.getResponseEntity;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToCompletion;
@@ -96,15 +114,24 @@ public class TestDistributedTaskInfoResource
             }
         } while (globalRunningQueries != 1);
 
+        HandleResolver handleResolver = new HandleResolver();
+        handleResolver.addConnectorName("tpch", new TpchHandleResolver());
+        FunctionAndTypeManager typeManager = createTestFunctionAndTypeManager();
+        BlockEncodingManager blockEncodingSerde = new BlockEncodingManager();
+
+        JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
+        objectMapperProvider.setModules(ImmutableSet.of(new FunctionHandleJacksonModule(handleResolver), new ColumnHandleJacksonModule(handleResolver), new TransactionHandleJacksonModule(handleResolver), new PartitioningHandleJacksonModule(handleResolver), new SplitJacksonModule(handleResolver), new SimpleModule().addDeserializer(Type.class, new TypeDeserializer(typeManager)).addDeserializer(Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde))));
+        JsonCodec<TaskInfo> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(TaskInfo.class);
+
         for (TaskInfo actualTaskInfo : coordinator1.getTaskManager().getAllTaskInfo()) {
             TaskId actualTaskId = actualTaskInfo.getTaskId();
-            TaskInfo proxiedTaskInfo = getResponseEntity(client, coordinator2, "/v1/taskInfo/" + actualTaskId, jsonCodec(TaskInfo.class));
+            TaskInfo proxiedTaskInfo = getResponseEntity(client, coordinator2, "/v1/taskInfo/" + actualTaskId, codec);
             assertNotNull(proxiedTaskInfo);
             assertEquals(actualTaskInfo.getTaskId(), proxiedTaskInfo.getTaskId());
         }
 
         try {
-            getResponseEntity(client, coordinator2, "/v1/taskInfo/invalidTaskId", jsonCodec(TaskInfo.class));
+            getResponseEntity(client, coordinator2, "/v1/taskInfo/invalidTaskId", codec);
             fail("Retrieving TaskInfo for an invalid TaskId should fail with a 404");
         }
         catch (UnexpectedResponseException expected) {
@@ -112,7 +139,7 @@ public class TestDistributedTaskInfoResource
         }
 
         try {
-            getResponseEntity(client, coordinator2, "/v1/taskInfo/20221102_075648_00000_8ybuj.9.0.0", jsonCodec(TaskInfo.class));
+            getResponseEntity(client, coordinator2, "/v1/taskInfo/20221102_075648_00000_8ybuj.9.0.0", codec);
             fail("Retrieving TaskInfo for an invalid TaskId should fail with a 404");
         }
         catch (UnexpectedResponseException expected) {
