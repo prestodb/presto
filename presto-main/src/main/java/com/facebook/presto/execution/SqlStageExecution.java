@@ -692,6 +692,9 @@ public final class SqlStageExecution
                     stateMachine.transitionToFailed(failure);
                 }
             }
+            else {
+                stateMachine.transitionToFailed(failure);
+            }
         }
         else if (taskState == TaskState.ABORTED) {
             // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
