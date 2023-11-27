@@ -107,3 +107,10 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
       ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= single.execution.task.0.*");
 #endif
 }
+
+DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, noThreadContextSet) {
+  int* nullpointer = nullptr;
+#if IS_BUILDING_WITH_ASAN() == 0
+  ASSERT_DEATH((*nullpointer = 6), ".*ThreadDebugInfo object not found.*");
+#endif
+}
