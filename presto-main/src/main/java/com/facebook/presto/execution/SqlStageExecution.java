@@ -322,28 +322,6 @@ public final class SqlStageExecution
         stateMachine.transitionToSchedulingRetriedSplits();
     }
 
-    public synchronized void schedulingCompleteIfRetryingSplits()
-    {
-        if ((isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled) && planFragment.isLeaf()) {
-            if (!stateMachine.transitionToScheduledIfRetryingSplits()) {
-                log.info("QueryId = %s, schedulingCompleteIfRetryingSplits is called but fail to transition", getStageExecutionId().getStageId().getQueryId());
-                return;
-            }
-
-            log.info("QueryId = %s, schedulingCompleteIfRetryingSplits is called and transition to SCHEDULED", getStageExecutionId().getStageId().getQueryId());
-            if (noMoreRetry()) {
-                for (PlanNodeId tableScanPlanNodeId : planFragment.getTableScanSchedulingOrder()) {
-                    schedulingComplete(tableScanPlanNodeId);
-                }
-
-                log.info("QueryId = %s, schedulingCompleteIfRetryingSplits NO_MORE_SPLIT is sent.", getStageExecutionId().getStageId().getQueryId());
-            }
-        }
-        else {
-            throw new RuntimeException("shouldn't reach this code path for schedulingCompleteIfRetryingSplits");
-        }
-    }
-
     public synchronized void schedulingComplete()
     {
         if (!stateMachine.transitionToScheduled()) {

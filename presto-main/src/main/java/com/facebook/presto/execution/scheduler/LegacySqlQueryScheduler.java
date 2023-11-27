@@ -444,12 +444,7 @@ public class LegacySqlQueryScheduler
 
                         // modify parent and children based on the results of the scheduling
                         if (result.isFinished()) {
-                            if (stageScheduler instanceof SourcePartitionedScheduler) {
-                                stageExecution.schedulingCompleteIfRetryingSplits();
-                            }
-                            else {
-                                stageExecution.schedulingComplete();
-                            }
+                            stageExecution.schedulingComplete();
                         }
                         else if (!result.getBlocked().isDone()) {
                             blockedStages.add(result.getBlocked());
