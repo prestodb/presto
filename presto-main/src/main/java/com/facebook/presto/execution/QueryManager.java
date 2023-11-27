@@ -14,13 +14,16 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QueryTypeAndExecutionExtraMessage.ExecutionExtraMessage;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandler;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 public interface QueryManager
@@ -64,6 +67,12 @@ public interface QueryManager
      */
     QueryInfo getFullQueryInfo(QueryId queryId)
             throws NoSuchElementException;
+
+    default Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> getStatementExecuteAndOutputHandler(QueryId queryId)
+            throws NoSuchElementException
+    {
+        return Optional.empty();
+    }
 
     /**
      * @throws NoSuchElementException if query does not exist

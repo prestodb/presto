@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.QueryTypeAndExecutionExtraMessage.ExecutionExtraMessage;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
@@ -26,6 +27,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandler;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
@@ -144,6 +146,7 @@ public class QueryStateMachine
 
     private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
     private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
+    private Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> statementExecuteAndOutputHandler = Optional.empty();
 
     private final AtomicReference<TransactionId> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
@@ -197,6 +200,17 @@ public class QueryStateMachine
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+    }
+
+    public Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> getStatementExecuteAndOutputHandler()
+    {
+        return statementExecuteAndOutputHandler;
+    }
+
+    public void setStatementExecuteAndOutputHandler(ExecuteAndOutputHandler<? extends ExecutionExtraMessage> statementExecuteAndOutputHandler)
+    {
+        requireNonNull(statementExecuteAndOutputHandler);
+        this.statementExecuteAndOutputHandler = Optional.of(statementExecuteAndOutputHandler);
     }
 
     /**

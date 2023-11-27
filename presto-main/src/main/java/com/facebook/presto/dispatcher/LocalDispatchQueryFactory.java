@@ -26,11 +26,16 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandlerForExecuteBatch;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandlerForPrepare;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
+import com.facebook.presto.sql.tree.Execute;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
@@ -167,6 +172,17 @@ public class LocalDispatchQueryFactory
             return queryExecutionFactory.createQueryExecution(analyzerProvider, preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
         });
 
+        BuiltInPreparedQuery builtInPreparedQuery = (BuiltInPreparedQuery) preparedQuery;
+
+        // register customized ExecuteAndOutputHandler based on the category of statement
+        if (builtInPreparedQuery.getWrappedStatement() instanceof Execute && ((Execute) builtInPreparedQuery.getWrappedStatement()).isBatchExecution()) {
+            ExecuteAndOutputHandlerForExecuteBatch executeAndOutputHandlerForExecuteBatch = new ExecuteAndOutputHandlerForExecuteBatch();
+            stateMachine.setStatementExecuteAndOutputHandler(executeAndOutputHandlerForExecuteBatch);
+        }
+        else if (builtInPreparedQuery.getStatement() instanceof Prepare) {
+            ExecuteAndOutputHandlerForPrepare executeAndOutputHandler = new ExecuteAndOutputHandlerForPrepare();
+            stateMachine.setStatementExecuteAndOutputHandler(executeAndOutputHandler);
+        }
         return new LocalDispatchQuery(
                 stateMachine,
                 queryMonitor,

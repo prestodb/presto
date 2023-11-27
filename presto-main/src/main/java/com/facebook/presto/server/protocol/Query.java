@@ -22,6 +22,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.QueryTypeAndExecutionExtraMessage.ExecutionExtraMessage;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.BooleanType;
@@ -34,6 +35,8 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandler.OutputColumn;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandler.OutputResultData;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -504,15 +507,26 @@ class Query
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
-        // TODO: figure out a better way to do this
-        // grab the update count for non-queries
-        if ((data != null) && (queryInfo.getUpdateType() != null) && (updateCount == null) &&
-                (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
-            Iterator<List<Object>> iterator = data.iterator();
-            if (iterator.hasNext()) {
-                Number number = (Number) iterator.next().get(0);
-                if (number != null) {
-                    updateCount = number.longValue();
+        if (data != null) {
+            Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> handler = queryManager.getStatementExecuteAndOutputHandler(queryId);
+            if (handler.isPresent()) {
+                OutputResultData outputResultData = handler.get().handleOutputWithResult(columns, data,
+                        ignored -> false,
+                        totalCount -> {});
+                if (outputResultData.isNeedRefactor()) {
+                    data = outputResultData.getValue();
+                }
+            }
+            else if ((queryInfo.getUpdateType() != null) && (updateCount == null)
+                    && (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
+                // grab the update count for non-queries
+                // TODO: this branch could be integrated with StatementExecuteAndOutputHandler architecture as well
+                Iterator<List<Object>> iterator = data.iterator();
+                if (iterator.hasNext()) {
+                    Number number = (Number) iterator.next().get(0);
+                    if (number != null) {
+                        updateCount = number.longValue();
+                    }
                 }
             }
         }
@@ -521,8 +535,31 @@ class Query
 
         // for queries with no output, return a fake result for clients that require it
         if ((queryInfo.getState() == QueryState.FINISHED) && !queryInfo.getOutputStage().isPresent()) {
-            columns = ImmutableList.of(new Column("result", BooleanType.BOOLEAN));
-            data = ImmutableSet.of(ImmutableList.of(true));
+            Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> handler = queryManager.getStatementExecuteAndOutputHandler(queryId);
+            if (handler.isPresent()) {
+                OutputColumn outputColumn = handler.get().getOutputColumns();
+                if (outputColumn.isNeedRefactor()) {
+                    List<String> columnNames = outputColumn.getColumnNames();
+                    List<Type> columnTypes = outputColumn.getColumnTypes();
+                    checkArgument(columnNames.size() == columnTypes.size(), "Column names and types size mismatch");
+
+                    ImmutableList.Builder<Column> list = ImmutableList.builder();
+                    for (int i = 0; i < columnNames.size(); i++) {
+                        list.add(new Column(columnNames.get(i), columnTypes.get(i)));
+                    }
+                    columns = list.build();
+                    types = columnTypes;
+                }
+                OutputResultData outputResultData = handler.get().handleOutputWithoutResult();
+                if (outputResultData.isNeedRefactor()) {
+                    data = outputResultData.getValue();
+                }
+            }
+            else {
+                // TODO: this branch could be integrated with StatementExecuteAndOutputHandler architecture as well
+                columns = ImmutableList.of(new Column("result", BooleanType.BOOLEAN));
+                data = ImmutableSet.of(ImmutableList.of(true));
+            }
         }
 
         // advance next token
@@ -604,6 +641,15 @@ class Query
         if (columns == null) {
             List<String> columnNames = outputInfo.getColumnNames();
             List<Type> columnTypes = outputInfo.getColumnTypes();
+
+            Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> handler = queryManager.getStatementExecuteAndOutputHandler(queryId);
+            if (handler.isPresent()) {
+                OutputColumn outputColumn = handler.get().getOutputColumns();
+                if (outputColumn.isNeedRefactor()) {
+                    columnNames = outputColumn.getColumnNames();
+                    columnTypes = outputColumn.getColumnTypes();
+                }
+            }
             checkArgument(columnNames.size() == columnTypes.size(), "Column names and types size mismatch");
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();

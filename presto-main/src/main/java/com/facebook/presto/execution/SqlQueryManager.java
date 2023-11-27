@@ -19,6 +19,7 @@ import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.ExceededOutputSizeLimitException;
 import com.facebook.presto.ExceededScanLimitException;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QueryTypeAndExecutionExtraMessage.ExecutionExtraMessage;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
@@ -28,6 +29,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandler;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
@@ -236,6 +238,13 @@ public class SqlQueryManager
             throws NoSuchElementException
     {
         return queryTracker.getQuery(queryId).getQueryInfo();
+    }
+
+    @Override
+    public Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> getStatementExecuteAndOutputHandler(QueryId queryId)
+            throws NoSuchElementException
+    {
+        return queryTracker.getQuery(queryId).getStatementExecuteAndOutputHandler();
     }
 
     @Override

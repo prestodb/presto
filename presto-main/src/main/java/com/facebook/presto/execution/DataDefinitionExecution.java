@@ -14,10 +14,12 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QueryTypeAndExecutionExtraMessage.ExecutionExtraMessage;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandler;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.security.AccessControl;
@@ -300,6 +302,12 @@ public abstract class DataDefinitionExecution<T extends Statement>
     public QueryInfo getQueryInfo()
     {
         return stateMachine.getFinalQueryInfo().orElseGet(() -> stateMachine.updateQueryInfo(Optional.empty()));
+    }
+
+    @Override
+    public Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> getStatementExecuteAndOutputHandler()
+    {
+        return stateMachine.getStatementExecuteAndOutputHandler();
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.QueryTypeAndExecutionExtraMessage.ExecutionExtraMessage;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.Type;
@@ -20,6 +21,7 @@ import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandler;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
@@ -58,6 +60,11 @@ public interface QueryExecution
     BasicQueryInfo getBasicQueryInfo();
 
     QueryInfo getQueryInfo();
+
+    default Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> getStatementExecuteAndOutputHandler()
+    {
+        return Optional.empty();
+    }
 
     String getSlug();
 

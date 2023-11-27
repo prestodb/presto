@@ -67,7 +67,8 @@ public class PrepareTask
             String type = statement.getClass().getSimpleName().toUpperCase(ENGLISH);
             throw new PrestoException(NOT_SUPPORTED, "Invalid statement type for prepared statement: " + type);
         }
-
+        queryStateMachine.getStatementExecuteAndOutputHandler()
+                .ifPresent(handler -> handler.executeInTask(statement, Optional.empty(), metadata, queryStateMachine.getSession()));
         String sql = getFormattedSql(statement, sqlParser, Optional.empty());
         queryStateMachine.addPreparedStatement(prepare.getName().getValue(), sql);
         return immediateFuture(null);

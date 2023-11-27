@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QueryTypeAndExecutionExtraMessage.ExecutionExtraMessage;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
@@ -33,6 +34,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.protocol.ExecuteAndOutputHandler;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -50,6 +52,8 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Optimizer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryAnalysis;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.sql.planner.InputExtractor;
@@ -207,6 +211,9 @@ public class SqlQueryExecution
 
             stateMachine.setUpdateType(queryAnalysis.getUpdateType());
             stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
+
+            stateMachine.getStatementExecuteAndOutputHandler().ifPresent(handler -> handler.executeInTask(((BuiltInPreparedQuery) preparedQuery).getStatement(),
+                    Optional.of((BuiltInQueryAnalysis) queryAnalysis), metadata, stateMachine.getSession()));
 
             stateMachine.beginColumnAccessPermissionChecking();
             checkAccessPermissions(queryAnalysis.getAccessControlReferences());
@@ -790,6 +797,12 @@ public class SqlQueryExecution
 
             return stateMachine.getFinalQueryInfo().orElseGet(() -> buildQueryInfo(scheduler));
         }
+    }
+
+    @Override
+    public Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> getStatementExecuteAndOutputHandler()
+    {
+        return stateMachine.getStatementExecuteAndOutputHandler();
     }
 
     @Override
