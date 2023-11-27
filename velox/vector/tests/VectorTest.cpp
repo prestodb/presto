@@ -1077,6 +1077,14 @@ TEST_F(VectorTest, row) {
   VELOX_ASSERT_THROW(
       rowVector->childAt(3)->resize(vectorSize_),
       "Trying to access non-existing child in RowVector:");
+
+  ASSERT_EQ(
+      rowVector->childAt("parent_bigint").get(), rowVector->childAt(0).get());
+  ASSERT_EQ(
+      rowVector->childAt("parent_row").get(), rowVector->childAt(1).get());
+  VELOX_ASSERT_THROW(
+      rowVector->childAt("foo"),
+      "Field not found: foo. Available fields are: parent_bigint, parent_row.");
 }
 
 TEST_F(VectorTest, array) {

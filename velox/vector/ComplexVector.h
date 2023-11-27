@@ -133,6 +133,16 @@ class RowVector : public BaseVector {
     return children_[index];
   }
 
+  /// Returns child vector for the specified field name. Throws if field with
+  /// specified name doesn't exist.
+  VectorPtr& childAt(const std::string& name) {
+    return children_[type_->asRow().getChildIdx(name)];
+  }
+
+  const VectorPtr& childAt(const std::string& name) const {
+    return children_[type_->asRow().getChildIdx(name)];
+  }
+
   std::vector<VectorPtr>& children() {
     return children_;
   }

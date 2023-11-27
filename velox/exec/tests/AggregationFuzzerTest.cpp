@@ -450,8 +450,7 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
         std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(args[1]);
     VELOX_CHECK_NOT_NULL(field);
     auto errorVector =
-        input->childAt(input->type()->asRow().getChildIdx(field->name()))
-            ->as<SimpleVector<double>>();
+        input->childAt(field->name())->as<SimpleVector<double>>();
     return errorVector->valueAt(0);
   }
 
