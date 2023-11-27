@@ -266,6 +266,12 @@ public class GracefulShutdownHandler
         return shutdownRequested;
     }
 
+    // Only used when isEnableGracefulShutdown is set to true
+    public synchronized boolean isGracefulShutdownRequested()
+    {
+        return (queryManagerConfig.isEnableGracefulShutdown() || queryManagerConfig.isEnableRetryForFailedSplits()) && shutdownRequested;
+    }
+
     @Managed
     @Nested
     public CounterStat getShutdownCounter()

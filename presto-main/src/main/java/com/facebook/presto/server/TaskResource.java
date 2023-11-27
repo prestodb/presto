@@ -159,7 +159,7 @@ public class TaskResource
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-        if (shutdownHandler.isShutdownRequested()) {
+        if (shutdownHandler.isGracefulShutdownRequested()) {
             return Response.status(Status.GONE).build();
         }
 
@@ -344,7 +344,7 @@ public class TaskResource
                         .header(PRESTO_PAGE_TOKEN, result.getToken())
                         .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
                         .header(PRESTO_BUFFER_COMPLETE, true)
-                        .header(PRESTO_GRACEFUL_SHUTDOWN, shutdownHandler.isShutdownRequested())
+                        .header(PRESTO_GRACEFUL_SHUTDOWN, shutdownHandler.isGracefulShutdownRequested())
                         .build();
             }, directExecutor());
 
@@ -389,7 +389,7 @@ public class TaskResource
                     .header(PRESTO_PAGE_TOKEN, result.getToken())
                     .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
                     .header(PRESTO_BUFFER_COMPLETE, result.isBufferComplete())
-                    .header(PRESTO_GRACEFUL_SHUTDOWN, shutdownHandler.isShutdownRequested())
+                    .header(PRESTO_GRACEFUL_SHUTDOWN, shutdownHandler.isGracefulShutdownRequested())
                     .build();
         }, directExecutor());
 
@@ -402,7 +402,7 @@ public class TaskResource
                                 .header(PRESTO_PAGE_TOKEN, token)
                                 .header(PRESTO_PAGE_NEXT_TOKEN, token)
                                 .header(PRESTO_BUFFER_COMPLETE, false)
-                                .header(PRESTO_GRACEFUL_SHUTDOWN, shutdownHandler.isShutdownRequested())
+                                .header(PRESTO_GRACEFUL_SHUTDOWN, shutdownHandler.isGracefulShutdownRequested())
                                 .build());
 
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
