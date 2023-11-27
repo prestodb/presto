@@ -305,7 +305,6 @@ public class SectionExecutionFactory
                 partitioningHandle,
                 tableWriteInfo,
                 childStageExecutions);
-        log.info("stageScheduler for the query %s and plan fragment %s = %s", session.getQueryId(), plan.getFragment().getId(), stageScheduler.getClass().getSimpleName());
         stageExecutionAndSchedulers.add(new StageExecutionAndScheduler(
                 stageExecution,
                 stageLinkage,
