@@ -124,6 +124,8 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
       const std::string& ciphers = "",
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr);
 
+  ~HttpClient();
+
   // TODO Avoid copy by using IOBuf for body
   folly::SemiFuture<std::unique_ptr<HttpResponse>> sendRequest(
       const proxygen::HTTPMessage& request,
@@ -136,7 +138,6 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
 
  private:
   folly::EventBase* const eventBase_;
-  proxygen::SessionPool* const sessionPool_;
   const folly::SocketAddress address_;
   const proxygen::WheelTimerInstance transactionTimer_;
   const std::chrono::milliseconds connectTimeout_;
@@ -150,6 +151,9 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   const std::string ciphers_;
   const std::function<void(int)> reportOnBodyStatsFunc_;
   const uint64_t maxResponseAllocBytes_;
+  proxygen::SessionPool* sessionPool_;
+  // Create if sessionPool_ is not received from the contructor.
+  std::unique_ptr<proxygen::SessionPool> sessionPoolHolder_;
 };
 
 class RequestBuilder {
