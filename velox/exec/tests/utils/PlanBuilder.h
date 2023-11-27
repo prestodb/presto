@@ -171,6 +171,117 @@ class PlanBuilder {
       std::vector<std::string>&& columnNames,
       double scaleFactor = 1);
 
+  /// Helper class to build a custom TableScanNode.
+  /// Uses a planBuilder instance to get the next plan id, memory pool, and
+  /// parse options.
+  class TableScanBuilder {
+   public:
+    TableScanBuilder(PlanBuilder& builder) : planBuilder_(builder) {}
+
+    /// @param tableName The name of the table to scan.
+    TableScanBuilder& tableName(std::string tableName) {
+      tableName_ = std::move(tableName);
+      return *this;
+    }
+
+    /// @param connectorId The id of the connector to scan.
+    TableScanBuilder& connectorId(std::string connectorId) {
+      connectorId_ = std::move(connectorId);
+      return *this;
+    }
+
+    /// @param outputType List of column names and types to read from the table.
+    TableScanBuilder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    /// @param subfieldFilters A list of SQL expressions for the range filters
+    /// to apply to individual columns. Supported filters are: column <= value,
+    /// column < value, column >= value, column > value, column = value, column
+    /// IN (v1, v2,.. vN), column < v1 OR column >= v2.
+    TableScanBuilder& subfieldFilters(
+        std::vector<std::string> subfieldFilters) {
+      subfieldFilters_ = std::move(subfieldFilters);
+      return *this;
+    }
+
+    /// @param remainingFilter SQL expression for the additional conjunct. May
+    /// include multiple columns and SQL functions. The remainingFilter is
+    /// AND'ed with all the subfieldFilters.
+    TableScanBuilder& remainingFilter(std::string remainingFilter) {
+      remainingFilter_ = std::move(remainingFilter);
+      return *this;
+    }
+
+    /// @param dataColumns can be different from 'outputType' for the purposes
+    /// of testing queries using missing columns. It is used, if specified, for
+    /// parseExpr call and as 'dataColumns' for the TableHandle. You supply more
+    /// types (for all columns) in this argument as opposed to 'outputType',
+    /// where you define the output types only. See 'missingColumns' test in
+    /// 'TableScanTest'.
+    TableScanBuilder& dataColumns(RowTypePtr dataColumns) {
+      dataColumns_ = std::move(dataColumns);
+      return *this;
+    }
+
+    /// @param columnAliases Optional aliases for the column names. The key is
+    /// the alias (name in 'outputType'), value is the name in the files.
+    TableScanBuilder& columnAliases(
+        std::unordered_map<std::string, std::string> columnAliases) {
+      columnAliases_ = std::move(columnAliases);
+      return *this;
+    }
+
+    /// @param tableHandle Optional tableHandle. Other builder arguments such as
+    /// the subfieldFilters and remainingFilter will be ignored.
+    TableScanBuilder& tableHandle(
+        std::shared_ptr<connector::ConnectorTableHandle> tableHandle) {
+      tableHandle_ = std::move(tableHandle);
+      return *this;
+    }
+
+    /// @param assignments Optional ColumnHandles.
+    /// outputType names should match the keys in the 'assignments' map. The
+    /// 'assignments' map may contain more columns than 'outputType' if some
+    /// columns are only used by pushed-down filters.
+    TableScanBuilder& assignments(
+        std::unordered_map<
+            std::string,
+            std::shared_ptr<connector::ColumnHandle>> assignments) {
+      assignments_ = std::move(assignments);
+      return *this;
+    }
+
+    /// Stop the TableScanBuilder.
+    PlanBuilder& endTableScan() {
+      planBuilder_.planNode_ = build(planBuilder_.nextPlanNodeId());
+      return planBuilder_;
+    }
+
+   private:
+    /// Build the plan node TableScanNode.
+    core::PlanNodePtr build(core::PlanNodeId id);
+
+    PlanBuilder& planBuilder_;
+    std::string tableName_{"hive_table"};
+    std::string connectorId_{"test-hive"};
+    RowTypePtr outputType_;
+    std::vector<std::string> subfieldFilters_;
+    std::string remainingFilter_;
+    RowTypePtr dataColumns_;
+    std::unordered_map<std::string, std::string> columnAliases_;
+    std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
+    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+        assignments_;
+  };
+
+  /// Start a TableScanBuilder.
+  TableScanBuilder& startTableScan() {
+    tableScanBuilder_.reset(new TableScanBuilder(*this));
+    return *tableScanBuilder_;
+  }
+
   /// Add a ValuesNode using specified data.
   ///
   /// @param values The data to use.
@@ -924,6 +1035,7 @@ class PlanBuilder {
  protected:
   core::PlanNodePtr planNode_;
   parse::ParseOptions options_;
+  std::shared_ptr<TableScanBuilder> tableScanBuilder_;
 
  private:
   std::shared_ptr<core::PlanNodeIdGenerator> planNodeIdGenerator_;

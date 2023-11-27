@@ -83,13 +83,12 @@ PlanBuilder& PlanBuilder::tableScan(
     const std::vector<std::string>& subfieldFilters,
     const std::string& remainingFilter,
     const RowTypePtr& dataColumns) {
-  return tableScan(
-      "hive_table",
-      outputType,
-      {},
-      subfieldFilters,
-      remainingFilter,
-      dataColumns);
+  return TableScanBuilder(*this)
+      .outputType(outputType)
+      .subfieldFilters(subfieldFilters)
+      .remainingFilter(remainingFilter)
+      .dataColumns(dataColumns)
+      .endTableScan();
 }
 
 PlanBuilder& PlanBuilder::tableScan(
@@ -99,70 +98,14 @@ PlanBuilder& PlanBuilder::tableScan(
     const std::vector<std::string>& subfieldFilters,
     const std::string& remainingFilter,
     const RowTypePtr& dataColumns) {
-  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-      assignments;
-  std::unordered_map<std::string, core::TypedExprPtr> typedMapping;
-  for (uint32_t i = 0; i < outputType->size(); ++i) {
-    const auto& name = outputType->nameOf(i);
-    const auto& type = outputType->childAt(i);
-
-    std::string hiveColumnName = name;
-    auto it = columnAliases.find(name);
-    if (it != columnAliases.end()) {
-      hiveColumnName = it->second;
-      typedMapping.emplace(
-          name,
-          std::make_shared<core::FieldAccessTypedExpr>(type, hiveColumnName));
-    }
-
-    assignments.insert(
-        {name,
-         std::make_shared<HiveColumnHandle>(
-             hiveColumnName,
-             HiveColumnHandle::ColumnType::kRegular,
-             type,
-             type)});
-  }
-
-  const RowTypePtr& parseType = dataColumns ? dataColumns : outputType;
-
-  SubfieldFilters filters;
-  filters.reserve(subfieldFilters.size());
-  core::QueryCtx queryCtx;
-  exec::SimpleExpressionEvaluator evaluator(&queryCtx, pool_);
-  for (const auto& filter : subfieldFilters) {
-    auto filterExpr = parseExpr(filter, parseType, options_, pool_);
-    auto [subfield, subfieldFilter] =
-        exec::toSubfieldFilter(filterExpr, &evaluator);
-
-    auto it = columnAliases.find(subfield.toString());
-    if (it != columnAliases.end()) {
-      subfield = common::Subfield(it->second);
-    }
-
-    VELOX_CHECK_EQ(
-        filters.count(subfield),
-        0,
-        "Duplicate subfield: {}",
-        subfield.toString());
-
-    filters[std::move(subfield)] = std::move(subfieldFilter);
-  }
-
-  core::TypedExprPtr remainingFilterExpr;
-  if (!remainingFilter.empty()) {
-    remainingFilterExpr = parseExpr(remainingFilter, parseType, options_, pool_)
-                              ->rewriteInputNames(typedMapping);
-  }
-
-  auto tableHandle = std::make_shared<HiveTableHandle>(
-      kHiveConnectorId,
-      tableName,
-      true,
-      std::move(filters),
-      remainingFilterExpr,
-      dataColumns);
-  return tableScan(outputType, tableHandle, assignments);
+  return TableScanBuilder(*this)
+      .tableName(tableName)
+      .outputType(outputType)
+      .columnAliases(columnAliases)
+      .subfieldFilters(subfieldFilters)
+      .remainingFilter(remainingFilter)
+      .dataColumns(dataColumns)
+      .endTableScan();
 }
 
 PlanBuilder& PlanBuilder::tableScan(
@@ -171,9 +114,11 @@ PlanBuilder& PlanBuilder::tableScan(
     const std::unordered_map<
         std::string,
         std::shared_ptr<connector::ColumnHandle>>& assignments) {
-  planNode_ = std::make_shared<core::TableScanNode>(
-      nextPlanNodeId(), outputType, tableHandle, assignments);
-  return *this;
+  return TableScanBuilder(*this)
+      .outputType(outputType)
+      .tableHandle(tableHandle)
+      .assignments(assignments)
+      .endTableScan();
 }
 
 PlanBuilder& PlanBuilder::tableScan(
@@ -194,11 +139,87 @@ PlanBuilder& PlanBuilder::tableScan(
     outputTypes.emplace_back(resolveTpchColumn(table, columnName));
   }
   auto rowType = ROW(std::move(columnNames), std::move(outputTypes));
-  return tableScan(
-      rowType,
-      std::make_shared<connector::tpch::TpchTableHandle>(
-          kTpchConnectorId, table, scaleFactor),
-      assignmentsMap);
+  return TableScanBuilder(*this)
+      .outputType(rowType)
+      .tableHandle(std::make_shared<connector::tpch::TpchTableHandle>(
+          kTpchConnectorId, table, scaleFactor))
+      .assignments(assignmentsMap)
+      .endTableScan();
+}
+
+core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
+  std::unordered_map<std::string, core::TypedExprPtr> typedMapping;
+  bool hasAssignments = !(assignments_.empty());
+  for (uint32_t i = 0; i < outputType_->size(); ++i) {
+    const auto& name = outputType_->nameOf(i);
+    const auto& type = outputType_->childAt(i);
+
+    std::string hiveColumnName = name;
+    auto it = columnAliases_.find(name);
+    if (it != columnAliases_.end()) {
+      hiveColumnName = it->second;
+      typedMapping.emplace(
+          name,
+          std::make_shared<core::FieldAccessTypedExpr>(type, hiveColumnName));
+    }
+
+    if (!hasAssignments) {
+      assignments_.insert(
+          {name,
+           std::make_shared<HiveColumnHandle>(
+               hiveColumnName,
+               HiveColumnHandle::ColumnType::kRegular,
+               type,
+               type)});
+    }
+  }
+
+  const RowTypePtr& parseType = dataColumns_ ? dataColumns_ : outputType_;
+
+  SubfieldFilters filters;
+  filters.reserve(subfieldFilters_.size());
+  core::QueryCtx queryCtx;
+  exec::SimpleExpressionEvaluator evaluator(&queryCtx, planBuilder_.pool_);
+  for (const auto& filter : subfieldFilters_) {
+    auto filterExpr =
+        parseExpr(filter, parseType, planBuilder_.options_, planBuilder_.pool_);
+    auto [subfield, subfieldFilter] =
+        exec::toSubfieldFilter(filterExpr, &evaluator);
+
+    auto it = columnAliases_.find(subfield.toString());
+    if (it != columnAliases_.end()) {
+      subfield = common::Subfield(it->second);
+    }
+    VELOX_CHECK_EQ(
+        filters.count(subfield),
+        0,
+        "Duplicate subfield: {}",
+        subfield.toString());
+
+    filters[std::move(subfield)] = std::move(subfieldFilter);
+  }
+
+  core::TypedExprPtr remainingFilterExpr;
+  if (!remainingFilter_.empty()) {
+    remainingFilterExpr = parseExpr(
+                              remainingFilter_,
+                              parseType,
+                              planBuilder_.options_,
+                              planBuilder_.pool_)
+                              ->rewriteInputNames(typedMapping);
+  }
+
+  if (!tableHandle_) {
+    tableHandle_ = std::make_shared<HiveTableHandle>(
+        connectorId_,
+        tableName_,
+        true,
+        std::move(filters),
+        remainingFilterExpr,
+        dataColumns_);
+  }
+  return std::make_shared<core::TableScanNode>(
+      id, outputType_, tableHandle_, assignments_);
 }
 
 PlanBuilder& PlanBuilder::values(
