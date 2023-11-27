@@ -393,16 +393,17 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     return AssertQueryBuilder(duckDbQueryRunner_)
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kJoinSpillEnabled, "true")
+        .spillDirectory(spillDirectory->path)
         .queryCtx(queryCtx)
         .maxDrivers(numDrivers)
         .plan(PlanBuilder(planNodeIdGenerator)
-                  .values(vectors)
+                  .values(vectors, true)
                   .project({"c0", "c1", "c2"})
                   .hashJoin(
                       {"c0"},
-                      {"u0"},
+                      {"u1"},
                       PlanBuilder(planNodeIdGenerator)
-                          .values(vectors)
+                          .values(vectors, true)
                           .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
                           .planNode(),
                       "",
@@ -413,7 +414,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
             "SELECT t1.c0 AS c0, t1.c1 AS c1, t1.c2 "
             "FROM tmp t1 "
             "JOIN tmp t2 "
-            "ON t1.c0 = t2.c0");
+            "ON t1.c0 = t2.c1");
   }
 
   std::shared_ptr<Task> runAggregateTask(
@@ -1744,6 +1745,7 @@ DEBUG_ONLY_TEST_F(
   }
   const int numDrivers = 4;
   createDuckDbTable(vectors);
+  // Whether the tasks are run under the same query context.
   std::vector<bool> sameQueries = {false, true};
   for (bool sameQuery : sameQueries) {
     SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
@@ -1756,9 +1758,12 @@ DEBUG_ONLY_TEST_F(
     } else {
       joinQueryCtx = newQueryCtx(kMemoryCapacity);
     }
-    const auto joinMemoryUsage = 8L << 20;
+    // This is an experimentally calculated size that ensures the join will
+    // spill. Can change as the join implementation evolves.
+    const auto joinMemoryUsage = 11 * MB;
     const auto fakeAllocationSize = kMemoryCapacity - joinMemoryUsage;
 
+    // Ensure a single allocation eats up the rest of the memory.
     std::atomic<bool> injectAllocationOnce{true};
     std::atomic<bool> fakeAllocationWaitFlag{true};
     folly::EventCount fakeAllocationWait;
@@ -1772,6 +1777,9 @@ DEBUG_ONLY_TEST_F(
       return TestAllocation{op->pool(), buffer, fakeAllocationSize};
     });
 
+    // Ensure the build operators make enough progress to consume more than
+    // `joinMemoryUsage` then wait for the fake allocation to eat up memory and
+    // initiate a spill via the arbitrator.
     std::atomic<int> injectCount{0};
     folly::futures::Barrier builderBarrier(numDrivers);
     std::atomic<bool> taskPauseWaitFlag{true};
@@ -1805,6 +1813,7 @@ DEBUG_ONLY_TEST_F(
           taskPauseWait.await([&]() { return !taskPauseWaitFlag.load(); });
         })));
 
+    // This indicates that a spill has been initiated by the arbitrator.
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Task::requestPauseLocked",
         std::function<void(Task*)>([&](Task* /*unused*/) {
@@ -1824,28 +1833,9 @@ DEBUG_ONLY_TEST_F(
 
     std::thread joinThread([&]() {
       auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-      auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
-              .spillDirectory(spillDirectory->path)
-              .maxDrivers(numDrivers)
-              .queryCtx(joinQueryCtx)
-              .plan(PlanBuilder(planNodeIdGenerator)
-                        .values(vectors, true)
-                        .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
-                        .hashJoin(
-                            {"t0"},
-                            {"u1"},
-                            PlanBuilder(planNodeIdGenerator)
-                                .values(vectors, true)
-                                .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
-                                .planNode(),
-                            "",
-                            {"t1"},
-                            core::JoinType::kInner)
-                        .planNode())
-              .assertResults(
-                  "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1");
+      auto task = runHashJoinTask(vectors, joinQueryCtx, numDrivers);
       auto stats = task->taskStats().pipelineStats;
+      // Verify that spilling occured.
       ASSERT_GT(stats[1].operatorStats[2].spilledBytes, 0);
     });
 
@@ -1864,6 +1854,7 @@ DEBUG_ONLY_TEST_F(
     joinThread.join();
     memThread.join();
     waitForAllTasksToBeDeleted();
+    ASSERT_GT(arbitrator_->stats().numRequests, 0);
   }
 }
 
@@ -3803,6 +3794,12 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, joinBuildSpillError) {
 }
 
 TEST_F(SharedArbitrationTest, concurrentArbitration) {
+  // Tries to replicate an actual workload by concurrently running multiple
+  // query shapes that support spilling (and hence can be forced to abort or
+  // spill by the arbitrator). Also adds an element of randomness by randomly
+  // keeping completed tasks alive (zombie tasks) hence holding on to some
+  // memory. Ensures that arbitration is engaged under memory contention and
+  // failed queries only have errors related to memory or arbitration.
   FLAGS_velox_suppress_memory_capacity_exceeding_error_message = true;
   const int numVectors = 8;
   std::vector<RowVectorPtr> vectors;
