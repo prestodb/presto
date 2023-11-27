@@ -75,7 +75,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -553,16 +552,6 @@ public class SectionExecutionFactory
         //avoid splitting node for jmx connector
         if (isLeafFragment && plan.getFragment().getRoot() instanceof TableScanNode && ((TableScanNode) plan.getFragment().getRoot()).getTable().getConnectorId().getCatalogName().equals("jmx")) {
             return Optional.empty();
-        }
-
-        ConcurrentHashMap<PlanFragmentId, Session.Pair<NodePoolType, String>> fragmentToPoolTypeMapping = session.getFragmentToPoolTypeMapping();
-        Session.Pair<NodePoolType, String> nodePoolTypeStringPair = fragmentToPoolTypeMapping.get(plan.getFragment().getId());
-        if (nodePoolTypeStringPair != null && nodePoolTypeStringPair.getKey() != workerPoolType) {
-            log.error("Error in pool type evaluation, plan =%s,hasLocalExchangeAtRoot = %s, isLeaf=%s, plan in map =%s", plan.getFragment().getJsonRepresentation().orElse(null), hasLocalExchangeAtRoot, plan.getFragment().isLeaf(), nodePoolTypeStringPair.getValue());
-            throw new RuntimeException("Error in pool type evaluation");
-        }
-        else {
-            fragmentToPoolTypeMapping.put(plan.getFragment().getId(), new Session.Pair<>(workerPoolType, plan.getFragment().getJsonRepresentation().orElse("")));
         }
 
         return Optional.of(node -> node.getPoolType().equals(workerPoolType));
