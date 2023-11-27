@@ -339,20 +339,12 @@ TEST_F(FilterProjectTest, nestedFieldReference) {
                       makeFlatVector<int32_t>(10, folly::identity),
                   }),
               },
-              [](auto i) { return i % 2 == 0; }),
+              nullEvery(2)),
       }),
   });
-  // Project c0.c0.c0.c0.  Duck DB fails to parse such an expression.
-  std::shared_ptr<const core::IExpr> expr = std::make_shared<core::InputExpr>();
-  for (int i = 0; i < 4; ++i) {
-    std::vector<std::shared_ptr<const core::IExpr>> inputs;
-    inputs.push_back(expr);
-    expr = std::make_shared<core::FieldAccessExpr>(
-        "c0", std::nullopt, std::move(inputs));
-  }
   CursorParameters params;
   params.planNode =
-      PlanBuilder().values({vector}).projectExpressions({expr}).planNode();
+      PlanBuilder().values({vector}).project({"(c0).c0.c0.c0"}).planNode();
   params.copyResult = false;
   TaskCursor cursor(params);
   ASSERT_TRUE(cursor.moveNext());
@@ -375,34 +367,15 @@ TEST_F(FilterProjectTest, nestedFieldReferenceSharedChild) {
   auto shared = makeFlatVector<int64_t>(10, folly::identity);
   auto vector = makeRowVector({
       makeRowVector({
-          makeRowVector({shared}, [](auto i) { return i % 2 == 0; }),
-          makeRowVector({shared}, [](auto i) { return i % 3 == 0; }),
+          makeRowVector({shared}, nullEvery(2)),
+          makeRowVector({shared}, nullEvery(3)),
       }),
   });
-  // coalesce(c0.c0.c0, 0) + coalesce(c0.c1.c0, 0).  Duck DB fails to infer the
-  // correct type.
-  std::shared_ptr<const core::IExpr> expr;
-  std::vector<std::shared_ptr<const core::IExpr>> plusInputs;
-  for (int j = 0; j < 2; ++j) {
-    expr = std::make_shared<core::InputExpr>();
-    std::vector<std::shared_ptr<const core::IExpr>> inputs;
-    for (int i = 0; i < 3; ++i) {
-      inputs.push_back(expr);
-      expr = std::make_shared<core::FieldAccessExpr>(
-          i == 1 && j == 1 ? "c1" : "c0", std::nullopt, std::move(inputs));
-    }
-    inputs.push_back(expr);
-    expr = std::make_shared<core::ConstantExpr>(
-        BIGINT(), variant(0ll), std::nullopt);
-    inputs.push_back(expr);
-    expr = std::make_shared<core::CallExpr>(
-        "coalesce", std::move(inputs), std::nullopt);
-    plusInputs.push_back(expr);
-  }
-  expr = std::make_shared<core::CallExpr>(
-      "plus", std::move(plusInputs), std::nullopt);
   auto plan =
-      PlanBuilder().values({vector}).projectExpressions({expr}).planNode();
+      PlanBuilder()
+          .values({vector})
+          .project({"coalesce((c0).c0.c0, 0) + coalesce((c0).c1.c0, 0)"})
+          .planNode();
   auto expected = makeFlatVector<int64_t>(10);
   for (int i = 0; i < 10; ++i) {
     expected->set(i, (i % 2 == 0 ? 0 : i) + (i % 3 == 0 ? 0 : i));
