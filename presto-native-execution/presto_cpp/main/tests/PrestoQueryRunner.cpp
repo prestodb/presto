@@ -22,11 +22,7 @@
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/serializers/PrestoSerializer.h"
 
-// ANTLR defines an INVALID_INDEX macro, and DuckDB has a constant variable of
-// the same name.  So we have to include TypeParser.h after Velox.
-// clang-format off
 #include "presto_cpp/main/types/TypeParser.h"
-// clang-format on
 
 using namespace facebook::velox;
 

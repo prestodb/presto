@@ -16,8 +16,6 @@
 
 #include "velox/type/Type.h"
 
-#include "presto_cpp/main/types/antlr/TypeSignatureBaseVisitor.h"
-
 namespace facebook::presto {
 
 class TypeParser {
