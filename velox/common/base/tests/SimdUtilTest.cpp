@@ -16,6 +16,8 @@
 
 #include "velox/common/base/SimdUtil.h"
 #include <folly/Random.h>
+#include "velox/common/base/RawVector.h"
+#include "velox/common/time/Timer.h"
 
 #include <gtest/gtest.h>
 
@@ -207,6 +209,58 @@ TEST_F(SimdUtilTest, gatherBits) {
     EXPECT_EQ(bits::isBitSet(&bits, i), bits::isBitSet(data, vindex.get(i)));
   }
   EXPECT_FALSE(bits::isBitSet(&bits, N - 1));
+
+  uint64_t source = 0x123456789abcdefLU;
+  raw_vector<int32_t> bitIndices;
+  uint64_t result = 0;
+  for (auto i = 61; i >= 0; i -= 2) {
+    bitIndices.push_back(i);
+  }
+  simd::gatherBits(
+      &source,
+      folly::Range<int32_t*>(bitIndices.data(), bitIndices.size()),
+      &result);
+  for (auto i = 0; i < bitIndices.size(); ++i) {
+    EXPECT_EQ(
+        bits::isBitSet(&source, bitIndices[i]), bits::isBitSet(&result, i));
+  }
+}
+
+TEST_F(SimdUtilTest, transpose) {
+  constexpr int32_t kMaxSize = 100;
+  std::vector<int32_t> data32(kMaxSize);
+  std::vector<int64_t> data64(kMaxSize);
+  raw_vector<int32_t> indices(kMaxSize);
+  constexpr int64_t kMagic = 0x4fe12LU;
+  // indices are scattered over 0..kMaxSize - 1.
+  for (auto i = 0; i < kMaxSize; ++i) {
+    indices[i] = ((i * kMagic) & 0xffffff) % indices.size();
+    data32[i] = i;
+    data64[i] = static_cast<int64_t>(i) << 32;
+  }
+  for (auto size = 1; size < kMaxSize; ++size) {
+    std::vector<int32_t> result32(kMaxSize + 1, -1);
+    simd::transpose(
+        data32.data(),
+        folly::Range<const int32_t*>(indices.data(), size),
+        result32.data());
+    for (auto i = 0; i < size; ++i) {
+      EXPECT_EQ(data32[indices[i]], result32[i]);
+    }
+    // See that there is no write past 'size'.
+    EXPECT_EQ(-1, result32[size]);
+
+    std::vector<int64_t> result64(kMaxSize + 1, -1);
+    simd::transpose(
+        data64.data(),
+        folly::Range<const int32_t*>(indices.data(), size),
+        result64.data());
+    for (auto i = 0; i < size; ++i) {
+      EXPECT_EQ(data64[indices[i]], result64[i]);
+    }
+    // See that there is no write past 'size'.
+    EXPECT_EQ(-1, result64[size]);
+  }
 }
 
 namespace {
@@ -376,7 +430,7 @@ TEST_F(SimdUtilTest, reinterpretBatch) {
   validateReinterpretBatch<int64_t>();
 }
 
-TEST_F(SimdUtilTest, memEqual) {
+TEST_F(SimdUtilTest, memEqualUnsafe) {
   constexpr int32_t kSize = 132;
   struct {
     char x[kSize];
@@ -397,6 +451,44 @@ TEST_F(SimdUtilTest, memEqual) {
   // Redo the test offset by 1 to test unaligned.
   EXPECT_TRUE(simd::memEqualUnsafe(&data.x[1], &data.y[1], 66));
   EXPECT_FALSE(simd::memEqualUnsafe(&data.x[1], &data.y[1], 67));
+}
+
+TEST_F(SimdUtilTest, memcpyTime) {
+  constexpr int64_t kMaxMove = 128;
+  constexpr int64_t kSize = (128 << 20) + kMaxMove;
+  constexpr uint64_t kSizeMask = (128 << 20) - 1;
+  constexpr int32_t kMoveMask = kMaxMove - 1;
+  constexpr uint64_t kMagic1 = 0x5231871;
+  constexpr uint64_t kMagic3 = 0xfae1;
+  constexpr uint64_t kMagic2 = 0x817952491;
+  std::vector<char> dataV(kSize);
+
+  auto data = dataV.data();
+  uint64_t simd = 0;
+  uint64_t sys = 0;
+  {
+    MicrosecondTimer t(&simd);
+    for (auto ctr = 0; ctr < 100; ++ctr) {
+      for (auto i = 0; i < 10000; ++i) {
+        char* from = data + ((i * kMagic1) & kSizeMask);
+        char* to = data + ((i * kMagic2) & kSizeMask);
+        int32_t size = (i * kMagic3) % kMoveMask;
+        simd::memcpy(to, from, size);
+      }
+    }
+  }
+  {
+    MicrosecondTimer t(&sys);
+    for (auto ctr = 0; ctr < 100; ++ctr) {
+      for (auto i = 0; i < 10000; ++i) {
+        char* from = data + ((i * kMagic1) & kSizeMask);
+        char* to = data + ((i * kMagic2) & kSizeMask);
+        int32_t size = (i * kMagic3) % kMoveMask;
+        ::memcpy(to, from, size);
+      }
+    }
+  }
+  LOG(INFO) << "simd=" << simd << " sys=" << sys;
 }
 
 } // namespace

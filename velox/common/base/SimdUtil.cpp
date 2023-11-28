@@ -19,6 +19,34 @@
 
 namespace facebook::velox::simd {
 
+void gatherBits(
+    const uint64_t* bits,
+    folly::Range<const int32_t*> indexRange,
+    uint64_t* result) {
+  auto size = indexRange.size();
+  auto indices = indexRange.data();
+  uint8_t* resultPtr = reinterpret_cast<uint8_t*>(result);
+  if (LIKELY(size < 5)) {
+    uint8_t smallResult = 0;
+    for (auto i = 0; i < size; ++i) {
+      smallResult |= static_cast<uint8_t>(bits::isBitSet(bits, indices[i]))
+          << i;
+    }
+    *resultPtr = smallResult;
+    return;
+  }
+  int32_t i = 0;
+  for (; i + 8 < size; i += 8) {
+    *(resultPtr++) =
+        simd::gather8Bits(bits, xsimd::load_unaligned(indices + i), 8);
+  }
+  auto bitsLeft = size - i;
+  if (bitsLeft > 0) {
+    *resultPtr =
+        simd::gather8Bits(bits, xsimd::load_unaligned(indices + i), bitsLeft);
+  }
+}
+
 namespace detail {
 
 alignas(kPadding) int32_t byteSetBits[256][8];
