@@ -45,18 +45,6 @@ function install_proxygen {
   cmake_install -DBUILD_TESTS=OFF
 }
 
-function install_antlr4 {
-    cd "${DEPENDENCY_DIR}"
-      if [ -d "antlr4-cpp-runtime-4.9.3-source" ]; then
-        rm -rf antlr4-cpp-runtime-4.9.3-source
-      fi
-    wget https://www.antlr.org/download/antlr4-cpp-runtime-4.9.3-source.zip -O antlr4-cpp-runtime-4.9.3-source.zip
-    mkdir antlr4-cpp-runtime-4.9.3-source && cd antlr4-cpp-runtime-4.9.3-source
-    unzip ../antlr4-cpp-runtime-4.9.3-source.zip
-    mkdir build && mkdir run && cd build
-    cmake .. && make "-j${NPROC}" install
-}
-
 function install_presto_deps {
   install_velox_deps
   run_and_time install_six
@@ -64,7 +52,6 @@ function install_presto_deps {
   run_and_time install_wangle
   run_and_time install_fbthrift
   run_and_time install_proxygen
-  run_and_time install_antlr4
 }
 
 if [[ $# -ne 0 ]]; then

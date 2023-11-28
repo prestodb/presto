@@ -77,12 +77,6 @@ RUN --mount=type=ssh \
     set +exu && \
     source /opt/rh/gcc-toolset-9/enable && \
     set -exu && \
-#-----------------------------------------------------------
-#---( START wget valid antlr java runtime
-#-----------------------------------------------------------
-    wget -q 'https://www.antlr.org/download/antlr-4.9.3-complete.jar' -O '/usr/local/lib/antlr-4.9.3-complete.jar' && \
-    printf '#!/usr/bin/bash\n\njava -jar /usr/local/lib/antlr-4.9.3-complete.jar "$@"' > '/usr/local/bin/antlr' && \
-    chmod +x "/usr/local/bin/antlr" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-adapters.sh" && \
     dnf clean all
 

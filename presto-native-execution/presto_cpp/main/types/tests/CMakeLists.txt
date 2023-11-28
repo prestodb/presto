@@ -27,12 +27,10 @@ target_link_libraries(
   presto_type_converter
   presto_types
   velox_type_fbhive
-  ${ANTLR4_RUNTIME}
   velox_hive_partition_function)
 
-add_executable(
-  presto_expressions_test RowExpressionTest.cpp TypeSignatureTest.cpp
-                          ValuesPipeTest.cpp PlanConverterTest.cpp)
+add_executable(presto_expressions_test RowExpressionTest.cpp ValuesPipeTest.cpp
+                                       PlanConverterTest.cpp)
 
 add_test(
   NAME presto_expressions_test
@@ -41,13 +39,6 @@ add_test(
 
 add_dependencies(presto_expressions_test presto_operators presto_protocol
                  presto_types)
-
-# There is not really a better way at this point.  Several posts have complained
-# about the parser generator not producing a file that finds the includes on the
-# default install path. :(
-#
-target_include_directories(presto_expressions_test SYSTEM
-                           PRIVATE "/usr/local/include/antlr4-runtime")
 
 target_link_libraries(
   presto_expressions_test
@@ -72,7 +63,6 @@ target_link_libraries(
   velox_type
   Boost::filesystem
   ${RE2}
-  ${ANTLR4_RUNTIME}
   ${FOLLY_WITH_DEPENDENCIES}
   ${GLOG}
   ${GFLAGS_LIBRARIES}

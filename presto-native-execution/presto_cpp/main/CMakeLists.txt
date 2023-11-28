@@ -58,6 +58,7 @@ target_link_libraries(
   velox_presto_serializer
   velox_serialization
   velox_time
+  velox_type_parser
   velox_type
   velox_type_fbhive
   velox_type_tz
@@ -65,7 +66,6 @@ target_link_libraries(
   velox_window
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}
-  ${ANTLR4_RUNTIME}
   ${GLOG}
   ${GFLAGS_LIBRARIES}
   pthread)

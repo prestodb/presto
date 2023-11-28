@@ -23,12 +23,8 @@
 
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-// antlr-common.h undefines the EOF macro that external/json/nlohmann/json.hpp
-// relies on, so include presto_protcol.h before TypeParser.h
-// clang-format off
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "presto_cpp/main/types/TypeParser.h"
-// clang-format on
+#include "presto_cpp/presto_protocol/presto_protocol.h"
 
 namespace facebook::presto {
 
