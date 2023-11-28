@@ -401,7 +401,7 @@ inline void storeLeading(
 #endif
     for (auto i = 0; i < n; ++i) {
       reinterpret_cast<T*>(destination)[i] =
-          *reinterpret_cast<const T*>(&data)[i];
+          reinterpret_cast<const T*>(&data)[i];
     }
 #if XSIMD_WITH_AVX2
   }
