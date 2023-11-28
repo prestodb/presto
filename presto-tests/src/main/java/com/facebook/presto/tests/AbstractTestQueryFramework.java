@@ -282,6 +282,21 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
     }
 
+    protected void assertQueryError(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        assertQueryError(queryRunner, getSession(), sql, expectedMessageRegExp);
+    }
+
+    protected void assertQueryError(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        try {
+            queryRunner.execute(session, sql);
+        }
+        catch (AssertionError e) {
+            assertErrorMessage(sql, e, expectedMessageRegExp);
+        }
+    }
+
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
     {
         QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
@@ -350,6 +365,13 @@ public abstract class AbstractTestQueryFramework
     {
         if (!nullToEmpty(exception.getMessage()).matches(regex)) {
             fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+        }
+    }
+
+    private static void assertErrorMessage(String sql, AssertionError error, @Language("RegExp") String regex)
+    {
+        if (!nullToEmpty(error.getMessage()).matches(regex)) {
+            fail(format("Expected error message '%s' to match '%s' for query: %s", error.getMessage(), regex, sql), error);
         }
     }
 
