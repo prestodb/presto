@@ -554,6 +554,7 @@ int main(int argc, char** argv) {
           {"approx_set", nullptr},
           {"approx_percentile", nullptr},
           {"arbitrary", nullptr},
+          {"any_value", nullptr},
           {"array_agg", makeArrayVerifier()},
           {"set_agg", makeArrayVerifier()},
           {"set_union", makeArrayVerifier()},
