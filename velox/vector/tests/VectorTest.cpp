@@ -120,7 +120,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
   VectorPtr createScalar(TypePtr type, vector_size_t size, bool withNulls) {
     using T = typename TypeTraits<KIND>::NativeType;
     BufferPtr buffer;
-    VectorPtr base = BaseVector::create(type, size, pool_.get());
+    VectorPtr base = BaseVector::create(type, size, pool());
     auto flat = std::dynamic_pointer_cast<FlatVector<T>>(base);
     for (int32_t i = 0; i < flat->size(); ++i) {
       if (withNulls && i % 3 == 0) {
@@ -137,7 +137,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         ROW({"child_bigint", "child_string"}, {BIGINT(), VARCHAR()});
     auto parentType =
         ROW({"parent_bigint", "parent_row"}, {BIGINT(), childType});
-    auto baseRow = BaseVector::create(parentType, numRows, pool_.get());
+    auto baseRow = BaseVector::create(parentType, numRows, pool());
     auto row = baseRow->as<RowVector>();
     EXPECT_EQ(row->size(), numRows);
     EXPECT_EQ(row->nulls(), nullptr);
@@ -146,7 +146,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         createScalar<TypeKind::BIGINT>(BIGINT(), numRows, withNulls),
         createScalar<TypeKind::VARCHAR>(VARCHAR(), numRows, withNulls)};
     auto childRow = std::make_shared<RowVector>(
-        pool_.get(),
+        pool(),
         childType,
         BufferPtr(nullptr),
         numRows,
@@ -154,7 +154,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         0 /*nullCount*/);
     BufferPtr nulls;
     if (withNulls) {
-      nulls = AlignedBuffer::allocate<bool>(numRows, pool_.get());
+      nulls = allocateNulls(numRows, pool());
       int32_t childCounter = 0;
       auto rawNulls = nulls->asMutable<uint64_t>();
       for (int32_t i = 0; i < numRows; ++i) {
@@ -164,7 +164,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     std::vector<VectorPtr> parentFields = {
         createScalar<TypeKind::BIGINT>(BIGINT(), numRows, withNulls), childRow};
     return std::make_shared<RowVector>(
-        pool_.get(),
+        pool(),
         parentType,
         nulls,
         numRows,
@@ -179,16 +179,15 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
       BufferPtr* offsets,
       BufferPtr* sizes,
       int forceWidth) {
-    *offsets = AlignedBuffer::allocate<vector_size_t>(numRows, pool_.get());
+    *offsets = AlignedBuffer::allocate<vector_size_t>(numRows, pool());
     auto* rawOffsets = (*offsets)->asMutable<vector_size_t>();
 
-    *sizes = AlignedBuffer::allocate<vector_size_t>(numRows, pool_.get());
+    *sizes = AlignedBuffer::allocate<vector_size_t>(numRows, pool());
     auto* rawSizes = (*sizes)->asMutable<vector_size_t>();
 
     uint64_t* rawNulls = nullptr;
     if (withNulls) {
-      *nulls =
-          AlignedBuffer::allocate<bool>(numRows, pool_.get(), bits::kNotNull);
+      *nulls = allocateNulls(numRows, pool());
       rawNulls = (*nulls)->asMutable<uint64_t>();
     }
     int32_t offset = 0;
@@ -219,7 +218,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         createRepeated(numRows, withNulls, &nulls, &offsets, &sizes, 0);
     VectorPtr elements = createRow(numElements, withNulls);
     return std::make_shared<ArrayVector>(
-        pool_.get(),
+        pool(),
         ARRAY(elements->type()),
         nulls,
         numRows,
@@ -240,7 +239,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
   template <TypeKind KIND>
   void testFlat(TypePtr type, vector_size_t size, bool withNulls) {
     using T = typename TypeTraits<KIND>::NativeType;
-    VectorPtr base = BaseVector::create(type, size, pool_.get());
+    VectorPtr base = BaseVector::create(type, size, pool());
     auto flat = std::dynamic_pointer_cast<FlatVector<T>>(base);
     ASSERT_NE(flat.get(), nullptr);
     EXPECT_EQ(flat->size(), size);
@@ -376,7 +375,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto kind = source->typeKind();
     auto isSmall = kind == TypeKind::BOOLEAN || kind == TypeKind::TINYINT;
     auto sourceSize = source->size();
-    auto target = BaseVector::create(source->type(), sourceSize, pool_.get());
+    auto target = BaseVector::create(source->type(), sourceSize, pool());
     // Writes target out of sequence by copying the first half of
     // source to odd positions and the second half to even positions.
     auto even = selectEven(sourceSize);
@@ -492,12 +491,11 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     BufferPtr dictionaryNulls;
     uint64_t* rawNulls = nullptr;
     if (source->mayHaveNulls()) {
-      dictionaryNulls = AlignedBuffer::allocate<bool>(
-          sourceSize, pool_.get(), bits::kNotNull);
+      dictionaryNulls = allocateNulls(sourceSize, pool());
       rawNulls = dictionaryNulls->asMutable<uint64_t>();
     }
     BufferPtr indices =
-        AlignedBuffer::allocate<vector_size_t>(sourceSize, pool_.get());
+        AlignedBuffer::allocate<vector_size_t>(sourceSize, pool());
     for (int32_t i = 0; i < sourceSize; ++i) {
       indices->asMutable<vector_size_t>()[i] = sourceSize - i - 1;
       if (rawNulls && (i + level) % 11 == 0) {
@@ -707,8 +705,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
       BufferPtr nulls;
       uint64_t* rawNulls = nullptr;
       if (slice->mayHaveNulls()) {
-        nulls = AlignedBuffer::allocate<bool>(
-            slice->size(), slice->pool(), bits::kNotNull);
+        nulls = allocateNulls(slice->size(), slice->pool());
         rawNulls = nulls->asMutable<uint64_t>();
       }
       BufferPtr indices =
@@ -812,10 +809,10 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto sourceRow = makeRowVector({"c"}, {source});
     auto sourceRowType = asRowType(sourceRow->type());
 
-    VectorStreamGroup even(pool_.get());
+    VectorStreamGroup even(pool());
     even.createStreamTree(sourceRowType, source->size() / 4);
 
-    VectorStreamGroup odd(pool_.get());
+    VectorStreamGroup odd(pool());
     odd.createStreamTree(sourceRowType, source->size() / 3);
 
     std::vector<IndexRange> evenIndices;
@@ -872,7 +869,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto evenInput = prepareInput(evenString);
 
     RowVectorPtr resultRow;
-    VectorStreamGroup::read(&evenInput, pool_.get(), sourceRowType, &resultRow);
+    VectorStreamGroup::read(&evenInput, pool(), sourceRowType, &resultRow);
     VectorPtr result = resultRow->childAt(0);
     switch (source->encoding()) {
       case VectorEncoding::Simple::FLAT:
@@ -901,7 +898,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto oddString = oddStream.str();
     auto oddInput = prepareInput(oddString);
 
-    VectorStreamGroup::read(&oddInput, pool_.get(), sourceRowType, &resultRow);
+    VectorStreamGroup::read(&oddInput, pool(), sourceRowType, &resultRow);
     result = resultRow->childAt(0);
     for (int32_t i = 0; i < oddIndices.size(); ++i) {
       EXPECT_TRUE(result->equalValueAt(source.get(), i, oddIndices[i].begin))
@@ -933,7 +930,7 @@ int128_t VectorTest::testValue<int128_t>(int32_t i, BufferPtr& /*space*/) {
 template <>
 StringView VectorTest::testValue(int32_t n, BufferPtr& buffer) {
   if (!buffer || buffer->capacity() < 1000) {
-    buffer = AlignedBuffer::allocate<char>(1000, pool_.get());
+    buffer = AlignedBuffer::allocate<char>(1000, pool());
   }
   std::stringstream out;
   out << n;
@@ -969,7 +966,7 @@ VectorPtr VectorTest::createMap(int32_t numRows, bool withNulls) {
   int32_t numElements =
       createRepeated(numRows, withNulls, &nulls, &offsets, &sizes, 0);
   VectorPtr elements = createRow(numElements, withNulls);
-  auto keysBase = BaseVector::create(VARCHAR(), 7, pool_.get());
+  auto keysBase = BaseVector::create(VARCHAR(), 7, pool());
   auto flatKeys = keysBase->as<FlatVector<StringView>>();
   for (int32_t i = 0; i < keysBase->size(); ++i) {
     BufferPtr buffer;
@@ -977,7 +974,7 @@ VectorPtr VectorTest::createMap(int32_t numRows, bool withNulls) {
   }
 
   auto indices =
-      AlignedBuffer::allocate<vector_size_t>(elements->size(), pool_.get());
+      AlignedBuffer::allocate<vector_size_t>(elements->size(), pool());
 
   auto rawSizes = sizes->as<vector_size_t>();
   int32_t offset = 0;
@@ -994,7 +991,7 @@ VectorPtr VectorTest::createMap(int32_t numRows, bool withNulls) {
       elements->size(),
       std::move(keysBase));
   return std::make_shared<MapVector>(
-      pool_.get(),
+      pool(),
       MAP(VARCHAR(), elements->type()),
       nulls,
       numRows,
@@ -1041,7 +1038,7 @@ TEST_F(VectorTest, createOpaque) {
 }
 
 TEST_F(VectorTest, getOrCreateEmpty) {
-  auto empty = BaseVector::getOrCreateEmpty(nullptr, VARCHAR(), pool_.get());
+  auto empty = BaseVector::getOrCreateEmpty(nullptr, VARCHAR(), pool());
   EXPECT_NE(empty, nullptr);
   EXPECT_EQ(empty->size(), 0);
   EXPECT_EQ(empty->type(), VARCHAR());
@@ -1054,8 +1051,7 @@ TEST_F(VectorTest, row) {
   baseRow = createRow(vectorSize_, true);
   testCopy(baseRow, numIterations_);
   testSlices(baseRow);
-  auto allNull =
-      BaseVector::createNullConstant(baseRow->type(), 50, pool_.get());
+  auto allNull = BaseVector::createNullConstant(baseRow->type(), 50, pool());
   testCopy(allNull, numIterations_);
   testSlices(allNull);
   // created from BaseVector::Create()
@@ -1094,8 +1090,7 @@ TEST_F(VectorTest, array) {
   baseArray = createArray(vectorSize_, true);
   testCopy(baseArray, numIterations_);
   testSlices(baseArray);
-  auto allNull =
-      BaseVector::createNullConstant(baseArray->type(), 50, pool_.get());
+  auto allNull = BaseVector::createNullConstant(baseArray->type(), 50, pool());
   testCopy(allNull, numIterations_);
   testSlices(allNull);
 }
@@ -1107,8 +1102,7 @@ TEST_F(VectorTest, map) {
   baseMap = createRow(vectorSize_, true);
   testCopy(baseMap, numIterations_);
   testSlices(baseMap);
-  auto allNull =
-      BaseVector::createNullConstant(baseMap->type(), 50, pool_.get());
+  auto allNull = BaseVector::createNullConstant(baseMap->type(), 50, pool());
   testCopy(allNull, numIterations_);
   testSlices(allNull);
 }
@@ -1116,7 +1110,7 @@ TEST_F(VectorTest, map) {
 TEST_F(VectorTest, unknown) {
   // Creates a const UNKNOWN vector.
   auto constUnknownVector = BaseVector::createConstant(
-      UNKNOWN(), variant(TypeKind::UNKNOWN), 123, pool_.get());
+      UNKNOWN(), variant(TypeKind::UNKNOWN), 123, pool());
   ASSERT_FALSE(constUnknownVector->isScalar());
   ASSERT_EQ(TypeKind::UNKNOWN, constUnknownVector->typeKind());
   ASSERT_EQ(123, constUnknownVector->size());
@@ -1125,7 +1119,7 @@ TEST_F(VectorTest, unknown) {
   }
 
   // Create an int vector and copy UNKNOWN const vector into it.
-  auto intVector = BaseVector::create(BIGINT(), 10, pool_.get());
+  auto intVector = BaseVector::create(BIGINT(), 10, pool());
   ASSERT_FALSE(intVector->isNullAt(0));
   ASSERT_FALSE(intVector->mayHaveNulls());
   intVector->copy(constUnknownVector.get(), 0, 0, 1);
@@ -1145,7 +1139,7 @@ TEST_F(VectorTest, unknown) {
   EXPECT_ANY_THROW(constUnknownVector->copy(intVector.get(), rows, nullptr));
 
   // Create a flat UNKNOWN vector.
-  auto unknownVector = BaseVector::create(UNKNOWN(), 10, pool_.get());
+  auto unknownVector = BaseVector::create(UNKNOWN(), 10, pool());
   ASSERT_EQ(VectorEncoding::Simple::FLAT, unknownVector->encoding());
   ASSERT_FALSE(unknownVector->isScalar());
   for (int i = 0; i < unknownVector->size(); ++i) {
@@ -1422,13 +1416,13 @@ TEST_F(VectorTest, wrapInConstant) {
   }
 
   // wrap dictionary vector
-  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool());
   auto rawIndices = indices->asMutable<vector_size_t>();
   for (auto i = 0; i < size; i++) {
     rawIndices[i] = 2 * i % size;
   }
 
-  BufferPtr nulls = AlignedBuffer::allocate<bool>(size, pool_.get());
+  BufferPtr nulls = allocateNulls(size, pool());
   auto rawNulls = nulls->asMutable<uint64_t>();
   for (auto i = 0; i < size; i++) {
     bits::setNull(rawNulls, i, i % 11 == 0);
@@ -1456,7 +1450,7 @@ TEST_F(VectorTest, wrapInConstant) {
   auto arrayVector = makeArrayVector<int32_t>(
       size, [](auto) { return 10; }, [](auto i) { return i; }, nullEvery(7));
   auto constBaseVector = std::make_shared<ConstantVector<ComplexType>>(
-      pool_.get(), size, 3, arrayVector);
+      pool(), size, 3, arrayVector);
   auto constArrayVector =
       std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
           BaseVector::wrapInConstant(size, 22, constBaseVector));
@@ -1469,7 +1463,7 @@ TEST_F(VectorTest, wrapInConstant) {
 
   // Wrap constant with valueVector and null value.
   constBaseVector = std::make_shared<ConstantVector<ComplexType>>(
-      pool_.get(), size, 7, arrayVector);
+      pool(), size, 7, arrayVector);
   constArrayVector = std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
       BaseVector::wrapInConstant(size, 22, constBaseVector, true));
   EXPECT_NE(constArrayVector->valueVector(), nullptr);
@@ -1500,13 +1494,13 @@ TEST_F(VectorTest, wrapInConstantWithCopy) {
   }
 
   // Wrap dictionary vector.
-  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool());
   auto rawIndices = indices->asMutable<vector_size_t>();
   for (auto i = 0; i < size; i++) {
     rawIndices[i] = 2 * i % size;
   }
 
-  BufferPtr nulls = AlignedBuffer::allocate<bool>(size, pool_.get());
+  BufferPtr nulls = allocateNulls(size, pool());
   auto rawNulls = nulls->asMutable<uint64_t>();
   for (auto i = 0; i < size; i++) {
     bits::setNull(rawNulls, i, i % 11 == 0);
@@ -1527,7 +1521,7 @@ TEST_F(VectorTest, wrapInConstantWithCopy) {
   auto arrayVector = makeArrayVector<int32_t>(
       size, [](auto) { return 10; }, [](auto i) { return i; }, nullEvery(7));
   auto constBaseVector = std::make_shared<ConstantVector<ComplexType>>(
-      pool_.get(), size, 3, arrayVector);
+      pool(), size, 3, arrayVector);
   auto constArrayVector =
       std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
           BaseVector::wrapInConstant(size, 22, constBaseVector, true));
@@ -1540,7 +1534,7 @@ TEST_F(VectorTest, wrapInConstantWithCopy) {
 
   // Wrap constant with valueVector and null value.
   constBaseVector = std::make_shared<ConstantVector<ComplexType>>(
-      pool_.get(), size, 7, arrayVector);
+      pool(), size, 7, arrayVector);
   constArrayVector = std::dynamic_pointer_cast<ConstantVector<ComplexType>>(
       BaseVector::wrapInConstant(size, 22, constBaseVector, true));
   EXPECT_NE(constArrayVector->valueVector(), nullptr);
@@ -1642,7 +1636,7 @@ TEST_F(VectorTest, wrapConstantInDictionary) {
       nullptr,
       indices,
       10,
-      BaseVector::createConstant(INTEGER(), 7, 100, pool_.get()));
+      BaseVector::createConstant(INTEGER(), 7, 100, pool()));
   ASSERT_EQ(vector->encoding(), VectorEncoding::Simple::CONSTANT);
   auto constantVector =
       std::dynamic_pointer_cast<ConstantVector<int32_t>>(vector);
@@ -1657,7 +1651,7 @@ TEST_F(VectorTest, wrapConstantInDictionary) {
       nulls,
       indices,
       10,
-      BaseVector::createConstant(INTEGER(), 11, 100, pool_.get()));
+      BaseVector::createConstant(INTEGER(), 11, 100, pool()));
   ASSERT_EQ(vector->encoding(), VectorEncoding::Simple::DICTIONARY);
   auto dictVector = std::dynamic_pointer_cast<SimpleVector<int32_t>>(vector);
   for (auto i = 0; i < 10; ++i) {
@@ -1671,7 +1665,7 @@ TEST_F(VectorTest, wrapConstantInDictionary) {
 }
 
 TEST_F(VectorTest, setFlatVectorStringView) {
-  auto vector = BaseVector::create(VARCHAR(), 1, pool_.get());
+  auto vector = BaseVector::create(VARCHAR(), 1, pool());
   auto flat = vector->asFlatVector<StringView>();
   EXPECT_EQ(0, flat->stringBuffers().size());
 
@@ -1683,7 +1677,7 @@ TEST_F(VectorTest, setFlatVectorStringView) {
   EXPECT_EQ(originalString.size(), flat->stringBuffers()[0]->size());
 
   // Make a copy of the vector. Verify that string buffer is shared.
-  auto copy = BaseVector::create(VARCHAR(), 1, pool_.get());
+  auto copy = BaseVector::create(VARCHAR(), 1, pool());
   copy->copy(flat, 0, 0, 1);
 
   auto flatCopy = copy->asFlatVector<StringView>();
@@ -1704,7 +1698,7 @@ TEST_F(VectorTest, resizeAtConstruction) {
   const size_t realSize = 10;
 
   vector_size_t oldByteSize = BaseVector::byteSize<int64_t>(realSize);
-  BufferPtr values = AlignedBuffer::allocate<char>(oldByteSize, pool_.get());
+  BufferPtr values = AlignedBuffer::allocate<char>(oldByteSize, pool());
 
   EXPECT_EQ(oldByteSize, values->size());
   EXPECT_GE(values->capacity(), values->size());
@@ -1720,7 +1714,7 @@ TEST_F(VectorTest, resizeAtConstruction) {
 
   // Now create a FlatVector with the resized buffer.
   auto flat = std::make_shared<FlatVector<int64_t>>(
-      pool_.get(),
+      pool(),
       BIGINT(),
       BufferPtr(nullptr),
       realSize,
@@ -1762,14 +1756,14 @@ TEST_F(VectorTest, resizeZeroString) {
 TEST_F(VectorTest, copyNoRows) {
   {
     auto source = makeFlatVector<int32_t>({1, 2, 3});
-    auto target = BaseVector::create(INTEGER(), 10, pool_.get());
+    auto target = BaseVector::create(INTEGER(), 10, pool());
     SelectivityVector rows(3, false);
     target->copy(source.get(), rows, nullptr);
   }
 
   {
     auto source = makeFlatVector<StringView>({"a", "b", "c"});
-    auto target = BaseVector::create(VARCHAR(), 10, pool_.get());
+    auto target = BaseVector::create(VARCHAR(), 10, pool());
     SelectivityVector rows(3, false);
     target->copy(source.get(), rows, nullptr);
   }
@@ -1853,7 +1847,7 @@ class VectorCreateConstantTest : public VectorTest {
     using TCpp = typename TypeTraits<KIND>::NativeType;
     variant var = variant::create<KIND>(val);
 
-    auto baseVector = BaseVector::createConstant(type, var, size_, pool_.get());
+    auto baseVector = BaseVector::createConstant(type, var, size_, pool());
     auto simpleVector = baseVector->template as<SimpleVector<TCpp>>();
     ASSERT_TRUE(simpleVector != nullptr);
 
@@ -1907,7 +1901,7 @@ class VectorCreateConstantTest : public VectorTest {
   template <TypeKind KIND>
   void testNullConstant(const TypePtr& type) {
     ASSERT_EQ(KIND, type->kind());
-    auto baseVector = BaseVector::createNullConstant(type, size_, pool_.get());
+    auto baseVector = BaseVector::createNullConstant(type, size_, pool());
     auto simpleVector = baseVector->template as<
         SimpleVector<typename KindToFlatVector<KIND>::WrapperType>>();
     ASSERT_TRUE(simpleVector != nullptr);
@@ -2026,7 +2020,7 @@ class TestingHook : public ValueHook {
 TEST_F(VectorTest, valueHook) {
   VectorPtr values = createScalar<TypeKind::BIGINT>(BIGINT(), 1000, true);
   auto lazy = std::make_shared<LazyVector>(
-      pool_.get(),
+      pool(),
       BIGINT(),
       values->size(),
       std::make_unique<TestingLoader>(values));
@@ -2056,7 +2050,7 @@ TEST_F(VectorTest, byteSize) {
 
 TEST_F(VectorTest, clearNulls) {
   auto vectorSize = 100;
-  auto vector = BaseVector::create(INTEGER(), vectorSize, pool_.get());
+  auto vector = BaseVector::create(INTEGER(), vectorSize, pool());
   ASSERT_FALSE(vector->mayHaveNulls());
 
   // No op if doesn't have nulls
@@ -2109,7 +2103,7 @@ TEST_F(VectorTest, setStringToNull) {
       kSize, [](auto /*row*/) { return StringView("Non-inlined string"); });
   target->setNull(kSize - 1, true);
   auto unknownNull = std::make_shared<ConstantVector<UnknownValue>>(
-      pool_.get(), kSize, true, UNKNOWN(), UnknownValue());
+      pool(), kSize, true, UNKNOWN(), UnknownValue());
 
   auto stringNull = BaseVector::wrapInConstant(kSize, kSize - 1, target);
   SelectivityVector rows(kSize, false);
@@ -2122,10 +2116,9 @@ TEST_F(VectorTest, setStringToNull) {
   rows.updateBounds();
   target->copy(stringNull.get(), rows, nullptr);
   EXPECT_TRUE(target->isNullAt(4));
-  auto nulls = AlignedBuffer::allocate<uint64_t>(
-      bits::nwords(kSize), pool_.get(), bits::kNull64);
+  auto nulls = allocateNulls(kSize, pool(), bits::kNull);
   auto flatNulls = std::make_shared<FlatVector<UnknownValue>>(
-      pool_.get(),
+      pool(),
       UNKNOWN(),
       nulls,
       kSize,
@@ -2140,7 +2133,7 @@ TEST_F(VectorTest, setStringToNull) {
 
 TEST_F(VectorTest, clearAllNulls) {
   auto vectorSize = 100;
-  auto vector = BaseVector::create(INTEGER(), vectorSize, pool_.get());
+  auto vector = BaseVector::create(INTEGER(), vectorSize, pool());
   ASSERT_FALSE(vector->mayHaveNulls());
 
   auto rawNulls = vector->mutableRawNulls();
@@ -2165,7 +2158,7 @@ TEST_F(VectorTest, multipleDictionariesOverLazy) {
   vector_size_t size = 10;
   auto indices = makeIndices(size, [&](auto row) { return size - row - 1; });
   auto lazy = std::make_shared<LazyVector>(
-      pool_.get(),
+      pool(),
       INTEGER(),
       size,
       std::make_unique<TestingLoader>(
@@ -2192,8 +2185,8 @@ TEST_F(VectorTest, selectiveLoadingOfLazyDictionaryNested) {
 
   auto loader = std::make_unique<TestingLoader>(data);
   auto loaderPtr = loader.get();
-  auto lazyVector = std::make_shared<LazyVector>(
-      pool_.get(), INTEGER(), size, std::move(loader));
+  auto lazyVector =
+      std::make_shared<LazyVector>(pool(), INTEGER(), size, std::move(loader));
 
   auto indicesInner =
       makeIndices(size, [&](auto row) { return (row % 2 == 0) ? row : 0; });
@@ -2220,7 +2213,7 @@ TEST_F(VectorTest, nestedLazy) {
   auto indexAt = [](vector_size_t) { return 0; };
   auto makeLazy = [&]() {
     return std::make_shared<LazyVector>(
-        pool_.get(),
+        pool(),
         INTEGER(),
         size,
         std::make_unique<TestingLoader>(
@@ -2325,9 +2318,9 @@ TEST_F(VectorTest, acquireSharedStringBuffers) {
   std::vector<BufferPtr> buffers;
   const int bufferSize = 100;
   for (int i = 0; i < numBuffers; ++i) {
-    buffers.push_back(AlignedBuffer::allocate<char>(bufferSize, pool_.get()));
+    buffers.push_back(AlignedBuffer::allocate<char>(bufferSize, pool()));
   }
-  auto vector = BaseVector::create(VARCHAR(), 100, pool_.get());
+  auto vector = BaseVector::create(VARCHAR(), 100, pool());
   auto flatVector = vector->as<FlatVector<StringView>>();
   EXPECT_EQ(0, flatVector->stringBuffers().size());
 
@@ -2343,7 +2336,7 @@ TEST_F(VectorTest, acquireSharedStringBuffers) {
   int numSourceVectors = 2;
   std::vector<VectorPtr> sourceVectors;
   for (int i = 0; i < numSourceVectors; ++i) {
-    sourceVectors.push_back(BaseVector::create(VARCHAR(), 100, pool_.get()));
+    sourceVectors.push_back(BaseVector::create(VARCHAR(), 100, pool()));
     sourceVectors.back()->asFlatVector<StringView>()->setStringBuffers(
         {buffers[i]});
   }
@@ -2372,12 +2365,12 @@ TEST_F(VectorTest, acquireSharedStringBuffers) {
   auto arrayVector = makeArrayVector<int32_t>({});
   ASSERT_NO_THROW(flatVector->acquireSharedStringBuffers(arrayVector.get()));
 
-  auto unkownVector = BaseVector::create(UNKNOWN(), 100, pool_.get());
+  auto unkownVector = BaseVector::create(UNKNOWN(), 100, pool());
   ASSERT_NO_THROW(flatVector->acquireSharedStringBuffers(unkownVector.get()));
 }
 
 TEST_F(VectorTest, acquireSharedStringBuffersRecursive) {
-  auto vector = BaseVector::create(VARCHAR(), 100, pool_.get());
+  auto vector = BaseVector::create(VARCHAR(), 100, pool());
   auto flatVector = vector->as<FlatVector<StringView>>();
 
   auto testWithEncodings = [&](const VectorPtr& source,
@@ -2394,7 +2387,7 @@ TEST_F(VectorTest, acquireSharedStringBuffersRecursive) {
 
     // Dictionary Vector.
     BufferPtr indices =
-        AlignedBuffer::allocate<vector_size_t>(source->size(), pool_.get());
+        AlignedBuffer::allocate<vector_size_t>(source->size(), pool());
     for (int32_t i = 0; i < source->size(); ++i) {
       indices->asMutable<vector_size_t>()[i] = source->size() - i - 1;
     }
@@ -2711,10 +2704,7 @@ TEST_F(VectorTest, flattenVector) {
   test(row, true);
 
   VectorPtr lazy = std::make_shared<LazyVector>(
-      pool_.get(),
-      INTEGER(),
-      flat->size(),
-      std::make_unique<TestingLoader>(flat));
+      pool(), INTEGER(), flat->size(), std::make_unique<TestingLoader>(flat));
   test(lazy, true);
 
   // Constant
@@ -3306,7 +3296,7 @@ TEST_F(VectorTest, dictionaryNullEqual) {
   BufferPtr indices = test::makeIndices(
       kTopLevelVectorSize,
       [&](vector_size_t i) { return i % baseVectorSize; },
-      pool_.get());
+      pool());
   auto dictVector =
       BaseVector::wrapInDictionary(nullptr, indices, kTopLevelVectorSize, base);
 
