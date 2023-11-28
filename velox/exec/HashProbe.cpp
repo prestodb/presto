@@ -233,7 +233,7 @@ void HashProbe::maybeSetupSpillInput(
     VELOX_CHECK(iter != spillPartitionSet_.end());
     auto partition = std::move(iter->second);
     VELOX_CHECK_EQ(partition->id(), restoredPartitionId.value());
-    spillInputReader_ = partition->createUnorderedReader();
+    spillInputReader_ = partition->createUnorderedReader(pool());
     spillPartitionSet_.erase(iter);
   }
 

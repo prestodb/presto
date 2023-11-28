@@ -64,6 +64,7 @@ add_library(
   SortedAggregations.cpp
   SortWindowBuild.cpp
   Spill.cpp
+  SpillFile.cpp
   SpillOperatorGroup.cpp
   Spiller.cpp
   StreamingAggregation.cpp

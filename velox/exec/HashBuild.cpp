@@ -198,6 +198,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
   if (!spillEnabled()) {
     return;
   }
+
   const auto& spillConfig = spillConfig_.value();
   HashBitRange hashBits(
       spillConfig.startPartitionBit,
@@ -211,7 +212,8 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     LOG(INFO) << "Setup reader to read spilled input from "
               << spillPartition->toString()
               << ", memory pool: " << pool()->name();
-    spillInputReader_ = spillPartition->createUnorderedReader();
+
+    spillInputReader_ = spillPartition->createUnorderedReader(pool());
 
     const auto startBit = spillPartition->id().partitionBitOffset() +
         spillConfig.joinPartitionBits;

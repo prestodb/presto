@@ -81,6 +81,8 @@ class SortWindowBuild : public WindowBuild {
   // Used to sort 'data_' while spilling.
   const std::vector<CompareFlags> spillCompareFlags_;
 
+  memory::MemoryPool* const pool_;
+
   // allKeyInfo_ is a combination of (partitionKeyInfo_ and sortKeyInfo_).
   // It is used to perform a full sorting of the input rows to be able to
   // separate partitions and sort the rows in it. The rows are output in

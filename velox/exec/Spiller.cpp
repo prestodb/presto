@@ -272,11 +272,11 @@ namespace {
 class RowContainerSpillMergeStream : public SpillMergeStream {
  public:
   RowContainerSpillMergeStream(
-      int32_t numSortingKeys,
+      int32_t numSortKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       Spiller::SpillRows&& rows,
       Spiller& spiller)
-      : numSortingKeys_(numSortingKeys),
+      : numSortKeys_(numSortKeys),
         sortCompareFlags_(sortCompareFlags),
         rows_(std::move(rows)),
         spiller_(spiller) {
@@ -292,8 +292,8 @@ class RowContainerSpillMergeStream : public SpillMergeStream {
   }
 
  private:
-  int32_t numSortingKeys() const override {
-    return numSortingKeys_;
+  int32_t numSortKeys() const override {
+    return numSortKeys_;
   }
 
   const std::vector<CompareFlags>& sortCompareFlags() const override {
@@ -317,7 +317,7 @@ class RowContainerSpillMergeStream : public SpillMergeStream {
     index_ = 0;
   }
 
-  const int32_t numSortingKeys_;
+  const int32_t numSortKeys_;
   const std::vector<CompareFlags> sortCompareFlags_;
 
   Spiller::SpillRows rows_;
@@ -385,7 +385,7 @@ std::unique_ptr<Spiller::SpillStatus> Spiller::writeSpill(int32_t partition) {
       totalBytes += state_.appendToPartition(partition, spillVector);
       if (totalBytes > state_.targetFileSize()) {
         VELOX_CHECK(!needSort());
-        state_.finishWrite(partition);
+        state_.finishFile(partition);
       }
     }
     return std::make_unique<SpillStatus>(partition, written, nullptr);
@@ -445,7 +445,7 @@ void Spiller::runSpill() {
     // aggregation output spiller, we expect only one spill call to spill all
     // the rows starting from the specified row offset.
     if (needSort() || (type_ == Spiller::Type::kAggregateOutput)) {
-      state_.finishWrite(partition);
+      state_.finishFile(partition);
     }
   }
 }
@@ -527,9 +527,9 @@ void Spiller::finishSpill(SpillPartitionSet& partitionSet) {
       partitionSet.emplace(
           partitionId,
           std::make_unique<SpillPartition>(
-              partitionId, state_.files(partition)));
+              partitionId, state_.finish(partition)));
     } else {
-      partitionSet[partitionId]->addFiles(state_.files(partition));
+      partitionSet[partitionId]->addFiles(state_.finish(partition));
     }
   }
 }
@@ -539,18 +539,12 @@ SpillPartition Spiller::finishSpill() {
   VELOX_CHECK(state_.isPartitionSpilled(0));
 
   finalizeSpill();
-  return SpillPartition(SpillPartitionId{bits_.begin(), 0}, state_.files(0));
+  return SpillPartition(SpillPartitionId{bits_.begin(), 0}, state_.finish(0));
 }
 
 void Spiller::finalizeSpill() {
   CHECK_NOT_FINALIZED();
   finalized_ = true;
-
-  for (const auto partition : state_.spilledPartitionSet()) {
-    if (state_.hasFiles(partition)) {
-      state_.finishWrite(partition);
-    }
-  }
 }
 
 void Spiller::fillSpillRuns(const RowContainerIterator* startRowIter) {

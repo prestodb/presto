@@ -121,7 +121,6 @@ void updateGlobalSpillSortTime(uint64_t timeUs);
 /// the written bytes, the time spent on copying out (compression) for disk
 /// writes, the time spent on disk writes.
 void updateGlobalSpillWriteStats(
-    uint32_t numDiskWrites,
     uint64_t spilledBytes,
     uint64_t flushTimeUs,
     uint64_t writeTimeUs);

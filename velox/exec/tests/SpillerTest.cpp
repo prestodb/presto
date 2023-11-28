@@ -560,9 +560,9 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
     // We make a merge reader that merges the spill files and the rows that
     // are still in the RowContainer.
-    auto merge = spillPartition->createOrderedReader();
+    auto merge = spillPartition->createOrderedReader(pool());
     ASSERT_TRUE(merge != nullptr);
-    ASSERT_TRUE(spillPartition->createOrderedReader() == nullptr);
+    ASSERT_TRUE(spillPartition->createOrderedReader(pool()) == nullptr);
 
     // We read the spilled data back and check that it matches the sorted
     // order of the partition.
@@ -856,7 +856,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       const int partition = spillPartitionEntry.first.partitionNumber();
       ASSERT_EQ(
           hashBits_.begin(), spillPartitionEntry.first.partitionBitOffset());
-      auto reader = spillPartitionEntry.second->createUnorderedReader();
+      auto reader = spillPartitionEntry.second->createUnorderedReader(pool());
       if (type_ == Spiller::Type::kHashJoinProbe) {
         // For hash probe type, we append each input vector as one batch in
         // spill file so that we can do one-to-one comparison.
@@ -928,7 +928,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       const int partition = spillPartitionEntry.first.partitionNumber();
       ASSERT_EQ(
           hashBits_.begin(), spillPartitionEntry.first.partitionBitOffset());
-      auto reader = spillPartitionEntry.second->createUnorderedReader();
+      auto reader = spillPartitionEntry.second->createUnorderedReader(pool());
       if (type_ == Spiller::Type::kHashJoinProbe) {
         // For hash probe type, we append each input vector as one batch in
         // spill file so that we can do one-to-one comparison.
@@ -1272,7 +1272,7 @@ TEST_P(AggregationOutputOnly, basic) {
     ASSERT_TRUE(spiller_->finalized());
 
     const int expectedNumSpilledRows = numRows - numListedRows;
-    auto merge = spillPartition.createOrderedReader();
+    auto merge = spillPartition.createOrderedReader(pool());
     if (expectedNumSpilledRows == 0) {
       ASSERT_TRUE(merge == nullptr);
     } else {

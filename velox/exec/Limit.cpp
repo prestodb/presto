@@ -42,7 +42,7 @@ bool Limit::needsInput() const {
 }
 
 void Limit::addInput(RowVectorPtr input) {
-  VELOX_CHECK(input_ == nullptr);
+  VELOX_CHECK_NULL(input_);
   input_ = input;
 }
 
@@ -61,10 +61,11 @@ RowVectorPtr Limit::getOutput() {
 
   if (remainingOffset_ > 0) {
     // Return a subset of input_ rows.
-    auto outputSize = std::min(inputSize - remainingOffset_, remainingLimit_);
+    const auto outputSize =
+        std::min(inputSize - remainingOffset_, remainingLimit_);
 
     BufferPtr indices = allocateIndices(outputSize, pool());
-    auto rawIndices = indices->asMutable<vector_size_t>();
+    auto* rawIndices = indices->asMutable<vector_size_t>();
     std::iota(rawIndices, rawIndices + outputSize, remainingOffset_);
 
     auto output = fillOutput(outputSize, indices);

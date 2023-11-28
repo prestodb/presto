@@ -238,12 +238,11 @@ void updateGlobalSpillSortTime(uint64_t timeUs) {
 }
 
 void updateGlobalSpillWriteStats(
-    uint32_t numDiskWrites,
     uint64_t spilledBytes,
     uint64_t flushTimeUs,
     uint64_t writeTimeUs) {
   auto statsLocked = localSpillStats().wlock();
-  statsLocked->spillDiskWrites += numDiskWrites;
+  ++statsLocked->spillDiskWrites;
   statsLocked->spilledBytes += spilledBytes;
   statsLocked->spillFlushTimeUs += flushTimeUs;
   statsLocked->spillWriteTimeUs += writeTimeUs;

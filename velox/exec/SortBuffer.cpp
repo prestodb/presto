@@ -137,7 +137,7 @@ void SortBuffer::noMoreInput() {
     // there is only one hash partition for SortBuffer.
     VELOX_CHECK_NULL(spillMerger_);
     auto spillPartition = spiller_->finishSpill();
-    spillMerger_ = spillPartition.createOrderedReader();
+    spillMerger_ = spillPartition.createOrderedReader(pool());
   }
 
   // Releases the unused memory reservation after procesing input.

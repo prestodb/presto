@@ -87,29 +87,21 @@ class HashJoinBridgeTest : public testing::Test,
     return futures;
   }
 
-  void createFile(const std::string& filePath) {
-    auto fs = filesystems::getFileSystem(filePath, nullptr);
-    // File object dtor will close the file.
-    auto file = fs->openFileForWrite(filePath);
-  }
-
   SpillFiles makeFakeSpillFiles(int32_t numFiles) {
     static uint32_t fakeFileId{0};
     SpillFiles files;
     files.reserve(numFiles);
+    const std::string filePathPrefix = tempDir_->path + "/Spill";
     for (int32_t i = 0; i < numFiles; ++i) {
-      files.push_back(std::make_unique<SpillFile>(
-          fakeFileId++,
-          rowType_,
-          1,
-          std::vector<CompareFlags>({}),
-          tempDir_->path + "/Spill",
-          common::CompressionKind_NONE,
-          pool_.get(),
-          std::unordered_map<std::string, std::string>{}));
-      // Create a fake file to avoid too many exception logs in test when spill
-      // file deletion fails.
-      createFile(files.back()->testingFilePath());
+      const auto fileId = fakeFileId;
+      files.push_back(
+          {fileId,
+           rowType_,
+           tempDir_->path + "/Spill_" + std::to_string(fileId),
+           1024,
+           1,
+           std::vector<CompareFlags>({}),
+           common::CompressionKind_NONE});
     }
     return files;
   }

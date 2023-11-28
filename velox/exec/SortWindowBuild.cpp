@@ -47,7 +47,9 @@ SortWindowBuild::SortWindowBuild(
     : WindowBuild(node, pool, spillConfig, nonReclaimableSection),
       numPartitionKeys_{node->partitionKeys().size()},
       spillCompareFlags_{
-          makeSpillCompareFlags(numPartitionKeys_, node->sortingOrders())} {
+          makeSpillCompareFlags(numPartitionKeys_, node->sortingOrders())},
+      pool_(pool) {
+  VELOX_CHECK_NOT_NULL(pool_);
   allKeyInfo_.reserve(partitionKeyInfo_.size() + sortKeyInfo_.size());
   allKeyInfo_.insert(
       allKeyInfo_.cend(), partitionKeyInfo_.begin(), partitionKeyInfo_.end());
@@ -213,7 +215,7 @@ void SortWindowBuild::noMoreInput() {
 
     VELOX_CHECK_NULL(merge_);
     auto spillPartition = spiller_->finishSpill();
-    merge_ = spillPartition.createOrderedReader();
+    merge_ = spillPartition.createOrderedReader(pool_);
   } else {
     // At this point we have seen all the input rows. The operator is
     // being prepared to output rows now.
