@@ -30,5 +30,5 @@ FetchContent_Declare(
   PATCH_COMMAND git apply
                 ${CMAKE_CURRENT_LIST_DIR}/cpr/cpr-libcurl-compatible.patch)
 set(BUILD_SHARED_LIBS OFF)
-set(CPR_USE_SYSTEM_CURL ON)
+set(CPR_USE_SYSTEM_CURL OFF)
 FetchContent_MakeAvailable(cpr)
