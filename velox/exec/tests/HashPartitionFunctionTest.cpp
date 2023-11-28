@@ -15,7 +15,6 @@
  */
 
 #include "velox/exec/HashPartitionFunction.h"
-#include "velox/core/ITypedExpr.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -33,85 +32,85 @@ TEST_F(HashPartitionFunctionTest, function) {
 
   // The test case the two hash partition functions having the same config.
   {
-    std::vector<uint32_t> partitonsWithoutBits(numRows);
+    std::vector<uint32_t> partitionsWithoutBits(numRows);
     HashPartitionFunction functionWithoutBits(4, rowType, {0});
-    functionWithoutBits.partition(*vector, partitonsWithoutBits);
+    functionWithoutBits.partition(*vector, partitionsWithoutBits);
     EXPECT_EQ(4, functionWithoutBits.numPartitions());
 
-    std::vector<uint32_t> partitonsWithBits(numRows);
+    std::vector<uint32_t> partitionsWithBits(numRows);
     HashPartitionFunction functionWithBits(HashBitRange{0, 2}, rowType, {0});
-    functionWithBits.partition(*vector, partitonsWithBits);
-    EXPECT_EQ(partitonsWithoutBits, partitonsWithBits);
+    functionWithBits.partition(*vector, partitionsWithBits);
+    EXPECT_EQ(partitionsWithoutBits, partitionsWithBits);
     EXPECT_EQ(4, functionWithBits.numPartitions());
   }
 
   // The test case the two hash partition functions with different configs.
   {
-    std::vector<uint32_t> partitonsWithoutBits(numRows);
+    std::vector<uint32_t> partitionsWithoutBits(numRows);
     HashPartitionFunction functionWithoutBits(4, rowType, {0});
-    functionWithoutBits.partition(*vector, partitonsWithoutBits);
+    functionWithoutBits.partition(*vector, partitionsWithoutBits);
     EXPECT_EQ(4, functionWithoutBits.numPartitions());
 
-    std::vector<uint32_t> partitonsWithBits(numRows);
+    std::vector<uint32_t> partitionsWithBits(numRows);
     HashPartitionFunction functionWithBits(HashBitRange{0, 3}, rowType, {0});
-    functionWithBits.partition(*vector, partitonsWithBits);
-    EXPECT_NE(partitonsWithoutBits, partitonsWithBits);
+    functionWithBits.partition(*vector, partitionsWithBits);
+    EXPECT_NE(partitionsWithoutBits, partitionsWithBits);
     EXPECT_EQ(8, functionWithBits.numPartitions());
   }
 
   // The test case the two hash partition functions with different configs.
   {
-    std::vector<uint32_t> partitonsWithoutBits(numRows);
+    std::vector<uint32_t> partitionsWithoutBits(numRows);
     HashPartitionFunction functionWithoutBits(4, rowType, {0});
-    functionWithoutBits.partition(*vector, partitonsWithoutBits);
+    functionWithoutBits.partition(*vector, partitionsWithoutBits);
     EXPECT_EQ(4, functionWithoutBits.numPartitions());
 
-    std::vector<uint32_t> partitonsWithBits(numRows);
+    std::vector<uint32_t> partitionsWithBits(numRows);
     HashPartitionFunction functionWithBits(HashBitRange{29, 31}, rowType, {0});
-    functionWithBits.partition(*vector, partitonsWithBits);
-    EXPECT_NE(partitonsWithoutBits, partitonsWithBits);
+    functionWithBits.partition(*vector, partitionsWithBits);
+    EXPECT_NE(partitionsWithoutBits, partitionsWithBits);
     EXPECT_EQ(4, functionWithBits.numPartitions());
   }
 
   // The test case the two hash partition functions with different configs.
   {
-    std::vector<uint32_t> partitonsWithBits1(numRows);
+    std::vector<uint32_t> partitionsWithBits1(numRows);
     HashPartitionFunction functionWithBits1(HashBitRange{40, 42}, rowType, {0});
-    functionWithBits1.partition(*vector, partitonsWithBits1);
+    functionWithBits1.partition(*vector, partitionsWithBits1);
     EXPECT_EQ(4, functionWithBits1.numPartitions());
 
-    std::vector<uint32_t> partitonsWithBits2(numRows);
+    std::vector<uint32_t> partitionsWithBits2(numRows);
     HashPartitionFunction functionWithBits2(HashBitRange{29, 31}, rowType, {0});
-    functionWithBits2.partition(*vector, partitonsWithBits2);
-    EXPECT_NE(partitonsWithBits1, partitonsWithBits2);
+    functionWithBits2.partition(*vector, partitionsWithBits2);
+    EXPECT_NE(partitionsWithBits1, partitionsWithBits2);
     EXPECT_EQ(4, functionWithBits2.numPartitions());
   }
 
   // The test case the two hash partition functions with different configs.
   {
-    std::vector<uint32_t> partitonsWithBits1(numRows);
+    std::vector<uint32_t> partitionsWithBits1(numRows);
     HashPartitionFunction functionWithBits1(HashBitRange{20, 31}, rowType, {0});
-    functionWithBits1.partition(*vector, partitonsWithBits1);
+    functionWithBits1.partition(*vector, partitionsWithBits1);
     EXPECT_EQ(1 << 11, functionWithBits1.numPartitions());
 
-    std::vector<uint32_t> partitonsWithBits2(numRows);
+    std::vector<uint32_t> partitionsWithBits2(numRows);
     HashPartitionFunction functionWithBits2(HashBitRange{29, 31}, rowType, {0});
-    functionWithBits2.partition(*vector, partitonsWithBits2);
-    EXPECT_NE(partitonsWithBits1, partitonsWithBits2);
+    functionWithBits2.partition(*vector, partitionsWithBits2);
+    EXPECT_NE(partitionsWithBits1, partitionsWithBits2);
     EXPECT_EQ(4, functionWithBits2.numPartitions());
   }
 
   // The test case the two hash partition functions having the same config.
   {
-    std::vector<uint32_t> partitonsWithBits1(numRows);
+    std::vector<uint32_t> partitionsWithBits1(numRows);
     HashPartitionFunction functionWithBits1(HashBitRange{29, 31}, rowType, {0});
-    functionWithBits1.partition(*vector, partitonsWithBits1);
+    functionWithBits1.partition(*vector, partitionsWithBits1);
     EXPECT_EQ(4, functionWithBits1.numPartitions());
 
-    std::vector<uint32_t> partitonsWithBits2(numRows);
+    std::vector<uint32_t> partitionsWithBits2(numRows);
     HashPartitionFunction functionWithBits2(HashBitRange{29, 31}, rowType, {0});
-    functionWithBits2.partition(*vector, partitonsWithBits2);
-    EXPECT_EQ(partitonsWithBits1, partitonsWithBits2);
+    functionWithBits2.partition(*vector, partitionsWithBits2);
+    EXPECT_EQ(partitionsWithBits1, partitionsWithBits2);
     EXPECT_EQ(4, functionWithBits2.numPartitions());
   }
 }
@@ -130,7 +129,7 @@ TEST_F(HashPartitionFunctionTest, spec) {
         inputType,
         std::vector<column_index_t>{0, kConstantChannel, 2, 3, 4},
         std::vector<VectorPtr>{makeConstant(123, 1)});
-    ASSERT_EQ("HASH(c0, \"123\", c2, c3, c4)", hashSpec->toString());
+    ASSERT_EQ(R"(HASH(c0, "123", c2, c3, c4))", hashSpec->toString());
 
     auto serialized = hashSpec->serialize();
     ASSERT_EQ(serialized["constants"].size(), 1);
