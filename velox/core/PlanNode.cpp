@@ -244,6 +244,10 @@ bool AggregationNode::canSpill(const QueryConfig& queryConfig) const {
 void AggregationNode::addDetails(std::stringstream& stream) const {
   stream << stepName(step_) << " ";
 
+  if (isPreGrouped()) {
+    stream << "STREAMING ";
+  }
+
   if (!groupingKeys_.empty()) {
     stream << "[";
     addFields(stream, groupingKeys_);

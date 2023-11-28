@@ -271,6 +271,14 @@ TEST_F(PlanNodeToStringTest, aggregation) {
   ASSERT_EQ(
       "-- Aggregation[SINGLE [c0, group_id] sum_c1 := sum(ROW[\"c1\"]) global group IDs: [ 1, 2 ] Group Id key: group_id] -> c0:SMALLINT, group_id:BIGINT, sum_c1:BIGINT\n",
       plan->toString(true, false));
+
+  plan = PlanBuilder()
+             .values({data_})
+             .partialStreamingAggregation({"c0"}, {"sum(c1) AS a"})
+             .planNode();
+  ASSERT_EQ(
+      "-- Aggregation[PARTIAL STREAMING [c0] a := sum(ROW[\"c1\"])] -> c0:SMALLINT, a:BIGINT\n",
+      plan->toString(true, false));
 }
 
 TEST_F(PlanNodeToStringTest, groupId) {

@@ -573,6 +573,19 @@ class AggregationNode : public PlanNode {
     return preGroupedKeys_;
   }
 
+  bool isPreGrouped() const {
+    return !preGroupedKeys_.empty() &&
+        std::equal(
+            preGroupedKeys_.begin(),
+            preGroupedKeys_.end(),
+            groupingKeys_.begin(),
+            groupingKeys_.end(),
+            [](const FieldAccessTypedExprPtr& x,
+               const FieldAccessTypedExprPtr& y) -> bool {
+              return (*x == *y);
+            });
+  }
+
   const std::vector<std::string>& aggregateNames() const {
     return aggregateNames_;
   }
