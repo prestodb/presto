@@ -40,6 +40,10 @@ SortingWriter::SortingWriter(
   setState(State::kRunning);
 }
 
+SortingWriter::~SortingWriter() {
+  sortPool_->release();
+}
+
 void SortingWriter::write(const VectorPtr& data) {
   checkRunning();
   sortBuffer_->addInput(data);

@@ -18,8 +18,10 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 
 #include <folly/init/Init.h>
+#include <re2/re2.h>
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/core/Config.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -31,6 +33,7 @@ namespace {
 
 using namespace facebook::velox::common;
 using namespace facebook::velox::exec::test;
+using namespace facebook::velox::common::testutil;
 
 constexpr const char* kHiveConnectorId = "test-hive";
 
@@ -56,6 +59,17 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
 
     spillExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
         std::thread::hardware_concurrency());
+  }
+
+  std::vector<RowVectorPtr> createVectors(int vectorSize, int numVectors) {
+    VectorFuzzer::Options options;
+    options.vectorSize = vectorSize;
+    VectorFuzzer fuzzer(options, pool());
+    std::vector<RowVectorPtr> vectors;
+    for (int i = 0; i < numVectors; ++i) {
+      vectors.push_back(fuzzer.fuzzInputRow(rowType_));
+    }
+    return vectors;
   }
 
   std::unique_ptr<SpillConfig> getSpillConfig(
@@ -457,7 +471,6 @@ TEST_F(HiveDataSinkTest, hiveBucketProperty) {
 }
 
 TEST_F(HiveDataSinkTest, basic) {
-  const int numBatches = 10;
   const auto outputDirectory = TempDirectoryPath::create();
   auto dataSink = createDataSink(rowType_, outputDirectory->path);
   auto stats = dataSink->stats();
@@ -466,13 +479,10 @@ TEST_F(HiveDataSinkTest, basic) {
       stats.toString(),
       "numWrittenBytes 0B numWrittenFiles 0 spillRuns[0] spilledInputBytes[0B] spilledBytes[0B] spilledRows[0] spilledPartitions[0] spilledFiles[0] spillFillTimeUs[0us] spillSortTime[0us] spillSerializationTime[0us] spillDiskWrites[0] spillFlushTime[0us] spillWriteTime[0us] maxSpillExceededLimitCount[0]");
 
-  VectorFuzzer::Options options;
-  options.vectorSize = 500;
-  VectorFuzzer fuzzer(options, pool());
-  std::vector<RowVectorPtr> vectors;
-  for (int i = 0; i < numBatches; ++i) {
-    vectors.push_back(fuzzer.fuzzRow(rowType_));
-    dataSink->appendData(vectors.back());
+  const int numBatches = 10;
+  const auto vectors = createVectors(500, numBatches);
+  for (const auto& vector : vectors) {
+    dataSink->appendData(vector);
   }
   stats = dataSink->stats();
   ASSERT_FALSE(stats.empty());
@@ -494,13 +504,10 @@ TEST_F(HiveDataSinkTest, close) {
     const auto outputDirectory = TempDirectoryPath::create();
     auto dataSink = createDataSink(rowType_, outputDirectory->path);
 
-    std::vector<RowVectorPtr> vectors;
-    VectorFuzzer::Options options;
-    options.vectorSize = 1;
-    VectorFuzzer fuzzer(options, pool());
-    vectors.push_back(fuzzer.fuzzRow(rowType_));
+    auto vectors = createVectors(500, 1);
+
     if (!empty) {
-      dataSink->appendData(vectors.back());
+      dataSink->appendData(vectors[0]);
       ASSERT_GT(dataSink->stats().numWrittenBytes, 0);
     } else {
       ASSERT_EQ(dataSink->stats().numWrittenBytes, 0);
@@ -531,11 +538,7 @@ TEST_F(HiveDataSinkTest, abort) {
     const auto outputDirectory = TempDirectoryPath::create();
     auto dataSink = createDataSink(rowType_, outputDirectory->path);
 
-    std::vector<RowVectorPtr> vectors;
-    VectorFuzzer::Options options;
-    options.vectorSize = 1;
-    VectorFuzzer fuzzer(options, pool());
-    vectors.push_back(fuzzer.fuzzRow(rowType_));
+    auto vectors = createVectors(1, 1);
     int initialBytes = 0;
     if (!empty) {
       dataSink->appendData(vectors.back());
@@ -558,14 +561,8 @@ TEST_F(HiveDataSinkTest, abort) {
 }
 
 TEST_F(HiveDataSinkTest, memoryReclaim) {
-  VectorFuzzer::Options options;
-  options.vectorSize = 500;
-  VectorFuzzer fuzzer(options, pool());
-  std::vector<RowVectorPtr> vectors;
-  const int numBatches{20};
-  for (int i = 0; i < numBatches; ++i) {
-    vectors.push_back(fuzzer.fuzzInputRow(rowType_));
-  }
+  const int numBatches = 20;
+  auto vectors = createVectors(500, 20);
 
   struct {
     dwio::common::FileFormat format;
@@ -706,14 +703,8 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
 }
 
 TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
-  VectorFuzzer::Options options;
-  options.vectorSize = 500;
-  VectorFuzzer fuzzer(options, pool());
-  std::vector<RowVectorPtr> vectors;
-  const int numBatches{10};
-  for (int i = 0; i < numBatches; ++i) {
-    vectors.push_back(fuzzer.fuzzInputRow(rowType_));
-  }
+  const int numBatches = 10;
+  const auto vectors = createVectors(500, 10);
 
   struct {
     dwio::common::FileFormat format;
@@ -852,6 +843,56 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
     }
   }
+}
+
+DEBUG_ONLY_TEST_F(HiveDataSinkTest, sortWriterFailureTest) {
+  auto vectors = createVectors(500, 10);
+
+  const auto outputDirectory = TempDirectoryPath::create();
+  const std::vector<std::string> partitionBy{"c6"};
+  const auto bucketProperty = std::make_shared<HiveBucketProperty>(
+      HiveBucketProperty::Kind::kHiveCompatible,
+      4,
+      std::vector<std::string>{"c0"},
+      std::vector<TypePtr>{BIGINT()},
+      std::vector<std::shared_ptr<const HiveSortingColumn>>{
+          std::make_shared<HiveSortingColumn>(
+              "c1", core::SortOrder{false, false})});
+  const std::shared_ptr<TempDirectoryPath> spillDirectory =
+      exec::test::TempDirectoryPath::create();
+  std::unique_ptr<SpillConfig> spillConfig =
+      getSpillConfig(spillDirectory->path, 0);
+  // Triggers the memory reservation in sort buffer.
+  spillConfig->minSpillableReservationPct = 1'000;
+  auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
+      opPool_.get(),
+      connectorPool_.get(),
+      connectorConfig_.get(),
+      spillConfig.get(),
+      nullptr,
+      nullptr,
+      "query.HiveDataSinkTest",
+      "task.HiveDataSinkTest",
+      "planNodeId.HiveDataSinkTest",
+      0);
+  setConnectorQueryContext(std::move(connectorQueryCtx));
+
+  auto dataSink = createDataSink(
+      rowType_,
+      outputDirectory->path,
+      dwio::common::FileFormat::DWRF,
+      partitionBy,
+      bucketProperty);
+  for (auto& vector : vectors) {
+    dataSink->appendData(vector);
+  }
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::write",
+      std::function<void(memory::MemoryPool*)>(
+          [&](memory::MemoryPool* pool) { VELOX_FAIL("inject failure"); }));
+
+  VELOX_ASSERT_THROW(dataSink->close(), "inject failure");
 }
 } // namespace
 } // namespace facebook::velox::connector::hive

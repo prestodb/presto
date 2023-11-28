@@ -447,9 +447,9 @@ TEST_F(OperatorUtilsTest, memStatsFromPool) {
   auto leafPool = rootPool_->addLeafChild("leaf-1.0");
   void* buffer;
   buffer = leafPool->allocate(2L << 20);
-  leafPool->free(buffer, 1L << 20);
-  auto stats = MemoryStats::memStatsFromPool(leafPool.get());
-  ASSERT_EQ(stats.userMemoryReservation, 1L << 20);
+  leafPool->free(buffer, 2L << 20);
+  const auto stats = MemoryStats::memStatsFromPool(leafPool.get());
+  ASSERT_EQ(stats.userMemoryReservation, 0);
   ASSERT_EQ(stats.systemMemoryReservation, 0);
   ASSERT_EQ(stats.peakUserMemoryReservation, 2L << 20);
   ASSERT_EQ(stats.peakSystemMemoryReservation, 0);

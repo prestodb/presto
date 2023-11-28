@@ -139,6 +139,9 @@ void SortBuffer::noMoreInput() {
     auto spillPartition = spiller_->finishSpill();
     spillMerger_ = spillPartition.createOrderedReader();
   }
+
+  // Releases the unused memory reservation after procesing input.
+  pool_->release();
 }
 
 RowVectorPtr SortBuffer::getOutput(uint32_t maxOutputRows) {
@@ -206,7 +209,6 @@ void SortBuffer::ensureInputFits(const VectorPtr& input) {
   auto [freeRows, outOfLineFreeBytes] = data_->freeSpace();
   const auto outOfLineBytes =
       data_->stringAllocator().retainedSize() - outOfLineFreeBytes;
-  const int64_t outOfLineBytesPerRow = outOfLineBytes / numRows;
   const int64_t flatInputBytes = input->estimateFlatSize();
 
   // Test-only spill path.
@@ -225,21 +227,24 @@ void SortBuffer::ensureInputFits(const VectorPtr& input) {
     return;
   }
 
-  // If we have enough free rows for input rows and enough variable length
-  // free space for the vector's flat size, no need for spilling.
-  if (freeRows > input->size() &&
-      (outOfLineBytes == 0 || outOfLineFreeBytes >= flatInputBytes)) {
-    return;
-  }
-
-  // For variable length data, we take the flat size of the input as the cap.
+  const auto minReservationBytes =
+      currentMemoryUsage * spillConfig_->minSpillableReservationPct / 100;
+  const auto availableReservationBytes = pool_->availableReservation();
   const int64_t estimatedIncrementalBytes =
       data_->sizeIncrement(input->size(), outOfLineBytes ? flatInputBytes : 0);
+  if (availableReservationBytes > minReservationBytes) {
+    // If we have enough free rows for input rows and enough variable length
+    // free space for the vector's flat size, no need for spilling.
+    if (freeRows > input->size() &&
+        (outOfLineBytes == 0 || outOfLineFreeBytes >= flatInputBytes)) {
+      return;
+    }
 
-  // If the current available reservation in memory pool is 2X the
-  // estimatedIncrementalBytes, no need to spill.
-  if (pool_->availableReservation() > 2 * estimatedIncrementalBytes) {
-    return;
+    // If the current available reservation in memory pool is 2X the
+    // estimatedIncrementalBytes, no need to spill.
+    if (availableReservationBytes > 2 * estimatedIncrementalBytes) {
+      return;
+    }
   }
 
   // Try reserving targetIncrementBytes more in memory pool, if succeed, no

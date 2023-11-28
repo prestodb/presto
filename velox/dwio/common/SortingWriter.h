@@ -32,6 +32,8 @@ class SortingWriter : public Writer {
       uint64_t maxOutputBytesConfig,
       velox::common::SpillStats* spillStats);
 
+  ~SortingWriter() override;
+
   void write(const VectorPtr& data) override;
 
   /// No action because we need to accumulate all data and sort before data can
