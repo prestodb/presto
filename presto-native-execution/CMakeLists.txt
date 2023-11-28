@@ -123,13 +123,6 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 find_package(gflags COMPONENTS shared)
 
-find_library(ANTLR4_RUNTIME antlr4-runtime)
-find_path(
-  ANTLR4_RUNTIME_INCLUDE_DIR
-  NAMES antlr4-runtime.h
-  PATH_SUFFIXES antlr4-runtime)
-include_directories(SYSTEM ${ANTLR4_RUNTIME_INCLUDE_DIR})
-
 find_library(GLOG glog)
 
 find_library(FMT fmt)

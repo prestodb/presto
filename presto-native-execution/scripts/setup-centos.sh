@@ -99,15 +99,6 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
 )
 
 (
-  wget https://www.antlr.org/download/antlr4-cpp-runtime-4.9.3-source.zip &&
-  mkdir antlr4-cpp-runtime-4.9.3-source &&
-  cd antlr4-cpp-runtime-4.9.3-source &&
-  unzip ../antlr4-cpp-runtime-4.9.3-source.zip &&
-  cmake_install -DBUILD_SHARED_LIBS=ON
-  ldconfig
-)
-
-(
   git clone https://github.com/facebook/fbthrift &&
   cd fbthrift &&
   git checkout $FB_OS_VERSION &&

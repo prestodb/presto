@@ -55,16 +55,9 @@ function install_proxygen {
     cmake_install -DBUILD_TESTS=OFF
 }
 
-function install_antlr {
-  github_checkout antlr/antlr4 "4.9.3"
-  cd runtime/Cpp
-  cmake_install -DBUILD_TESTS=OFF
-}
-
 function install_presto_deps {
   install_velox_deps
   run_and_time install_folly
-  run_and_time install_antlr
   run_and_time install_six
   run_and_time install_fizz
   run_and_time install_wangle

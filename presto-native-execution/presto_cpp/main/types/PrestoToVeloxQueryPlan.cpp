@@ -27,16 +27,18 @@
 #include "velox/expression/Expr.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
-#include "presto_cpp/main/operators/BroadcastWrite.h"
-#include "presto_cpp/main/operators/PartitionAndSerialize.h"
-#include "presto_cpp/main/operators/ShuffleWrite.h"
-#include "presto_cpp/main/operators/ShuffleRead.h"
-#include <velox/core/Expressions.h>
+#include "velox/core/Expressions.h"
 #include "velox/common/compression/Compression.h"
 // clang-format on
 
 #include <folly/String.h>
 #include <folly/container/F14Set.h>
+
+#include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/operators/ShuffleRead.h"
+#include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/types/TypeParser.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

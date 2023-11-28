@@ -14,12 +14,8 @@
 #pragma once
 
 #include <stdexcept>
-// antlr-common.h undefines the EOF macro that external/json/nlohmann/json.hpp
-// relies on, so include presto_protcol.h before TypeParser.h
-// clang-format off
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "presto_cpp/main/types/TypeParser.h"
-// clang-format on
+#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/core/Expressions.h"
 
 namespace facebook::presto {
