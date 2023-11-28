@@ -1243,25 +1243,28 @@ WindowNode::WindowNode(
 }
 
 void WindowNode::addDetails(std::stringstream& stream) const {
-  stream << "partition by [";
+  if (inputsSorted_) {
+    stream << "STREAMING ";
+  }
+
   if (!partitionKeys_.empty()) {
+    stream << "partition by [";
     addFields(stream, partitionKeys_);
-  }
-  stream << "] ";
-
-  stream << "order by [";
-  addSortingKeys(sortingKeys_, sortingOrders_, stream);
-  stream << "] ";
-
-  auto numInputCols = sources_[0]->outputType()->size();
-  auto numOutputCols = outputType_->size();
-  for (auto i = numInputCols; i < numOutputCols; i++) {
-    appendComma(i - numInputCols, stream);
-    stream << outputType_->names()[i] << " := ";
-    addWindowFunction(stream, windowFunctions_[i - numInputCols]);
+    stream << "] ";
   }
 
-  stream << " inputsSorted [" << inputsSorted_ << "]";
+  if (!sortingKeys_.empty()) {
+    stream << "order by [";
+    addSortingKeys(sortingKeys_, sortingOrders_, stream);
+    stream << "] ";
+  }
+
+  const auto numInputs = inputType()->size();
+  for (auto i = 0; i < windowFunctions_.size(); i++) {
+    appendComma(i, stream);
+    stream << outputType_->names()[i + numInputs] << " := ";
+    addWindowFunction(stream, windowFunctions_[i]);
+  }
 }
 
 namespace {
