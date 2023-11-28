@@ -233,7 +233,7 @@ void VeloxIn10MinDemo::run() {
   // nation table and print first 10 rows.
 
   plan = PlanBuilder()
-             .tableScan(
+             .tpchTableScan(
                  tpch::Table::TBL_NATION,
                  {"n_nationkey", "n_name"},
                  1 /*scaleFactor*/)
@@ -259,14 +259,14 @@ void VeloxIn10MinDemo::run() {
   core::PlanNodeId nationScanId;
   core::PlanNodeId regionScanId;
   plan = PlanBuilder(planNodeIdGenerator)
-             .tableScan(
+             .tpchTableScan(
                  tpch::Table::TBL_NATION, {"n_regionkey"}, 1 /*scaleFactor*/)
              .capturePlanNodeId(nationScanId)
              .hashJoin(
                  {"n_regionkey"},
                  {"r_regionkey"},
                  PlanBuilder(planNodeIdGenerator)
-                     .tableScan(
+                     .tpchTableScan(
                          tpch::Table::TBL_REGION,
                          {"r_regionkey", "r_name"},
                          1 /*scaleFactor*/)

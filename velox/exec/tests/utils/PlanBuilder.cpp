@@ -121,7 +121,7 @@ PlanBuilder& PlanBuilder::tableScan(
       .endTableScan();
 }
 
-PlanBuilder& PlanBuilder::tableScan(
+PlanBuilder& PlanBuilder::tpchTableScan(
     tpch::Table table,
     std::vector<std::string>&& columnNames,
     double scaleFactor) {

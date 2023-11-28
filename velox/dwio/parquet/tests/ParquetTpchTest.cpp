@@ -85,7 +85,7 @@ class ParquetTpchTest : public testing::Test {
       auto tableSchema = tpch::getTableSchema(table);
       auto columnNames = tableSchema->names();
       auto plan = PlanBuilder()
-                      .tableScan(table, std::move(columnNames), 0.01)
+                      .tpchTableScan(table, std::move(columnNames), 0.01)
                       .planNode();
       auto split =
           exec::Split(std::make_shared<connector::tpch::TpchConnectorSplit>(

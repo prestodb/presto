@@ -324,7 +324,7 @@ provide a split.
 .. code-block:: c++
 
   plan = PlanBuilder()
-             .tableScan(
+             .tpchTableScan(
                  tpch::Table::TBL_NATION,
                  {"n_nationkey", "n_name"},
                  1 /*scaleFactor*/)
@@ -367,14 +367,14 @@ IDs.
   core::PlanNodeId nationScanId;
   core::PlanNodeId regionScanId;
   plan = PlanBuilder(planNodeIdGenerator)
-             .tableScan(
+             .tpchTableScan(
                  tpch::Table::TBL_NATION, {"n_regionkey"}, 1 /*scaleFactor*/)
              .capturePlanNodeId(nationScanId)
              .hashJoin(
                  {"n_regionkey"},
                  {"r_regionkey"},
                  PlanBuilder(planNodeIdGenerator)
-                     .tableScan(
+                     .tpchTableScan(
                          tpch::Table::TBL_REGION,
                          {"r_regionkey", "r_name"},
                          1 /*scaleFactor*/)

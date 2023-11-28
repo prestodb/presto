@@ -166,7 +166,7 @@ class PlanBuilder {
   /// and scale factor.
   /// @param columnNames The columns to be returned from that table.
   /// @param scaleFactor The TPC-H scale factor.
-  PlanBuilder& tableScan(
+  PlanBuilder& tpchTableScan(
       tpch::Table table,
       std::vector<std::string>&& columnNames,
       double scaleFactor = 1);

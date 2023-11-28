@@ -68,7 +68,7 @@ class TpchConnectorTest : public exec::test::OperatorTestBase {
 // Simple scan of first 5 rows of "nation".
 TEST_F(TpchConnectorTest, simple) {
   auto plan = PlanBuilder()
-                  .tableScan(
+                  .tpchTableScan(
                       Table::TBL_NATION,
                       {"n_nationkey", "n_name", "n_regionkey", "n_comment"})
                   .limit(0, 5, false)
@@ -102,7 +102,8 @@ TEST_F(TpchConnectorTest, simple) {
 
 // Extract single column from "nation".
 TEST_F(TpchConnectorTest, singleColumn) {
-  auto plan = PlanBuilder().tableScan(Table::TBL_NATION, {"n_name"}).planNode();
+  auto plan =
+      PlanBuilder().tpchTableScan(Table::TBL_NATION, {"n_name"}).planNode();
 
   auto output = getResults(plan, {makeTpchSplit()});
   auto expected = makeRowVector({makeFlatVector<StringView>({
@@ -125,16 +126,17 @@ TEST_F(TpchConnectorTest, singleColumnWithAlias) {
   auto outputType = ROW({aliasedName}, {VARCHAR()});
   auto plan =
       PlanBuilder()
-          .tableScan(
-              outputType,
-              std::make_shared<TpchTableHandle>(
-                  kTpchConnectorId, Table::TBL_NATION),
-              {
-                  {aliasedName, std::make_shared<TpchColumnHandle>("n_name")},
-                  {"other_name", std::make_shared<TpchColumnHandle>("n_name")},
-                  {"third_column",
-                   std::make_shared<TpchColumnHandle>("n_regionkey")},
-              })
+          .startTableScan()
+          .outputType(outputType)
+          .tableHandle(std::make_shared<TpchTableHandle>(
+              kTpchConnectorId, Table::TBL_NATION))
+          .assignments({
+              {aliasedName, std::make_shared<TpchColumnHandle>("n_name")},
+              {"other_name", std::make_shared<TpchColumnHandle>("n_name")},
+              {"third_column",
+               std::make_shared<TpchColumnHandle>("n_regionkey")},
+          })
+          .endTableScan()
           .limit(0, 1, false)
           .planNode();
 
@@ -150,11 +152,11 @@ TEST_F(TpchConnectorTest, singleColumnWithAlias) {
 
 void TpchConnectorTest::runScaleFactorTest(double scaleFactor) {
   auto plan = PlanBuilder()
-                  .tableScan(
-                      ROW({}, {}),
-                      std::make_shared<TpchTableHandle>(
-                          kTpchConnectorId, Table::TBL_SUPPLIER, scaleFactor),
-                      {})
+                  .startTableScan()
+                  .outputType(ROW({}, {}))
+                  .tableHandle(std::make_shared<TpchTableHandle>(
+                      kTpchConnectorId, Table::TBL_SUPPLIER, scaleFactor))
+                  .endTableScan()
                   .singleAggregation({}, {"count(1)"})
                   .planNode();
 
@@ -179,11 +181,11 @@ TEST_F(TpchConnectorTest, lineitemTinyRowCount) {
   // Lineitem row count depends on the orders.
   // Verify against Java tiny result.
   auto plan = PlanBuilder()
-                  .tableScan(
-                      ROW({}, {}),
-                      std::make_shared<TpchTableHandle>(
-                          kTpchConnectorId, Table::TBL_LINEITEM, 0.01),
-                      {})
+                  .startTableScan()
+                  .outputType(ROW({}, {}))
+                  .tableHandle(std::make_shared<TpchTableHandle>(
+                      kTpchConnectorId, Table::TBL_LINEITEM, 0.01))
+                  .endTableScan()
                   .singleAggregation({}, {"count(1)"})
                   .planNode();
 
@@ -195,7 +197,7 @@ TEST_F(TpchConnectorTest, unknownColumn) {
   EXPECT_THROW(
       {
         PlanBuilder()
-            .tableScan(Table::TBL_NATION, {"does_not_exist"})
+            .tpchTableScan(Table::TBL_NATION, {"does_not_exist"})
             .planNode();
       },
       VeloxUserError);
@@ -205,7 +207,7 @@ TEST_F(TpchConnectorTest, unknownColumn) {
 // same dataset in the end.
 TEST_F(TpchConnectorTest, multipleSplits) {
   auto plan = PlanBuilder()
-                  .tableScan(
+                  .tpchTableScan(
                       Table::TBL_NATION,
                       {"n_nationkey", "n_name", "n_regionkey", "n_comment"})
                   .planNode();
@@ -237,14 +239,14 @@ TEST_F(TpchConnectorTest, join) {
   core::PlanNodeId regionScanId;
   auto plan =
       PlanBuilder(planNodeIdGenerator)
-          .tableScan(
+          .tpchTableScan(
               tpch::Table::TBL_NATION, {"n_regionkey"}, 1.0 /*scaleFactor*/)
           .capturePlanNodeId(nationScanId)
           .hashJoin(
               {"n_regionkey"},
               {"r_regionkey"},
               PlanBuilder(planNodeIdGenerator)
-                  .tableScan(
+                  .tpchTableScan(
                       tpch::Table::TBL_REGION,
                       {"r_regionkey", "r_name"},
                       1.0 /*scaleFactor*/)
@@ -271,7 +273,7 @@ TEST_F(TpchConnectorTest, join) {
 
 TEST_F(TpchConnectorTest, orderDateCount) {
   auto plan = PlanBuilder()
-                  .tableScan(Table::TBL_ORDERS, {"o_orderdate"}, 0.01)
+                  .tpchTableScan(Table::TBL_ORDERS, {"o_orderdate"}, 0.01)
                   .filter("o_orderdate = '1992-01-01'::DATE")
                   .limit(0, 10, false)
                   .planNode();
