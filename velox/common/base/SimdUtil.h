@@ -493,9 +493,9 @@ template <typename T, typename U, typename A = xsimd::default_arch>
 xsimd::batch<T, A> reinterpretBatch(xsimd::batch<U, A>, const A& = {});
 
 // Compares memory at 'x' and 'y' and returns true if 'size' leading bytes are
-// equal. May address up to SIMD width -1 past end of either 'x' or 'y'.
+// equal.
 template <typename A = xsimd::default_arch>
-inline bool memEqualUnsafe(const void* x, const void* y, int32_t size);
+inline bool memEqual(const void* x, const void* y, int32_t size);
 
 } // namespace facebook::velox::simd
 
