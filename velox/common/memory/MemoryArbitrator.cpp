@@ -31,9 +31,10 @@ class FactoryRegistry {
       const std::string& kind,
       MemoryArbitrator::Factory factory) {
     std::lock_guard<std::mutex> l(mutex_);
-    if (map_.find(kind) != map_.end()) {
-      return false;
-    }
+    VELOX_USER_CHECK(
+        map_.find(kind) == map_.end(),
+        "Arbitrator factory for kind {} is already registered",
+        kind);
     map_[kind] = std::move(factory);
     return true;
   }

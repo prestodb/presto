@@ -226,7 +226,9 @@ class MemoryArbitratorFactoryTest : public testing::Test {
 };
 
 TEST_F(MemoryArbitratorFactoryTest, register) {
-  ASSERT_FALSE(MemoryArbitrator::registerFactory(kind_, factory_));
+  VELOX_ASSERT_THROW(
+      MemoryArbitrator::registerFactory(kind_, factory_),
+      "Arbitrator factory for kind USER is already registered");
 }
 
 TEST_F(MemoryArbitratorFactoryTest, create) {
