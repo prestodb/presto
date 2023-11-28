@@ -19,6 +19,8 @@
 #include <string>
 
 #include "velox/codegen/Codegen.h"
+#include "velox/common/base/Counters.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
@@ -2555,6 +2557,8 @@ uint64_t Task::MemoryReclaimer::reclaim(
     task->requestPause().wait();
   }
   stats.reclaimWaitTimeUs += reclaimWaitTimeUs;
+  REPORT_ADD_HISTOGRAM_VALUE(
+      kCounterMemoryReclaimWaitTimeMs, reclaimWaitTimeUs / 1'000);
 
   auto guard = folly::makeGuard([&]() {
     try {

@@ -30,4 +30,13 @@ constexpr folly::StringPiece kCounterCacheShrinkCount{
     "velox.cache_shrink_count"};
 
 constexpr folly::StringPiece kCounterCacheShrinkTimeMs{"velox.cache_shrink_ms"};
+
+constexpr folly::StringPiece kCounterMemoryReclaimExecTimeMs{
+    "velox.memory_reclaim_exec_ms"};
+
+constexpr folly::StringPiece kCounterMemoryReclaimedBytes{
+    "velox.memory_reclaim_bytes"};
+
+constexpr folly::StringPiece kCounterMemoryReclaimWaitTimeMs{
+    "velox.memory_reclaim_wait_ms"};
 } // namespace facebook::velox
