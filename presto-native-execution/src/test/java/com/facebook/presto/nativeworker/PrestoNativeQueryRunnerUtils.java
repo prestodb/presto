@@ -175,7 +175,6 @@ public class PrestoNativeQueryRunnerUtils
                         Files.write(tempDirectoryPath.resolve("velox.properties"), "".getBytes());
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
-                                "http_exec_threads=8%n" +
                                 "system-memory-gb=4%n" +
                                 "http-server.http.port=%d", discoveryUri, port);
 
