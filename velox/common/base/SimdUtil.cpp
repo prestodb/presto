@@ -24,6 +24,9 @@ namespace detail {
 alignas(kPadding) int32_t byteSetBits[256][8];
 alignas(kPadding) int32_t permute4x64Indices[16][8];
 
+const LeadingMask<int32_t, xsimd::default_arch> leadingMask32;
+const LeadingMask<int64_t, xsimd::default_arch> leadingMask64;
+
 } // namespace detail
 
 namespace {
