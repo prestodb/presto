@@ -37,6 +37,7 @@
 #include "velox/functions/sparksql/Size.h"
 #include "velox/functions/sparksql/String.h"
 #include "velox/functions/sparksql/UnscaledValueFunction.h"
+#include "velox/functions/sparksql/specialforms/DecimalRound.h"
 #include "velox/functions/sparksql/specialforms/MakeDecimal.h"
 
 namespace facebook::velox::functions {
@@ -82,6 +83,9 @@ void registerAllSpecialFormGeneralFunctions() {
   exec::registerFunctionCallToSpecialForm(
       MakeDecimalCallToSpecialForm::kMakeDecimal,
       std::make_unique<MakeDecimalCallToSpecialForm>());
+  exec::registerFunctionCallToSpecialForm(
+      DecimalRoundCallToSpecialForm::kRoundDecimal,
+      std::make_unique<DecimalRoundCallToSpecialForm>());
 }
 
 namespace {

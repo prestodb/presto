@@ -164,6 +164,7 @@ Mathematical Functions
 
     Returns ``x`` rounded to ``d`` decimal places using HALF_UP rounding mode. 
     In HALF_UP rounding, the digit 5 is rounded up.
+    Supported types for ``x`` are integral and floating point types.
 
 .. spark:function:: sec(x) -> double
 
