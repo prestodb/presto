@@ -363,17 +363,15 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
     // pairs of actual and expected values per group. We cannot use join because
     // grouping keys may have nulls.
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    auto expectedSource =
-        PlanBuilder(planNodeIdGenerator)
-            .values({expected_})
-            .project(append(groupingKeys_, {name_, "'expected' as label"}))
-            .planNode();
+    auto expectedSource = PlanBuilder(planNodeIdGenerator)
+                              .values({expected_})
+                              .appendColumns({"'expected' as label"})
+                              .planNode();
 
-    auto actualSource =
-        PlanBuilder(planNodeIdGenerator)
-            .values({result})
-            .project(append(groupingKeys_, {name_, "'actual' as label"}))
-            .planNode();
+    auto actualSource = PlanBuilder(planNodeIdGenerator)
+                            .values({result})
+                            .appendColumns({"'actual' as label"})
+                            .planNode();
 
     auto mapAgg = fmt::format("map_agg(label, {}) as m", name_);
     auto plan = PlanBuilder(planNodeIdGenerator)
@@ -472,14 +470,6 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
     }
 
     return countDistinctCall;
-  }
-
-  static std::vector<std::string> append(
-      const std::vector<std::string>& values,
-      const std::vector<std::string>& newValues) {
-    std::vector<std::string> combined = values;
-    combined.insert(combined.end(), newValues.begin(), newValues.end());
-    return combined;
   }
 
   const std::string transform_;
