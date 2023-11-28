@@ -29,6 +29,7 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
