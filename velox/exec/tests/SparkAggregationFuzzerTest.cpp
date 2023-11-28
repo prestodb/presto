@@ -71,6 +71,11 @@ int main(int argc, char** argv) {
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   auto duckQueryRunner =
       std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();
+  duckQueryRunner->disableAggregateFunctions({
+      // https://github.com/facebookincubator/velox/issues/7677
+      "max_by",
+      "min_by",
+  });
 
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
 
