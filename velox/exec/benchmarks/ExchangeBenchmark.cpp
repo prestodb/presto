@@ -40,6 +40,7 @@ DEFINE_int64(
     32,
     "task-wide buffer in local exchange");
 DEFINE_int64(exchange_buffer_mb, 32, "task-wide buffer in remote exchange");
+DEFINE_int32(dict_pct, 0, "Percentage of columns wrapped in dictionary");
 
 /// Benchmarks repartition/exchange with different batch sizes,
 /// numbers of destinations and data type mixes.  Generates a plan
@@ -59,20 +60,46 @@ struct Counters {
   int64_t bytes{0};
   int64_t rows{0};
   int64_t usec{0};
+  int64_t repartitionNanos{0};
+  int64_t exchangeNanos{0};
+  int64_t exchangeRows{0};
+  int64_t exchangeBatches{0};
 
   std::string toString() {
-    return fmt::format("{} MB/s", (bytes / (1024 * 1024.0)) / (usec / 1.0e6));
+    if (exchangeBatches == 0) {
+      return "N/A";
+    }
+    return fmt::format(
+        "{}/s repartition={} exchange={} exchange batch={}",
+        succinctBytes(bytes / (usec / 1.0e6)),
+        succinctNanos(repartitionNanos),
+        succinctNanos(exchangeNanos),
+        exchangeRows / exchangeBatches);
   }
 };
 
 class ExchangeBenchmark : public VectorTestBase {
  public:
-  std::vector<RowVectorPtr>
-  makeRows(RowTypePtr type, int32_t numVectors, int32_t rowsPerVector) {
+  std::vector<RowVectorPtr> makeRows(
+      RowTypePtr type,
+      int32_t numVectors,
+      int32_t rowsPerVector,
+      int32_t dictPct = 0) {
     std::vector<RowVectorPtr> vectors;
+    BufferPtr indices;
     for (int32_t i = 0; i < numVectors; ++i) {
       auto vector = std::dynamic_pointer_cast<RowVector>(
           BatchMaker::createBatch(type, rowsPerVector, *pool_));
+      auto width = vector->childrenSize();
+      for (auto child = 0; child < width; ++child) {
+        if (100 * child / width > dictPct) {
+          if (!indices) {
+            indices = makeIndices(vector->size(), [&](auto i) { return i; });
+          }
+          vector->childAt(child) = BaseVector::wrapInDictionary(
+              nullptr, indices, vector->size(), vector->childAt(child));
+        }
+      }
       vectors.push_back(vector);
     }
     return vectors;
@@ -86,6 +113,7 @@ class ExchangeBenchmark : public VectorTestBase {
     assert(!vectors.empty());
     configSettings_[core::QueryConfig::kMaxPartitionedOutputBufferSize] =
         fmt::format("{}", FLAGS_exchange_buffer_mb << 20);
+    auto iteration = ++iteration_;
     std::vector<std::shared_ptr<Task>> tasks;
     std::vector<std::string> leafTaskIds;
     auto leafPlan = exec::test::PlanBuilder()
@@ -95,7 +123,7 @@ class ExchangeBenchmark : public VectorTestBase {
 
     auto startMicros = getCurrentTimeMicro();
     for (int32_t counter = 0; counter < width; ++counter) {
-      auto leafTaskId = makeTaskId("leaf", counter);
+      auto leafTaskId = makeTaskId(iteration, "leaf", counter);
       leafTaskIds.push_back(leafTaskId);
       auto leafTask = makeTask(leafTaskId, leafPlan, counter);
       tasks.push_back(leafTask);
@@ -112,7 +140,7 @@ class ExchangeBenchmark : public VectorTestBase {
 
     std::vector<exec::Split> finalAggSplits;
     for (int i = 0; i < width; i++) {
-      auto taskId = makeTaskId("final-agg", i);
+      auto taskId = makeTaskId(iteration, "final-agg", i);
       finalAggSplits.push_back(
           exec::Split(std::make_shared<exec::RemoteConnectorSplit>(taskId)));
       auto task = makeTask(taskId, finalAggPlan, i);
@@ -136,12 +164,23 @@ class ExchangeBenchmark : public VectorTestBase {
         .assertResults(expected);
     auto elapsed = getCurrentTimeMicro() - startMicros;
     int64_t bytes = 0;
+    int64_t repartitionNanos = 0;
+    int64_t exchangeNanos = 0;
+    int64_t exchangeBatches = 0;
+    int64_t exchangeRows = 0;
     for (auto& task : tasks) {
       auto stats = task->taskStats();
       for (auto& pipeline : stats.pipelineStats) {
         for (auto& op : pipeline.operatorStats) {
-          if (op.operatorType == "Exchange") {
+          if (op.operatorType == "PartitionedOutput") {
+            repartitionNanos +=
+                op.addInputTiming.cpuNanos + op.getOutputTiming.cpuNanos;
+          } else if (op.operatorType == "Exchange") {
             bytes += op.rawInputBytes;
+            exchangeRows += op.outputPositions;
+            exchangeBatches += op.outputVectors;
+            exchangeNanos +=
+                op.addInputTiming.cpuNanos + op.getOutputTiming.cpuNanos;
           }
         }
       }
@@ -150,6 +189,10 @@ class ExchangeBenchmark : public VectorTestBase {
     counters.bytes += bytes;
     counters.rows += width * vectors.size() * vectors[0]->size();
     counters.usec += elapsed;
+    counters.repartitionNanos += repartitionNanos;
+    counters.exchangeNanos += exchangeNanos;
+    counters.exchangeRows += exchangeRows;
+    counters.exchangeBatches += exchangeBatches;
   }
 
   void runLocal(
@@ -234,8 +277,9 @@ class ExchangeBenchmark : public VectorTestBase {
  private:
   static constexpr int64_t kMaxMemory = 6UL << 30; // 6GB
 
-  static std::string makeTaskId(const std::string& prefix, int num) {
-    return fmt::format("local://{}-{}", prefix, num);
+  static std::string
+  makeTaskId(int32_t iteration, const std::string& prefix, int num) {
+    return fmt::format("local://{}-{}-{}", iteration, prefix, num);
   }
 
   std::shared_ptr<Task> makeTask(
@@ -292,7 +336,11 @@ class ExchangeBenchmark : public VectorTestBase {
   }
 
   std::unordered_map<std::string, std::string> configSettings_;
+  // Serial number to differentiate consecutive benchmark repeats.
+  static int32_t iteration_;
 };
+
+int32_t ExchangeBenchmark::iteration_;
 
 ExchangeBenchmark bm;
 
@@ -300,12 +348,14 @@ std::vector<RowVectorPtr> flat10k;
 std::vector<RowVectorPtr> deep10k;
 std::vector<RowVectorPtr> flat50;
 std::vector<RowVectorPtr> deep50;
+std::vector<RowVectorPtr> struct1k;
 
 Counters flat10kCounters;
 Counters deep10kCounters;
 Counters flat50Counters;
 Counters deep50Counters;
 Counters localFlat10kCounters;
+Counters struct1kCounters;
 
 BENCHMARK(exchangeFlat10k) {
   bm.run(flat10k, FLAGS_width, FLAGS_task_width, flat10kCounters);
@@ -321,6 +371,10 @@ BENCHMARK(exchangeDeep10k) {
 
 BENCHMARK_RELATIVE(exchangeDeep50) {
   bm.run(deep50, FLAGS_width, FLAGS_task_width, deep50Counters);
+}
+
+BENCHMARK(exchangeStruct1K) {
+  bm.run(struct1k, FLAGS_width, FLAGS_task_width, struct1kCounters);
 }
 
 BENCHMARK(localFlat10k) {
@@ -365,6 +419,21 @@ int main(int argc, char** argv) {
   }
   auto flatType = ROW(std::move(flatNames), std::move(flatTypes));
 
+  auto structType = ROW(
+      {{"c0", BIGINT()},
+       {"r1",
+        ROW(
+            {{"k2", BIGINT()},
+             {"r2",
+              ROW(
+                  {{"i1", BIGINT()},
+                   {"i2", BIGINT()},
+                   {"r3}, ROW({{s3", VARCHAR()},
+                   {"i5", INTEGER()},
+                   {"d5", DOUBLE()},
+                   {"b5", BOOLEAN()},
+                   {"a5", ARRAY(TINYINT())}})}})}});
+
   auto deepType = ROW(
       {{"c0", BIGINT()},
        {"long_array_val", ARRAY(ARRAY(BIGINT()))},
@@ -375,16 +444,18 @@ int main(int argc, char** argv) {
             MAP(BIGINT(),
                 ROW({{"s2_int", INTEGER()}, {"s2_string", VARCHAR()}})))}});
 
-  flat10k = bm.makeRows(flatType, 10, 10000);
-  deep10k = bm.makeRows(deepType, 10, 10000);
-  flat50 = bm.makeRows(flatType, 2000, 50);
-  deep50 = bm.makeRows(deepType, 2000, 50);
+  flat10k = bm.makeRows(flatType, 10, 10000, FLAGS_dict_pct);
+  deep10k = bm.makeRows(deepType, 10, 10000, FLAGS_dict_pct);
+  flat50 = bm.makeRows(flatType, 2000, 50, FLAGS_dict_pct);
+  deep50 = bm.makeRows(deepType, 2000, 50, FLAGS_dict_pct);
+  struct1k = bm.makeRows(structType, 100, 1000, FLAGS_dict_pct);
 
   folly::runBenchmarks();
   std::cout << "flat10k: " << flat10kCounters.toString() << std::endl
             << "flat50: " << flat50Counters.toString() << std::endl
             << "deep10k: " << deep10kCounters.toString() << std::endl
-            << "deep50: " << deep50Counters.toString() << std::endl;
+            << "deep50: " << deep50Counters.toString() << std::endl
+            << "struct1k: " << struct1kCounters.toString() << std::endl;
   return 0;
   return 0;
 }
