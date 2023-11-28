@@ -55,6 +55,7 @@ struct PatternMetadata {
   // Contains the fixed pattern in patterns of kind kSubstring.
   std::string fixedPattern = "";
 };
+inline const int kMaxCompiledRegexes = 20;
 
 /// The functions in this file use RE2 as the regex engine. RE2 is fast, but
 /// supports only a subset of PCRE syntax and in particular does not support

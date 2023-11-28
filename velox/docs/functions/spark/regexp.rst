@@ -34,3 +34,46 @@ See https://github.com/google/re2/wiki/Syntax for more information.
     the entire string by anchoring the pattern using ``^`` and ``$``. ::
 
         SELECT rlike('1a 2b 14m', '\d+b'); -- true
+
+.. spark:function:: regex_replace(string, pattern, overwrite) -> varchar
+
+    Replaces all substrings in ``string`` that match the regular expression ``pattern`` with the string ``overwrite``. If no match is found, the original string is returned as is.
+    There is a limit to the number of unique regexes to be compiled per function call, which is 20.
+
+    Parameters:
+
+    - **string**: The string to be searched.
+    - **pattern**: The regular expression pattern that is searched for in the string.
+    - **overwrite**: The string that replaces the substrings in ``string`` that match the ``pattern``.
+
+    Examples:
+
+    ::
+
+        SELECT regex_replace('Hello, World!', 'l', 'L'); -- 'HeLLo, WorLd!'
+        SELECT regex_replace('300-300', '(\\d+)-(\\d+)', '400'); -- '400'
+        SELECT regex_replace('300-300', '(\\d+)', '400'); -- '400-400'
+
+.. spark:function:: regex_replace(string, pattern, overwrite, position) -> varchar
+    :noindex:
+
+    Replaces all substrings in ``string`` that match the regular expression ``pattern`` with the string ``overwrite`` starting from the specified ``position``. If the ``position`` is less than one, the function returns an error. If ``position`` is greater than the length of ``string``, the function returns the original ``string`` without any modifications.
+    There is a limit to the number of unique regexes to be compiled per function call, which is 20.
+
+    This function is 1-indexed, meaning the position of the first character is 1.
+    Parameters:
+
+    - **string**: The string to be searched.
+    - **pattern**: The regular expression pattern that is searched for in the string.
+    - **overwrite**: The string that replaces the substrings in ``string`` that match the ``pattern``.
+    - **position**: The position to start from in terms of number of characters. 1 means to start from the beginning of the string. 3 means to start from the 3rd character. Positions less than one, the function will throw an error. If ``position`` is greater than the length of ``string``, the function returns the original ``string`` without any modifications.
+
+    Examples:
+
+    ::
+
+        SELECT regex_replace('Hello, World!', 'l', 'L', 6); -- 'Hello, WorLd!'
+
+        SELECT regex_replace('Hello, World!', 'l', 'L', -5); -- 'Hello, World!'
+
+        SELECT regex_replace('Hello, World!', 'l', 'L', 100); -- ERROR: Position exceeds string length.
