@@ -421,6 +421,11 @@ else()
 endif()
 resolve_dependency(glog)
 
+if(${VELOX_ENABLE_DUCKDB})
+  set_source(DuckDB)
+  resolve_dependency(DuckDB)
+endif()
+
 set_source(fmt)
 resolve_dependency(fmt)
 
@@ -527,11 +532,6 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
 endif()
 find_package(BISON 3.0.4 REQUIRED)
 find_package(FLEX 2.5.13 REQUIRED)
-
-if(${VELOX_ENABLE_DUCKDB})
-  set_source(DuckDB)
-  resolve_dependency(DuckDB)
-endif()
 
 include_directories(SYSTEM velox)
 include_directories(SYSTEM velox/external)
