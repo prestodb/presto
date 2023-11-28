@@ -581,7 +581,7 @@ void BaseVector::ensureWritable(
     }
     return;
   }
-  auto resultType = result->type();
+  const auto& resultType = result->type();
   bool isUnknownType = resultType->containsUnknown();
   if (result->encoding() == VectorEncoding::Simple::LAZY) {
     result = BaseVector::loadedVectorShared(result);
