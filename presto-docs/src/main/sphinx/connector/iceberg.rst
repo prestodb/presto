@@ -69,14 +69,8 @@ Property Name                                        Description
                                                      Example: ``https://localhost:19120/api/v1``
 
 ``iceberg.nessie.auth.type``                         The authentication type to use.
-                                                     Available values are ``BASIC`` or ``BEARER``.
-                                                     Example: ``BEARER``
-
-``iceberg.nessie.auth.basic.username``               The username to use with ``BASIC`` authentication.
-                                                     Example: ``test_user``
-
-``iceberg.nessie.auth.basic.password``               The password to use with ``BASIC`` authentication.
-                                                     Example: ``my$ecretPass``
+                                                     Available values are ``NONE`` or ``BEARER``.
+                                                     Default: ``NONE``
 
 ``iceberg.nessie.auth.bearer.token``                 The token to use with ``BEARER`` authentication.
                                                      Example: ``SXVLUXUhIExFQ0tFUiEK``

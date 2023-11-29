@@ -20,13 +20,13 @@ import javax.validation.constraints.NotEmpty;
 
 import java.util.Optional;
 
+import static com.facebook.presto.iceberg.nessie.AuthenticationType.NONE;
+
 public class NessieConfig
 {
     private String defaultReferenceName = "main";
     private String serverUri;
-    private AuthenticationType authenticationType;
-    private String username;
-    private String password;
+    private AuthenticationType authenticationType = NONE;
     private String bearerToken;
     private Integer readTimeoutMillis;
     private Integer connectTimeoutMillis;
@@ -61,7 +61,7 @@ public class NessieConfig
     }
 
     @Config("iceberg.nessie.auth.type")
-    @ConfigDescription("The authentication type to use. Available values are BASIC | BEARER")
+    @ConfigDescription("The authentication type to use. Available values are NONE | BEARER")
     public NessieConfig setAuthenticationType(AuthenticationType authenticationType)
     {
         this.authenticationType = authenticationType;
@@ -71,32 +71,6 @@ public class NessieConfig
     public Optional<AuthenticationType> getAuthenticationType()
     {
         return Optional.ofNullable(authenticationType);
-    }
-
-    @Config("iceberg.nessie.auth.basic.username")
-    @ConfigDescription("The username to use with BASIC authentication")
-    public NessieConfig setUsername(String username)
-    {
-        this.username = username;
-        return this;
-    }
-
-    public Optional<String> getUsername()
-    {
-        return Optional.ofNullable(username);
-    }
-
-    @Config("iceberg.nessie.auth.basic.password")
-    @ConfigDescription("The password to use with BASIC authentication")
-    public NessieConfig setPassword(String password)
-    {
-        this.password = password;
-        return this;
-    }
-
-    public Optional<String> getPassword()
-    {
-        return Optional.ofNullable(password);
     }
 
     @Config("iceberg.nessie.auth.bearer.token")

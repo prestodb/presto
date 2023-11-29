@@ -15,6 +15,6 @@ package com.facebook.presto.iceberg.nessie;
 
 public enum AuthenticationType
 {
-    BASIC,
+    NONE,
     BEARER
 }

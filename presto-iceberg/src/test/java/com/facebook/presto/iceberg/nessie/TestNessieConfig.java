@@ -21,6 +21,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.presto.iceberg.nessie.AuthenticationType.NONE;
 
 public class TestNessieConfig
 {
@@ -29,16 +30,14 @@ public class TestNessieConfig
     {
         assertRecordedDefaults(recordDefaults(NessieConfig.class)
                 .setClientBuilderImpl(null)
-                .setAuthenticationType(null)
+                .setAuthenticationType(NONE)
                 .setBearerToken(null)
                 .setCompressionEnabled(true)
                 .setDefaultReferenceName("main")
                 .setConnectTimeoutMillis(null)
-                .setPassword(null)
                 .setReadTimeoutMillis(null)
                 .setReadTimeoutMillis(null)
-                .setServerUri(null)
-                .setUsername(null));
+                .setServerUri(null));
     }
 
     @Test
@@ -47,9 +46,7 @@ public class TestNessieConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.nessie.uri", "http://localhost:xxx/api/v1")
                 .put("iceberg.nessie.ref", "someRef")
-                .put("iceberg.nessie.auth.type", "BASIC")
-                .put("iceberg.nessie.auth.basic.username", "user")
-                .put("iceberg.nessie.auth.basic.password", "pass")
+                .put("iceberg.nessie.auth.type", "BEARER")
                 .put("iceberg.nessie.auth.bearer.token", "bearerToken")
                 .put("iceberg.nessie.compression-enabled", "false")
                 .put("iceberg.nessie.connect-timeout-ms", "123")
@@ -60,9 +57,7 @@ public class TestNessieConfig
         NessieConfig expected = new NessieConfig()
                 .setServerUri("http://localhost:xxx/api/v1")
                 .setDefaultReferenceName("someRef")
-                .setAuthenticationType(AuthenticationType.BASIC)
-                .setUsername("user")
-                .setPassword("pass")
+                .setAuthenticationType(AuthenticationType.BEARER)
                 .setBearerToken("bearerToken")
                 .setCompressionEnabled(false)
                 .setConnectTimeoutMillis(123)
