@@ -282,11 +282,6 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
     }
 
-    protected void assertQueryError(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
-    {
-        assertQueryError(queryRunner, getSession(), sql, expectedMessageRegExp);
-    }
-
     protected void assertQueryError(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
@@ -295,6 +290,11 @@ public abstract class AbstractTestQueryFramework
         catch (AssertionError e) {
             assertErrorMessage(sql, e, expectedMessageRegExp);
         }
+    }
+
+    protected void assertQueryError(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        assertQueryError(queryRunner, getSession(), sql, expectedMessageRegExp);
     }
 
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
