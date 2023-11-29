@@ -54,6 +54,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
+import static com.facebook.presto.SystemSessionProperties.trackPartialAggregationHistory;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
@@ -158,7 +159,7 @@ public class HistoryBasedPlanStatisticsTracker
                 double joinProbeKeyCount = planNodeStats.getPlanNodeJoinProbeKeyCount();
                 PartialAggregationStatistics partialAggregationStatistics = PartialAggregationStatistics.empty();
 
-                if (isAggregation(planNode, AggregationNode.Step.PARTIAL)) {
+                if (isAggregation(planNode, AggregationNode.Step.PARTIAL) && trackPartialAggregationHistory(session)) {
                     // we're doing a depth-first traversal of the plan tree so we must have seen the corresponding final agg already:
                     // find it and update its partial agg stats
                     partialAggregationStatistics = constructAggregationNodeStatistics(planNode, planNodeStatsMap, outputBytes, outputPositions);
@@ -205,7 +206,7 @@ public class HistoryBasedPlanStatisticsTracker
                                 new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics)));
                         planStatisticsMap.put(planNodeWithHash, planStatsWithSourceInfo);
 
-                        if (isAggregation(planNode, AggregationNode.Step.FINAL) && ((AggregationNode) planNode).getAggregationId().isPresent()) {
+                        if (isAggregation(planNode, AggregationNode.Step.FINAL) && ((AggregationNode) planNode).getAggregationId().isPresent() && trackPartialAggregationHistory(session)) {
                             // we're doing a depth-first traversal of the plan tree: cache the final agg so that when we encounter the partial agg we can come back
                             // and update the partial agg statistics
                             aggregationNodeMap.put(((AggregationNode) planNode).getAggregationId().get(), new FinalAggregationStatsInfo(planNodeWithHash, planStatsWithSourceInfo));
