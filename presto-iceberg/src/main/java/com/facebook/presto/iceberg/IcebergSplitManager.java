@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.changelog.ChangelogSplitSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -32,6 +33,7 @@ import javax.inject.Inject;
 
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.iceberg.TableType.CHANGELOG;
 import static java.util.Objects.requireNonNull;
@@ -64,6 +66,10 @@ public class IcebergSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
 
+        TupleDomain<IcebergColumnHandle> predicate = isPushdownFilterEnabled(session) ?
+                layoutHandle.getPartitionColumnPredicate().transform(IcebergColumnHandle.class::cast) :
+                table.getPredicate();
+
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
         if (table.getTableName().getTableType() == CHANGELOG) {
@@ -77,7 +83,7 @@ public class IcebergSplitManager
         }
         else {
             TableScan tableScan = icebergTable.newScan()
-                    .filter(toIcebergExpression(table.getPredicate()))
+                    .filter(toIcebergExpression(predicate))
                     .useSnapshot(table.getTableName().getSnapshotId().get());
 
             // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
