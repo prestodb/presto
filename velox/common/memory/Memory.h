@@ -93,6 +93,9 @@ struct MemoryManagerOptions {
   /// testing purpose.
   bool debugEnabled{FLAGS_velox_memory_pool_debug_enabled};
 
+  /// Terminates the process and generates a core file on an allocation failure
+  bool coreOnAllocationFailureEnabled{false};
+
   /// Specifies the backing memory allocator.
   MemoryAllocator* allocator{MemoryAllocator::getInstance()};
 
@@ -221,6 +224,7 @@ class MemoryManager {
   const uint16_t alignment_;
   const bool checkUsageLeak_;
   const bool debugEnabled_;
+  const bool coreOnAllocationFailureEnabled_;
   // The destruction callback set for the allocated root memory pools which are
   // tracked by 'pools_'. It is invoked on the root pool destruction and removes
   // the pool from 'pools_'.

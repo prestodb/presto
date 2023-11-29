@@ -160,6 +160,10 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// If true, tracks the allocation and free call stacks to detect the source
     /// of memory leak for testing purpose.
     bool debugEnabled{FLAGS_velox_memory_pool_debug_enabled};
+
+    /// Terminates the process and generates a core file on an allocation
+    /// failure
+    bool coreOnAllocationFailureEnabled{false};
   };
 
   /// Constructs a named memory pool with specified 'name', 'parent' and 'kind'.
@@ -524,6 +528,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const bool threadSafe_;
   const bool checkUsageLeak_;
   const bool debugEnabled_;
+  const bool coreOnAllocationFailureEnabled_;
 
   /// Indicates if the memory pool has been aborted by the memory arbitrator or
   /// not.
@@ -961,6 +966,8 @@ class MemoryPoolImpl : public MemoryPool {
   // memory pool destruction. We only check this if debug mode of this memory
   // pool is enabled.
   void leakCheckDbg();
+
+  void handleAllocationFailure(const std::string& failureMessage);
 
   MemoryManager* const manager_;
   MemoryAllocator* const allocator_;
