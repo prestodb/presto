@@ -26,7 +26,7 @@ namespace facebook::velox::exec {
 class Spiller {
  public:
   // Define the spiller types.
-  enum class Type {
+  enum class Type : int8_t {
     // Used for aggregation input processing stage.
     kAggregateInput = 0,
     // Used for aggregation output processing stage.
@@ -37,8 +37,9 @@ class Spiller {
     kHashJoinProbe = 3,
     // Used for order by.
     kOrderBy = 4,
+    // Number of spiller types.
+    kNumTypes = 5,
   };
-  static constexpr int kNumTypes = 4;
   static std::string typeName(Type);
 
   using SpillRows = std::vector<char*, memory::StlAllocator<char*>>;
