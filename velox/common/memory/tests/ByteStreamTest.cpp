@@ -285,3 +285,70 @@ TEST_F(ByteStreamTest, randomRangeAllocationFromMultiStreamsTest) {
     }
   }
 }
+
+TEST_F(ByteStreamTest, bits) {
+  std::vector<uint64_t> bits;
+  uint64_t seed = 0x12345689abcdefLLU;
+  for (auto i = 0; i < 1000; ++i) {
+    bits.push_back(seed * (i + 1));
+  }
+  auto arena = newArena();
+  ByteStream bitStream(arena.get(), true);
+  bitStream.startWrite(11);
+  int32_t offset = 0;
+  // Odd number of sizes.
+  std::vector<int32_t> bitSizes = {1, 19, 52, 58, 129};
+  int32_t counter = 0;
+  auto totalBits = bits.size() * 64;
+  while (offset < totalBits) {
+    // Every second uses the fast path for aligned source and append only.
+    auto numBits = std::min<int32_t>(
+        totalBits - offset, bitSizes[counter % bitSizes.size()]);
+    if (counter % 1 == 0) {
+      bitStream.appendBits(bits.data(), offset, offset + numBits);
+    } else {
+      uint64_t aligned[10];
+      bits::copyBits(bits.data(), offset, aligned, 0, numBits);
+      bitStream.appendBitsFresh(aligned, 0, numBits);
+    }
+    offset += numBits;
+    ++counter;
+  }
+  std::stringstream stringStream;
+  OStreamOutputStream out(&stringStream);
+  bitStream.flush(&out);
+  EXPECT_EQ(
+      0,
+      memcmp(
+          stringStream.str().data(),
+          bits.data(),
+          bits.size() * sizeof(bits[0])));
+}
+
+TEST_F(ByteStreamTest, appendWindow) {
+  Scratch scratch;
+  std::vector<uint64_t> words;
+  uint64_t seed = 0x12345689abcdefLLU;
+  for (auto i = 0; i < 1000; ++i) {
+    words.push_back(seed * (i + 1));
+  }
+  auto arena = newArena();
+
+  ByteStream stream(arena.get());
+  int32_t offset = 0;
+  std::vector<int32_t> sizes = {1, 19, 52, 58, 129};
+  int32_t counter = 0;
+  while (offset < words.size()) {
+    auto numWords =
+        std::min<int32_t>(words.size() - offset, sizes[counter % sizes.size()]);
+    AppendWindow<uint64_t> window(stream, scratch);
+    auto ptr = window.get(numWords);
+    memcpy(ptr, words.data() + offset, numWords * sizeof(words[0]));
+    offset += numWords;
+    ++counter;
+  }
+  std::stringstream stringStream;
+  OStreamOutputStream out(&stringStream);
+  stream.flush(&out);
+  EXPECT_EQ(0, memcmp(stringStream.str().data(), words.data(), words.size()));
+}
