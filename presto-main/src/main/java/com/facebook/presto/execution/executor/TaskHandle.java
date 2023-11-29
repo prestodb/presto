@@ -44,7 +44,6 @@ import static java.util.Objects.requireNonNull;
 public class TaskHandle
 {
     private volatile boolean destroyed;
-    private static final Logger log = Logger.get(TaskHandle.class);
     private final TaskId taskId;
     private final DoubleSupplier utilizationSupplier;
     private final TaskPriorityTracker priorityTracker;
@@ -138,15 +137,17 @@ public class TaskHandle
         destroyed = true;
 
         ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builderWithExpectedSize(runningIntermediateSplits.size() + runningLeafSplits.size() + queuedLeafSplits.size());
-        //To avoid queued split marked as completed splits to pollute the retryable splits
-        if (isShuttingDown.get()) {
-            builder.addAll(runningIntermediateSplits);
-            builder.addAll(runningLeafSplits);
-            builder.addAll(queuedLeafSplits);
-        }
+        builder.addAll(runningIntermediateSplits);
+        builder.addAll(runningLeafSplits);
+        builder.addAll(queuedLeafSplits);
+
         runningIntermediateSplits.clear();
         runningLeafSplits.clear();
-        queuedLeafSplits.clear();
+
+        // We need to keep the queuedLeafSplits in case the TaskStatus is delayed and fetched after the Task is marked as done.
+        if (!enableRetryForFailedSplits || !isShuttingDown.get()) {
+            queuedLeafSplits.clear();
+        }
         return builder.build();
     }
 
@@ -190,7 +191,7 @@ public class TaskHandle
 
     public synchronized boolean isTaskIdling()
     {
-        return runningLeafSplits.isEmpty() && runningIntermediateSplits.isEmpty() && queuedLeafSplits.isEmpty() && anySplitProcessed.get();
+        return !destroyed && runningLeafSplits.isEmpty() && runningIntermediateSplits.isEmpty() && queuedLeafSplits.isEmpty() && anySplitProcessed.get();
     }
 
     public synchronized PrioritizedSplitRunner pollNextSplit()
