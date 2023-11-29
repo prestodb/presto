@@ -419,8 +419,7 @@ Run the Presto server:
 An Example Deployment with Docker
 ---------------------------------
 
-Let's take a look at getting a Docker image together for Presto (though they already exist on Dockerhub,
-e.g. `ahanaio/prestodb-sandbox <https://hub.docker.com/r/ahanaio/prestodb-sandbox>`_).
+Let's take a look at getting a Docker image together for Presto.
 We can see below how relatively easy it is to get Presto up and running.
 For demonstration purposes, this configuration is a single-node Presto installation where the scheduler will include the Coordinator as a Worker.
 We will configure one catalog, `TPCH <https://prestodb.io/docs/current/connector/tpch.html>`_.
