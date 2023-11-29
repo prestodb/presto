@@ -288,6 +288,8 @@ public class FeaturesConfig
 
     private boolean usePartialAggregationHistory;
 
+    private boolean trackPartialAggregationHistory = true;
+
     private boolean removeRedundantCastToVarcharInJoin = true;
 
     public enum PartitioningPrecisionStrategy
@@ -2858,6 +2860,19 @@ public class FeaturesConfig
     public FeaturesConfig setUsePartialAggregationHistory(boolean usePartialAggregationHistory)
     {
         this.usePartialAggregationHistory = usePartialAggregationHistory;
+        return this;
+    }
+
+    public boolean isTrackPartialAggregationHistory()
+    {
+        return this.trackPartialAggregationHistory;
+    }
+
+    @Config("optimizer.track-partial-aggregation-history")
+    @ConfigDescription("Track partial aggregation histories")
+    public FeaturesConfig setTrackPartialAggregationHistory(boolean trackPartialAggregationHistory)
+    {
+        this.trackPartialAggregationHistory = trackPartialAggregationHistory;
         return this;
     }
 
