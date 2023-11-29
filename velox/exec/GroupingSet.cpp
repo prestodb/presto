@@ -494,6 +494,9 @@ void GroupingSet::initializeGlobalAggregation() {
   lookup_->hits[0] = rows_.allocateFixed(offset, alignment);
   const auto singleGroup = std::vector<vector_size_t>{0};
   for (auto& aggregate : aggregates_) {
+    if (!aggregate.sortingKeys.empty()) {
+      continue;
+    }
     aggregate.function->initializeNewGroups(lookup_->hits.data(), singleGroup);
   }
 
@@ -1135,6 +1138,9 @@ void GroupingSet::initializeRow(SpillMergeStream& stream, char* row) {
   }
   vector_size_t zero = 0;
   for (auto& aggregate : aggregates_) {
+    if (!aggregate.sortingKeys.empty()) {
+      continue;
+    }
     aggregate.function->initializeNewGroups(
         &row, folly::Range<const vector_size_t*>(&zero, 1));
   }
@@ -1164,6 +1170,9 @@ void GroupingSet::updateRow(SpillMergeStream& input, char* row) {
   mergeSelection_.setValid(input.currentIndex(), true);
   mergeSelection_.updateBounds();
   for (auto i = 0; i < aggregates_.size(); ++i) {
+    if (!aggregates_[i].sortingKeys.empty()) {
+      continue;
+    }
     mergeArgs_[0] = input.current().childAt(i + keyChannels_.size());
     aggregates_[i].function->addSingleGroupIntermediateResults(
         row, mergeSelection_, mergeArgs_, false);
