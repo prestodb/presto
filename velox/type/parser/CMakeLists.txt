@@ -18,7 +18,8 @@ endif()
 
 bison_target(
   TypeParser TypeParser.yy ${CMAKE_CURRENT_BINARY_DIR}/TypeParser.yy.cc
-  DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/TypeParser.yy.h)
+  DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/TypeParser.yy.h
+  COMPILE_FLAGS "-Werror -Wno-deprecated")
 
 flex_target(
   TypeParserScanner TypeParser.ll ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp

@@ -96,17 +96,43 @@ TEST_F(TestTypeSignature, arrayType) {
   ASSERT_EQ(*parseType("array(array(bigint))"), *ARRAY(ARRAY(BIGINT())));
 
   ASSERT_EQ(*parseType("array(array(int))"), *ARRAY(ARRAY(INTEGER())));
+
+  ASSERT_EQ(
+      *parseType("array(timestamp with time zone)"),
+      *ARRAY(TIMESTAMP_WITH_TIME_ZONE()));
+
+  ASSERT_EQ(*parseType("array(DECIMAL(10,5))"), *ARRAY(DECIMAL(10, 5)));
 }
 
 TEST_F(TestTypeSignature, mapType) {
   ASSERT_EQ(*parseType("map(bigint,bigint)"), *MAP(BIGINT(), BIGINT()));
 
   ASSERT_EQ(
+      *parseType("map(timestamp with time zone,bigint)"),
+      *MAP(TIMESTAMP_WITH_TIME_ZONE(), BIGINT()));
+
+  ASSERT_EQ(
+      *parseType("map(timestamp with time zone, timestamp with time zone)"),
+      *MAP(TIMESTAMP_WITH_TIME_ZONE(), TIMESTAMP_WITH_TIME_ZONE()));
+
+  ASSERT_EQ(
+      *parseType("map(json, timestamp with time zone)"),
+      *MAP(JSON(), TIMESTAMP_WITH_TIME_ZONE()));
+
+  ASSERT_EQ(
       *parseType("map(bigint,array(bigint))"), *MAP(BIGINT(), ARRAY(BIGINT())));
+
+  ASSERT_EQ(
+      *parseType("map(timestamp with time zone, varchar)"),
+      *MAP(TIMESTAMP_WITH_TIME_ZONE(), VARCHAR()));
 
   ASSERT_EQ(
       *parseType("map(bigint,map(bigint,map(varchar,bigint)))"),
       *MAP(BIGINT(), MAP(BIGINT(), MAP(VARCHAR(), BIGINT()))));
+
+  ASSERT_EQ(
+      *parseType("maP(DECIMAL(10,5), DECIMAL(20, 4))"),
+      *MAP(DECIMAL(10, 5), DECIMAL(20, 4)));
 }
 
 TEST_F(TestTypeSignature, invalidType) {
@@ -131,10 +157,14 @@ TEST_F(TestTypeSignature, rowType) {
       *ROW({"a", "b", "c"}, {BIGINT(), VARCHAR(), REAL()}));
 
   ASSERT_EQ(
-      *parseType("row(a bigint,b array(bigint),c row(a bigint))"),
+      *parseType("row(a timestamp with time zone,b json,c real)"),
+      *ROW({"a", "b", "c"}, {TIMESTAMP_WITH_TIME_ZONE(), JSON(), REAL()}));
+
+  ASSERT_EQ(
+      *parseType("row(a bigint,b array(bigint),c row(a decimal(10,5)))"),
       *ROW(
           {"a", "b", "c"},
-          {BIGINT(), ARRAY(BIGINT()), ROW({"a"}, {BIGINT()})}));
+          {BIGINT(), ARRAY(BIGINT()), ROW({"a"}, {DECIMAL(10, 5)})}));
 
   // Quoted field name starting with number and scalar type.
   ASSERT_EQ(
