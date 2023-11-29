@@ -569,7 +569,7 @@ number
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
-    | BERNOULLI
+    | BATCH | BERNOULLI
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT | CURRENT_ROLE
     | DATA | DATE | DAY | DEFINER | DESC | DETERMINISTIC | DISTRIBUTED
     | EXCLUDING | EXPLAIN | EXTERNAL

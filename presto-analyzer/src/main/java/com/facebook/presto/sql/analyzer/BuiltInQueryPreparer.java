@@ -97,10 +97,12 @@ public class BuiltInQueryPreparer
             }
         }
         List<Expression> parameters = ImmutableList.of();
+        boolean isBatch = false;
         if (wrappedStatement instanceof Execute) {
             parameters = ((Execute) wrappedStatement).getParameters();
+            isBatch = ((Execute) wrappedStatement).isBatchExecution();
         }
-        validateParameters(statement, parameters);
+        validateParameters(statement, parameters, isBatch);
         Optional<String> formattedQuery = Optional.empty();
         if (analyzerOptions.isLogFormattedQueryEnabled()) {
             formattedQuery = Optional.of(getFormattedQuery(statement, parameters));
@@ -116,19 +118,24 @@ public class BuiltInQueryPreparer
         return format("-- Formatted Query:%n%s", formattedQuery);
     }
 
-    private static void validateParameters(Statement node, List<Expression> parameterValues)
+    private static void validateParameters(Statement node, List<Expression> parameterValues, boolean isBatch)
     {
         int parameterCount = getParameterCount(node);
         if (parameterCount > 0 && parameterValues.isEmpty()) {
             throw new SemanticException(INVALID_PARAMETER_USAGE, node, "Incorrect number of parameters: expected %s but found %s", parameterCount, 0);
         }
-        for (Expression expression : parameterValues) {
-            if (!(expression instanceof Row)) {
-                validateSingleRowParameter(parameterCount, node, ImmutableList.of(expression));
+        if (isBatch) {
+            for (Expression expression : parameterValues) {
+                if (!(expression instanceof Row)) {
+                    validateSingleRowParameter(parameterCount, node, ImmutableList.of(expression));
+                }
+                else {
+                    validateSingleRowParameter(parameterCount, node, ((Row) expression).getItems());
+                }
             }
-            else {
-                validateSingleRowParameter(parameterCount, node, ((Row) expression).getItems());
-            }
+        }
+        else {
+            validateSingleRowParameter(parameterCount, node, parameterValues);
         }
     }
 

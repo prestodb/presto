@@ -26,6 +26,8 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.tree.Execute;
+import com.facebook.presto.sql.tree.Statement;
 import com.google.inject.Inject;
 
 import java.util.Optional;
@@ -79,6 +81,8 @@ public class BuiltInQueryAnalyzer
         BuiltInQueryPreparer.BuiltInPreparedQuery builtInPreparedQuery = (BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery;
         Session session = ((BuiltInAnalyzerContext) analyzerContext).getSession();
 
+        Statement wrappedStatement = builtInPreparedQuery.getWrappedStatement();
+        boolean isBatch = wrappedStatement instanceof Execute && ((Execute) wrappedStatement).isBatchExecution();
         Analyzer analyzer = new Analyzer(
                 session,
                 metadata,
@@ -86,7 +90,7 @@ public class BuiltInQueryAnalyzer
                 accessControl,
                 queryExplainer,
                 builtInPreparedQuery.getParameters(),
-                parameterExtractor(builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters()),
+                parameterExtractor(builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters(), isBatch),
                 session.getWarningCollector(),
                 Optional.of(metadataExtractorExecutor));
 

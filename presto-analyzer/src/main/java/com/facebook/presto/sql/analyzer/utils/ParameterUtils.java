@@ -33,6 +33,11 @@ public class ParameterUtils
 
     public static MultiLineParameters parameterExtractor(Statement statement, List<Expression> parameters)
     {
+        return parameterExtractor(statement, parameters, false);
+    }
+
+    public static MultiLineParameters parameterExtractor(Statement statement, List<Expression> parameters, boolean isBatch)
+    {
         List<NodeRef<Parameter>> refsList = ParameterExtractor.getParameters(statement).stream()
                 .sorted(Comparator.comparing(
                         parameter -> parameter.getLocation().get(),
@@ -42,20 +47,29 @@ public class ParameterUtils
                 .collect(toImmutableList());
 
         ImmutableList.Builder<List<Expression>> parameterExpressions = ImmutableList.builder();
-        if (!parameters.isEmpty() && parameters.get(0) instanceof Row) {
-            for (Expression rowExpression : parameters) {
-                ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-                List<Expression> exprs = ((Row) rowExpression).getItems();
-                for (Expression expr : exprs) {
-                    builder.add(expr);
+        if (isBatch) {
+            if (!parameters.isEmpty() && parameters.get(0) instanceof Row) {
+                for (Expression rowExpression : parameters) {
+                    ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+                    List<Expression> exprs = ((Row) rowExpression).getItems();
+                    for (Expression expr : exprs) {
+                        builder.add(expr);
+                    }
+                    parameterExpressions.add(builder.build());
                 }
-                parameterExpressions.add(builder.build());
+            }
+            else {
+                for (Expression expr : parameters) {
+                    parameterExpressions.add(ImmutableList.of(expr));
+                }
             }
         }
         else {
-            for (Expression expr : parameters) {
-                parameterExpressions.add(ImmutableList.of(expr));
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+            for (Expression expression : parameters) {
+                builder.add(expression);
             }
+            parameterExpressions.add(builder.build());
         }
         return new MultiLineParameters(refsList, parameterExpressions.build());
     }

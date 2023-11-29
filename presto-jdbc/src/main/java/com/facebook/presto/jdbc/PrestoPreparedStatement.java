@@ -846,11 +846,7 @@ public class PrestoPreparedStatement
             }
             values.add(currentParameters.get(index));
         }
-        if (!values.isEmpty()) {
-            builder.append("(");
-            Joiner.on(", ").appendTo(builder, values);
-            builder.append(")");
-        }
+        Joiner.on(", ").appendTo(builder, values);
     }
 
     private void formatBatchParametersTo(StringBuilder builder)

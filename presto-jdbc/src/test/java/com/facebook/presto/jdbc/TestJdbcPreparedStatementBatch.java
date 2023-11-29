@@ -214,7 +214,7 @@ public class TestJdbcPreparedStatementBatch
     {
         try (Connection connection = createConnection()) {
             try (Statement statement = connection.createStatement()) {
-                statement.execute("CREATE TABLE test_execute_batch (" +
+                statement.execute("CREATE TABLE test_execute_batch_set_parameter (" +
                         "c_boolean boolean, " +
                         "c_bigint bigint, " +
                         "c_double double, " +
@@ -225,7 +225,7 @@ public class TestJdbcPreparedStatementBatch
             }
 
             try (PreparedStatement statement = connection.prepareStatement(
-                    "INSERT INTO test_execute_batch VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                    "INSERT INTO test_execute_batch_set_parameter VALUES (?, ?, ?, ?, ?, ?, ?)")) {
                 statement.setBoolean(1, true);
                 statement.setLong(2, 5L);
                 statement.setDouble(3, 7.0d);
@@ -274,10 +274,10 @@ public class TestJdbcPreparedStatementBatch
             }
 
             try (Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery("SELECT count(*) from test_execute_batch")) {
+                    ResultSet rs = statement.executeQuery("SELECT count(*) from test_execute_batch_set_parameter")) {
                 assertTrue(rs.next());
                 assertEquals(rs.getLong(1), 4);
-                statement.execute("DROP TABLE test_execute_batch");
+                statement.execute("DROP TABLE test_execute_batch_set_parameter");
             }
         }
     }
@@ -288,7 +288,7 @@ public class TestJdbcPreparedStatementBatch
     {
         try (Connection connection = createConnection()) {
             try (Statement statement = connection.createStatement()) {
-                statement.execute("CREATE TABLE test_execute_batch (" +
+                statement.execute("CREATE TABLE test_execute_batch_non_insert_values (" +
                         "c_boolean boolean, " +
                         "c_double double, " +
                         "c_decimal decimal, " +
@@ -299,7 +299,7 @@ public class TestJdbcPreparedStatementBatch
             }
 
             try (PreparedStatement statement = connection.prepareStatement(
-                    "INSERT INTO test_execute_batch VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                    "INSERT INTO test_execute_batch_non_insert_values VALUES (?, ?, ?, ?, ?, ?, ?)")) {
                 statement.setBoolean(1, true);
                 statement.setDouble(2, 7.0d);
                 statement.setBigDecimal(3, BigDecimal.valueOf(8L));
@@ -331,7 +331,7 @@ public class TestJdbcPreparedStatementBatch
             }
 
             try (PreparedStatement statement = connection.prepareStatement(
-                    "SELECT * FROM test_execute_batch where c_bigint = ?")) {
+                    "SELECT * FROM test_execute_batch_non_insert_values where c_bigint = ?")) {
                 statement.setLong(1, 6);
                 ResultSet rs = statement.executeQuery();
                 assertTrue(rs.next());
@@ -367,7 +367,7 @@ public class TestJdbcPreparedStatementBatch
             }
 
             try (PreparedStatement statement = connection.prepareStatement(
-                    "CREATE TABLE test_execute_batch_2 as SELECT * FROM test_execute_batch where c_bigint = ?")) {
+                    "CREATE TABLE test_execute_batch_2 as SELECT * FROM test_execute_batch_non_insert_values where c_bigint = ?")) {
                 statement.setLong(1, 5);
 
                 try {
@@ -399,7 +399,7 @@ public class TestJdbcPreparedStatementBatch
             }
 
             try (PreparedStatement statement = connection.prepareStatement(
-                    "INSERT INTO test_execute_batch_2 SELECT * FROM test_execute_batch where c_bigint = ?")) {
+                    "INSERT INTO test_execute_batch_2 SELECT * FROM test_execute_batch_non_insert_values where c_bigint = ?")) {
                 statement.setLong(1, 6);
 
                 try {
@@ -431,7 +431,7 @@ public class TestJdbcPreparedStatementBatch
             }
 
             try (PreparedStatement statement = connection.prepareStatement(
-                    "DELETE FROM test_execute_batch where c_bigint = ?")) {
+                    "DELETE FROM test_execute_batch_non_insert_values where c_bigint = ?")) {
                 statement.setLong(1, 5);
 
                 try {
@@ -458,10 +458,10 @@ public class TestJdbcPreparedStatementBatch
             }
 
             try (Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery("SELECT count(*) from test_execute_batch")) {
+                    ResultSet rs = statement.executeQuery("SELECT count(*) from test_execute_batch_non_insert_values")) {
                 assertTrue(rs.next());
                 assertEquals(rs.getLong(1), 1);
-                statement.execute("DROP TABLE test_execute_batch");
+                statement.execute("DROP TABLE test_execute_batch_non_insert_values");
             }
         }
     }
