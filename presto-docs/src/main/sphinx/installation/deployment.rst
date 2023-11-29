@@ -458,7 +458,7 @@ and specify an entry point to run the server.
     RUN chmod +x /usr/local/bin/presto
 
     # Specify the entrypoint to start
-    ENTRYPOINT /opt/presto/bin/launcher run
+    ENTRYPOINT ./opt/presto/bin/launcher run
 
 There are four files in the ``etc/`` folder to configure Presto, along with one catalog in ``etc/catalog/``. A catalog defines the configuration
 of a connector, and the catalog is named after the file name (minus the ``.properties`` extension). You can have multiple
