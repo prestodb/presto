@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.executor;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SplitConcurrencyController;
 import com.facebook.presto.execution.TaskId;
