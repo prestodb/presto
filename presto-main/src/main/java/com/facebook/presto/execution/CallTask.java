@@ -131,7 +131,7 @@ public class CallTask
 
         // get argument values
         Object[] values = new Object[procedure.getArguments().size()];
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters).getFirstRowOfParametersIfExists();
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters).getFirstRowOfParametersOrThrowException();
         for (Entry<String, CallArgument> entry : names.entrySet()) {
             CallArgument callArgument = entry.getValue();
             int index = positions.get(entry.getKey());

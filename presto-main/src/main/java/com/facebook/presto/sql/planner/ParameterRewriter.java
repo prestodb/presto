@@ -46,10 +46,10 @@ public class ParameterRewriter
         this.parameters = analysis.getParameters().getFirstRowOfParametersIfExists();
     }
 
-    public ParameterRewriter(Analysis analysis, int rowIdx)
+    public ParameterRewriter(Analysis analysis, int rowIndex)
     {
         this.analysis = analysis;
-        this.parameters = analysis.getParameters().getRowOfParameters(rowIdx);
+        this.parameters = analysis.getParameters().getRowOfParameters(rowIndex);
     }
 
     @Override

@@ -785,7 +785,7 @@ class RelationPlanner
         return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
     }
 
-    private void buildRow(Values node, int rowIdx,
+    private void buildRow(Values node, int rowIndex,
                           ImmutableList.Builder<List<RowExpression>> rowsBuilder,
                           SqlPlannerContext context, Scope scope)
     {
@@ -793,17 +793,17 @@ class RelationPlanner
             ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
             if (row instanceof Row) {
                 for (Expression item : ((Row) row).getItems()) {
-                    values.add(rewriteRow(item, context, rowIdx));
+                    values.add(rewriteRow(item, context, rowIndex));
                 }
             }
             else {
-                values.add(rewriteRow(row, context, rowIdx));
+                values.add(rewriteRow(row, context, rowIndex));
             }
             rowsBuilder.add(values.build());
         }
     }
 
-    private RowExpression rewriteRow(Expression row, SqlPlannerContext context, int rowIdx)
+    private RowExpression rewriteRow(Expression row, SqlPlannerContext context, int rowIndex)
     {
         // resolve enum literals
         Expression expression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -820,7 +820,7 @@ class RelationPlanner
             }
         }, row);
         expression = Coercer.addCoercions(expression, analysis);
-        expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis, rowIdx), expression);
+        expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis, rowIndex), expression);
         return rowExpression(expression, context);
     }
 

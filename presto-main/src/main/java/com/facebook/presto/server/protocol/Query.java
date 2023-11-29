@@ -513,7 +513,7 @@ class Query
                 OutputResultData outputResultData = handler.get().handleOutputWithResult(columns, data,
                         ignored -> false,
                         totalCount -> {});
-                if (outputResultData.isNeedRefactor()) {
+                if (outputResultData.isNeedOverwrite()) {
                     data = outputResultData.getValue();
                 }
             }
@@ -538,7 +538,7 @@ class Query
             Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> handler = queryManager.getStatementExecuteAndOutputHandler(queryId);
             if (handler.isPresent()) {
                 OutputColumn outputColumn = handler.get().getOutputColumns();
-                if (outputColumn.isNeedRefactor()) {
+                if (outputColumn.isNeedOverwrite()) {
                     List<String> columnNames = outputColumn.getColumnNames();
                     List<Type> columnTypes = outputColumn.getColumnTypes();
                     checkArgument(columnNames.size() == columnTypes.size(), "Column names and types size mismatch");
@@ -551,7 +551,7 @@ class Query
                     types = columnTypes;
                 }
                 OutputResultData outputResultData = handler.get().handleOutputWithoutResult();
-                if (outputResultData.isNeedRefactor()) {
+                if (outputResultData.isNeedOverwrite()) {
                     data = outputResultData.getValue();
                 }
             }
@@ -645,7 +645,7 @@ class Query
             Optional<ExecuteAndOutputHandler<? extends ExecutionExtraMessage>> handler = queryManager.getStatementExecuteAndOutputHandler(queryId);
             if (handler.isPresent()) {
                 OutputColumn outputColumn = handler.get().getOutputColumns();
-                if (outputColumn.isNeedRefactor()) {
+                if (outputColumn.isNeedOverwrite()) {
                     columnNames = outputColumn.getColumnNames();
                     columnTypes = outputColumn.getColumnTypes();
                 }

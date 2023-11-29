@@ -145,16 +145,15 @@ public class PrestoPreparedStatement
             return new int[] {};
         }
         super.executeBatch(batchExecuteSql);
-        ResultSet rs = getResultSet();
-
-        // executeBatch() would get a result of Array[Integer] type from server, and transform it to a int[]
         int[] res = new int[0];
-        while (rs.next()) {
-            res = Arrays.stream((Object[]) (rs.getArray(1).getArray()))
-                    .map(Integer.class::cast)
-                    .mapToInt(Integer::valueOf).toArray();
+        try (ResultSet rs = getResultSet()) {
+            // executeBatch() would get a result of Array[Integer] type from server, and transform it to a int[]
+            while (rs.next()) {
+                res = Arrays.stream((Object[]) (rs.getArray(1).getArray()))
+                        .map(Integer.class::cast)
+                        .mapToInt(Integer::valueOf).toArray();
+            }
         }
-        rs.close();
         return res;
     }
 

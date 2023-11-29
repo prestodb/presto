@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class ExecuteAndOutputHandler<T extends ExecutionExtraMessage>
 {
-    // intermediary information calculated and set during execution, and maybe used in order to refactor output
+    // intermediary information calculated and set during execution, and maybe used in order to reconstruct output
     QueryTypeAndExecutionExtraMessage<T> queryExtraMessage;
 
     public void executeInTask(Statement statement, Optional<BuiltInQueryAnalysis> queryAnalysis, Metadata metadata, Session session)
@@ -65,18 +65,18 @@ public abstract class ExecuteAndOutputHandler<T extends ExecutionExtraMessage>
     public static class OutputResultData
     {
         public static final OutputResultData EMPTY = new OutputResultData(false, ImmutableList.of());
-        private final boolean needRefactor;
+        private final boolean needOverwrite;
         private final Iterable<List<Object>> value;
 
-        public OutputResultData(boolean needRefactor, Iterable<List<Object>> value)
+        public OutputResultData(boolean needOverwrite, Iterable<List<Object>> value)
         {
-            this.needRefactor = needRefactor;
+            this.needOverwrite = needOverwrite;
             this.value = requireNonNull(value, "value is null");
         }
 
-        public boolean isNeedRefactor()
+        public boolean isNeedOverwrite()
         {
-            return needRefactor;
+            return needOverwrite;
         }
 
         public Iterable<List<Object>> getValue()
@@ -88,20 +88,20 @@ public abstract class ExecuteAndOutputHandler<T extends ExecutionExtraMessage>
     public static class OutputColumn
     {
         public static final OutputColumn EMPTY = new OutputColumn(false, ImmutableList.of(), ImmutableList.of());
-        private final boolean needRefactor;
+        private final boolean needOverwrite;
         private final List<String> columnNames;
         private final List<Type> columnTypes;
 
-        public OutputColumn(boolean needRefactor, List<String> columnNames, List<Type> columnTypes)
+        public OutputColumn(boolean needOverwrite, List<String> columnNames, List<Type> columnTypes)
         {
-            this.needRefactor = needRefactor;
+            this.needOverwrite = needOverwrite;
             this.columnNames = requireNonNull(columnNames, "columnNames is null");
             this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
         }
 
-        public boolean isNeedRefactor()
+        public boolean isNeedOverwrite()
         {
-            return needRefactor;
+            return needOverwrite;
         }
 
         public List<String> getColumnNames()

@@ -38,7 +38,7 @@ public class ParameterUtils
 
     public static MultiLineParameters parameterExtractor(Statement statement, List<Expression> parameters, boolean isBatch)
     {
-        List<NodeRef<Parameter>> refsList = ParameterExtractor.getParameters(statement).stream()
+        List<NodeRef<Parameter>> nodeRefList = ParameterExtractor.getParameters(statement).stream()
                 .sorted(Comparator.comparing(
                         parameter -> parameter.getLocation().get(),
                         Comparator.comparing(NodeLocation::getLineNumber)
@@ -51,16 +51,16 @@ public class ParameterUtils
             if (!parameters.isEmpty() && parameters.get(0) instanceof Row) {
                 for (Expression rowExpression : parameters) {
                     ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-                    List<Expression> exprs = ((Row) rowExpression).getItems();
-                    for (Expression expr : exprs) {
-                        builder.add(expr);
+                    List<Expression> expressions = ((Row) rowExpression).getItems();
+                    for (Expression expression : expressions) {
+                        builder.add(expression);
                     }
                     parameterExpressions.add(builder.build());
                 }
             }
             else {
-                for (Expression expr : parameters) {
-                    parameterExpressions.add(ImmutableList.of(expr));
+                for (Expression expression : parameters) {
+                    parameterExpressions.add(ImmutableList.of(expression));
                 }
             }
         }
@@ -71,6 +71,6 @@ public class ParameterUtils
             }
             parameterExpressions.add(builder.build());
         }
-        return new MultiLineParameters(refsList, parameterExpressions.build());
+        return new MultiLineParameters(nodeRefList, parameterExpressions.build());
     }
 }

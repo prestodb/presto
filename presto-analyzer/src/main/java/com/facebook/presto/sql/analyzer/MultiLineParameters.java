@@ -31,18 +31,14 @@ public class MultiLineParameters
 {
     public static final MultiLineParameters EMPTY = new MultiLineParameters(ImmutableList.of(), ImmutableList.of());
 
-    private final List<NodeRef<Parameter>> parameterRefs;
+    private final List<NodeRef<Parameter>> parameterReferences;
     private final List<List<Expression>> parameterExpressions;
 
-    public MultiLineParameters(List<NodeRef<Parameter>> parameterRefs, List<List<Expression>> parameterExpressions)
+    public MultiLineParameters(List<NodeRef<Parameter>> parameterReferences, List<List<Expression>> parameterExpressions)
     {
-        this.parameterRefs = requireNonNull(parameterRefs, "parameterRefs is null");
-        this.parameterExpressions = requireNonNull(parameterExpressions, "parameterExpressions is null");
-        for (List<Expression> expressions : parameterExpressions) {
-            if (expressions.size() != parameterRefs.size()) {
-                throw new PrestoException(INVALID_ARGUMENTS, "Parameters not compatible");
-            }
-        }
+        validateParameters(parameterReferences, parameterExpressions);
+        this.parameterReferences = parameterReferences;
+        this.parameterExpressions = parameterExpressions;
     }
 
     public static MultiLineParameters from(Map<NodeRef<Parameter>, Expression> parameters)
@@ -72,28 +68,52 @@ public class MultiLineParameters
         }
         List<Expression> singleRowExpressions = parameterExpressions.get(0);
         Builder mapBuilder = ImmutableMap.builder();
-        for (int i = 0; i < parameterRefs.size(); i++) {
-            mapBuilder.put(parameterRefs.get(i), singleRowExpressions.get(i));
+        for (int i = 0; i < parameterReferences.size(); i++) {
+            mapBuilder.put(parameterReferences.get(i), singleRowExpressions.get(i));
         }
         return mapBuilder.build();
     }
 
-    public Map<NodeRef<Parameter>, Expression> getRowOfParameters(int rowIdx)
+    public Map<NodeRef<Parameter>, Expression> getFirstRowOfParametersOrThrowException()
     {
-        if (rowIdx >= parameterExpressions.size()) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Invalidate rowIdx: " + rowIdx);
+        if (parameterExpressions.isEmpty()) {
+            throw new PrestoException(INVALID_ARGUMENTS, "No parameters exists");
+        }
+        List<Expression> singleRowExpressions = parameterExpressions.get(0);
+        Builder mapBuilder = ImmutableMap.builder();
+        for (int i = 0; i < parameterReferences.size(); i++) {
+            mapBuilder.put(parameterReferences.get(i), singleRowExpressions.get(i));
+        }
+        return mapBuilder.build();
+    }
+
+    public Map<NodeRef<Parameter>, Expression> getRowOfParameters(int rowIndex)
+    {
+        if (rowIndex >= parameterExpressions.size()) {
+            throw new PrestoException(INVALID_ARGUMENTS, "Invalidate rowIndex: " + rowIndex);
         }
 
         // rowIdx < 0 implies no parameters exists
-        if (rowIdx < 0) {
+        if (rowIndex < 0) {
             return ImmutableMap.of();
         }
 
-        List<Expression> singleRowExpressions = parameterExpressions.get(rowIdx);
+        List<Expression> singleRowExpressions = parameterExpressions.get(rowIndex);
         Builder mapBuilder = ImmutableMap.builder();
-        for (int i = 0; i < parameterRefs.size(); i++) {
-            mapBuilder.put(parameterRefs.get(i), singleRowExpressions.get(i));
+        for (int i = 0; i < parameterReferences.size(); i++) {
+            mapBuilder.put(parameterReferences.get(i), singleRowExpressions.get(i));
         }
         return mapBuilder.build();
+    }
+
+    private static void validateParameters(List<NodeRef<Parameter>> parameterReferences, List<List<Expression>> parameterExpressions)
+    {
+        requireNonNull(parameterReferences, "parameterReferences is null");
+        requireNonNull(parameterExpressions, "parameterExpressions is null");
+        for (List<Expression> expressions : parameterExpressions) {
+            if (expressions.size() != parameterReferences.size()) {
+                throw new PrestoException(INVALID_ARGUMENTS, "Parameters not compatible");
+            }
+        }
     }
 }
