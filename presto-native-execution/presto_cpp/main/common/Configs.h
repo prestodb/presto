@@ -348,6 +348,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kEnableMemoryLeakCheck{
       "enable-memory-leak-check"};
 
+  /// Terminates the process and generates a core file on an allocation failure
+  static constexpr std::string_view kCoreOnAllocationFailureEnabled{
+      "core-on-allocation-failure-enabled"};
+
   /// Do not include runtime stats in the returned task info if the task is
   /// in running state.
   static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
@@ -599,6 +603,8 @@ class SystemConfig : public ConfigBase {
   uint64_t queryMaxMemoryPerNode() const;
 
   bool enableMemoryLeakCheck() const;
+
+  bool coreOnAllocationFailureEnabled() const;
 
   bool skipRuntimeStatsInRunningTaskInfo() const;
 
