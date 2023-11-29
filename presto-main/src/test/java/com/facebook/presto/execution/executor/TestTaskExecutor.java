@@ -526,6 +526,7 @@ public class TestTaskExecutor
                 new EmbedVersion(new ServerConfig()),
                 new MultilevelSplitQueue(2),
                 Ticker.systemTicker(),
+                false,
                 false);
         taskExecutor.start();
 

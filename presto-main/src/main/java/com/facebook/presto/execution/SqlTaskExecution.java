@@ -675,7 +675,12 @@ public class SqlTaskExecution
             return;
         }
 
-        if (!taskHandle.isShutdownInProgress()) {
+        if (taskHandle.isEnableGracefulShutdownOrSplitRetry()) {
+            if (!taskHandle.isShutdownInProgress()) {
+                taskStateMachine.finished();
+            }
+        }
+        else {
             // Cool! All done!
             taskStateMachine.finished();
         }

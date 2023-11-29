@@ -62,6 +62,7 @@ public class TaskHandle
     private final Optional<OutputBuffer> outputBuffer;
     private final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
     private AtomicBoolean anySplitProcessed = new AtomicBoolean(false);
+    private boolean enableGracefulShutdown;
     private boolean enableRetryForFailedSplits;
 
     @VisibleForTesting
@@ -73,7 +74,7 @@ public class TaskHandle
             Duration splitConcurrencyAdjustFrequency,
             OptionalInt maxDriversPerTask)
     {
-        this(taskId, priorityTracker, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask, Optional.empty(), Optional.empty(), false);
+        this(taskId, priorityTracker, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask, Optional.empty(), Optional.empty(), false, false);
     }
 
     public TaskHandle(
@@ -85,6 +86,7 @@ public class TaskHandle
             OptionalInt maxDriversPerTask,
             Optional<TaskShutDownListener> hostShutDownListener,
             Optional<OutputBuffer> outputBuffer,
+            boolean enableGracefulShutdown,
             boolean enableRetryForFailedSplits)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
@@ -96,6 +98,7 @@ public class TaskHandle
                 requireNonNull(splitConcurrencyAdjustFrequency, "splitConcurrencyAdjustFrequency is null"));
         this.hostShutDownListener = requireNonNull(hostShutDownListener, "hostShutDownListener is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+        this.enableGracefulShutdown = enableGracefulShutdown;
         this.enableRetryForFailedSplits = enableRetryForFailedSplits;
     }
 
@@ -228,6 +231,7 @@ public class TaskHandle
 
     public void gracefulShutdown()
     {
+        checkState(enableGracefulShutdown || enableRetryForFailedSplits, "gracefulShutdown should only be called when either enableGracefulShutdown or enableRetryForFailedSplits is set to true");
         isShuttingDown.set(true);
     }
 
@@ -291,8 +295,14 @@ public class TaskHandle
         return outputBuffer;
     }
 
+    public boolean isEnableGracefulShutdownOrSplitRetry()
+    {
+        return enableGracefulShutdown || enableRetryForFailedSplits;
+    }
+
     public boolean isShutdownInProgress()
     {
+        checkState(enableGracefulShutdown || enableRetryForFailedSplits, "isShutdownInProgress should only be called when either enableGracefulShutdown or enableRetryForFailedSplits is set to true");
         return isShuttingDown.get();
     }
 }

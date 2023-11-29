@@ -196,6 +196,7 @@ public class TaskExecutor
     private volatile boolean lowMemory;
     private AtomicInteger pendingUpdateTasks = new AtomicInteger(0);
     private AtomicBoolean noTaskAtGracefulShutdown = new AtomicBoolean(false);
+    private boolean enableGracefulShutdown;
     private boolean enableRetryForFailedSplits;
 
     @Inject
@@ -212,11 +213,13 @@ public class TaskExecutor
                 embedVersion,
                 splitQueue,
                 Ticker.systemTicker(),
+                queryManagerConfig.isEnableGracefulShutdown(),
                 queryManagerConfig.isEnableRetryForFailedSplits());
     }
 
     public void gracefulShutdown()
     {
+        checkState(enableGracefulShutdown || enableRetryForFailedSplits, "gracefulShutdown should only be called when enableGracefulShutdown or enableRetryForFailedSplits is set to true");
         isGracefulShutdownStarted.set(true);
         waitForPendingTaskUpdated();
         long shutdownStartTime = System.nanoTime();
@@ -240,6 +243,7 @@ public class TaskExecutor
 
     public AtomicBoolean getNoTaskAtGracefulShutdown()
     {
+        checkState(enableGracefulShutdown || enableRetryForFailedSplits, "getNoTaskAtGracefulShutdown should only be called when enableGracefulShutdown or enableRetryForFailedSplits is set to true");
         return noTaskAtGracefulShutdown;
     }
 
@@ -264,6 +268,7 @@ public class TaskExecutor
 
     private void gracefulShutdown(List<TaskHandle> currentTasksSnapshot)
     {
+        checkState(enableGracefulShutdown || enableRetryForFailedSplits, "gracefulShutdown should only be called when enableGracefulShutdown or enableRetryForFailedSplits is set to true");
         currentTasksSnapshot.stream().forEach(taskHandle -> taskHandle.gracefulShutdown());
         //wait for running splits to be over
         long waitTimeMillis = 5; // Wait for 5 milliseconds between checks to avoid cpu spike
@@ -369,6 +374,7 @@ public class TaskExecutor
                 new EmbedVersion(new ServerConfig()),
                 new MultilevelSplitQueue(2),
                 ticker,
+                false,
                 false);
     }
 
@@ -394,6 +400,7 @@ public class TaskExecutor
                 new EmbedVersion(new ServerConfig()),
                 splitQueue,
                 ticker,
+                false,
                 false);
     }
 
@@ -410,6 +417,7 @@ public class TaskExecutor
             EmbedVersion embedVersion,
             MultilevelSplitQueue splitQueue,
             Ticker ticker,
+            boolean enableGracefulShutdown,
             boolean enableRetryForFailedSplits)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
@@ -450,6 +458,7 @@ public class TaskExecutor
         this.interruptRunawaySplitsTimeout = interruptRunawaySplitsTimeout;
         this.interruptibleSplitPredicate = interruptibleSplitPredicate;
         this.interruptSplitInterval = interruptSplitInterval;
+        this.enableGracefulShutdown = enableGracefulShutdown;
         this.enableRetryForFailedSplits = enableRetryForFailedSplits;
     }
 
@@ -532,6 +541,7 @@ public class TaskExecutor
                 maxDriversPerTask,
                 taskKillListener,
                 outputBuffer,
+                enableGracefulShutdown,
                 enableRetryForFailedSplits);
         tasks.add(taskHandle);
 
