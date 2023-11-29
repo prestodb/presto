@@ -430,37 +430,27 @@ TEST_F(SimdUtilTest, reinterpretBatch) {
   validateReinterpretBatch<int64_t>();
 }
 
-TEST_F(SimdUtilTest, memEqual) {
-  constexpr int32_t kSize = 200;
-  constexpr int32_t kPad = xsimd::batch<int32_t>::size;
-  std::string s1;
-  std::string s2;
-  s1.resize(kSize + kPad);
-  s2.resize(kSize + kPad);
-  for (auto i = 0; i < kSize; ++i) {
-    EXPECT_TRUE(simd::memEqual(s1.data(), s2.data(), i));
+TEST_F(SimdUtilTest, memEqualUnsafe) {
+  constexpr int32_t kSize = 132;
+  struct {
+    char x[kSize];
+    char y[kSize];
+    char padding[sizeof(xsimd::batch<uint8_t>)];
+  } data;
+  memset(&data, 11, sizeof(data));
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, kSize));
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, 17));
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, 32));
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, 33));
 
-    // Change a byte right after the compared range and check equals.
-    ++s2[i];
-    EXPECT_TRUE(simd::memEqual(s1.data(), s2.data(), i));
-    --s2[i];
+  // Make data at 67 not equal.
+  data.y[67] = 0;
+  EXPECT_TRUE(simd::memEqualUnsafe(data.x, data.y, 67));
+  EXPECT_FALSE(simd::memEqualUnsafe(data.x, data.y, 68));
 
-    if (i > 0) {
-      // Change the last byte in range and assert not equal
-      ++s2[i - 1];
-      EXPECT_FALSE(simd::memEqual(s1.data(), s2.data(), i));
-      // Try the same, starting at unaligned address.
-      if (i > 1) {
-        EXPECT_FALSE(simd::memEqual(s1.data() + 1, s2.data() + 1, i - 1));
-      }
-      --s2[i - 1];
-
-      // Change in the middle and check false.
-      ++s1[i / 2];
-      EXPECT_FALSE(simd::memEqual(s1.data(), s2.data(), i));
-      --s1[i / 2];
-    }
-  }
+  // Redo the test offset by 1 to test unaligned.
+  EXPECT_TRUE(simd::memEqualUnsafe(&data.x[1], &data.y[1], 66));
+  EXPECT_FALSE(simd::memEqualUnsafe(&data.x[1], &data.y[1], 67));
 }
 
 TEST_F(SimdUtilTest, memcpyTime) {
@@ -495,44 +485,6 @@ TEST_F(SimdUtilTest, memcpyTime) {
         char* to = data + ((i * kMagic2) & kSizeMask);
         int32_t size = (i * kMagic3) % kMoveMask;
         ::memcpy(to, from, size);
-      }
-    }
-  }
-  LOG(INFO) << "simd=" << simd << " sys=" << sys;
-}
-
-TEST_F(SimdUtilTest, memcmpTime) {
-  constexpr int64_t kMaxCompare = 64;
-  constexpr int64_t kSize = (128 << 20) + kMaxCompare;
-  constexpr uint64_t kSizeMask = (128 << 20) - 1;
-  constexpr int32_t kCmpMask = kMaxCompare - 1;
-  constexpr uint64_t kMagic1 = 0x5231871;
-  constexpr uint64_t kMagic3 = 0xfae1;
-  constexpr uint64_t kMagic2 = 0x817952491;
-  std::vector<char> dataV(kSize);
-
-  auto data = dataV.data();
-  uint64_t simd = 0;
-  uint64_t sys = 0;
-  {
-    MicrosecondTimer t(&simd);
-    for (auto ctr = 0; ctr < 100; ++ctr) {
-      for (auto i = 0; i < 10000; ++i) {
-        char* from = data + ((i * kMagic1) & kSizeMask);
-        char* to = data + ((i * kMagic2) & kSizeMask);
-        int32_t size = (i * kMagic3) % kCmpMask;
-        ASSERT_TRUE(simd::memEqual(to, from, size));
-      }
-    }
-  }
-  {
-    MicrosecondTimer t(&sys);
-    for (auto ctr = 0; ctr < 100; ++ctr) {
-      for (auto i = 0; i < 10000; ++i) {
-        char* from = data + ((i * kMagic1) & kSizeMask);
-        char* to = data + ((i * kMagic2) & kSizeMask);
-        int32_t size = (i * kMagic3) % kCmpMask;
-        ASSERT_EQ(0, ::memcmp(to, from, size));
       }
     }
   }
