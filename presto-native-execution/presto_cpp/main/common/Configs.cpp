@@ -498,6 +498,11 @@ bool SystemConfig::enableMemoryLeakCheck() const {
   return optionalProperty<bool>(kEnableMemoryLeakCheck).value();
 }
 
+bool SystemConfig::coreOnAllocationFailureEnabled() const {
+  return optionalProperty<bool>(kCoreOnAllocationFailureEnabled)
+      .value_or(false);
+}
+
 bool SystemConfig::skipRuntimeStatsInRunningTaskInfo() const {
   return optionalProperty<bool>(kSkipRuntimeStatsInRunningTaskInfo).value();
 }
