@@ -100,6 +100,8 @@ public class NativeExecutionSystemConfig
     private static final String SHUFFLE_NAME = "shuffle.name";
     // Feature flag for access log on presto-native http server
     private static final String HTTP_SERVER_ACCESS_LOGS = "http-server.enable-access-log";
+    // Terminates the native process and generates a core file on an allocation failure
+    private static final String CORE_ON_ALLOCATION_FAILURE_ENABLED = "core-on-allocation-failure-enabled";
     private boolean enableSerializedPageChecksum = true;
     private boolean enableVeloxExpressionLogging;
     private boolean enableVeloxTaskLogging = true;
@@ -133,6 +135,7 @@ public class NativeExecutionSystemConfig
     private String shuffleName = "local";
     private boolean registerTestFunctions;
     private boolean enableHttpServerAccessLog = true;
+    private boolean coreOnAllocationFailureEnabled;
 
     public Map<String, String> getAllProperties()
     {
@@ -168,6 +171,7 @@ public class NativeExecutionSystemConfig
                 .put(ENABLE_OLD_TASK_CLEANUP, String.valueOf(getOldTaskCleanupMs()))
                 .put(SHUFFLE_NAME, getShuffleName())
                 .put(HTTP_SERVER_ACCESS_LOGS, String.valueOf(isEnableHttpServerAccessLog()))
+                .put(CORE_ON_ALLOCATION_FAILURE_ENABLED, String.valueOf(isCoreOnAllocationFailureEnabled()))
                 .build();
     }
 
@@ -541,5 +545,17 @@ public class NativeExecutionSystemConfig
     public boolean isEnableHttpServerAccessLog()
     {
         return enableHttpServerAccessLog;
+    }
+
+    public boolean isCoreOnAllocationFailureEnabled()
+    {
+        return coreOnAllocationFailureEnabled;
+    }
+
+    @Config(CORE_ON_ALLOCATION_FAILURE_ENABLED)
+    public NativeExecutionSystemConfig setCoreOnAllocationFailureEnabled(boolean coreOnAllocationFailureEnabled)
+    {
+        this.coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled;
+        return this;
     }
 }

@@ -90,7 +90,8 @@ public class TestNativeExecutionSystemConfig
                 .setPrestoVersion("dummy.presto.version")
                 .setShuffleName("local")
                 .setRegisterTestFunctions(false)
-                .setEnableHttpServerAccessLog(true));
+                .setEnableHttpServerAccessLog(true)
+                .setCoreOnAllocationFailureEnabled(false));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionSystemConfig expected = new NativeExecutionSystemConfig()
@@ -124,7 +125,8 @@ public class TestNativeExecutionSystemConfig
                 .setOldTaskCleanupMs(true)
                 .setShuffleName("custom")
                 .setRegisterTestFunctions(true)
-                .setEnableHttpServerAccessLog(false);
+                .setEnableHttpServerAccessLog(false)
+                .setCoreOnAllocationFailureEnabled(true);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }
