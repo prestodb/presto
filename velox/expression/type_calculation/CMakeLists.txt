@@ -15,7 +15,8 @@
 bison_target(
   TypeCalculationParser TypeCalculation.yy
   ${CMAKE_CURRENT_BINARY_DIR}/TypeCalculation.yy.cc
-  DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/TypeCalculation.yy.h)
+  DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/TypeCalculation.yy.h
+  COMPILE_FLAGS "-Werror -Wno-deprecated")
 
 flex_target(
   TypeCalculationScanner TypeCalculation.ll
