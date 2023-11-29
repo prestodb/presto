@@ -240,6 +240,8 @@ std::ostream& operator<<(std::ostream& out, const StopReason& reason) {
 
 // static
 void Driver::enqueue(std::shared_ptr<Driver> driver) {
+  process::ScopedThreadDebugInfo scopedInfo(
+      driver->driverCtx()->threadDebugInfo);
   // This is expected to be called inside the Driver's Tasks's mutex.
   driver->enqueueInternal();
   if (driver->closed_) {
