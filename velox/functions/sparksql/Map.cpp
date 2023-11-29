@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include <velox/common/base/Exceptions.h>
-#include <velox/type/Timestamp.h>
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/vector/VectorTypeUtils.h"
@@ -34,6 +33,7 @@ namespace {
 
 void setKeysAndValuesResult(
     vector_size_t mapSize,
+    vector_size_t baseOffset,
     std::vector<VectorPtr>& args,
     const VectorPtr& keysResult,
     const VectorPtr& valuesResult,
@@ -44,10 +44,12 @@ void setKeysAndValuesResult(
   std::vector<vector_size_t> toSourceRow(keysResult->size());
   for (vector_size_t i = 0; i < mapSize; i++) {
     decoded.get()->decode(*args[i * 2], rows);
+    auto offset = baseOffset;
     context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
       VELOX_USER_CHECK(!decoded->isNullAt(row), "Cannot use null as map key!");
-      targetRows.setValid(row * mapSize + i, true);
-      toSourceRow[row * mapSize + i] = row;
+      targetRows.setValid(offset + i, true);
+      toSourceRow[offset + i] = row;
+      offset += mapSize;
     });
     targetRows.updateBounds();
     keysResult->copy(args[i * 2].get(), targetRows, toSourceRow.data());
@@ -96,21 +98,24 @@ class MapFunction : public exec::VectorFunction {
     auto offsets = mapResult->mutableOffsets(rows.end());
     auto rawOffsets = offsets->asMutable<int32_t>();
 
+    // Setting keys and value elements
+    auto& keysResult = mapResult->mapKeys();
+    auto& valuesResult = mapResult->mapValues();
+    const auto baseOffset =
+        std::max<vector_size_t>(keysResult->size(), valuesResult->size());
+
     // Setting size and offsets
+    vector_size_t offset = baseOffset;
     rows.applyToSelected([&](vector_size_t row) {
       rawSizes[row] = mapSize;
-      rawOffsets[row] = row * mapSize;
+      rawOffsets[row] = offset;
+      offset += mapSize;
     });
 
-    // Setting keys and value elements
-    auto keysResult = mapResult->mapKeys();
-    auto valuesResult = mapResult->mapValues();
-    const auto resultSize = rows.end() * mapSize;
-    keysResult->resize(resultSize);
-    valuesResult->resize(resultSize);
-
+    keysResult->resize(offset);
+    valuesResult->resize(offset);
     setKeysAndValuesResult(
-        mapSize, args, keysResult, valuesResult, context, rows);
+        mapSize, baseOffset, args, keysResult, valuesResult, context, rows);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

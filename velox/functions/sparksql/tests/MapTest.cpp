@@ -211,5 +211,17 @@ TEST_F(MapTest, complexTypes) {
        makeArrayVector<int64_t>({{1, 2}, {4, 6}})},
       arrayMapResult1);
 }
+
+TEST_F(MapTest, resultSize) {
+  auto condition = makeFlatVector<int64_t>({1, 2, 3});
+  auto keys = makeFlatVector<int64_t>({3, 2, 1});
+  auto values = makeFlatVector<int64_t>({4, 5, 6});
+  auto mapVector =
+      makeMapVector<int64_t, int64_t>({{{4, 3}}, {{5, 2}}, {{1, 6}}});
+  testMap(
+      "if(greaterthan(c2, 2), map(c0, c1), map(c1, c0))",
+      {keys, values, condition},
+      mapVector);
+}
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
