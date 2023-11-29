@@ -452,6 +452,8 @@ void PrestoServer::run() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks...";
   periodicTaskManager_->stop();
 
+  stopAdditionalPeriodicTasks();
+
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
   PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Resource...";
