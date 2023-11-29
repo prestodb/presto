@@ -444,46 +444,44 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
 
   auto* rows = table_->rows();
   const auto numRows = rows->numRows();
-  if (numRows == 0) {
-    // Skip the memory reservation for the first input as we are lack of memory
-    // usage stats for estimation. It is safe to skip as the query should have
-    // sufficient memory initially.
-    return true;
-  }
 
   auto [freeRows, outOfLineFreeBytes] = rows->freeSpace();
   const auto outOfLineBytes =
       rows->stringAllocator().retainedSize() - outOfLineFreeBytes;
   const auto outOfLineBytesPerRow =
-      std::max<uint64_t>(1, outOfLineBytes / numRows);
-  const int64_t flatBytes = input->estimateFlatSize();
-
-  // Test-only spill path.
-  if (testingTriggerSpill()) {
-    numSpillRows_ = std::max<int64_t>(1, numRows / 10);
-    numSpillBytes_ = numSpillRows_ * outOfLineBytesPerRow;
-    return false;
-  }
-
-  // We check usage from the parent pool to take peers' allocations into
-  // account.
+      std::max<uint64_t>(1, numRows == 0 ? 0 : outOfLineBytes / numRows);
   const auto currentUsage = pool()->parent()->currentBytes();
-  if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
-    const int64_t bytesToSpill =
-        currentUsage * spillConfig()->spillableReservationGrowthPct / 100;
-    numSpillRows_ = std::max<int64_t>(
-        1, bytesToSpill / (rows->fixedRowSize() + outOfLineBytesPerRow));
-    numSpillBytes_ = numSpillRows_ * outOfLineBytesPerRow;
-    return false;
+
+  if (numRows != 0) {
+    // Test-only spill path.
+    if (testingTriggerSpill()) {
+      numSpillRows_ = std::max<int64_t>(1, numRows / 10);
+      numSpillBytes_ = numSpillRows_ * outOfLineBytesPerRow;
+      return false;
+    }
+
+    // We check usage from the parent pool to take peers' allocations into
+    // account.
+    if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
+      const int64_t bytesToSpill =
+          currentUsage * spillConfig()->spillableReservationGrowthPct / 100;
+      numSpillRows_ = std::max<int64_t>(
+          1, bytesToSpill / (rows->fixedRowSize() + outOfLineBytesPerRow));
+      numSpillBytes_ = numSpillRows_ * outOfLineBytesPerRow;
+      return false;
+    }
   }
 
   const auto minReservationBytes =
       currentUsage * spillConfig_->minSpillableReservationPct / 100;
   const auto availableReservationBytes = pool()->availableReservation();
   const auto tableIncrementBytes = table_->hashTableSizeIncrease(input->size());
-  const auto incrementBytes =
-      rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes * 2 : 0) +
-      tableIncrementBytes;
+  const int64_t flatBytes = input->estimateFlatSize();
+  const auto rowContainerIncrementBytes = numRows == 0
+      ? flatBytes * 2
+      : rows->sizeIncrement(
+            input->size(), outOfLineBytes > 0 ? flatBytes * 2 : 0);
+  const auto incrementBytes = rowContainerIncrementBytes + tableIncrementBytes;
 
   // First to check if we have sufficient minimal memory reservation.
   if (availableReservationBytes >= minReservationBytes) {
@@ -517,6 +515,13 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
     }
   }
 
+  if (numRows == 0) {
+    // Nothing we can spill from this hash build operator.
+    return true;
+  }
+
+  // TODO: deprecate the spilling after memory reservation fails as we rely on
+  // memory arbitration to trigger spilling automatically.
   numSpillRows_ = std::max<int64_t>(
       1, targetIncrementBytes / (rows->fixedRowSize() + outOfLineBytesPerRow));
   numSpillBytes_ = numSpillRows_ * outOfLineBytesPerRow;

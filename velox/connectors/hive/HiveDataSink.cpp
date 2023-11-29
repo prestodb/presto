@@ -868,6 +868,7 @@ bool HiveDataSink::WriterReclaimer::reclaimableBytes(
 uint64_t HiveDataSink::WriterReclaimer::reclaim(
     memory::MemoryPool* pool,
     uint64_t targetBytes,
+    uint64_t maxWaitMs,
     memory::MemoryReclaimer::Stats& stats) {
   VELOX_CHECK_EQ(pool->name(), writerInfo_->writerPool->name());
   if (!dataSink_->canReclaim()) {
@@ -887,7 +888,7 @@ uint64_t HiveDataSink::WriterReclaimer::reclaim(
   const uint64_t memoryUsageBeforeReclaim = pool->currentBytes();
   const std::string memoryUsageTreeBeforeReclaim = pool->treeMemoryUsage();
   const auto reclaimedBytes =
-      exec::MemoryReclaimer::reclaim(pool, targetBytes, stats);
+      exec::MemoryReclaimer::reclaim(pool, targetBytes, maxWaitMs, stats);
   const uint64_t memoryUsageAfterReclaim = pool->currentBytes();
   if (memoryUsageAfterReclaim > memoryUsageBeforeReclaim) {
     VELOX_FAIL(

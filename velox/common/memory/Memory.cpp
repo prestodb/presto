@@ -35,6 +35,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
            .capacity = std::min(options.queryMemoryCapacity, options.capacity),
            .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
            .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
+           .memoryReclaimWaitMs = options.memoryReclaimWaitMs,
            .arbitrationStateCheckCb = options.arbitrationStateCheckCb})),
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
       checkUsageLeak_(options.checkUsageLeak),

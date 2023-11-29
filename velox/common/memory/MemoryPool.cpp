@@ -935,11 +935,12 @@ bool MemoryPoolImpl::reclaimableBytes(uint64_t& reclaimableBytes) const {
 
 uint64_t MemoryPoolImpl::reclaim(
     uint64_t targetBytes,
+    uint64_t maxWaitMs,
     memory::MemoryReclaimer::Stats& stats) {
   if (reclaimer() == nullptr) {
     return 0;
   }
-  return reclaimer()->reclaim(this, targetBytes, stats);
+  return reclaimer()->reclaim(this, targetBytes, maxWaitMs, stats);
 }
 
 void MemoryPoolImpl::enterArbitration() {

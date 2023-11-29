@@ -63,6 +63,13 @@ class MemoryArbitrator {
     /// during the memory arbitration.
     uint64_t memoryPoolTransferCapacity{32 << 20};
 
+    /// Specifies the max time to wait for memory reclaim by arbitration. The
+    /// memory reclaim might fail if the max time has exceeded. This prevents
+    /// the memory arbitration from getting stuck when the memory reclaim waits
+    /// for a hanging query task to pause. If it is zero, then there is no
+    /// timeout.
+    uint64_t memoryReclaimWaitMs{0};
+
     /// Provided by the query system to validate the state after a memory pool
     /// enters arbitration if not null. For instance, Prestissimo provides
     /// callback to check if a memory arbitration request is issued from a
@@ -223,11 +230,13 @@ class MemoryArbitrator {
       : capacity_(config.capacity),
         memoryPoolInitCapacity_(config.memoryPoolInitCapacity),
         memoryPoolTransferCapacity_(config.memoryPoolTransferCapacity),
+        memoryReclaimWaitMs_(config.memoryReclaimWaitMs),
         arbitrationStateCheckCb_(config.arbitrationStateCheckCb) {}
 
   const uint64_t capacity_;
   const uint64_t memoryPoolInitCapacity_;
   const uint64_t memoryPoolTransferCapacity_;
+  const uint64_t memoryReclaimWaitMs_;
   const MemoryArbitrationStateCheckCB arbitrationStateCheckCb_;
 };
 
@@ -312,10 +321,18 @@ class MemoryReclaimer {
   /// Invoked by the memory arbitrator to reclaim from memory 'pool' with
   /// specified 'targetBytes'. It is expected to reclaim at least that amount of
   /// memory bytes but there is no guarantees. If 'targetBytes' is zero, then it
-  /// reclaims all the reclaimable memory from the memory 'pool'. The function
-  /// returns the actual reclaimed memory bytes.
-  virtual uint64_t
-  reclaim(MemoryPool* pool, uint64_t targetBytes, Stats& stats);
+  /// reclaims all the reclaimable memory from the memory 'pool'. 'maxWaitMs'
+  /// specifies the max time to wait for reclaim if not zero. The memory
+  /// reclaim might fail if exceeds the timeout. The function returns the actual
+  /// reclaimed memory bytes.
+  ///
+  /// NOTE: 'maxWaitMs' is optional and the actual memory reclaim implementation
+  /// can choose to respect this timeout or not on its own.
+  virtual uint64_t reclaim(
+      MemoryPool* pool,
+      uint64_t targetBytes,
+      uint64_t maxWaitMs,
+      Stats& stats);
 
   /// Invoked by the memory arbitrator to abort memory 'pool' and the associated
   /// query execution when encounters non-recoverable memory reclaim error or

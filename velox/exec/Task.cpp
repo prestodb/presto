@@ -824,7 +824,7 @@ void Task::resume(std::shared_ptr<Task> self) {
     // Setting pause requested must be atomic with the resuming so that
     // suspended sections do not go back on thread during resume.
     self->pauseRequested_ = false;
-    if (!self->exception_) {
+    if (self->exception_ == nullptr) {
       for (auto& driver : self->drivers_) {
         if (driver) {
           if (driver->state().isSuspended) {
@@ -2545,22 +2545,15 @@ std::unique_ptr<memory::MemoryReclaimer> Task::MemoryReclaimer::create(
 uint64_t Task::MemoryReclaimer::reclaim(
     memory::MemoryPool* pool,
     uint64_t targetBytes,
+    uint64_t maxWaitMs,
     memory::MemoryReclaimer::Stats& stats) {
   auto task = ensureTask();
   if (FOLLY_UNLIKELY(task == nullptr)) {
     return 0;
   }
   VELOX_CHECK_EQ(task->pool()->name(), pool->name());
-  uint64_t reclaimWaitTimeUs{0};
-  {
-    MicrosecondTimer timer{&reclaimWaitTimeUs};
-    task->requestPause().wait();
-  }
-  stats.reclaimWaitTimeUs += reclaimWaitTimeUs;
-  REPORT_ADD_HISTOGRAM_VALUE(
-      kCounterMemoryReclaimWaitTimeMs, reclaimWaitTimeUs / 1'000);
 
-  auto guard = folly::makeGuard([&]() {
+  auto resumeGuard = folly::makeGuard([&]() {
     try {
       Task::resume(task);
     } catch (const VeloxRuntimeError& exception) {
@@ -2568,11 +2561,35 @@ uint64_t Task::MemoryReclaimer::reclaim(
                    << " after memory reclamation: " << exception.message();
     }
   });
+  uint64_t reclaimWaitTimeUs{0};
+  bool paused{true};
+  {
+    MicrosecondTimer timer{&reclaimWaitTimeUs};
+    if (maxWaitMs == 0) {
+      task->requestPause().wait();
+    } else {
+      paused = task->requestPause().wait(std::chrono::milliseconds(maxWaitMs));
+    }
+  }
+  VELOX_CHECK(paused || maxWaitMs != 0);
+  if (!paused) {
+    REPORT_ADD_STAT_VALUE(kCounterMemoryReclaimWaitTimeoutCount, 1);
+    VELOX_FAIL(
+        "Memory reclaim failed to wait for task {} to pause after {} with max timeout {}",
+        task->taskId(),
+        succinctMicros(reclaimWaitTimeUs),
+        succinctMillis(maxWaitMs));
+  }
+
+  stats.reclaimWaitTimeUs += reclaimWaitTimeUs;
+  REPORT_ADD_HISTOGRAM_VALUE(
+      kCounterMemoryReclaimWaitTimeMs, reclaimWaitTimeUs / 1'000);
+
   // Don't reclaim from a cancelled task as it will terminate soon.
   if (task->isCancelled()) {
     return 0;
   }
-  return memory::MemoryReclaimer::reclaim(pool, targetBytes, stats);
+  return memory::MemoryReclaimer::reclaim(pool, targetBytes, maxWaitMs, stats);
 }
 
 void Task::MemoryReclaimer::abort(
@@ -2584,8 +2601,9 @@ void Task::MemoryReclaimer::abort(
   }
   VELOX_CHECK_EQ(task->pool()->name(), pool->name());
   task->setError(error);
+  const static int maxTaskAbortWaitUs = 60'000'000; // 60s
   // Set timeout to zero to infinite wait until task completes.
-  task->taskCompletionFuture(0).wait();
+  task->taskCompletionFuture(maxTaskAbortWaitUs).wait();
   memory::MemoryReclaimer::abort(pool, error);
 }
 

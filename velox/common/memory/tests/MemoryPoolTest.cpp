@@ -2817,9 +2817,9 @@ TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
       uint64_t reclaimableBytes{100};
       ASSERT_FALSE(pool->reclaimableBytes(reclaimableBytes));
       ASSERT_EQ(reclaimableBytes, 0);
-      ASSERT_EQ(pool->reclaim(0, stats_), 0);
-      ASSERT_EQ(pool->reclaim(100, stats_), 0);
-      ASSERT_EQ(pool->reclaim(kMaxMemory, stats_), 0);
+      ASSERT_EQ(pool->reclaim(0, 0, stats_), 0);
+      ASSERT_EQ(pool->reclaim(100, 0, stats_), 0);
+      ASSERT_EQ(pool->reclaim(kMaxMemory, 0, stats_), 0);
     }
     for (const auto& allocation : allocations) {
       allocation.pool->free(allocation.buffer, allocation.size);

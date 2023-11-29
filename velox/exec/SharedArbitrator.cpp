@@ -411,7 +411,8 @@ uint64_t SharedArbitrator::reclaim(
     try {
       freedBytes = pool->shrink(targetBytes);
       if (freedBytes < targetBytes) {
-        pool->reclaim(targetBytes - freedBytes, reclaimerStats);
+        pool->reclaim(
+            targetBytes - freedBytes, memoryReclaimWaitMs_, reclaimerStats);
       }
     } catch (const std::exception& e) {
       VELOX_MEM_LOG(ERROR) << "Failed to reclaim from memory pool "

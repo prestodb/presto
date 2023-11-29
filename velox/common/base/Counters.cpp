@@ -46,6 +46,10 @@ void registerVeloxCounters() {
   // Track memory reclaim bytes.
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryReclaimedBytes, facebook::velox::StatType::SUM);
+
+  // Track the number of times that the memory reclaim wait timeouts.
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryReclaimWaitTimeoutCount, facebook::velox::StatType::SUM);
 }
 
 } // namespace facebook::velox

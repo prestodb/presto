@@ -196,8 +196,11 @@ bool MemoryReclaimer::reclaimableBytes(
   return reclaimable;
 }
 
-uint64_t
-MemoryReclaimer::reclaim(MemoryPool* pool, uint64_t targetBytes, Stats& stats) {
+uint64_t MemoryReclaimer::reclaim(
+    MemoryPool* pool,
+    uint64_t targetBytes,
+    uint64_t maxWaitMs,
+    Stats& stats) {
   if (pool->kind() == MemoryPool::Kind::kLeaf) {
     return 0;
   }
@@ -230,7 +233,7 @@ MemoryReclaimer::reclaim(MemoryPool* pool, uint64_t targetBytes, Stats& stats) {
 
   uint64_t reclaimedBytes{0};
   for (const auto& candidate : candidates) {
-    const auto bytes = candidate.pool->reclaim(targetBytes, stats);
+    const auto bytes = candidate.pool->reclaim(targetBytes, maxWaitMs, stats);
     reclaimedBytes += bytes;
     if (targetBytes != 0) {
       if (bytes >= targetBytes) {

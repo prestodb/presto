@@ -114,6 +114,11 @@ struct MemoryManagerOptions {
   /// during the memory arbitration.
   uint64_t memoryPoolTransferCapacity{32 << 20};
 
+  /// Specifies the max time to wait for memory reclaim by arbitration. The
+  /// memory reclaim might fail if the max wait time has exceeded. If it is
+  /// zero, then there is no timeout.
+  uint64_t memoryReclaimWaitMs{0};
+
   /// Provided by the query system to validate the state after a memory pool
   /// enters arbitration if not null. For instance, Prestissimo provides
   /// callback to check if a memory arbitration request is issued from a driver

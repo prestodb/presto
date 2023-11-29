@@ -305,6 +305,7 @@ bool TableWriter::ConnectorReclaimer::reclaimableBytes(
 uint64_t TableWriter::ConnectorReclaimer::reclaim(
     memory::MemoryPool* pool,
     uint64_t targetBytes,
+    uint64_t maxWaitMs,
     memory::MemoryReclaimer::Stats& stats) {
   if (!canReclaim_) {
     return 0;
@@ -338,7 +339,7 @@ uint64_t TableWriter::ConnectorReclaimer::reclaim(
     return 0;
   }
   RuntimeStatWriterScopeGuard opStatsGuard(op_);
-  return memory::MemoryReclaimer::reclaim(pool, targetBytes, stats);
+  return memory::MemoryReclaimer::reclaim(pool, targetBytes, maxWaitMs, stats);
 }
 
 // static

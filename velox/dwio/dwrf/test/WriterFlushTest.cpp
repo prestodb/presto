@@ -198,6 +198,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
 
   uint64_t reclaim(
       uint64_t /*unused*/,
+      uint64_t /*unused*/,
       velox::memory::MemoryReclaimer::Stats& /*unused*/) override {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }

@@ -719,6 +719,7 @@ bool Writer::MemoryReclaimer::reclaimableBytes(
 uint64_t Writer::MemoryReclaimer::reclaim(
     memory::MemoryPool* pool,
     uint64_t targetBytes,
+    uint64_t /*unused*/,
     memory::MemoryReclaimer::Stats& stats) {
   if (!writer_->canReclaim()) {
     return 0;
