@@ -64,6 +64,8 @@ TEST_P(LeadLagTest, offset) {
       // Large offsets.
       makeFlatVector<int64_t>(
           {largeOffset, largeOffset, largeOffset, largeOffset, largeOffset}),
+      // Default values.
+      makeNullableFlatVector<int64_t>({std::nullopt, 99, 99, 99, std::nullopt}),
   });
 
   createDuckDbTable({data});
@@ -113,6 +115,44 @@ TEST_P(LeadLagTest, offset) {
   expected =
       appendColumn(data, makeNullableFlatVector<int64_t>(expectedWindow));
 
+  assertQuery(queryInfo.planNode, expected);
+
+  // Out of range offsets return default value(99 here, constant case), whereas
+  // null offsets return null.
+  queryInfo = buildWindowQuery({data}, fn("c0, c2, 99"), "order by c0", "");
+  if (isLag()) {
+    expectedWindow = {99, 99, 99, std::nullopt, 3};
+  } else {
+    expectedWindow = {2, 4, 99, std::nullopt, 99};
+  }
+  expected =
+      appendColumn(data, makeNullableFlatVector<int64_t>(expectedWindow));
+  assertQuery(queryInfo.planNode, expected);
+
+  // Out of range offsets return default value(null here, constant null case),
+  // whereas null offsets return null.
+  queryInfo =
+      buildWindowQuery({data}, fn("c0, c2, null::bigint"), "order by c0", "");
+  if (isLag()) {
+    expectedWindow = {
+        std::nullopt, std::nullopt, std::nullopt, std::nullopt, 3};
+  } else {
+    expectedWindow = {2, 4, std::nullopt, std::nullopt, std::nullopt};
+  }
+  expected =
+      appendColumn(data, makeNullableFlatVector<int64_t>(expectedWindow));
+  assertQuery(queryInfo.planNode, expected);
+
+  // Out of range offsets return default value(c4 here, nullable offset
+  // variable case), whereas null offsets return null.
+  queryInfo = buildWindowQuery({data}, fn("c0, c2, c4"), "order by c0", "");
+  if (isLag()) {
+    expectedWindow = {std::nullopt, 99, 99, std::nullopt, 3};
+  } else {
+    expectedWindow = {2, 4, 99, std::nullopt, std::nullopt};
+  }
+  expected =
+      appendColumn(data, makeNullableFlatVector<int64_t>(expectedWindow));
   assertQuery(queryInfo.planNode, expected);
 }
 
@@ -272,15 +312,23 @@ TEST_P(LeadLagTest, largePartitions) {
   queryInfo = buildWindowQuery({data}, fn("c0, c1, c2"), "order by c0", "");
 
   if (isLag()) {
-    expectedWindow = makeFlatVector<int64_t>(data->size(), [](auto row) {
-      auto defaultValue = row < 5 || row % 7 == 0;
-      return defaultValue ? row * 10 : row - (1 + row % 5);
-    });
+    expectedWindow = makeFlatVector<int64_t>(
+        data->size(),
+        // Default values.
+        [](auto row) {
+          auto defaultValue = row < 5;
+          return defaultValue ? row * 10 : row - (1 + row % 5);
+        },
+        nullEvery(7));
   } else {
-    expectedWindow = makeFlatVector<int64_t>(data->size(), [](auto row) {
-      auto defaultValue = row >= 9'997 || row % 7 == 0;
-      return defaultValue ? row * 10 : row + (1 + row % 5);
-    });
+    expectedWindow = makeFlatVector<int64_t>(
+        data->size(),
+        // Default values.
+        [](auto row) {
+          auto defaultValue = row >= 9'997;
+          return defaultValue ? row * 10 : row + (1 + row % 5);
+        },
+        nullEvery(7));
   }
 
   {
@@ -390,12 +438,13 @@ inline const std::vector<std::string> kIgnoreNullsPartitionClauses = {
 
 TEST_F(LeadLagTest, ignoreNulls) {
   auto size = 40;
-  auto input = makeRowVector({
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
-      makeFlatVector<int64_t>(
-          size, [](auto row) { return row % 7; }, nullEvery(8)),
-      makeFlatVector<int64_t>(size, [](auto row) { return row % 6 + 1; }),
-  });
+  auto input = makeRowVector(
+      {makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
+       makeFlatVector<int64_t>(
+           size, [](auto row) { return row % 7; }, nullEvery(8)),
+       makeFlatVector<int64_t>(size, [](auto row) { return row % 6 + 1; }),
+       // All null values.
+       makeAllNullFlatVector<int64_t>(size)});
   // c1 has null values, so used for the values argument.
   const std::vector<std::string> kFunctionsList = {
       "lead(c1, 2 IGNORE NULLS)",
@@ -406,6 +455,10 @@ TEST_F(LeadLagTest, ignoreNulls) {
       "lag(c1, 2, 5 IGNORE NULLS)",
       "lead(c1, 2, c2 IGNORE NULLS)",
       "lag(c1, 2, c2 IGNORE NULLS)",
+      // All null values with IGNORE NULLS specified return default
+      // value.
+      "lead(c3, 2, 99 IGNORE NULLS)",
+      "lag(c3, 2, 99 IGNORE NULLS)",
   };
 
   bool createTable = true;
