@@ -510,6 +510,11 @@ TEST_F(ArraySortTest, lambda) {
     SCOPED_TRACE(lambdaExpr);
     auto result = evaluate(fmt::format("{}(c0, {})", name, lambdaExpr), data);
     assertEqualVectors(sortedAsc, result);
+
+    SelectivityVector firstRow(1);
+    result =
+        evaluate(fmt::format("{}(c0, {})", name, lambdaExpr), data, firstRow);
+    assertEqualVectors(sortedAsc->slice(0, 1), result);
   };
 
   auto testDesc = [&](const std::string& name, const std::string& lambdaExpr) {
@@ -517,6 +522,11 @@ TEST_F(ArraySortTest, lambda) {
     SCOPED_TRACE(lambdaExpr);
     auto result = evaluate(fmt::format("{}(c0, {})", name, lambdaExpr), data);
     assertEqualVectors(sortedDesc, result);
+
+    SelectivityVector firstRow(1);
+    result =
+        evaluate(fmt::format("{}(c0, {})", name, lambdaExpr), data, firstRow);
+    assertEqualVectors(sortedDesc->slice(0, 1), result);
   };
 
   // Different ways to sort by length ascending.

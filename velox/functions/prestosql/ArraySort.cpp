@@ -340,7 +340,10 @@ class ArraySortLambdaFunction : public exec::VectorFunction {
         context,
         throwOnNestedNull_);
     auto sortedElements = BaseVector::wrapInDictionary(
-        nullptr, indices, newNumElements, flatArray->elements());
+        nullptr,
+        indices,
+        indices->size() / sizeof(vector_size_t),
+        flatArray->elements());
 
     // Set nulls for rows not present in 'rows'.
     BufferPtr newNulls = addNullsForUnselectedRows(flatArray, rows);
@@ -349,7 +352,7 @@ class ArraySortLambdaFunction : public exec::VectorFunction {
         flatArray->pool(),
         flatArray->type(),
         std::move(newNulls),
-        flatArray->size(),
+        rows.end(),
         flatArray->offsets(),
         flatArray->sizes(),
         sortedElements);
