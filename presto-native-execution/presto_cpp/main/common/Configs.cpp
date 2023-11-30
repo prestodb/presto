@@ -157,6 +157,10 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSystemMemPushbackEnabled, "false"),
           NUM_PROP(kSystemMemLimitGb, 55),
           NUM_PROP(kSystemMemShrinkGb, 8),
+          STR_PROP(kMallocMemHeapDumpEnabled, "false"),
+          NUM_PROP(kMallocHeapDumpThresholdGb, 20),
+          NUM_PROP(kMallocMemMinHeapDumpInterval, 10),
+          NUM_PROP(kMallocMemMaxHeapDumpFiles, 5),
           STR_PROP(kAsyncDataCacheEnabled, "true"),
           NUM_PROP(kAsyncCacheSsdGb, 0),
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
@@ -352,6 +356,22 @@ uint32_t SystemConfig::systemMemShrinkGb() const {
 
 bool SystemConfig::systemMemPushbackEnabled() const {
   return optionalProperty<bool>(kSystemMemPushbackEnabled).value();
+}
+
+bool SystemConfig::mallocMemHeapDumpEnabled() const {
+  return optionalProperty<bool>(kMallocMemHeapDumpEnabled).value();
+}
+
+uint32_t SystemConfig::mallocHeapDumpThresholdGb() const {
+  return optionalProperty<uint32_t>(kMallocHeapDumpThresholdGb).value();
+}
+
+uint32_t SystemConfig::mallocMemMinHeapDumpInterval() const {
+  return optionalProperty<uint32_t>(kMallocMemMinHeapDumpInterval).value();
+}
+
+uint32_t SystemConfig::mallocMemMaxHeapDumpFiles() const {
+  return optionalProperty<uint32_t>(kMallocMemMaxHeapDumpFiles).value();
 }
 
 uint64_t SystemConfig::asyncCacheSsdGb() const {
