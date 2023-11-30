@@ -1308,6 +1308,7 @@ void ExpressionFuzzer::go() {
 
   auto startTime = std::chrono::system_clock::now();
   size_t i = 0;
+  size_t numFailed = 0;
 
   while (!isDone(i, startTime)) {
     LOG(INFO) << "==============================> Started iteration " << i
@@ -1346,6 +1347,10 @@ void ExpressionFuzzer::go() {
       throw;
     }
 
+    if (result.exceptionPtr) {
+      ++numFailed;
+    }
+
     // If both paths threw compatible exceptions, we add a try() function to
     // the expression's root and execute it again. This time the expression
     // cannot throw.
@@ -1360,6 +1365,9 @@ void ExpressionFuzzer::go() {
     ++i;
   }
   logStats();
+
+  LOG(ERROR) << "Total iterations: " << i;
+  LOG(ERROR) << "Total failed: " << numFailed;
 }
 
 void expressionFuzzer(FunctionSignatureMap signatureMap, size_t seed) {
