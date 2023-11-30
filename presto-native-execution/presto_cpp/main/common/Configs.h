@@ -209,6 +209,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
+  /// Memory allocation limit enforced via internal memory allocator.
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
   /// Specifies the total memory capacity that can be used by query execution in
   /// GB. The query memory capacity should be configured less than the system
@@ -221,17 +222,37 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
 
   /// If true, enable memory pushback when the server is under low memory
-  /// condition.
+  /// condition. This only applies if 'system-mem-limit-gb' is set.
   static constexpr std::string_view kSystemMemPushbackEnabled{
       "system-mem-pushback-enabled"};
-  /// Specifies the system memory limit and triggers memory pushback if the
-  /// server memory usage exceeds this limit. This only applies if
-  /// 'system-mem-pushback-enabled' is true.
+  /// Specifies the system memory limit. Used to trigger memory pushback or heap
+  /// dump. A value of zero means no limit is set.
   static constexpr std::string_view kSystemMemLimitGb{"system-mem-limit-gb"};
   /// Specifies the memory to shrink when memory pushback is triggered to help
   /// get the server out of low memory condition. This only applies if
   /// 'system-mem-pushback-enabled' is true.
   static constexpr std::string_view kSystemMemShrinkGb{"system-mem-shrink-gb"};
+
+  /// If true, memory allocated via malloc is periodically checked and a heap
+  /// profile is dumped if usage exceeds 'malloc-heap-dump-gb-threshold'.
+  static constexpr std::string_view kMallocMemHeapDumpEnabled{
+      "malloc-mem-heap-dump-enabled"};
+
+  /// Specifies the threshold in GigaBytes of memory allocated via malloc, above
+  /// which a heap dump will be triggered. This only applies if
+  /// 'malloc-mem-heap-dump-enabled' is true.
+  static constexpr std::string_view kMallocHeapDumpThresholdGb{
+      "malloc-heap-dump-threshold-gb"};
+
+  /// Specifies the min interval in seconds between consecutive heap dumps. This
+  /// only applies if 'malloc-mem-heap-dump-enabled' is true.
+  static constexpr std::string_view kMallocMemMinHeapDumpInterval{
+      "malloc-mem-min-heap-dump-interval"};
+
+  /// Specifies the max number of latest heap profiles to keep. This only
+  /// applies if 'malloc-mem-heap-dump-enabled' is true.
+  static constexpr std::string_view kMallocMemMaxHeapDumpFiles{
+      "malloc-mem-max-heap-dump-files"};
 
   static constexpr std::string_view kAsyncDataCacheEnabled{
       "async-data-cache-enabled"};
@@ -485,6 +506,14 @@ class SystemConfig : public ConfigBase {
   uint32_t systemMemLimitGb() const;
 
   uint32_t systemMemShrinkGb() const;
+
+  bool mallocMemHeapDumpEnabled() const;
+
+  uint32_t mallocHeapDumpThresholdGb() const;
+
+  uint32_t mallocMemMinHeapDumpInterval() const;
+
+  uint32_t mallocMemMaxHeapDumpFiles() const;
 
   bool asyncDataCacheEnabled() const;
 
