@@ -53,9 +53,13 @@
 namespace facebook::velox {
 
 enum class StatType {
+  /// Tracks the average of the inserted values.
   AVG,
+  /// Tracks the sum of the inserted values.
   SUM,
+  /// Tracks the sum of the inserted values per second.
   RATE,
+  /// Tracks the count of inserted values.
   COUNT,
 };
 

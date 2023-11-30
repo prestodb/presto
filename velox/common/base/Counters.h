@@ -42,4 +42,10 @@ constexpr folly::StringPiece kCounterMemoryReclaimWaitTimeMs{
 
 constexpr folly::StringPiece kCounterMemoryReclaimWaitTimeoutCount{
     "velox.memory_reclaim_wait_timeout_count"};
+
+constexpr folly::StringPiece kCounterMemoryNonReclaimableCount{
+    "velox.memory_non_reclaimable_count"};
+
+constexpr folly::StringPiece kCounterMaxSpillLevelExceededCount{
+    "velox.spill_max_level_exceeded_count"};
 } // namespace facebook::velox

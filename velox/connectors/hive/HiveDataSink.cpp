@@ -16,16 +16,17 @@
 
 #include "velox/connectors/hive/HiveDataSink.h"
 
+#include "velox/common/base/Counters.h"
 #include "velox/common/base/Fs.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/dwio/common/SortingWriter.h"
-#include "velox/exec/SortBuffer.h"
-
-#include "velox/connectors/hive/TableHandle.h"
 #include "velox/exec/OperatorUtils.h"
+#include "velox/exec/SortBuffer.h"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -876,6 +877,7 @@ uint64_t HiveDataSink::WriterReclaimer::reclaim(
   }
 
   if (*writerInfo_->nonReclaimableSectionHolder.get()) {
+    REPORT_ADD_STAT_VALUE(kCounterMemoryNonReclaimableCount);
     LOG(WARNING) << "Can't reclaim from hive writer pool " << pool->name()
                  << " which is under non-reclaimable section, "
                  << " used memory: " << succinctBytes(pool->currentBytes())

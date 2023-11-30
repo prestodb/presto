@@ -20,7 +20,7 @@
 namespace facebook::velox {
 
 void registerVeloxCounters() {
-  // Track hive handle generation latency in range of [0, 100s] and reports
+  // Tracks hive handle generation latency in range of [0, 100s] and reports
   // P50, P90, P99, and P100.
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterHiveFileHandleGenerateLatencyMs, 10, 0, 100000, 50, 90, 99, 100);
@@ -28,28 +28,38 @@ void registerVeloxCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterCacheShrinkCount, facebook::velox::StatType::COUNT);
 
-  // Track cache shrink latency in range of [0, 100s] and reports P50, P90, P99,
-  // and P100.
+  // Tracks cache shrink latency in range of [0, 100s] and reports P50, P90,
+  // P99, and P100.
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterCacheShrinkTimeMs, 10, 0, 100'000, 50, 90, 99, 100);
 
-  // Track memory reclaim exec time in range of [0, 600s] and reports
+  // Tracks memory reclaim exec time in range of [0, 600s] and reports
   // P50, P90, P99, and P100.
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterMemoryReclaimExecTimeMs, 20, 0, 600'000, 50, 90, 99, 100);
 
-  // Track memory reclaim task wait time in range of [0, 60s] and reports
+  // Tracks memory reclaim task wait time in range of [0, 60s] and reports
   // P50, P90, P99, and P100.
   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
       kCounterMemoryReclaimWaitTimeMs, 10, 0, 60'000, 50, 90, 99, 100);
 
-  // Track memory reclaim bytes.
+  // Tracks memory reclaim bytes.
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryReclaimedBytes, facebook::velox::StatType::SUM);
 
-  // Track the number of times that the memory reclaim wait timeouts.
+  // Tracks the number of times that the memory reclaim wait timeouts.
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryReclaimWaitTimeoutCount, facebook::velox::StatType::SUM);
+
+  // Tracks the number of times that the memory reclaim fails because of
+  // non-reclaimable section which is an indicator that the memory reservation
+  // is not sufficient.
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryNonReclaimableCount, facebook::velox::StatType::COUNT);
+
+  // Tracks the number of times that we hit the max spill level limit.
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMaxSpillLevelExceededCount, facebook::velox::StatType::COUNT);
 }
 
 } // namespace facebook::velox
