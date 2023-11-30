@@ -31,14 +31,14 @@ void propagateNullsRecursive(BaseVector& vector);
 
 struct BatchMaker {
   static VectorPtr createBatch(
-      const std::shared_ptr<const Type>& type,
+      const TypePtr& type,
       uint64_t capacity,
       memory::MemoryPool& memoryPool,
       std::mt19937& gen,
       std::function<bool(vector_size_t /*index*/)> isNullAt = nullptr);
 
   static VectorPtr createBatch(
-      const std::shared_ptr<const Type>& type,
+      const TypePtr& type,
       uint64_t capacity,
       memory::MemoryPool& memoryPool,
       std::function<bool(vector_size_t /*index*/)> isNullAt = nullptr,
@@ -46,7 +46,7 @@ struct BatchMaker {
 
   template <TypeKind KIND>
   static VectorPtr createVector(
-      const std::shared_ptr<const Type>& type,
+      const TypePtr& type,
       size_t size,
       memory::MemoryPool& pool,
       std::mt19937& gen,
@@ -54,7 +54,7 @@ struct BatchMaker {
 
   template <TypeKind KIND>
   static VectorPtr createVector(
-      const std::shared_ptr<const Type>& type,
+      const TypePtr& type,
       size_t size,
       memory::MemoryPool& pool,
       std::function<bool(vector_size_t /*index*/)> isNullAt = nullptr,

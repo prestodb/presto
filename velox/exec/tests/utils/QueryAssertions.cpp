@@ -68,6 +68,18 @@ template <>
 }
 
 template <>
+::duckdb::Value duckValueAt<TypeKind::INTEGER>(
+    const VectorPtr& vector,
+    vector_size_t index) {
+  auto type = vector->type();
+  if (type->isDate()) {
+    return ::duckdb::Value::DATE(::duckdb::Date::EpochDaysToDate(
+        vector->as<SimpleVector<int32_t>>()->valueAt(index)));
+  }
+  return ::duckdb::Value(vector->as<SimpleVector<int32_t>>()->valueAt(index));
+}
+
+template <>
 ::duckdb::Value duckValueAt<TypeKind::BIGINT>(
     const VectorPtr& vector,
     vector_size_t index) {
@@ -871,11 +883,12 @@ void DuckDbQueryRunner::createTable(
           auto value = ::duckdb::Value::INTERVAL(
               0, 0, columnVector->as<SimpleVector<int64_t>>()->valueAt(row));
           appender.Append(value);
-        } else if (type->isDate()) {
-          auto value = ::duckdb::Value::DATE(::duckdb::Date::EpochDaysToDate(
-              columnVector->as<SimpleVector<int32_t>>()->valueAt(row)));
-          appender.Append(value);
         } else {
+          VELOX_CHECK(
+              type->equivalent(*columnVector->type()),
+              "{} vs. {}",
+              type->toString(),
+              columnVector->toString())
           auto value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
               duckValueAt, type->kind(), columnVector, row);
           appender.Append(value);
