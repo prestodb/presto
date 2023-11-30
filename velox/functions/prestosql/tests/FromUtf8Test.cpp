@@ -283,5 +283,56 @@ TEST_F(FromUtf8Test, invalidReplacement) {
   velox::test::assertEqualVectors(expected, result);
 }
 
+TEST_F(FromUtf8Test, invalidReplacementWithAllValidRows) {
+  // Make sure that replacement is checked to be valid even if all the rows have
+  // valid UTF-8 data.
+  // c0 : all ascii
+  // c1 : all valid not ascii.
+  // c2 : invalid integer replacement.
+  // c3 : invalid string replacement.
+  auto data = makeRowVector(
+      {makeNullableFlatVector<std::string>(
+           {validAscii().front(), validAscii().front()}, VARBINARY()),
+       makeNullableFlatVector<std::string>(
+           {validMultiByte().back(), validMultiByte().back()}, VARBINARY()),
+       makeNullableFlatVector<int64_t>({22334455, 22334455}),
+       makeNullableFlatVector<std::string>({"12"
+                                            "12"})});
+
+  // Test when replacement is integer.
+  VELOX_ASSERT_THROW(
+      evaluate("from_utf8(c0, 22334455::bigint)", data),
+      "Not a valid Unicode code point: 22334455");
+
+  VELOX_ASSERT_THROW(
+      evaluate("from_utf8(c0, c2)", data),
+      "Not a valid Unicode code point: 22334455");
+
+  VELOX_ASSERT_THROW(
+      evaluate("from_utf8(c1, 22334455::bigint)", data),
+      "Not a valid Unicode code point: 22334455");
+
+  VELOX_ASSERT_THROW(
+      evaluate("from_utf8(c1, c2)", data),
+      "Not a valid Unicode code point: 22334455");
+
+  // Test when replacement is string.
+  VELOX_ASSERT_THROW(
+      evaluate("from_utf8(c0, '12')", data),
+      "Replacement string must be empty or a single character");
+
+  VELOX_ASSERT_THROW(
+      evaluate("from_utf8(c0, c3)", data),
+      "Replacement string must be empty or a single character");
+
+  VELOX_ASSERT_THROW(
+      evaluate("from_utf8(c1, '12')", data),
+      "Replacement string must be empty or a single character");
+
+  VELOX_ASSERT_THROW(
+      evaluate("from_utf8(c1, c3)", data),
+      "Replacement string must be empty or a single character");
+}
+
 } // namespace
 } // namespace facebook::velox::functions

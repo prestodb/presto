@@ -39,19 +39,47 @@ class FromUtf8Function : public exec::VectorFunction {
 
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto& decodedInput = *decodedArgs.at(0);
-    if (input->loadedVector()
-            ->as<SimpleVector<StringView>>()
-            ->computeAndSetIsAscii(rows)) {
-      // Input strings are all-ASCII.
-      toVarcharNoCopy(input, decodedInput, rows, context, result);
-      return;
+
+    // Read the constant replacement if it exisits and verify that it is valid.
+    bool constantReplacement =
+        args.size() == 1 || decodedArgs.at(1)->isConstantMapping();
+    std::string constantReplacementValue = kReplacementChar;
+
+    if (constantReplacement) {
+      if (args.size() > 1) {
+        auto& decodedReplacement = *decodedArgs.at(1);
+        try {
+          constantReplacementValue = getReplacementCharacter(
+              args[1]->type(), decodedReplacement, rows.begin());
+        } catch (const std::exception&) {
+          context.setErrors(rows, std::current_exception());
+          return;
+        }
+      }
+    }
+
+    // We can only do valid UTF-8 input optimization if replacement is valid and
+    // constant otherwise we have to check replacement for each row.
+    if (constantReplacement) {
+      if (input->loadedVector()
+              ->as<SimpleVector<StringView>>()
+              ->computeAndSetIsAscii(rows)) {
+        // Input strings are all-ASCII.
+        toVarcharNoCopy(input, decodedInput, rows, context, result);
+        return;
+      }
     }
 
     auto firstInvalidRow = findFirstInvalidRow(decodedInput, rows);
-    if (!firstInvalidRow.has_value()) {
-      // All inputs are valid UTF-8 strings.
-      toVarcharNoCopy(input, decodedInput, rows, context, result);
-      return;
+
+    // We can only do this optimization if replacement is valid and
+    // constant otherwise we have to check replacement for each row.
+    if (constantReplacement) {
+      if (!firstInvalidRow.has_value()) {
+        // All inputs are valid UTF-8 strings.
+        toVarcharNoCopy(input, decodedInput, rows, context, result);
+        return;
+      }
     }
 
     BaseVector::ensureWritable(rows, VARCHAR(), context.pool(), result);
@@ -65,23 +93,7 @@ class FromUtf8Function : public exec::VectorFunction {
 
     flatResult->getBufferWithSpace(totalInputSize);
 
-    // Optimize for common case of constant 'replacement' argument.
-    bool constantReplacement =
-        args.size() == 1 || decodedArgs.at(1)->isConstantMapping();
-
     if (constantReplacement) {
-      std::string replacement = kReplacementChar;
-      if (args.size() > 1) {
-        auto& decodedReplacement = *decodedArgs.at(1);
-        try {
-          replacement = getReplacementCharacter(
-              args[1]->type(), decodedReplacement, rows.begin());
-        } catch (const std::exception&) {
-          context.setErrors(rows, std::current_exception());
-          return;
-        }
-      }
-
       rows.applyToSelected([&](auto row) {
         exec::StringWriter<false> writer(flatResult, row);
         auto value = decodedInput.valueAt<StringView>(row);
@@ -89,7 +101,7 @@ class FromUtf8Function : public exec::VectorFunction {
           writer.append(value);
           writer.finalize();
         } else {
-          fixInvalidUtf8(value, replacement, writer);
+          fixInvalidUtf8(value, constantReplacementValue, writer);
         }
       });
     } else {
