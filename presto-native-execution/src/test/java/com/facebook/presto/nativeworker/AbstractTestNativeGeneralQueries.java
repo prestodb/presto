@@ -253,7 +253,27 @@ public abstract class AbstractTestNativeGeneralQueries
             dropTableIfExists(tmpTableName);
         }
     }
-
+    @Test
+    public void testAnalyzeStatsOnDecimals()
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), "
+                    + "(DECIMAL '1000000.12', DECIMAL '28239823232323.57'), " +
+                    "(DECIMAL '-542392.89', DECIMAL '-6723982392109.29'), (NULL, NULL), "
+                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName));
+            assertUpdate(String.format("ANALYZE %s", tmpTableName), 7);
+            assertQuery(String.format("SHOW STATS for %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('c0', NULL,4.0 , 0.2857142857142857, NULL, '-542392.89', '1000000.12')," +
+                            "('c1', NULL,4.0 , 0.2857142857142857, NULL,  '-6.72398239210929E12', '2.823982323232357E13')," +
+                            "(NULL, NULL, NULL, NULL, 7.0, NULL, NULL))");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
     @Test
     public void testTableSample()
     {
@@ -1197,6 +1217,44 @@ public abstract class AbstractTestNativeGeneralQueries
                     String.format("SELECT * FROM %s WHERE c1 <= " + longDecimalMax, tmpTableName)
             };
 
+            for (String query : queries) {
+                assertQuery(currentSession, query, expectedSession, query);
+            }
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
+    @Test
+    public void testDecimalApproximateAggregates()
+    {
+        // Actual session is for the native query runner.
+        // It is required to have "parquet_pushdown_filter_enabled" enabled, that is the only supported mode.
+        Session currentSession = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "true")
+                .build();
+
+        // Expected session is for the Java query runner.
+        // The Java runner does not support Parquet filter pushdown yet, so we have to explicitly disable it.
+        Session expectedSession = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "false")
+                .build();
+        // Generate temporary table name.
+        String tmpTableName = generateRandomTableName();
+        try {
+            // Create a Parquet table with decimal types and test data.
+            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), "
+                    + "(DECIMAL '1000000.12', DECIMAL '28239823232323.57'), "
+                    + "(DECIMAL '-542392.89', DECIMAL '-6723982392109.29'), (NULL, NULL), "
+                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName), ImmutableList.of());
+            String[] queries = {
+                    String.format("Select approx_distinct(c0) from %s", tmpTableName),
+                    String.format("Select approx_distinct(c1) from %s", tmpTableName),
+                    String.format("Select c0, approx_distinct(c1, 0.01) from %s group by c0", tmpTableName),
+                    String.format("Select c1, approx_distinct(c0, 0.01) from %s group by c1", tmpTableName)
+            };
             for (String query : queries) {
                 assertQuery(currentSession, query, expectedSession, query);
             }
