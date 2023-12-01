@@ -38,6 +38,7 @@ add_executable(
   CustomJoinTest.cpp
   EnforceSingleRowTest.cpp
   ExchangeClientTest.cpp
+  ExpandTest.cpp
   FilterProjectTest.cpp
   FunctionResolutionTest.cpp
   HashJoinBridgeTest.cpp

@@ -29,6 +29,7 @@ add_library(
   ExchangeClient.cpp
   ExchangeQueue.cpp
   ExchangeSource.cpp
+  Expand.cpp
   FilterProject.cpp
   GroupId.cpp
   GroupingSet.cpp

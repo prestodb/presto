@@ -929,6 +929,59 @@ PlanBuilder& PlanBuilder::localMerge(const std::vector<std::string>& keys) {
   return *this;
 }
 
+PlanBuilder& PlanBuilder::expand(
+    const std::vector<std::vector<std::string>>& projections) {
+  VELOX_CHECK(!projections.empty(), "projections must not be empty.");
+  const auto numColumns = projections[0].size();
+  const auto numRows = projections.size();
+  std::vector<std::string> aliases;
+  aliases.reserve(numColumns);
+
+  std::vector<std::vector<core::TypedExprPtr>> projectExprs;
+  projectExprs.reserve(projections.size());
+
+  for (auto i = 0; i < numRows; i++) {
+    std::vector<core::TypedExprPtr> projectExpr;
+    VELOX_CHECK_EQ(numColumns, projections[i].size())
+    for (auto j = 0; j < numColumns; j++) {
+      auto untypedExpression = parse::parseExpr(projections[i][j], options_);
+      auto typedExpression = inferTypes(untypedExpression);
+
+      if (i == 0) {
+        if (untypedExpression->alias().has_value()) {
+          aliases.push_back(untypedExpression->alias().value());
+        } else {
+          auto fieldExpr = dynamic_cast<const core::FieldAccessExpr*>(
+              untypedExpression.get());
+          VELOX_CHECK_NOT_NULL(fieldExpr);
+          aliases.push_back(fieldExpr->getFieldName());
+        }
+        projectExpr.push_back(typedExpression);
+      } else {
+        // The types of values in 2nd and subsequent rows must much types in the
+        //  1st row.
+        const auto& expectedType = projectExprs[0][j]->type();
+        if (typedExpression->type()->equivalent(*expectedType)) {
+          projectExpr.push_back(typedExpression);
+        } else {
+          auto constantExpr =
+              dynamic_cast<const core::ConstantExpr*>(untypedExpression.get());
+          VELOX_CHECK_NOT_NULL(constantExpr);
+          VELOX_CHECK(constantExpr->value().isNull());
+          projectExpr.push_back(std::make_shared<core::ConstantTypedExpr>(
+              expectedType, variant::null(expectedType->kind())));
+        }
+      }
+    }
+    projectExprs.push_back(projectExpr);
+  }
+
+  planNode_ = std::make_shared<core::ExpandNode>(
+      nextPlanNodeId(), projectExprs, std::move(aliases), planNode_);
+
+  return *this;
+}
+
 PlanBuilder& PlanBuilder::localMerge(
     const std::vector<std::string>& keys,
     std::vector<core::PlanNodePtr> sources) {
