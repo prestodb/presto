@@ -51,10 +51,9 @@ class MapFunction : public exec::VectorFunction {
 
             VELOX_USER_CHECK(
                 !keysElements->containsNullAt(offset + i),
-                fmt::format(
-                    "{}: {}",
-                    kIndeterminateKeyErrorMessage,
-                    keysElements->toString(offset + i)));
+                "{}: {}",
+                kIndeterminateKeyErrorMessage,
+                keysElements->toString(offset + i));
           }
         };
     // When context.throwOnError is false, some rows will be marked as
