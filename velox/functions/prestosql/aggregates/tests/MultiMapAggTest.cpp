@@ -180,5 +180,91 @@ TEST_F(MultiMapAggTest, stringKeyGroupBy) {
       {expected});
 }
 
+TEST_F(MultiMapAggTest, arrayKeyGlobal) {
+  auto data = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2, 3]",
+          "[]",
+          "null",
+          "[1, 2, 3, 4]",
+          "[1, 2]",
+          "[1, 2, 3]",
+          "[1, 2]",
+          "[]",
+      }),
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7, 8}),
+  });
+
+  auto expected = makeRowVector({
+      makeMapVector(
+          {0},
+          makeArrayVectorFromJson<int32_t>({
+              "[1, 2, 3]",
+              "[]",
+              "[1, 2, 3, 4]",
+              "[1, 2]",
+          }),
+          makeArrayVectorFromJson<int64_t>({
+              "[1, 6]",
+              "[2, 8]",
+              "[4]",
+              "[5, 7]",
+          })),
+  });
+
+  testAggregations(
+      {data},
+      {},
+      {"multimap_agg(c0, c1)"},
+      // Sort the result arrays to ensure deterministic results.
+      {"transform_values(a0, (k, v) -> array_sort(v))"},
+      {expected});
+}
+
+TEST_F(MultiMapAggTest, arrayKeyGroupBy) {
+  auto data = makeRowVector({
+      makeFlatVector<int16_t>({1, 2, 1, 2, 1, 2, 1, 2}),
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2, 3]",
+          "[]",
+          "null",
+          "[1, 2, 3, 4]",
+          "[1, 2]",
+          "[1, 2, 3]",
+          "[1, 2]",
+          "[]",
+      }),
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7, 8}),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeMapVector(
+          {0, 2},
+          makeArrayVectorFromJson<int32_t>({
+              "[1, 2, 3]",
+              "[1, 2]",
+              "[]",
+              "[1, 2, 3]",
+              "[1, 2, 3, 4]",
+          }),
+          makeArrayVectorFromJson<int64_t>({
+              "[1]",
+              "[5, 7]",
+              "[2, 8]",
+              "[6]",
+              "[4]",
+          })),
+  });
+
+  testAggregations(
+      {data},
+      {"c0"},
+      {"multimap_agg(c1, c2)"},
+      // Sort the result arrays to ensure deterministic results.
+      {"c0", "transform_values(a0, (k, v) -> array_sort(v))"},
+      {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::prestosql
