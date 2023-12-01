@@ -212,6 +212,23 @@ TEST_F(EvalSimplifiedTest, dereference) {
   }
 }
 
+TEST_F(EvalSimplifiedTest, lambda) {
+  // filter(array, x -> x > 0).
+  auto data = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2, 0, -4, 3]",
+          "[-5, 0, -3, 1, 7]",
+      }),
+  });
+
+  SelectivityVector rows(data->size());
+  auto expr =
+      makeTypedExpr("filter(c0, x -> (x > 0))", asRowType(data->type()));
+  exec::ExprSet exprSetCommon({expr}, &execCtx_);
+  exec::ExprSetSimplified exprSetSimplified({expr}, &execCtx_);
+  compareEvals(exprSetCommon, exprSetSimplified, data, rows);
+}
+
 TEST_F(EvalSimplifiedTest, propagateNulls) {
   auto rowVector = makeRowVector({
       makeFlatVector<int64_t>({1, 2, 3}),
