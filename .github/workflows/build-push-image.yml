@@ -1,0 +1,110 @@
+name: build and push image
+
+on:
+  workflow_dispatch:
+    inputs:
+      prestoVersion:
+        description: 'Presto version'
+        required: true
+        type: string
+      registry:
+        description: 'Registry for the image'
+        required: true
+        default: 'docker.io'
+        type: string
+      org:
+        description: 'Org for the image'
+        required: true
+        default: 'prestodb'
+        type: string
+      imageName:
+        description: 'Name of the image'
+        required: true
+        default: 'presto'
+        type: string
+      tag:
+        description: 'Tag for the image'
+        required: true
+        default: 'latest'
+        type: string
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+          - linux/ppc64le
+    steps:
+    - uses: actions/checkout@v4
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ inputs.registry }}/${{ inputs.org }}/${{ inputs.imageName }}
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Download binaries
+      working-directory: ./docker
+      run: |
+        curl -O https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${{ inputs.prestoVersion }}/presto-server-${{ inputs.prestoVersion }}.tar.gz
+        curl -O https://repo1.maven.org/maven2/com/facebook/presto/presto-cli/${{ inputs.prestoVersion }}/presto-cli-${{ inputs.prestoVersion }}-executable.jar
+    - name: Log in to Docker Hub
+      uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Build and push by digest
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        build-args: PRESTO_VERSION=${{ inputs.prestoVersion }}
+        context: ./docker
+        provenance: false
+        platforms: ${{ matrix.platform }}
+        labels: ${{ steps.meta.outputs.labels }}
+        outputs: type=image,name=${{ inputs.registry }}/${{ inputs.org }}/${{ inputs.imageName }},push-by-digest=true,name-canonical=true,push=true
+    - name: Export digest
+      run: |
+        mkdir -p /tmp/digests
+        digest="${{ steps.build.outputs.digest }}"
+        touch "/tmp/digests/${digest#sha256:}"
+    - name: Upload digest
+      uses: actions/upload-artifact@v3
+      with:
+        name: digests
+        path: /tmp/digests/*
+        if-no-files-found: error
+        retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v3
+        with:
+          name: digests
+          path: /tmp/digests
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create -t ${{ inputs.registry }}/${{ inputs.org}}/${{ inputs.imageName }}:${{ inputs.tag }} \
+            $(printf '${{ inputs.registry }}/${{ inputs.org }}/presto@sha256:%s ' *)
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ inputs.registry }}/${{ inputs.org }}/${{ inputs.imageName }}:${{ inputs.tag }}
