@@ -165,17 +165,17 @@ uint64_t MemoryReclaimer::run(
     const std::function<uint64_t()>& func,
     Stats& stats) {
   uint64_t execTimeUs{0};
-  uint64_t bytes{0};
+  uint64_t reclaimedBytes{0};
   {
     MicrosecondTimer timer{&execTimeUs};
-    bytes = func();
+    reclaimedBytes = func();
   }
   stats.reclaimExecTimeUs += execTimeUs;
-  stats.reclaimedBytes += bytes;
+  stats.reclaimedBytes += reclaimedBytes;
   REPORT_ADD_HISTOGRAM_VALUE(
       kCounterMemoryReclaimExecTimeMs, execTimeUs / 1'000);
-  REPORT_ADD_STAT_VALUE(kCounterMemoryReclaimedBytes, bytes);
-  return bytes;
+  REPORT_ADD_STAT_VALUE(kCounterMemoryReclaimedBytes, reclaimedBytes);
+  return reclaimedBytes;
 }
 
 bool MemoryReclaimer::reclaimableBytes(

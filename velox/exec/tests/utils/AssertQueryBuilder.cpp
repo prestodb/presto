@@ -203,6 +203,7 @@ RowVectorPtr AssertQueryBuilder::copyResults(
   auto [cursor, results] = readCursor();
 
   if (results.empty()) {
+    task = cursor->task();
     return BaseVector::create<RowVector>(
         params_.planNode->outputType(), 0, pool);
   }
@@ -211,7 +212,6 @@ RowVectorPtr AssertQueryBuilder::copyResults(
   for (const auto& result : results) {
     totalCount += result->size();
   }
-
   auto copy =
       BaseVector::create<RowVector>(results[0]->type(), totalCount, pool);
   auto copyCount = 0;

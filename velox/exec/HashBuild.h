@@ -82,8 +82,6 @@ class HashBuild final : public Operator {
   void reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
       override;
 
-  bool canReclaim() const override;
-
   void abort() override;
 
  private:

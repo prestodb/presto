@@ -5078,7 +5078,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
   const int32_t numBuildVectors = 3;
   std::vector<RowVectorPtr> buildVectors;
   for (int32_t i = 0; i < numBuildVectors; ++i) {
-    const size_t size = i == 0 ? 100 : 40000;
+    const size_t size = i == 0 ? 1 : 1'000;
     VectorFuzzer fuzzer({.vectorSize = size}, pool());
     buildVectors.push_back(fuzzer.fuzzRow(buildType_));
   }
@@ -5086,7 +5086,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
   const int32_t numProbeVectors = 3;
   std::vector<RowVectorPtr> probeVectors;
   for (int32_t i = 0; i < numProbeVectors; ++i) {
-    VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
+    VectorFuzzer fuzzer({.vectorSize = 1'000}, pool());
     probeVectors.push_back(fuzzer.fuzzRow(probeType_));
   }
 
@@ -5097,7 +5097,6 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
   auto queryPool = memory::defaultMemoryManager().addRootPool(
       "", kMaxBytes, memory::MemoryReclaimer::create());
 
-  core::PlanNodeId probeScanId;
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan = PlanBuilder(planNodeIdGenerator)
                   .values(probeVectors, false)
@@ -5112,11 +5111,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
                   .planNode();
 
   folly::EventCount driverWait;
-  auto driverWaitKey = driverWait.prepareWait();
+  std::atomic_bool driverWaitFlag{true};
   folly::EventCount testWait;
-  auto testWaitKey = testWait.prepareWait();
+  std::atomic_bool testWaitFlag{true};
 
-  Operator* op;
+  Operator* op{nullptr};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Driver::runInternal::addInput",
       std::function<void(Operator*)>(([&](Operator* testOp) {
@@ -5133,22 +5132,27 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
       std::function<void(memory::MemoryPoolImpl*)>(
           ([&](memory::MemoryPoolImpl* pool) {
             ASSERT_TRUE(op != nullptr);
-            const std::string re(".*HashBuild");
-            if (!RE2::FullMatch(pool->name(), re)) {
+            if (!isHashBuildMemoryPool(*pool)) {
+              return;
+            }
+            ASSERT_TRUE(op->canReclaim());
+            if (op->pool()->currentBytes() == 0) {
+              // We skip trigger memory reclaim when the hash table is empty on
+              // memory reservation.
               return;
             }
             if (!injectOnce.exchange(false)) {
               return;
             }
-            ASSERT_TRUE(op->canReclaim());
             uint64_t reclaimableBytes{0};
             const bool reclaimable = op->reclaimableBytes(reclaimableBytes);
             ASSERT_TRUE(reclaimable);
             ASSERT_GT(reclaimableBytes, 0);
             auto* driver = op->testingOperatorCtx()->driver();
             SuspendedSection suspendedSection(driver);
-            testWait.notify();
-            driverWait.wait(driverWaitKey);
+            testWaitFlag = false;
+            testWait.notifyAll();
+            driverWait.await([&]() { return !driverWaitFlag.load(); });
           })));
 
   std::thread taskThread([&]() {
@@ -5171,11 +5175,10 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
         .run();
   });
 
-  testWait.wait(testWaitKey);
+  testWait.await([&]() { return !testWaitFlag.load(); });
   ASSERT_TRUE(op != nullptr);
   auto task = op->testingOperatorCtx()->task();
-  auto taskPauseWait = task->requestPause();
-  taskPauseWait.wait();
+  task->requestPause().wait();
 
   uint64_t reclaimableBytes{0};
   const bool reclaimable = op->reclaimableBytes(reclaimableBytes);
@@ -5190,14 +5193,13 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
   ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
   ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
   ASSERT_EQ(op->pool()->currentBytes(), 0);
-  reclaimerStats_.reset();
 
-  driverWait.notify();
+  driverWaitFlag = false;
+  driverWait.notifyAll();
   Task::resume(task);
   task.reset();
 
   taskThread.join();
-  ASSERT_EQ(reclaimerStats_, memory::MemoryReclaimer::Stats{});
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringAllocation) {

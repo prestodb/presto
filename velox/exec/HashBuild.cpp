@@ -1083,10 +1083,6 @@ bool HashBuild::testingTriggerSpill() {
       spillConfig()->testSpillPct;
 }
 
-bool HashBuild::canReclaim() const {
-  return Operator::canReclaim() && (spiller_ != nullptr);
-}
-
 void HashBuild::reclaim(
     uint64_t /*unused*/,
     memory::MemoryReclaimer::Stats& stats) {
@@ -1096,6 +1092,11 @@ void HashBuild::reclaim(
   VELOX_CHECK(!nonReclaimableSection_);
 
   TestValue::adjust("facebook::velox::exec::HashBuild::reclaim", this);
+
+  if (spiller_ == nullptr) {
+    // NOTE: we might have reached to the max spill limit.
+    return;
+  }
 
   // NOTE: a hash build operator is reclaimable if it is in the middle of table
   // build processing and is not under non-reclaimable execution section.
