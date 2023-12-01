@@ -91,32 +91,20 @@ TEST_F(ArrayNoneMatchTest, basic) {
 }
 
 TEST_F(ArrayNoneMatchTest, complexTypes) {
-  auto baseVector = makeArrayVector<int64_t>({
-      {1, 2, 3},
-      {2, 2},
-      {3, 3},
-      {4, 4},
-      {5, 5},
-      {},
+  auto arrayOfArrays = makeNestedArrayVectorFromJson<int32_t>({
+      "[[1, 2, 3]]",
+      "[[2, 2], [3, 3], [4, 4], [5, 5]]",
+      "[[]]",
   });
-  // Create an array of array vector using above base vector using offsets.
-  // [
-  //  [[1, 2, 3]],
-  //  [[2, 2], [3, 3], [4, 4], [5, 5]],
-  //  [[]]
-  // ]
-  auto arrayOfArrays = makeArrayVector({0, 1, 5}, baseVector);
   std::vector<std::optional<bool>> expectedResult{false, false, true};
   testNoneMatchExpr(expectedResult, "cardinality(x) > 0", arrayOfArrays);
 
-  // Create an array of array vector using above base vector using offsets.
-  // [
-  //  [[1, 2, 3]],  cardinalities is 3
-  //  [[2, 2], [3, 3], [4, 4], [5, 5]], all cardinalities is 2
-  //  [[]],
-  //  null
-  // ]
-  arrayOfArrays = makeArrayVector({0, 1, 5, 6}, baseVector, {3});
+  arrayOfArrays = makeNestedArrayVectorFromJson<int32_t>({
+      "[[1, 2, 3]]",
+      "[[2, 2], [3, 3], [4, 4], [5, 5]]",
+      "[[]]",
+      "null",
+  });
   expectedResult = {false, true, true, std::nullopt};
   testNoneMatchExpr(expectedResult, "cardinality(x) > 2", arrayOfArrays);
 }

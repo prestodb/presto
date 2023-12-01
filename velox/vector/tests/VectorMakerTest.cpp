@@ -19,6 +19,7 @@
 #include "velox/common/base/VeloxException.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
 using facebook::velox::test::VectorMaker;
@@ -456,6 +457,62 @@ TEST_F(VectorMakerTest, arrayVectorFromJson) {
   for (auto i = 0; i < 5; ++i) {
     EXPECT_TRUE(dates->equalValueAt(arrayVector.get(), i, i));
   }
+}
+
+TEST_F(VectorMakerTest, nestedArrayVectorFromJson) {
+  auto arrayVector = maker_.nestedArrayVectorFromJson<int32_t>(
+      {"[[1, 2], [2, 3, 4], [null, 7]]",
+       "[[1, 3, 7, 9], []]",
+       "[]",
+       "[null]",
+       "[[1, 2, null], [], null]",
+       "null",
+       "[[1,2,3],[],[4,5]]"});
+
+  VectorPtr expectedVector = maker_.arrayVectorNullable<int32_t>({
+      {{1, 2}},
+      {{2, 3, 4}},
+      {{std::nullopt, 7}},
+      {{1, 3, 7, 9}},
+      {{}},
+      {{std::nullopt}},
+      {{1, 2, std::nullopt}},
+      {{}},
+      std::nullopt,
+      {{1, 2, 3}},
+      {{}},
+      {{4, 5}},
+  });
+
+  VectorPtr elementsOfArrayVector = arrayVector->elements();
+
+  EXPECT_EQ(*arrayVector->elements()->type(), *ARRAY(INTEGER()));
+  EXPECT_TRUE(arrayVector->elements()->mayHaveNulls());
+
+  auto rowOfArrays = arrayVector->elements();
+
+  // 7 rows in array of arrays
+  EXPECT_EQ(7, arrayVector->size());
+
+  EXPECT_EQ(3, arrayVector->sizeAt(0));
+  EXPECT_EQ(2, arrayVector->sizeAt(1));
+
+  // Empty inner array
+  EXPECT_EQ(0, arrayVector->sizeAt(2));
+  EXPECT_FALSE(arrayVector->isNullAt(2));
+
+  // inner array with null
+  EXPECT_EQ(1, arrayVector->sizeAt(3));
+  EXPECT_FALSE(arrayVector->isNullAt(3));
+
+  EXPECT_EQ(3, arrayVector->sizeAt(4));
+
+  EXPECT_EQ(0, arrayVector->sizeAt(5));
+  EXPECT_TRUE(arrayVector->isNullAt(5));
+
+  EXPECT_EQ(3, arrayVector->sizeAt(6));
+
+  test::assertEqualVectors(expectedVector, elementsOfArrayVector);
 }
 
 TEST_F(VectorMakerTest, arrayOfRowVector) {

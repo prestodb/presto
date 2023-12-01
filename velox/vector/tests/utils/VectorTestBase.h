@@ -459,6 +459,20 @@ class VectorTestBase {
         size, sizeAt, valueAt, isNullAt, valueIsNullAt, arrayType);
   }
 
+  /// Similar to makeArrayVectorFromJson. Creates an ArrayVector from list of
+  /// JSON arrays of arrays.
+  /// @tparam T Type of array elements. Must be an integer: int8_t, int16_t,
+  /// int32_t, int64_t.
+  /// @param jsonArrays A list of JSON arrays. JSON array cannot be an empty
+  /// string.
+  /// @param arrayType type of array elements.
+  template <typename T>
+  ArrayVectorPtr makeNestedArrayVectorFromJson(
+      const std::vector<std::string>& jsonArrays,
+      const TypePtr& arrayType = ARRAY(CppToType<T>::create())) {
+    return vectorMaker_.nestedArrayVectorFromJson<T>(jsonArrays, arrayType);
+  }
+
   template <typename T>
   ArrayVectorPtr makeArrayVector(
       vector_size_t size,
