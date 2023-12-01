@@ -103,12 +103,3 @@ TEST_F(ConjunctTest, constant) {
         plan, "select c0, c1, c2, if (c0 < 9, c1 and c2, c1 or c2) from tmp");
   }
 }
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  // Calls common init functions in the necessary order, initializing
-  // singletons, installing proper signal handlers for better debugging
-  // experience, and initialize glog and gflags.
-  folly::init(&argc, &argv);
-  return RUN_ALL_TESTS();
-}

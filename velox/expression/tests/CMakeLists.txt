@@ -28,8 +28,8 @@ add_executable(
   CoalesceTest.cpp
   ConjunctTest.cpp
   ConstantFlatVectorReaderTest.cpp
+  Main.cpp
   MapWriterTest.cpp
-  ArrayWriterTest.cpp
   ReverseSignatureBinderTest.cpp
   RowWriterTest.cpp
   EvalSimplifiedTest.cpp
