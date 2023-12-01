@@ -147,10 +147,10 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kHttpsCertPath),
           NONE_PROP(kHttpsKeyPath),
           NONE_PROP(kHttpsClientCertAndKeyPath),
-          NUM_PROP(kNumIoThreads, 30),
-          NUM_PROP(kNumConnectorIoThreads, 30),
-          NUM_PROP(kNumQueryThreads, std::thread::hardware_concurrency() * 4),
-          NUM_PROP(kNumSpillThreads, std::thread::hardware_concurrency()),
+          NUM_PROP(kExchangeHttpClientNumIoThreadsHwMultiplier, 1.0),
+          NUM_PROP(kConnectorNumIoThreadsHwMultiplier, 1.0),
+          NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
+          NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           NONE_PROP(kSpillerSpillPath),
           NUM_PROP(kShutdownOnsetSec, 10),
           NUM_PROP(kSystemMemoryGb, 40),
@@ -305,28 +305,29 @@ int32_t SystemConfig::concurrentLifespansPerTask() const {
   return optionalProperty<int32_t>(kConcurrentLifespansPerTask).value();
 }
 
-double SystemConfig::numHttpIoThreadsHwMultiplier() const {
+double SystemConfig::httpServerNumIoThreadsHwMultiplier() const {
   return optionalProperty<double>(kHttpServerNumIoThreadsHwMultiplier).value();
 }
 
-double SystemConfig::numHttpCpuThreadsHwMultiplier() const {
+double SystemConfig::httpServerNumCpuThreadsHwMultiplier() const {
   return optionalProperty<double>(kHttpServerNumCpuThreadsHwMultiplier).value();
 }
 
-int32_t SystemConfig::numIoThreads() const {
-  return optionalProperty<int32_t>(kNumIoThreads).value();
+double SystemConfig::exchangeHttpClientNumIoThreadsHwMultiplier() const {
+  return optionalProperty<double>(kExchangeHttpClientNumIoThreadsHwMultiplier)
+      .value();
 }
 
-int32_t SystemConfig::numConnectorIoThreads() const {
-  return optionalProperty<int32_t>(kNumConnectorIoThreads).value();
+double SystemConfig::connectorNumIoThreadsHwMultiplier() const {
+  return optionalProperty<double>(kConnectorNumIoThreadsHwMultiplier).value();
 }
 
-int32_t SystemConfig::numQueryThreads() const {
-  return optionalProperty<int32_t>(kNumQueryThreads).value();
+double SystemConfig::driverNumCpuThreadsHwMultiplier() const {
+  return optionalProperty<double>(kDriverNumCpuThreadsHwMultiplier).value();
 }
 
-int32_t SystemConfig::numSpillThreads() const {
-  return optionalProperty<int32_t>(kNumSpillThreads).value();
+double SystemConfig::spillerNumCpuThreadsHwMultiplier() const {
+  return optionalProperty<double>(kSpillerNumCpuThreadsHwMultiplier).value();
 }
 
 folly::Optional<std::string> SystemConfig::spillerSpillPath() const {

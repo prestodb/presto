@@ -141,15 +141,15 @@ There is also an additional parameter:
 Async Data Cache and Prefetching
 --------------------------------
 
-``num-connector-io-threads``
+``connector.num-io-threads-hw-multiplier``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    * **Type** ``integer``
-    * **Default value:** ``30``
-    * **Presto on Spark default value:** ``0``
+    * **Type** ``double``
+    * **Default value:** ``1.0``
+    * **Presto on Spark default value:** ``0.0``
 
     Size of IO executor for connectors to do preload/prefetch.  Prefetch is
-    disabled if ``num-connector-io-threads`` is set to zero.
+    disabled if ``connector.num-io-threads-hw-multiplier`` is set to zero.
 
 ``async-data-cache-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
