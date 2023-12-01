@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -104,7 +105,20 @@ import static java.util.stream.Collectors.toCollection;
 public class CanonicalPlanGenerator
         extends InternalPlanVisitor<Optional<PlanNode>, CanonicalPlanGenerator.Context>
 {
-    private final PlanNodeIdAllocator planNodeidAllocator = new PlanNodeIdAllocator();
+
+    private static String CANONICAL_ID_STRING = "CANONICAL";
+
+    public static String CANONICAL_DELIMITTER = "canonical";
+
+    // Not using a new override to objectMapper because PlanNodeId has a JsonValue annotation which cannot be directly overriden in a serializer
+    private final PlanNodeIdAllocator planNodeidAllocator = new PlanNodeIdAllocator()
+    {
+        @Override
+        public PlanNodeId getNextId()
+        {
+            return new PlanNodeId(CANONICAL_ID_STRING);
+        }
+    };
     private final VariableAllocator variableAllocator = new VariableAllocator();
     // TODO: DEFAULT strategy has a very different canonicalizaiton implementation, refactor it into a separate class.
     private final PlanCanonicalizationStrategy strategy;
@@ -413,7 +427,7 @@ public class CanonicalPlanGenerator
                 newSourceVariablesBuilder.add(inlineAndCanonicalize(context.getExpressions(), sourceVariables.get(index)));
             });
             ImmutableList<VariableReferenceExpression> newSourceVariables = newSourceVariablesBuilder.build();
-            VariableReferenceExpression newVariable = variableAllocator.newVariable(newSourceVariables.get(0));
+            VariableReferenceExpression newVariable = variableAllocator.newVariable(newSourceVariables.get(0), CANONICAL_DELIMITTER);
             outputVariables.add(newVariable);
             context.mapExpression(outputVariable, newVariable);
             outputsToInputs.put(newVariable, newSourceVariables);
@@ -743,7 +757,7 @@ public class CanonicalPlanGenerator
 
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();
         for (RowExpressionReference rowExpressionReference : rowExpressionReferences) {
-            VariableReferenceExpression reference = variableAllocator.newVariable(rowExpressionReference.getRowExpression());
+            VariableReferenceExpression reference = variableAllocator.newVariable(rowExpressionReference.getRowExpression(), CANONICAL_DELIMITTER);
             context.mapExpression(rowExpressionReference.getVariableReferenceExpression(), reference);
             assignments.put(reference, rowExpressionReference.getRowExpression());
         }
@@ -778,7 +792,7 @@ public class CanonicalPlanGenerator
                 .collect(toImmutableList());
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
         for (AggregationReference aggregationReference : aggregationReferences) {
-            VariableReferenceExpression reference = variableAllocator.newVariable(aggregationReference.getAggregation().getCall());
+            VariableReferenceExpression reference = variableAllocator.newVariable(aggregationReference.getAggregation().getCall(), CANONICAL_DELIMITTER);
             context.mapExpression(aggregationReference.getVariableReferenceExpression(), reference);
             aggregations.put(reference, aggregationReference.getAggregation());
         }
@@ -873,7 +887,7 @@ public class CanonicalPlanGenerator
                     .collect(toImmutableList()));
         }
 
-        VariableReferenceExpression groupId = variableAllocator.newVariable("groupid", INTEGER);
+        VariableReferenceExpression groupId = variableAllocator.newVariable("groupid", INTEGER, CANONICAL_DELIMITTER);
         context.mapExpression(node.getGroupIdVariable(), groupId);
 
         PlanNode canonicalPlan = new GroupIdNode(
@@ -905,7 +919,7 @@ public class CanonicalPlanGenerator
             VariableReferenceExpression input = (VariableReferenceExpression) inlineAndCanonicalize(context.getExpressions(), unnestVariable.getKey());
             ImmutableList.Builder<VariableReferenceExpression> newVariables = ImmutableList.builder();
             for (VariableReferenceExpression variable : unnestVariable.getValue()) {
-                VariableReferenceExpression newVariable = variableAllocator.newVariable(Optional.empty(), "unnest_field", variable.getType());
+                VariableReferenceExpression newVariable = variableAllocator.newVariable(Optional.empty(), "unnest_field", variable.getType(), CANONICAL_DELIMITTER);
                 context.mapExpression(variable, newVariable);
                 newVariables.add(newVariable);
             }
@@ -915,7 +929,7 @@ public class CanonicalPlanGenerator
         // Generate canonical ordinality variable
         Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable()
                 .map(variable -> {
-                    VariableReferenceExpression newVariable = variableAllocator.newVariable(Optional.empty(), "unnest_ordinality", variable.getType());
+                    VariableReferenceExpression newVariable = variableAllocator.newVariable(Optional.empty(), "unnest_ordinality", variable.getType(), CANONICAL_DELIMITTER);
                     context.mapExpression(variable, newVariable);
                     return newVariable;
                 });
@@ -948,7 +962,7 @@ public class CanonicalPlanGenerator
                 .collect(toImmutableList());
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();
         for (RowExpressionReference rowExpressionReference : rowExpressionReferences) {
-            VariableReferenceExpression reference = variableAllocator.newVariable(rowExpressionReference.getRowExpression());
+            VariableReferenceExpression reference = variableAllocator.newVariable(rowExpressionReference.getRowExpression(), CANONICAL_DELIMITTER);
             context.mapExpression(rowExpressionReference.getVariableReferenceExpression(), reference);
             assignments.put(reference, rowExpressionReference.getRowExpression());
         }
@@ -1115,7 +1129,8 @@ public class CanonicalPlanGenerator
         ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
         for (ColumnReference columnReference : columnReferences) {
-            VariableReferenceExpression reference = variableAllocator.newVariable(Optional.empty(), columnReference.getColumnHandle().toString(), columnReference.getVariableReferenceExpression().getType());
+            VariableReferenceExpression reference = variableAllocator.newVariable(Optional.empty(), columnReference.getColumnHandle().toString(),
+                    columnReference.getVariableReferenceExpression().getType(), CANONICAL_DELIMITTER);
             context.mapExpression(columnReference.getVariableReferenceExpression(), reference);
             outputVariables.add(reference);
             assignments.put(reference, columnReference.getColumnHandle());
@@ -1139,7 +1154,7 @@ public class CanonicalPlanGenerator
 
     private VariableReferenceExpression rename(VariableReferenceExpression variable, String nameHint, Context context)
     {
-        VariableReferenceExpression newVariable = variableAllocator.newVariable(Optional.empty(), nameHint, variable.getType());
+        VariableReferenceExpression newVariable = variableAllocator.newVariable(Optional.empty(), nameHint, variable.getType(), CANONICAL_DELIMITTER);
         context.mapExpression(variable, newVariable);
         return newVariable;
     }

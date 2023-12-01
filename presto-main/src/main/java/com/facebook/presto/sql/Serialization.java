@@ -38,8 +38,8 @@ import static java.lang.String.format;
 public final class Serialization
 {
     // for variable SerDe; variable names might contain "()"; use angle brackets to avoid conflict
-    private static final char VARIABLE_TYPE_OPEN_BRACKET = '<';
-    private static final char VARIABLE_TYPE_CLOSE_BRACKET = '>';
+    public static final char VARIABLE_TYPE_OPEN_BRACKET = '<';
+    public static final char VARIABLE_TYPE_CLOSE_BRACKET = '>';
 
     private Serialization() {}
 

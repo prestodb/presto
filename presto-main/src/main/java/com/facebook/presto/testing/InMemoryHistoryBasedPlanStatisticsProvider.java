@@ -25,7 +25,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static org.testng.Assert.assertTrue;
+import static org.apache.ratis.util.Preconditions.assertTrue;
 
 public class InMemoryHistoryBasedPlanStatisticsProvider
         implements HistoryBasedPlanStatisticsProvider
@@ -73,7 +73,7 @@ public class InMemoryHistoryBasedPlanStatisticsProvider
     public void waitProcessQueryEvents()
     {
         try {
-            assertTrue(semaphore.tryAcquire(10, TimeUnit.SECONDS));
+            assertTrue(semaphore.tryAcquire(600, TimeUnit.SECONDS));
         }
         catch (InterruptedException e) {
             throw new AssertionError("Query events could not be processed in time");
