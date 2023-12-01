@@ -21,7 +21,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "velox/expression/tests/ExpressionFuzzer.h"
+#include "velox/expression/tests/ExpressionFuzzerVerifier.h"
 #include "velox/functions/FunctionRegistry.h"
 
 /// FuzzerRunner leverages ExpressionFuzzer and VectorFuzzer to automatically
@@ -146,7 +146,8 @@ class FuzzerRunner {
       const std::string& specialForms) {
     auto signatures = facebook::velox::getFunctionSignatures();
     appendSpecialForms(specialForms, signatures);
-    facebook::velox::test::expressionFuzzer(
-        filterSignatures(signatures, onlyFunctions, skipFunctions), seed);
+    facebook::velox::test::ExpressionFuzzerVerifier(
+        filterSignatures(signatures, onlyFunctions, skipFunctions), seed)
+        .go();
   }
 };

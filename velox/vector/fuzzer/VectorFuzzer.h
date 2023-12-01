@@ -146,12 +146,12 @@ class VectorFuzzer {
   };
 
   VectorFuzzer(
-      VectorFuzzer::Options options,
+      const VectorFuzzer::Options& options,
       memory::MemoryPool* pool,
       size_t seed = 123456)
       : opts_(options), pool_(pool), rng_(seed) {}
 
-  void setOptions(VectorFuzzer::Options options) {
+  void setOptions(const VectorFuzzer::Options& options) {
     opts_ = options;
   }
 

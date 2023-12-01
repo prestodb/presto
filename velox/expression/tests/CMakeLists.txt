@@ -88,7 +88,8 @@ target_link_libraries(
   velox_expression_verifier velox_vector_test_lib velox_vector_fuzzer
   velox_type velox_expression_test_utility)
 
-add_library(velox_expression_fuzzer ExpressionFuzzer.cpp FuzzerRunner.cpp)
+add_library(velox_expression_fuzzer ExpressionFuzzer.cpp FuzzerRunner.cpp
+                                    ExpressionFuzzerVerifier.cpp)
 
 target_link_libraries(
   velox_expression_fuzzer

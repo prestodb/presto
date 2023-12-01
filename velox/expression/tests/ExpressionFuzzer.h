@@ -25,33 +25,86 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
-DECLARE_int32(velox_fuzzer_max_level_of_nesting);
-
 namespace facebook::velox::test {
 
-// Generates random expressions based on `signatures`, random input data (via
-// VectorFuzzer), and executes them.
-void expressionFuzzer(FunctionSignatureMap signatureMap, size_t seed);
-
+// A tool that can be used to generate random expressions.
 class ExpressionFuzzer {
  public:
+  struct Options {
+    // The maximum number of variadic arguments fuzzer will generate for
+    // functions that accept variadic arguments. Fuzzer will generate up to
+    // max_num_varargs arguments for the variadic list in addition to the
+    // required arguments by the function.
+    int32_t maxNumVarArgs = 5;
+
+    // Enable testing of function signatures with variadic arguments.
+    bool enableVariadicSignatures = false;
+
+    // Allow fuzzer to generate random expressions with dereference and
+    // row_constructor functions.
+    bool enableDereference = false;
+
+    // Enable testing of function signatures with complex argument or return
+    // types.
+    bool enableComplexTypes = false;
+
+    // Enable generation of expressions where one input column can be used by
+    // multiple subexpressions.
+    bool enableColumnReuse = false;
+
+    // Enable generation of expressions that re-uses already generated
+    // subexpressions.
+    bool enableExpressionReuse = false;
+
+    int32_t maxLevelOfNesting = 10;
+
+    //  Comma separated list of function names and their tickets in the format
+    //  <function_name>=<tickets>. Every ticket represents an opportunity for a
+    //  function to be chosen from a pool of candidates. By default, every
+    //  function has one ticket, and the likelihood of a function being picked
+    //  an be increased by allotting it more tickets. Note that in practice,
+    //  increasing the number of tickets does not proportionally increase the
+    //  likelihood of selection, as the selection process involves filtering the
+    //  pool of candidates by a required return type so not all functions may
+    //  compete against the same number of functions at every instance. Number
+    //  of tickets must be a positive integer. Example: eq=3,floor=5
+    std::string functionTickets = "";
+
+    // Chance of adding a null constant to the plan, or null value in a vector
+    // (expressed as double from 0 to 1).
+    double nullRatio = 0.1;
+  };
+
   ExpressionFuzzer(
-      FunctionSignatureMap signatureMap,
+      const FunctionSignatureMap& signatureMap,
       size_t initialSeed,
-      int32_t maxLevelOfNesting = FLAGS_velox_fuzzer_max_level_of_nesting);
+      const std::shared_ptr<VectorFuzzer>& vectorFuzzer,
+      const std::optional<ExpressionFuzzer::Options>& options = std::nullopt);
 
   template <typename TFunc>
   void registerFuncOverride(TFunc func, const std::string& name);
 
-  void go();
+  struct FuzzedExpressionData {
+    // A list of generated expressions.
+    std::vector<core::TypedExprPtr> expressions;
 
-  /// Return a random legit expression that returns returnType.
-  core::TypedExprPtr generateExpression(const TypePtr& returnType);
+    // The input vector type that is expected by the generated expressions.
+    RowTypePtr inputType;
+
+    // Count how many times each expression has been selected in expressions.
+    std::unordered_map<std::string, size_t> selectionStats;
+  };
+
+  /// Fuzz a set of expressions.
+  FuzzedExpressionData fuzzExpressions(size_t expressionCount);
+
+  // Fuzz a single expression and return it along with the input row type.
+  FuzzedExpressionData fuzzExpression();
 
   /// Used to enable re-use of sub-expressions by exposing an API that allows
   /// for randomly picking an expression that has a specific return type and a
-  /// nesting level less than or equal to a specified limit. It ensures that all
-  /// expressions that are valid candidates have an equal probability of
+  /// nesting level less than or equal to a specified limit. It ensures that
+  /// all expressions that are valid candidates have an equal probability of
   /// selection.
   class ExprBank {
    public:
@@ -87,72 +140,39 @@ class ExpressionFuzzer {
     /// Reference to the random generator of the expression fuzzer.
     FuzzerGenerator& rng_;
 
-    /// Only expression having less than or equal to this level of nesting will
-    /// be supported.
+    /// Only expression having less than or equal to this level of nesting
+    /// will be generated.
     int maxLevelOfNesting_;
 
-    /// Represents a vector where each index contains a list of expressions such
-    /// that the depth of each expression tree is equal to that index.
-    typedef std::vector<std::vector<core::TypedExprPtr>> ExprsIndexedByLevel;
+    /// Represents a vector where each index contains a list of expressions
+    /// such that the depth of each expression tree is equal to that index.
+    using ExprsIndexedByLevel = std::vector<std::vector<core::TypedExprPtr>>;
 
     /// Maps a 'Type' serialized as a string to an object of type
     /// ExprsIndexedByLevel
     std::unordered_map<std::string, ExprsIndexedByLevel> typeToExprsByLevel_;
   };
 
+  void seed(size_t seed);
+
+  const std::vector<std::string>& supportedFunctions() const {
+    return supportedFunctions_;
+  }
+
  private:
-  struct ExprUsageStats {
-    // Num of times the expression was randomly selected.
-    int numTimesSelected = 0;
-    // Num of rows processed by the expression.
-    int numProcessedRows = 0;
-  };
-
-  // A utility class used to keep track of stats relevant to the fuzzer.
-  class ExprStatsListener : public exec::ExprSetListener {
-   public:
-    explicit ExprStatsListener(
-        std::unordered_map<std::string, ExprUsageStats>& exprNameToStats)
-        : exprNameToStats_(exprNameToStats) {}
-
-    void onCompletion(
-        const std::string& /*uuid*/,
-        const exec::ExprSetCompletionEvent& event) override {
-      for (auto& [funcName, stats] : event.stats) {
-        auto itr = exprNameToStats_.find(funcName);
-        if (itr == exprNameToStats_.end()) {
-          // Skip expressions like FieldReference and ConstantExpr
-          continue;
-        }
-        itr->second.numProcessedRows += stats.numProcessedRows;
-      }
-    }
-
-    // A no-op since we cannot tie errors directly to functions where they
-    // occurred.
-    void onError(
-        const SelectivityVector& /*rows*/,
-        const ::facebook::velox::ErrorVector& /*errors*/,
-        const std::string& /*queryId*/) override {}
-
-   private:
-    std::unordered_map<std::string, ExprUsageStats>& exprNameToStats_;
-  };
-
-  const std::string kTypeParameterName = "T";
+  // Either generates a new expression of the required return type or if
+  // already generated expressions of the same return type exist then there is
+  // a 30% chance that it will re-use one of them.
+  core::TypedExprPtr generateExpression(const TypePtr& type);
 
   enum ArgumentKind { kArgConstant = 0, kArgColumn = 1, kArgExpression = 2 };
 
-  void seed(size_t seed);
-
-  void reSeed();
-
-  // Parse --assign_function_tickets startup flag into a map that maps function
-  // name to its number of tickets.
+  // Parse options.functionTickets into a map that maps function name to its
+  // number of tickets.
   void getTicketsForFunctions();
 
-  // Get tickets for one function assigned by the --assign_function_tickets
-  // flag. This function should be called after getTicketsForFunctions().
+  // Get tickets for one function assigned by the options.functionTickets
+  // option. This function should be called after getTicketsForFunctions().
   int getTickets(const std::string& funcName);
 
   // Add `funcName` that returns `type` to typeToExpressionList_.
@@ -162,13 +182,8 @@ class ExpressionFuzzer {
 
   void appendConjunctSignatures();
 
-  TypePtr generateRootType();
-
-  RowVectorPtr generateRowVector();
-
-  /// Randomize initial result vector data to test for correct null and data
-  /// setting in functions.
-  RowVectorPtr generateResultVectors(std::vector<core::TypedExprPtr>& plans);
+  // Generate a random return type.
+  TypePtr fuzzReturnType();
 
   core::TypedExprPtr generateArgConstant(const TypePtr& arg);
 
@@ -204,12 +219,12 @@ class ExpressionFuzzer {
   std::vector<core::TypedExprPtr> getArgsForCallable(
       const CallableSignature& callable);
 
-  /// Specialization for the "switch" function. Takes in a signature that is of
-  /// the form Switch (condition, then): boolean, T -> T where the type variable
-  /// is bounded to a randomly selected type. It randomly decides the number
-  /// of cases (upto a max of 5) to generate and whether to include the else
-  /// clause. Finally, uses the type specified in the signature to generate
-  /// inputs with that return type.
+  /// Specialization for the "switch" function. Takes in a signature that is
+  /// of the form Switch (condition, then): boolean, T -> T where the type
+  /// variable is bounded to a randomly selected type. It randomly decides the
+  /// number of cases (upto a max of 5) to generate and whether to include the
+  /// else clause. Finally, uses the type specified in the signature to
+  /// generate inputs with that return type.
   std::vector<core::TypedExprPtr> generateSwitchArgs(
       const CallableSignature& input);
 
@@ -217,44 +232,31 @@ class ExpressionFuzzer {
       const CallableSignature& callable,
       const TypePtr& type);
 
-  /// Executes two steps:
-  /// #1. Retries executing the expression in `plan` by wrapping it in a `try()`
-  ///     clause and expecting it not to throw an exception.
-  /// #2. Re-execute the expression only on rows that produced non-NULL values
-  ///     in the previous step.
-  ///
-  /// Throws in case any of these steps fail.
-  void retryWithTry(
-      std::vector<core::TypedExprPtr> plans,
-      const RowVectorPtr& rowVector,
-      const VectorPtr& resultVectors,
-      const std::vector<int>& columnsToWrapInLazy);
-
-  /// Return a random signature mapped to functionName in expressionToSignature_
-  /// whose return type can match returnType. Return nullptr if no such
-  /// signature template exists.
+  /// Return a random signature mapped to functionName in
+  /// expressionToSignature_ whose return type can match returnType. Return
+  /// nullptr if no such signature template exists.
   const CallableSignature* chooseRandomConcreteSignature(
       const TypePtr& returnType,
       const std::string& functionName);
 
-  /// Generate an expression by randomly selecting a concrete function signature
-  /// that returns 'returnType' among all signatures that the function named
-  /// 'functionName' supports.
+  /// Generate an expression by randomly selecting a concrete function
+  /// signature that returns 'returnType' among all signatures that the
+  /// function named 'functionName' supports.
   core::TypedExprPtr generateExpressionFromConcreteSignatures(
       const TypePtr& returnType,
       const std::string& functionName);
 
-  /// Return a random signature template mapped to typeName and functionName in
-  /// expressionToTemplatedSignature_ whose return type can match returnType.
-  /// Return nullptr if no such signature template exists.
+  /// Return a random signature template mapped to typeName and functionName
+  /// in expressionToTemplatedSignature_ whose return type can match
+  /// returnType. Return nullptr if no such signature template exists.
   const SignatureTemplate* chooseRandomSignatureTemplate(
       const TypePtr& returnType,
       const std::string& typeName,
       const std::string& functionName);
 
-  /// Generate an expression by randomly selecting a function signature template
-  /// that returns 'returnType' among all signature templates that the function
-  /// named 'functionName' supports.
+  /// Generate an expression by randomly selecting a function signature
+  /// template that returns 'returnType' among all signature templates that
+  /// the function named 'functionName' supports.
   core::TypedExprPtr generateExpressionFromSignatureTemplate(
       const TypePtr& returnType,
       const std::string& functionName);
@@ -280,31 +282,14 @@ class ExpressionFuzzer {
   // `returnType`.
   core::TypedExprPtr generateDereferenceExpression(const TypePtr& returnType);
 
-  /// If --duration_sec > 0, check if we expired the time budget. Otherwise,
-  /// check if we expired the number of iterations (--steps).
-  template <typename T>
-  bool isDone(size_t i, T startTime) const;
-
-  /// Reset any stateful members. Should be called before every fuzzer
-  /// iteration.
-  void reset();
-
   /// Should be called whenever a function is selected by the fuzzer.
   void markSelected(const std::string& funcName) {
-    exprNameToStats_[funcName].numTimesSelected++;
+    state.expressionStats_[funcName]++;
   }
 
-  /// Called at the end of a successful fuzzer run. It logs the top and bottom
-  /// 10 functions based on the num of rows processed by them. Also logs a full
-  /// list of all functions sorted in descending order by the num of times they
-  /// were selected by the fuzzer. Every logged function contains the
-  /// information in the following format which can be easily exported to a
-  /// spreadsheet for further analysis: functionName numTimesSelected
-  /// proportionOfTimesSelected numProcessedRows.
-  void logStats();
+  const std::string kTypeParameterName = "T";
 
-  FuzzerGenerator rng_;
-  size_t currentSeed_{0};
+  Options options_;
 
   std::vector<CallableSignature> signatures_;
   std::vector<SignatureTemplate> signatureTemplates_;
@@ -316,18 +301,18 @@ class ExpressionFuzzer {
       typeToExpressionList_;
 
   /// Maps the base name of a *concrete* return type signature to the function
-  /// names that support that return type. Those names then each further map to
-  /// a list of CallableSignature objects that they support. Base name could be
-  /// "T" if the return type is a type variable.
+  /// names that support that return type. Those names then each further map
+  /// to a list of CallableSignature objects that they support. Base name
+  /// could be "T" if the return type is a type variable.
   std::unordered_map<
       std::string,
       std::unordered_map<std::string, std::vector<const CallableSignature*>>>
       expressionToSignature_;
 
-  /// Maps the base name of a *templated* return type signature to the function
-  /// names that support that return type. Those names then each further map to
-  /// a list of SignatureTemplate objects that they support. Base name could be
-  /// "T" if the return type is a type variable.
+  /// Maps the base name of a *templated* return type signature to the
+  /// function names that support that return type. Those names then each
+  /// further map to a list of SignatureTemplate objects that they support.
+  /// Base name could be "T" if the return type is a type variable.
   std::unordered_map<
       std::string,
       std::unordered_map<std::string, std::vector<const SignatureTemplate*>>>
@@ -337,41 +322,58 @@ class ExpressionFuzzer {
   // --assign_function_tickets startup flag .
   std::unordered_map<std::string, int> functionsToTickets_;
 
-  /// The remaining levels of expression nesting. It's initialized by
-  /// FLAGS_max_level_of_nesting and updated in generateExpression(). When its
-  /// value decreases to 0, we don't generate subexpressions anymore.
-  int32_t remainingLevelOfNesting_;
-
   /// We allow the arg generation routine to be specialized for particular
   /// functions. This map stores the mapping between function name and the
   /// overridden method.
   using ArgsOverrideFunc = std::function<std::vector<core::TypedExprPtr>(
       const CallableSignature& input)>;
+
   std::unordered_map<std::string, ArgsOverrideFunc> funcArgOverrides_;
 
-  std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
-  core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
-  test::ExpressionVerifier verifier_;
+  std::shared_ptr<VectorFuzzer> vectorFuzzer_;
 
-  test::VectorMaker vectorMaker_{execCtx_.pool()};
-  VectorFuzzer vectorFuzzer_;
+  FuzzerGenerator rng_;
 
-  /// Contains the input column references that need to be generated for one
-  /// particular iteration.
-  std::vector<TypePtr> inputRowTypes_;
-  std::vector<std::string> inputRowNames_;
+  std::vector<std::string> supportedFunctions_;
 
-  /// Maps a 'Type' serialized as a string to the column names that have already
-  /// been generated. Used to easily look up columns that can be re-used when a
-  /// specific type is required as input to a callable.
-  std::unordered_map<std::string, std::vector<std::string>> typeToColumnNames_;
+  struct State {
+    void reset() {
+      inputRowTypes_.clear();
+      inputRowNames_.clear();
+      typeToColumnNames_.clear();
+      expressionBank_.reset();
+      expressionStats_.clear();
+    }
 
-  /// Used to track all generated expressions and support expreesion re-use.
-  ExprBank expressionBank_;
+    State(FuzzerGenerator& rng, int maxLevelOfNesting)
+        : expressionBank_(rng, maxLevelOfNesting),
+          remainingLevelOfNesting_(maxLevelOfNesting) {}
 
-  std::shared_ptr<ExprStatsListener> statListener_;
-  std::unordered_map<std::string, ExprUsageStats> exprNameToStats_;
+    /// Used to track all generated expressions within a single iteration and
+    /// support expression re-use.
+    ExprBank expressionBank_;
+
+    /// Contains the types and names of the input vector that the generated
+    /// expressions consume.
+    std::vector<TypePtr> inputRowTypes_;
+    std::vector<std::string> inputRowNames_;
+
+    // Count how many times each function has been selected.
+    std::unordered_map<std::string, size_t> expressionStats_;
+
+    /// Maps a 'Type' serialized as a string to the column names that have
+    /// already been generated. Used to easily look up columns that can be
+    /// re-used when a specific type is required as input to a callable.
+    std::unordered_map<std::string, std::vector<std::string>>
+        typeToColumnNames_;
+
+    /// The remaining levels of expression nesting. It's initialized by
+    /// FLAGS_max_level_of_nesting and updated in generateExpression(). When its
+    /// value decreases to 0, we don't generate subexpressions anymore.
+    int32_t remainingLevelOfNesting_;
+
+  } state;
+  friend class ExpressionFuzzerUnitTest;
 };
 
 } // namespace facebook::velox::test
