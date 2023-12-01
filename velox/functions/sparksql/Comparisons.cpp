@@ -103,7 +103,7 @@ class BoolComparisonFunction final : public exec::VectorFunction {
                       ->template mutableRawValues<uint64_t>();
       rows.applyToSelected([&](vector_size_t i) {
         flatResult->set(
-            i, cmp(bits::isBitSet(rawA, i), bits::isBitSet(rawA, i)));
+            i, cmp(bits::isBitSet(rawA, i), bits::isBitSet(rawB, i)));
       });
     } else if (args[0]->isConstantEncoding() && args[1]->isFlatEncoding()) {
       // Fast path for (const, flat).
