@@ -57,11 +57,11 @@ public class NativeExecutionSystemConfig
     private static final String HTTPS_KEY_PATH = "https-key-path";
 
     // TODO: others use "-" separator and this property use _ separator. Fix them.
-    private static final String HTTP_EXEC_THREADS = "http_exec_threads";
-    private static final String NUM_IO_THREADS = "num-io-threads";
+    private static final String HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER = "http-server.num-io-threads-hw-multiplier";
+    private static final String EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER = "exchange.http-client.num-io-threads-hw-multiplier";
     private static final String ASYNC_DATA_CACHE_ENABLED = "async-data-cache-enabled";
     private static final String ASYNC_CACHE_SSD_GB = "async-cache-ssd-gb";
-    private static final String NUM_CONNECTOR_IO_THREADS = "num-connector-io-threads";
+    private static final String CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER = "connector.num-io-threads-hw-multiplier";
     private static final String PRESTO_VERSION = "presto.version";
     private static final String SHUTDOWN_ONSET_SEC = "shutdown-onset-sec";
     // Memory related configurations.
@@ -105,16 +105,16 @@ public class NativeExecutionSystemConfig
     private boolean enableVeloxTaskLogging = true;
     private boolean httpServerReusePort = true;
     private int httpServerPort = 7777;
-    private int httpExecThreads = 32;
+    private double httpServerNumIoThreadsHwMultiplier = 1.0;
     private int httpsServerPort = 7778;
     private boolean enableHttpsCommunication;
     private String httpsCiphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
     private String httpsCertPath = "";
     private String httpsKeyPath = "";
-    private int numIoThreads = 30;
+    private double exchangeHttpClientNumIoThreadsHwMultiplier = 1.0;
     private boolean asyncDataCacheEnabled; // false
     private int asyncCacheSsdGb; // 0
-    private int numConnectorIoThreads; // 0
+    private double connectorNumIoThreadsHwMultiplier; // 0.0
     private int shutdownOnsetSec = 10;
     private int systemMemoryGb = 10;
     // Reserve 2GB from system memory for system operations such as disk
@@ -149,11 +149,11 @@ public class NativeExecutionSystemConfig
                 .put(HTTPS_CIPHERS, String.valueOf(getHttpsCiphers()))
                 .put(HTTPS_CERT_PATH, String.valueOf(getHttpsCertPath()))
                 .put(HTTPS_KEY_PATH, String.valueOf(getHttpsKeyPath()))
-                .put(HTTP_EXEC_THREADS, String.valueOf(getHttpExecThreads()))
-                .put(NUM_IO_THREADS, String.valueOf(getNumIoThreads()))
+                .put(HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER, String.valueOf(getHttpServerNumIoThreadsHwMultiplier()))
+                .put(EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER, String.valueOf(getExchangeHttpClientNumIoThreadsHwMultiplier()))
                 .put(ASYNC_DATA_CACHE_ENABLED, String.valueOf(getAsyncDataCacheEnabled()))
                 .put(ASYNC_CACHE_SSD_GB, String.valueOf(getAsyncCacheSsdGb()))
-                .put(NUM_CONNECTOR_IO_THREADS, String.valueOf(getNumConnectorIoThreads()))
+                .put(CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER, String.valueOf(getConnectorNumIoThreadsHwMultiplier()))
                 .put(PRESTO_VERSION, getPrestoVersion())
                 .put(SHUTDOWN_ONSET_SEC, String.valueOf(getShutdownOnsetSec()))
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
@@ -255,16 +255,16 @@ public class NativeExecutionSystemConfig
         return registerTestFunctions;
     }
 
-    @Config(HTTP_EXEC_THREADS)
-    public NativeExecutionSystemConfig setHttpExecThreads(int httpExecThreads)
+    @Config(HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER)
+    public NativeExecutionSystemConfig setHttpServerNumIoThreadsHwMultiplier(double httpServerNumIoThreadsHwMultiplier)
     {
-        this.httpExecThreads = httpExecThreads;
+        this.httpServerNumIoThreadsHwMultiplier = httpServerNumIoThreadsHwMultiplier;
         return this;
     }
 
-    public int getHttpExecThreads()
+    public double getHttpServerNumIoThreadsHwMultiplier()
     {
-        return httpExecThreads;
+        return httpServerNumIoThreadsHwMultiplier;
     }
 
     public int getHttpsServerPort()
@@ -327,16 +327,16 @@ public class NativeExecutionSystemConfig
         return this;
     }
 
-    @Config(NUM_IO_THREADS)
-    public NativeExecutionSystemConfig setNumIoThreads(int numIoThreads)
+    @Config(EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER)
+    public NativeExecutionSystemConfig setExchangeHttpClientNumIoThreadsHwMultiplier(double exchangeHttpClientNumIoThreadsHwMultiplier)
     {
-        this.numIoThreads = numIoThreads;
+        this.exchangeHttpClientNumIoThreadsHwMultiplier = exchangeHttpClientNumIoThreadsHwMultiplier;
         return this;
     }
 
-    public int getNumIoThreads()
+    public double getExchangeHttpClientNumIoThreadsHwMultiplier()
     {
-        return numIoThreads;
+        return exchangeHttpClientNumIoThreadsHwMultiplier;
     }
 
     @Config(ASYNC_DATA_CACHE_ENABLED)
@@ -363,16 +363,16 @@ public class NativeExecutionSystemConfig
         return asyncCacheSsdGb;
     }
 
-    @Config(NUM_CONNECTOR_IO_THREADS)
-    public NativeExecutionSystemConfig setNumConnectorIoThreads(int numConnectorIoThreads)
+    @Config(CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER)
+    public NativeExecutionSystemConfig setConnectorNumIoThreadsHwMultiplier(double connectorNumIoThreadsHwMultiplier)
     {
-        this.numConnectorIoThreads = numConnectorIoThreads;
+        this.connectorNumIoThreadsHwMultiplier = connectorNumIoThreadsHwMultiplier;
         return this;
     }
 
-    public int getNumConnectorIoThreads()
+    public double getConnectorNumIoThreadsHwMultiplier()
     {
-        return numConnectorIoThreads;
+        return connectorNumIoThreadsHwMultiplier;
     }
 
     @Config(SHUTDOWN_ONSET_SEC)

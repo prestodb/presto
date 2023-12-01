@@ -186,12 +186,26 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
 
-  /// Number of threads for async io. Disabled if zero.
-  static constexpr std::string_view kNumIoThreads{"num-io-threads"};
-  static constexpr std::string_view kNumConnectorIoThreads{
-      "num-connector-io-threads"};
-  static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
-  static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
+  /// Floating point number used in calculating how many threads we would use
+  /// for IO executor for connectors mainly to do preload/prefetch:
+  /// hw_concurrency x multiplier.
+  /// If 0.0 then connector preload/prefetch is disabled.
+  /// 0.0 is default.
+  static constexpr std::string_view kConnectorNumIoThreadsHwMultiplier{
+      "connector.num-io-threads-hw-multiplier"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for Driver CPU executor: hw_concurrency x multiplier. 4.0 is default.
+  static constexpr std::string_view kDriverNumCpuThreadsHwMultiplier{
+      "driver.num-cpu-threads-hw-multiplier"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for Spiller CPU executor: hw_concurrency x multiplier.
+  /// If 0.0 then spilling is disabled.
+  /// 1.0 is default.
+  static constexpr std::string_view kSpillerNumCpuThreadsHwMultiplier{
+      "spiller.num-cpu-threads-hw-multiplier"};
+
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
@@ -335,6 +349,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeEnableConnectionPool{
       "exchange.http-client.enable-connection-pool"};
 
+  /// Floating point number used in calculating how many threads we would use
+  /// for Exchange HTTP client IO executor: hw_concurrency x multiplier.
+  /// 1.0 is default.
+  static constexpr std::string_view kExchangeHttpClientNumIoThreadsHwMultiplier{
+      "exchange.http-client.num-io-threads-hw-multiplier"};
+
   /// The maximum timeslice for a task on thread if there are threads queued.
   static constexpr std::string_view kTaskRunTimeSliceMicros{
       "task-run-timeslice-micros"};
@@ -442,19 +462,17 @@ class SystemConfig : public ConfigBase {
 
   int32_t concurrentLifespansPerTask() const;
 
-  double numHttpIoThreadsHwMultiplier() const;
+  double httpServerNumIoThreadsHwMultiplier() const;
 
-  double numHttpCpuThreadsHwMultiplier() const;
+  double httpServerNumCpuThreadsHwMultiplier() const;
 
-  /// Size of global IO executor.
-  int32_t numIoThreads() const;
+  double exchangeHttpClientNumIoThreadsHwMultiplier() const;
 
-  /// Size of IO executor for connectors to do preload/prefetch
-  int32_t numConnectorIoThreads() const;
+  double connectorNumIoThreadsHwMultiplier() const;
 
-  int32_t numQueryThreads() const;
+  double driverNumCpuThreadsHwMultiplier() const;
 
-  int32_t numSpillThreads() const;
+  double spillerNumCpuThreadsHwMultiplier() const;
 
   folly::Optional<std::string> spillerSpillPath() const;
 

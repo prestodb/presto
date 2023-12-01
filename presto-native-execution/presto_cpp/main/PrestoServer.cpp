@@ -305,8 +305,12 @@ void PrestoServer::run() {
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
+  const auto numExchangeHttpClientIoThreads = std::max<size_t>(
+      systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      1);
   exchangeHttpExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
-      systemConfig->numIoThreads(),
+      numExchangeHttpClientIoThreads,
       std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
 
   PRESTO_STARTUP_LOG(INFO) << "Exchange Http IO executor '"
@@ -553,27 +557,30 @@ void PrestoServer::yieldTasks() {
 }
 
 void PrestoServer::initializeThreadPools() {
+  const auto hwConcurrency = std::thread::hardware_concurrency();
   auto* systemConfig = SystemConfig::instance();
+
+  const auto numDriverCpuThreads = std::max<size_t>(
+      systemConfig->driverNumCpuThreadsHwMultiplier() * hwConcurrency, 1);
   driverExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
-      systemConfig->numQueryThreads(),
+      numDriverCpuThreads,
       std::make_shared<folly::NamedThreadFactory>("Driver"));
 
-  const auto hwConcurrency = std::thread::hardware_concurrency();
-
   const auto numIoThreads = std::max<size_t>(
-      systemConfig->numHttpIoThreadsHwMultiplier() * hwConcurrency, 1);
+      systemConfig->httpServerNumIoThreadsHwMultiplier() * hwConcurrency, 1);
   httpSrvIOExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
       numIoThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
 
   const auto numCpuThreads = std::max<size_t>(
-      systemConfig->numHttpCpuThreadsHwMultiplier() * hwConcurrency, 1);
+      systemConfig->httpServerNumCpuThreadsHwMultiplier() * hwConcurrency, 1);
   httpSrvCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
       numCpuThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
 
-  const int32_t numSpillThreads = systemConfig->numSpillThreads();
-  if (numSpillThreads > 0) {
+  const auto numSpillerCpuThreads = std::max<size_t>(
+      systemConfig->spillerNumCpuThreadsHwMultiplier() * hwConcurrency, 0);
+  if (numSpillerCpuThreads > 0) {
     spillerExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
-        numSpillThreads,
+        numSpillerCpuThreads,
         std::make_shared<folly::NamedThreadFactory>("Spiller"));
   }
 }
@@ -754,18 +761,21 @@ std::vector<std::string> PrestoServer::registerConnectors(
     const fs::path& configDirectoryPath) {
   static const std::string kPropertiesExtension = ".properties";
 
-  const auto numConnectorIoThreads =
-      SystemConfig::instance()->numConnectorIoThreads();
-  if (numConnectorIoThreads) {
-    connectorIoExecutor_ =
-        std::make_unique<folly::IOThreadPoolExecutor>(numConnectorIoThreads);
+  const auto numConnectorIoThreads = std::max<size_t>(
+      SystemConfig::instance()->connectorNumIoThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      0);
+  if (numConnectorIoThreads > 0) {
+    connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
+        numConnectorIoThreads,
+        std::make_shared<folly::NamedThreadFactory>("Connector"));
 
     PRESTO_STARTUP_LOG(INFO)
         << "Connector IO executor has " << connectorIoExecutor_->numThreads()
         << " threads.";
   }
-  std::vector<std::string> catalogNames;
 
+  std::vector<std::string> catalogNames;
   for (const auto& entry :
        fs::directory_iterator(configDirectoryPath / "catalog")) {
     if (entry.path().extension() == kPropertiesExtension) {
