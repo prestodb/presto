@@ -166,5 +166,36 @@ TEST_F(FindFirstTest, predicateFailures) {
   verify("find_first_index(c0, -3, x -> (10 / x > 2))", data, expected);
 }
 
+// Verify that null arrays with non-zero offsets/sizes are processed correctly.
+TEST_F(FindFirstTest, nulls) {
+  auto data = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2, 3]",
+          "[-1, 2]",
+          "[-2, -3, -4]",
+          "[-5, -6]",
+      }),
+  });
+
+  // find_first: x > 0.
+  VectorPtr expected =
+      makeNullableFlatVector<int32_t>({1, 2, std::nullopt, std::nullopt});
+  verify("find_first(c0, x -> (x > 0))", data, expected);
+
+  // Mark [-1, 2] array as null. Expect null result.
+  data->childAt(0)->setNull(1, true);
+  expected = makeNullableFlatVector<int32_t>(
+      {1, std::nullopt, std::nullopt, std::nullopt});
+  verify("find_first(c0, x -> (x > 0))", data, expected);
+
+  // Mark all arrays null. Expect all-null results.
+  for (auto i = 0; i < data->size(); ++i) {
+    data->childAt(0)->setNull(i, true);
+  }
+
+  expected = makeAllNullFlatVector<int32_t>(data->size());
+  verify("find_first(c0, x -> (x > 0))", data, expected);
+}
+
 } // namespace
 } // namespace facebook::velox::functions

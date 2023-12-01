@@ -66,6 +66,7 @@ class FindFirstFunctionBase : public exec::VectorFunction {
       exec::EvalCtx& context,
       THit onHit,
       TMiss onMiss) const {
+    const auto* rawNulls = flatArray->rawNulls();
     const auto* rawOffsets = flatArray->rawOffsets();
     const auto* rawSizes = flatArray->rawSizes();
 
@@ -88,8 +89,14 @@ class FindFirstFunctionBase : public exec::VectorFunction {
     // in most cases there will be only one function and the loop will run once.
     auto it = predicates.iterator(&rows);
     while (auto entry = it.next()) {
-      auto elementRows =
-          toElementRows(numElements, *entry.rows, rawOffsets, rawSizes);
+      auto elementRows = toElementRows(
+          numElements, *entry.rows, rawNulls, rawOffsets, rawSizes);
+      if (!elementRows.hasSelections()) {
+        // All arrays are NULL or empty.
+        entry.rows->applyToSelected([&](vector_size_t row) { onMiss(row); });
+        continue;
+      }
+
       auto wrapCapture = toWrapCapture<ArrayVector>(
           numElements, entry.callable, *entry.rows, flatArray);
 
@@ -105,7 +112,10 @@ class FindFirstFunctionBase : public exec::VectorFunction {
 
       bitsDecoder.get()->decode(*matchBits, elementRows);
       entry.rows->applyToSelected([&](vector_size_t row) {
-        if (auto firstMatchingIndex = findFirstMatch(
+        if (rawNulls != nullptr && bits::isBitNull(rawNulls, row)) {
+          onMiss(row);
+        } else if (
+            auto firstMatchingIndex = findFirstMatch(
                 context,
                 row,
                 rawOffsets[row],
@@ -182,11 +192,16 @@ class FindFirstFunctionBase : public exec::VectorFunction {
   static SelectivityVector toElementRows(
       vector_size_t numElements,
       const SelectivityVector& arrayRows,
+      const uint64_t* rawNulls,
       const vector_size_t* rawOffsets,
       const vector_size_t* rawSizes) {
     SelectivityVector elementRows(numElements, false);
 
     arrayRows.applyToSelected([&](auto arrayRow) {
+      if (rawNulls != nullptr && bits::isBitNull(rawNulls, arrayRow)) {
+        return;
+      }
+
       const auto offset = rawOffsets[arrayRow];
       const auto size = rawSizes[arrayRow];
 
