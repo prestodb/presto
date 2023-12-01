@@ -25,13 +25,13 @@ namespace facebook::velox {
 namespace {
 
 #define VELOX_BENCHMARK(_type, _name, ...) \
-  _type _name(FOLLY_PP_STRINGIZE(_name), __VA_ARGS__)
+  FOLLY_MAYBE_UNUSED _type _name(FOLLY_PP_STRINGIZE(_name), __VA_ARGS__)
 
 template <typename T>
 class LeadingMask {
  public:
   LeadingMask(const char* name, std::default_random_engine& gen) {
-    std::uniform_int_distribution<> dist(xsimd::batch<T>::size + 1);
+    std::uniform_int_distribution<> dist(0, xsimd::batch<T>::size + 1);
     for (int i = 0; i < kSize; ++i) {
       inputs_[i] = dist(gen);
     }
@@ -52,6 +52,32 @@ class LeadingMask {
   int8_t inputs_[kSize];
 };
 
+template <typename T>
+class FromBitMask {
+ public:
+  FromBitMask(const char* name, std::default_random_engine& gen) {
+    std::uniform_int_distribution<uint64_t> dist(
+        0, (1ull << xsimd::batch<T>::size) - 1);
+    for (int i = 0; i < kSize; ++i) {
+      inputs_[i] = dist(gen);
+    }
+    folly::addBenchmark(__FILE__, name, [this] { return run(); });
+  }
+
+ private:
+  unsigned run() {
+    xsimd::batch_bool<T> ans = {};
+    for (int i = 0; i < kSize; ++i) {
+      ans = ans ^ simd::fromBitMask<T>(inputs_[i]);
+    }
+    folly::doNotOptimizeAway(ans);
+    return kSize;
+  }
+
+  static constexpr int kSize = 2 << 10;
+  uint64_t inputs_[kSize];
+};
+
 } // namespace
 } // namespace facebook::velox
 
@@ -61,6 +87,8 @@ int main(int argc, char* argv[]) {
   std::default_random_engine gen(std::random_device{}());
   VELOX_BENCHMARK(LeadingMask<int32_t>, leadingMaskInt32, gen);
   VELOX_BENCHMARK(LeadingMask<int64_t>, leadingMaskInt64, gen);
+  VELOX_BENCHMARK(FromBitMask<int32_t>, fromBitMaskInt32, gen);
+  VELOX_BENCHMARK(FromBitMask<int64_t>, fromBitMaskInt64, gen);
   folly::runBenchmarks();
   return 0;
 }

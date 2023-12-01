@@ -55,6 +55,9 @@ alignas(kPadding) int32_t permute4x64Indices[16][8];
 const LeadingMask<int32_t, xsimd::default_arch> leadingMask32;
 const LeadingMask<int64_t, xsimd::default_arch> leadingMask64;
 
+const FromBitMask<int32_t, xsimd::default_arch> fromBitMask32;
+const FromBitMask<int64_t, xsimd::default_arch> fromBitMask64;
+
 } // namespace detail
 
 namespace {
