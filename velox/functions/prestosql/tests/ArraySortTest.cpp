@@ -550,6 +550,19 @@ TEST_F(ArraySortTest, lambda) {
       "(x, y) -> if(length(x) < length(y), 1, if(length(x) = length(y), 0, -1))");
 }
 
+TEST_F(ArraySortTest, unsupporteLambda) {
+  auto data = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2, 3, 4]",
+          "[1, 2, 3]",
+      }),
+  });
+
+  VELOX_ASSERT_THROW(
+      evaluate("array_sort(c0, (a, b) -> 0)", data),
+      "array_sort with comparator lambda that cannot be rewritten into a transform is not supported");
+}
+
 TEST_F(ArraySortTest, failOnMapTypeSort) {
   static const std::string kErrorMessage =
       "Scalar function signature is not supported"_sv;
