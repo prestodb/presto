@@ -84,6 +84,14 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``postgresql`` in the above examples.
 
+Tables with Unsupported Columns
+-------------------------------
+
+If you query a PostgreSQL table with the Presto connector, and the table either has no supported columns or contains
+only unsupported data types, Presto returns an error similar to the following example:
+
+``Query 20231120_102910_00004_35dqb failed: Table 'public.unsupported_type_table' has no supported columns (all 1 columns are not supported).``
+
 PostgreSQL Connector Limitations
 --------------------------------
 
