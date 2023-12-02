@@ -28,6 +28,7 @@
 
 #include <glog/logging.h>
 #include "folly/Preprocessor.h"
+#include "folly/container/F14Map.h"
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/Metaprogramming.h"
@@ -47,7 +48,7 @@ template <class KeyType, class FunctionSignature>
 class Registry {
  public:
   using Creator = std::function<FunctionSignature>;
-  using CreatorMap = std::unordered_map<KeyType, Creator>;
+  using CreatorMap = folly::F14NodeMap<KeyType, Creator>;
 
   Registry() : Create(creatorMap_) {}
 
