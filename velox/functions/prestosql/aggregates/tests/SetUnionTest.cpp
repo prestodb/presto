@@ -225,5 +225,104 @@ TEST_F(SetUnionTest, groupBy) {
       {expected});
 }
 
+TEST_F(SetUnionTest, inputOrder) {
+  // Presto preserves order of input.
+
+  auto testInputOrder = [&](const RowVectorPtr& data,
+                            const RowVectorPtr& expected) {
+    auto plan = exec::test::PlanBuilder()
+                    .values({data})
+                    .singleAggregation({}, {"set_union(c0)"})
+                    .planNode();
+    assertQuery(plan, expected);
+  };
+
+  auto data = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[]",
+          "[1, 2, 3]",
+          "[1, 2, null]",
+          "[2, 3, 4, 5]",
+          "[6, 7]",
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeNullableArrayVector<int32_t>({
+          {1, 2, 3, std::nullopt, 4, 5, 6, 7},
+      }),
+  });
+
+  testInputOrder(data, expected);
+
+  // Strings.
+  data = makeRowVector({
+      makeNullableArrayVector<StringView>({
+          {},
+          {"abc", "bxy", "cde"},
+          {"abc", "bxy"},
+          {"cdef", "hijk", std::nullopt},
+          {"abc", "some very long string to test long strings"},
+      }),
+  });
+
+  expected = makeRowVector({
+      makeNullableArrayVector<StringView>({
+          {"abc",
+           "bxy",
+           "cde",
+           "cdef",
+           "hijk",
+           std::nullopt,
+           "some very long string to test long strings"},
+      }),
+  });
+
+  testInputOrder(data, expected);
+
+  // Complex types.
+
+  data = makeRowVector({makeNestedArrayVectorFromJson<int32_t>(
+      {"[[1,2], [5, 6], null]", "[[3,4], [7, 8], null]"})});
+
+  expected = makeRowVector({makeNestedArrayVectorFromJson<int32_t>(
+      {"[[1,2], [5, 6], null, [3,4], [7, 8]]"})});
+
+  testInputOrder(data, expected);
+
+  // Group by.
+  data = makeRowVector({
+      makeFlatVector<int16_t>({
+          1,
+          2,
+          1,
+          2,
+          1,
+      }),
+      makeArrayVectorFromJson<int32_t>({
+          "[]",
+          "[1, 2, 3]",
+          "[1, 2, null]",
+          "[2, 3, 4, 5]",
+          "[6, 7]",
+      }),
+  });
+
+  expected = makeRowVector({
+      makeFlatVector<int16_t>({1, 2}),
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2, null, 6, 7]",
+          "[1, 2, 3, 4, 5]",
+      }),
+  });
+
+  auto plan = exec::test::PlanBuilder()
+                  .values({data})
+                  .singleAggregation({"c0"}, {"set_union(c1)"})
+                  .planNode();
+
+  assertQuery(plan, expected);
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

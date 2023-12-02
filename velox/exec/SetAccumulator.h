@@ -34,24 +34,41 @@ template <
     typename Hash = std::hash<T>,
     typename EqualTo = std::equal_to<T>>
 struct SetAccumulator {
-  bool hasNull{false};
-  folly::F14FastSet<T, Hash, EqualTo, AlignedStlAllocator<T, 16>> uniqueValues;
+  std::optional<vector_size_t> nullIndex;
+
+  folly::F14FastMap<
+      T,
+      int32_t,
+      Hash,
+      EqualTo,
+      AlignedStlAllocator<std::pair<const T, vector_size_t>, 16>>
+      uniqueValues;
 
   SetAccumulator(const TypePtr& /*type*/, HashStringAllocator* allocator)
-      : uniqueValues{AlignedStlAllocator<T, 16>(allocator)} {}
+      : uniqueValues{AlignedStlAllocator<std::pair<const T, vector_size_t>, 16>(
+            allocator)} {}
 
   SetAccumulator(Hash hash, EqualTo equalTo, HashStringAllocator* allocator)
-      : uniqueValues{0, hash, equalTo, AlignedStlAllocator<T, 16>(allocator)} {}
+      : uniqueValues{
+            0,
+            hash,
+            equalTo,
+            AlignedStlAllocator<std::pair<const T, vector_size_t>, 16>(
+                allocator)} {}
 
   /// Adds value if new. No-op if the value was added before.
   void addValue(
       const DecodedVector& decoded,
       vector_size_t index,
       HashStringAllocator* /*allocator*/) {
+    const auto cnt = uniqueValues.size();
     if (decoded.isNullAt(index)) {
-      hasNull = true;
+      if (!nullIndex.has_value()) {
+        nullIndex = cnt;
+      }
     } else {
-      uniqueValues.insert(decoded.valueAt<T>(index));
+      uniqueValues.insert(
+          {decoded.valueAt<T>(index), nullIndex.has_value() ? cnt + 1 : cnt});
     }
   }
 
@@ -71,22 +88,22 @@ struct SetAccumulator {
 
   /// Returns number of unique values including null.
   size_t size() const {
-    return uniqueValues.size() + (hasNull ? 1 : 0);
+    return uniqueValues.size() + (nullIndex.has_value() ? 1 : 0);
   }
 
   /// Copies the unique values and null into the specified vector starting at
   /// the specified offset.
   vector_size_t extractValues(FlatVector<T>& values, vector_size_t offset) {
-    vector_size_t index = offset;
     for (auto value : uniqueValues) {
-      values.set(index++, value);
+      values.set(offset + value.second, value.first);
     }
 
-    if (hasNull) {
-      values.setNull(index++, true);
+    if (nullIndex.has_value()) {
+      values.setNull(offset + nullIndex.value(), true);
     }
 
-    return index - offset;
+    return nullIndex.has_value() ? uniqueValues.size() + 1
+                                 : uniqueValues.size();
   }
 
   void free(HashStringAllocator& allocator) {
@@ -110,8 +127,11 @@ struct StringViewSetAccumulator {
       const DecodedVector& decoded,
       vector_size_t index,
       HashStringAllocator* allocator) {
+    const auto cnt = base.uniqueValues.size();
     if (decoded.isNullAt(index)) {
-      base.hasNull = true;
+      if (!base.nullIndex.has_value()) {
+        base.nullIndex = cnt;
+      }
     } else {
       auto value = decoded.valueAt<StringView>(index);
       if (!value.isInline()) {
@@ -120,7 +140,8 @@ struct StringViewSetAccumulator {
         }
         value = strings.append(value, *allocator);
       }
-      base.uniqueValues.insert(value);
+      base.uniqueValues.insert(
+          {value, base.nullIndex.has_value() ? cnt + 1 : cnt});
     }
   }
 
@@ -176,12 +197,17 @@ struct ComplexTypeSetAccumulator {
       const DecodedVector& decoded,
       vector_size_t index,
       HashStringAllocator* allocator) {
+    const auto cnt = base.uniqueValues.size();
     if (decoded.isNullAt(index)) {
-      base.hasNull = true;
+      if (!base.nullIndex.has_value()) {
+        base.nullIndex = cnt;
+      }
     } else {
       auto position = values.append(decoded, index, allocator);
 
-      if (!base.uniqueValues.insert(position).second) {
+      if (!base.uniqueValues
+               .insert({position, base.nullIndex.has_value() ? cnt + 1 : cnt})
+               .second) {
         values.removeLast(position);
       }
     }
@@ -205,16 +231,16 @@ struct ComplexTypeSetAccumulator {
   }
 
   vector_size_t extractValues(BaseVector& values, vector_size_t offset) {
-    vector_size_t index = offset;
     for (const auto& position : base.uniqueValues) {
-      AddressableNonNullValueList::read(position, values, index++);
+      AddressableNonNullValueList::read(
+          position.first, values, offset + position.second);
     }
 
-    if (base.hasNull) {
-      values.setNull(index++, true);
+    if (base.nullIndex.has_value()) {
+      values.setNull(offset + base.nullIndex.value(), true);
     }
 
-    return index - offset;
+    return base.uniqueValues.size() + (base.nullIndex.has_value() ? 1 : 0);
   }
 
   void free(HashStringAllocator& allocator) {
