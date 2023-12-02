@@ -29,7 +29,7 @@ class Expr;
 class ExprSet;
 class LocalDecodedVector;
 class LocalSelectivityVector;
-struct ScopedContextSaver;
+struct ContextSaver;
 class PeeledEncoding;
 
 // Context for holding the base row vector, error state and various
@@ -77,9 +77,9 @@ class EvalCtx {
   }
 
   /// Used by peelEncodings.
-  void saveAndReset(ScopedContextSaver& saver, const SelectivityVector& rows);
+  void saveAndReset(ContextSaver& saver, const SelectivityVector& rows);
 
-  void restore(ScopedContextSaver& saver);
+  void restore(ContextSaver& saver);
 
   // If exceptionPtr is known to be a VeloxException use setVeloxExceptionError
   // instead.
@@ -361,12 +361,11 @@ class EvalCtx {
   ErrorVectorPtr errors_;
 };
 
-/// Utility wrapper struct that is used to temporarily reset the value of the an
-/// ExprCtx till it goes out of scope. EvalCtx::saveAndReset() is used to
-/// achieve that. The old context can also be explicitly restored using
-/// EvalCtx::restore().
-struct ScopedContextSaver {
-  ~ScopedContextSaver();
+/// Utility wrapper struct that is used to temporarily reset the value of the
+/// EvalCtx. EvalCtx::saveAndReset() is used to achieve that. Use
+/// withContextSaver to ensure the original context is restored on a scucessful
+/// run or call EvalContext::restore to do it manually.
+struct ContextSaver {
   // The context to restore. nullptr if nothing to restore.
   EvalCtx* FOLLY_NULLABLE context = nullptr;
   std::vector<VectorPtr> peeled;
@@ -377,6 +376,16 @@ struct ScopedContextSaver {
   const SelectivityVector* FOLLY_NULLABLE finalSelection;
   ErrorVectorPtr errors;
 };
+
+/// Restores the context when the body executes successfully.
+template <typename F>
+void withContextSaver(F&& f) {
+  ContextSaver saver;
+  f(saver);
+  if (saver.context) {
+    saver.context->restore(saver);
+  }
+}
 
 /// Produces a SelectivityVector with a single row selected using a pool of
 /// SelectivityVectors managed by the EvalCtx::execCtx().

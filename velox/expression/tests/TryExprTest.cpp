@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/vector/ConstantVector.h"
@@ -25,9 +26,16 @@
 
 namespace facebook::velox {
 
+using namespace common::testutil;
 using namespace facebook::velox::test;
 
-class TryExprTest : public functions::test::FunctionBaseTest {};
+class TryExprTest : public functions::test::FunctionBaseTest {
+ protected:
+  static void SetUpTestCase() {
+    FunctionBaseTest::SetUpTestCase();
+    TestValue::enable();
+  }
+};
 
 TEST_F(TryExprTest, tryExpr) {
   auto a = makeFlatVector<int32_t>({10, 20, 30, 20, 50, 30});
@@ -462,5 +470,26 @@ TEST_F(TryExprTest, decimalDivideByZero) {
   auto expectedLong = makeNullableFlatVector<int128_t>(
       {std::nullopt, std::nullopt, std::nullopt}, DECIMAL(31, 10));
   assertEqualVectors(expectedLong, result);
+}
+
+TEST_F(TryExprTest, errorRestoringContext) {
+  registerFunction<TestingAlwaysThrowsFunction, bool, bool>({"always_throws"});
+  // Use a constant input so the encoding is peeled, triggering the EvalCtx to
+  // be saved and restored.
+  auto data = makeRowVector({makeConstant(true, 3)});
+
+  // EvalCtx::restore calls addError to propagate errors to the original
+  // context, this can resize the ErrorVector leading to exceptions through a
+  // variety of paths.  For the sake of simplicity, the TestValue is used here
+  // to simulate an OOM.
+  std::string exceptionMessage =
+      "Expected exception. Pretend we're out of memory.";
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::EvalCtx::restore",
+      std::function<void(exec::EvalCtx*)>(
+          ([&](exec::EvalCtx*) { VELOX_FAIL(exceptionMessage) })));
+
+  VELOX_ASSERT_THROW(
+      evaluate("try(always_throws(c0))", data), exceptionMessage);
 }
 } // namespace facebook::velox

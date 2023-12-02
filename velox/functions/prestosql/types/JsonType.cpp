@@ -179,23 +179,24 @@ struct AsJson {
       if (!exec::PeeledEncoding::isPeelable(input->encoding())) {
         doCast(context, input, rows, isMapKey, json_);
       } else {
-        exec::ScopedContextSaver saver;
-        exec::LocalSelectivityVector newRowsHolder(*context.execCtx());
+        exec::withContextSaver([&](exec::ContextSaver& saver) {
+          exec::LocalSelectivityVector newRowsHolder(*context.execCtx());
 
-        exec::LocalDecodedVector localDecoded(context);
-        std::vector<VectorPtr> peeledVectors;
-        auto peeledEncoding = exec::PeeledEncoding::peel(
-            {input}, rows, localDecoded, true, peeledVectors);
-        VELOX_CHECK_EQ(peeledVectors.size(), 1);
-        auto newRows =
-            peeledEncoding->translateToInnerRows(rows, newRowsHolder);
-        // Save context and set the peel.
-        context.saveAndReset(saver, rows);
-        context.setPeeledEncoding(peeledEncoding);
+          exec::LocalDecodedVector localDecoded(context);
+          std::vector<VectorPtr> peeledVectors;
+          auto peeledEncoding = exec::PeeledEncoding::peel(
+              {input}, rows, localDecoded, true, peeledVectors);
+          VELOX_CHECK_EQ(peeledVectors.size(), 1);
+          auto newRows =
+              peeledEncoding->translateToInnerRows(rows, newRowsHolder);
+          // Save context and set the peel.
+          context.saveAndReset(saver, rows);
+          context.setPeeledEncoding(peeledEncoding);
 
-        doCast(context, peeledVectors[0], *newRows, isMapKey, json_);
-        json_ = context.getPeeledEncoding()->wrap(
-            json_->type(), context.pool(), json_, rows);
+          doCast(context, peeledVectors[0], *newRows, isMapKey, json_);
+          json_ = context.getPeeledEncoding()->wrap(
+              json_->type(), context.pool(), json_, rows);
+        });
       }
     }
     decoded_.get()->decode(*json_, rows);

@@ -648,28 +648,29 @@ void CastExpr::apply(
     applyPeeled(
         *nonNullRows, *decoded->base(), context, fromType, toType, localResult);
   } else {
-    ScopedContextSaver saver;
-    LocalSelectivityVector newRowsHolder(*context.execCtx());
+    withContextSaver([&](ContextSaver& saver) {
+      LocalSelectivityVector newRowsHolder(*context.execCtx());
 
-    LocalDecodedVector localDecoded(context);
-    std::vector<VectorPtr> peeledVectors;
-    auto peeledEncoding = PeeledEncoding::peel(
-        {input}, *nonNullRows, localDecoded, true, peeledVectors);
-    VELOX_CHECK_EQ(peeledVectors.size(), 1);
-    if (peeledVectors[0]->isLazy()) {
-      peeledVectors[0] =
-          peeledVectors[0]->as<LazyVector>()->loadedVectorShared();
-    }
-    auto newRows =
-        peeledEncoding->translateToInnerRows(*nonNullRows, newRowsHolder);
-    // Save context and set the peel.
-    context.saveAndReset(saver, *nonNullRows);
-    context.setPeeledEncoding(peeledEncoding);
-    applyPeeled(
-        *newRows, *peeledVectors[0], context, fromType, toType, localResult);
+      LocalDecodedVector localDecoded(context);
+      std::vector<VectorPtr> peeledVectors;
+      auto peeledEncoding = PeeledEncoding::peel(
+          {input}, *nonNullRows, localDecoded, true, peeledVectors);
+      VELOX_CHECK_EQ(peeledVectors.size(), 1);
+      if (peeledVectors[0]->isLazy()) {
+        peeledVectors[0] =
+            peeledVectors[0]->as<LazyVector>()->loadedVectorShared();
+      }
+      auto newRows =
+          peeledEncoding->translateToInnerRows(*nonNullRows, newRowsHolder);
+      // Save context and set the peel.
+      context.saveAndReset(saver, *nonNullRows);
+      context.setPeeledEncoding(peeledEncoding);
+      applyPeeled(
+          *newRows, *peeledVectors[0], context, fromType, toType, localResult);
 
-    localResult = context.getPeeledEncoding()->wrap(
-        toType, context.pool(), localResult, *nonNullRows);
+      localResult = context.getPeeledEncoding()->wrap(
+          toType, context.pool(), localResult, *nonNullRows);
+    });
   }
   context.moveOrCopyResult(localResult, *nonNullRows, result);
   context.releaseVector(localResult);

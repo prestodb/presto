@@ -16,17 +16,13 @@
 
 #include "velox/expression/EvalCtx.h"
 #include <exception>
-#include "velox/common/base/RawVector.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/PeeledEncoding.h"
 
-namespace facebook::velox::exec {
+using facebook::velox::common::testutil::TestValue;
 
-ScopedContextSaver::~ScopedContextSaver() {
-  if (context) {
-    context->restore(*this);
-  }
-}
+namespace facebook::velox::exec {
 
 EvalCtx::EvalCtx(core::ExecCtx* execCtx, ExprSet* exprSet, const RowVector* row)
     : execCtx_(execCtx),
@@ -57,9 +53,7 @@ EvalCtx::EvalCtx(core::ExecCtx* execCtx)
   VELOX_CHECK_NOT_NULL(execCtx);
 }
 
-void EvalCtx::saveAndReset(
-    ScopedContextSaver& saver,
-    const SelectivityVector& rows) {
+void EvalCtx::saveAndReset(ContextSaver& saver, const SelectivityVector& rows) {
   if (saver.context) {
     return;
   }
@@ -136,7 +130,9 @@ void EvalCtx::addErrors(
   });
 }
 
-void EvalCtx::restore(ScopedContextSaver& saver) {
+void EvalCtx::restore(ContextSaver& saver) {
+  TestValue::adjust("facebook::velox::exec::EvalCtx::restore", this);
+
   peeledFields_ = std::move(saver.peeled);
   nullsPruned_ = saver.nullsPruned;
   if (errors_) {

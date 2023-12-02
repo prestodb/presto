@@ -943,7 +943,7 @@ SelectivityVector* singleRow(
 
 Expr::PeelEncodingsResult Expr::peelEncodings(
     EvalCtx& context,
-    ScopedContextSaver& saver,
+    ContextSaver& saver,
     const SelectivityVector& rows,
     LocalDecodedVector& localDecoded,
     LocalSelectivityVector& newRowsHolder,
@@ -1033,8 +1033,8 @@ void Expr::evalEncodings(
     if (!hasFlat) {
       VectorPtr wrappedResult;
       // Attempt peeling and bound the scope of the context used for it.
-      {
-        ScopedContextSaver saveContext;
+
+      withContextSaver([&](ContextSaver& saveContext) {
         LocalSelectivityVector newRowsHolder(context);
         LocalSelectivityVector finalRowsHolder(context);
         LocalDecodedVector decodedHolder(context);
@@ -1048,9 +1048,9 @@ void Expr::evalEncodings(
         auto* newRows = peelEncodingsResult.newRows;
         if (newRows) {
           VectorPtr peeledResult;
-          // peelEncodings() can potentially produce an empty selectivity vector
-          // if all selected values we are waiting for are nulls. So, here we
-          // check for such a case.
+          // peelEncodings() can potentially produce an empty selectivity
+          // vector if all selected values we are waiting for are nulls. So,
+          // here we check for such a case.
           if (newRows->hasSelections()) {
             if (peelEncodingsResult.mayCache) {
               evalWithMemo(*newRows, context, peeledResult);
@@ -1061,7 +1061,8 @@ void Expr::evalEncodings(
           wrappedResult = context.getPeeledEncoding()->wrap(
               this->type(), context.pool(), peeledResult, rows);
         }
-      }
+      });
+
       if (wrappedResult != nullptr) {
         context.moveOrCopyResult(wrappedResult, rows, result);
         return;
@@ -1428,7 +1429,6 @@ bool Expr::applyFunctionWithPeeling(
     VectorPtr& result) {
   LocalDecodedVector localDecoded(context);
   LocalSelectivityVector newRowsHolder(context);
-  ScopedContextSaver saver;
   // Attempt peeling.
   std::vector<VectorPtr> peeledVectors;
   auto peeledEncoding = PeeledEncoding::peel(
@@ -1449,21 +1449,23 @@ bool Expr::applyFunctionWithPeeling(
   // pre-existing rows need to be preserved.
   auto newRows = peeledEncoding->translateToInnerRows(applyRows, newRowsHolder);
 
-  // Save context and set the peel.
-  context.saveAndReset(saver, applyRows);
-  context.setPeeledEncoding(peeledEncoding);
+  withContextSaver([&](ContextSaver& saver) {
+    // Save context and set the peel.
+    context.saveAndReset(saver, applyRows);
+    context.setPeeledEncoding(peeledEncoding);
 
-  // Apply the function.
-  VectorPtr peeledResult;
-  applyFunction(*newRows, context, peeledResult);
-  VectorPtr wrappedResult = context.getPeeledEncoding()->wrap(
-      this->type(), context.pool(), peeledResult, applyRows);
-  context.moveOrCopyResult(wrappedResult, applyRows, result);
+    // Apply the function.
+    VectorPtr peeledResult;
+    applyFunction(*newRows, context, peeledResult);
+    VectorPtr wrappedResult = context.getPeeledEncoding()->wrap(
+        this->type(), context.pool(), peeledResult, applyRows);
+    context.moveOrCopyResult(wrappedResult, applyRows, result);
 
-  // Recycle peeledResult if it's not owned by the result vector. Examples of
-  // when this can happen is when the result is a primitive constant vector, or
-  // when moveOrCopyResult copies wrappedResult content.
-  context.releaseVector(peeledResult);
+    // Recycle peeledResult if it's not owned by the result vector. Examples of
+    // when this can happen is when the result is a primitive constant vector,
+    // or when moveOrCopyResult copies wrappedResult content.
+    context.releaseVector(peeledResult);
+  });
 
   return true;
 }

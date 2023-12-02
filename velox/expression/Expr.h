@@ -408,7 +408,7 @@ class Expr {
 
   PeelEncodingsResult peelEncodings(
       EvalCtx& context,
-      ScopedContextSaver& saver,
+      ContextSaver& saver,
       const SelectivityVector& rows,
       LocalDecodedVector& localDecoded,
       LocalSelectivityVector& newRowsHolder,
