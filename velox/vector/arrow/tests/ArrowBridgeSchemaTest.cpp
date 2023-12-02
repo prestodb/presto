@@ -42,9 +42,14 @@ class ArrowBridgeSchemaExportTest : public testing::Test {
 
   void verifyScalarType(
       const ArrowSchema& arrowSchema,
-      const char* arrowFormat) {
-    EXPECT_EQ(std::string{arrowFormat}, std::string{arrowSchema.format});
-    EXPECT_EQ(nullptr, arrowSchema.name);
+      const char* arrowFormat,
+      const char* name = nullptr) {
+    EXPECT_STREQ(arrowFormat, arrowSchema.format);
+    if (name == nullptr) {
+      EXPECT_EQ(nullptr, arrowSchema.name);
+    } else {
+      EXPECT_STREQ(name, arrowSchema.name);
+    }
     EXPECT_EQ(nullptr, arrowSchema.metadata);
     EXPECT_EQ(arrowSchema.flags | ARROW_FLAG_NULLABLE, ARROW_FLAG_NULLABLE);
 
@@ -70,13 +75,13 @@ class ArrowBridgeSchemaExportTest : public testing::Test {
 
   void verifyNestedType(const TypePtr& type, ArrowSchema* schema) {
     if (type->kind() == TypeKind::ARRAY) {
-      EXPECT_EQ(std::string{"+l"}, std::string{schema->format});
+      EXPECT_STREQ("+l", schema->format);
     } else if (type->kind() == TypeKind::MAP) {
-      EXPECT_EQ(std::string{"+m"}, std::string{schema->format});
+      EXPECT_STREQ("+m", schema->format);
       ASSERT_EQ(schema->n_children, 1);
       schema = schema->children[0];
     } else if (type->kind() == TypeKind::ROW) {
-      EXPECT_EQ(std::string{"+s"}, std::string{schema->format});
+      EXPECT_STREQ("+s", schema->format);
     }
     // Scalar type.
     else {
@@ -113,7 +118,7 @@ class ArrowBridgeSchemaExportTest : public testing::Test {
 
     velox::exportToArrow(constantVector, arrowSchema);
 
-    EXPECT_EQ("+r", std::string{arrowSchema.format});
+    EXPECT_STREQ("+r", arrowSchema.format);
     EXPECT_EQ(nullptr, arrowSchema.name);
 
     EXPECT_EQ(2, arrowSchema.n_children);
@@ -124,8 +129,8 @@ class ArrowBridgeSchemaExportTest : public testing::Test {
     EXPECT_NE(nullptr, arrowSchema.children[0]);
     const auto& runEnds = *arrowSchema.children[0];
 
-    EXPECT_EQ("i", std::string{runEnds.format});
-    EXPECT_EQ("run_ends", std::string{runEnds.name});
+    EXPECT_STREQ("i", runEnds.format);
+    EXPECT_STREQ("run_ends", runEnds.name);
     EXPECT_EQ(0, runEnds.n_children);
     EXPECT_EQ(nullptr, runEnds.children);
     EXPECT_EQ(nullptr, runEnds.dictionary);
@@ -134,9 +139,9 @@ class ArrowBridgeSchemaExportTest : public testing::Test {
     EXPECT_NE(nullptr, arrowSchema.children[1]);
 
     if (isScalar) {
-      verifyScalarType(*arrowSchema.children[1], arrowFormat);
+      verifyScalarType(*arrowSchema.children[1], arrowFormat, "values");
     } else {
-      EXPECT_EQ(arrowFormat, std::string{arrowSchema.children[1]->format});
+      EXPECT_STREQ(arrowFormat, arrowSchema.children[1]->format);
       verifyNestedType(type, arrowSchema.children[1]);
     }
 

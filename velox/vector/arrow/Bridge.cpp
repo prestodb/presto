@@ -1029,6 +1029,7 @@ void exportToArrow(const VectorPtr& vec, ArrowSchema& arrowSchema) {
       valuesChild->format =
           exportArrowFormatStr(type, bridgeHolder->formatBuffer);
     }
+    valuesChild->name = "values";
 
     bridgeHolder->setChildAtIndex(
         0, newArrowSchema("i", "run_ends"), arrowSchema);
