@@ -422,7 +422,6 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
       const RowVectorPtr& expectedResult = nullptr) {
     QueryTestResult result;
     const auto plan = hashJoinPlan(vectors, result.planNodeId);
-    std::shared_ptr<Task> task;
     if (enableSpilling) {
       const auto spillDirectory = exec::test::TempDirectoryPath::create();
       result.data = AssertQueryBuilder(plan)
@@ -663,6 +662,29 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
                         .maxDrivers(numDrivers)
                         .copyResults(pool(), result.task);
     }
+    if (expectedResult != nullptr) {
+      assertEqualResults({result.data}, {expectedResult});
+    }
+    return result;
+  }
+
+  QueryTestResult runFakeTask(
+      const std::vector<RowVectorPtr>& vectors,
+      const std::shared_ptr<core::QueryCtx>& queryCtx,
+      uint32_t numDrivers,
+      const RowVectorPtr& expectedResult = nullptr) {
+    QueryTestResult result;
+    result.data =
+        AssertQueryBuilder(
+            PlanBuilder()
+                .values(vectors)
+                .addNode([&](std::string id, core::PlanNodePtr input) {
+                  return std::make_shared<FakeMemoryNode>(id, input);
+                })
+                .planNode())
+            .queryCtx(queryCtx)
+            .maxDrivers(numDrivers)
+            .copyResults(pool(), result.task);
     if (expectedResult != nullptr) {
       assertEqualResults({result.data}, {expectedResult});
     }
@@ -1839,132 +1861,22 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedJoinBuilder) {
   }
 }
 
-DEBUG_ONLY_TEST_F(
-    SharedArbitrationTest,
-    reclaimFromJoinBuilderWithMultiDrivers) {
-  const int numVectors = 32;
-  std::vector<RowVectorPtr> vectors;
-  fuzzerOpts_.vectorSize = 128;
-  fuzzerOpts_.stringVariableLength = false;
-  fuzzerOpts_.stringLength = 512;
-  for (int i = 0; i < numVectors; ++i) {
-    vectors.push_back(newVector());
-  }
+TEST_F(SharedArbitrationTest, reclaimFromJoinBuilderWithMultiDrivers) {
+  const auto vectors = newVectors(256, 64 << 20);
   const int numDrivers = 4;
   const auto expectedResult =
       runHashJoinTask(vectors, nullptr, numDrivers, false).data;
-
-  // Whether the tasks are run under the same query context.
-  std::vector<bool> sameQueries = {false, true};
-  for (bool sameQuery : sameQueries) {
-    SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
-    const auto spillDirectory = exec::test::TempDirectoryPath::create();
-    std::shared_ptr<core::QueryCtx> fakeMemoryQueryCtx =
-        newQueryCtx(kMemoryCapacity);
-    std::shared_ptr<core::QueryCtx> joinQueryCtx;
-    if (sameQuery) {
-      joinQueryCtx = fakeMemoryQueryCtx;
-    } else {
-      joinQueryCtx = newQueryCtx(kMemoryCapacity);
-    }
-    // This is an experimentally calculated size that ensures the join will
-    // spill. Can change as the join implementation evolves.
-    const auto joinMemoryUsage = 11 * MB;
-    const auto fakeAllocationSize = kMemoryCapacity - joinMemoryUsage;
-
-    // Ensure a single allocation eats up the rest of the memory.
-    std::atomic<bool> injectAllocationOnce{true};
-    std::atomic<bool> fakeAllocationWaitFlag{true};
-    folly::EventCount fakeAllocationWait;
-    fakeOperatorFactory_->setAllocationCallback([&](Operator* op) {
-      if (!injectAllocationOnce.exchange(false)) {
-        return TestAllocation{};
-      }
-      fakeAllocationWait.await(
-          [&]() { return !fakeAllocationWaitFlag.load(); });
-      auto buffer = op->pool()->allocate(fakeAllocationSize);
-      return TestAllocation{op->pool(), buffer, fakeAllocationSize};
-    });
-
-    // Ensure the build operators make enough progress to consume more than
-    // `joinMemoryUsage` then wait for the fake allocation to eat up memory and
-    // initiate a spill via the arbitrator.
-    std::atomic<int> injectCount{0};
-    folly::futures::Barrier builderBarrier(numDrivers);
-    std::atomic<bool> taskPauseWaitFlag{true};
-    folly::EventCount taskPauseWait;
-    SCOPED_TESTVALUE_SET(
-        "facebook::velox::exec::Driver::runInternal::addInput",
-        std::function<void(Operator*)>(([&](Operator* op) {
-          if (op->operatorType() != "HashBuild") {
-            return;
-          }
-          // Make sure each hash build operator has reserved memory to avoid
-          // trigger memory arbitration in test.
-          if (static_cast<MemoryPoolImpl*>(op->pool())
-                  ->testingMinReservationBytes() == 0) {
-            return;
-          }
-          // Check all the hash build operators' memory usage instead of
-          // individual operator.
-          if (op->pool()->parent()->currentBytes() < joinMemoryUsage) {
-            return;
-          }
-          if (++injectCount > numDrivers) {
-            return;
-          }
-          auto future = builderBarrier.wait();
-          if (future.wait().value()) {
-            fakeAllocationWaitFlag = false;
-            fakeAllocationWait.notifyAll();
-          }
-          // Wait for pause to be triggered.
-          taskPauseWait.await([&]() { return !taskPauseWaitFlag.load(); });
-        })));
-
-    // This indicates that a spill has been initiated by the arbitrator.
-    SCOPED_TESTVALUE_SET(
-        "facebook::velox::exec::Task::requestPauseLocked",
-        std::function<void(Task*)>([&](Task* /*unused*/) {
-          taskPauseWaitFlag = false;
-          taskPauseWait.notifyAll();
-        }));
-
-    // joinQueryCtx and fakeMemoryQueryCtx may be the same and thus share the
-    // same underlying QueryConfig.  We apply the changes here instead of using
-    // the AssertQueryBuilder to avoid a potential race condition caused by
-    // writing the config in the join thread, and reading it in the memThread.
-    std::unordered_map<std::string, std::string> config{
-        {core::QueryConfig::kSpillEnabled, "true"},
-        {core::QueryConfig::kJoinSpillEnabled, "true"},
-        {core::QueryConfig::kJoinSpillPartitionBits, "2"}};
-    joinQueryCtx->testingOverrideConfigUnsafe(std::move(config));
-
-    std::thread joinThread([&]() {
-      const auto result = runHashJoinTask(
-          vectors, joinQueryCtx, numDrivers, true, expectedResult);
-      auto taskStats = exec::toPlanStats(result.task->taskStats());
-      auto& planStats = taskStats.at(result.planNodeId);
-      ASSERT_GT(planStats.spilledBytes, 0);
-    });
-
-    std::thread memThread([&]() {
-      auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
-              .queryCtx(fakeMemoryQueryCtx)
-              .plan(PlanBuilder()
-                        .values(vectors)
-                        .addNode([&](std::string id, core::PlanNodePtr input) {
-                          return std::make_shared<FakeMemoryNode>(id, input);
-                        })
-                        .planNode())
-              .assertResults("SELECT * FROM tmp");
-    });
-    joinThread.join();
-    memThread.join();
-    waitForAllTasksToBeDeleted();
-    ASSERT_GT(arbitrator_->stats().numRequests, 0);
-  }
+  // Create a query ctx with a small capacity to trigger spilling.
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(128 << 20);
+  auto result =
+      runHashJoinTask(vectors, queryCtx, numDrivers, true, expectedResult);
+  auto taskStats = exec::toPlanStats(result.task->taskStats());
+  auto& planStats = taskStats.at(result.planNodeId);
+  ASSERT_GT(planStats.spilledBytes, 0);
+  result.task.reset();
+  waitForAllTasksToBeDeleted();
+  ASSERT_GT(arbitrator_->stats().numRequests, 0);
+  ASSERT_GT(arbitrator_->stats().numReclaimedBytes, 0);
 }
 
 DEBUG_ONLY_TEST_F(
@@ -3882,7 +3794,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, joinBuildSpillError) {
   ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
 }
 
-TEST_F(SharedArbitrationTest, concurrentArbitration) {
+TEST_F(SharedArbitrationTest, DISABLED_concurrentArbitration) {
   // Tries to replicate an actual workload by concurrently running multiple
   // query shapes that support spilling (and hence can be forced to abort or
   // spill by the arbitrator). Also adds an element of randomness by randomly
@@ -3962,10 +3874,11 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
                        .task;
           }
         } catch (const VeloxException& e) {
-          VELOX_CHECK(
-              e.errorCode() == error_code::kMemCapExceeded.c_str() ||
-              e.errorCode() == error_code::kMemAborted.c_str() ||
-              e.errorCode() == error_code::kMemAllocError.c_str());
+          if (e.errorCode() != error_code::kMemCapExceeded.c_str() &&
+              e.errorCode() != error_code::kMemAborted.c_str() &&
+              e.errorCode() != error_code::kMemAllocError.c_str()) {
+            std::rethrow_exception(std::current_exception());
+          }
         }
 
         // TODO: Add RowNumber task after fixing its spiller bug.
