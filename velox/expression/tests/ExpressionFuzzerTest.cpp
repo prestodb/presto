@@ -27,19 +27,6 @@ DEFINE_int64(
     "Initial seed for random number generator used to reproduce previous "
     "results (0 means start with random seed).");
 
-DEFINE_string(
-    only,
-    "",
-    "If specified, Fuzzer will only choose functions from "
-    "this comma separated list of function names "
-    "(e.g: --only \"split\" or --only \"substr,ltrim\").");
-
-DEFINE_string(
-    special_forms,
-    "and,or,cast,coalesce,if,switch",
-    "Comma-separated list of special forms to use in generated expression. "
-    "Supported special forms: and, or, coalesce, if, switch, cast.");
-
 int main(int argc, char** argv) {
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
 
@@ -62,6 +49,5 @@ int main(int argc, char** argv) {
       "width_bucket",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
-  return FuzzerRunner::run(
-      FLAGS_only, initialSeed, skipFunctions, FLAGS_special_forms);
+  return FuzzerRunner::run(initialSeed, skipFunctions);
 }

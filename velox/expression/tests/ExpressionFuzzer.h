@@ -73,10 +73,21 @@ class ExpressionFuzzer {
     // Chance of adding a null constant to the plan, or null value in a vector
     // (expressed as double from 0 to 1).
     double nullRatio = 0.1;
+
+    // If specified, Fuzzer will only choose functions from this comma separated
+    // list of function names (e.g: --only \"split\" or --only
+    // \"substr,ltrim\")."
+    std::string useOnlyFunctions = "";
+
+    // Comma-separated list of special forms to use in generated expression.
+    // Supported special forms: and, or, coalesce, if, switch, cast.")
+    std::string specialForms = "and,or,cast,coalesce,if,switch";
+
+    std::unordered_set<std::string> skipFunctions;
   };
 
   ExpressionFuzzer(
-      const FunctionSignatureMap& signatureMap,
+      FunctionSignatureMap signatureMap,
       size_t initialSeed,
       const std::shared_ptr<VectorFuzzer>& vectorFuzzer,
       const std::optional<ExpressionFuzzer::Options>& options = std::nullopt);
@@ -289,7 +300,7 @@ class ExpressionFuzzer {
 
   const std::string kTypeParameterName = "T";
 
-  Options options_;
+  const Options options_;
 
   std::vector<CallableSignature> signatures_;
   std::vector<SignatureTemplate> signatureTemplates_;

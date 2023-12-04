@@ -30,19 +30,6 @@ DEFINE_int64(
     "Initial seed for random number generator "
     "(use it to reproduce previous results).");
 
-DEFINE_string(
-    only,
-    "",
-    "If specified, Fuzzer will only choose functions from "
-    "this comma separated list of function names "
-    "(e.g: --only \"split\" or --only \"substr,ltrim\").");
-
-DEFINE_string(
-    special_forms,
-    "and,or",
-    "Comma-separated list of special forms to use in generated expression. "
-    "Supported special forms: and, or, coalesce, if, switch, cast.");
-
 int main(int argc, char** argv) {
   facebook::velox::functions::sparksql::registerFunctions("");
 
@@ -63,6 +50,5 @@ int main(int argc, char** argv) {
       "replace",
       "might_contain",
       "unix_timestamp"};
-  return FuzzerRunner::run(
-      FLAGS_only, FLAGS_seed, skipFunctions, FLAGS_special_forms);
+  return FuzzerRunner::run(FLAGS_seed, skipFunctions);
 }

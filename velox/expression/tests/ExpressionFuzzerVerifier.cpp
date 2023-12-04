@@ -83,6 +83,19 @@ DEFINE_int32(
     "enabled).");
 
 // The flags bellow are used to initialize ExpressionFuzzer::options.
+DEFINE_string(
+    only,
+    "",
+    "If specified, Fuzzer will only choose functions from "
+    "this comma separated list of function names "
+    "(e.g: --only \"split\" or --only \"substr,ltrim\").");
+
+DEFINE_string(
+    special_forms,
+    "and,or,cast,coalesce,if,switch",
+    "Comma-separated list of special forms to use in generated expression. "
+    "Supported special forms: and, or, coalesce, if, switch, cast.");
+
 DEFINE_int32(
     velox_fuzzer_max_level_of_nesting,
     10,
@@ -159,7 +172,8 @@ VectorFuzzer::Options getVectorFuzzerOptions() {
   return opts;
 }
 
-ExpressionFuzzer::Options getExpressionFuzzerOptions() {
+ExpressionFuzzer::Options getExpressionFuzzerOptions(
+    const std::unordered_set<std::string>& skipFunctions) {
   ExpressionFuzzer::Options opts;
   opts.maxLevelOfNesting = FLAGS_velox_fuzzer_max_level_of_nesting;
   opts.maxNumVarArgs = FLAGS_max_num_varargs;
@@ -170,6 +184,9 @@ ExpressionFuzzer::Options getExpressionFuzzerOptions() {
   opts.enableExpressionReuse = FLAGS_velox_fuzzer_enable_expression_reuse;
   opts.functionTickets = FLAGS_assign_function_tickets;
   opts.nullRatio = FLAGS_null_ratio;
+  opts.specialForms = FLAGS_special_forms;
+  opts.useOnlyFunctions = FLAGS_only;
+  opts.skipFunctions = skipFunctions;
   return opts;
 }
 
@@ -240,7 +257,8 @@ RowVectorPtr wrapChildren(
 
 ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
     const FunctionSignatureMap& signatureMap,
-    size_t initialSeed)
+    size_t initialSeed,
+    const std::unordered_set<std::string>& skipFunctions)
     : verifier_(
           &execCtx_,
           {FLAGS_disable_constant_folding,
@@ -253,7 +271,7 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
           signatureMap,
           initialSeed,
           vectorFuzzer_,
-          getExpressionFuzzerOptions()) {
+          getExpressionFuzzerOptions(skipFunctions)) {
   seed(initialSeed);
 
   // Init stats and register listener.
