@@ -348,8 +348,12 @@ std::unique_ptr<SpillMergeStream> Spiller::spillMergeStreamOverRows(
 
 void Spiller::ensureSorted(SpillRun& run) {
   // The spill data of a hash join doesn't need to be sorted.
+  if (run.sorted || !needSort()) {
+    return;
+  }
+
   uint64_t sortTimeUs{0};
-  if (!run.sorted && needSort()) {
+  {
     MicrosecondTimer timer(&sortTimeUs);
     gfx::timsort(
         run.rows.begin(),
@@ -360,9 +364,10 @@ void Spiller::ensureSorted(SpillRun& run) {
         });
     run.sorted = true;
   }
-  if (sortTimeUs != 0) {
-    updateSpillSortTime(sortTimeUs);
-  }
+
+  // NOTE: Always set a non-zero sort time to avoid flakiness in tests which
+  // check sort time.
+  updateSpillSortTime(std::max<uint64_t>(1, sortTimeUs));
 }
 
 std::unique_ptr<Spiller::SpillStatus> Spiller::writeSpill(int32_t partition) {
