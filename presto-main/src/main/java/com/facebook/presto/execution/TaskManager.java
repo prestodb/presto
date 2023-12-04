@@ -109,6 +109,9 @@ public interface TaskManager
      * task or buffer has not been created yet, an uninitialized task is
      * created and a future is returned.
      * <p>
+     * Returns empty results if the Task is destroyed, e.g. because it fails
+     * or is aborted, or another request is made for the same data.
+     * <p>
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
