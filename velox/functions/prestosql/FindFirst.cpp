@@ -263,10 +263,19 @@ class FindFirstFunction : public FindFirstFunctionBase {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      const TypePtr& /*outputType*/,
+      const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     auto flatArray = prepareInputArray(args[0], rows, context);
+
+    if (flatArray->elements()->size() == 0) {
+      // All arrays are NULL or empty.
+      auto localResult = BaseVector::createNullConstant(
+          outputType, rows.end(), context.pool());
+      context.moveOrCopyResult(localResult, rows, result);
+      return;
+    }
+
     auto* predicateVector = args.back()->asUnchecked<FunctionVector>();
     auto startIndexVector = (args.size() == 3 ? args[1] : nullptr);
 

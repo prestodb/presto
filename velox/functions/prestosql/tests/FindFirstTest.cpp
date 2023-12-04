@@ -197,5 +197,29 @@ TEST_F(FindFirstTest, nulls) {
   verify("find_first(c0, x -> (x > 0))", data, expected);
 }
 
+// Verify evaluation on a subset of rows in ArrayVector with only null and empty
+// arrays..
+TEST_F(FindFirstTest, emptyArrays) {
+  auto data = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[]",
+          "[]",
+          "null",
+          "[]",
+          "[]",
+          "null",
+      }),
+  });
+
+  // Evaluate on all rows, but the first one.
+  SelectivityVector rows(data->size());
+  rows.setValid(0, false);
+  rows.updateBounds();
+
+  auto result = evaluate("find_first(c0, x -> (x > 0))", data, rows);
+  auto expected = makeNullConstant(TypeKind::INTEGER, data->size());
+  velox::test::assertEqualVectors(expected, result);
+}
+
 } // namespace
 } // namespace facebook::velox::functions
