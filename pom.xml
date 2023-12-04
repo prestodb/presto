@@ -775,12 +775,6 @@
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
                 <version>3.0.0-10</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>io.airlift</groupId>
-                        <artifactId>aircompressor</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -886,7 +880,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.15</version>
+                <version>0.21</version>
             </dependency>
 
             <dependency>
