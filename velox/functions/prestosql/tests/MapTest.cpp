@@ -59,6 +59,36 @@ TEST_F(MapTest, someNulls) {
   assertEqualVectors(expectedMap, result);
 }
 
+TEST_F(MapTest, nullWithNonZeroSizes) {
+  auto keys = makeArrayVectorFromJson<int32_t>({
+      "[1, 2, 3]",
+      "[1, 2]",
+      "[1, 2, 3]",
+  });
+
+  auto values = makeArrayVectorFromJson<int64_t>({
+      "[10, 20, 30]",
+      "[11, 21]",
+      "[12, 22, 32]",
+  });
+
+  // Set null for one of the rows. Also, set offset and size for the row to
+  // values that exceed the size of the 'elements' vector.
+  keys->setNull(1, true);
+  keys->setOffsetAndSize(1, 100, 10);
+  values->setNull(1, true);
+  values->setOffsetAndSize(1, 100, 10);
+
+  auto result = evaluate("map(c0, c1)", makeRowVector({keys, values}));
+
+  auto expected = makeMapVectorFromJson<int32_t, int64_t>({
+      "{1: 10, 2: 20, 3: 30}",
+      "null",
+      "{1: 12, 2: 22, 3: 32}",
+  });
+  assertEqualVectors(expected, result);
+}
+
 TEST_F(MapTest, partiallyPopulated) {
   auto size = 1'000;
 
