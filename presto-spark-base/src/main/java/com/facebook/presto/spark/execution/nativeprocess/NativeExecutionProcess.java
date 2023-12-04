@@ -263,12 +263,18 @@ public class NativeExecutionProcess
     }
 
     private static int getAvailableTcpPort()
-            throws IOException
     {
-        ServerSocket socket = new ServerSocket(0);
-        int port = socket.getLocalPort();
-        socket.close();
-        return port;
+        try {
+            ServerSocket socket = new ServerSocket(0);
+            int port = socket.getLocalPort();
+            socket.close();
+            return port;
+        }
+        catch (Exception ex) {
+            // Something is wrong with the executor
+            // Fail the executor
+            throw new PrestoSparkFatalException("Failed to acquire port on host", ex);
+        }
     }
 
     private String getNativeExecutionCatalogName(Session session)
