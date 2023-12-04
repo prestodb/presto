@@ -72,6 +72,9 @@ Property Name                                        Description
                                                      Available values are ``BASIC`` or ``BEARER``.
                                                      Example: ``BEARER``
 
+                                                     **Note:** Nessie BASIC authentication type is deprecated,
+                                                     this will be removed in upcoming release
+
 ``iceberg.nessie.auth.basic.username``               The username to use with ``BASIC`` authentication.
                                                      Example: ``test_user``
 
