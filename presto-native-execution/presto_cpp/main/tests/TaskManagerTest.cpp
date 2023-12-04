@@ -1111,23 +1111,24 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
   ASSERT_TRUE(promiseFulfilled);
 }
 
-TEST_F(TaskManagerTest, getResultsErrorPropagation) {
+TEST_F(TaskManagerTest, getResultsFromFailedTask) {
   const protocol::TaskId taskId = "error-task.0.0.0.0";
   std::exception e;
   taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
 
-  // We expect the exception type VeloxException to be reserved still.
-  EXPECT_THROW(
-      taskManager_
-          ->getResults(
-              taskId,
-              0,
-              0,
-              protocol::DataSize("32MB"),
-              protocol::Duration("300s"),
-              http::CallbackRequestHandlerState::create())
-          .get(),
-      VeloxException);
+  // We expect to get empty results, rather than an exception.
+  auto results = taskManager_
+                     ->getResults(
+                         taskId,
+                         0,
+                         0,
+                         protocol::DataSize("32MB"),
+                         protocol::Duration("300s"),
+                         http::CallbackRequestHandlerState::create())
+                     .get();
+
+  ASSERT_FALSE(results->complete);
+  ASSERT_EQ(results->data->capacity(), 0);
 }
 
 TEST_F(TaskManagerTest, testCumulativeMemory) {
