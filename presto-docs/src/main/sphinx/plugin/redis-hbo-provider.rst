@@ -9,12 +9,12 @@ Redis HBO Provider allows loading a custom configured Redis Client for storing/r
 Configuration
 -------------
 
-Create ``etc/catalog/hbo-provider.properties`` to mount the Redis HBO Provider Plugin, replacing the properties as appropriate:
+Create ``etc/catalog/redis-provider.properties`` to mount the Redis HBO Provider Plugin, replacing the properties as appropriate:
 
 Configuration properties
 ------------------------
 
-The following configuration properties are available:
+The following configuration properties are available for use in ``etc/catalog/redis-provider.properties``:
 
 
 ============================================ =====================================================================
@@ -30,6 +30,20 @@ Property Name                                Description
 ``hbo.redis-provider.cluster-mode-enabled``  Boolean property whether cluster mode is enabled
 ============================================ =====================================================================
 
+Optimizer Configuration for Historical Based Optimization:
+------------------------
+
+These properties must be configured on the coordinator in ``etc/config.properties`` for tracking and using historical statistics in planning
+
+================================================= =====================================================================
+Property Name                                     Description
+================================================= =====================================================================
+``optimizer.use-history-based-plan-statistics``   Boolean property to enable the use of historical plan statistics (default is false)
+``optimizer.track-history-based-plan-statistics`` Boolean property to enable tracking of historical plan statistics (default is false)
+``optimizer.history-canonical-plan-node-limit``   Integer use history based optimizations only when number of nodes in canonical plan is within this limit (default 1000)
+``optimizer.history-based-optimizer-timeout``     Duration end to end timeout for optimizer in plan hashing and gathering Statistics (default is 10sec)
+================================================= =====================================================================
+
 Credentials
 -----------
 
@@ -39,11 +53,11 @@ Based on your custom Redis deployment you may need to add additional credentials
 Local Test setup
 ------------------------
 
-Set up local Redis Cluster with the guideline of `Redis <https://github.com/lettuce-io/lettuce-core>`_.
+Set up local Redis Cluster with the guideline of `Redis <https://redis.io/docs/management/scaling/#create-a-redis-cluster>`_.
 
-Add ``../redis-hbo-provider/pom.xml,\`` to ``presto-main/etc/config.properties``.
+Add ``../redis-hbo-provider/pom.xml,\`` to ``plugin.bundles`` of  ``presto-main/etc/config.properties``.
 
-Add the following config file in ``presto-main/etc/hbo-provider.properties``
+Create the file ``redis-provider.properties`` at the following path: ``presto-main/etc/redis-provider.properties`` with these sample properties
 
 .. code-block:: text
 
