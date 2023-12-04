@@ -472,7 +472,8 @@ TEST_F(TryExprTest, decimalDivideByZero) {
   assertEqualVectors(expectedLong, result);
 }
 
-TEST_F(TryExprTest, errorRestoringContext) {
+// This test must be DEBUG_ONLY because it uses SCOPED_TESTVALUE_SET.
+DEBUG_ONLY_TEST_F(TryExprTest, errorRestoringContext) {
   registerFunction<TestingAlwaysThrowsFunction, bool, bool>({"always_throws"});
   // Use a constant input so the encoding is peeled, triggering the EvalCtx to
   // be saved and restored.
