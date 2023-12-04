@@ -90,9 +90,6 @@ TEST_F(ComparisonsTest, equaltonullsafe) {
 
 TEST_F(ComparisonsTest, equalto) {
   EXPECT_EQ(equalto<Timestamp>(Timestamp(2, 2), Timestamp(2, 2)), true);
-  EXPECT_EQ(
-      equalto<int128_t>(HugeInt::build(10, 300), HugeInt::build(-10, 300)),
-      false);
   EXPECT_EQ(equalto<StringView>("test"_sv, "test"_sv), true);
   EXPECT_EQ(equalto<StringView>("test"_sv, std::nullopt), std::nullopt);
   EXPECT_EQ(equalto<int64_t>(1, 1), true);
@@ -364,6 +361,83 @@ TEST_F(ComparisonsTest, boolean) {
       "greaterthanorequal",
       inputs,
       makeNullableFlatVector<bool>({true, false, true, true, std::nullopt}));
+}
+
+TEST_F(ComparisonsTest, dateTypes) {
+  std::vector<VectorPtr> dateInputs = {
+      makeNullableFlatVector<int32_t>({126, 128, std::nullopt}, DATE()),
+      makeNullableFlatVector<int32_t>({126, 127, std::nullopt}, DATE())};
+  std::vector<VectorPtr> intervalDayInputs = {
+      makeNullableFlatVector<int64_t>(
+          {126, 128, std::nullopt}, INTERVAL_DAY_TIME()),
+      makeNullableFlatVector<int64_t>(
+          {126, 127, std::nullopt}, INTERVAL_DAY_TIME())};
+  std::vector<VectorPtr> intervalYearInputs = {
+      makeNullableFlatVector<int32_t>(
+          {1, 2, std::nullopt}, INTERVAL_YEAR_MONTH()),
+      makeNullableFlatVector<int32_t>(
+          {1, 1, std::nullopt}, INTERVAL_YEAR_MONTH())};
+
+  auto test = [&](std::vector<VectorPtr>& inputs) {
+    runAndCompare(
+        "equalnullsafe", inputs, makeFlatVector<bool>({true, false, true}));
+    runAndCompare(
+        "equalto",
+        inputs,
+        makeNullableFlatVector<bool>({true, false, std::nullopt}));
+    runAndCompare(
+        "lessthan",
+        inputs,
+        makeNullableFlatVector<bool>({false, false, std::nullopt}));
+    runAndCompare(
+        "lessthanorequal",
+        inputs,
+        makeNullableFlatVector<bool>({true, false, std::nullopt}));
+    runAndCompare(
+        "greaterthan",
+        inputs,
+        makeNullableFlatVector<bool>({false, true, std::nullopt}));
+    runAndCompare(
+        "greaterthanorequal",
+        inputs,
+        makeNullableFlatVector<bool>({true, true, std::nullopt}));
+  };
+
+  test(dateInputs);
+
+  test(intervalDayInputs);
+
+  test(intervalYearInputs);
+}
+
+TEST_F(ComparisonsTest, notSupportedTypes) {
+  const auto candidataFuncs = {
+      "equalnullsafe",
+      "equalto",
+      "lessthan",
+      "lessthanorequal",
+      "greaterthan",
+      "greaterthanorequal"};
+  auto arrayData = makeArrayVectorFromJson<int64_t>({"[1, 2, 3]"});
+  auto mapData = makeMapVectorFromJson<int64_t, int64_t>({"{1: 1}"});
+  auto rowData = makeRowVector({arrayData});
+  std::vector<VectorPtr> unsupportedTypeData = {arrayData, mapData, rowData};
+  auto testFails = [&](const std::string& func, const VectorPtr& vector) {
+    VELOX_ASSERT_USER_THROW(
+        evaluate<SimpleVector<bool>>(
+            fmt::format("{}(c1, c0)", func), makeRowVector({vector, vector})),
+        fmt::format(
+            "Scalar function signature is not supported: {}({}, {})",
+            func,
+            vector->type()->toString(),
+            vector->type()->toString()));
+  };
+
+  for (const auto& func : candidataFuncs) {
+    for (const auto& data : unsupportedTypeData) {
+      testFails(func, data);
+    }
+  }
 }
 } // namespace
 }; // namespace facebook::velox::functions::sparksql::test

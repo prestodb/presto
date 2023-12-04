@@ -206,39 +206,6 @@ void applyTyped(
   }
 }
 
-template <>
-void applyTyped<TypeKind::ARRAY>(
-    const SelectivityVector& /* rows */,
-    std::vector<VectorPtr>& /* args */,
-    DecodedVector* /* decodedLhs */,
-    DecodedVector* /* decodedRhs */,
-    exec::EvalCtx& /* context */,
-    FlatVector<bool>* /* flatResult */) {
-  VELOX_NYI("euqaltonullsafe does not support arrays.");
-}
-
-template <>
-void applyTyped<TypeKind::MAP>(
-    const SelectivityVector& /* rows */,
-    std::vector<VectorPtr>& /* args */,
-    DecodedVector* /* decodedLhs */,
-    DecodedVector* /* decodedRhs */,
-    exec::EvalCtx& /* context */,
-    FlatVector<bool>* /* flatResult */) {
-  VELOX_NYI("euqaltonullsafe does not support maps.");
-}
-
-template <>
-void applyTyped<TypeKind::ROW>(
-    const SelectivityVector& /* rows */,
-    std::vector<VectorPtr>& /* args */,
-    DecodedVector* /* decodedLhs */,
-    DecodedVector* /* decodedRhs */,
-    exec::EvalCtx& /* context */,
-    FlatVector<bool>* /* flatResult */) {
-  VELOX_NYI("euqaltonullsafe does not support structs.");
-}
-
 class EqualtoNullSafe final : public exec::VectorFunction {
  public:
   bool isDefaultNullBehavior() const override {
@@ -259,7 +226,7 @@ class EqualtoNullSafe final : public exec::VectorFunction {
     auto* flatResult = result->asUnchecked<FlatVector<bool>>();
     flatResult->mutableRawValues<int64_t>();
 
-    VELOX_DYNAMIC_TYPE_DISPATCH(
+    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         applyTyped,
         args[0]->typeKind(),
         rows,
