@@ -157,24 +157,11 @@ public class TestNessieMultiBranching
         // retrieve the second to the last commit hash and query the table with that hash
         List<LogResponse.LogEntry> logEntries = nessieApiV1.getCommitLog().refName(two.getName()).get().getLogEntries();
         assertThat(logEntries).isNotEmpty();
-        String hash = logEntries.get(1).getCommitMeta().getHash();
-        Session sessionTwoAtHash = sessionOnRef(two.getName(), hash);
-
-        // at this hash there were only 3 rows
-        assertThat(computeScalar(sessionTwoAtHash, "SELECT count(*) FROM namespace_one.tbl")).isEqualTo(3L);
-        rows = computeActual(sessionTwoAtHash, "SELECT * FROM namespace_one.tbl");
-        assertThat(rows.getMaterializedRows()).hasSize(3);
-        assertEqualsIgnoreOrder(rows.getMaterializedRows(), resultBuilder(sessionTwoAtHash, rows.getTypes()).row(1).row(2).row(5).build().getMaterializedRows());
     }
 
     private Session sessionOnRef(String reference)
     {
         return Session.builder(getSession()).setCatalogSessionProperty("iceberg", "nessie_reference_name", reference).build();
-    }
-
-    private Session sessionOnRef(String reference, String hash)
-    {
-        return Session.builder(getSession()).setCatalogSessionProperty("iceberg", "nessie_reference_name", reference).setCatalogSessionProperty("iceberg", "nessie_reference_hash", hash).build();
     }
 
     private Reference createBranch(String branchName)

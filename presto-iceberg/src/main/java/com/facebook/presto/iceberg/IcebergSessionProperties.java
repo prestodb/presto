@@ -77,7 +77,6 @@ public final class IcebergSessionProperties
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private static final String NESSIE_REFERENCE_NAME = "nessie_reference_name";
-    private static final String NESSIE_REFERENCE_HASH = "nessie_reference_hash";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
     public static final String MERGE_ON_READ_MODE_ENABLED = "merge_on_read_enabled";
@@ -275,11 +274,6 @@ public final class IcebergSessionProperties
                         "Nessie reference name to use",
                         nessieConfig.getDefaultReferenceName(),
                         false),
-                stringProperty(
-                        NESSIE_REFERENCE_HASH,
-                        "Nessie reference hash to use",
-                        null,
-                        false),
                 booleanProperty(
                         READ_MASKED_VALUE_ENABLED,
                         "Return null when access is denied for an encrypted parquet column",
@@ -456,11 +450,6 @@ public final class IcebergSessionProperties
     public static String getNessieReferenceName(ConnectorSession session)
     {
         return session.getProperty(NESSIE_REFERENCE_NAME, String.class);
-    }
-
-    public static String getNessieReferenceHash(ConnectorSession session)
-    {
-        return session.getProperty(NESSIE_REFERENCE_HASH, String.class);
     }
 
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)

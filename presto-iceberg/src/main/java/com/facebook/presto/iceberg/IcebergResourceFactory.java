@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.getNessieReferenceHash;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNessieReferenceName;
 import static com.facebook.presto.iceberg.nessie.AuthenticationType.BASIC;
 import static com.facebook.presto.iceberg.nessie.AuthenticationType.BEARER;
@@ -121,8 +120,6 @@ public class IcebergResourceFactory
 
         if (catalogType == NESSIE) {
             sb.append(getNessieReferenceName(session));
-            sb.append("@");
-            sb.append(getNessieReferenceHash(session));
         }
 
         return sb.toString();
@@ -157,10 +154,6 @@ public class IcebergResourceFactory
         if (catalogType == NESSIE) {
             properties.put("ref", getNessieReferenceName(session));
             properties.put("uri", nessieConfig.getServerUri().orElseThrow(() -> new IllegalStateException("iceberg.nessie.uri must be set for Nessie")));
-            String hash = getNessieReferenceHash(session);
-            if (hash != null) {
-                properties.put("ref.hash", hash);
-            }
             nessieConfig.getReadTimeoutMillis().ifPresent(val -> properties.put("transport.read-timeout", val.toString()));
             nessieConfig.getConnectTimeoutMillis().ifPresent(val -> properties.put("transport.connect-timeout", val.toString()));
             nessieConfig.getClientBuilderImpl().ifPresent(val -> properties.put("client-builder-impl", val));
