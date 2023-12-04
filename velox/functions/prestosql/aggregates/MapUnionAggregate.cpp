@@ -75,8 +75,7 @@ class MapUnionAggregate : public MapAggregateBase<K> {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerMapUnionAggregate(
-    const std::string& prefix) {
+void registerMapUnionAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("K")
@@ -87,7 +86,7 @@ exec::AggregateRegistrationResult registerMapUnionAggregate(
           .build()};
 
   auto name = prefix + kMapUnion;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

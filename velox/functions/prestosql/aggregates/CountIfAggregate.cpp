@@ -170,8 +170,7 @@ class CountIfAggregate : public exec::Aggregate {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerCountIfAggregate(
-    const std::string& prefix) {
+void registerCountIfAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .returnType("bigint")
@@ -181,7 +180,7 @@ exec::AggregateRegistrationResult registerCountIfAggregate(
   };
 
   auto name = prefix + kCountIf;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

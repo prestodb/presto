@@ -209,8 +209,7 @@ class ChecksumAggregate : public exec::Aggregate {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerChecksumAggregate(
-    const std::string& prefix) {
+void registerChecksumAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -221,7 +220,7 @@ exec::AggregateRegistrationResult registerChecksumAggregate(
   };
 
   auto name = prefix + kChecksum;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [&name](

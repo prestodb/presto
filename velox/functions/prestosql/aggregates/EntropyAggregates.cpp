@@ -336,8 +336,7 @@ void checkRowType(const TypePtr& type, const std::string& errorMessage) {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerEntropyAggregate(
-    const std::string& prefix) {
+void registerEntropyAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   std::vector<std::string> inputTypes = {"smallint", "integer", "bigint"};
   for (const auto& inputType : inputTypes) {
@@ -349,7 +348,7 @@ exec::AggregateRegistrationResult registerEntropyAggregate(
   }
 
   auto name = prefix + kEntropy;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

@@ -237,7 +237,7 @@ class ArrayAggAggregate : public exec::Aggregate {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerArrayAggAggregate(
+void registerArrayAggAggregate(
     const std::string& prefix,
     bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
@@ -249,7 +249,7 @@ exec::AggregateRegistrationResult registerArrayAggAggregate(
           .build()};
 
   auto name = prefix + kArrayAgg;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

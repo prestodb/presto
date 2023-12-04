@@ -147,8 +147,7 @@ class MapAggAggregate : public MapAggregateBase<K> {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerMapAggAggregate(
-    const std::string& prefix) {
+void registerMapAggAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .knownTypeVariable("K")
@@ -160,7 +159,7 @@ exec::AggregateRegistrationResult registerMapAggAggregate(
           .build()};
 
   auto name = prefix + kMapAgg;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

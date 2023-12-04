@@ -478,8 +478,7 @@ class MultiMapAggAggregate : public exec::Aggregate {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerMultiMapAggAggregate(
-    const std::string& prefix) {
+void registerMultiMapAggAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("K")
@@ -491,7 +490,7 @@ exec::AggregateRegistrationResult registerMultiMapAggAggregate(
           .build()};
 
   auto name = prefix + kMultiMapAgg;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

@@ -66,8 +66,7 @@ class BitwiseXorAggregate {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerBitwiseXorAggregate(
-    const std::string& prefix) {
+void registerBitwiseXorAggregate(const std::string& prefix) {
   const std::string name = prefix + kBitwiseXor;
 
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
@@ -80,7 +79,7 @@ exec::AggregateRegistrationResult registerBitwiseXorAggregate(
                              .build());
   }
 
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

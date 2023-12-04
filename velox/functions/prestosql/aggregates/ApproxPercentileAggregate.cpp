@@ -828,7 +828,7 @@ void addSignatures(
 
 } // namespace
 
-exec::AggregateRegistrationResult registerApproxPercentileAggregate(
+void registerApproxPercentileAggregate(
     const std::string& prefix,
     bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
@@ -842,7 +842,7 @@ exec::AggregateRegistrationResult registerApproxPercentileAggregate(
         signatures);
   }
   auto name = prefix + kApproxPercentile;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

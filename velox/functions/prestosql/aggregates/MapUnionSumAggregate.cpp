@@ -347,8 +347,7 @@ std::unique_ptr<exec::Aggregate> createMapUnionSumAggregate(
 
 } // namespace
 
-exec::AggregateRegistrationResult registerMapUnionSumAggregate(
-    const std::string& prefix) {
+void registerMapUnionSumAggregate(const std::string& prefix) {
   const std::vector<std::string> keyTypes = {
       "tinyint",
       "smallint",
@@ -380,7 +379,7 @@ exec::AggregateRegistrationResult registerMapUnionSumAggregate(
   }
 
   auto name = prefix + kMapUnionSum;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

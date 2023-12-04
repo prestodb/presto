@@ -340,8 +340,7 @@ class HistogramAggregate : public exec::Aggregate {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerHistogramAggregate(
-    const std::string& prefix) {
+void registerHistogramAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto inputType :
        {"boolean",
@@ -364,7 +363,7 @@ exec::AggregateRegistrationResult registerHistogramAggregate(
   }
 
   auto name = prefix + kHistogram;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

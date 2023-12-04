@@ -421,8 +421,7 @@ std::unique_ptr<exec::Aggregate> create(
 
 } // namespace
 
-exec::AggregateRegistrationResult registerSetAggAggregate(
-    const std::string& prefix) {
+void registerSetAggAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures = {
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -432,7 +431,7 @@ exec::AggregateRegistrationResult registerSetAggAggregate(
           .build()};
 
   auto name = prefix + kSetAgg;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
@@ -483,8 +482,7 @@ exec::AggregateRegistrationResult registerSetAggAggregate(
       });
 }
 
-exec::AggregateRegistrationResult registerSetUnionAggregate(
-    const std::string& prefix) {
+void registerSetUnionAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures = {
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -494,7 +492,7 @@ exec::AggregateRegistrationResult registerSetUnionAggregate(
           .build()};
 
   auto name = prefix + kSetUnion;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

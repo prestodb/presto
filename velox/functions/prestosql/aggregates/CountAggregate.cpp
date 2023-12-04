@@ -150,8 +150,7 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerCountAggregate(
-    const std::string& prefix) {
+void registerCountAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .returnType("bigint")
@@ -166,7 +165,7 @@ exec::AggregateRegistrationResult registerCountAggregate(
   };
 
   auto name = prefix + kCount;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

@@ -786,7 +786,7 @@ class ReduceAgg : public exec::Aggregate {
 
 } // namespace
 
-exec::AggregateRegistrationResult registerReduceAgg(const std::string& prefix) {
+void registerReduceAgg(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -801,7 +801,7 @@ exec::AggregateRegistrationResult registerReduceAgg(const std::string& prefix) {
 
   const std::string name = prefix + kReduceAgg;
 
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](

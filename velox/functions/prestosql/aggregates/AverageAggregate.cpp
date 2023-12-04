@@ -29,7 +29,7 @@ namespace facebook::velox::aggregate::prestosql {
 ///     REAL            |     DOUBLE          |    REAL
 ///     ALL INTs        |     DOUBLE          |    DOUBLE
 ///     DECIMAL         |     DECIMAL         |    DECIMAL
-exec::AggregateRegistrationResult registerAverageAggregate(
+void registerAverageAggregate(
     const std::string& prefix,
     bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
@@ -57,7 +57,7 @@ exec::AggregateRegistrationResult registerAverageAggregate(
                            .build());
 
   auto name = prefix + kAvg;
-  return exec::registerAggregateFunction(
+  exec::registerAggregateFunction(
       name,
       std::move(signatures),
       [name](
