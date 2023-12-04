@@ -30,7 +30,7 @@ Presto has a comprehensive set of unit tests that can take several minutes to ru
 
 [Velox](https://github.com/facebookincubator/velox) is a C++ database library which provides reusable, extensible, and high-performance data processing components.
 
-Check out [building instructions](https://github.com/prestodb/presto/tree/master/presto-native-execution#building) to get started. 
+Check out [building instructions](https://github.com/prestodb/presto/tree/master/presto-native-execution#building) to get started.
 
 
 ## Running Presto in your IDE
@@ -49,7 +49,7 @@ Presto comes with sample configuration that should work out-of-the-box for devel
 
 * Main Class: `com.facebook.presto.server.PrestoServer`
 * VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
-* Working directory: `$MODULE_WORKING_DIR$` or `$MODULE_DIR$`(Depends your version of IntelliJ)
+* Working directory: `$MODULE_WORKING_DIR$` or `$MODULE_DIR$`(Depends on your version of IntelliJ)
 * Use classpath of module: `presto-main`
 
 The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
@@ -57,6 +57,13 @@ The working directory should be the `presto-main` subdirectory. In IntelliJ, usi
 Additionally, the Hive plugin must be configured with location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
 
     -Dhive.metastore.uri=thrift://localhost:9083
+
+#### Common problems
+* In newer IntelliJ versions the "VM options" field in the Run/Debug configuration may not be present by default. You can add it by clicking  "Modify options" and selecting "Add VM options".
+* If an error similar to the following is displayed at startup:  
+"Explicit bindings are required ..."  
+This can be caused by including the VM options into the "Program arguments" field in IntelliJ. Find the "Program arguments" field, and if the VM options in [Overview](https://github.com/prestodb/presto#overview) are present, remove the VM options.
+* If using Java 11 (or later) the compilation may fail with `java: package sun.misc does not exist`. Go to "Settings" → "Build, Execution, Deployment" → "Compiler" → "Java Compiler" and uncheck "use '--release' option for cross-compilation".
 
 ### Using SOCKS for Hive or HDFS
 
@@ -109,7 +116,7 @@ To iterate quickly, simply re-build the project in IntelliJ after packaging is c
 ## Release Notes
 
 When authoring a pull request, the PR description should include its relevant release notes.
-Follow [Release Notes Guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines) when authoring release notes. 
+Follow [Release Notes Guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines) when authoring release notes.
 
 ## Questions?
 
