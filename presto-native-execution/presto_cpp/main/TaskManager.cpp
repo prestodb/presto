@@ -38,8 +38,8 @@ constexpr uint32_t kMaxConcurrentLifespans{16};
 
 namespace {
 // If spilling is enabled and the given Task can spill, then this helper
-// generates the spilling directory path for the Task, creates that directory in
-// the file system and sets the path to it to the Task.
+// generates the spilling directory path for the Task, and sets the path to it
+// in the Task.
 static void maybeSetupTaskSpillDirectory(
     const core::PlanFragment& planFragment,
     exec::Task& execTask,
@@ -59,12 +59,7 @@ static void maybeSetupTaskSpillDirectory(
       execTask.queryCtx()->queryId(),
       execTask.taskId(),
       includeNodeInSpillPath);
-  // Create folder for the task spilling.
-  auto fileSystem =
-      velox::filesystems::getFileSystem(taskSpillDirPath, nullptr);
-  VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
-  fileSystem->mkdir(taskSpillDirPath);
-  execTask.setSpillDirectory(taskSpillDirPath);
+  execTask.setSpillDirectory(taskSpillDirPath, /*alreadyCreated=*/false);
 }
 
 // Keep outstanding Promises in RequestHandler's state itself.
