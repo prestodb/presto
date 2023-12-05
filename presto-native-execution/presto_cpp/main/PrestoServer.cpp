@@ -901,8 +901,8 @@ void PrestoServer::registerMemoryArbitrators() {
 }
 
 void PrestoServer::registerStatsCounters() {
-  registerPrestoCppCounters();
-  registerVeloxCounters();
+  registerPrestoMetrics();
+  registerVeloxMetrics();
 }
 
 std::string PrestoServer::getLocalIp() const {
@@ -956,7 +956,7 @@ void PrestoServer::populateMemAndCPUInfo() {
         {queryId, {protocol::MemoryAllocation{"total", bytes}}});
     ++numContexts;
   });
-  REPORT_ADD_STAT_VALUE(kCounterNumQueryContexts, numContexts);
+  RECORD_METRIC_VALUE(kCounterNumQueryContexts, numContexts);
   cpuMon_.update();
   **memoryInfo_.wlock() = std::move(memoryInfo);
 }

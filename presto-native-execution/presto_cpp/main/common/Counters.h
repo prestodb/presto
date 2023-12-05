@@ -20,7 +20,7 @@ namespace facebook::presto {
 
 // Sets up all the counters in the presto cpp, but specifying their types.
 // See velox/common/base/StatsReporter.h for the interface.
-void registerPrestoCppCounters();
+void registerPrestoMetrics();
 
 constexpr folly::StringPiece kCounterDriverCPUExecutorQueueSize{
     "presto_cpp.driver_cpu_executor_queue_size"};
