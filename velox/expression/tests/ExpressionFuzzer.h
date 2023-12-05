@@ -298,7 +298,10 @@ class ExpressionFuzzer {
     state.expressionStats_[funcName]++;
   }
 
-  const std::string kTypeParameterName = "T";
+  // Returns random integer between min and max inclusive.
+  int32_t rand32(int32_t min, int32_t max);
+
+  static const inline std::string kTypeParameterName = "T";
 
   const Options options_;
 

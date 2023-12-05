@@ -741,6 +741,10 @@ void ExpressionFuzzer::seed(size_t seed) {
   vectorFuzzer_->reSeed(seed);
 }
 
+int32_t ExpressionFuzzer::rand32(int32_t min, int32_t max) {
+  return boost::random::uniform_int_distribution<uint32_t>(min, max)(rng_);
+}
+
 core::TypedExprPtr ExpressionFuzzer::generateArgConstant(const TypePtr& arg) {
   if (vectorFuzzer_->coinToss(options_.nullRatio)) {
     return std::make_shared<core::ConstantTypedExpr>(
@@ -765,15 +769,13 @@ core::TypedExprPtr ExpressionFuzzer::generateArgColumn(const TypePtr& arg) {
     return std::make_shared<core::FieldAccessTypedExpr>(
         arg, state.inputRowNames_.back());
   }
-  size_t chosenColIndex = boost::random::uniform_int_distribution<uint32_t>(
-      0, listOfCandidateCols.size() - 1)(rng_);
+  size_t chosenColIndex = rand32(0, listOfCandidateCols.size() - 1);
   return std::make_shared<core::FieldAccessTypedExpr>(
       arg, listOfCandidateCols[chosenColIndex]);
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateArg(const TypePtr& arg) {
-  size_t argClass =
-      boost::random::uniform_int_distribution<uint32_t>(0, 3)(rng_);
+  size_t argClass = rand32(0, 3);
 
   // Toss a coin and choose between a constant, a column reference, or another
   // expression (function).
@@ -787,7 +789,7 @@ core::TypedExprPtr ExpressionFuzzer::generateArg(const TypePtr& arg) {
     if (state.remainingLevelOfNesting_ > 0) {
       return generateExpression(arg);
     }
-    argClass = boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
+    argClass = rand32(0, 1);
   }
 
   if (argClass == kArgConstant) {
@@ -818,10 +820,8 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::generateArgs(
 
 std::vector<core::TypedExprPtr> ExpressionFuzzer::generateArgs(
     const CallableSignature& input) {
-  auto numVarArgs = !input.variableArity
-      ? 0
-      : boost::random::uniform_int_distribution<uint32_t>(
-            0, options_.maxNumVarArgs)(rng_);
+  auto numVarArgs =
+      !input.variableArity ? 0 : rand32(0, options_.maxNumVarArgs);
   return generateArgs(input.args, input.constantArgs, numVarArgs);
 }
 
@@ -863,9 +863,8 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::generateSwitchArgs(
       input.args.size(),
       2,
       "Only two inputs are expected from the template signature.");
-  size_t cases = boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
-  bool useFinalElse =
-      boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_) > 0;
+  size_t cases = rand32(1, 5);
+  bool useFinalElse = vectorFuzzer_->coinToss(0.5);
 
   auto conditionClauseType = input.args[0];
   auto thenClauseType = input.args[1];
@@ -932,8 +931,7 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
   uint32_t numEligible = baseList.size() + templateList.size();
 
   if (numEligible > 0) {
-    size_t chosenExprIndex = boost::random::uniform_int_distribution<uint32_t>(
-        0, numEligible - 1)(rng_);
+    size_t chosenExprIndex = rand32(0, numEligible - 1);
     std::string chosenFunctionName;
     if (chosenExprIndex < baseList.size()) {
       chosenFunctionName = baseList[chosenExprIndex];
@@ -1013,8 +1011,7 @@ const CallableSignature* ExpressionFuzzer::chooseRandomConcreteSignature(
   }
 
   // Randomly pick a function that can return `returnType`.
-  size_t idx = boost::random::uniform_int_distribution<uint32_t>(
-      0, eligible.size() - 1)(rng_);
+  size_t idx = rand32(0, eligible.size() - 1);
   return eligible[idx];
 }
 
@@ -1058,8 +1055,7 @@ const SignatureTemplate* ExpressionFuzzer::chooseRandomSignatureTemplate(
     return nullptr;
   }
 
-  auto idx = boost::random::uniform_int_distribution<uint32_t>(
-      0, eligible.size() - 1)(rng_);
+  auto idx = rand32(0, eligible.size() - 1);
   return eligible[idx];
 }
 
@@ -1116,8 +1112,7 @@ core::TypedExprPtr ExpressionFuzzer::generateCastExpression(
   markSelected("cast");
 
   // Generate try_cast expression with 50% chance.
-  bool nullOnFailure =
-      boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
+  bool nullOnFailure = vectorFuzzer_->coinToss(0.5);
   return std::make_shared<core::CastTypedExpr>(returnType, args, nullOnFailure);
 }
 
@@ -1151,10 +1146,8 @@ TypePtr ExpressionFuzzer::generateRandomRowTypeWithReferencedField(
 
 core::TypedExprPtr ExpressionFuzzer::generateDereferenceExpression(
     const TypePtr& returnType) {
-  auto numFields =
-      boost::random::uniform_int_distribution<uint32_t>(1, 3)(rng_);
-  auto referencedIndex =
-      boost::random::uniform_int_distribution<uint32_t>(0, numFields - 1)(rng_);
+  auto numFields = rand32(1, 3);
+  auto referencedIndex = rand32(0, numFields - 1);
   auto argType = generateRandomRowTypeWithReferencedField(
       numFields, referencedIndex, returnType);
 
@@ -1205,8 +1198,7 @@ core::TypedExprPtr ExpressionFuzzer::ExprBank::getRandomExpression(
 }
 
 TypePtr ExpressionFuzzer::fuzzReturnType() {
-  auto chooseFromConcreteSignatures =
-      boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
+  auto chooseFromConcreteSignatures = rand32(0, 1);
 
   chooseFromConcreteSignatures =
       (chooseFromConcreteSignatures && !signatures_.empty()) ||
@@ -1221,16 +1213,14 @@ TypePtr ExpressionFuzzer::fuzzReturnType() {
   } else if (chooseFromConcreteSignatures) {
     // Pick a random signature to choose the root return type.
     VELOX_CHECK(!signatures_.empty(), "No function signature available.");
-    size_t idx = boost::random::uniform_int_distribution<uint32_t>(
-        0, signatures_.size() - 1)(rng_);
+    size_t idx = rand32(0, signatures_.size() - 1);
     rootType = signatures_[idx].returnType;
   } else {
     // Pick a random concrete return type that can bind to the return type of
     // a chosen signature.
     VELOX_CHECK(
         !signatureTemplates_.empty(), "No function signature available.");
-    size_t idx = boost::random::uniform_int_distribution<uint32_t>(
-        0, signatureTemplates_.size() - 1)(rng_);
+    size_t idx = rand32(0, signatureTemplates_.size() - 1);
     ArgumentTypeFuzzer typeFuzzer{*signatureTemplates_[idx].signature, rng_};
     rootType = typeFuzzer.fuzzReturnType();
   }
