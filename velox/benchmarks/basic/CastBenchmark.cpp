@@ -46,6 +46,14 @@ int main(int argc, char** argv) {
       },
       nullptr,
       DECIMAL(38, 16));
+  auto largeRealInput = vectorMaker.flatVector<float>(
+      vectorSize, [&](auto j) { return 12345678.0 * j; });
+  auto smallRealInput = vectorMaker.flatVector<float>(
+      vectorSize, [&](auto j) { return 1.2345678 * j; });
+  auto smallDoubleInput = vectorMaker.flatVector<double>(
+      vectorSize, [&](auto j) { return -0.00012345678 / j; });
+  auto largeDoubleInput = vectorMaker.flatVector<double>(
+      vectorSize, [&](auto j) { return -123456.7 / j; });
   auto timestampInput =
       vectorMaker.flatVector<Timestamp>(vectorSize, [&](auto j) {
         return Timestamp(1695859694 + j / 1000, j % 1000 * 1'000'000);
@@ -71,6 +79,10 @@ int main(int argc, char** argv) {
                "decimal",
                "short_decimal",
                "long_decimal",
+               "large_real",
+               "small_real",
+               "small_double",
+               "large_double",
                "timestamp"},
               {validInput,
                invalidInput,
@@ -78,6 +90,10 @@ int main(int argc, char** argv) {
                decimalInput,
                shortDecimalInput,
                longDecimalInput,
+               largeRealInput,
+               smallRealInput,
+               smallDoubleInput,
+               largeDoubleInput,
                timestampInput}))
       .addExpression("try_cast_invalid_empty_input", "try_cast (empty as int) ")
       .addExpression(
@@ -91,6 +107,17 @@ int main(int argc, char** argv) {
           "cast_decimal_to_inline_string", "cast (decimal as varchar)")
       .addExpression("cast_short_decimal", "cast (short_decimal as varchar)")
       .addExpression("cast_long_decimal", "cast (long_decimal as varchar)")
+      .addExpression(
+          "cast_large_real_to_scientific_notation",
+          "cast(large_real as varchar)")
+      .addExpression(
+          "cast_small_real_to_standard_notation", "cast(small_real as varchar)")
+      .addExpression(
+          "cast_small_double_to_scientific_notation",
+          "cast(small_double as varchar)")
+      .addExpression(
+          "cast_large_double_to_standard_notation",
+          "cast(large_double as varchar)")
       .addExpression("cast_timestamp", "cast (timestamp as varchar)")
       .withIterations(100)
       .disableTesting();

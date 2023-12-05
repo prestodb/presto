@@ -506,6 +506,55 @@ Valid examples
   SELECT cast(cast(1 as DECIMAL(6, 2)) as varchar); -- '1.00'
   SELECT cast(cast(0 as DECIMAL(6, 2)) as varchar); -- '0.00'
 
+From Floating-Point Types
+^^^^^^^^^^^^^^^^^^^^^^^^^
+By default, casting a real or double to string returns standard notation if the magnitude of input value is greater than
+or equal to 10 :superscript:`-3` but less than 10 :superscript:`7`, and returns scientific notation otherwise.
+
+Positive zero returns '0.0' and negative zero returns '-0.0'. Positive infinity returns 'Infinity' and negative infinity
+returns '-Infinity'. Positive and negative NaN returns 'NaN'.
+
+If legacy_cast configuration property is true, the result is standard notation for all input value.
+
+Valid examples if legacy_cast = false,
+
+::
+
+  SELECT cast(double '123456789.01234567' as varchar); -- '1.2345678901234567E8'
+  SELECT cast(double '10000000.0' as varchar); -- '1.0E7'
+  SELECT cast(double '12345.0' as varchar); -- '12345.0'
+  SELECT cast(double '-0.001' as varchar); -- '-0.001'
+  SELECT cast(double '-0.00012' as varchar); -- '-1.2E-4'
+  SELECT cast(double '0.0' as varchar); -- '0.0'
+  SELECT cast(double '-0.0' as varchar); -- '-0.0'
+  SELECT cast(infinity() as varchar); -- 'Infinity'
+  SELECT cast(-infinity() as varchar); -- '-Infinity'
+  SELECT cast(nan() as varchar); -- 'NaN'
+  SELECT cast(-nan() as varchar); -- 'NaN'
+
+  SELECT cast(real '123456780.0' as varchar); -- '1.2345678E8'
+  SELECT cast(real '10000000.0' as varchar); -- '1.0E7'
+  SELECT cast(real '12345.0' as varchar); -- '12345.0'
+  SELECT cast(real '-0.001' as varchar); -- '-0.001'
+  SELECT cast(real '-0.00012' as varchar); -- '-1.2E-4'
+  SELECT cast(real '0.0' as varchar); -- '0.0'
+  SELECT cast(real '-0.0' as varchar); -- '-0.0'
+
+Valid examples if legacy_cast = true,
+
+::
+
+  SELECT cast(double '123456789.01234567' as varchar); -- '123456789.01234567'
+  SELECT cast(double '10000000.0' as varchar); -- '10000000.0'
+  SELECT cast(double '-0.001' as varchar); -- '-0.001'
+  SELECT cast(double '-0.00012' as varchar); -- '-0.00012'
+
+  SELECT cast(real '123456780.0' as varchar); -- '123456784.0'
+  SELECT cast(real '10000000.0' as varchar); -- '10000000.0'
+  SELECT cast(real '12345.0' as varchar); -- '12345.0'
+  SELECT cast(real '-0.00012' as varchar); -- '-0.00011999999696854502'
+
+
 From TIMESTAMP
 ^^^^^^^^^^^^^^
 
