@@ -877,7 +877,7 @@ uint64_t HiveDataSink::WriterReclaimer::reclaim(
   }
 
   if (*writerInfo_->nonReclaimableSectionHolder.get()) {
-    REPORT_ADD_STAT_VALUE(kCounterMemoryNonReclaimableCount);
+    RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     LOG(WARNING) << "Can't reclaim from hive writer pool " << pool->name()
                  << " which is under non-reclaimable section, "
                  << " used memory: " << succinctBytes(pool->currentBytes())

@@ -728,7 +728,7 @@ uint64_t Writer::MemoryReclaimer::reclaim(
   }
 
   if (*writer_->nonReclaimableSection_) {
-    REPORT_ADD_STAT_VALUE(kCounterMemoryNonReclaimableCount);
+    RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     LOG(WARNING)
         << "Can't reclaim from dwrf writer which is under non-reclaimable section: "
         << pool->name();

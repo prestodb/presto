@@ -50,8 +50,8 @@ std::shared_ptr<FileHandle> FileHandleGenerator::operator()(
     VLOG(1) << "Generating file handle for: " << filename
             << " uuid: " << fileHandle->uuid.id();
   }
-  REPORT_ADD_HISTOGRAM_VALUE(
-      kCounterHiveFileHandleGenerateLatencyMs, elapsedTimeUs / 1000);
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kMetricHiveFileHandleGenerateLatencyMs, elapsedTimeUs / 1000);
   // TODO: build the hash map/etc per file type -- presumably after reading
   // the appropriate magic number from the file, or perhaps we include the file
   // type in the file handle key.

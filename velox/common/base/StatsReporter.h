@@ -19,11 +19,11 @@
 #include <folly/Singleton.h>
 #include <memory>
 
-/// StatsReporter designed to assist in reporting various stats of the
+/// StatsReporter designed to assist in reporting various metrics of the
 /// application that uses velox library. The library itself does not implement
 /// the StatsReporter and it should be implemented by the application.
 ///
-/// To inialize the reporter singleton in your application use this pattern
+/// To initialize the reporter singleton in your application use this pattern
 /// (note that MyReporter should implement the abstract class
 /// BaseStatsReporter):
 ///
@@ -31,24 +31,23 @@
 ///     return new MyReporter();
 ///   });
 ///
-/// Then, for every stat that needs to be reported, it is required to register
-/// one (usually) or more types (StatType) before reporting the stat:
+/// Then, for every metric that needs to be reported, it is required to register
+/// one (usually) or more types (StatType) before reporting the metric:
 ///
-///   REPORT_ADD_STAT_EXPORT_TYPE("my_stat1", facebook::velox::StatType::COUNT);
+///   DEFINE_METRIC("my_stat1", facebook::velox::StatType::COUNT);
 ///
 /// To register one histogram, it requires the min and max value of
-//  the range, the bucket width as well as the percentiles to be reported.
-///   REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE("my_stat2", 10, 0, 100, 50, 99,
-///   100);
+///  the range, the bucket width as well as the percentiles to be reported.
+///   DEFINE_HISTOGRAM_METRIC("my_stat2", 10, 0, 100, 50, 99, 100);
 ///
-/// The StatType controls how counter/stat is aggregated.
-/// After that, every call to REPORT_ADD_STAT_VALUE increases the counter by the
+/// The StatType controls how metric is aggregated.
+/// After that, every call to RECORD_METRIC_VALUE increases the metric by the
 /// given value:
 ///
-///   By default the following will add 1 to the stat if not provided value
-///   REPORT_ADD_STAT_VALUE("my_stat1");
-///   REPORT_ADD_STAT_VALUE("my_stat2", 10);
-///   REPORT_ADD_STAT_VALUE("my_stat1", numOfFailures);
+///   By default the following will add 1 to the metric if not provided value
+///   RECORD_METRIC_VALUE("my_stat1");
+///   RECORD_METRIC_VALUE("my_stat2", 10);
+///   RECORD_METRIC_VALUE("my_stat1", numOfFailures);
 
 namespace facebook::velox {
 
@@ -157,6 +156,7 @@ class DummyStatsReporter : public BaseStatsReporter {
       const override {}
 };
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 #define REPORT_ADD_STAT_VALUE(key, ...)                        \
   {                                                            \
     if (::facebook::velox::BaseStatsReporter::registered) {    \
@@ -205,5 +205,54 @@ class DummyStatsReporter : public BaseStatsReporter {
       }                                                                    \
     }                                                                      \
   }
+#endif
 
+#define DEFINE_METRIC(key, type)                               \
+  {                                                            \
+    if (::facebook::velox::BaseStatsReporter::registered) {    \
+      auto reporter = folly::Singleton<                        \
+          facebook::velox::BaseStatsReporter>::try_get_fast(); \
+      if (FOLLY_LIKELY(reporter != nullptr)) {                 \
+        reporter->addStatExportType((key), (type));            \
+      }                                                        \
+    }                                                          \
+  }
+
+#define RECORD_METRIC_VALUE(key, ...)                          \
+  {                                                            \
+    if (::facebook::velox::BaseStatsReporter::registered) {    \
+      auto reporter = folly::Singleton<                        \
+          facebook::velox::BaseStatsReporter>::try_get_fast(); \
+      if (FOLLY_LIKELY(reporter != nullptr)) {                 \
+        reporter->addStatValue((key), ##__VA_ARGS__);          \
+      }                                                        \
+    }                                                          \
+  }
+
+#define DEFINE_HISTOGRAM_METRIC(key, bucket, min, max, ...)    \
+  {                                                            \
+    if (::facebook::velox::BaseStatsReporter::registered) {    \
+      auto reporter = folly::Singleton<                        \
+          facebook::velox::BaseStatsReporter>::try_get_fast(); \
+      if (FOLLY_LIKELY(reporter != nullptr)) {                 \
+        reporter->addHistogramExportPercentiles(               \
+            (key),                                             \
+            (bucket),                                          \
+            (min),                                             \
+            (max),                                             \
+            (std::vector<int32_t>({__VA_ARGS__})));            \
+      }                                                        \
+    }                                                          \
+  }
+
+#define RECORD_HISTOGRAM_METRIC_VALUE(key, ...)                \
+  {                                                            \
+    if (::facebook::velox::BaseStatsReporter::registered) {    \
+      auto reporter = folly::Singleton<                        \
+          facebook::velox::BaseStatsReporter>::try_get_fast(); \
+      if (FOLLY_LIKELY(reporter != nullptr)) {                 \
+        reporter->addHistogramValue((key), ##__VA_ARGS__);     \
+      }                                                        \
+    }                                                          \
+  }
 } // namespace facebook::velox

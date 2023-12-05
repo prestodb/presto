@@ -2573,7 +2573,7 @@ uint64_t Task::MemoryReclaimer::reclaim(
   }
   VELOX_CHECK(paused || maxWaitMs != 0);
   if (!paused) {
-    REPORT_ADD_STAT_VALUE(kCounterMemoryReclaimWaitTimeoutCount, 1);
+    RECORD_METRIC_VALUE(kMetricMemoryReclaimWaitTimeoutCount, 1);
     VELOX_FAIL(
         "Memory reclaim failed to wait for task {} to pause after {} with max timeout {}",
         task->taskId(),
@@ -2582,8 +2582,8 @@ uint64_t Task::MemoryReclaimer::reclaim(
   }
 
   stats.reclaimWaitTimeUs += reclaimWaitTimeUs;
-  REPORT_ADD_HISTOGRAM_VALUE(
-      kCounterMemoryReclaimWaitTimeMs, reclaimWaitTimeUs / 1'000);
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kMetricMemoryReclaimWaitTimeMs, reclaimWaitTimeUs / 1'000);
 
   // Don't reclaim from a cancelled task as it will terminate soon.
   if (task->isCancelled()) {

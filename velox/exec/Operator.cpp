@@ -607,7 +607,7 @@ uint64_t Operator::MemoryReclaimer::reclaim(
   if (op_->nonReclaimableSection_) {
     // TODO: reduce the log frequency if it is too verbose.
     ++stats.numNonReclaimableAttempts;
-    REPORT_ADD_STAT_VALUE(kCounterMemoryNonReclaimableCount);
+    RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     LOG(WARNING) << "Can't reclaim from memory pool " << pool->name()
                  << " which is under non-reclaimable section, memory usage: "
                  << succinctBytes(pool->currentBytes())

@@ -695,7 +695,7 @@ bool AsyncDataCache::makeSpace(
 uint64_t AsyncDataCache::shrink(uint64_t targetBytes) {
   VELOX_CHECK_GT(targetBytes, 0);
 
-  REPORT_ADD_STAT_VALUE(kCounterCacheShrinkCount);
+  RECORD_METRIC_VALUE(kMetricCacheShrinkCount);
   LOG(INFO) << "Try to shrink cache to free up "
             << velox::succinctBytes(targetBytes) << "  memory";
 
@@ -724,7 +724,7 @@ uint64_t AsyncDataCache::shrink(uint64_t targetBytes) {
     allocator_->unmap(memory::AllocationTraits::numPages(targetBytes));
   }
 
-  REPORT_ADD_HISTOGRAM_VALUE(kCounterCacheShrinkTimeMs, shrinkTimeUs / 1'000);
+  RECORD_HISTOGRAM_METRIC_VALUE(kMetricCacheShrinkTimeMs, shrinkTimeUs / 1'000);
   LOG(INFO) << "Freed " << velox::succinctBytes(evictedBytes)
             << " cache memory, spent " << velox::succinctMicros(shrinkTimeUs)
             << "\n"

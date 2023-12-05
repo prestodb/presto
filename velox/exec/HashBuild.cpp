@@ -222,7 +222,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     // Disable spilling if exceeding the max spill level and the query might run
     // out of memory if the restored partition still can't fit in memory.
     if (spillConfig.exceedJoinSpillLevelLimit(startBit)) {
-      REPORT_ADD_STAT_VALUE(kCounterMaxSpillLevelExceededCount);
+      RECORD_METRIC_VALUE(kMetricMaxSpillLevelExceededCount);
       LOG(WARNING) << "Exceeded spill level limit: "
                    << spillConfig.maxSpillLevel
                    << ", and disable spilling for memory pool: "

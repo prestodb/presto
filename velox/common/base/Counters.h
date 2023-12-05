@@ -20,32 +20,38 @@
 
 namespace facebook::velox {
 
-/// Velox Counter Registration
-void registerVeloxCounters();
+/// Velox metrics Registration.
+void registerVeloxMetrics();
 
-constexpr folly::StringPiece kCounterHiveFileHandleGenerateLatencyMs{
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+inline void registerVeloxCounters() {
+  registerVeloxMetrics();
+}
+#endif
+
+constexpr folly::StringPiece kMetricHiveFileHandleGenerateLatencyMs{
     "velox.hive_file_handle_generate_latency_ms"};
 
-constexpr folly::StringPiece kCounterCacheShrinkCount{
+constexpr folly::StringPiece kMetricCacheShrinkCount{
     "velox.cache_shrink_count"};
 
-constexpr folly::StringPiece kCounterCacheShrinkTimeMs{"velox.cache_shrink_ms"};
+constexpr folly::StringPiece kMetricCacheShrinkTimeMs{"velox.cache_shrink_ms"};
 
-constexpr folly::StringPiece kCounterMemoryReclaimExecTimeMs{
+constexpr folly::StringPiece kMetricMemoryReclaimExecTimeMs{
     "velox.memory_reclaim_exec_ms"};
 
-constexpr folly::StringPiece kCounterMemoryReclaimedBytes{
+constexpr folly::StringPiece kMetricMemoryReclaimedBytes{
     "velox.memory_reclaim_bytes"};
 
-constexpr folly::StringPiece kCounterMemoryReclaimWaitTimeMs{
+constexpr folly::StringPiece kMetricMemoryReclaimWaitTimeMs{
     "velox.memory_reclaim_wait_ms"};
 
-constexpr folly::StringPiece kCounterMemoryReclaimWaitTimeoutCount{
+constexpr folly::StringPiece kMetricMemoryReclaimWaitTimeoutCount{
     "velox.memory_reclaim_wait_timeout_count"};
 
-constexpr folly::StringPiece kCounterMemoryNonReclaimableCount{
+constexpr folly::StringPiece kMetricMemoryNonReclaimableCount{
     "velox.memory_non_reclaimable_count"};
 
-constexpr folly::StringPiece kCounterMaxSpillLevelExceededCount{
+constexpr folly::StringPiece kMetricMaxSpillLevelExceededCount{
     "velox.spill_max_level_exceeded_count"};
 } // namespace facebook::velox
