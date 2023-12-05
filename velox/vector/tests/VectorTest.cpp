@@ -3517,5 +3517,23 @@ TEST_F(VectorTest, flatAllNulls) {
   }
 }
 
+TEST_F(VectorTest, hashAll) {
+  auto data = makeFlatVector<int32_t>({1, 2, 3});
+  ASSERT_TRUE(data->getNullCount().has_value());
+
+  auto hashes = data->hashAll();
+
+  // Make a similar vector, but without stats, e.g. nullCount unset.
+  auto copy = std::make_shared<FlatVector<int32_t>>(
+      pool(), INTEGER(), nullptr, 3, data->values(), std::vector<BufferPtr>{});
+  ASSERT_FALSE(copy->getNullCount().has_value());
+
+  auto hashesCopy = copy->hashAll();
+
+  for (auto i = 0; i < 3; ++i) {
+    ASSERT_EQ(hashes->valueAt(i), hashesCopy->valueAt(i));
+  }
+}
+
 } // namespace
 } // namespace facebook::velox
