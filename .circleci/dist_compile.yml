@@ -446,7 +446,7 @@ jobs:
             export HADOOP_HOME='/usr/local/hadoop'
             export PATH=~/adapter-deps/install/bin:/usr/local/hadoop/bin:${PATH}
             # The following is used to install Azurite in the CI for running Abfs Hive Connector unit tests.
-            # Azurite is an emulator for local Azure Storage development, and it is a required component for running Abfs Hive Connector unit tests. 
+            # Azurite is an emulator for local Azure Storage development, and it is a required component for running Abfs Hive Connector unit tests.
             # It can be installed using npm. The following is used to install Node.js and npm for Azurite installation.
             curl -sL https://rpm.nodesource.com/setup_10.x | bash -
             yum install -y nodejs
@@ -643,8 +643,11 @@ jobs:
             pip install deepdiff
             python ./scripts/signature.py export --presto presto_pr_signatures.json
             python ./scripts/signature.py export --spark spark_pr_signatures.json
-            python ./scripts/signature.py bias presto_merge_base_signatures.json presto_pr_signatures.json /tmp/presto_bias_functions
-            python ./scripts/signature.py bias spark_merge_base_signatures.json spark_pr_signatures.json /tmp/spark_bias_functions
+            if python ./scripts/signature.py bias presto_merge_base_signatures.json presto_pr_signatures.json /tmp/presto_bias_functions ; \
+            then echo "Presto signature check success" ; else echo "Presto signature check failed" > /tmp/presto-signature-error-code ; fi
+            if python ./scripts/signature.py bias spark_merge_base_signatures.json spark_pr_signatures.json /tmp/spark_bias_functions ; \
+            then echo "Spark signature check success"; else echo "Spark signature check failed" > /tmp/spark-signature-error-code ; fi
+
       - store_artifacts:
           path: 'presto_merge_base_signatures.json'
       - store_artifacts:
@@ -676,8 +679,13 @@ jobs:
           fuzzer_name: "Spark Bias Run"
           fuzzer_exe: "if [ -f /tmp/spark_bias_functions ];  then _build/debug/velox/expression/tests/spark_expression_fuzzer_test"
           fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 \
-          --assign_function_tickets  $(cat /tmp/spark_bias_functions) \
-          --repro_persist_path=/tmp/spark_fuzzer_repro ; fi"
+                --assign_function_tickets  $(cat /tmp/spark_bias_functions) \
+                --repro_persist_path=/tmp/spark_fuzzer_repro ; fi"
+
+      - run:
+          name: "Surface only Presto function signature errors if any"
+          command: |
+              if [ -f /tmp/presto-signature-error-code ]; then return 1 ; fi
 
 
 workflows:
