@@ -32,8 +32,7 @@ class ApproxDistinctTest : public AggregationTestBase {
   void testGlobalAgg(
       const VectorPtr& values,
       double maxStandardError,
-      int64_t expectedResult,
-      bool testWithTableScan = true) {
+      int64_t expectedResult) {
     auto vectors = makeRowVector({values});
     auto expected =
         makeRowVector({makeNullableFlatVector<int64_t>({expectedResult})});
@@ -42,9 +41,7 @@ class ApproxDistinctTest : public AggregationTestBase {
         {vectors},
         {},
         {fmt::format("approx_distinct(c0, {})", maxStandardError)},
-        {expected},
-        {},
-        testWithTableScan);
+        {expected});
     testAggregationsWithCompanion(
         {vectors},
         [](auto& /*builder*/) {},
@@ -59,26 +56,15 @@ class ApproxDistinctTest : public AggregationTestBase {
         {},
         {fmt::format("approx_set(c0, {})", maxStandardError)},
         {"cardinality(a0)"},
-        {expected},
-        {},
-        testWithTableScan);
+        {expected});
   }
 
-  void testGlobalAgg(
-      const VectorPtr& values,
-      int64_t expectedResult,
-      bool testWithTableScan = true) {
+  void testGlobalAgg(const VectorPtr& values, int64_t expectedResult) {
     auto vectors = makeRowVector({values});
     auto expected =
         makeRowVector({makeNullableFlatVector<int64_t>({expectedResult})});
 
-    testAggregations(
-        {vectors},
-        {},
-        {"approx_distinct(c0)"},
-        {expected},
-        {},
-        testWithTableScan);
+    testAggregations({vectors}, {}, {"approx_distinct(c0)"}, {expected});
     testAggregationsWithCompanion(
         {vectors},
         [](auto& /*builder*/) {},
@@ -89,13 +75,7 @@ class ApproxDistinctTest : public AggregationTestBase {
         {expected});
 
     testAggregations(
-        {vectors},
-        {},
-        {"approx_set(c0)"},
-        {"cardinality(a0)"},
-        {expected},
-        {},
-        testWithTableScan);
+        {vectors}, {}, {"approx_set(c0)"}, {"cardinality(a0)"}, {expected});
   }
 
   template <typename T, typename U>
@@ -322,19 +302,6 @@ TEST_F(ApproxDistinctTest, globalAggAllNulls) {
            .project({"cardinality(a0)"})
            .planNode();
   EXPECT_TRUE(readSingleValue(op).isNull());
-}
-
-TEST_F(ApproxDistinctTest, hugeInt) {
-  auto hugeIntValues =
-      makeFlatVector<int128_t>(50000, [](auto row) { return row; });
-  // Last param is set false to disable tablescan test
-  // as DWRF writer doesn't have hugeint support.
-  // Refer:https://github.com/facebookincubator/velox/issues/7775
-  testGlobalAgg(hugeIntValues, 49669, false);
-  testGlobalAgg(
-      hugeIntValues, common::hll::kLowestMaxStandardError, 50110, false);
-  testGlobalAgg(
-      hugeIntValues, common::hll::kHighestMaxStandardError, 41741, false);
 }
 
 TEST_F(ApproxDistinctTest, streaming) {
