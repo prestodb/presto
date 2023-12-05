@@ -180,6 +180,11 @@ class FunctionSignature {
     return constantArguments_;
   }
 
+  bool hasConstantArgument() const {
+    return std::any_of(
+        constantArguments_.begin(), constantArguments_.end(), folly::identity);
+  }
+
   bool variableArity() const {
     return variableArity_;
   }

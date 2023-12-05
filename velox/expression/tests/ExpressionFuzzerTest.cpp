@@ -52,6 +52,9 @@ int main(int argc, char** argv) {
 
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable.
+  // This list can include a mix of function names and function signatures.
+  // Use function name to exclude all signatures of a given function from
+  // testing. Use function signature to exclude only a specific signature.
   std::unordered_set<std::string> skipFunctions = {
       // Fuzzer and the underlying engine are confused about cardinality(HLL)
       // (since HLL is a user defined type), and end up trying to use
@@ -60,6 +63,8 @@ int main(int argc, char** argv) {
       "cardinality",
       "element_at",
       "width_bucket",
+      // Fuzzer cannot generate valid 'comparator' lambda.
+      "array_sort(array(T),constant function(T,T,bigint)) -> array(T)",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return FuzzerRunner::run(

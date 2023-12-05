@@ -34,6 +34,42 @@ namespace facebook::velox::test {
 namespace {
 
 using exec::SignatureBinder;
+using exec::SignatureBinderBase;
+
+class FullSignatureBinder : public SignatureBinderBase {
+ public:
+  FullSignatureBinder(
+      const exec::FunctionSignature& signature,
+      const std::vector<TypePtr>& argTypes,
+      const TypePtr& returnType)
+      : SignatureBinderBase(signature) {
+    if (signature_.argumentTypes().size() != argTypes.size()) {
+      return;
+    }
+
+    for (auto i = 0; i < argTypes.size(); ++i) {
+      if (!SignatureBinderBase::tryBind(
+              signature_.argumentTypes()[i], argTypes[i])) {
+        return;
+      }
+    }
+
+    if (!SignatureBinderBase::tryBind(signature_.returnType(), returnType)) {
+      return;
+    }
+
+    bound_ = true;
+  }
+
+  // Returns true if argument types and return type specified in the constructor
+  // match specified signature.
+  bool tryBind() {
+    return bound_;
+  }
+
+ private:
+  bool bound_{false};
+};
 
 /// Returns if `functionName` with the given `argTypes` is deterministic.
 /// Returns true if the function was not found or determinism cannot be
@@ -164,7 +200,7 @@ bool isSupportedSignature(
   // Not supporting lambda functions, or functions using decimal and
   // timestamp with time zone types.
   return !(
-      useTypeName(signature, "opaque") || useTypeName(signature, "function") ||
+      useTypeName(signature, "opaque") ||
       useTypeName(signature, "long_decimal") ||
       useTypeName(signature, "short_decimal") ||
       useTypeName(signature, "decimal") ||
@@ -578,9 +614,69 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::generateArgs(
   return generateArgs(input.args, input.constantArgs, numVarArgs);
 }
 
+core::TypedExprPtr ExpressionFuzzer::generateArgFunction(const TypePtr& arg) {
+  const auto& functionType = arg->asFunction();
+
+  std::vector<TypePtr> args;
+  std::vector<std::string> names;
+  std::vector<core::TypedExprPtr> inputs;
+  args.reserve(arg->size() - 1);
+  names.reserve(arg->size() - 1);
+  inputs.reserve(arg->size() - 1);
+
+  for (auto i = 0; i < arg->size() - 1; ++i) {
+    args.push_back(arg->childAt(i));
+    names.push_back(fmt::format("__a{}", i));
+    inputs.push_back(std::make_shared<core::FieldAccessTypedExpr>(
+        args.back(), names.back()));
+  }
+
+  const auto& returnType = functionType.children().back();
+
+  const auto baseType = typeToBaseName(returnType);
+  const auto& baseList = typeToExpressionList_[baseType];
+  const auto& templateList = typeToExpressionList_[kTypeParameterName];
+
+  std::vector<std::string> eligible;
+  for (const auto& functionName : baseList) {
+    if (auto* signature =
+            findConcreteSignature(args, returnType, functionName)) {
+      eligible.push_back(functionName);
+    } else if (
+        auto* signatureTemplate =
+            findSignatureTemplate(args, returnType, baseType, functionName)) {
+      eligible.push_back(functionName);
+    }
+  }
+
+  for (const auto& functionName : templateList) {
+    if (auto* signatureTemplate =
+            findSignatureTemplate(args, returnType, baseType, functionName)) {
+      eligible.push_back(functionName);
+    }
+  }
+
+  if (eligible.empty()) {
+    return std::make_shared<core::LambdaTypedExpr>(
+        ROW(std::move(names), std::move(args)),
+        generateArgConstant(returnType));
+  }
+
+  const auto idx = rand32(0, eligible.size() - 1);
+  const auto name = eligible[idx];
+
+  return std::make_shared<core::LambdaTypedExpr>(
+      ROW(std::move(names), std::move(args)),
+      std::make_shared<core::CallTypedExpr>(returnType, inputs, name));
+}
+
 core::TypedExprPtr ExpressionFuzzer::generateArg(
     const TypePtr& arg,
     bool isConstant) {
+  if (arg->isFunction()) {
+    return generateArgFunction(arg);
+  }
+
   if (isConstant) {
     return generateArgConstant(arg);
   } else {
@@ -768,6 +864,46 @@ const CallableSignature* ExpressionFuzzer::chooseRandomConcreteSignature(
   return eligible[idx];
 }
 
+const CallableSignature* ExpressionFuzzer::findConcreteSignature(
+    const std::vector<TypePtr>& argTypes,
+    const TypePtr& returnType,
+    const std::string& functionName) {
+  if (expressionToSignature_.find(functionName) ==
+      expressionToSignature_.end()) {
+    return nullptr;
+  }
+  auto baseType = typeToBaseName(returnType);
+  auto it = expressionToSignature_[functionName].find(baseType);
+  if (it == expressionToSignature_[functionName].end()) {
+    return nullptr;
+  }
+
+  for (auto signature : it->second) {
+    if (!signature->returnType->equivalent(*returnType)) {
+      continue;
+    }
+
+    if (signature->args.size() != argTypes.size()) {
+      continue;
+    }
+
+    bool argTypesMatch = true;
+    for (auto i = 0; i < argTypes.size(); ++i) {
+      if (signature->constantArgs[i] ||
+          !signature->args[i]->equivalent(*argTypes[i])) {
+        argTypesMatch = false;
+        break;
+      }
+    }
+
+    if (argTypesMatch) {
+      return signature;
+    }
+  }
+
+  return nullptr;
+}
+
 core::TypedExprPtr ExpressionFuzzer::generateExpressionFromConcreteSignatures(
     const TypePtr& returnType,
     const std::string& functionName) {
@@ -810,6 +946,37 @@ const SignatureTemplate* ExpressionFuzzer::chooseRandomSignatureTemplate(
 
   auto idx = rand32(0, eligible.size() - 1);
   return eligible[idx];
+}
+
+const SignatureTemplate* ExpressionFuzzer::findSignatureTemplate(
+    const std::vector<TypePtr>& argTypes,
+    const TypePtr& returnType,
+    const std::string& typeName,
+    const std::string& functionName) {
+  std::vector<const SignatureTemplate*> eligible;
+  if (expressionToTemplatedSignature_.find(functionName) ==
+      expressionToTemplatedSignature_.end()) {
+    return nullptr;
+  }
+  auto it = expressionToTemplatedSignature_[functionName].find(typeName);
+  if (it == expressionToTemplatedSignature_[functionName].end()) {
+    return nullptr;
+  }
+
+  for (auto signatureTemplate : it->second) {
+    // Skip signatures with constant arguments.
+    if (signatureTemplate->signature->hasConstantArgument()) {
+      continue;
+    }
+
+    FullSignatureBinder binder{
+        *signatureTemplate->signature, argTypes, returnType};
+    if (binder.tryBind()) {
+      return signatureTemplate;
+    }
+  }
+
+  return nullptr;
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateExpressionFromSignatureTemplate(

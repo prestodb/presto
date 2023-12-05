@@ -1104,20 +1104,24 @@ TEST_F(Re2FunctionsTest, likeRegexLimit) {
   }
 
   VELOX_ASSERT_THROW(
-      evaluate("like(c0 , c1)", makeRowVector({input, pattern})),
+      evaluate("like(c0, c1)", makeRowVector({input, pattern})),
       "Max number of regex reached");
 
-  // Make sure try does not suppress that faluire.
-  VELOX_ASSERT_THROW(
-      evaluate("try(like(c0 , c1))", makeRowVector({input, pattern})),
-      "Max number of regex reached");
+  // First 20 rows should return false, the rest raise and error and become
+  // null.
+  result = evaluate("try(like(c0, c1))", makeRowVector({input, pattern}));
+  auto expected = makeFlatVector<bool>(
+      26,
+      [](auto /*row*/) { return false; },
+      [](auto row) { return row >= 20; });
+  assertEqualVectors(expected, result);
 
   // All are complex but the same, should pass.
   for (int i = 0; i < 26; i++) {
     flatPattern->set(i, "b%[0-9]+.*{}.*{}.*[0-9]+");
   }
-  assertEqualVectors(
-      BaseVector::createConstant(BOOLEAN(), false, 26, pool()), result);
+  result = evaluate("like(c0, c1)", makeRowVector({input, pattern}));
+  assertEqualVectors(makeConstant(false, 26), result);
 }
 
 TEST_F(Re2FunctionsTest, invalidEscapeChar) {

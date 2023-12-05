@@ -191,6 +191,16 @@ class ExpressionFuzzer {
 
   core::TypedExprPtr generateArg(const TypePtr& arg);
 
+  // Given lambda argument type, generate matching LambdaTypedExpr.
+  //
+  // The 'arg' specifies inputs types and result type for the lambda. This
+  // method finds all matching signatures and signature templates, picks one
+  // randomly and generates LambdaTypedExpr. If no matching signatures or
+  // signature templates found, this method returns LambdaTypedExpr that
+  // represents a constant lambda, i.e lambda that returns the same value for
+  // all input. The constant value is generated using 'generateArgConstant'.
+  core::TypedExprPtr generateArgFunction(const TypePtr& arg);
+
   std::vector<core::TypedExprPtr> generateArgs(const CallableSignature& input);
 
   std::vector<core::TypedExprPtr> generateArgs(
@@ -239,6 +249,13 @@ class ExpressionFuzzer {
       const TypePtr& returnType,
       const std::string& functionName);
 
+  /// Returns a signature with matching input types and return type. Returns
+  /// nullptr if matching signature doesn't exist.
+  const CallableSignature* findConcreteSignature(
+      const std::vector<TypePtr>& argTypes,
+      const TypePtr& returnType,
+      const std::string& functionName);
+
   /// Generate an expression by randomly selecting a concrete function
   /// signature that returns 'returnType' among all signatures that the
   /// function named 'functionName' supports.
@@ -250,6 +267,14 @@ class ExpressionFuzzer {
   /// in expressionToTemplatedSignature_ whose return type can match
   /// returnType. Return nullptr if no such signature template exists.
   const SignatureTemplate* chooseRandomSignatureTemplate(
+      const TypePtr& returnType,
+      const std::string& typeName,
+      const std::string& functionName);
+
+  /// Returns a signature template with matching input types and return type.
+  /// Returns nullptr if matching signature template doesn't exist.
+  const SignatureTemplate* findSignatureTemplate(
+      const std::vector<TypePtr>& argTypes,
       const TypePtr& returnType,
       const std::string& typeName,
       const std::string& functionName);

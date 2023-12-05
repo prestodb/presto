@@ -581,7 +581,7 @@ class LikeGeneric final : public VectorFunction {
 
       auto [it, inserted] = compiledRegularExpressions_.emplace(
           key, std::make_unique<RE2>(toStringPiece(regex), opt));
-      VELOX_CHECK_LE(
+      VELOX_USER_CHECK_LE(
           compiledRegularExpressions_.size(),
           kMaxCompiledRegexes,
           "Max number of regex reached");

@@ -74,6 +74,17 @@ class FuzzerRunner {
     return nameSet;
   }
 
+  static std::pair<std::string, std::string> splitSignature(
+      const std::string& signature) {
+    const auto parenPos = signature.find("(");
+
+    if (parenPos != std::string::npos) {
+      return {signature.substr(0, parenPos), signature.substr(parenPos)};
+    }
+
+    return {signature, ""};
+  }
+
   // Parse the comma separated list of function names, and use it to filter the
   // input signatures.
   static facebook::velox::FunctionSignatureMap filterSignatures(
@@ -85,10 +96,32 @@ class FuzzerRunner {
         return input;
       }
       facebook::velox::FunctionSignatureMap output(input);
-      for (auto s : skipFunctions) {
-        auto str = s;
-        folly::toLowerAscii(str);
-        output.erase(str);
+      for (auto skip : skipFunctions) {
+        // 'skip' can be function name or signature.
+        const auto [skipName, skipSignature] = splitSignature(skip);
+
+        if (skipSignature.empty()) {
+          output.erase(skipName);
+        } else {
+          auto it = output.find(skipName);
+          if (it != output.end()) {
+            // Compiler refuses to reference 'skipSignature' from the lambda as
+            // is.
+            const auto& signatureToRemove = skipSignature;
+
+            auto removeIt = std::find_if(
+                it->second.begin(),
+                it->second.end(),
+                [&](const auto& signature) {
+                  return signature->toString() == signatureToRemove;
+                });
+            VELOX_CHECK(
+                removeIt != it->second.end(),
+                "Skip signature not found: {}",
+                skip);
+            it->second.erase(removeIt);
+          }
+        }
       }
       return output;
     }
