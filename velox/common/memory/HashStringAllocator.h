@@ -280,16 +280,23 @@ class HashStringAllocator : public StreamArena {
 
   /// Allocates a new range for a stream writing to 'this'. Sets the last word
   /// of the previous range to point to the new range and copies the overwritten
-  /// word as the first word of the new range.
+  /// word as the first word of the new range. If 'lastRange' is non-null, we
+  /// are continuing an existing entry and setting the last word  of the
+  /// previous entry point to the new one. In this case, we decrement the size
+  /// in 'lastEntry' by the size of the continue pointer, so that the sum of the
+  /// sizes reflects the payload size without any overheads. Furthermore,
+  /// rewriting a multirange entry is safe because a write spanning multiple
+  /// ranges will not overwrite the next pointer.
   ///
   /// May allocate less than 'bytes'.
-  void newRange(int32_t bytes, ByteRange* FOLLY_NONNULL range) override;
+  void newRange(int32_t bytes, ByteRange* lastRange, ByteRange* range) override;
 
   /// Allocates a new range of at least 'bytes' size.
   void newContiguousRange(int32_t bytes, ByteRange* range);
 
-  void newTinyRange(int32_t bytes, ByteRange* FOLLY_NONNULL range) override {
-    newRange(bytes, range);
+  void newTinyRange(int32_t bytes, ByteRange* lastRange, ByteRange* range)
+      override {
+    newRange(bytes, lastRange, range);
   }
 
   // Returns the total memory footprint of 'this'.
@@ -345,7 +352,11 @@ class HashStringAllocator : public StreamArena {
   static constexpr int32_t kMinContiguous = 48;
   static constexpr int32_t kNumFreeLists = kMaxAlloc - kMinAlloc + 2;
 
-  void newRange(int32_t bytes, ByteRange* range, bool contiguous);
+  void newRange(
+      int32_t bytes,
+      ByteRange* lastRange,
+      ByteRange* range,
+      bool contiguous);
 
   // Adds a new standard size slab to the free list. This
   // grows the footprint in MemoryAllocator but does not allocate

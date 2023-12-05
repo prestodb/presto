@@ -227,11 +227,15 @@ class ByteStream {
 
   void operator=(const ByteStream& other) = delete;
 
-  void setRange(ByteRange range) {
+  /// Sets 'this' to range over 'range'. If this is for purposes of writing,
+  /// lastWrittenPosition specifies the end of any pre-existing content in
+  /// 'range'.
+  void setRange(ByteRange range, int32_t lastWrittenPosition) {
     ranges_.resize(1);
     ranges_[0] = range;
     current_ = ranges_.data();
-    lastRangeEnd_ = ranges_[0].size;
+    VELOX_CHECK_GE(ranges_.back().size, lastWrittenPosition);
+    lastRangeEnd_ = lastWrittenPosition;
   }
 
   const std::vector<ByteRange>& ranges() const {
@@ -256,7 +260,7 @@ class ByteStream {
   /// the last range.
   size_t size() const;
 
-  int32_t lastRangeEnd() {
+  int32_t lastRangeEnd() const {
     updateEnd();
     return lastRangeEnd_;
   }
@@ -326,6 +330,10 @@ class ByteStream {
     return allocatedBytes_;
   }
 
+  /// Returns a ByteInputStream to range over the current content of 'this'. The
+  /// result is valid as long as 'this' is live and not changed.
+  ByteInputStream inputStream() const;
+
   std::string toString() const;
 
  private:
@@ -352,7 +360,7 @@ class ByteStream {
 
   int32_t newRangeSize(int32_t bytes) const;
 
-  void updateEnd() {
+  void updateEnd() const {
     if (!ranges_.empty() && current_ == &ranges_.back() &&
         current_->position > lastRangeEnd_) {
       lastRangeEnd_ = current_->position;
@@ -381,7 +389,8 @@ class ByteStream {
   // of 'ranges_'. In a write situation, all non-last ranges are full
   // and the last may be partly full. The position in the last range
   // is not necessarily the the end if there has been a seek.
-  int32_t lastRangeEnd_{0};
+  mutable int32_t lastRangeEnd_{0};
+
   template <typename T>
   friend class AppendWindow;
 };

@@ -146,10 +146,12 @@ HashStringAllocator::Position HashStringAllocator::newWrite(
       "HashStringAllocator");
   currentHeader_ = allocate(preferredSize, false);
 
-  stream.setRange(ByteRange{
-      reinterpret_cast<uint8_t*>(currentHeader_->begin()),
-      currentHeader_->size(),
-      0});
+  stream.setRange(
+      ByteRange{
+          reinterpret_cast<uint8_t*>(currentHeader_->begin()),
+          currentHeader_->size(),
+          0},
+      0);
 
   startPosition_ = Position::atOffset(currentHeader_, 0);
 
@@ -171,10 +173,12 @@ void HashStringAllocator::extendWrite(Position position, ByteStream& stream) {
     header->clearContinued();
   }
 
-  stream.setRange(ByteRange{
-      reinterpret_cast<uint8_t*>(position.position),
-      static_cast<int32_t>(header->end() - position.position),
-      0});
+  stream.setRange(
+      ByteRange{
+          reinterpret_cast<uint8_t*>(position.header->begin()),
+          position.header->size(),
+          static_cast<int32_t>(position.position - position.header->begin())},
+      0);
   currentHeader_ = header;
   startPosition_ = position;
 }
@@ -247,6 +251,7 @@ void HashStringAllocator::newSlab() {
 
 void HashStringAllocator::newRange(
     int32_t bytes,
+    ByteRange* lastRange,
     ByteRange* range,
     bool contiguous) {
   // Allocates at least kMinContiguous or to the end of the current
@@ -263,18 +268,28 @@ void HashStringAllocator::newRange(
   *lastWordPtr = newHeader;
   currentHeader_->setContinued();
   currentHeader_ = newHeader;
+  if (lastRange) {
+    // The last bytes of the last range are no longer payload. So do not
+    // count them in size and do not overwrite them if overwriting the
+    // multirange entry. Set position at the new end.
+    lastRange->size -= sizeof(void*);
+    lastRange->position = std::min(lastRange->size, lastRange->position);
+  }
   *range = ByteRange{
       reinterpret_cast<uint8_t*>(currentHeader_->begin()),
       currentHeader_->size(),
       Header::kContinuedPtrSize};
 }
 
-void HashStringAllocator::newRange(int32_t bytes, ByteRange* range) {
-  newRange(bytes, range, false);
+void HashStringAllocator::newRange(
+    int32_t bytes,
+    ByteRange* lastRange,
+    ByteRange* range) {
+  newRange(bytes, lastRange, range, false);
 }
 
 void HashStringAllocator::newContiguousRange(int32_t bytes, ByteRange* range) {
-  newRange(bytes, range, true);
+  newRange(bytes, nullptr, range, true);
 }
 
 // static

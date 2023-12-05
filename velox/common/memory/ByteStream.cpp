@@ -321,7 +321,10 @@ void ByteStream::extend(int32_t bytes) {
   ranges_.emplace_back();
   current_ = &ranges_.back();
   lastRangeEnd_ = 0;
-  arena_->newRange(newRangeSize(bytes), current_);
+  arena_->newRange(
+      newRangeSize(bytes),
+      ranges_.size() == 1 ? nullptr : &ranges_[ranges_.size() - 2],
+      current_);
   allocatedBytes_ += current_->size;
   VELOX_CHECK_GT(allocatedBytes_, 0);
   if (isBits_) {
@@ -342,6 +345,14 @@ int32_t ByteStream::newRangeSize(int32_t bytes) const {
     return bits::roundUp(bytes, 512);
   }
   return bits::roundUp(bytes, memory::AllocationTraits::kPageSize);
+}
+
+ByteInputStream ByteStream::inputStream() const {
+  VELOX_CHECK(!ranges_.empty());
+  updateEnd();
+  auto rangeCopy = ranges_;
+  rangeCopy.back().size = lastRangeEnd_;
+  return ByteInputStream(std::move(rangeCopy));
 }
 
 std::string ByteStream::toString() const {

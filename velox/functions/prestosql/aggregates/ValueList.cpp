@@ -63,14 +63,16 @@ void ValueList::appendNonNull(
   prepareAppend(allocator);
   ByteStream stream(allocator);
   allocator->extendWrite(dataCurrent_, stream);
+  // The stream may have a tail of a previous write.
+  const auto initialSize = stream.size();
   exec::ContainerRowSerde::serialize(values, index, stream);
   ++size_;
-  bytes_ += stream.size();
+  bytes_ += stream.size() - initialSize;
 
-  // Leave space up to the size appended so far, at least 24 but no more
+  // Leave space up to half the size appended so far, at least 24 but no more
   // than 1024.
   dataCurrent_ =
-      allocator->finishWrite(stream, std::clamp(bytes_, 24, 1024)).second;
+      allocator->finishWrite(stream, std::clamp(bytes_ / 2, 24, 1024)).second;
 }
 
 void ValueList::appendValue(
