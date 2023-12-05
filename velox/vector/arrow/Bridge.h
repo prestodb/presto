@@ -25,6 +25,11 @@
 struct ArrowArray;
 struct ArrowSchema;
 
+struct ArrowOptions {
+  bool flattenDictionary{false};
+  bool flattenConstant{false};
+};
+
 namespace facebook::velox {
 
 /// Export a generic Velox Vector to an ArrowArray, as defined by Arrow's C data
@@ -57,7 +62,8 @@ namespace facebook::velox {
 void exportToArrow(
     const VectorPtr& vector,
     ArrowArray& arrowArray,
-    memory::MemoryPool* pool);
+    memory::MemoryPool* pool,
+    const ArrowOptions& options = ArrowOptions{});
 
 /// Export the type of a Velox vector to an ArrowSchema.
 ///
@@ -78,7 +84,10 @@ void exportToArrow(
 ///
 /// NOTE: Since Arrow couples type and encoding, we need both Velox type and
 /// actual data (containing encoding) to create an ArrowSchema.
-void exportToArrow(const VectorPtr&, ArrowSchema&);
+void exportToArrow(
+    const VectorPtr&,
+    ArrowSchema&,
+    const ArrowOptions& = ArrowOptions{});
 
 /// Import an ArrowSchema into a Velox Type object.
 ///

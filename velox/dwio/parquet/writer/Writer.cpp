@@ -224,10 +224,11 @@ dwio::common::StripeProgress getStripeProgress(
  * This method assumes each input `ColumnarBatch` have same schema.
  */
 void Writer::write(const VectorPtr& data) {
+  ArrowOptions options{.flattenDictionary = true, .flattenConstant = true};
   ArrowArray array;
   ArrowSchema schema;
-  exportToArrow(data, array, generalPool_.get());
-  exportToArrow(data, schema);
+  exportToArrow(data, array, generalPool_.get(), options);
+  exportToArrow(data, schema, options);
   PARQUET_ASSIGN_OR_THROW(
       auto recordBatch, ::arrow::ImportRecordBatch(&array, &schema));
   if (!arrowContext_->schema) {
