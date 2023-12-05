@@ -31,6 +31,7 @@ class HdfsFileSystem::Impl {
     hdfsBuilderSetNameNode(builder, endpoint.host.c_str());
     hdfsBuilderSetNameNodePort(builder, atoi(endpoint.port.data()));
     hdfsClient_ = hdfsBuilderConnect(builder);
+    hdfsFreeBuilder(builder);
     VELOX_CHECK_NOT_NULL(
         hdfsClient_,
         "Unable to connect to HDFS: {}, got error: {}.",
