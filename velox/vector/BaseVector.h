@@ -177,6 +177,20 @@ class BaseVector {
     return type_;
   }
 
+  /// Changes vector type. The new type can have a different
+  /// logical representation while maintaining the same physical type.
+  /// Additionally, note that the caller must ensure that this vector is not
+  /// shared, i.e. singly-referenced.
+  virtual void setType(const TypePtr& type) {
+    VELOX_CHECK_NOT_NULL(type);
+    VELOX_CHECK(
+        type_->kindEquals(type),
+        "Cannot change vector type from {} to {}. The old and new types can be different logical types, but the underlying physical types must match.",
+        type_,
+        type);
+    type_ = type;
+  }
+
   TypeKind typeKind() const {
     return typeKind_;
   }
@@ -868,7 +882,7 @@ class BaseVector {
     return sliceBuffer(*BOOLEAN(), nulls_, offset, length, pool_);
   }
 
-  const TypePtr type_;
+  TypePtr type_;
   const TypeKind typeKind_;
   const VectorEncoding::Simple encoding_;
   BufferPtr nulls_;

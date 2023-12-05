@@ -151,6 +151,8 @@ class RowVector : public BaseVector {
     return children_;
   }
 
+  void setType(const TypePtr& type) override;
+
   void copy(
       const BaseVector* source,
       vector_size_t targetIndex,
@@ -434,6 +436,8 @@ class ArrayVector : public ArrayVectorBase {
         std::move(elements), type()->childAt(0), pool_);
   }
 
+  void setType(const TypePtr& type) override;
+
   void copyRanges(
       const BaseVector* source,
       const folly::Range<const CopyRange*>& ranges) override;
@@ -549,6 +553,8 @@ class MapVector : public ArrayVectorBase {
   VectorPtr& mapValues() {
     return values_;
   }
+
+  void setType(const TypePtr& type) override;
 
   bool hasSortedKeys() const {
     return sortedKeys_;

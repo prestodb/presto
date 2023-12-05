@@ -3535,5 +3535,62 @@ TEST_F(VectorTest, hashAll) {
   }
 }
 
+TEST_F(VectorTest, setType) {
+  auto test = [&](auto& type, auto& newType, auto& invalidNewType) {
+    auto vector = BaseVector::create(type, 1'000, pool());
+
+    vector->setType(newType);
+    EXPECT_EQ(vector->type()->toString(), newType->toString());
+
+    VELOX_ASSERT_RUNTIME_THROW(
+        vector->setType(invalidNewType),
+        fmt::format(
+            "Cannot change vector type from {} to {}. The old and new types can be different logical types, but the underlying physical types must match.",
+            newType->toString(),
+            invalidNewType->toString()));
+  };
+
+  // ROW
+  auto type = ROW({"aa"}, {BIGINT()});
+  auto newType = ROW({"bb"}, {BIGINT()});
+  auto invalidNewType = ROW({"bb"}, {VARCHAR()});
+  test(type, newType, invalidNewType);
+
+  // ROW(ROW)
+  type = ROW({"a", "b"}, {ROW({"c", "d"}, {BIGINT(), BIGINT()}), BIGINT()});
+  newType =
+      ROW({"a", "b"}, {ROW({"cc", "dd"}, {BIGINT(), BIGINT()}), BIGINT()});
+  invalidNewType =
+      ROW({"a", "b"}, {ROW({"cc", "dd"}, {VARCHAR(), BIGINT()}), BIGINT()});
+  test(type, newType, invalidNewType);
+
+  // ARRAY(ROW)
+  type =
+      ROW({"a", "b"}, {ARRAY(ROW({"c", "d"}, {BIGINT(), BIGINT()})), BIGINT()});
+  newType = ROW(
+      {"a", "b"}, {ARRAY(ROW({"cc", "dd"}, {BIGINT(), BIGINT()})), BIGINT()});
+  invalidNewType = ROW(
+      {"a", "b"}, {ARRAY(ROW({"cc", "dd"}, {VARCHAR(), BIGINT()})), BIGINT()});
+  test(type, newType, invalidNewType);
+
+  // MAP(ROW)
+  type =
+      ROW({"a", "b"},
+          {MAP(ROW({"c", "d"}, {BIGINT(), BIGINT()}),
+               ROW({"e", "f"}, {BIGINT(), BIGINT()})),
+           BIGINT()});
+  newType =
+      ROW({"a", "b"},
+          {MAP(ROW({"cc", "dd"}, {BIGINT(), BIGINT()}),
+               ROW({"ee", "ff"}, {BIGINT(), BIGINT()})),
+           BIGINT()});
+  invalidNewType =
+      ROW({"a", "b"},
+          {MAP(ROW({"cc", "dd"}, {VARCHAR(), BIGINT()}),
+               ROW({"ee", "ff"}, {VARCHAR(), BIGINT()})),
+           BIGINT()});
+  test(type, newType, invalidNewType);
+}
+
 } // namespace
 } // namespace facebook::velox

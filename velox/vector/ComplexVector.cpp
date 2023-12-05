@@ -271,6 +271,13 @@ void RowVector::copy(
   }
 }
 
+void RowVector::setType(const TypePtr& type) {
+  BaseVector::setType(type);
+  for (auto i = 0; i < childrenSize_; i++) {
+    children_[i]->setType(type_->asRow().childAt(i));
+  }
+}
+
 namespace {
 
 // Runs quick checks to determine whether input vector has only null values.
@@ -844,6 +851,11 @@ std::optional<int32_t> ArrayVector::compare(
       flags);
 }
 
+void ArrayVector::setType(const TypePtr& type) {
+  BaseVector::setType(type);
+  elements_->setType(type_->asArray().elementType());
+}
+
 namespace {
 uint64_t hashArray(
     uint64_t hash,
@@ -1095,6 +1107,13 @@ bool MapVector::isSorted(vector_size_t index) const {
     }
   }
   return true;
+}
+
+void MapVector::setType(const TypePtr& type) {
+  BaseVector::setType(type);
+  const auto& mapType = type_->asMap();
+  keys_->setType(mapType.keyType());
+  values_->setType(mapType.valueType());
 }
 
 // static
