@@ -24,15 +24,130 @@
 #include "velox/expression/tests/ExpressionFuzzerVerifier.h"
 #include "velox/functions/FunctionRegistry.h"
 
-/// FuzzerRunner leverages ExpressionFuzzerVerifier to create a unit test.
+/// FuzzerRunner leverages ExpressionFuzzer and VectorFuzzer to automatically
+/// generate and execute expression tests. It works by:
+///
+///  1. Taking an initial set of available function signatures.
+///  2. Generating a random expression tree based on the available function
+///     signatures.
+///  3. Generating a random set of input data (vector), with a variety of
+///     encodings and data layouts.
+///  4. Executing the expression using the common and simplified eval paths, and
+///     asserting results are the exact same.
+///  5. Rinse and repeat.
+///
+/// The common usage pattern is as following:
+///
+///  $ ./velox_expression_fuzzer_test --steps 10000
+///
+/// The important flags that control Fuzzer's behavior are:
+///
+///  --steps: how many iterations to run.
+///  --duration_sec: alternatively, for how many seconds it should run (takes
+///          precedence over --steps).
+///  --seed: pass a deterministic seed to reproduce the behavior (each iteration
+///          will print a seed as part of the logs).
+///  --v=1: verbose logging; print a lot more details about the execution.
+///  --only: restrict the functions to fuzz.
+///  --batch_size: size of input vector batches generated.
+///
+/// e.g:
+///
+///  $ ./velox_expression_fuzzer_test \
+///         --steps 10000 \
+///         --seed 123 \
+///         --v=1 \
+///         --only "substr,trim"
 
 class FuzzerRunner {
+  static std::unordered_set<std::string> splitNames(const std::string& names) {
+    // Parse, lower case and trim it.
+    std::vector<folly::StringPiece> nameList;
+    folly::split(',', names, nameList);
+    std::unordered_set<std::string> nameSet;
+
+    for (const auto& it : nameList) {
+      auto str = folly::trimWhitespace(it).toString();
+      folly::toLowerAscii(str);
+      nameSet.insert(str);
+    }
+    return nameSet;
+  }
+
+  // Parse the comma separated list of function names, and use it to filter the
+  // input signatures.
+  static facebook::velox::FunctionSignatureMap filterSignatures(
+      const facebook::velox::FunctionSignatureMap& input,
+      const std::string& onlyFunctions,
+      const std::unordered_set<std::string>& skipFunctions) {
+    if (onlyFunctions.empty()) {
+      if (skipFunctions.empty()) {
+        return input;
+      }
+      facebook::velox::FunctionSignatureMap output(input);
+      for (auto s : skipFunctions) {
+        auto str = s;
+        folly::toLowerAscii(str);
+        output.erase(str);
+      }
+      return output;
+    }
+
+    // Parse, lower case and trim it.
+    auto nameSet = splitNames(onlyFunctions);
+
+    // Use the generated set to filter the input signatures.
+    facebook::velox::FunctionSignatureMap output;
+    for (const auto& it : input) {
+      if (nameSet.count(it.first) > 0) {
+        output.insert(it);
+      }
+    }
+    return output;
+  }
+
+  static const std::unordered_map<
+      std::string,
+      std::vector<facebook::velox::exec::FunctionSignaturePtr>>
+      kSpecialForms;
+
+  static void appendSpecialForms(
+      const std::string& specialForms,
+      facebook::velox::FunctionSignatureMap& signatureMap) {
+    auto specialFormNames = splitNames(specialForms);
+    for (const auto& [name, signatures] : kSpecialForms) {
+      if (specialFormNames.count(name) == 0) {
+        LOG(INFO) << "Skipping special form: " << name;
+        continue;
+      }
+      std::vector<const facebook::velox::exec::FunctionSignature*>
+          rawSignatures;
+      for (const auto& signature : signatures) {
+        rawSignatures.push_back(signature.get());
+      }
+      signatureMap.insert({name, std::move(rawSignatures)});
+    }
+  }
+
  public:
   static int run(
+      const std::string& onlyFunctions,
       size_t seed,
-      const std::unordered_set<std::string>& skipFunctions);
+      const std::unordered_set<std::string>& skipFunctions,
+      const std::string& specialForms) {
+    runFromGtest(onlyFunctions, seed, skipFunctions, specialForms);
+    return RUN_ALL_TESTS();
+  }
 
   static void runFromGtest(
+      const std::string& onlyFunctions,
       size_t seed,
-      const std::unordered_set<std::string>& skipFunctions);
+      const std::unordered_set<std::string>& skipFunctions,
+      const std::string& specialForms) {
+    auto signatures = facebook::velox::getFunctionSignatures();
+    appendSpecialForms(specialForms, signatures);
+    facebook::velox::test::ExpressionFuzzerVerifier(
+        filterSignatures(signatures, onlyFunctions, skipFunctions), seed)
+        .go();
+  }
 };

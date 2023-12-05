@@ -30,28 +30,13 @@ DECLARE_int32(velox_fuzzer_max_level_of_nesting);
 
 namespace facebook::velox::test {
 
-// A tool that utilizes ExpressionFuzzer, VectorFuzzer and ExpressionVerfier to
-// generate random expressions and verify the correctness of the results. It
-// works by:
-///
-///  1. Taking an initial set of available function signatures.
-///  2. Generating a random expression tree based on the available function
-///     signatures.
-///  3. Generating a random set of input data (vector), with a variety of
-///     encodings and data layouts.
-///  4. Executing the expression using the common and simplified eval paths, and
-///     asserting results are the exact same.
-///  5. Rinse and repeat.
-///
-/// The tool depends on many flags that are listed on top of
-/// ExpressionFuzzerVerifier.cpp.
-
+// A tool utilizes ExpressionFuzzer, VectorFuzzer and ExpressionVerfier to
+// generate random expressions and verify the correctness of the results.
 class ExpressionFuzzerVerifier {
  public:
   ExpressionFuzzerVerifier(
       const FunctionSignatureMap& signatureMap,
-      size_t initialSeed,
-      const std::unordered_set<std::string>& skipFunctions = {});
+      size_t initialSeed);
 
   // This function starts the test that is performed by the
   // ExpressionFuzzerVerifier which is generating random expressions and
