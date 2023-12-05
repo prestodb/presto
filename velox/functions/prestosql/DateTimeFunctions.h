@@ -1249,16 +1249,43 @@ struct FormatDateTimeFunction {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
-      out_type<Varchar>& result,
-      const arg_type<Timestamp>& timestamp,
+  FOLLY_ALWAYS_INLINE void ensureFormatter(
       const arg_type<Varchar>& formatString) {
     if (!isConstFormat_) {
       jodaDateTime_ = buildJodaDateTimeFormatter(
           std::string_view(formatString.data(), formatString.size()));
     }
+  }
 
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& result,
+      const arg_type<Timestamp>& timestamp,
+      const arg_type<Varchar>& formatString) {
+    ensureFormatter(formatString);
+
+    // TODO: We should give dateTimeFormatter a sink/ostream to prevent the
+    // copy.
     auto formattedResult = jodaDateTime_->format(timestamp, sessionTimeZone_);
+    auto resultSize = formattedResult.size();
+    result.resize(resultSize);
+    if (resultSize != 0) {
+      std::memcpy(result.data(), formattedResult.data(), resultSize);
+    }
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varchar>& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone,
+      const arg_type<Varchar>& formatString) {
+    ensureFormatter(formatString);
+
+    const auto milliseconds = *timestampWithTimezone.template at<0>();
+    Timestamp timestamp = Timestamp::fromMillis(milliseconds);
+    int16_t timeZoneId = *timestampWithTimezone.template at<1>();
+    auto* timezonePtr = date::locate_zone(util::getTimeZoneName(timeZoneId));
+
+    auto formattedResult = jodaDateTime_->format(timestamp, timezonePtr);
     auto resultSize = formattedResult.size();
     result.resize(resultSize);
     if (resultSize != 0) {

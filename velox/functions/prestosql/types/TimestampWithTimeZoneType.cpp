@@ -18,6 +18,7 @@
 
 namespace facebook::velox {
 namespace {
+
 void castFromTimestamp(
     const SimpleVector<Timestamp>& inputVector,
     exec::EvalCtx& context,

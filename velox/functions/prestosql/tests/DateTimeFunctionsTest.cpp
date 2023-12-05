@@ -158,6 +158,19 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
     return resultVector->as<SimpleVector<StringView>>()->valueAt(0);
   }
 
+  std::optional<std::string> formatDatetimeWithTimezone(
+      std::optional<Timestamp> timestamp,
+      std::optional<std::string> timeZoneName,
+      const std::string& format) {
+    auto resultVector = evaluate(
+        "format_datetime(c0, c1)",
+        makeRowVector(
+            {makeTimestampWithTimeZoneVector(
+                 timestamp.value().toMillis(), timeZoneName.value().c_str()),
+             makeNullableFlatVector<std::string>({format})}));
+    return resultVector->as<SimpleVector<StringView>>()->valueAt(0);
+  }
+
   template <typename T>
   std::optional<T> evaluateWithTimestampWithTimezone(
       const std::string& expression,
@@ -2901,6 +2914,26 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   EXPECT_THROW(
       formatDatetime(fromTimestampString("1970-01-01"), "'abcd"),
       VeloxUserError);
+}
+
+TEST_F(DateTimeFunctionsTest, formatDateTimeTimezone) {
+  using util::fromTimestampString;
+  auto zeroTs = fromTimestampString("1970-01-01");
+
+  // No timezone set; default to GMT.
+  EXPECT_EQ(
+      "1970-01-01 00:00:00", formatDatetime(zeroTs, "YYYY-MM-dd HH:mm:ss"));
+
+  // Check that string is adjusted to the timezone set.
+  EXPECT_EQ(
+      "1970-01-01 05:30:00",
+      formatDatetimeWithTimezone(
+          zeroTs, "Asia/Kolkata", "YYYY-MM-dd HH:mm:ss"));
+
+  EXPECT_EQ(
+      "1969-12-31 16:00:00",
+      formatDatetimeWithTimezone(
+          zeroTs, "America/Los_Angeles", "YYYY-MM-dd HH:mm:ss"));
 }
 
 TEST_F(DateTimeFunctionsTest, dateFormat) {

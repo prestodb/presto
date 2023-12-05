@@ -163,6 +163,11 @@ void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<FormatDateTimeFunction, Varchar, Timestamp, Varchar>(
       {prefix + "format_datetime"});
   registerFunction<
+      FormatDateTimeFunction,
+      Varchar,
+      TimestampWithTimezone,
+      Varchar>({prefix + "format_datetime"});
+  registerFunction<
       ParseDateTimeFunction,
       TimestampWithTimezone,
       Varchar,
