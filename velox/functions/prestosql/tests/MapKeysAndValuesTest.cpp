@@ -247,6 +247,17 @@ TEST_F(MapKeysTest, constant) {
   test::assertEqualVectors(expected, result);
 }
 
+TEST_F(MapKeysTest, unknown) {
+  auto keys = makeFlatVector<UnknownValue>({}, UNKNOWN());
+  auto values = makeFlatVector<UnknownValue>({}, UNKNOWN());
+  auto map = makeMapVector({0, 0, 0}, keys, values);
+
+  auto result = evaluate("map_keys(c0)", makeRowVector({map}));
+  auto expected = makeArrayVector({0, 0, 0}, keys);
+
+  test::assertEqualVectors(expected, result);
+}
+
 TEST_F(MapValuesTest, noNulls) {
   auto sizeAt = [](vector_size_t row) { return row % 7; };
   testMapValues(sizeAt, nullptr);
@@ -330,5 +341,16 @@ TEST_F(MapValuesTest, noDictionaryReceived) {
       "map_keys(subscript(array_constructor(c0),1))",
       makeRowVector({constantMap}));
   auto expected = makeArrayVector<int64_t>({{100, 200}, {100, 200}});
+  test::assertEqualVectors(expected, result);
+}
+
+TEST_F(MapValuesTest, unknown) {
+  auto keys = makeFlatVector<UnknownValue>({}, UNKNOWN());
+  auto values = makeFlatVector<UnknownValue>({}, UNKNOWN());
+  auto map = makeMapVector({0, 0, 0}, keys, values);
+
+  auto result = evaluate("map_values(c0)", makeRowVector({map}));
+  auto expected = makeArrayVector({0, 0, 0}, values);
+
   test::assertEqualVectors(expected, result);
 }
