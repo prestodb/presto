@@ -128,7 +128,11 @@ void SortWindowBuild::ensureInputFits(const RowVectorPtr& input) {
     }
   }
 
-  spill();
+  LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
+               << " for memory pool " << data_->pool()->name()
+               << ", usage: " << succinctBytes(data_->pool()->currentBytes())
+               << ", reservation: "
+               << succinctBytes(data_->pool()->reservedBytes());
 }
 
 void SortWindowBuild::setupSpiller() {

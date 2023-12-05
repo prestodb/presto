@@ -258,8 +258,10 @@ void SortBuffer::ensureInputFits(const VectorPtr& input) {
       return;
     }
   }
-
-  spill();
+  LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
+               << " for memory pool " << pool()->name()
+               << ", usage: " << succinctBytes(pool()->currentBytes())
+               << ", reservation: " << succinctBytes(pool()->reservedBytes());
 }
 
 void SortBuffer::updateEstimatedOutputRowSize() {

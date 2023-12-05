@@ -713,7 +713,10 @@ void TopNRowNumber::ensureInputFits(const RowVectorPtr& input) {
     }
   }
 
-  spill();
+  LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
+               << " for memory pool " << pool()->name()
+               << ", usage: " << succinctBytes(pool()->currentBytes())
+               << ", reservation: " << succinctBytes(pool()->reservedBytes());
 }
 
 void TopNRowNumber::spill() {

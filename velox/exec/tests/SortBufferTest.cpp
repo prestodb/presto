@@ -363,7 +363,10 @@ TEST_F(SortBufferTest, spill) {
     }
   } testSettings[] = {
       {false, true, 0, false}, // spilling is not enabled.
-      {true, true, 0, true}, // memory reservation failure triggers spilling.
+      {true,
+       true,
+       0,
+       false}, // memory reservation failure won't trigger spilling.
       {true, false, 1000, true}, // threshold is small, spilling is triggered.
       {true, false, 1000000, false} // threshold is too large, not triggered
   };
@@ -414,7 +417,7 @@ TEST_F(SortBufferTest, spill) {
       totalNumInput += 1024;
     }
     sortBuffer->noMoreInput();
-    auto spillStats = sortBuffer->spilledStats();
+    const auto spillStats = sortBuffer->spilledStats();
 
     if (!testData.spillTriggered) {
       ASSERT_FALSE(spillStats.has_value());

@@ -518,17 +518,11 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
     }
   }
 
-  if (numRows == 0) {
-    // Nothing we can spill from this hash build operator.
-    return true;
-  }
-
-  // TODO: deprecate the spilling after memory reservation fails as we rely on
-  // memory arbitration to trigger spilling automatically.
-  numSpillRows_ = std::max<int64_t>(
-      1, targetIncrementBytes / (rows->fixedRowSize() + outOfLineBytesPerRow));
-  numSpillBytes_ = numSpillRows_ * outOfLineBytesPerRow;
-  return false;
+  LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
+               << " for memory pool " << pool()->name()
+               << ", usage: " << succinctBytes(pool()->currentBytes())
+               << ", reservation: " << succinctBytes(pool()->reservedBytes());
+  return true;
 }
 
 void HashBuild::spillInput(const RowVectorPtr& input) {
@@ -864,19 +858,10 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
     }
   }
 
-  // TODO: add spilling support here in case of threshold triggered spilling.
-#if 0
-  // NOTE: the memory arbitrator must have spilled everything from this hash
-  // build operator and all its peers.
-  VELOX_CHECK(spiller_->isAllSpilled());
-#endif
-
-  // Throw a memory cap exceeded error to fail this query.
-  VELOX_MEM_POOL_CAP_EXCEEDED(fmt::format(
-      "Failed to reserve {} to build table with {} rows from {}",
-      succinctBytes(bytesToReserve),
-      numRows,
-      pool()->name()));
+  LOG(WARNING) << "Failed to reserve " << succinctBytes(bytesToReserve)
+               << " for memory pool " << pool()->name()
+               << ", usage: " << succinctBytes(pool()->currentBytes())
+               << ", reservation: " << succinctBytes(pool()->reservedBytes());
 }
 
 void HashBuild::postHashBuildProcess() {

@@ -900,8 +900,10 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
       return;
     }
   }
-
-  spill();
+  LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
+               << " for memory pool " << pool_.name()
+               << ", usage: " << succinctBytes(pool_.currentBytes())
+               << ", reservation: " << succinctBytes(pool_.reservedBytes());
 }
 
 void GroupingSet::ensureOutputFits() {
