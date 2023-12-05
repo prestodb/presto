@@ -287,7 +287,7 @@ Valid examples if cast_to_int_by_truncate=true
 
 ::
 
-  SELECT cast('12345.67' as tinyint); -- 12345
+  SELECT cast('12345.67' as bigint); -- 12345
   SELECT cast('1.2' as tinyint); -- 1
   SELECT cast('-1.8' as tinyint); -- -1
   SELECT cast('1.' as tinyint); -- 1
@@ -313,6 +313,7 @@ Invalid examples if cast_to_int_by_truncate=false
 ::
 
   SELECT cast('12345.67' as tinyint); -- Invalid argument
+  SELECT cast('12345.67' as bigint); -- Invalid argument
   SELECT cast('1.2' as tinyint); -- Invalid argument
   SELECT cast('-1.8' as tinyint); -- Invalid argument
   SELECT cast('1.' as tinyint); -- Invalid argument
@@ -363,6 +364,8 @@ Valid examples
   SELECT cast(nan() as boolean); -- true
   SELECT cast(infinity() as boolean); -- true
   SELECT cast(0.0000000000001 as boolean); -- true
+  SELECT cast(0.5 as boolean); -- true
+  SELECT cast(-0.5 as boolean); -- true
 
 From strings
 ^^^^^^^^^^^^
@@ -429,15 +432,14 @@ Valid examples
   SELECT cast('1.' as real); -- 1.0
   SELECT cast('1' as real); -- 1.0
   SELECT cast('1.7E308' as real); -- Infinity
-  SELECT cast('infinity' as real); -- Infinity (case insensitive)
-  SELECT cast('-infinity' as real); -- -Infinity (case insensitive)
-  SELECT cast('nan' as real); -- NaN (case insensitive)
+  SELECT cast('Infinity' as real); -- Infinity (case insensitive)
+  SELECT cast('-Infinity' as real); -- -Infinity (case insensitive)
+  SELECT cast('NaN' as real); -- NaN (case insensitive)
 
 Invalid examples
 
 ::
 
-  SELECT cast('1.7E308' as real); -- Out of range
   SELECT cast('1.2a' as real); -- Invalid argument
   SELECT cast('1.2.3' as real); -- Invalid argument
 
@@ -448,8 +450,22 @@ consistent with other supported cases of cast.
 
 ::
 
+  SELECT cast('infinity' as real); -- Infinity
+  SELECT cast('-infinity' as real); -- -Infinity
+  SELECT cast('inf' as real); -- Infinity
   SELECT cast('InfiNiTy' as real); -- Infinity
+  SELECT cast('INFINITY' as real); -- Infinity
   SELECT cast('nAn' as real); -- NaN
+  SELECT cast('nan' as real); -- NaN
+
+Below cases are supported in Presto, but throw in Velox.
+
+::
+
+  SELECT cast('1.2f' as real); -- 1.2
+  SELECT cast('1.2f' as double); -- 1.2
+  SELECT cast('1.2d' as real); -- 1.2
+  SELECT cast('1.2d' as double); -- 1.2
 
 From decimal
 ^^^^^^^^^^^^
@@ -561,26 +577,26 @@ From TIMESTAMP WITH TIME ZONE
 The results depend on whether configuration property `adjust_timestamp_to_session_timezone` is set or not.
 
 If set to true, input timezone is ignored and timestamp is returned as is. For example,
-"1970-01-01 00:00:00.000 America/Los_Angeles" becomes "1970-01-01 00:00:00.000".
+"1970-01-01 00:00:00.000 America/Los_Angeles" becomes "1970-01-01 08:00:00.000".
 
 Otherwise, timestamp is shifted by the offset of the timezone. For example,
-"1970-01-01 00:00:00.000 America/Los_Angeles" becomes "1969-12-31 16:00:00.000".
+"1970-01-01 00:00:00.000 America/Los_Angeles" becomes "1970-01-01 00:00:00.000".
 
 Valid examples
 
 ::
 
   -- `adjust_timestamp_to_session_timezone` is true
-  SELECT cast(timestamp '1970-01-01 00:00:00 America/Los_Angeles' as timestamp); -- 1970-01-01 00:00:00.000
-  SELECT cast(timestamp '2012-03-09 10:00:00 Asia/Chongqing' as timestamp); -- 2012-03-09 10:00:00.000
-  SELECT cast(from_unixtime(0, '+06:00') as timestamp); -- 1970-01-01 00:00:00.000
-  SELECT cast(from_unixtime(0, '-02:00') as timestamp); -- 1970-01-01 00:00:00.000
+  SELECT to_unixtime(cast(timestamp '1970-01-01 00:00:00 America/Los_Angeles' as timestamp)); -- 28800.0 (1970-01-01 08:00:00.000)
+  SELECT to_unixtime(cast(timestamp '2012-03-09 10:00:00 Asia/Chongqing' as timestamp)); -- 1.3312584E9 (2012-03-09 02:00:00.000)
+  SELECT to_unixtime(cast(from_unixtime(0, '+06:00') as timestamp)); -- 0.0 (1970-01-01 00:00:00.000)
+  SELECT to_unixtime(cast(from_unixtime(0, '-02:00') as timestamp)); -- 0.0 (1970-01-01 00:00:00.000)
 
   -- `adjust_timestamp_to_session_timezone` is false
-  SELECT cast(timestamp '1970-01-01 00:00:00 America/Los_Angeles' as timestamp); -- 1969-12-31 16:00:00.000
-  SELECT cast(timestamp '2012-03-09 10:00:00 Asia/Chongqing' as timestamp); -- 2012-03-09 18:00:00.000
-  SELECT cast(from_unixtime(0, '+06:00') as timestamp); -- 1970-01-01 06:00:00.000
-  SELECT cast(from_unixtime(0, '-02:00') as timestamp); -- 1969-12-31 22:00:00.000
+  SELECT to_unixtime(cast(timestamp '1970-01-01 00:00:00 America/Los_Angeles' as timestamp)); -- 0.0 (1970-01-01 00:00:00.000)
+  SELECT to_unixtime(cast(timestamp '2012-03-09 10:00:00 Asia/Chongqing' as timestamp)); -- 1.3312872E9 (2012-03-09 10:00:00.000)
+  SELECT to_unixtime(cast(from_unixtime(0, '+06:00') as timestamp)); -- 21600.0 (1970-01-01 06:00:00.000)
+  SELECT to_unixtime(cast(from_unixtime(0, '-02:00') as timestamp)); -- -7200.0 (1969-12-31 22:00:00.000)
 
 Cast to TIMESTAMP WITH TIME ZONE
 --------------------------------

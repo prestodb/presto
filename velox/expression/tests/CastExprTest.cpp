@@ -506,6 +506,42 @@ TEST_F(CastExprTest, basics) {
       {1.888, 2.5, 3.6, 100.44, -100.101, 1.0, -2.0},
       {1.888, 2.5, 3.6, 100.44, -100.101, 1.0, -2.0});
   testCast<bool, std::string>("string", {true, false}, {"true", "false"});
+  testCast<float, bool>(
+      "boolean",
+      {0.0,
+       1.0,
+       1.1,
+       -1.1,
+       0.5,
+       -0.5,
+       std::numeric_limits<float>::quiet_NaN(),
+       std::numeric_limits<float>::infinity(),
+       0.0000000000001},
+      {false, true, true, true, true, true, true, true, true});
+  testCast<std::string, float>(
+      "float",
+      {"1.888",
+       "1.",
+       "1",
+       "1.7E308",
+       "Infinity",
+       "-Infinity",
+       "infinity",
+       "inf",
+       "INFINITY",
+       "NaN",
+       "nan"},
+      {1.888,
+       1.0,
+       1.0,
+       std::numeric_limits<float>::infinity(),
+       std::numeric_limits<float>::infinity(),
+       -std::numeric_limits<float>::infinity(),
+       std::numeric_limits<float>::infinity(),
+       std::numeric_limits<float>::infinity(),
+       std::numeric_limits<float>::infinity(),
+       std::numeric_limits<float>::quiet_NaN(),
+       std::numeric_limits<float>::quiet_NaN()});
 
   gflags::FlagSaver flagSaver;
   FLAGS_experimental_enable_legacy_cast = true;
