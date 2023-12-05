@@ -437,6 +437,7 @@ exec::AggregateRegistrationResult registerApproxDistinct(
           "smallint",
           "integer",
           "bigint",
+          "hugeint",
           "real",
           "double",
           "varchar",
@@ -455,6 +456,21 @@ exec::AggregateRegistrationResult registerApproxDistinct(
                                .argumentType("double")
                                .build());
     }
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .typeVariable("a_precision")
+                             .typeVariable("a_scale")
+                             .returnType(returnType)
+                             .intermediateType("varbinary")
+                             .argumentType("DECIMAL(a_precision, a_scale)")
+                             .build());
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .typeVariable("a_precision")
+                             .typeVariable("a_scale")
+                             .returnType(returnType)
+                             .intermediateType("varbinary")
+                             .argumentType("DECIMAL(a_precision, a_scale)")
+                             .argumentType("double")
+                             .build());
   }
 
   return exec::registerAggregateFunction(
