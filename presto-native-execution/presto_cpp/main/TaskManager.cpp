@@ -156,7 +156,7 @@ void getData(
 
         promiseHolder->promise.setValue(std::move(result));
 
-        REPORT_ADD_STAT_VALUE(
+        RECORD_METRIC_VALUE(
             kCounterPartitionedOutputBufferGetDataLatencyMs,
             getCurrentTimeMs() - startMs);
       });
@@ -709,11 +709,11 @@ size_t TaskManager::cleanOldTasks() {
   if (zombiePrestoTaskCounts.numTotal > 0) {
     zombiePrestoTaskCounts.logZombieTaskStatus("PrestoTask");
   }
-  REPORT_ADD_STAT_VALUE(
+  RECORD_METRIC_VALUE(
       kCounterNumZombieVeloxTasks, zombieVeloxTaskCounts.numTotal);
-  REPORT_ADD_STAT_VALUE(
+  RECORD_METRIC_VALUE(
       kCounterNumZombiePrestoTasks, zombiePrestoTaskCounts.numTotal);
-  REPORT_ADD_STAT_VALUE(
+  RECORD_METRIC_VALUE(
       kCounterNumTasksWithStuckOperator, numTasksWithStuckOperator);
   return taskIdsToClean.size();
 }

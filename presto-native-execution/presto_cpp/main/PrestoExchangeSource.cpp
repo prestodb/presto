@@ -112,8 +112,8 @@ PrestoExchangeSource::PrestoExchangeSource(
       clientCertAndKeyPath_,
       ciphers_,
       [](size_t bufferBytes) {
-        REPORT_ADD_STAT_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
-        REPORT_ADD_HISTOGRAM_VALUE(
+        RECORD_METRIC_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
+        RECORD_HISTOGRAM_METRIC_VALUE(
             kCounterHttpClientPrestoExchangeOnBodyBytes, bufferBytes);
       });
 }
@@ -292,7 +292,7 @@ void PrestoExchangeSource::processDataResponse(
 
   const int64_t pageSize = empty ? 0 : page->size();
 
-  REPORT_ADD_HISTOGRAM_VALUE(
+  RECORD_HISTOGRAM_METRIC_VALUE(
       kCounterPrestoExchangeSerializedPageSize, pageSize);
 
   {
