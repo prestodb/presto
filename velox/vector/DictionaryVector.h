@@ -130,7 +130,8 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   BufferPtr mutableIndices(vector_size_t size) {
-    BaseVector::resizeIndices(size, BaseVector::pool_, &indices_, &rawIndices_);
+    BaseVector::resizeIndices(
+        BaseVector::length_, size, BaseVector::pool_, indices_, &rawIndices_);
     return indices_;
   }
 
@@ -198,9 +199,15 @@ class DictionaryVector : public SimpleVector<T> {
   void resize(vector_size_t size, bool setNotNull = true) override {
     if (size > BaseVector::length_) {
       BaseVector::resizeIndices(
-          size, BaseVector::pool(), &indices_, &rawIndices_);
-      this->clearIndices(indices_, BaseVector::length_, size);
+          BaseVector::length_,
+          size,
+          BaseVector::pool(),
+          indices_,
+          &rawIndices_);
     }
+
+    // TODO Fix the case when base vector is empty.
+    // https://github.com/facebookincubator/velox/issues/7828
 
     BaseVector::resize(size, setNotNull);
   }

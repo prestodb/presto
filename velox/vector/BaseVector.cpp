@@ -461,27 +461,33 @@ void BaseVector::setNulls(const BufferPtr& nulls) {
 
 // static
 void BaseVector::resizeIndices(
-    vector_size_t size,
+    vector_size_t currentSize,
+    vector_size_t newSize,
     velox::memory::MemoryPool* pool,
-    BufferPtr* indices,
-    const vector_size_t** raw) {
-  const auto newNumBytes = byteSize<vector_size_t>(size);
-  if (indices->get() && !indices->get()->isView() && indices->get()->unique()) {
-    if (indices->get()->size() < newNumBytes) {
-      AlignedBuffer::reallocate<vector_size_t>(indices, size, 0);
+    BufferPtr& indices,
+    const vector_size_t** rawIndices) {
+  const auto newNumBytes = byteSize<vector_size_t>(newSize);
+  if (indices != nullptr && !indices->isView() && indices->unique()) {
+    if (indices->size() < newNumBytes) {
+      AlignedBuffer::reallocate<vector_size_t>(&indices, newSize, 0);
+    }
+    // indices->size() may cover more indices than cureentSize.
+    if (newSize > currentSize) {
+      auto* raw = indices->asMutable<vector_size_t>();
+      std::fill(raw + currentSize, raw + newSize, 0);
     }
   } else {
-    auto newIndices = AlignedBuffer::allocate<vector_size_t>(size, pool, 0);
-    if (indices->get()) {
-      auto dst = newIndices->asMutable<vector_size_t>();
-      auto src = indices->get()->as<vector_size_t>();
-      auto numCopyBytes =
-          std::min<vector_size_t>(indices->get()->size(), newNumBytes);
+    auto newIndices = AlignedBuffer::allocate<vector_size_t>(newSize, pool, 0);
+    if (indices != nullptr) {
+      auto* dst = newIndices->asMutable<vector_size_t>();
+      const auto* src = indices->as<vector_size_t>();
+      const auto numCopyBytes = std::min<vector_size_t>(
+          byteSize<vector_size_t>(currentSize), newNumBytes);
       memcpy(dst, src, numCopyBytes);
     }
-    *indices = newIndices;
+    indices = newIndices;
   }
-  *raw = indices->get()->asMutable<vector_size_t>();
+  *rawIndices = indices->asMutable<vector_size_t>();
 }
 
 std::string BaseVector::toSummaryString() const {

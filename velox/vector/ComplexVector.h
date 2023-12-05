@@ -299,21 +299,19 @@ struct ArrayVectorBase : BaseVector {
   }
 
   BufferPtr mutableOffsets(size_t size) {
-    BaseVector::resizeIndices(size, pool_, &offsets_, &rawOffsets_);
+    BaseVector::resizeIndices(length_, size, pool_, offsets_, &rawOffsets_);
     return offsets_;
   }
 
   BufferPtr mutableSizes(size_t size) {
-    BaseVector::resizeIndices(size, pool_, &sizes_, &rawSizes_);
+    BaseVector::resizeIndices(length_, size, pool_, sizes_, &rawSizes_);
     return sizes_;
   }
 
   void resize(vector_size_t size, bool setNotNull = true) override {
     if (BaseVector::length_ < size) {
-      BaseVector::resizeIndices(size, pool_, &offsets_, &rawOffsets_);
-      BaseVector::resizeIndices(size, pool_, &sizes_, &rawSizes_);
-      clearIndices(sizes_, length_, size);
-      // No need to clear offset indices since we set sizes to 0.
+      BaseVector::resizeIndices(length_, size, pool_, offsets_, &rawOffsets_);
+      BaseVector::resizeIndices(length_, size, pool_, sizes_, &rawSizes_);
     }
     BaseVector::resize(size, setNotNull);
   }
