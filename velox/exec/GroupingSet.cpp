@@ -931,7 +931,11 @@ void GroupingSet::ensureOutputFits() {
       return;
     }
   }
-  spill(RowContainerIterator{});
+  LOG(WARNING) << "Failed to reserve "
+               << succinctBytes(outputBufferSizeToReserve)
+               << " for memory pool " << pool_.name()
+               << ", usage: " << succinctBytes(pool_.currentBytes())
+               << ", reservation: " << succinctBytes(pool_.reservedBytes());
 }
 
 RowTypePtr GroupingSet::makeSpillType() const {
