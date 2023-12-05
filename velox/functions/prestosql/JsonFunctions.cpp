@@ -86,10 +86,10 @@ class JsonParseFunction : public exec::VectorFunction {
     // validation of JSON syntax that doesn't allocate memory or copy data.
     assert(args.size() > 0);
     const auto& arg = args[0];
-    static_assert(simdjson::SIMDJSON_PADDING <= AlignedBuffer::kPaddedSize);
     if (arg->isConstantEncoding()) {
       auto value = arg->as<ConstantVector<StringView>>()->valueAt(0);
-      auto parsed = parser_.parse(value.data(), value.size(), false);
+      // Ask the parser to copy the input in case `value' is inlined.
+      auto parsed = parser_.parse(value.data(), value.size(), true);
       if (parsed.error() != simdjson::SUCCESS) {
         context.setErrors(rows, errors_[parsed.error()]);
         return;
@@ -104,7 +104,8 @@ class JsonParseFunction : public exec::VectorFunction {
 
       rows.applyToSelected([&](auto row) {
         auto value = flatInput->valueAt(row);
-        auto parsed = parser_.parse(value.data(), value.size(), false);
+        // Ask the parser to copy the input in case `value' is inlined.
+        auto parsed = parser_.parse(value.data(), value.size(), true);
         if (parsed.error() != simdjson::SUCCESS) {
           context.setVeloxExceptionError(row, errors_[parsed.error()]);
         }
