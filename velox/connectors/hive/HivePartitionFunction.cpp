@@ -103,6 +103,11 @@ inline uint32_t hashOne<TypeKind::TIMESTAMP>(const Timestamp& value) {
   return hashTimestamp(value);
 }
 
+template <>
+inline uint32_t hashOne<TypeKind::UNKNOWN>(const UnknownValue& /*value*/) {
+  VELOX_FAIL("Unknown values cannot be non-NULL");
+}
+
 template <TypeKind kind>
 void hashPrimitive(
     const DecodedVector& values,
@@ -243,6 +248,26 @@ void HivePartitionFunction::hashTyped<TypeKind::TIMESTAMP>(
     std::vector<uint32_t>& hashes,
     size_t /* poolIndex */) {
   hashPrimitive<TypeKind::TIMESTAMP>(values, rows, mix, hashes);
+}
+
+template <>
+void HivePartitionFunction::hashTyped<TypeKind::UNKNOWN>(
+    const DecodedVector& values,
+    const SelectivityVector& rows,
+    bool mix,
+    std::vector<uint32_t>& hashes,
+    size_t /* poolIndex */) {
+  hashPrimitive<TypeKind::UNKNOWN>(values, rows, mix, hashes);
+}
+
+template <>
+void HivePartitionFunction::hashTyped<TypeKind::OPAQUE>(
+    const DecodedVector& /*values*/,
+    const SelectivityVector& /*rows*/,
+    bool /*mix*/,
+    std::vector<uint32_t>& /*hashes*/,
+    size_t /* poolIndex */) {
+  VELOX_UNSUPPORTED("Hive partitioning function doesn't support OPAQUE type");
 }
 
 template <>
@@ -426,7 +451,7 @@ void HivePartitionFunction::hash(
   // gets implemented, this function will need to change
   // significantly.
 
-  VELOX_DYNAMIC_TYPE_DISPATCH(
+  VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       hashTyped, typeKind, values, rows, mix, hashes, poolIndex);
 }
 

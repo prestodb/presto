@@ -727,3 +727,17 @@ TEST_F(HivePartitionFunctionTest, function) {
     }
   }
 }
+
+TEST_F(HivePartitionFunctionTest, unknown) {
+  auto values = makeAllNullFlatVector<UnknownValue>(4);
+
+  assertPartitions(values, 1, {0, 0, 0, 0});
+  assertPartitions(values, 2, {0, 0, 0, 0});
+  assertPartitions(values, 500, {0, 0, 0, 0});
+  assertPartitions(values, 997, {0, 0, 0, 0});
+
+  assertPartitionsWithConstChannel(values, 1);
+  assertPartitionsWithConstChannel(values, 2);
+  assertPartitionsWithConstChannel(values, 500);
+  assertPartitionsWithConstChannel(values, 997);
+}
