@@ -192,7 +192,6 @@
         <module>presto-singlestore</module>
         <module>presto-hana</module>
         <module>presto-event-listener</module>
-        <module>presto-event-listener-mysql</module>
     </modules>
 
     <dependencyManagement>
