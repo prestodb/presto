@@ -41,7 +41,7 @@ import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
-import static com.facebook.presto.hive.HiveSessionProperties.isRangeFiltersOnSubscriptsEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isRangeFiltersOnSubscriptsEnabled;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.google.common.base.Verify.verify;
 import static java.util.Collections.unmodifiableList;

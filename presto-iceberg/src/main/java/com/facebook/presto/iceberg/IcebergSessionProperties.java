@@ -33,7 +33,6 @@ import org.apache.parquet.column.ParquetProperties;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -43,7 +42,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -83,6 +81,7 @@ public final class IcebergSessionProperties
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
     public static final String MERGE_ON_READ_MODE_ENABLED = "merge_on_read_enabled";
+    public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String HIVE_METASTORE_STATISTICS_MERGE_STRATEGY = "hive_statistics_merge_strategy";
     public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
 
@@ -103,7 +102,7 @@ public final class IcebergSessionProperties
                         "The compression codec to use when writing files",
                         VARCHAR,
                         HiveCompressionCodec.class,
-                        hiveClientConfig.getCompressionCodec(),
+                        icebergConfig.getCompressionCodec(),
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
                         HiveCompressionCodec::name),
@@ -306,7 +305,13 @@ public final class IcebergSessionProperties
                         false,
                         val -> HiveStatisticsMergeStrategy.valueOf((String) val),
                         HiveStatisticsMergeStrategy::name),
-                doubleProperty(STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT,
+                booleanProperty(
+                        PUSHDOWN_FILTER_ENABLED,
+                        "Experimental: Enable Filter Pushdown for Iceberg. This is only supported with Native Worker.",
+                        icebergConfig.isPushdownFilterEnabled(),
+                        false),
+                doubleProperty(
+                        STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT,
                         "the amount that the difference in total record count matters" +
                                 "when calculating the closest snapshot when picking statistics. A " +
                                 "value of 1 means a single record is equivalent to 1 millisecond of " +
@@ -408,23 +413,6 @@ public final class IcebergSessionProperties
         return session.getProperty(ORC_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 
-    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session)
-    {
-        boolean validate = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
-        double percentage = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, Double.class);
-
-        checkArgument(percentage >= 0.0 && percentage <= 100.0);
-
-        // session property can disabled validation
-        if (!validate) {
-            return false;
-        }
-
-        // session property can not force validation when sampling is enabled
-        // todo change this if session properties support null
-        return ThreadLocalRandom.current().nextDouble(100) < percentage;
-    }
-
     public static OrcWriteValidation.OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
     {
         return OrcWriteValidation.OrcWriteValidationMode.valueOf(session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_MODE, String.class).toUpperCase(ENGLISH));
@@ -498,6 +486,11 @@ public final class IcebergSessionProperties
     public static HiveStatisticsMergeStrategy getHiveStatisticsMergeStrategy(ConnectorSession session)
     {
         return session.getProperty(HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, HiveStatisticsMergeStrategy.class);
+    }
+
+    public static boolean isPushdownFilterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
     }
 
     public static double getStatisticSnapshotRecordDifferenceWeight(ConnectorSession session)

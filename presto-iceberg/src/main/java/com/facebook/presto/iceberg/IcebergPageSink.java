@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
@@ -336,7 +337,7 @@ public class IcebergPageSink
         return ((Transform<Object, Object>) transform).bind(icebergType).apply(value);
     }
 
-    private static Object getIcebergValue(Block block, int position, Type type)
+    public static Object getIcebergValue(Block block, int position, Type type)
     {
         if (block.isNull(position)) {
             return null;
@@ -368,6 +369,10 @@ public class IcebergPageSink
         if (type instanceof TimestampType) {
             long timestamp = type.getLong(block, position);
             return ((TimestampType) type).getPrecision() == MILLISECONDS ? MILLISECONDS.toMicros(timestamp) : timestamp;
+        }
+        if (type instanceof TimeType) {
+            long time = type.getLong(block, position);
+            return MILLISECONDS.toMicros(time);
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }

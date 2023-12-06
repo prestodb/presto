@@ -87,6 +87,15 @@ public class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testTime()
+    {
+        assertUpdate("CREATE TABLE test_time (x time)");
+        assertUpdate("INSERT INTO test_time VALUES (time '10:12:34')", 1);
+        assertQuery("SELECT * FROM test_time", "SELECT CAST('10:12:34' AS TIME)");
+        dropTable(getSession(), "test_time");
+    }
+
+    @Test
     @Override
     public void testDescribeTable()
     {
@@ -914,9 +923,7 @@ public class IcebergDistributedSmokeTestBase
 
     protected void cleanupTableWithMergeOnRead(String tableName)
     {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "true")
-                .build();
+        Session session = getSession();
         dropTable(session, tableName);
     }
 
@@ -925,9 +932,7 @@ public class IcebergDistributedSmokeTestBase
     {
         String tableName = "test_merge_on_read_enabled";
         try {
-            Session session = Session.builder(getSession())
-                    .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "true")
-                    .build();
+            Session session = getSession();
 
             createTableWithMergeOnRead(session, "tpch", tableName);
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 1)", 1);
@@ -945,12 +950,14 @@ public class IcebergDistributedSmokeTestBase
         String tableName = "test_merge_on_read_disabled";
         @Language("RegExp") String errorMessage = "merge-on-read table mode not supported yet";
         try {
-            Session session = getSession();
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "false")
+                    .build();
 
             createTableWithMergeOnRead(session, "tpch", tableName);
-            assertQueryFails("INSERT INTO " + tableName + " VALUES (1, 1)", errorMessage);
-            assertQueryFails("INSERT INTO " + tableName + " VALUES (2, 2)", errorMessage);
-            assertQueryFails("SELECT * FROM " + tableName, errorMessage);
+            assertQueryFails(session, "INSERT INTO " + tableName + " VALUES (1, 1)", errorMessage);
+            assertQueryFails(session, "INSERT INTO " + tableName + " VALUES (2, 2)", errorMessage);
+            assertQueryFails(session, "SELECT * FROM " + tableName, errorMessage);
         }
         finally {
             cleanupTableWithMergeOnRead(tableName);

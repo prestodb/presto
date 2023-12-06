@@ -27,6 +27,8 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
@@ -74,11 +76,13 @@ public class IcebergNativeMetadata
     public IcebergNativeMetadata(
             IcebergResourceFactory resourceFactory,
             TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             CatalogType catalogType,
             NodeVersion nodeVersion)
     {
-        super(typeManager, commitTaskCodec, nodeVersion);
+        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
@@ -191,7 +195,7 @@ public class IcebergNativeMetadata
                 tableName,
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
-                getColumns(icebergTable.schema(), typeManager),
+                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 fileFormat,
                 icebergTable.properties());
@@ -217,7 +221,7 @@ public class IcebergNativeMetadata
     {
         Table icebergTable;
         try {
-            icebergTable = getNativeIcebergTable(resourceFactory, session, table);
+            icebergTable = getIcebergTable(session, table);
         }
         catch (NoSuchTableException e) {
             throw new TableNotFoundException(table);

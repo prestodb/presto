@@ -768,13 +768,13 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
-                <version>2.7.4-9</version>
+                <version>2.7.4-12</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.0.0-8</version>
+                <version>3.0.0-10</version>
             </dependency>
 
             <dependency>
@@ -880,7 +880,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.15</version>
+                <version>0.21</version>
             </dependency>
 
             <dependency>

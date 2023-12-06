@@ -258,4 +258,9 @@ public class TestSingleStoreDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
     }
+    
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
 }

@@ -13,11 +13,20 @@
  */
 package com.facebook.presto.iceberg.hive;
 
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.iceberg.IcebergDistributedTestBase;
+import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.Table;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 
 @Test
 public class TestIcebergDistributedHive
@@ -59,5 +68,25 @@ public class TestIcebergDistributedHive
         assertQuery(
                 "SELECT table_name FROM information_schema.tables WHERE table_name = 'ORDERS'",
                 "SELECT '' WHERE false");
+    }
+    
+    @Override
+    protected Table loadTable(String tableName)
+    {
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+
+        return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
+                getHdfsEnvironment(),
+                getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
+                SchemaTableName.valueOf("tpch." + tableName));
+    }
+
+    protected ExtendedHiveMetastore getFileHiveMetastore()
+    {
+        FileHiveMetastore fileHiveMetastore = new FileHiveMetastore(getHdfsEnvironment(),
+                getCatalogDirectory().getPath(),
+                "test");
+        return memoizeMetastore(fileHiveMetastore, false, 1000, 0);
     }
 }

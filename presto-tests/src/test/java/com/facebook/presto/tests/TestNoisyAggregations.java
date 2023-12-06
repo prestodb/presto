@@ -117,6 +117,25 @@ public class TestNoisyAggregations
         assertQueryWithSingleDoubleRow("SELECT noisy_avg_gaussian(nationkey, 0, 10) FROM nation", "SELECT avg(nationkey) FROM nation"); // INTEGER
     }
 
+    @Test
+    public void testNoisyApproxSetVsApproxDistinct()
+    {
+        assertQuery("SELECT noisy_approx_distinct_sfm(linenumber, infinity()) FROM lineitem",
+                "SELECT cardinality(noisy_approx_set_sfm(linenumber, infinity())) FROM lineitem");
+        assertQuery("SELECT noisy_approx_distinct_sfm(linenumber, infinity(), 2048) FROM lineitem",
+                "SELECT cardinality(noisy_approx_set_sfm(linenumber, infinity(), 2048)) FROM lineitem");
+        assertQuery("SELECT noisy_approx_distinct_sfm(linenumber, infinity(), 8192, 32) FROM lineitem",
+                "SELECT cardinality(noisy_approx_set_sfm(linenumber, infinity(), 8192, 32)) FROM lineitem");
+    }
+
+    @Test
+    public void testNoisyApproxSetMergedVsApproxDistinct()
+    {
+        assertQuery("SELECT cardinality(merge(sketch)) FROM " +
+                        "(SELECT noisy_approx_set_sfm(linenumber, infinity()) AS sketch FROM lineitem GROUP BY mod(linenumber, 10))",
+                "SELECT noisy_approx_distinct_sfm(linenumber, infinity()) FROM lineitem");
+    }
+
     private void assertQueryWithSingleDoubleRow(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         MaterializedResult actualResult = computeActual(actual);

@@ -14,6 +14,7 @@ module.exports = (env) => {
             'stage': path.join(__dirname, 'stage.jsx'),
             'worker': path.join(__dirname, 'worker.jsx'),
             'timeline': path.join(__dirname, 'timeline.jsx'),
+            'res_groups': path.join(__dirname, 'res_groups.jsx'),
         },
         externals: {
             // substitutes `require('vis-timeline/standalone')` to `global.vis`

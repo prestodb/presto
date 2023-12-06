@@ -131,7 +131,7 @@ public class TestIcebergMetadataListing
         }
         tableMetadataDir.delete();
 
-        assertQueryFails("SELECT * FROM iceberg.test_metadata_schema.iceberg_table1", "Table metadata is missing.");
+        assertQueryFails("SELECT * FROM iceberg.test_metadata_schema.iceberg_table1", "Could not read table schema");
         assertQuerySucceeds("DROP TABLE iceberg.test_metadata_schema.iceberg_table1");
         assertQuery("SHOW TABLES FROM iceberg.test_metadata_schema", "VALUES 'iceberg_table2'");
     }

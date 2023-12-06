@@ -16,8 +16,18 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.hive.HdfsConfiguration;
+import com.facebook.presto.hive.HdfsConfigurationInitializer;
+import com.facebook.presto.hive.HdfsContext;
+import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveHdfsConfiguration;
+import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -27,26 +37,66 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableScan;
+import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.deletes.EqualityDeleteWriter;
+import org.apache.iceberg.deletes.PositionDelete;
+import org.apache.iceberg.deletes.PositionDeleteWriter;
+import org.apache.iceberg.hadoop.HadoopOutputFile;
+import org.apache.iceberg.parquet.Parquet;
+import org.apache.iceberg.util.TableScanUtil;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.Closeable;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
+import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.testng.Assert.assertTrue;
 
 public class IcebergDistributedTestBase
@@ -146,6 +196,12 @@ public class IcebergDistributedTestBase
         }
 
         assertQuerySucceeds("DROP TABLE test_partitioned_drop");
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
     }
 
     @Test
@@ -374,6 +430,44 @@ public class IcebergDistributedTestBase
         assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
 
         assertQuerySucceeds("drop table test_partition_columns");
+    }
+
+    @Test
+    public void testPartitionedByTimeType()
+    {
+        // create iceberg table partitioned by column of TimestampType, and insert some data
+        assertQuerySucceeds("drop table if exists test_partition_columns_time");
+        assertQuerySucceeds("create table test_partition_columns_time(a bigint, b time) with (partitioning = ARRAY['b'])");
+        assertQuerySucceeds("insert into test_partition_columns_time values(1, time '00:10:00'), (2, time '12:01:01')");
+
+        // validate return data of TimestampType
+        List<Object> timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns_time order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(timestampColumnDatas.size(), 2);
+        assertEquals(timestampColumnDatas.get(0), LocalTime.parse("00:10:00", DateTimeFormatter.ofPattern("HH:mm:ss")));
+        assertEquals(timestampColumnDatas.get(1), LocalTime.parse("12:01:01", DateTimeFormatter.ofPattern("HH:mm:ss")));
+
+        // validate column of TimestampType exists in query filter
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns_time where b = time '00:10:00'").getOnlyValue(),
+                LocalTime.parse("00:10:00", DateTimeFormatter.ofPattern("HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns_time where b = time '12:01:01'").getOnlyValue(),
+                LocalTime.parse("12:01:01", DateTimeFormatter.ofPattern("HH:mm:ss")));
+
+        // validate column of TimestampType in system table "partitions"
+        assertEquals(getQueryRunner().execute("select count(*) FROM \"test_partition_columns_time$partitions\"").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_time$partitions\" where b = time '00:10:00'").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_time$partitions\" where b = time '12:01:01'").getOnlyValue(), 1L);
+
+        // validate column of TimestampType exists in delete filter
+        assertUpdate("delete from test_partition_columns_time WHERE b = time '12:01:01'", 1);
+        timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns_time order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(timestampColumnDatas.size(), 1);
+        assertEquals(timestampColumnDatas.get(0), LocalTime.parse("00:10:00", DateTimeFormatter.ofPattern("HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select b FROM test_partition_columns_time where b = time '00:10:00'").getOnlyValue(),
+                LocalTime.parse("00:10:00", DateTimeFormatter.ofPattern("HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns_time$partitions\"").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_time$partitions\" where b = time '00:10:00'").getOnlyValue(), 1L);
+
+        assertQuerySucceeds("drop table test_partition_columns_time");
     }
 
     @Test
@@ -672,5 +766,210 @@ public class IcebergDistributedTestBase
                 .map(Map.Entry::getValue)
                 .findFirst()
                 .get();
+    }
+
+    @DataProvider(name = "fileFormat")
+    public Object[][] getFileFormat()
+    {
+        return new Object[][] {{"PARQUET"}, {"ORC"}};
+    }
+
+    @Test(dataProvider = "fileFormat")
+    public void testTableWithPositionDelete(String fileFormat)
+            throws Exception
+    {
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        Table icebergTable = updateTable(tableName);
+        String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
+
+        writePositionDeleteToNationTable(icebergTable, dataFilePath, 0);
+        testCheckDeleteFiles(icebergTable, 1, ImmutableList.of(POSITION_DELETES));
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey != 0");
+
+        writePositionDeleteToNationTable(icebergTable, dataFilePath, 8);
+        testCheckDeleteFiles(icebergTable, 2, ImmutableList.of(POSITION_DELETES, POSITION_DELETES));
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 23");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey not in (0 ,8)");
+    }
+
+    @Test(dataProvider = "fileFormat")
+    public void testTableWithEqualityDelete(String fileFormat)
+            throws Exception
+    {
+        String tableName = "test_v2_equality_delete" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTable(tableName);
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L));
+        testCheckDeleteFiles(icebergTable, 1, ImmutableList.of(EQUALITY_DELETES));
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1");
+    }
+
+    @Test(dataProvider = "fileFormat")
+    public void testTableWithPositionDeleteAndEqualityDelete(String fileFormat)
+            throws Exception
+    {
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        Table icebergTable = updateTable(tableName);
+        String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
+
+        writePositionDeleteToNationTable(icebergTable, dataFilePath, 0);
+        testCheckDeleteFiles(icebergTable, 1, ImmutableList.of(POSITION_DELETES));
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey != 0");
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L));
+        testCheckDeleteFiles(icebergTable, 2, ImmutableList.of(POSITION_DELETES, EQUALITY_DELETES));
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 AND nationkey != 0");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey != 0");
+    }
+
+    @Test(dataProvider = "fileFormat")
+    public void testTableWithPositionDeletesAndEqualityDeletes(String fileFormat)
+            throws Exception
+    {
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        Table icebergTable = updateTable(tableName);
+        String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
+
+        writePositionDeleteToNationTable(icebergTable, dataFilePath, 0);
+        testCheckDeleteFiles(icebergTable, 1, ImmutableList.of(POSITION_DELETES));
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey != 0");
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L));
+        testCheckDeleteFiles(icebergTable, 2, ImmutableList.of(POSITION_DELETES, EQUALITY_DELETES));
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 19");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey != 0");
+
+        writePositionDeleteToNationTable(icebergTable, dataFilePath, 7);
+        testCheckDeleteFiles(icebergTable, 3, ImmutableList.of(POSITION_DELETES, POSITION_DELETES, EQUALITY_DELETES));
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 18");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey NOT IN (0, 7)");
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 2L));
+        testCheckDeleteFiles(icebergTable, 4, ImmutableList.of(POSITION_DELETES, POSITION_DELETES, EQUALITY_DELETES, EQUALITY_DELETES));
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 13");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey NOT IN (1, 2) AND nationkey NOT IN (0, 7)");
+    }
+
+    private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
+    {
+        // check delete file list
+        TableScan tableScan = icebergTable.newScan().useSnapshot(icebergTable.currentSnapshot().snapshotId());
+        Iterator<FileScanTask> iterator = TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()).iterator();
+        List<DeleteFile> deleteFiles = new ArrayList<>();
+        while (iterator.hasNext()) {
+            FileScanTask task = iterator.next();
+            List<org.apache.iceberg.DeleteFile> deletes = task.deletes();
+            deletes.forEach(delete -> deleteFiles.add(DeleteFile.fromIceberg(delete)));
+        }
+
+        assertEquals(deleteFiles.size(), expectedSize);
+        List<FileContent> fileContents = deleteFiles.stream().map(DeleteFile::content).sorted().collect(Collectors.toList());
+        assertEquals(fileContents, expectedFileContent);
+    }
+
+    private void writePositionDeleteToNationTable(Table icebergTable, String dataFilePath, long deletePos)
+            throws IOException
+    {
+        File metastoreDir = getDistributedQueryRunner().getCoordinator().getDataDirectory().toFile();
+        org.apache.hadoop.fs.Path metadataDir = new org.apache.hadoop.fs.Path(metastoreDir.toURI());
+        String deleteFileName = "delete_file_" + UUID.randomUUID();
+        FileSystem fs = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), metadataDir);
+        org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path(metadataDir, deleteFileName);
+        PositionDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(path, fs))
+                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .forTable(icebergTable)
+                .overwrite()
+                .rowSchema(icebergTable.schema())
+                .withSpec(PartitionSpec.unpartitioned())
+                .buildPositionWriter();
+
+        PositionDelete<Record> positionDelete = PositionDelete.create();
+        PositionDelete<Record> record = positionDelete.set(dataFilePath, deletePos, GenericRecord.create(icebergTable.schema()));
+        try (Closeable ignored = writer) {
+            writer.write(record);
+        }
+
+        icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+    }
+
+    private void writeEqualityDeleteToNationTable(Table icebergTable, Map<String, Object> overwriteValues)
+            throws Exception
+    {
+        File metastoreDir = getDistributedQueryRunner().getCoordinator().getDataDirectory().toFile();
+        org.apache.hadoop.fs.Path metadataDir = new org.apache.hadoop.fs.Path(metastoreDir.toURI());
+        String deleteFileName = "delete_file_" + UUID.randomUUID();
+        FileSystem fs = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), metadataDir);
+        Schema deleteRowSchema = icebergTable.schema().select("regionkey");
+        EqualityDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(new org.apache.hadoop.fs.Path(metadataDir, deleteFileName), fs))
+                .forTable(icebergTable)
+                .rowSchema(deleteRowSchema)
+                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .equalityFieldIds(deleteRowSchema.findField("regionkey").fieldId())
+                .overwrite()
+                .buildEqualityWriter();
+
+        Record dataDelete = GenericRecord.create(deleteRowSchema);
+        try (Closeable ignored = writer) {
+            writer.write(dataDelete.copy(overwriteValues));
+        }
+        icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+    }
+
+    protected static HdfsEnvironment getHdfsEnvironment()
+    {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig),
+                ImmutableSet.of(),
+                hiveClientConfig);
+        return new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
+    }
+
+    private Table updateTable(String tableName)
+    {
+        BaseTable table = (BaseTable) loadTable(tableName);
+        TableOperations operations = table.operations();
+        TableMetadata currentMetadata = operations.current();
+        operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(2));
+
+        return table;
+    }
+
+    protected Table loadTable(String tableName)
+    {
+        Catalog catalog = CatalogUtil.loadCatalog(catalogType.getCatalogImpl(), "test-hive", getProperties(), new Configuration());
+        return catalog.loadTable(TableIdentifier.of("tpch", tableName));
+    }
+
+    protected Map<String, String> getProperties()
+    {
+        File metastoreDir = getCatalogDirectory();
+        return ImmutableMap.of("warehouse", metastoreDir.toString());
+    }
+
+    protected File getCatalogDirectory()
+    {
+        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        switch (catalogType) {
+            case HIVE:
+                return dataDirectory
+                        .resolve(TEST_DATA_DIRECTORY)
+                        .getParent()
+                        .resolve(TEST_CATALOG_DIRECTORY)
+                        .toFile();
+            case HADOOP:
+            case NESSIE:
+                return dataDirectory.toFile();
+        }
+
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
     }
 }

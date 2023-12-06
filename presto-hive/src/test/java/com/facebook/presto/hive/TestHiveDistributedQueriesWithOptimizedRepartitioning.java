@@ -92,5 +92,12 @@ public class TestHiveDistributedQueriesWithOptimizedRepartitioning
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
     }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
 }

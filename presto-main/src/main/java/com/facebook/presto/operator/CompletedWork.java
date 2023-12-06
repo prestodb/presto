@@ -13,16 +13,27 @@
  */
 package com.facebook.presto.operator;
 
+import javax.annotation.Nullable;
+
 import static java.util.Objects.requireNonNull;
 
 public final class CompletedWork<T>
         implements Work<T>
 {
+    @Nullable
     private final T result;
 
     public CompletedWork(T value)
     {
         this.result = requireNonNull(value);
+    }
+
+    /**
+     * This constructor can be used when the result is computed immediately and we do not need the yield machinery
+     */
+    public CompletedWork()
+    {
+        this.result = null;
     }
 
     @Override
@@ -31,6 +42,7 @@ public final class CompletedWork<T>
         return true;
     }
 
+    @Nullable
     @Override
     public T getResult()
     {

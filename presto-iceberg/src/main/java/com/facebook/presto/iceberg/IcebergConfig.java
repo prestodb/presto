@@ -43,8 +43,9 @@ public class IcebergConfig
     private List<String> hadoopConfigResources = ImmutableList.of();
     private double minimumAssignedSplitWeight = 0.05;
     private boolean parquetDereferencePushdownEnabled = true;
-    private boolean mergeOnReadModeEnabled;
+    private boolean mergeOnReadModeEnabled = true;
     private double statisticSnapshotRecordDifferenceWeight;
+    private boolean pushdownFilterEnabled;
 
     private HiveStatisticsMergeStrategy hiveStatisticsMergeStrategy = HiveStatisticsMergeStrategy.NONE;
 
@@ -211,5 +212,18 @@ public class IcebergConfig
     public double getStatisticSnapshotRecordDifferenceWeight()
     {
         return statisticSnapshotRecordDifferenceWeight;
+    }
+
+    @Config("iceberg.pushdown-filter-enabled")
+    @ConfigDescription("Experimental: Enable filter pushdown for Iceberg. This is only supported with Native Worker.")
+    public IcebergConfig setPushdownFilterEnabled(boolean pushdownFilterEnabled)
+    {
+        this.pushdownFilterEnabled = pushdownFilterEnabled;
+        return this;
+    }
+
+    public boolean isPushdownFilterEnabled()
+    {
+        return pushdownFilterEnabled;
     }
 }

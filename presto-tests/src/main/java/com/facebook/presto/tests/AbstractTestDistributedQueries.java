@@ -817,6 +817,17 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testUpdate()
+    {
+        assertUpdate("CREATE TABLE test_update AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertUpdate("UPDATE test_update SET orderstatus = 'O_UPDATED' WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
+        assertQuery("SELECT * FROM test_update", "SELECT * FROM orders WHERE orderstatus <> 'O'");
+
+        assertUpdate("DROP TABLE test_update");
+    }
+
+    @Test
     public void testDropTableIfExists()
     {
         assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));

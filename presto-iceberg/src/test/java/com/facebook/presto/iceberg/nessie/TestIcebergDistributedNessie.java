@@ -22,6 +22,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.util.Map;
+
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
 
@@ -40,6 +43,13 @@ public class TestIcebergDistributedNessie
     protected boolean supportsViews()
     {
         return false;
+    }
+
+    @Override
+    protected Map<String, String> getProperties()
+    {
+        File metastoreDir = getCatalogDirectory();
+        return ImmutableMap.of("warehouse", metastoreDir.toString(), "uri", nessieContainer.getRestApiUri());
     }
 
     @BeforeClass

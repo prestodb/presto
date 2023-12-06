@@ -114,7 +114,6 @@ void PrestoServer::run() {
   auto nodeConfig = NodeConfig::instance();
   auto baseVeloxQueryConfig = BaseVeloxQueryConfig::instance();
   int httpPort{0};
-  int httpExecThreads{0};
 
   std::string certPath;
   std::string keyPath;
@@ -173,7 +172,6 @@ void PrestoServer::run() {
     }
 
     nodeVersion_ = systemConfig->prestoVersion();
-    httpExecThreads = systemConfig->httpExecThreads();
     environment_ = nodeConfig->nodeEnvironment();
     nodeId_ = nodeConfig->nodeId();
     address_ = nodeConfig->nodeInternalAddress(
@@ -307,13 +305,23 @@ void PrestoServer::run() {
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
+  const auto numExchangeHttpClientIoThreads = std::max<size_t>(
+      systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      1);
   exchangeHttpExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
-      systemConfig->numIoThreads(),
+      numExchangeHttpClientIoThreads,
       std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
 
-  PRESTO_STARTUP_LOG(INFO) << "Exchange Http executor has "
+  PRESTO_STARTUP_LOG(INFO) << "Exchange Http IO executor '"
+                           << exchangeHttpExecutor_->getName() << "' has "
                            << exchangeHttpExecutor_->numThreads()
                            << " threads.";
+
+  if (systemConfig->exchangeEnableConnectionPool()) {
+    PRESTO_STARTUP_LOG(INFO) << "Enable exchange Http Client connection pool.";
+    exchangeSourceConnectionPools_ = std::make_unique<ConnectionPools>();
+  }
 
   facebook::velox::exec::ExchangeSource::registerFactory(
       [this](
@@ -328,7 +336,7 @@ void PrestoServer::run() {
             pool,
             driverExecutor_.get(),
             exchangeHttpExecutor_.get(),
-            exchangeSourceConnectionPools_);
+            exchangeSourceConnectionPools_.get());
       });
 
   facebook::velox::exec::ExchangeSource::registerFactory(
@@ -391,16 +399,23 @@ void PrestoServer::run() {
         prestoServerOperations_->runOperation(message, downstream);
       });
 
-  PRESTO_STARTUP_LOG(INFO) << "Driver CPU executor has "
+  PRESTO_STARTUP_LOG(INFO) << "Driver CPU executor '"
+                           << driverExecutor_->getName() << "' has "
                            << driverExecutor_->numThreads() << " threads.";
   if (httpServer_->getExecutor()) {
     PRESTO_STARTUP_LOG(INFO)
-        << "HTTP Server executor has "
-        << httpServer_->getExecutor()->numThreads() << " threads.";
+        << "HTTP Server IO executor '" << httpServer_->getExecutor()->getName()
+        << "' has " << httpServer_->getExecutor()->numThreads() << " threads.";
+  }
+  if (httpSrvCpuExecutor_ != nullptr) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "HTTP Server CPU executor '" << httpSrvCpuExecutor_->getName()
+        << "' has " << httpSrvCpuExecutor_->numThreads() << " threads.";
   }
   if (spillerExecutor_ != nullptr) {
-    PRESTO_STARTUP_LOG(INFO) << "Spill executor has "
-                             << spillerExecutor_->numThreads() << " threads.";
+    PRESTO_STARTUP_LOG(INFO)
+        << "Spiller CPU executor '" << spillerExecutor_->getName() << "', has "
+        << spillerExecutor_->numThreads() << " threads.";
   } else {
     PRESTO_STARTUP_LOG(INFO) << "Spill executor was not configured.";
   }
@@ -441,6 +456,8 @@ void PrestoServer::run() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks...";
   periodicTaskManager_->stop();
 
+  stopAdditionalPeriodicTasks();
+
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
   PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Resource...";
@@ -453,7 +470,7 @@ void PrestoServer::run() {
   unregisterConnectors();
 
   PRESTO_SHUTDOWN_LOG(INFO)
-      << "Joining driver CPU Executor '" << driverExecutor_->getName()
+      << "Joining Driver CPU Executor '" << driverExecutor_->getName()
       << "': threads: " << driverExecutor_->numActiveThreads() << "/"
       << driverExecutor_->numThreads()
       << ", task queue: " << driverExecutor_->getTaskQueueSize();
@@ -461,17 +478,37 @@ void PrestoServer::run() {
 
   if (connectorIoExecutor_) {
     PRESTO_SHUTDOWN_LOG(INFO)
-        << "Joining connector IO Executor '" << connectorIoExecutor_->getName()
+        << "Joining Connector IO Executor '" << connectorIoExecutor_->getName()
         << "': threads: " << connectorIoExecutor_->numActiveThreads() << "/"
         << connectorIoExecutor_->numThreads();
     connectorIoExecutor_->join();
   }
 
-  PRESTO_SHUTDOWN_LOG(INFO) << "Releasing HTTP connection pools";
-  exchangeSourceConnectionPools_.destroy();
+  if (exchangeSourceConnectionPools_) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Releasing exchange HTTP connection pools";
+    exchangeSourceConnectionPools_->destroy();
+  }
+
+  if (httpSrvCpuExecutor_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining HTTP Server CPU Executor '"
+        << httpSrvCpuExecutor_->getName()
+        << "': threads: " << httpSrvCpuExecutor_->numActiveThreads() << "/"
+        << httpSrvCpuExecutor_->numThreads()
+        << ", task queue: " << httpSrvCpuExecutor_->getTaskQueueSize();
+    httpSrvCpuExecutor_->join();
+  }
+  if (httpSrvIOExecutor_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining HTTP Server IO Executor '" << httpSrvIOExecutor_->getName()
+        << "': threads: " << httpSrvIOExecutor_->numActiveThreads() << "/"
+        << httpSrvIOExecutor_->numThreads();
+    httpSrvIOExecutor_->join();
+  }
 
   PRESTO_SHUTDOWN_LOG(INFO)
-      << "Joining exchange Http executor '" << exchangeHttpExecutor_->getName()
+      << "Joining Exchange Http IO executor '"
+      << exchangeHttpExecutor_->getName()
       << "': threads: " << exchangeHttpExecutor_->numActiveThreads() << "/"
       << exchangeHttpExecutor_->numThreads();
   exchangeHttpExecutor_->join();
@@ -520,23 +557,30 @@ void PrestoServer::yieldTasks() {
 }
 
 void PrestoServer::initializeThreadPools() {
+  const auto hwConcurrency = std::thread::hardware_concurrency();
   auto* systemConfig = SystemConfig::instance();
+
+  const auto numDriverCpuThreads = std::max<size_t>(
+      systemConfig->driverNumCpuThreadsHwMultiplier() * hwConcurrency, 1);
   driverExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
-      systemConfig->numQueryThreads(),
+      numDriverCpuThreads,
       std::make_shared<folly::NamedThreadFactory>("Driver"));
 
+  const auto numIoThreads = std::max<size_t>(
+      systemConfig->httpServerNumIoThreadsHwMultiplier() * hwConcurrency, 1);
   httpSrvIOExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
-      systemConfig->httpExecThreads(),
-      std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+      numIoThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
 
+  const auto numCpuThreads = std::max<size_t>(
+      systemConfig->httpServerNumCpuThreadsHwMultiplier() * hwConcurrency, 1);
   httpSrvCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
-      systemConfig->numHttpCpuThreads(),
-      std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
+      numCpuThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
 
-  const int32_t numSpillThreads = systemConfig->numSpillThreads();
-  if (numSpillThreads > 0) {
+  const auto numSpillerCpuThreads = std::max<size_t>(
+      systemConfig->spillerNumCpuThreadsHwMultiplier() * hwConcurrency, 0);
+  if (numSpillerCpuThreads > 0) {
     spillerExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
-        numSpillThreads,
+        numSpillerCpuThreads,
         std::make_shared<folly::NamedThreadFactory>("Spiller"));
   }
 }
@@ -621,9 +665,12 @@ void PrestoServer::stop() {
   // Make sure we only go here once.
   auto shutdownOnsetSec = SystemConfig::instance()->shutdownOnsetSec();
   if (!shuttingDown_.exchange(true)) {
-    PRESTO_SHUTDOWN_LOG(INFO) << "Initiating shutdown. Will wait for "
-                              << shutdownOnsetSec << " seconds.";
-    this->setNodeState(NodeState::SHUTTING_DOWN);
+    PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown has been requested. "
+                                 "Setting node state to 'shutting down'.";
+    setNodeState(NodeState::SHUTTING_DOWN);
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Waiting for " << shutdownOnsetSec
+        << " second(s) before proceeding with the shutdown...";
 
     // Give coordinator some time to receive our new node state and stop sending
     // any tasks.
@@ -714,18 +761,21 @@ std::vector<std::string> PrestoServer::registerConnectors(
     const fs::path& configDirectoryPath) {
   static const std::string kPropertiesExtension = ".properties";
 
-  const auto numConnectorIoThreads =
-      SystemConfig::instance()->numConnectorIoThreads();
-  if (numConnectorIoThreads) {
-    connectorIoExecutor_ =
-        std::make_unique<folly::IOThreadPoolExecutor>(numConnectorIoThreads);
+  const auto numConnectorIoThreads = std::max<size_t>(
+      SystemConfig::instance()->connectorNumIoThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      0);
+  if (numConnectorIoThreads > 0) {
+    connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
+        numConnectorIoThreads,
+        std::make_shared<folly::NamedThreadFactory>("Connector"));
 
     PRESTO_STARTUP_LOG(INFO)
         << "Connector IO executor has " << connectorIoExecutor_->numThreads()
         << " threads.";
   }
-  std::vector<std::string> catalogNames;
 
+  std::vector<std::string> catalogNames;
   for (const auto& entry :
        fs::directory_iterator(configDirectoryPath / "catalog")) {
     if (entry.path().extension() == kPropertiesExtension) {
@@ -851,8 +901,8 @@ void PrestoServer::registerMemoryArbitrators() {
 }
 
 void PrestoServer::registerStatsCounters() {
-  registerPrestoCppCounters();
-  registerVeloxCounters();
+  registerPrestoMetrics();
+  registerVeloxMetrics();
 }
 
 std::string PrestoServer::getLocalIp() const {
@@ -906,7 +956,7 @@ void PrestoServer::populateMemAndCPUInfo() {
         {queryId, {protocol::MemoryAllocation{"total", bytes}}});
     ++numContexts;
   });
-  REPORT_ADD_STAT_VALUE(kCounterNumQueryContexts, numContexts);
+  RECORD_METRIC_VALUE(kCounterNumQueryContexts, numContexts);
   cpuMon_.update();
   **memoryInfo_.wlock() = std::move(memoryInfo);
 }

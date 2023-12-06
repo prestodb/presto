@@ -137,8 +137,8 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, 16),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
-          NUM_PROP(kHttpExecThreads, std::thread::hardware_concurrency()),
-          NUM_PROP(kNumHttpCpuThreads, std::thread::hardware_concurrency()),
+          NUM_PROP(kHttpServerNumIoThreadsHwMultiplier, 1.0),
+          NUM_PROP(kHttpServerNumCpuThreadsHwMultiplier, 1.0),
           NONE_PROP(kHttpServerHttpsPort),
           STR_PROP(kHttpServerHttpsEnabled, "false"),
           STR_PROP(
@@ -147,10 +147,10 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kHttpsCertPath),
           NONE_PROP(kHttpsKeyPath),
           NONE_PROP(kHttpsClientCertAndKeyPath),
-          NUM_PROP(kNumIoThreads, 30),
-          NUM_PROP(kNumConnectorIoThreads, 30),
-          NUM_PROP(kNumQueryThreads, std::thread::hardware_concurrency() * 4),
-          NUM_PROP(kNumSpillThreads, std::thread::hardware_concurrency()),
+          NUM_PROP(kExchangeHttpClientNumIoThreadsHwMultiplier, 1.0),
+          NUM_PROP(kConnectorNumIoThreadsHwMultiplier, 1.0),
+          NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
+          NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           NONE_PROP(kSpillerSpillPath),
           NUM_PROP(kShutdownOnsetSec, 10),
           NUM_PROP(kSystemMemoryGb, 40),
@@ -190,6 +190,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
+          BOOL_PROP(kExchangeEnableConnectionPool, false),
           BOOL_PROP(kExchangeImmediateBufferTransfer, true),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
@@ -304,28 +305,29 @@ int32_t SystemConfig::concurrentLifespansPerTask() const {
   return optionalProperty<int32_t>(kConcurrentLifespansPerTask).value();
 }
 
-int32_t SystemConfig::httpExecThreads() const {
-  return optionalProperty<int32_t>(kHttpExecThreads).value();
+double SystemConfig::httpServerNumIoThreadsHwMultiplier() const {
+  return optionalProperty<double>(kHttpServerNumIoThreadsHwMultiplier).value();
 }
 
-int32_t SystemConfig::numHttpCpuThreads() const {
-  return optionalProperty<int32_t>(kNumHttpCpuThreads).value();
+double SystemConfig::httpServerNumCpuThreadsHwMultiplier() const {
+  return optionalProperty<double>(kHttpServerNumCpuThreadsHwMultiplier).value();
 }
 
-int32_t SystemConfig::numIoThreads() const {
-  return optionalProperty<int32_t>(kNumIoThreads).value();
+double SystemConfig::exchangeHttpClientNumIoThreadsHwMultiplier() const {
+  return optionalProperty<double>(kExchangeHttpClientNumIoThreadsHwMultiplier)
+      .value();
 }
 
-int32_t SystemConfig::numConnectorIoThreads() const {
-  return optionalProperty<int32_t>(kNumConnectorIoThreads).value();
+double SystemConfig::connectorNumIoThreadsHwMultiplier() const {
+  return optionalProperty<double>(kConnectorNumIoThreadsHwMultiplier).value();
 }
 
-int32_t SystemConfig::numQueryThreads() const {
-  return optionalProperty<int32_t>(kNumQueryThreads).value();
+double SystemConfig::driverNumCpuThreadsHwMultiplier() const {
+  return optionalProperty<double>(kDriverNumCpuThreadsHwMultiplier).value();
 }
 
-int32_t SystemConfig::numSpillThreads() const {
-  return optionalProperty<int32_t>(kNumSpillThreads).value();
+double SystemConfig::spillerNumCpuThreadsHwMultiplier() const {
+  return optionalProperty<double>(kSpillerNumCpuThreadsHwMultiplier).value();
 }
 
 folly::Optional<std::string> SystemConfig::spillerSpillPath() const {
@@ -492,6 +494,10 @@ std::chrono::duration<double> SystemConfig::exchangeRequestTimeoutMs() const {
 std::chrono::duration<double> SystemConfig::exchangeConnectTimeoutMs() const {
   return velox::core::toDuration(
       optionalProperty(kExchangeConnectTimeout).value());
+}
+
+bool SystemConfig::exchangeEnableConnectionPool() const {
+  return optionalProperty<bool>(kExchangeEnableConnectionPool).value();
 }
 
 bool SystemConfig::exchangeImmediateBufferTransfer() const {

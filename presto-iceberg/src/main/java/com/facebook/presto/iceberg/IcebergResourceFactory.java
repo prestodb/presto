@@ -78,7 +78,7 @@ public class IcebergResourceFactory
     {
         try {
             return catalogCache.get(getCatalogCacheKey(session), () -> CatalogUtil.loadCatalog(
-                    catalogType.getCatalogImpl(), catalogName, getCatalogProperties(session), getHadoopConfiguration(session)));
+                    catalogType.getCatalogImpl(), catalogName, getCatalogProperties(session), getHadoopConfiguration()));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -104,7 +104,7 @@ public class IcebergResourceFactory
         sb.append(identity.getUser());
         if (identity.getPrincipal().isPresent()) {
             sb.append(",Principle:");
-            sb.append(identity.getPrincipal().toString());
+            sb.append(identity.getPrincipal());
         }
         if (identity.getRole().isPresent()) {
             sb.append(",Role:");
@@ -128,7 +128,7 @@ public class IcebergResourceFactory
         return sb.toString();
     }
 
-    private Configuration getHadoopConfiguration(ConnectorSession session)
+    private Configuration getHadoopConfiguration()
     {
         Configuration configuration = new Configuration(false);
 
@@ -176,7 +176,7 @@ public class IcebergResourceFactory
                             .orElseThrow(() -> new IllegalStateException("iceberg.nessie.auth.bearer.token must be set with BEARER authentication")));
                 }
             });
-            if (nessieConfig.isCompressionDisabled()) {
+            if (!nessieConfig.isCompressionEnabled()) {
                 properties.put("transport.disable-compression", "true");
             }
         }

@@ -15,8 +15,6 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.hive.HiveTransactionHandle;
-import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
-import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -64,7 +62,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> columnProperties;
     private final ConnectorAccessControl accessControl;
     private final Set<Procedure> procedures;
-    private final Set<ConnectorPlanOptimizer> planOptimizers;
+    private final ConnectorPlanOptimizerProvider planOptimizerProvider;
 
     public IcebergConnector(
             LifeCycleManager lifeCycleManager,
@@ -81,7 +79,7 @@ public class IcebergConnector
             List<PropertyMetadata<?>> columnProperties,
             ConnectorAccessControl accessControl,
             Set<Procedure> procedures,
-            Set<ConnectorPlanOptimizer> planOptimizers)
+            ConnectorPlanOptimizerProvider planOptimizerProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -97,7 +95,7 @@ public class IcebergConnector
         this.columnProperties = ImmutableList.copyOf(requireNonNull(columnProperties, "columnProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
-        this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
     }
 
     @Override
@@ -218,6 +216,6 @@ public class IcebergConnector
     @Override
     public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
     {
-        return new IcebergPlanOptimizerProvider(planOptimizers);
+        return planOptimizerProvider;
     }
 }

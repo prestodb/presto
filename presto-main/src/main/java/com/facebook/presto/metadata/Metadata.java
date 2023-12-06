@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -41,6 +40,7 @@ import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -77,7 +77,7 @@ public interface Metadata
     /**
      * Returns a table handle for time travel expression
      */
-    Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<Block> tableVersionBlock);
+    Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<ConnectorTableVersion> tableVersion);
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
 
@@ -299,9 +299,14 @@ public interface Metadata
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
+     * Get the row ID column handle used with UpdatablePageSource#deleteRows.
+     */
+    ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle);
+
+    /**
      * Get the row ID column handle used with UpdatablePageSource.
      */
-    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle);
+    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
 
     /**
      * @return whether delete without table scan is supported
@@ -324,6 +329,16 @@ public interface Metadata
      * Finish delete query
      */
     void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Begin update query
+     */
+    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
+
+    /**
+     * Finish update query
+     */
+    void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Returns a connector id for the specified catalog name.
