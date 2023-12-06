@@ -90,9 +90,9 @@ public class TestHiveDistributedQueriesWithThriftRpc
 
         assertUpdate("ALTER TABLE IF EXISTS test_rename RENAME TO test_rename_new");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new")); 
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
     }
-    
+
     @Override
     public void testUpdate()
     {
