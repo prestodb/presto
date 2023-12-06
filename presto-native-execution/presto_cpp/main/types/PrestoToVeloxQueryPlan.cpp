@@ -1163,14 +1163,6 @@ core::WindowNode::BoundType toVeloxBoundType(protocol::BoundType boundType) {
   }
 }
 
-// Stores partitioned output channels.
-// For each 'kConstantChannel', there is an entry in 'constValues'.
-struct PartitionedOutputChannels {
-  std::vector<column_index_t> channels;
-  // Each vector holding a single value for a constant channel.
-  std::vector<VectorPtr> constValues;
-};
-
 core::LocalPartitionNode::Type toLocalExchangeType(
     protocol::ExchangeNodeType type) {
   switch (type) {
