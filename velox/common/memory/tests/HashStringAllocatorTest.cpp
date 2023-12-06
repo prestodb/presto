@@ -285,6 +285,37 @@ TEST_F(HashStringAllocatorTest, multipart) {
   allocator_->checkConsistency();
 }
 
+TEST_F(HashStringAllocatorTest, mixedMultipart) {
+  // Create multi-part allocation with a mix of block allocated from Arena and
+  // MemoryPool.
+
+  const std::string shortString(25, 'x');
+  const std::string extraLongString(5'000, 'y');
+
+  ByteStream stream(allocator_.get());
+
+  auto start = allocator_->newWrite(stream);
+  stream.appendStringView(shortString);
+  auto current = allocator_->finishWrite(stream, 0);
+
+  allocator_->extendWrite(current.second, stream);
+
+  ByteRange range;
+  allocator_->newContiguousRange(extraLongString.size(), &range);
+  stream.setRange(range, 0);
+
+  stream.appendStringView(extraLongString);
+  current = allocator_->finishWrite(stream, 0);
+
+  allocator_->extendWrite(current.second, stream);
+  stream.appendStringView(shortString);
+  allocator_->finishWrite(stream, 0);
+
+  allocator_->free(start.header);
+
+  allocator_->checkConsistency();
+}
+
 TEST_F(HashStringAllocatorTest, rewrite) {
   ByteOutputStream stream(allocator_.get());
   auto header = allocator_->allocate(5);

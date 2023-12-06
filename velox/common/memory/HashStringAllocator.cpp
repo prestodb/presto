@@ -412,13 +412,6 @@ HashStringAllocator::allocateFromFreeList(
 
 void HashStringAllocator::free(Header* _header) {
   Header* header = _header;
-  if (header->size() > kMaxAlloc && !pool_.isInCurrentRange(header) &&
-      allocationsFromPool_.find(header) != allocationsFromPool_.end()) {
-    // A large free can either be a rest of block or a standalone allocation.
-    VELOX_CHECK(!header->isContinued());
-    freeToPool(header, header->size() + sizeof(Header));
-    return;
-  }
 
   do {
     Header* continued = nullptr;
@@ -426,36 +419,41 @@ void HashStringAllocator::free(Header* _header) {
       continued = header->nextContinued();
       header->clearContinued();
     }
-    VELOX_CHECK(!header->isFree());
-    freeBytes_ += header->size() + sizeof(Header);
-    cumulativeBytes_ -= header->size();
-    Header* next = header->next();
-    if (next) {
-      VELOX_CHECK(!next->isPreviousFree());
-      if (next->isFree()) {
-        --numFree_;
-        removeFromFreeList(next);
-        header->setSize(header->size() + next->size() + sizeof(Header));
-        next = reinterpret_cast<Header*>(header->end());
-        VELOX_CHECK(next->isArenaEnd() || !next->isFree());
-      }
-    }
-    if (header->isPreviousFree()) {
-      auto previousFree = getPreviousFree(header);
-      removeFromFreeList(previousFree);
-      previousFree->setSize(
-          previousFree->size() + header->size() + sizeof(Header));
-
-      header = previousFree;
+    if (header->size() > kMaxAlloc && !pool_.isInCurrentRange(header) &&
+        allocationsFromPool_.find(header) != allocationsFromPool_.end()) {
+      freeToPool(header, header->size() + sizeof(Header));
     } else {
-      ++numFree_;
+      VELOX_CHECK(!header->isFree());
+      freeBytes_ += header->size() + sizeof(Header);
+      cumulativeBytes_ -= header->size();
+      Header* next = header->next();
+      if (next) {
+        VELOX_CHECK(!next->isPreviousFree());
+        if (next->isFree()) {
+          --numFree_;
+          removeFromFreeList(next);
+          header->setSize(header->size() + next->size() + sizeof(Header));
+          next = reinterpret_cast<Header*>(header->end());
+          VELOX_CHECK(next->isArenaEnd() || !next->isFree());
+        }
+      }
+      if (header->isPreviousFree()) {
+        auto previousFree = getPreviousFree(header);
+        removeFromFreeList(previousFree);
+        previousFree->setSize(
+            previousFree->size() + header->size() + sizeof(Header));
+
+        header = previousFree;
+      } else {
+        ++numFree_;
+      }
+      auto freedSize = header->size();
+      auto freeIndex = freeListIndex(freedSize);
+      bits::setBit(freeNonEmpty_, freeIndex);
+      free_[freeIndex].insert(
+          reinterpret_cast<CompactDoubleList*>(header->begin()));
+      markAsFree(header);
     }
-    auto freedSize = header->size();
-    auto freeIndex = freeListIndex(freedSize);
-    bits::setBit(freeNonEmpty_, freeIndex);
-    free_[freeIndex].insert(
-        reinterpret_cast<CompactDoubleList*>(header->begin()));
-    markAsFree(header);
     header = continued;
   } while (header);
 }
