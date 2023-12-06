@@ -292,7 +292,7 @@ TEST_F(HashStringAllocatorTest, mixedMultipart) {
   const std::string shortString(25, 'x');
   const std::string extraLongString(5'000, 'y');
 
-  ByteStream stream(allocator_.get());
+  ByteOutputStream stream(allocator_.get());
 
   auto start = allocator_->newWrite(stream);
   stream.appendStringView(shortString);
