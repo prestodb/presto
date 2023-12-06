@@ -69,7 +69,7 @@ public class TestIcebergDistributedHive
                 "SELECT table_name FROM information_schema.tables WHERE table_name = 'ORDERS'",
                 "SELECT '' WHERE false");
     }
-    
+
     @Override
     protected Table loadTable(String tableName)
     {
