@@ -22,7 +22,7 @@ void ValueSet::write(
     const BaseVector& vector,
     vector_size_t index,
     HashStringAllocator::Position& position) const {
-  ByteStream stream(allocator_);
+  ByteOutputStream stream(allocator_);
   if (position.header == nullptr) {
     position = allocator_->newWrite(stream);
   } else {

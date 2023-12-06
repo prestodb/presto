@@ -25,7 +25,7 @@ void SingleValueAccumulator::write(
     const BaseVector* vector,
     vector_size_t index,
     HashStringAllocator* allocator) {
-  ByteStream stream(allocator);
+  ByteOutputStream stream(allocator);
   if (start_.header == nullptr) {
     start_ = allocator->newWrite(stream);
   } else {

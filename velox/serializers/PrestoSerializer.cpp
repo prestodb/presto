@@ -1322,9 +1322,9 @@ class VectorStream {
   int32_t totalLength_{0};
   bool hasLengths_{false};
   ByteRange header_;
-  ByteStream nulls_;
-  ByteStream lengths_;
-  ByteStream values_;
+  ByteOutputStream nulls_;
+  ByteOutputStream lengths_;
+  ByteOutputStream values_;
   std::vector<std::unique_ptr<VectorStream>> children_;
 };
 

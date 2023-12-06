@@ -236,7 +236,7 @@ TEST_F(ByteStreamTest, newRangeAllocation) {
 
     const auto prevAllocCount = pool_->stats().numAllocs;
     auto arena = newArena();
-    ByteStream byteStream(arena.get());
+    ByteOutputStream byteStream(arena.get());
     byteStream.startWrite(0);
     for (int i = 0; i < testData.newRangeSizes.size(); ++i) {
       const auto newRangeSize = testData.newRangeSizes[i];
@@ -260,9 +260,9 @@ TEST_F(ByteStreamTest, newRangeAllocation) {
 TEST_F(ByteStreamTest, randomRangeAllocationFromMultiStreamsTest) {
   auto arena = newArena();
   const int numByteStreams = 10;
-  std::vector<std::unique_ptr<ByteStream>> byteStreams;
+  std::vector<std::unique_ptr<ByteOutputStream>> byteStreams;
   for (int i = 0; i < numByteStreams; ++i) {
-    byteStreams.push_back(std::make_unique<ByteStream>(arena.get()));
+    byteStreams.push_back(std::make_unique<ByteOutputStream>(arena.get()));
     byteStreams.back()->startWrite(0);
   }
   const int testIterations = 1000;
@@ -293,7 +293,7 @@ TEST_F(ByteStreamTest, bits) {
     bits.push_back(seed * (i + 1));
   }
   auto arena = newArena();
-  ByteStream bitStream(arena.get(), true);
+  ByteOutputStream bitStream(arena.get(), true);
   bitStream.startWrite(11);
   int32_t offset = 0;
   // Odd number of sizes.
@@ -334,7 +334,7 @@ TEST_F(ByteStreamTest, appendWindow) {
   }
   auto arena = newArena();
 
-  ByteStream stream(arena.get());
+  ByteOutputStream stream(arena.get());
   int32_t offset = 0;
   std::vector<int32_t> sizes = {1, 19, 52, 58, 129};
   int32_t counter = 0;

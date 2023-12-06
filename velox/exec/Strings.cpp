@@ -29,7 +29,7 @@ StringView Strings::append(StringView value, HashStringAllocator& allocator) {
   const int32_t requiredBytes =
       value.size() + HashStringAllocator::Header::kContinuedPtrSize + 8;
 
-  ByteStream stream(&allocator);
+  ByteOutputStream stream(&allocator);
   if (firstBlock == nullptr) {
     // Allocate first block.
     currentBlock = allocator.newWrite(stream, requiredBytes);

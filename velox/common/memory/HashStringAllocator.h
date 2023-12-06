@@ -28,8 +28,8 @@
 namespace facebook::velox {
 
 // Implements an arena backed by MappedMemory::Allocation. This is for backing
-// ByteStream or for allocating single blocks. Blocks can be individually freed.
-// Adjacent frees are coalesced and free blocks are kept in a free list.
+// ByteOutputStream or for allocating single blocks. Blocks can be individually
+// freed. Adjacent frees are coalesced and free blocks are kept in a free list.
 // Allocated blocks are prefixed with a Header. This has a size and flags.
 // kContinue means that last 8 bytes are a pointer to another Header after which
 // the contents of this allocation continue. kFree means the block is free. A
@@ -263,11 +263,13 @@ class HashStringAllocator : public StreamArena {
   // kMinContiguous bytes of contiguous space. finishWrite finalizes
   // the allocation information after the write is done.
   // Returns the position at the start of the allocated block.
-  Position newWrite(ByteStream& stream, int32_t preferredSize = kMinContiguous);
+  Position newWrite(
+      ByteOutputStream& stream,
+      int32_t preferredSize = kMinContiguous);
 
   // Sets 'stream' to write starting at 'position'. If new ranges have to
   // be allocated when writing, headers will be updated accordingly.
-  void extendWrite(Position position, ByteStream& stream);
+  void extendWrite(Position position, ByteOutputStream& stream);
 
   // Completes a write prepared with newWrite or
   // extendWrite. Up to 'numReserveBytes' unused bytes, if available, are left
@@ -275,7 +277,7 @@ class HashStringAllocator : public StreamArena {
   // positions: (1) position at the start of this 'write', (2) position
   // immediately after the last written byte.
   std::pair<Position, Position> finishWrite(
-      ByteStream& stream,
+      ByteOutputStream& stream,
       int32_t numReserveBytes);
 
   /// Allocates a new range for a stream writing to 'this'. Sets the last word

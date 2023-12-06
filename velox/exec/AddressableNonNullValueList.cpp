@@ -22,7 +22,7 @@ HashStringAllocator::Position AddressableNonNullValueList::append(
     const DecodedVector& decoded,
     vector_size_t index,
     HashStringAllocator* allocator) {
-  ByteStream stream(allocator);
+  ByteOutputStream stream(allocator);
   if (!firstHeader_) {
     // An array_agg or related begins with an allocation of 5 words and
     // 4 bytes for header. This is compact for small arrays (up to 5

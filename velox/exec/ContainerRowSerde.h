@@ -26,8 +26,10 @@ class ContainerRowSerde {
  public:
   /// Serializes value from source[index] into 'out'. The value must not be
   /// null.
-  static void
-  serialize(const BaseVector& source, vector_size_t index, ByteStream& out);
+  static void serialize(
+      const BaseVector& source,
+      vector_size_t index,
+      ByteOutputStream& out);
 
   static void
   deserialize(ByteInputStream& in, vector_size_t index, BaseVector* result);

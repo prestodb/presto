@@ -26,13 +26,13 @@ namespace {
 void serializeSwitch(
     const BaseVector& source,
     vector_size_t index,
-    ByteStream& out);
+    ByteOutputStream& out);
 
 template <TypeKind Kind>
 void serializeOne(
     const BaseVector& vector,
     vector_size_t index,
-    ByteStream& stream) {
+    ByteOutputStream& stream) {
   using T = typename TypeTraits<Kind>::NativeType;
   stream.appendOne<T>(vector.asUnchecked<SimpleVector<T>>()->valueAt(index));
 }
@@ -41,7 +41,7 @@ template <>
 void serializeOne<TypeKind::VARCHAR>(
     const BaseVector& vector,
     vector_size_t index,
-    ByteStream& stream) {
+    ByteOutputStream& stream) {
   auto string = vector.asUnchecked<SimpleVector<StringView>>()->valueAt(index);
   stream.appendOne<int32_t>(string.size());
   stream.appendStringView(string);
@@ -51,7 +51,7 @@ template <>
 void serializeOne<TypeKind::VARBINARY>(
     const BaseVector& vector,
     vector_size_t index,
-    ByteStream& stream) {
+    ByteOutputStream& stream) {
   auto string = vector.asUnchecked<SimpleVector<StringView>>()->valueAt(index);
   stream.appendOne<int32_t>(string.size());
   stream.appendStringView(string);
@@ -61,7 +61,7 @@ template <>
 void serializeOne<TypeKind::ROW>(
     const BaseVector& vector,
     vector_size_t index,
-    ByteStream& out) {
+    ByteOutputStream& out) {
   auto row = vector.wrappedVector()->asUnchecked<RowVector>();
   auto wrappedIndex = vector.wrappedIndex(index);
   const auto& type = row->type()->as<TypeKind::ROW>();
@@ -89,7 +89,7 @@ void writeNulls(
     const BaseVector& values,
     vector_size_t offset,
     vector_size_t size,
-    ByteStream& out) {
+    ByteOutputStream& out) {
   for (auto i = 0; i < size; i += 64) {
     uint64_t flags = 0;
     auto end = i + 64 < size ? 64 : size - i;
@@ -105,7 +105,7 @@ void writeNulls(
 void writeNulls(
     const BaseVector& values,
     folly::Range<const vector_size_t*> indices,
-    ByteStream& out) {
+    ByteOutputStream& out) {
   auto size = indices.size();
   for (auto i = 0; i < size; i += 64) {
     uint64_t flags = 0;
@@ -123,7 +123,7 @@ void serializeArray(
     const BaseVector& elements,
     vector_size_t offset,
     vector_size_t size,
-    ByteStream& out) {
+    ByteOutputStream& out) {
   out.appendOne<int32_t>(size);
   writeNulls(elements, offset, size, out);
   for (auto i = 0; i < size; ++i) {
@@ -136,7 +136,7 @@ void serializeArray(
 void serializeArray(
     const BaseVector& elements,
     folly::Range<const vector_size_t*> indices,
-    ByteStream& out) {
+    ByteOutputStream& out) {
   out.appendOne<int32_t>(indices.size());
   writeNulls(elements, indices, out);
   for (auto i : indices) {
@@ -150,7 +150,7 @@ template <>
 void serializeOne<TypeKind::ARRAY>(
     const BaseVector& source,
     vector_size_t index,
-    ByteStream& out) {
+    ByteOutputStream& out) {
   auto array = source.wrappedVector()->asUnchecked<ArrayVector>();
   auto wrappedIndex = source.wrappedIndex(index);
   serializeArray(
@@ -164,7 +164,7 @@ template <>
 void serializeOne<TypeKind::MAP>(
     const BaseVector& vector,
     vector_size_t index,
-    ByteStream& out) {
+    ByteOutputStream& out) {
   auto map = vector.wrappedVector()->asUnchecked<MapVector>();
   auto wrappedIndex = vector.wrappedIndex(index);
   auto size = map->sizeAt(wrappedIndex);
@@ -177,7 +177,7 @@ void serializeOne<TypeKind::MAP>(
 void serializeSwitch(
     const BaseVector& source,
     vector_size_t index,
-    ByteStream& stream) {
+    ByteOutputStream& stream) {
   VELOX_DYNAMIC_TYPE_DISPATCH(
       serializeOne, source.typeKind(), source, index, stream);
 }
@@ -787,7 +787,7 @@ uint64_t hashSwitch(ByteInputStream& in, const Type* type) {
 void ContainerRowSerde::serialize(
     const BaseVector& source,
     vector_size_t index,
-    ByteStream& out) {
+    ByteOutputStream& out) {
   VELOX_DCHECK(
       !source.isNullAt(index), "Null top-level values are not supported");
   serializeSwitch(source, index, out);

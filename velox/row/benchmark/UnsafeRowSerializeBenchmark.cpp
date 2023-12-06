@@ -187,7 +187,7 @@ class SerializeBenchmark {
   HashStringAllocator::Position serialize(
       const RowVectorPtr& data,
       HashStringAllocator& allocator) {
-    ByteStream out(&allocator);
+    ByteOutputStream out(&allocator);
     auto position = allocator.newWrite(out);
     for (auto i = 0; i < data->size(); ++i) {
       exec::ContainerRowSerde::serialize(*data, i, out);

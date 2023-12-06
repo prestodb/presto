@@ -277,7 +277,8 @@ TEST_F(UnsafeRowSerializerTest, incompleteRow) {
   // Cut in the middle of the `size` integer.
   buffers = {{rawData, 2}};
   VELOX_ASSERT_RUNTIME_THROW(
-      testDeserialize(buffers, expected), "Reading past end of ByteStream");
+      testDeserialize(buffers, expected),
+      "Reading past end of ByteInputStream");
 }
 
 TEST_F(UnsafeRowSerializerTest, types) {

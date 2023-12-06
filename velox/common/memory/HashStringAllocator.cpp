@@ -138,7 +138,7 @@ ByteInputStream HashStringAllocator::prepareRead(const Header* begin) {
 }
 
 HashStringAllocator::Position HashStringAllocator::newWrite(
-    ByteStream& stream,
+    ByteOutputStream& stream,
     int32_t preferredSize) {
   VELOX_CHECK(
       !currentHeader_,
@@ -158,7 +158,9 @@ HashStringAllocator::Position HashStringAllocator::newWrite(
   return startPosition_;
 }
 
-void HashStringAllocator::extendWrite(Position position, ByteStream& stream) {
+void HashStringAllocator::extendWrite(
+    Position position,
+    ByteOutputStream& stream) {
   auto header = position.header;
   const auto offset = position.offset();
   VELOX_CHECK_GE(
@@ -184,7 +186,9 @@ void HashStringAllocator::extendWrite(Position position, ByteStream& stream) {
 }
 
 std::pair<HashStringAllocator::Position, HashStringAllocator::Position>
-HashStringAllocator::finishWrite(ByteStream& stream, int32_t numReserveBytes) {
+HashStringAllocator::finishWrite(
+    ByteOutputStream& stream,
+    int32_t numReserveBytes) {
   VELOX_CHECK(
       currentHeader_, "Must call newWrite or extendWrite before finishWrite");
   auto writePosition = stream.writePosition();
@@ -521,7 +525,7 @@ void HashStringAllocator::ensureAvailable(int32_t bytes, Position& position) {
     return;
   }
 
-  ByteStream stream(this);
+  ByteOutputStream stream(this);
   extendWrite(position, stream);
   static char data[128];
   while (bytes) {
@@ -593,7 +597,7 @@ void HashStringAllocator::copyMultipartNoInline(
     return;
   }
   // Write the string as non-contiguous chunks.
-  ByteStream stream(this, false, false);
+  ByteOutputStream stream(this, false, false);
   auto position = newWrite(stream, numBytes);
   stream.appendStringView(*string);
   finishWrite(stream, 0);

@@ -29,7 +29,7 @@ class ContainerRowSerdeTest : public testing::Test,
   // Writes all rows together and returns a position at the start of this
   // combined write.
   HashStringAllocator::Position serialize(const VectorPtr& data) {
-    ByteStream out(&allocator_);
+    ByteOutputStream out(&allocator_);
     auto position = allocator_.newWrite(out);
     for (auto i = 0; i < data->size(); ++i) {
       ContainerRowSerde::serialize(*data, i, out);
@@ -46,7 +46,7 @@ class ContainerRowSerdeTest : public testing::Test,
     positions.reserve(size);
 
     for (auto i = 0; i < size; ++i) {
-      ByteStream out(&allocator_);
+      ByteOutputStream out(&allocator_);
       auto position = allocator_.newWrite(out);
       ContainerRowSerde::serialize(*data, i, out);
       allocator_.finishWrite(out, 0);

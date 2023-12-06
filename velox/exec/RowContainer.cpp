@@ -520,7 +520,7 @@ int32_t RowContainer::storeVariableSizeAt(
     }
   } else {
     if (size > 0) {
-      ByteStream stream(stringAllocator_.get(), false, false);
+      ByteOutputStream stream(stringAllocator_.get(), false, false);
       const auto position = stringAllocator_->newWrite(stream);
       stream.appendStringView(std::string_view(data + 4, size));
       stringAllocator_->finishWrite(stream, 0);
@@ -663,7 +663,7 @@ void RowContainer::storeComplexType(
     return;
   }
   RowSizeTracker tracker(row[rowSizeOffset_], *stringAllocator_);
-  ByteStream stream(stringAllocator_.get(), false, false);
+  ByteOutputStream stream(stringAllocator_.get(), false, false);
   auto position = stringAllocator_->newWrite(stream);
   ContainerRowSerde::serialize(*decoded.base(), decoded.index(index), stream);
   stringAllocator_->finishWrite(stream, 0);
@@ -671,7 +671,7 @@ void RowContainer::storeComplexType(
   valueAt<std::string_view>(row, offset) = std::string_view(
       reinterpret_cast<char*>(position.position), stream.size());
 
-  // TODO Fix ByteStream::size() API. @oerling is looking into that.
+  // TODO Fix ByteOutputStream::size() API. @oerling is looking into that.
   // Fix the 'size' of the std::string_view.
   // stream.size() is the capacity
   // stream.size() - stream.remainingSize() is the size of the data + size of

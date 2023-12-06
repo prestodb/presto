@@ -27,7 +27,7 @@ struct RowPointers {
   size_t size{0};
 
   void append(char* row, HashStringAllocator& allocator) {
-    ByteStream stream(&allocator);
+    ByteOutputStream stream(&allocator);
     if (firstBlock == nullptr) {
       // Allocate first block.
       currentBlock = allocator.newWrite(stream);

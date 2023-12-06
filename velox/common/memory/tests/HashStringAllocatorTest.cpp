@@ -113,7 +113,7 @@ TEST_F(HashStringAllocatorTest, headerToString) {
 
   ASSERT_NO_THROW(allocator_->toString());
 
-  ByteStream stream(allocator_.get());
+  ByteOutputStream stream(allocator_.get());
   auto h4 = allocator_->newWrite(stream).header;
   std::string data(123'456, 'x');
   stream.appendStringView(data);
@@ -164,7 +164,7 @@ TEST_F(HashStringAllocatorTest, allocateLarge) {
 }
 
 TEST_F(HashStringAllocatorTest, finishWrite) {
-  ByteStream stream(allocator_.get());
+  ByteOutputStream stream(allocator_.get());
   auto start = allocator_->newWrite(stream);
 
   // Write a short string.
@@ -246,7 +246,7 @@ TEST_F(HashStringAllocatorTest, multipart) {
         continue;
       }
       auto chars = randomString();
-      ByteStream stream(allocator_.get());
+      ByteOutputStream stream(allocator_.get());
       if (data[i].start.header) {
         if (rand32() % 5) {
           // 4/5 of cases append to the end.
@@ -286,7 +286,7 @@ TEST_F(HashStringAllocatorTest, multipart) {
 }
 
 TEST_F(HashStringAllocatorTest, rewrite) {
-  ByteStream stream(allocator_.get());
+  ByteOutputStream stream(allocator_.get());
   auto header = allocator_->allocate(5);
   EXPECT_EQ(16, header->size()); // Rounds up to kMinAlloc.
   HSA::Position current = HSA::Position::atOffset(header, 0);
@@ -567,7 +567,7 @@ TEST_F(HashStringAllocatorTest, sizeAndPosition) {
     allChars[i] = i;
   }
 
-  ByteStream stream(allocator_.get());
+  ByteOutputStream stream(allocator_.get());
   auto position = allocator_->newWrite(stream, 20);
   // Nothing written yet.
   EXPECT_EQ(0, stream.size());

@@ -85,9 +85,9 @@ StlAllocator, an allocator backed by HashStringAllocator that can be used with
 STL containers, is implemented using the above allocate() and free() methods.
 
 NewWrite(), extendWrite() and finishWrite() methods allow for serializing
-variable width data whose size is not known in advance using ByteStream. When
-using ByteStream, the underlying data may come from multiple non-contiguous
-blocks. ByteStream transparently manages allocation of additional blocks by
+variable width data whose size is not known in advance using ByteOutputStream. When
+using ByteOutputStream, the underlying data may come from multiple non-contiguous
+blocks. ByteOutputStream transparently manages allocation of additional blocks by
 calling HashStringAllocator::newRange() method.
 
 .. code-block:: c++
@@ -97,19 +97,19 @@ calling HashStringAllocator::newRange() method.
       // kMinContiguous bytes of contiguous space. finishWrite finalizes
       // the allocation information after the write is done.
       // Returns the position at the start of the allocated block.
-      Position newWrite(ByteStream& stream, int32_t preferredSize = kMinContiguous);
+      Position newWrite(ByteOutputStream& stream, int32_t preferredSize = kMinContiguous);
 
       // Completes a write prepared with newWrite or
       // extendWrite. Up to 'numReserveBytes' unused bytes, if available, are left
       // after the end of the write to accommodate another write. Returns the
       // position immediately after the last written byte.
-      Position finishWrite(ByteStream& stream, int32_t numReserveBytes);
+      Position finishWrite(ByteOutputStream& stream, int32_t numReserveBytes);
 
       // Sets 'stream' to write starting at 'position'. If new ranges have to
       // be allocated when writing, headers will be updated accordingly.
-      void extendWrite(Position position, ByteStream& stream);
+      void extendWrite(Position position, ByteOutputStream& stream);
 
-The prepareRead() method allows deserializing the data using ByteStream.
+The prepareRead() method allows deserializing the data using ByteInputStream.
 
 .. code-block:: c++
 
@@ -117,7 +117,7 @@ The prepareRead() method allows deserializing the data using ByteStream.
     // possible continuation ranges.
     static void prepareRead(
         const Header* FOLLY_NONNULL header,
-        ByteStream& stream);
+        ByteInputStream& stream);
 
 Examples of Usage
 -----------------
@@ -139,22 +139,22 @@ The accumulator calls finishWrite() after writing the value.
 .. code-block:: c++
 
         // Write first value
-        ByteStream stream(allocator);
+        ByteOutputStream stream(allocator);
         auto begin = allocator->newWrite(stream);
         // ... write to the stream
         allocator->finishWrite(stream);
 
         // Update the value
-        ByteStream stream(allocator);
+        ByteOutputStream stream(allocator);
         auto begin = allocator->extendWrite(begin, stream);
         // ... write to the stream
         allocator->finishWrite(stream);
 
-The accumulator uses prepareRead() to read the data back using ByteStream.
+The accumulator uses prepareRead() to read the data back using ByteInputStream.
 
 .. code-block:: c++
 
-        ByteStream stream;
+        ByteInputStream stream;
         exec::HashStringAllocator::prepareRead(begin, stream);
         // … read from the stream
 
@@ -174,13 +174,13 @@ write.
 .. code-block:: c++
 
         // Write first value
-        ByteStream stream(allocator);
+        ByteOutputStream stream(allocator);
         auto begin = allocator->newWrite(stream);
         // ... write to the stream
         auto current = allocator->finishWrite(stream);
 
         // Update the value
-        ByteStream stream(allocator);
+        ByteOutputStream stream(allocator);
         auto begin = allocator->extendWrite(current, stream);
         // ... write to the stream
         allocator->finishWrite(stream);
