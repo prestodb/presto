@@ -38,6 +38,7 @@ add_executable(
   SortArrayTest.cpp
   SplitFunctionsTest.cpp
   StringTest.cpp
+  StringToMapTest.cpp
   UnscaledValueFunctionTest.cpp
   XxHash64Test.cpp)
 
