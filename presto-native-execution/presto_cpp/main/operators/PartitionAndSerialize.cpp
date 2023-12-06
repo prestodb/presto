@@ -213,6 +213,9 @@ class PartitionAndSerializeOperator : public Operator {
     decodedVectors_.resize(keyChannels_.size());
 
     for (auto partitionKey : keyChannels_) {
+      if (partitionKey == kConstantChannel) {
+        continue;
+      }
       auto& keyVector = input_->childAt(partitionKey);
       if (keyVector->mayHaveNulls()) {
         decodedVectors_[partitionKey].decode(*keyVector);
