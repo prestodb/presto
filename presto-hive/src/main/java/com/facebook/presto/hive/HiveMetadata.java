@@ -489,6 +489,12 @@ public class HiveMetadata
     }
 
     @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return listSchemaNames(session).stream().anyMatch(schemaName::equalsIgnoreCase);
+    }
+
+    @Override
     public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
