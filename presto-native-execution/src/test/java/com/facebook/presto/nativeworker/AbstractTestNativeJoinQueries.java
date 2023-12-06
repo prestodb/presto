@@ -82,6 +82,17 @@ public abstract class AbstractTestNativeJoinQueries
         assertQuery(joinTypeSession, "SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
         assertQuery(joinTypeSession, "SELECT * FROM lineitem " +
                 "WHERE linenumber = 3 OR orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+
+        assertQuery("WITH mapping AS (\n" +
+                "  SELECT orderkey, custkey FROM orders GROUP BY 1, 2\n" +
+                ")\n" +
+                "SELECT \n" +
+                "  custkey\n" +
+                "FROM \n" +
+                "  mapping m \n" +
+                "WHERE \n" +
+                "  m.custkey = 38 \n" +
+                "  AND m.orderkey NOT IN (SELECT orderkey FROM lineitem)");
     }
 
     @Test(dataProvider = "joinTypeProvider")
