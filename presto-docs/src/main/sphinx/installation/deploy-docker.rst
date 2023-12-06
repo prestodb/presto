@@ -48,7 +48,7 @@ Installing and Running the Presto Docker container
 
 1. Download the latest non-edge Presto container from `Presto on DockerHub <https://hub.docker.com/r/prestodb/presto/tags>`_. Run the following command: 
 
-   ``docker pull prestodb/latest``
+   ``docker pull prestodb/presto:latest``
 
    Downloading the container may take a few minutes. When the download completes, go on to the next step.
 
@@ -76,13 +76,11 @@ Installing and Running the Presto Docker container
     -XX:+ExitOnOutOfMemoryError
     -Djdk.attach.allowAttachSelf=true
      
-4. To start the Presto server in the Docker container, run a command similar to the following example:
+4. To start the Presto server in the Docker container, run the command:
 
-   ``docker run -p 8080:8080 -it -v </local/path/to/config.properties>:/opt/presto-server/etc/config.properties -v </local/path/to/jvm.config>:/opt/presto-server/etc/jvm.config --name presto prestodb/presto:0.284``
+   ``docker run -p 8080:8080 -it -v ./config.properties:/opt/presto-server/etc/config.properties -v ./jvm.config:/opt/presto-server/etc/jvm.config --name prestodb/presto:latest``
 
-   Modify this example and replace ``</local/path/to/config.properties>`` and ``</local/path/to/jvm.config>`` with the paths to the ``config.properties`` and ``jvm.config`` files that you created.
-
-   This command also assigns the name ``presto`` for the newly-created container that uses the downloaded image ``prestodb/presto:0.284``.
+   This command assigns the name ``presto`` for the newly-created container that uses the downloaded image ``prestodb/presto:latest``.
 
    The Presto server logs startup information in the terminal window. Once you see a response similar to the following, the Presto server is running in the Docker container.
 
