@@ -82,9 +82,7 @@ Window::WindowFrame Window::createWindowFrame(
     }
     auto frameChannel = exprToChannel(frame.get(), inputType);
     if (frameChannel == kConstantChannel) {
-      auto constant =
-          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(frame)
-              ->value();
+      auto constant = core::TypedExprs::asConstant(frame)->value();
       VELOX_CHECK(!constant.isNull(), "Window frame offset must not be null");
       auto value = VariantConverter::convert(constant, TypeKind::BIGINT)
                        .value<int64_t>();
@@ -120,8 +118,7 @@ void Window::createWindowFunctions() {
     for (auto& arg : windowNodeFunction.functionCall->inputs()) {
       auto channel = exprToChannel(arg.get(), inputType);
       if (channel == kConstantChannel) {
-        auto constantArg =
-            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(arg);
+        auto constantArg = core::TypedExprs::asConstant(arg);
         functionArgs.push_back(
             {arg->type(), constantArg->toConstantVector(pool()), std::nullopt});
       } else {

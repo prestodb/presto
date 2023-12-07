@@ -445,8 +445,7 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
       return kDefaultError;
     }
 
-    auto field =
-        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(args[1]);
+    auto field = core::TypedExprs::asFieldAccess(args[1]);
     VELOX_CHECK_NOT_NULL(field);
     auto errorVector =
         input->childAt(field->name())->as<SimpleVector<double>>();
@@ -458,8 +457,7 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
     const auto& args = aggregate.call->inputs();
     VELOX_CHECK_GE(args.size(), 1)
 
-    auto inputField =
-        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(args[0]);
+    auto inputField = core::TypedExprs::asFieldAccess(args[0]);
     VELOX_CHECK_NOT_NULL(inputField)
 
     std::string countDistinctCall =
@@ -586,8 +584,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
       return kDefaultAccuracy;
     }
 
-    auto field = std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-        args[accuracyIndex]);
+    auto field = core::TypedExprs::asFieldAccess(args[accuracyIndex]);
     VELOX_CHECK_NOT_NULL(field);
     auto accuracyVector =
         input->childAt(field->name())->as<SimpleVector<double>>();
@@ -693,8 +690,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
   }
 
   static const std::string& fieldName(const core::TypedExprPtr& expression) {
-    auto field =
-        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expression);
+    auto field = core::TypedExprs::asFieldAccess(expression);
     VELOX_CHECK_NOT_NULL(field);
     return field->name();
   }
@@ -711,9 +707,7 @@ class ApproxPercentileResultVerifier : public ResultVerifier {
 
     const auto& percentileExpr = args[percentileIndex];
 
-    if (auto constantExpr =
-            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
-                percentileExpr)) {
+    if (auto constantExpr = core::TypedExprs::asConstant(percentileExpr)) {
       if (constantExpr->type()->isDouble()) {
         return {constantExpr->value().value<double>()};
       }

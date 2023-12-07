@@ -39,15 +39,11 @@ Expand::Expand(
         constantProjection;
     constantProjection.reserve(numColumns);
     for (const auto& columnProjection : rowProjections) {
-      if (auto field =
-              std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-                  columnProjection)) {
+      if (auto field = core::TypedExprs::asFieldAccess(columnProjection)) {
         rowProjection.push_back(inputType->getChildIdx(field->name()));
         constantProjection.push_back(nullptr);
       } else if (
-          auto constant =
-              std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
-                  columnProjection)) {
+          auto constant = core::TypedExprs::asConstant(columnProjection)) {
         rowProjection.push_back(kConstantChannel);
         constantProjection.push_back(constant);
       } else {

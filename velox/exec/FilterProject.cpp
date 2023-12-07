@@ -25,8 +25,7 @@ bool checkAddIdentityProjection(
     const RowTypePtr& inputType,
     column_index_t outputChannel,
     std::vector<IdentityProjection>& identityProjections) {
-  if (auto field = std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-          projection)) {
+  if (auto field = core::TypedExprs::asFieldAccess(projection)) {
     const auto& inputs = field->inputs();
     if (inputs.empty() ||
         (inputs.size() == 1 &&
