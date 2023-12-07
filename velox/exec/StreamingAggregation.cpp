@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/exec/StreamingAggregation.h"
-#include "velox/exec/Aggregate.h"
-#include "velox/exec/RowContainer.h"
 
 namespace facebook::velox::exec {
 
@@ -33,7 +32,12 @@ StreamingAggregation::StreamingAggregation(
               : "Aggregation"),
       outputBatchSize_{outputBatchRows()},
       aggregationNode_{aggregationNode},
-      step_{aggregationNode->step()} {}
+      step_{aggregationNode->step()} {
+  if (aggregationNode_->ignoreNullKeys()) {
+    VELOX_UNSUPPORTED(
+        "Streaming aggregation doesn't support ignoring null keys yet");
+  }
+}
 
 void StreamingAggregation::initialize() {
   Operator::initialize();
@@ -53,68 +57,22 @@ void StreamingAggregation::initialize() {
     groupingKeyTypes.push_back(inputType->childAt(channel));
   }
 
+  std::shared_ptr<core::ExpressionEvaluator> expressionEvaluator;
+  aggregates_ = toAggregateInfo(
+      *aggregationNode_, *operatorCtx_, numKeys, expressionEvaluator, true);
+
+  // Setup masks and accumulators
   const auto numAggregates = aggregationNode_->aggregates().size();
-  aggregates_.reserve(numAggregates);
+  std::vector<std::optional<column_index_t>> masks;
+  masks.reserve(numAggregates);
   std::vector<Accumulator> accumulators;
-  accumulators.reserve(aggregates_.size());
-  std::vector<std::optional<column_index_t>> maskChannels;
-  maskChannels.reserve(numAggregates);
-  for (auto i = 0; i < numAggregates; i++) {
-    const auto& aggregate = aggregationNode_->aggregates()[i];
-
-    if (!aggregate.sortingKeys.empty()) {
-      VELOX_UNSUPPORTED(
-          "Streaming aggregation doesn't support aggregations over sorted inputs yet");
-    }
-
-    if (aggregate.distinct) {
-      VELOX_UNSUPPORTED(
-          "Streaming aggregation doesn't support aggregations over distinct inputs yet");
-    }
-
-    std::vector<column_index_t> channels;
-    std::vector<VectorPtr> constants;
-    for (auto& arg : aggregate.call->inputs()) {
-      channels.push_back(exprToChannel(arg.get(), inputType));
-      if (channels.back() == kConstantChannel) {
-        auto constant = static_cast<const core::ConstantTypedExpr*>(arg.get());
-        constants.push_back(BaseVector::createConstant(
-            constant->type(), constant->value(), 1, operatorCtx_->pool()));
-      } else {
-        constants.push_back(nullptr);
-      }
-    }
-
-    if (const auto& mask = aggregate.mask) {
-      maskChannels.emplace_back(inputType->asRow().getChildIdx(mask->name()));
-    } else {
-      maskChannels.emplace_back(std::nullopt);
-    }
-
-    const auto& aggResultType = outputType_->childAt(numKeys + i);
-    aggregates_.push_back(Aggregate::create(
-        aggregate.call->name(),
-        isPartialOutput(aggregationNode_->step())
-            ? core::AggregationNode::Step::kPartial
-            : core::AggregationNode::Step::kSingle,
-        aggregate.rawInputTypes,
-        aggResultType,
-        operatorCtx_->driverCtx()->queryConfig()));
-    args_.push_back(channels);
-    constantArgs_.push_back(constants);
-
-    const auto intermediateType = Aggregate::intermediateType(
-        aggregate.call->name(), aggregate.rawInputTypes);
-    accumulators.push_back(
-        Accumulator{aggregates_.back().get(), std::move(intermediateType)});
+  accumulators.reserve(numAggregates);
+  for (const auto& aggregate : aggregates_) {
+    masks.emplace_back(aggregate.mask);
+    accumulators.emplace_back(
+        aggregate.function.get(), aggregate.intermediateType);
   }
-
-  if (aggregationNode_->ignoreNullKeys()) {
-    VELOX_UNSUPPORTED(
-        "Streaming aggregation doesn't support ignoring null keys yet");
-  }
-
-  masks_ = std::make_unique<AggregationMasks>(std::move(maskChannels));
+  masks_ = std::make_unique<AggregationMasks>(std::move(masks));
 
   rows_ = std::make_unique<RowContainer>(
       groupingKeyTypes,
@@ -128,10 +86,11 @@ void StreamingAggregation::initialize() {
       pool());
 
   for (auto i = 0; i < aggregates_.size(); ++i) {
-    aggregates_[i]->setAllocator(&rows_->stringAllocator());
+    auto& function = aggregates_[i].function;
+    function->setAllocator(&rows_->stringAllocator());
 
     const auto rowColumn = rows_->columnAt(numKeys + i);
-    aggregates_[i]->setOffsets(
+    function->setOffsets(
         rowColumn.offset(),
         rowColumn.nullByte(),
         rowColumn.nullMask(),
@@ -203,7 +162,7 @@ RowVectorPtr StreamingAggregation::createOutput(size_t numGroups) {
 
   auto numKeys = groupingKeys_.size();
   for (auto i = 0; i < aggregates_.size(); ++i) {
-    auto& aggregate = aggregates_[i];
+    auto& aggregate = aggregates_.at(i).function;
     auto& result = output->childAt(numKeys + i);
     if (isPartialOutput(step_)) {
       aggregate->extractAccumulators(groups_.data(), numGroups, &result);
@@ -264,14 +223,16 @@ const SelectivityVector& StreamingAggregation::getSelectivityVector(
 
 void StreamingAggregation::evaluateAggregates() {
   for (auto i = 0; i < aggregates_.size(); ++i) {
-    auto& aggregate = aggregates_[i];
+    auto& aggregate = aggregates_.at(i).function;
+    auto& inputs = aggregates_.at(i).inputs;
+    auto& constantInputs = aggregates_.at(i).constantInputs;
 
     std::vector<VectorPtr> args;
-    for (auto j = 0; j < args_[i].size(); ++j) {
-      if (args_[i][j] == kConstantChannel) {
-        args.push_back(constantArgs_[i][j]);
+    for (auto j = 0; j < inputs.size(); ++j) {
+      if (inputs[j] == kConstantChannel) {
+        args.push_back(constantInputs[j]);
       } else {
-        args.push_back(input_->childAt(args_[i][j]));
+        args.push_back(input_->childAt(inputs[j]));
       }
     }
 
@@ -315,7 +276,7 @@ RowVectorPtr StreamingAggregation::getOutput() {
   std::iota(newGroups.begin(), newGroups.end(), numPrevGroups);
 
   for (auto i = 0; i < aggregates_.size(); ++i) {
-    auto& aggregate = aggregates_[i];
+    auto& aggregate = aggregates_.at(i).function;
 
     aggregate->initializeNewGroups(
         groups_.data(), folly::Range(newGroups.data(), newGroups.size()));
