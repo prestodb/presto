@@ -593,6 +593,11 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Invoked to run provided 'callback' on each alive driver of the task.
   void testingVisitDrivers(const std::function<void(Driver*)>& callback);
 
+  /// Invoked to finish the task for test purpose.
+  void testingFinish() {
+    terminate(TaskState::kFinished).wait();
+  }
+
  private:
   Task(
       const std::string& taskId,

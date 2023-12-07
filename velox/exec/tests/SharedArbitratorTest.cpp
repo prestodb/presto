@@ -3794,7 +3794,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, joinBuildSpillError) {
   ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
 }
 
-TEST_F(SharedArbitrationTest, DISABLED_concurrentArbitration) {
+TEST_F(SharedArbitrationTest, concurrentArbitration) {
   // Tries to replicate an actual workload by concurrently running multiple
   // query shapes that support spilling (and hence can be forced to abort or
   // spill by the arbitrator). Also adds an element of randomness by randomly
@@ -3831,13 +3831,13 @@ TEST_F(SharedArbitrationTest, DISABLED_concurrentArbitration) {
           succinctBytes(totalCapacity),
           succinctBytes(queryCapacity));
     }
-  } testSettings[3] = {
+  } testSettings[] = {
       {16 * MB, 128 * MB}, {128 * MB, 16 * MB}, {128 * MB, 128 * MB}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    auto totalCapacity = testData.totalCapacity;
-    auto queryCapacity = testData.queryCapacity;
+    const auto totalCapacity = testData.totalCapacity;
+    const auto queryCapacity = testData.queryCapacity;
     setupMemory(totalCapacity);
 
     std::mutex mutex;
@@ -3895,6 +3895,8 @@ TEST_F(SharedArbitrationTest, DISABLED_concurrentArbitration) {
     for (auto& queryThread : queryThreads) {
       queryThread.join();
     }
+    zombieTasks.clear();
+    waitForAllTasksToBeDeleted();
     ASSERT_GT(arbitrator_->stats().numRequests, 0);
   }
 }
