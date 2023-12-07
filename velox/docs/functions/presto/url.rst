@@ -66,7 +66,7 @@ Extraction Functions
 
 .. function:: url_extract_port(url) -> bigint
 
-    Returns the port number from ``url``.
+    Returns the port number from ``url``. Returns NULL if port is missing.
 
 .. function:: url_extract_protocol(url) -> varchar
 

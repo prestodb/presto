@@ -17,19 +17,33 @@
 
 #include <boost/regex.hpp>
 #include <cctype>
+#include <optional>
 #include "velox/functions/Macros.h"
 #include "velox/functions/lib/string/StringImpl.h"
 
 namespace facebook::velox::functions {
 
 namespace {
+
+const auto kScheme = 2;
+const auto kAuthority = 3;
+const auto kPath = 5;
+const auto kQuery = 7;
+const auto kFragment = 9;
+const auto kHost = 3; // From the authority and path regex.
+const auto kPort = 4; // From the authority and path regex.
+
+// Returns true if the given character is valid in a domain name.
+bool isDomainChar(char ch) {
+  return std::isalnum(ch) || ch == '-' || ch == '.';
+}
+
 FOLLY_ALWAYS_INLINE StringView submatch(const boost::cmatch& match, int idx) {
   const auto& sub = match[idx];
   return StringView(sub.first, sub.length());
 }
 
-template <typename TInString>
-bool parse(const TInString& rawUrl, boost::cmatch& match) {
+bool parse(const char* rawUrlData, size_t rawUrlsize, boost::cmatch& match) {
   /// This regex is taken from RFC - 3986.
   /// See: https://www.rfc-editor.org/rfc/rfc3986#appendix-B
   /// The basic groups are:
@@ -59,7 +73,24 @@ bool parse(const TInString& rawUrl, boost::cmatch& match) {
       "(#(.*))?"); // #fragment
 
   return boost::regex_match(
-      rawUrl.data(), rawUrl.data() + rawUrl.size(), match, kUriRegex);
+      rawUrlData, rawUrlData + rawUrlsize, match, kUriRegex);
+}
+
+/// Parses the url and returns the matching subgroup if the particular sub group
+/// is matched by the call to parse call above.
+std::optional<StringView> parse(StringView rawUrl, int subGroup) {
+  boost::cmatch match;
+  if (!parse(rawUrl.data(), rawUrl.size(), match)) {
+    return std::nullopt;
+  }
+
+  VELOX_CHECK_LT(subGroup, match.size());
+
+  if (match[subGroup].matched) {
+    return submatch(match, subGroup);
+  }
+
+  return std::nullopt;
 }
 
 FOLLY_ALWAYS_INLINE unsigned char toHex(unsigned char c) {
@@ -110,7 +141,7 @@ FOLLY_ALWAYS_INLINE void urlEscape(TOutString& output, const TInString& input) {
 /// Performs initial validation of the URI.
 /// Checks if the URI contains ascii whitespaces or
 /// unescaped '%' chars.
-bool isValidURI(const StringView& input) {
+bool isValidURI(StringView input) {
   const char* p = input.data();
   const char* end = p + input.size();
   char buf[3];
@@ -178,11 +209,13 @@ FOLLY_ALWAYS_INLINE void urlUnescape(
 
 } // namespace
 
-bool matchAuthorityAndPath(
-    const boost::cmatch& urlMatch,
-    boost::cmatch& authAndPathMatch,
+/// Matches the authority (i.e host[:port], ipaddress), and path from a string
+/// representing the authority and path. Returns true if the regex matches, and
+/// sets the appropriate groups matching authority in authorityMatch.
+std::optional<StringView> matchAuthorityAndPath(
+    StringView authorityAndPath,
     boost::cmatch& authorityMatch,
-    bool& hasAuthority);
+    int subGroup);
 
 template <typename T>
 struct UrlExtractProtocolFunction {
@@ -198,14 +231,13 @@ struct UrlExtractProtocolFunction {
       out_type<Varchar>& result,
       const arg_type<Varchar>& url) {
     if (!isValidURI(url)) {
-      result.setEmpty();
       return false;
     }
-    boost::cmatch match;
-    if (!parse(url, match)) {
-      result.setEmpty();
+
+    if (auto protocol = parse(url, kScheme)) {
+      result.setNoCopy(protocol.value());
     } else {
-      result.setNoCopy(submatch(match, 2));
+      result.setEmpty();
     }
     return true;
   }
@@ -225,14 +257,13 @@ struct UrlExtractFragmentFunction {
       out_type<Varchar>& result,
       const arg_type<Varchar>& url) {
     if (!isValidURI(url)) {
-      result.setEmpty();
       return false;
     }
-    boost::cmatch match;
-    if (!parse(url, match)) {
-      result.setEmpty();
+
+    if (auto fragment = parse(url, kFragment)) {
+      result.setNoCopy(fragment.value());
     } else {
-      result.setNoCopy(submatch(match, 9));
+      result.setEmpty();
     }
     return true;
   }
@@ -252,22 +283,19 @@ struct UrlExtractHostFunction {
       out_type<Varchar>& result,
       const arg_type<Varchar>& url) {
     if (!isValidURI(url)) {
-      result.setEmpty();
       return false;
     }
-    boost::cmatch match;
-    if (!parse(url, match)) {
+
+    auto authAndPath = parse(url, kAuthority);
+    if (!authAndPath) {
       result.setEmpty();
       return true;
     }
-    boost::cmatch authAndPathMatch;
     boost::cmatch authorityMatch;
-    bool hasAuthority;
 
-    if (matchAuthorityAndPath(
-            match, authAndPathMatch, authorityMatch, hasAuthority) &&
-        hasAuthority) {
-      result.setNoCopy(submatch(authorityMatch, 3));
+    if (auto host =
+            matchAuthorityAndPath(authAndPath.value(), authorityMatch, kHost)) {
+      result.setNoCopy(host.value());
     } else {
       result.setEmpty();
     }
@@ -283,21 +311,18 @@ struct UrlExtractPortFunction {
     if (!isValidURI(url)) {
       return false;
     }
-    boost::cmatch match;
-    if (!parse(url, match)) {
+
+    auto authAndPath = parse(url, kAuthority);
+    if (!authAndPath) {
       return false;
     }
 
-    boost::cmatch authAndPathMatch;
     boost::cmatch authorityMatch;
-    bool hasAuthority;
-    if (matchAuthorityAndPath(
-            match, authAndPathMatch, authorityMatch, hasAuthority) &&
-        hasAuthority) {
-      auto port = submatch(authorityMatch, 4);
-      if (!port.empty()) {
+    if (auto port =
+            matchAuthorityAndPath(authAndPath.value(), authorityMatch, kPort)) {
+      if (!port.value().empty()) {
         try {
-          result = to<int64_t>(port);
+          result = to<int64_t>(port.value());
           return true;
         } catch (folly::ConversionError const&) {
         }
@@ -317,17 +342,13 @@ struct UrlExtractPathFunction {
       out_type<Varchar>& result,
       const arg_type<Varchar>& url) {
     if (!isValidURI(url)) {
-      result.setEmpty();
       return false;
     }
 
-    boost::cmatch match;
-    if (!parse(url, match)) {
-      result.setEmpty();
-      return false;
-    }
-
-    urlUnescape(result, submatch(match, 5));
+    auto path = parse(url, kPath);
+    VELOX_USER_CHECK(
+        path.has_value(), "Unable to determine path for URL: {}", url);
+    urlUnescape(result, path.value());
 
     return true;
   }
@@ -347,17 +368,15 @@ struct UrlExtractQueryFunction {
       out_type<Varchar>& result,
       const arg_type<Varchar>& url) {
     if (!isValidURI(url)) {
-      result.setEmpty();
       return false;
     }
-    boost::cmatch match;
-    if (!parse(url, match)) {
+
+    if (auto query = parse(url, kQuery)) {
+      result.setNoCopy(query.value());
+    } else {
       result.setEmpty();
-      return true;
     }
 
-    auto query = submatch(match, 7);
-    result.setNoCopy(query);
     return true;
   }
 };
@@ -377,17 +396,15 @@ struct UrlExtractParameterFunction {
       const arg_type<Varchar>& url,
       const arg_type<Varchar>& param) {
     if (!isValidURI(url)) {
-      result.setEmpty();
-      return false;
-    }
-    boost::cmatch match;
-    if (!parse(url, match)) {
-      result.setEmpty();
       return false;
     }
 
-    auto query = submatch(match, 7);
-    if (!query.empty()) {
+    auto query = parse(url, kQuery);
+    if (!query) {
+      return false;
+    }
+
+    if (!query.value().empty()) {
       // Parse query string.
       static const boost::regex kQueryParamRegex(
           "(^|&)" // start of query or start of parameter "&"
@@ -398,11 +415,13 @@ struct UrlExtractParameterFunction {
       );
 
       const boost::cregex_iterator begin(
-          query.data(), query.data() + query.size(), kQueryParamRegex);
+          query.value().data(),
+          query.value().data() + query.value().size(),
+          kQueryParamRegex);
       boost::cregex_iterator end;
 
       for (auto it = begin; it != end; ++it) {
-        if (it->length(2) != 0) { // key shouldnt be empty.
+        if (it->length(2) != 0 && (*it)[2].matched) { // key shouldnt be empty.
           auto key = submatch((*it), 2);
           if (param.compare(key) == 0) {
             auto value = submatch((*it), 3);

@@ -15,25 +15,24 @@
  */
 
 #include "URLFunctions.h"
+#include <optional>
 #include "velox/type/Type.h"
 
 namespace facebook::velox::functions {
 
-bool matchAuthorityAndPath(
-    const boost::cmatch& urlMatch,
-    boost::cmatch& authAndPathMatch,
+std::optional<StringView> matchAuthorityAndPath(
+    StringView authorityAndPath,
     boost::cmatch& authorityMatch,
-    bool& hasAuthority) {
+    int subGroup) {
+  boost::cmatch authAndPathMatch;
   static const boost::regex kAuthorityAndPathRegex("//([^/]*)(/.*)?");
-  auto authorityAndPath = submatch(urlMatch, 3);
   if (!boost::regex_match(
           authorityAndPath.begin(),
           authorityAndPath.end(),
           authAndPathMatch,
           kAuthorityAndPathRegex)) {
     // Does not start with //, doesn't have authority.
-    hasAuthority = false;
-    return true;
+    return std::nullopt;
   }
 
   static const boost::regex kAuthorityRegex(
@@ -45,12 +44,14 @@ bool matchAuthorityAndPath(
   const auto authority = authAndPathMatch[1];
   if (!boost::regex_match(
           authority.first, authority.second, authorityMatch, kAuthorityRegex)) {
-    return false; // Invalid URI Authority.
+    return std::nullopt; // Invalid URI Authority.
   }
 
-  hasAuthority = true;
+  if (authorityMatch[subGroup].matched) {
+    return submatch(authorityMatch, subGroup);
+  }
 
-  return true;
+  return std::nullopt;
 }
 
 } // namespace facebook::velox::functions

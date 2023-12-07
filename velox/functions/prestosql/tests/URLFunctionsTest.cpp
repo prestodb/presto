@@ -114,6 +114,14 @@ TEST_F(URLFunctionsTest, validateURL) {
       std::nullopt,
       std::nullopt,
       std::nullopt);
+  validate(
+      "IC6S!8hGVRpo+!,yTaJEy/$RUZpqcr",
+      "",
+      "",
+      "IC6S!8hGVRpo !,yTaJEy/$RUZpqcr",
+      "",
+      "",
+      std::nullopt);
 }
 
 TEST_F(URLFunctionsTest, extractPath) {
@@ -133,6 +141,7 @@ TEST_F(URLFunctionsTest, extractPath) {
       extractPath("https://www.ucu.edu.uy/agenda/evento/%%UCUrlCompartir%%"));
   EXPECT_EQ("foo", extractPath("foo"));
   EXPECT_EQ(std::nullopt, extractPath("BAD URL!"));
+  EXPECT_EQ("", extractPath("http://www.yahoo.com"));
 }
 
 TEST_F(URLFunctionsTest, extractParameter) {
