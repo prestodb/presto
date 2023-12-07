@@ -57,13 +57,13 @@ import java.util.function.IntPredicate;
 
 import static com.facebook.presto.hive.HiveBucketing.getVirtualBucketNumber;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_FILE_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveMetadata.shouldCreateFilesForMissingBuckets;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileSplittable;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrderBasedExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
