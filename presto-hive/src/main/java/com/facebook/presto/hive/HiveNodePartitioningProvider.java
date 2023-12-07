@@ -33,7 +33,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveBucketFunction.createHiveCompatibleBucketFunction;
 import static com.facebook.presto.hive.HiveBucketFunction.createPrestoNativeBucketFunction;
-import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
