@@ -58,6 +58,10 @@ Rename column ``id`` to ``user_id`` in the ``users`` table if table ``users`` an
 
     ALTER TABLE IF EXISTS users RENAME column IF EXISTS id to user_id;
 
+Set table property (``x=y``) to table ``users``::
+
+    ALTER TABLE users SET PROPERTIES (x='y');
+
 See Also
 --------
 

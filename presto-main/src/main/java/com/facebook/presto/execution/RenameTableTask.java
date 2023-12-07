@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
@@ -30,7 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.metadata.MetadataUtil.targetTableCatalogError;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
@@ -66,9 +67,7 @@ public class RenameTableTask
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
-        if (!metadata.getCatalogHandle(session, target.getCatalogName()).isPresent()) {
-            throw new SemanticException(MISSING_CATALOG, statement, "Target catalog '%s' does not exist", target.getCatalogName());
-        }
+        MetadataUtil.getConnectorIdOrThrow(session, metadata, target.getCatalogName(), statement, targetTableCatalogError);
         if (metadata.getMetadataResolver(session).getTableHandle(target).isPresent()) {
             throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
