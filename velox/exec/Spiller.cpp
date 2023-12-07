@@ -61,7 +61,7 @@ Spiller::Spiller(
           executor,
           writeFileOptions) {
   VELOX_CHECK(
-      type_ == Type::kOrderBy || type_ == Type::kAggregateInput,
+      type_ == Type::kOrderByInput || type_ == Type::kAggregateInput,
       "Unexpected spiller type: {}",
       typeName(type_));
   VELOX_CHECK_EQ(state_.maxPartitions(), 1);
@@ -94,9 +94,8 @@ Spiller::Spiller(
           pool,
           executor,
           writeFileOptions) {
-  VELOX_CHECK_EQ(
-      type,
-      Type::kAggregateOutput,
+  VELOX_CHECK(
+      type_ == Type::kAggregateOutput || type_ == Type::kOrderByOutput,
       "Unexpected spiller type: {}",
       typeName(type_));
   VELOX_CHECK_EQ(state_.maxPartitions(), 1);
@@ -447,9 +446,11 @@ void Spiller::runSpill() {
     VELOX_CHECK_EQ(numWritten, run.rows.size());
     run.clear();
     // When a sorted run ends, we start with a new file next time. For
-    // aggregation output spiller, we expect only one spill call to spill all
-    // the rows starting from the specified row offset.
-    if (needSort() || (type_ == Spiller::Type::kAggregateOutput)) {
+    // aggregation output / orderby output spiller, we expect only one spill
+    // call to spill all the rows starting from the specified row offset.
+    if (needSort() ||
+        (type_ == Spiller::Type::kAggregateOutput ||
+         type_ == Spiller::Type::kOrderByOutput)) {
       state_.finishFile(partition);
     }
   }
@@ -467,7 +468,7 @@ void Spiller::updateSpillSortTime(uint64_t timeUs) {
 
 bool Spiller::needSort() const {
   return type_ != Type::kHashJoinProbe && type_ != Type::kHashJoinBuild &&
-      type_ != Type::kAggregateOutput;
+      type_ != Type::kAggregateOutput && type_ != Type::kOrderByOutput;
 }
 
 void Spiller::spill() {
@@ -483,15 +484,23 @@ void Spiller::spill(const RowContainerIterator* startRowIter) {
   CHECK_NOT_FINALIZED();
   VELOX_CHECK_NE(type_, Type::kHashJoinProbe);
 
-  // Marks all the partitions have been spilled as we don't support fine-grained
-  // spilling as for now.
-  for (auto partition = 0; partition < state_.maxPartitions(); ++partition) {
-    if (!state_.isPartitionSpilled(partition)) {
-      state_.setPartitionSpilled(partition);
-    }
-  }
+  markAllPartitionsSpilled();
 
   fillSpillRuns(startRowIter);
+  runSpill();
+  checkEmptySpillRuns();
+}
+
+void Spiller::spill(std::vector<char*>& rows) {
+  CHECK_NOT_FINALIZED();
+  VELOX_CHECK_EQ(type_, Type::kOrderByOutput);
+  if (rows.empty()) {
+    return;
+  }
+
+  markAllPartitionsSpilled();
+
+  fillSpillRun(rows);
   runSpill();
   checkEmptySpillRuns();
 }
@@ -499,6 +508,14 @@ void Spiller::spill(const RowContainerIterator* startRowIter) {
 void Spiller::checkEmptySpillRuns() const {
   for (const auto& spillRun : spillRuns_) {
     VELOX_CHECK(spillRun.rows.empty());
+  }
+}
+
+void Spiller::markAllPartitionsSpilled() {
+  for (auto partition = 0; partition < state_.maxPartitions(); ++partition) {
+    if (!state_.isPartitionSpilled(partition)) {
+      state_.setPartitionSpilled(partition);
+    }
   }
 }
 
@@ -598,6 +615,21 @@ void Spiller::fillSpillRuns(const RowContainerIterator* startRowIter) {
   updateSpillFillTime(execTimeUs);
 }
 
+void Spiller::fillSpillRun(std::vector<char*>& rows) {
+  VELOX_CHECK_EQ(bits_.numPartitions(), 1);
+  checkEmptySpillRuns();
+  uint64_t execTimeUs{0};
+  {
+    MicrosecondTimer timer(&execTimeUs);
+    spillRuns_[0].rows =
+        SpillRows(rows.begin(), rows.end(), spillRuns_[0].rows.get_allocator());
+    for (const auto* row : rows) {
+      spillRuns_[0].numBytes += container_->rowSize(row);
+    }
+  }
+  updateSpillFillTime(execTimeUs);
+}
+
 std::string Spiller::toString() const {
   return fmt::format(
       "{}\t{}\tMAX_PARTITIONS:{}\tFINALIZED:{}",
@@ -610,8 +642,10 @@ std::string Spiller::toString() const {
 // static
 std::string Spiller::typeName(Type type) {
   switch (type) {
-    case Type::kOrderBy:
-      return "ORDER_BY";
+    case Type::kOrderByInput:
+      return "ORDER_BY_INPUT";
+    case Type::kOrderByOutput:
+      return "ORDER_BY_OUTPUT";
     case Type::kHashJoinBuild:
       return "HASH_JOIN_BUILD";
     case Type::kHashJoinProbe:
