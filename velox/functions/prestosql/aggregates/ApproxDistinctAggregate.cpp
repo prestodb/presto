@@ -457,15 +457,15 @@ exec::AggregateRegistrationResult registerApproxDistinct(
                                .build());
     }
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
-                             .typeVariable("a_precision")
-                             .typeVariable("a_scale")
+                             .integerVariable("a_precision")
+                             .integerVariable("a_scale")
                              .returnType(returnType)
                              .intermediateType("varbinary")
                              .argumentType("DECIMAL(a_precision, a_scale)")
                              .build());
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
-                             .typeVariable("a_precision")
-                             .typeVariable("a_scale")
+                             .integerVariable("a_precision")
+                             .integerVariable("a_scale")
                              .returnType(returnType)
                              .intermediateType("varbinary")
                              .argumentType("DECIMAL(a_precision, a_scale)")
