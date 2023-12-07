@@ -28,6 +28,7 @@ import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCommonSessionProperties;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveNodePartitioningProvider;
 import com.facebook.presto.hive.MetastoreClientConfig;
@@ -174,7 +175,8 @@ public class HudiModule
             ConnectorSplitManager connectorSplitManager,
             ConnectorPageSourceProvider connectorPageSourceProvider,
             ConnectorNodePartitioningProvider connectorNodePartitioningProvider,
-            HudiSessionProperties hudiSessionProperties)
+            HudiSessionProperties hudiSessionProperties,
+            HiveCommonSessionProperties hiveCommonSessionProperties)
     {
         return new HudiConnector(lifeCycleManager,
                 hudiTransactionManager,
@@ -183,6 +185,7 @@ public class HudiModule
                 new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSourceProvider, classLoader),
                 new ClassLoaderSafeNodePartitioningProvider(connectorNodePartitioningProvider, classLoader),
                 new AllowAllAccessControl(),
-                hudiSessionProperties);
+                hudiSessionProperties,
+                hiveCommonSessionProperties);
     }
 }

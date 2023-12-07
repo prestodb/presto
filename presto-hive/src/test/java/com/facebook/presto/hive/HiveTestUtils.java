@@ -64,6 +64,7 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -76,6 +77,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -96,9 +98,7 @@ public final class HiveTestUtils
     public static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
     public static final SmileCodec<PartitionUpdate> PARTITION_UPDATE_SMILE_CODEC = smileCodec(PartitionUpdate.class);
 
-    public static final ConnectorSession SESSION = new TestingConnectorSession(
-            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
-
+    public static final ConnectorSession SESSION = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), new HiveCommonClientConfig()));
     public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
 
     public static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
@@ -292,5 +292,27 @@ public final class HiveTestUtils
             }
             return Optional.of(systemPropertyValue);
         }
+    }
+
+    public static List<PropertyMetadata<?>> getAllSessionProperties(HiveClientConfig hiveClientConfig, HiveCommonClientConfig hiveCommonClientConfig)
+    {
+        return getAllSessionProperties(hiveClientConfig, new ParquetFileWriterConfig(), hiveCommonClientConfig);
+    }
+
+    public static List<PropertyMetadata<?>> getAllSessionProperties(HiveClientConfig hiveClientConfig, ParquetFileWriterConfig parquetFileWriterConfig, HiveCommonClientConfig hiveCommonClientConfig)
+    {
+        HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
+                hiveClientConfig,
+                new OrcFileWriterConfig(),
+                parquetFileWriterConfig,
+                new CacheConfig());
+
+        List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(hiveSessionProperties.getSessionProperties());
+
+        HiveCommonSessionProperties hiveCommonSessionProperties = new HiveCommonSessionProperties(
+                hiveCommonClientConfig);
+
+        allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
+        return allSessionProperties;
     }
 }

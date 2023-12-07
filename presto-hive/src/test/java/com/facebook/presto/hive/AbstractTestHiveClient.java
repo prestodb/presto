@@ -253,6 +253,7 @@ import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.arrayType;
+import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
@@ -1085,6 +1086,11 @@ public abstract class AbstractTestHiveClient
                 .setCreateEmptyBucketFilesForTemporaryTable(false);
     }
 
+    protected HiveCommonClientConfig getHiveCommonClientConfig()
+    {
+        return new HiveCommonClientConfig();
+    }
+
     protected CacheConfig getCacheConfig()
     {
         return new CacheConfig().setCacheQuotaScope(CACHE_SCOPE).setDefaultCacheQuota(DEFAULT_QUOTA_SIZE);
@@ -1097,12 +1103,12 @@ public abstract class AbstractTestHiveClient
 
     protected ConnectorSession newSession()
     {
-        return newSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()));
+        return newSession(getHiveClientConfig(), getHiveCommonClientConfig());
     }
 
-    protected ConnectorSession newSession(HiveSessionProperties hiveSessionProperties)
+    protected ConnectorSession newSession(HiveClientConfig hiveClientConfig, HiveCommonClientConfig hiveCommonClientConfig)
     {
-        return new TestingConnectorSession(hiveSessionProperties.getSessionProperties());
+        return new TestingConnectorSession(getAllSessionProperties(hiveClientConfig, hiveCommonClientConfig));
     }
 
     protected ConnectorSession newSession(Map<String, Object> extraProperties)
@@ -3924,11 +3930,7 @@ public abstract class AbstractTestHiveClient
 
     private ConnectorSession sampleSize(int sampleSize)
     {
-        return newSession(new HiveSessionProperties(
-                getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize),
-                new OrcFileWriterConfig(),
-                new ParquetFileWriterConfig(),
-                new CacheConfig()));
+        return newSession(getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize), getHiveCommonClientConfig());
     }
 
     private void verifyViewCreation(SchemaTableName temporaryCreateView)
