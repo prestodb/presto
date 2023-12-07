@@ -1009,10 +1009,9 @@ ExpressionFuzzer::FuzzedExpressionData ExpressionFuzzer::fuzzExpressions(
   VELOX_CHECK_EQ(
       state.remainingLevelOfNesting_, std::max(1, options_.maxLevelOfNesting));
 
-  auto outType = fuzzReturnType();
-
   std::vector<core::TypedExprPtr> expressions;
   for (int i = 0; i < numberOfExpressions; i++) {
+    auto outType = fuzzReturnType();
     expressions.push_back(generateExpression(outType));
   }
   return {
