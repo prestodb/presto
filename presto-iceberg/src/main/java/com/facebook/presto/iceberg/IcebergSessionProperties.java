@@ -20,7 +20,7 @@ import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
-import com.facebook.presto.orc.OrcWriteValidation;
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -33,6 +33,7 @@ import org.apache.parquet.column.ParquetProperties;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -42,6 +43,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -64,7 +66,6 @@ public final class IcebergSessionProperties
     private static final String ORC_LAZY_READ_SMALL_RANGES = "orc_lazy_read_small_ranges";
     private static final String ORC_ZSTD_JNI_DECOMPRESSION_ENABLED = "orc_zstd_jni_decompression_enabled";
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
-    private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE = "orc_optimized_writer_validate_percentage";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE_MODE = "orc_optimized_writer_validate_mode";
@@ -72,7 +73,6 @@ public final class IcebergSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
-    private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
     private static final String CACHE_ENABLED = "cache_enabled";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
@@ -191,11 +191,6 @@ public final class IcebergSessionProperties
                         orcFileWriterConfig.getStringStatisticsLimit(),
                         false),
                 booleanProperty(
-                        ORC_OPTIMIZED_WRITER_ENABLED,
-                        "Experimental: ORC: Enable optimized writer",
-                        hiveClientConfig.isOrcOptimizedWriterEnabled(),
-                        false),
-                booleanProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: ORC: Force all validation for files",
                         hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
@@ -242,15 +237,6 @@ public final class IcebergSessionProperties
                         "Experimental: ORC: Max dictionary memory",
                         orcFileWriterConfig.getDictionaryMaxMemory(),
                         false),
-                new PropertyMetadata<>(
-                        ORC_COMPRESSION_CODEC,
-                        "The preferred compression codec to use when writing ORC and DWRF files",
-                        VARCHAR,
-                        HiveCompressionCodec.class,
-                        hiveClientConfig.getOrcCompressionCodec(),
-                        false,
-                        value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
-                        HiveCompressionCodec::name),
                 new PropertyMetadata<>(
                         NODE_SELECTION_STRATEGY,
                         "Node affinity selection strategy",
@@ -335,6 +321,16 @@ public final class IcebergSessionProperties
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
     }
 
+    public static boolean isParquetBatchReaderVerificationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_BATCH_READER_VERIFICATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParquetBatchReadsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, Boolean.class);
+    }
+
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
@@ -342,7 +338,7 @@ public final class IcebergSessionProperties
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
     {
-        return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+        return session.getProperty(PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
     }
 
     public static ParquetProperties.WriterVersion getParquetWriterVersion(ConnectorSession session)
@@ -408,14 +404,26 @@ public final class IcebergSessionProperties
         return session.getProperty(ORC_STRING_STATISTICS_LIMIT, DataSize.class);
     }
 
-    public static boolean isOrcOptimizedWriterEnabled(ConnectorSession session)
+    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session)
     {
-        return session.getProperty(ORC_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+        boolean validate = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
+        double percentage = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, Double.class);
+
+        checkArgument(percentage >= 0.0 && percentage <= 100.0);
+
+        // session property can disabled validation
+        if (!validate) {
+            return false;
+        }
+
+        // session property can not force validation when sampling is enabled
+        // todo change this if session properties support null
+        return ThreadLocalRandom.current().nextDouble(100) < percentage;
     }
 
-    public static OrcWriteValidation.OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
+    public static OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
     {
-        return OrcWriteValidation.OrcWriteValidationMode.valueOf(session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_MODE, String.class).toUpperCase(ENGLISH));
+        return OrcWriteValidationMode.valueOf(session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_MODE, String.class).toUpperCase(ENGLISH));
     }
 
     public static DataSize getOrcOptimizedWriterMinStripeSize(ConnectorSession session)
@@ -436,11 +444,6 @@ public final class IcebergSessionProperties
     public static DataSize getOrcOptimizedWriterMaxDictionaryMemory(ConnectorSession session)
     {
         return session.getProperty(ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY, DataSize.class);
-    }
-
-    public static HiveCompressionCodec getOrcCompressionCodec(ConnectorSession session)
-    {
-        return session.getProperty(ORC_COMPRESSION_CODEC, HiveCompressionCodec.class);
     }
 
     public static boolean isCacheEnabled(ConnectorSession session)

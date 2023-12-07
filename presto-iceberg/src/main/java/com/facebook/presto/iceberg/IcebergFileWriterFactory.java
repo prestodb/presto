@@ -21,7 +21,6 @@ import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
-import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
@@ -50,9 +49,6 @@ import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isOrcOptimizedWriterValidate;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
@@ -60,9 +56,17 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDAT
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterMaxStripeRows;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterMaxStripeSize;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterMinStripeSize;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcOptimizedWriterValidateMode;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcStringStatisticsLimit;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterVersion;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcOptimizedWriterValidate;
 import static com.facebook.presto.iceberg.TypeConverter.toOrcType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
@@ -220,12 +224,12 @@ public class IcebergFileWriterFactory
                     orcFileWriterConfig
                             .toOrcWriterOptionsBuilder()
                             .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
-                                    .withStripeMinSize(HiveSessionProperties.getOrcOptimizedWriterMinStripeSize(session))
-                                    .withStripeMaxSize(HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize(session))
-                                    .withStripeMaxRowCount(HiveSessionProperties.getOrcOptimizedWriterMaxStripeRows(session))
+                                    .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
+                                    .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
+                                    .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
                                     .build())
-                            .withDictionaryMaxMemory(HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory(session))
-                            .withMaxStringStatisticsLimit(HiveSessionProperties.getOrcStringStatisticsLimit(session))
+                            .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
+                            .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
                             .build(),
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     ImmutableMap.<String, String>builder()
