@@ -39,7 +39,7 @@ class ConfigTest : public testing::Test {
     sysConfigFile->append(
         fmt::format("{}={}\n", SystemConfig::kPrestoVersion, prestoVersion));
     sysConfigFile->append(
-        fmt::format("{}=11kB\n", SystemConfig::kQueryMaxMemoryPerNode));
+        fmt::format("{}=11KB\n", SystemConfig::kQueryMaxMemoryPerNode));
     if (isMutable) {
       sysConfigFile->append(
           fmt::format("{}={}\n", ConfigBase::kMutableConfig, "true"));
@@ -86,7 +86,7 @@ TEST_F(ConfigTest, mutableSystemConfig) {
           .value());
   ASSERT_EQ(prestoVersion2, systemConfig->prestoVersion());
   ASSERT_EQ(
-      "11kB",
+      "11KB",
       systemConfig
           ->setValue(std::string(SystemConfig::kQueryMaxMemoryPerNode), "5GB")
           .value());
