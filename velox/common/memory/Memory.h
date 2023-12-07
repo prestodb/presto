@@ -116,8 +116,8 @@ struct MemoryManagerOptions {
 
   /// Specifies the max time to wait for memory reclaim by arbitration. The
   /// memory reclaim might fail if the max wait time has exceeded. If it is
-  /// zero, then there is no timeout.
-  uint64_t memoryReclaimWaitMs{0};
+  /// zero, then there is no timeout. The default is 5 mins.
+  uint64_t memoryReclaimWaitMs{300'000};
 
   /// Provided by the query system to validate the state after a memory pool
   /// enters arbitration if not null. For instance, Prestissimo provides

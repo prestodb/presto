@@ -26,6 +26,8 @@ implementation of BaseStatsReporter is required to integrate with a specific
 monitoring service. The metric aggregation granularity and export interval are
 also configured based on the actual used monitoring service.
 
+Velox supports five metric types:
+
 **Count**: tracks the count of events, such as the number of query failures.
 
 **Sum**: tracks the sum of event data point values, such as sum of query scan

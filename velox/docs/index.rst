@@ -10,7 +10,7 @@ Velox Documentation
     functions
     spark_functions
     configs
-    stats
+    metrics
     bindings/python/README_generated_pyvelox
     develop
     programming-guide
