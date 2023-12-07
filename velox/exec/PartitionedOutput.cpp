@@ -288,6 +288,9 @@ void PartitionedOutput::collectNullRows() {
   decodedVectors_.resize(keyChannels_.size());
 
   for (auto i : keyChannels_) {
+    if (i == kConstantChannel) {
+      continue;
+    }
     auto& keyVector = input_->childAt(i);
     if (keyVector->mayHaveNulls()) {
       decodedVectors_[i].decode(*keyVector, rows_);

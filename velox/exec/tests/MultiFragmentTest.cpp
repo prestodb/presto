@@ -741,6 +741,67 @@ TEST_F(MultiFragmentTest, roundRobinPartition) {
   }
 }
 
+// Test PartitionedOutput operator with constant partitioning keys.
+TEST_F(MultiFragmentTest, constantKeys) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(
+          1'000, [](auto row) { return row; }, nullEvery(7)),
+  });
+
+  std::vector<std::shared_ptr<Task>> tasks;
+  auto addTask = [&](std::shared_ptr<Task> task,
+                     const std::vector<std::string>& remoteTaskIds) {
+    tasks.emplace_back(task);
+    task->start(1);
+    if (!remoteTaskIds.empty()) {
+      addRemoteSplits(task, remoteTaskIds);
+    }
+  };
+
+  // Make leaf task: Values -> Repartitioning (3-way)
+  auto leafTaskId = makeTaskId("leaf", 0);
+  auto leafPlan = PlanBuilder()
+                      .values({data})
+                      .partitionedOutput({"c0", "123"}, 3, true, {"c0"})
+                      .planNode();
+  auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+  addTask(leafTask, {});
+
+  // Make next stage tasks to count nulls.
+  core::PlanNodePtr finalAggPlan;
+  std::vector<std::string> finalAggTaskIds;
+  for (int i = 0; i < 3; i++) {
+    finalAggPlan =
+        PlanBuilder()
+            .exchange(leafPlan->outputType())
+            .project({"c0 is null AS co_is_null"})
+            .partialAggregation({}, {"count_if(co_is_null)", "count(1)"})
+            .partitionedOutput({}, 1)
+            .planNode();
+
+    finalAggTaskIds.push_back(makeTaskId("final-agg", i));
+    auto task = makeTask(finalAggTaskIds.back(), finalAggPlan, i);
+    addTask(task, {leafTaskId});
+  }
+
+  // Collect results and verify number of nulls is 3 times larger than in the
+  // original data.
+  auto op = PlanBuilder()
+                .exchange(finalAggPlan->outputType())
+                .finalAggregation(
+                    {}, {"sum(a0)", "sum(a1)"}, {{BIGINT()}, {BIGINT()}})
+                .planNode();
+
+  assertQuery(
+      op,
+      finalAggTaskIds,
+      "SELECT 3 * ceil(1000.0 / 7) /* number of null rows */, 1000 + 2 * ceil(1000.0 / 7) /* total number of rows */");
+
+  for (auto& task : tasks) {
+    ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
+  }
+}
+
 TEST_F(MultiFragmentTest, replicateNullsAndAny) {
   auto data = makeRowVector({makeFlatVector<int32_t>(
       1'000, [](auto row) { return row; }, nullEvery(7))});
