@@ -24,8 +24,9 @@
 #include "velox/expression/tests/ExpressionFuzzerVerifier.h"
 #include "velox/functions/FunctionRegistry.h"
 
-/// FuzzerRunner leverages ExpressionFuzzerVerifier to create a unit test.
+namespace facebook::velox::test {
 
+/// FuzzerRunner leverages ExpressionFuzzerVerifier to create a gtest unit test.
 class FuzzerRunner {
  public:
   static int run(
@@ -36,3 +37,5 @@ class FuzzerRunner {
       size_t seed,
       const std::unordered_set<std::string>& skipFunctions);
 };
+
+} // namespace facebook::velox::test

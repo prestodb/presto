@@ -30,6 +30,8 @@ DEFINE_int64(
     "Initial seed for random number generator "
     "(use it to reproduce previous results).");
 
+using facebook::velox::test::FuzzerRunner;
+
 int main(int argc, char** argv) {
   facebook::velox::functions::sparksql::registerFunctions("");
 

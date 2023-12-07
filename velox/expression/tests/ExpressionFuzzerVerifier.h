@@ -43,20 +43,65 @@ namespace facebook::velox::test {
 ///     asserting results are the exact same.
 ///  5. Rinse and repeat.
 ///
-/// The tool depends on many flags that are listed on top of
-/// ExpressionFuzzerVerifier.cpp.
 
 class ExpressionFuzzerVerifier {
  public:
+  struct Options;
+
   ExpressionFuzzerVerifier(
       const FunctionSignatureMap& signatureMap,
       size_t initialSeed,
-      const std::unordered_set<std::string>& skipFunctions = {});
+      const Options& options);
 
   // This function starts the test that is performed by the
   // ExpressionFuzzerVerifier which is generating random expressions and
   // verifying them.
   void go();
+
+  struct Options {
+    // Number of expressions to generate and execute.
+    int32_t steps = 10;
+
+    // For how long it should run (in seconds). If zero it executes exactly
+    // --steps iterations and exits.
+    int32_t durationSeconds = 0;
+
+    // The number of elements on each generated vector.
+    int32_t batchSize = 100;
+
+    // Retry failed expressions by wrapping it using a try() statement.
+    bool retryWithTry = false;
+
+    // Automatically seeks minimum failed subexpression on result mismatch
+    bool findMinimalSubexpression = false;
+
+    // Disable constant folding in the common evaluation path.
+    bool disableConstantFolding = false;
+
+    // Directory path for persistence of data and SQL when fuzzer fails for
+    // future reproduction. Empty string disables this feature.
+    std::string reproPersistPath = "";
+
+    // Persist repro info before evaluation and only run one iteration.
+    // This is to rerun with the seed number and persist repro info upon a
+    // crash failure. Only effective if repro_persist_path is set.
+    bool persistAndRunOnce = false;
+
+    // Specifies the probability with which columns in the input row vector will
+    // be selected to be wrapped in lazy encoding (expressed as double from 0 to
+    // 1).
+    double lazyVectorGenerationRatio = 0.0;
+
+    // This sets an upper limit on the number of expression trees to generate
+    // per step. These trees would be executed in the same ExprSet and can
+    // re-use already generated columns and subexpressions (if re-use is
+    // enabled).
+    int32_t maxExpressionTreesPerStep = 1;
+
+    VectorFuzzer::Options vectorFuzzerOptions;
+
+    ExpressionFuzzer::Options expressionFuzzerOptions;
+  };
 
  private:
   struct ExprUsageStats {
@@ -131,6 +176,16 @@ class ExpressionFuzzerVerifier {
   /// spreadsheet for further analysis: functionName numTimesSelected
   /// proportionOfTimesSelected numProcessedRows.
   void logStats();
+
+  // Randomly pick columns from the input row vector to wrap in lazy.
+  // Negative column indices represent lazy vectors that have been preloaded
+  // before feeding them to the evaluator. This list is sorted on the absolute
+  // value of the entries.
+  std::vector<int> generateLazyColumnIds(
+      const RowVectorPtr& rowVector,
+      VectorFuzzer& vectorFuzzer);
+
+  const Options options_;
 
   FuzzerGenerator rng_;
 
