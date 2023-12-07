@@ -53,7 +53,6 @@ target_link_libraries(
   presto_expressions_test
   gtest
   gtest_main
-  $<TARGET_OBJECTS:duckdb>
   $<TARGET_OBJECTS:presto_protocol>
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
