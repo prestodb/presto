@@ -1794,9 +1794,9 @@ TEST_P(MemoryPoolTest, contiguousAllocateGrowExceedMemoryPoolLimit) {
   ASSERT_EQ(allocation.numPages(), kMaxNumPages / 2);
 }
 
-TEST_P(MemoryPoolTest, nonContiguousAllocationBounds) {
+TEST_P(MemoryPoolTest, badNonContiguousAllocation) {
   auto manager = getMemoryManager();
-  auto pool = manager->addLeafPool("nonContiguousAllocationBounds");
+  auto pool = manager->addLeafPool("badNonContiguousAllocation");
   Allocation allocation;
   // Bad zero page allocation size.
   ASSERT_THROW(pool->allocateNonContiguous(0, allocation), VeloxRuntimeError);
@@ -1804,9 +1804,8 @@ TEST_P(MemoryPoolTest, nonContiguousAllocationBounds) {
   // Set the num of pages to allocate exceeds one PageRun limit.
   constexpr MachinePageCount kNumPages =
       Allocation::PageRun::kMaxPagesInRun + 1;
-  pool->allocateNonContiguous(kNumPages, allocation);
-  ASSERT_GE(allocation.numPages(), kNumPages);
-  pool->freeNonContiguous(allocation);
+  ASSERT_THROW(
+      pool->allocateNonContiguous(kNumPages, allocation), VeloxRuntimeError);
   pool->allocateNonContiguous(kNumPages - 1, allocation);
   ASSERT_GE(allocation.numPages(), kNumPages - 1);
   pool->freeNonContiguous(allocation);

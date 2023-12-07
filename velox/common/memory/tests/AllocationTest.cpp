@@ -85,26 +85,4 @@ TEST_F(AllocationTest, appendMove) {
   allocation.clear();
 }
 
-TEST_F(AllocationTest, multiplePageRuns) {
-  Allocation allocation;
-  const uint64_t startBufAddrValue = 4096;
-  uint8_t* const firstBufAddr = reinterpret_cast<uint8_t*>(startBufAddrValue);
-  allocation.append(firstBufAddr, Allocation::PageRun::kMaxPagesInRun + 100);
-  ASSERT_EQ(allocation.numPages(), Allocation::PageRun::kMaxPagesInRun + 100);
-  ASSERT_EQ(allocation.numRuns(), 2);
-
-  uint8_t* const secondBufAddr = reinterpret_cast<uint8_t*>(
-      startBufAddrValue + AllocationTraits::pageBytes(allocation.numPages()));
-  allocation.append(secondBufAddr, Allocation::PageRun::kMaxPagesInRun - 100);
-  ASSERT_EQ(allocation.numPages(), Allocation::PageRun::kMaxPagesInRun * 2);
-  ASSERT_EQ(allocation.numRuns(), 3);
-
-  uint8_t* const thirdBufAddr = reinterpret_cast<uint8_t*>(
-      firstBufAddr + 2 * AllocationTraits::pageBytes(allocation.numPages()));
-  allocation.append(thirdBufAddr, Allocation::PageRun::kMaxPagesInRun * 2);
-  ASSERT_EQ(allocation.numPages(), Allocation::PageRun::kMaxPagesInRun * 4);
-  ASSERT_EQ(allocation.numRuns(), 5);
-  allocation.clear();
-}
-
 } // namespace facebook::velox::memory
