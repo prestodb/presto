@@ -20,6 +20,7 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -85,6 +86,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanRenameTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetTableProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Map<String, Object> properties)
     {
     }
 

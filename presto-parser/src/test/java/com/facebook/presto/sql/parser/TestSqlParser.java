@@ -116,6 +116,7 @@ import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -1610,6 +1611,18 @@ public class TestSqlParser
     {
         assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), false));
         assertStatement("ALTER TABLE IF EXISTS a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), true));
+    }
+
+    @Test
+    public void testSetProperties()
+    {
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=true)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new BooleanLiteral("true")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123, bar=456)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar"), new LongLiteral("456")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES (\" s p a c e \"='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar")))));
+
+        assertInvalidStatement("ALTER TABLE a SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
     }
 
     @Test

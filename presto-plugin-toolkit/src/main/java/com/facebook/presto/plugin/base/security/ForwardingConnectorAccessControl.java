@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -92,6 +93,12 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
         delegate().checkCanRenameTable(transactionHandle, identity, context, tableName, newTableName);
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        delegate().checkCanSetTableProperties(transactionHandle, identity, context, tableName, properties);
     }
 
     @Override

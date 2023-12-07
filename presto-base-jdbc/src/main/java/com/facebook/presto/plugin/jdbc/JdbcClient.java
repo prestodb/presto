@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.statistics.TableStatistics;
 
@@ -28,8 +29,11 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface JdbcClient
 {
@@ -72,6 +76,11 @@ public interface JdbcClient
     void renameColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName);
 
     void renameTable(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName);
+
+    default void setTableProperties(ConnectorSession session, JdbcTableHandle tableHandle, Map<String, Object> properties)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting table properties");
+    }
 
     void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
