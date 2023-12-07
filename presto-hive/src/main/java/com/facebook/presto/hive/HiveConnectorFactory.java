@@ -120,6 +120,7 @@ public class HiveConnectorFactory
                     new HiveAuthenticationModule(),
                     new HiveProcedureModule(),
                     new CachingModule(),
+                    new HiveCommonModule(),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));

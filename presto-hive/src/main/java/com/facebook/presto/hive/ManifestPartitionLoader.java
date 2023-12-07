@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveErrorCode.MALFORMED_HIVE_FILE_STATISTICS;
 import static com.facebook.presto.hive.HiveManifestUtils.FILE_NAMES;
 import static com.facebook.presto.hive.HiveManifestUtils.FILE_SIZES;
@@ -46,7 +47,6 @@ import static com.facebook.presto.hive.HiveManifestUtils.decompressFileNames;
 import static com.facebook.presto.hive.HiveManifestUtils.decompressFileSizes;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isManifestVerificationEnabled;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
