@@ -1,3 +1,4 @@
+#!/bin/sh
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,8 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-FROM amd64/ubuntu:22.04
-ARG cpu_target
-COPY scripts/setup-check.sh /root
-COPY scripts/setup-helper-functions.sh /
-RUN CPU_TARGET="$cpu_target" bash /root/setup-check.sh
+
+set -e
+echo "node.id=$HOSTNAME" >> $PRESTO_HOME/etc/node.properties
+
+$PRESTO_HOME/bin/launcher run

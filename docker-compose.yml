@@ -69,3 +69,24 @@ services:
     volumes:
       - .:/velox:delegated
     command: cd /velox && make python-test
+
+
+  presto-java:
+  # Usage:
+  #   docker-compose pull presto-java or docker-compose build presto-java
+  #   docker-compose run --rm presto-java
+  #   or
+  #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm presto-java
+  #   to set the number of threads used during compilation
+    image: ghcr.io/facebookincubator/velox-dev:presto-java
+    build:
+      args:
+        - PRESTO_VERSION=0.284
+      context: .
+      dockerfile: scripts/prestojava-container.dockerfile
+    environment:
+      NUM_THREADS: 8 # default value for NUM_THREADS
+      CCACHE_DIR: "/velox/.ccache"
+    volumes:
+      - .:/velox:delegated
+    command: /bin/bash -c "scl enable gcc-toolset-9 '/velox/scripts/docker-command.sh'"

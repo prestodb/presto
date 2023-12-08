@@ -38,7 +38,33 @@ permissions:
 
 jobs:
   linux:
+    name: "Build and Push ${{ matrix.name }}"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Check
+            file: "scripts/check-container.dockfile"
+            args: "cpu_target=avx"
+            tags: "ghcr.io/facebookincubator/velox-dev:check-avx"
+          - name: CircleCI
+            file: "scripts/circleci-container.dockfile"
+            args: "cpu_target=avx"
+            tags: "ghcr.io/facebookincubator/velox-dev:circleci-avx"
+          - name: Torcharrow
+            file: "scripts/velox-torcharrow-container.dockfile"
+            args: "cpu_target=avx"
+            tags: "ghcr.io/facebookincubator/velox-dev:torcharrow-avx"
+          - name: Dev
+            file: "scripts/ubuntu-22.04-cpp.dockerfile"
+            args: ""
+            tags: "ghcr.io/facebookincubator/velox-dev:amd64-ubuntu-22.04-avx"
+          - name: Presto Java
+            file: "scripts/prestojava-container.dockerfile"
+            args: "PRESTO_VERSION=0.284"
+            tags: "ghcr.io/facebookincubator/velox-dev:presto-java"
+
     steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -53,38 +79,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - uses: actions/checkout@v3
-
-      - name: Build and Push check
+      - name: Build and Push
         uses: docker/build-push-action@v3
         with:
-          context: scripts
-          file: scripts/check-container.dockfile
-          build-args: cpu_target=avx
+          file: "${{ matrix.file }}"
+          build-args: "${{ matrix.args }}"
           push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
-          tags: ghcr.io/facebookincubator/velox-dev:check-avx
-
-      - name: Build and Push circle-ci
-        uses: docker/build-push-action@v3
-        with:
-          context: scripts
-          file: scripts/circleci-container.dockfile
-          build-args: cpu_target=avx
-          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
-          tags: ghcr.io/facebookincubator/velox-dev:circleci-avx
-
-      - name: Build and Push velox-torcharrow
-        uses: docker/build-push-action@v3
-        with:
-          context: scripts
-          file: scripts/velox-torcharrow-container.dockfile
-          build-args: cpu_target=avx
-          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
-          tags: ghcr.io/facebookincubator/velox-dev:torcharrow-avx
-
-      - name: Build and Push dev-image
-        uses: docker/build-push-action@v3
-        with:
-          file: scripts/ubuntu-22.04-cpp.dockerfile
-          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
-          tags: ghcr.io/facebookincubator/velox-dev:amd64-ubuntu-22.04-avx
+          tags: "${{ matrix.tags }}"
