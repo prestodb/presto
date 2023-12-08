@@ -465,7 +465,7 @@ public abstract class BaseSubfieldExtractionRewriter
         }
     }
 
-    private static Set<VariableReferenceExpression> extractVariableExpressions(RowExpression expression)
+    protected static Set<VariableReferenceExpression> extractVariableExpressions(RowExpression expression)
     {
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
         expression.accept(new VariableReferenceBuilderVisitor(), builder);
@@ -485,7 +485,7 @@ public abstract class BaseSubfieldExtractionRewriter
         }
     }
 
-    public static boolean useDynamicFilter(
+    public boolean useDynamicFilter(
             RowExpression expression,
             ConnectorTableHandle tableHandle,
             Map<String, ColumnHandle> columnHandleMap)

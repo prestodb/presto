@@ -83,7 +83,7 @@ public class HiveFilterPushdown
     private final RowExpressionService rowExpressionService;
     private final StandardFunctionResolution functionResolution;
     private final FunctionMetadataManager functionMetadataManager;
-    private final HiveTransactionManager transactionManager;
+    protected final HiveTransactionManager transactionManager;
     private final HivePartitionManager partitionManager;
 
     public HiveFilterPushdown(
@@ -125,7 +125,7 @@ public class HiveFilterPushdown
         }
 
         @Override
-        protected ConnectorPushdownFilterResult getConnectorPushdownFilterResult(
+        public ConnectorPushdownFilterResult getConnectorPushdownFilterResult(
                 Map<String, ColumnHandle> columnHandles,
                 ConnectorMetadata metadata,
                 ConnectorSession session,
