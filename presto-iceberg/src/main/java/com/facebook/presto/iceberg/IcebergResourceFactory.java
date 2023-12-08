@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.spi.ConnectorSession;
@@ -58,9 +59,10 @@ public class IcebergResourceFactory
     private final List<String> hadoopConfigResources;
     private final NessieConfig nessieConfig;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
+    private final GcsConfigurationInitializer gcsConfigurationInitialize;
 
     @Inject
-    public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig, S3ConfigurationUpdater s3ConfigurationUpdater)
+    public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
         requireNonNull(config, "config is null");
@@ -69,6 +71,7 @@ public class IcebergResourceFactory
         this.hadoopConfigResources = config.getHadoopConfigResources();
         this.nessieConfig = requireNonNull(nessieConfig, "nessieConfig is null");
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
+        this.gcsConfigurationInitialize = requireNonNull(gcsConfigurationInitialize, "gcsConfigurationInitialize is null");
         catalogCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getCatalogCacheSize())
                 .build();
@@ -138,6 +141,9 @@ public class IcebergResourceFactory
             configuration.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
             configuration.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
         }
+
+        gcsConfigurationInitialize.updateConfiguration(configuration);
+
         for (String resourcePath : hadoopConfigResources) {
             Configuration resourceProperties = new Configuration(false);
             resourceProperties.addResource(new Path(resourcePath));

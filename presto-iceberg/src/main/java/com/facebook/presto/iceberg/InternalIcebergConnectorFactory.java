@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.RebindSafeMBeanServer;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
+import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
@@ -78,6 +79,7 @@ public final class InternalIcebergConnectorFactory
                             new IcebergHiveModule(catalogName, metastore),
                             new IcebergNativeModule()),
                     new HiveS3Module(catalogName),
+                    new HiveGcsModule(),
                     new HiveAuthenticationModule(),
                     new CachingModule(),
                     binder -> {
