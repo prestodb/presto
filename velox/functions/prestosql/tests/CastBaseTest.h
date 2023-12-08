@@ -127,6 +127,66 @@ class CastBaseTest : public FunctionBaseTest {
     assertEqualVectors(wrapInDictionary(indices, expected), result);
   }
 
+  /**
+   * @tparam From Source type for cast.
+   * @tparam To Destination type for cast.
+   * @param typeString Cast type in string.
+   * @param input Input vector of type From.
+   * @param expectedResult Expected output vector of type To.
+   */
+  template <typename TFrom, typename TTo>
+  void testCast(
+      const std::string& typeString,
+      const std::vector<std::optional<TFrom>>& input,
+      const std::vector<std::optional<TTo>>& expectedResult,
+      const TypePtr& fromType = CppToType<TFrom>::create(),
+      const TypePtr& toType = CppToType<TTo>::create()) {
+    auto result = evaluate(
+        fmt::format("cast(c0 as {})", typeString),
+        makeRowVector({makeNullableFlatVector(input, fromType)}));
+    auto expected = makeNullableFlatVector<TTo>(expectedResult, toType);
+    assertEqualVectors(expected, result);
+  }
+
+  /**
+   * @tparam From Source type for cast.
+   * @tparam To Destination type for cast.
+   * @param typeString Cast type in string.
+   * @param input Input vector of type From.
+   * @param expectedResult Expected output vector of type To.
+   */
+  template <typename TFrom, typename TTo>
+  void testTryCast(
+      const std::string& typeString,
+      const std::vector<std::optional<TFrom>>& input,
+      const std::vector<std::optional<TTo>>& expectedResult,
+      const TypePtr& fromType = CppToType<TFrom>::create(),
+      const TypePtr& toType = CppToType<TTo>::create()) {
+    auto result = evaluate(
+        fmt::format("try_cast(c0 as {})", typeString),
+        makeRowVector({makeNullableFlatVector(input, fromType)}));
+    auto expected = makeNullableFlatVector<TTo>(expectedResult, toType);
+    assertEqualVectors(expected, result);
+  }
+
+  /**
+   * @tparam From Source type for cast.
+   * @param typeString Cast type in string.
+   * @param input Input vector of type From.
+   */
+  template <typename TFrom>
+  void testInvalidCast(
+      const std::string& typeString,
+      const std::vector<std::optional<TFrom>>& input,
+      const std::string& expectedErrorMessage,
+      const TypePtr& fromType = CppToType<TFrom>::create()) {
+    VELOX_ASSERT_THROW(
+        evaluate(
+            fmt::format("cast(c0 as {})", typeString),
+            makeRowVector({makeNullableFlatVector(input, fromType)})),
+        expectedErrorMessage);
+  }
+
   void testCast(
       const TypePtr& fromType,
       const TypePtr& toType,

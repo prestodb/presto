@@ -162,54 +162,6 @@ class CastExprTest : public functions::test::CastBaseTest {
     }
   }
 
-  /**
-   * @tparam From Source type for cast
-   * @tparam To Destination type for cast
-   * @param typeString Cast type in string
-   * @param input Input vector of type From
-   * @param expectedResult Expected output vector of type To
-   * @param inputNulls Input null indexes
-   * @param expectedNulls Expected output null indexes
-   */
-  template <typename TFrom, typename TTo>
-  void testCast(
-      const std::string& typeString,
-      std::vector<std::optional<TFrom>> input,
-      std::vector<std::optional<TTo>> expectedResult,
-      bool expectFailure = false,
-      bool tryCast = false,
-      const TypePtr& fromType = CppToType<TFrom>::create(),
-      const TypePtr& toType = CppToType<TTo>::create()) {
-    std::vector<TFrom> rawInput(input.size());
-    for (auto index = 0; index < input.size(); index++) {
-      if (input[index].has_value()) {
-        rawInput[index] = input[index].value();
-      }
-    }
-    // Create input vector using values and nulls
-    auto inputVector = makeFlatVector(rawInput, fromType);
-
-    for (auto index = 0; index < input.size(); index++) {
-      if (!input[index].has_value()) {
-        inputVector->setNull(index, true);
-      }
-    }
-    auto rowVector = makeRowVector({inputVector});
-    std::string castFunction = tryCast ? "try_cast" : "cast";
-    if (expectFailure) {
-      EXPECT_THROW(
-          evaluate(
-              fmt::format("{}(c0 as {})", castFunction, typeString), rowVector),
-          VeloxUserError);
-      return;
-    }
-    // run try cast and get the result vector
-    auto result =
-        evaluate(castFunction + "(c0 as " + typeString + ")", rowVector);
-    auto expected = makeNullableFlatVector<TTo>(expectedResult, toType);
-    assertEqualVectors(expected, result);
-  }
-
   template <typename T>
   void testDecimalToFloatCasts() {
     // short to short, scale up.
@@ -819,8 +771,6 @@ TEST_F(CastExprTest, dateToTimestamp) {
           Timestamp(1257724800, 0),
           std::nullopt,
       },
-      false,
-      false,
       DATE(),
       TIMESTAMP());
 }
@@ -843,8 +793,6 @@ TEST_F(CastExprTest, timestampToDate) {
           14557,
           std::nullopt,
       },
-      false,
-      false,
       TIMESTAMP(),
       DATE());
 
@@ -858,23 +806,29 @@ TEST_F(CastExprTest, timestampToDate) {
           14556,
           std::nullopt,
       },
-      false,
-      false,
       TIMESTAMP(),
       DATE());
 }
 
 TEST_F(CastExprTest, timestampInvalid) {
-  testCast<int8_t, Timestamp>("timestamp", {12}, {Timestamp(0, 0)}, true);
-  testCast<int16_t, Timestamp>("timestamp", {1234}, {Timestamp(0, 0)}, true);
-  testCast<int32_t, Timestamp>("timestamp", {1234}, {Timestamp(0, 0)}, true);
-  testCast<int64_t, Timestamp>("timestamp", {1234}, {Timestamp(0, 0)}, true);
+  testInvalidCast<int8_t>(
+      "timestamp", {12}, "Conversion to Timestamp is not supported");
+  testInvalidCast<int16_t>(
+      "timestamp", {1234}, "Conversion to Timestamp is not supported");
+  testInvalidCast<int32_t>(
+      "timestamp", {1234}, "Conversion to Timestamp is not supported");
+  testInvalidCast<int64_t>(
+      "timestamp", {1234}, "Conversion to Timestamp is not supported");
 
-  testCast<float, Timestamp>("timestamp", {12.99}, {Timestamp(0, 0)}, true);
-  testCast<double, Timestamp>("timestamp", {12.99}, {Timestamp(0, 0)}, true);
+  testInvalidCast<float>(
+      "timestamp", {12.99}, "Conversion to Timestamp is not supported");
+  testInvalidCast<double>(
+      "timestamp", {12.99}, "Conversion to Timestamp is not supported");
 
-  testCast<std::string, Timestamp>(
-      "timestamp", {"2012-Oct-01"}, {Timestamp(0, 0)}, true);
+  testInvalidCast<std::string>(
+      "timestamp",
+      {"2012-Oct-01"},
+      "Unable to parse timestamp value: \"2012-Oct-01\"");
 }
 
 TEST_F(CastExprTest, timestampAdjustToTimezone) {
@@ -951,8 +905,6 @@ TEST_F(CastExprTest, date) {
          -719893,
          0,
          std::nullopt},
-        false,
-        false,
         VARCHAR(),
         DATE());
   }
@@ -968,8 +920,6 @@ TEST_F(CastExprTest, date) {
        "2015-03-18 123142",
        "2015-03-18 (BC)"},
       {3789391, 16436, 16495, 16512, 16512, 16512, 16512},
-      false,
-      false,
       VARCHAR(),
       DATE());
 }
@@ -978,51 +928,97 @@ TEST_F(CastExprTest, invalidDate) {
   for (bool isIso8601 : {true, false}) {
     setCastStringToDateIsIso8601(isIso8601);
 
-    testCast<int8_t, int32_t>(
-        "date", {12}, {0}, true, false, TINYINT(), DATE());
-    testCast<int16_t, int32_t>(
-        "date", {1234}, {0}, true, false, SMALLINT(), DATE());
-    testCast<int32_t, int32_t>(
-        "date", {1234}, {0}, true, false, INTEGER(), DATE());
-    testCast<int64_t, int32_t>(
-        "date", {1234}, {0}, true, false, BIGINT(), DATE());
+    testInvalidCast<int8_t>(
+        "date", {12}, "Cast from TINYINT to DATE is not supported", TINYINT());
+    testInvalidCast<int16_t>(
+        "date",
+        {1234},
+        "Cast from SMALLINT to DATE is not supported",
+        SMALLINT());
+    testInvalidCast<int32_t>(
+        "date",
+        {1234},
+        "Cast from INTEGER to DATE is not supported",
+        INTEGER());
+    testInvalidCast<int64_t>(
+        "date", {1234}, "Cast from BIGINT to DATE is not supported", BIGINT());
 
-    testCast<float, int32_t>("date", {12.99}, {0}, true, false, REAL(), DATE());
-    testCast<double, int32_t>(
-        "date", {12.99}, {0}, true, false, DOUBLE(), DATE());
+    testInvalidCast<float>(
+        "date", {12.99}, "Cast from REAL to DATE is not supported", REAL());
+    testInvalidCast<double>(
+        "date", {12.99}, "Cast from DOUBLE to DATE is not supported", DOUBLE());
 
     // Parsing ill-formated dates.
-    testCast<std::string, int32_t>(
-        "date", {"2012-Oct-23"}, {0}, true, false, VARCHAR(), DATE());
-    testCast<std::string, int32_t>(
-        "date", {"2015-03-18X"}, {0}, true, false, VARCHAR(), DATE());
-    testCast<std::string, int32_t>(
-        "date", {"2015/03/18"}, {0}, true, false, VARCHAR(), DATE());
-    testCast<std::string, int32_t>(
-        "date", {"2015.03.18"}, {0}, true, false, VARCHAR(), DATE());
-    testCast<std::string, int32_t>(
-        "date", {"20150318"}, {0}, true, false, VARCHAR(), DATE());
-    testCast<std::string, int32_t>(
-        "date", {"2015-031-8"}, {0}, true, false, VARCHAR(), DATE());
+    testInvalidCast<std::string>(
+        "date",
+        {"2012-Oct-23"},
+        "Unable to parse date value: \"2012-Oct-23\"",
+        VARCHAR());
+    testInvalidCast<std::string>(
+        "date",
+        {"2015-03-18X"},
+        "Unable to parse date value: \"2015-03-18X\"",
+        VARCHAR());
+    testInvalidCast<std::string>(
+        "date",
+        {"2015/03/18"},
+        "Unable to parse date value: \"2015/03/18\"",
+        VARCHAR());
+    testInvalidCast<std::string>(
+        "date",
+        {"2015.03.18"},
+        "Unable to parse date value: \"2015.03.18\"",
+        VARCHAR());
+    testInvalidCast<std::string>(
+        "date",
+        {"20150318"},
+        "Unable to parse date value: \"20150318\"",
+        VARCHAR());
+    testInvalidCast<std::string>(
+        "date",
+        {"2015-031-8"},
+        "Unable to parse date value: \"2015-031-8\"",
+        VARCHAR());
   }
 
   setCastStringToDateIsIso8601(true);
-  testCast<std::string, int32_t>(
-      "date", {"12345"}, {0}, true, false, VARCHAR(), DATE());
-  testCast<std::string, int32_t>(
-      "date", {"2015-03"}, {0}, true, false, VARCHAR(), DATE());
-  testCast<std::string, int32_t>(
-      "date", {"2015-03-18 123412"}, {0}, true, false, VARCHAR(), DATE());
-  testCast<std::string, int32_t>(
-      "date", {"2015-03-18T"}, {0}, true, false, VARCHAR(), DATE());
-  testCast<std::string, int32_t>(
-      "date", {"2015-03-18T123412"}, {0}, true, false, VARCHAR(), DATE());
-  testCast<std::string, int32_t>(
-      "date", {"2015-03-18 (BC)"}, {0}, true, false, VARCHAR(), DATE());
-  testCast<std::string, int32_t>(
-      "date", {"1970-01-01 "}, {0}, true, false, VARCHAR(), DATE());
-  testCast<std::string, int32_t>(
-      "date", {" 1970-01-01 "}, {0}, true, false, VARCHAR(), DATE());
+  testInvalidCast<std::string>(
+      "date", {"12345"}, "Unable to parse date value: \"12345\"", VARCHAR());
+  testInvalidCast<std::string>(
+      "date",
+      {"2015-03"},
+      "Unable to parse date value: \"2015-03\"",
+      VARCHAR());
+  testInvalidCast<std::string>(
+      "date",
+      {"2015-03-18 123412"},
+      "Unable to parse date value: \"2015-03-18 123412\"",
+      VARCHAR());
+  testInvalidCast<std::string>(
+      "date",
+      {"2015-03-18T"},
+      "Unable to parse date value: \"2015-03-18T\"",
+      VARCHAR());
+  testInvalidCast<std::string>(
+      "date",
+      {"2015-03-18T123412"},
+      "Unable to parse date value: \"2015-03-18T123412\"",
+      VARCHAR());
+  testInvalidCast<std::string>(
+      "date",
+      {"2015-03-18 (BC)"},
+      "Unable to parse date value: \"2015-03-18 (BC)\"",
+      VARCHAR());
+  testInvalidCast<std::string>(
+      "date",
+      {"1970-01-01 "},
+      "Unable to parse date value: \"1970-01-01 \"",
+      VARCHAR());
+  testInvalidCast<std::string>(
+      "date",
+      {" 1970-01-01 "},
+      "Unable to parse date value: \" 1970-01-01 \"",
+      VARCHAR());
 }
 
 TEST_F(CastExprTest, primitiveInvalidCornerCases) {
@@ -1030,84 +1026,170 @@ TEST_F(CastExprTest, primitiveInvalidCornerCases) {
   // To integer.
   {
     // Overflow.
-    testCast<int32_t, int8_t>("tinyint", {1234567}, {0}, true);
-    testCast<int32_t, int8_t>("tinyint", {-1234567}, {0}, true);
-    testCast<double, int8_t>("tinyint", {12345.67}, {0}, true);
-    testCast<double, int8_t>("tinyint", {-12345.67}, {0}, true);
-    testCast<double, int8_t>("tinyint", {127.8}, {128}, true);
-    testCast<float, int32_t>("integer", {kInf}, {0}, true);
-    testCast<float, int64_t>("bigint", {kInf}, {0}, true);
+    testInvalidCast<int32_t>(
+        "tinyint", {1234567}, "Overflow during arithmetic conversion");
+    testInvalidCast<int32_t>(
+        "tinyint",
+        {-1234567},
+        "Negative overflow during arithmetic conversion");
+    testInvalidCast<double>(
+        "tinyint",
+        {12345.67},
+        "Loss of precision during arithmetic conversion");
+    testInvalidCast<double>(
+        "tinyint",
+        {-12345.67},
+        "Loss of precision during arithmetic conversion");
+    testInvalidCast<double>(
+        "tinyint", {127.8}, "Loss of precision during arithmetic conversion");
+    testInvalidCast<float>(
+        "integer", {kInf}, "Loss of precision during arithmetic conversion");
+    testInvalidCast<float>(
+        "bigint", {kInf}, "Loss of precision during arithmetic conversion");
     // Presto throws on cast(nan() as bigint), but we let it return 0 to be
     // consistent with other cases.
-    testCast<float, int64_t>("bigint", {kNan}, {0}, true);
-    testCast<float, int32_t>("integer", {kNan}, {0}, true);
-    testCast<float, int16_t>("smallint", {kNan}, {0}, true);
-    testCast<float, int8_t>("tinyint", {kNan}, {0}, true);
+    testInvalidCast<float>(
+        "bigint", {kNan}, "Cannot cast NaN to an integral value");
+    testInvalidCast<float>(
+        "integer", {kNan}, "Cannot cast NaN to an integral value");
+    testInvalidCast<float>(
+        "smallint", {kNan}, "Cannot cast NaN to an integral value");
+    testInvalidCast<float>(
+        "tinyint", {kNan}, "Cannot cast NaN to an integral value");
 
     // Invalid strings.
-    testCast<std::string, int8_t>("tinyint", {"1234567"}, {0}, true);
-    testCast<std::string, int8_t>("tinyint", {"1.2"}, {0}, true);
-    testCast<std::string, int8_t>("tinyint", {"1.23444"}, {0}, true);
-    testCast<std::string, int8_t>("tinyint", {".2355"}, {0}, true);
-    testCast<std::string, int8_t>("tinyint", {"1a"}, {0}, true);
-    testCast<std::string, int8_t>("tinyint", {""}, {0}, true);
-    testCast<std::string, int32_t>("integer", {"1'234'567"}, {0}, true);
-    testCast<std::string, int32_t>("integer", {"1,234,567"}, {0}, true);
-    testCast<std::string, int64_t>("bigint", {"infinity"}, {0}, true);
-    testCast<std::string, int64_t>("bigint", {"nan"}, {0}, true);
+    testInvalidCast<std::string>(
+        "tinyint", {"1234567"}, "Overflow during conversion");
+    testInvalidCast<std::string>(
+        "tinyint",
+        {"1.2"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "tinyint",
+        {"1.23444"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "tinyint", {".2355"}, "Invalid leading character");
+    testInvalidCast<std::string>(
+        "tinyint",
+        {"1a"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>("tinyint", {""}, "Empty string");
+    testInvalidCast<std::string>(
+        "integer",
+        {"1'234'567"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "integer",
+        {"1,234,567"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "bigint", {"infinity"}, "Invalid leading character");
+    testInvalidCast<std::string>(
+        "bigint", {"nan"}, "Invalid leading character");
   }
 
   // To floating-point.
   {
     // TODO: Presto returns Infinity in this case.
-    testCast<double, float>("real", {1.7E308}, {0}, true);
+    testInvalidCast<double>(
+        "real", {1.7E308}, "Overflow during arithmetic conversion");
 
     // Invalid strings.
-    testCast<std::string, float>("real", {"1.2a"}, {0}, true);
-    testCast<std::string, float>("real", {"1.2.3"}, {0}, true);
+    testInvalidCast<std::string>(
+        "real",
+        {"1.2a"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "real",
+        {"1.2.3"},
+        "Non-whitespace character found after end of conversion");
   }
 
   // To boolean.
   {
-    testCast<std::string, bool>("boolean", {"1.7E308"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"nan"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"infinity"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"12"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"-1"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"tr"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"tru"}, {0}, true);
+    testInvalidCast<std::string>(
+        "boolean",
+        {"1.7E308"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "boolean",
+        {"nan"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "boolean", {"infinity"}, "Invalid value for bool");
+    testInvalidCast<std::string>(
+        "boolean",
+        {"12"},
+        "Integer overflow when parsing bool (must be 0 or 1)");
+    testInvalidCast<std::string>("boolean", {"-1"}, "Invalid value for bool");
+    testInvalidCast<std::string>(
+        "boolean",
+        {"tr"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "boolean",
+        {"tru"},
+        "Non-whitespace character found after end of conversion");
   }
 
   setCastIntByTruncate(true);
   // To integer.
   {
     // Invalid strings.
-    testCast<std::string, int8_t>("tinyint", {"1234567"}, {0}, true);
-    testCast<std::string, int8_t>("tinyint", {"1a"}, {0}, true);
-    testCast<std::string, int8_t>("tinyint", {""}, {0}, true);
-    testCast<std::string, int32_t>("integer", {"1'234'567"}, {0}, true);
-    testCast<std::string, int32_t>("integer", {"1,234,567"}, {0}, true);
-    testCast<std::string, int64_t>("bigint", {"infinity"}, {0}, true);
-    testCast<std::string, int64_t>("bigint", {"nan"}, {0}, true);
-    testCast<std::string, int8_t>("tinyint", {"+1"}, {0}, true);
+    testInvalidCast<std::string>(
+        "tinyint", {"1234567"}, "Value is too large for type");
+    testInvalidCast<std::string>(
+        "tinyint", {"1a"}, "Encountered a non-digit character");
+    testInvalidCast<std::string>("tinyint", {""}, "Empty string");
+    testInvalidCast<std::string>(
+        "integer", {"1'234'567"}, "Encountered a non-digit character");
+    testInvalidCast<std::string>(
+        "integer", {"1,234,567"}, "Encountered a non-digit character");
+    testInvalidCast<std::string>(
+        "bigint", {"infinity"}, "Encountered a non-digit character");
+    testInvalidCast<std::string>(
+        "bigint", {"nan"}, "Encountered a non-digit character");
+    testInvalidCast<std::string>(
+        "tinyint", {"+1"}, "Encountered a non-digit character");
   }
 
   // To floating-point.
   {
     // Invalid strings.
-    testCast<std::string, float>("real", {"1.2a"}, {0}, true);
-    testCast<std::string, float>("real", {"1.2.3"}, {0}, true);
+    testInvalidCast<std::string>(
+        "real",
+        {"1.2a"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "real",
+        {"1.2.3"},
+        "Non-whitespace character found after end of conversion");
   }
 
   // To boolean.
   {
-    testCast<std::string, bool>("boolean", {"1.7E308"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"nan"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"infinity"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"12"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"-1"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"tr"}, {0}, true);
-    testCast<std::string, bool>("boolean", {"tru"}, {0}, true);
+    testInvalidCast<std::string>(
+        "boolean",
+        {"1.7E308"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "boolean",
+        {"nan"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "boolean", {"infinity"}, "Invalid value for bool");
+    testInvalidCast<std::string>(
+        "boolean", {"12"}, "Integer overflow when parsing bool");
+    testInvalidCast<std::string>("boolean", {"-1"}, "Invalid value for bool");
+    testInvalidCast<std::string>(
+        "boolean",
+        {"tr"},
+        "Non-whitespace character found after end of conversion");
+    testInvalidCast<std::string>(
+        "boolean",
+        {"tru"},
+        "Non-whitespace character found after end of conversion");
   }
 }
 
@@ -1115,123 +1197,123 @@ TEST_F(CastExprTest, primitiveValidCornerCases) {
   setCastIntByTruncate(false);
   // To integer.
   {
-    testCast<double, int8_t>("tinyint", {127.1}, {127}, false);
-    testCast<double, int64_t>("bigint", {12345.12}, {12345}, false);
-    testCast<double, int64_t>("bigint", {12345.67}, {12346}, false);
-    testCast<std::string, int8_t>("tinyint", {"+1"}, {1}, false);
+    testCast<double, int8_t>("tinyint", {127.1}, {127});
+    testCast<double, int64_t>("bigint", {12345.12}, {12345});
+    testCast<double, int64_t>("bigint", {12345.67}, {12346});
+    testCast<std::string, int8_t>("tinyint", {"+1"}, {1});
   }
 
   // To floating-point.
   {
-    testCast<std::string, float>("real", {"1.7E308"}, {kInf}, false);
-    testCast<std::string, float>("real", {"1."}, {1.0}, false);
-    testCast<std::string, float>("real", {"1"}, {1}, false);
+    testCast<std::string, float>("real", {"1.7E308"}, {kInf});
+    testCast<std::string, float>("real", {"1."}, {1.0});
+    testCast<std::string, float>("real", {"1"}, {1});
     // When casting from "Infinity" and "NaN", Presto is case sensitive. But we
     // let them be case insensitive to be consistent with other conversions.
-    testCast<std::string, float>("real", {"infinity"}, {kInf}, false);
-    testCast<std::string, float>("real", {"-infinity"}, {-kInf}, false);
-    testCast<std::string, float>("real", {"InfiNiTy"}, {kInf}, false);
-    testCast<std::string, float>("real", {"-InfiNiTy"}, {-kInf}, false);
-    testCast<std::string, float>("real", {"nan"}, {kNan}, false);
-    testCast<std::string, float>("real", {"nAn"}, {kNan}, false);
+    testCast<std::string, float>("real", {"infinity"}, {kInf});
+    testCast<std::string, float>("real", {"-infinity"}, {-kInf});
+    testCast<std::string, float>("real", {"InfiNiTy"}, {kInf});
+    testCast<std::string, float>("real", {"-InfiNiTy"}, {-kInf});
+    testCast<std::string, float>("real", {"nan"}, {kNan});
+    testCast<std::string, float>("real", {"nAn"}, {kNan});
   }
 
   // To boolean.
   {
-    testCast<int8_t, bool>("boolean", {1}, {true}, false);
-    testCast<int8_t, bool>("boolean", {0}, {false}, false);
-    testCast<int8_t, bool>("boolean", {12}, {true}, false);
-    testCast<int8_t, bool>("boolean", {-1}, {true}, false);
-    testCast<double, bool>("boolean", {1.0}, {true}, false);
-    testCast<double, bool>("boolean", {1.1}, {true}, false);
-    testCast<double, bool>("boolean", {0.1}, {true}, false);
-    testCast<double, bool>("boolean", {-0.1}, {true}, false);
-    testCast<double, bool>("boolean", {-1.0}, {true}, false);
-    testCast<float, bool>("boolean", {kNan}, {true}, false);
-    testCast<float, bool>("boolean", {kInf}, {true}, false);
-    testCast<double, bool>("boolean", {0.0000000000001}, {true}, false);
+    testCast<int8_t, bool>("boolean", {1}, {true});
+    testCast<int8_t, bool>("boolean", {0}, {false});
+    testCast<int8_t, bool>("boolean", {12}, {true});
+    testCast<int8_t, bool>("boolean", {-1}, {true});
+    testCast<double, bool>("boolean", {1.0}, {true});
+    testCast<double, bool>("boolean", {1.1}, {true});
+    testCast<double, bool>("boolean", {0.1}, {true});
+    testCast<double, bool>("boolean", {-0.1}, {true});
+    testCast<double, bool>("boolean", {-1.0}, {true});
+    testCast<float, bool>("boolean", {kNan}, {true});
+    testCast<float, bool>("boolean", {kInf}, {true});
+    testCast<double, bool>("boolean", {0.0000000000001}, {true});
 
-    testCast<std::string, bool>("boolean", {"1"}, {true}, false);
-    testCast<std::string, bool>("boolean", {"0"}, {false}, false);
-    testCast<std::string, bool>("boolean", {"t"}, {true}, false);
-    testCast<std::string, bool>("boolean", {"true"}, {true}, false);
+    testCast<std::string, bool>("boolean", {"1"}, {true});
+    testCast<std::string, bool>("boolean", {"0"}, {false});
+    testCast<std::string, bool>("boolean", {"t"}, {true});
+    testCast<std::string, bool>("boolean", {"true"}, {true});
   }
 
   // To string.
   {
-    testCast<float, std::string>("varchar", {kInf}, {"Infinity"}, false);
-    testCast<float, std::string>("varchar", {kNan}, {"NaN"}, false);
+    testCast<float, std::string>("varchar", {kInf}, {"Infinity"});
+    testCast<float, std::string>("varchar", {kNan}, {"NaN"});
   }
 
   setCastIntByTruncate(true);
   // To integer.
   {
     // Valid strings.
-    testCast<std::string, int8_t>("tinyint", {"1.2"}, {1}, false);
-    testCast<std::string, int8_t>("tinyint", {"1.23444"}, {1}, false);
-    testCast<std::string, int8_t>("tinyint", {".2355"}, {0}, false);
-    testCast<std::string, int8_t>("tinyint", {"-1.8"}, {-1}, false);
-    testCast<std::string, int8_t>("tinyint", {"1."}, {1}, false);
-    testCast<std::string, int8_t>("tinyint", {"-1."}, {-1}, false);
-    testCast<std::string, int8_t>("tinyint", {"0."}, {0}, false);
-    testCast<std::string, int8_t>("tinyint", {"."}, {0}, false);
-    testCast<std::string, int8_t>("tinyint", {"-."}, {0}, false);
+    testCast<std::string, int8_t>("tinyint", {"1.2"}, {1});
+    testCast<std::string, int8_t>("tinyint", {"1.23444"}, {1});
+    testCast<std::string, int8_t>("tinyint", {".2355"}, {0});
+    testCast<std::string, int8_t>("tinyint", {"-1.8"}, {-1});
+    testCast<std::string, int8_t>("tinyint", {"1."}, {1});
+    testCast<std::string, int8_t>("tinyint", {"-1."}, {-1});
+    testCast<std::string, int8_t>("tinyint", {"0."}, {0});
+    testCast<std::string, int8_t>("tinyint", {"."}, {0});
+    testCast<std::string, int8_t>("tinyint", {"-."}, {0});
 
-    testCast<int32_t, int8_t>("tinyint", {1234567}, {-121}, false);
-    testCast<int32_t, int8_t>("tinyint", {-1234567}, {121}, false);
-    testCast<double, int8_t>("tinyint", {12345.67}, {57}, false);
-    testCast<double, int8_t>("tinyint", {-12345.67}, {-57}, false);
-    testCast<double, int8_t>("tinyint", {127.1}, {127}, false);
-    testCast<float, int64_t>("bigint", {kInf}, {9223372036854775807}, false);
-    testCast<float, int64_t>("bigint", {kNan}, {0}, false);
-    testCast<float, int32_t>("integer", {kNan}, {0}, false);
-    testCast<float, int16_t>("smallint", {kNan}, {0}, false);
-    testCast<float, int8_t>("tinyint", {kNan}, {0}, false);
+    testCast<int32_t, int8_t>("tinyint", {1234567}, {-121});
+    testCast<int32_t, int8_t>("tinyint", {-1234567}, {121});
+    testCast<double, int8_t>("tinyint", {12345.67}, {57});
+    testCast<double, int8_t>("tinyint", {-12345.67}, {-57});
+    testCast<double, int8_t>("tinyint", {127.1}, {127});
+    testCast<float, int64_t>("bigint", {kInf}, {9223372036854775807});
+    testCast<float, int64_t>("bigint", {kNan}, {0});
+    testCast<float, int32_t>("integer", {kNan}, {0});
+    testCast<float, int16_t>("smallint", {kNan}, {0});
+    testCast<float, int8_t>("tinyint", {kNan}, {0});
 
-    testCast<double, int64_t>("bigint", {12345.12}, {12345}, false);
-    testCast<double, int64_t>("bigint", {12345.67}, {12345}, false);
+    testCast<double, int64_t>("bigint", {12345.12}, {12345});
+    testCast<double, int64_t>("bigint", {12345.67}, {12345});
   }
 
   // To floating-point.
   {
-    testCast<double, float>("real", {1.7E308}, {kInf}, false);
+    testCast<double, float>("real", {1.7E308}, {kInf});
 
-    testCast<std::string, float>("real", {"1.7E308"}, {kInf}, false);
-    testCast<std::string, float>("real", {"1."}, {1.0}, false);
-    testCast<std::string, float>("real", {"1"}, {1}, false);
-    testCast<std::string, float>("real", {"infinity"}, {kInf}, false);
-    testCast<std::string, float>("real", {"-infinity"}, {-kInf}, false);
-    testCast<std::string, float>("real", {"nan"}, {kNan}, false);
-    testCast<std::string, float>("real", {"InfiNiTy"}, {kInf}, false);
-    testCast<std::string, float>("real", {"-InfiNiTy"}, {-kInf}, false);
-    testCast<std::string, float>("real", {"nAn"}, {kNan}, false);
+    testCast<std::string, float>("real", {"1.7E308"}, {kInf});
+    testCast<std::string, float>("real", {"1."}, {1.0});
+    testCast<std::string, float>("real", {"1"}, {1});
+    testCast<std::string, float>("real", {"infinity"}, {kInf});
+    testCast<std::string, float>("real", {"-infinity"}, {-kInf});
+    testCast<std::string, float>("real", {"nan"}, {kNan});
+    testCast<std::string, float>("real", {"InfiNiTy"}, {kInf});
+    testCast<std::string, float>("real", {"-InfiNiTy"}, {-kInf});
+    testCast<std::string, float>("real", {"nAn"}, {kNan});
   }
 
   // To boolean.
   {
-    testCast<int8_t, bool>("boolean", {1}, {true}, false);
-    testCast<int8_t, bool>("boolean", {0}, {false}, false);
-    testCast<int8_t, bool>("boolean", {12}, {true}, false);
-    testCast<int8_t, bool>("boolean", {-1}, {true}, false);
-    testCast<double, bool>("boolean", {1.0}, {true}, false);
-    testCast<double, bool>("boolean", {1.1}, {true}, false);
-    testCast<double, bool>("boolean", {0.1}, {true}, false);
-    testCast<double, bool>("boolean", {-0.1}, {true}, false);
-    testCast<double, bool>("boolean", {-1.0}, {true}, false);
-    testCast<float, bool>("boolean", {kNan}, {false}, false);
-    testCast<float, bool>("boolean", {kInf}, {true}, false);
-    testCast<double, bool>("boolean", {0.0000000000001}, {true}, false);
+    testCast<int8_t, bool>("boolean", {1}, {true});
+    testCast<int8_t, bool>("boolean", {0}, {false});
+    testCast<int8_t, bool>("boolean", {12}, {true});
+    testCast<int8_t, bool>("boolean", {-1}, {true});
+    testCast<double, bool>("boolean", {1.0}, {true});
+    testCast<double, bool>("boolean", {1.1}, {true});
+    testCast<double, bool>("boolean", {0.1}, {true});
+    testCast<double, bool>("boolean", {-0.1}, {true});
+    testCast<double, bool>("boolean", {-1.0}, {true});
+    testCast<float, bool>("boolean", {kNan}, {false});
+    testCast<float, bool>("boolean", {kInf}, {true});
+    testCast<double, bool>("boolean", {0.0000000000001}, {true});
 
-    testCast<std::string, bool>("boolean", {"1"}, {true}, false);
-    testCast<std::string, bool>("boolean", {"0"}, {false}, false);
-    testCast<std::string, bool>("boolean", {"t"}, {true}, false);
-    testCast<std::string, bool>("boolean", {"true"}, {true}, false);
+    testCast<std::string, bool>("boolean", {"1"}, {true});
+    testCast<std::string, bool>("boolean", {"0"}, {false});
+    testCast<std::string, bool>("boolean", {"t"}, {true});
+    testCast<std::string, bool>("boolean", {"true"}, {true});
   }
 
   // To string.
   {
-    testCast<float, std::string>("varchar", {kInf}, {"Infinity"}, false);
-    testCast<float, std::string>("varchar", {kNan}, {"NaN"}, false);
+    testCast<float, std::string>("varchar", {kInf}, {"Infinity"});
+    testCast<float, std::string>("varchar", {kNan}, {"NaN"});
   }
 }
 
@@ -1288,15 +1370,13 @@ TEST_F(CastExprTest, nullInputs) {
 
 TEST_F(CastExprTest, errorHandling) {
   // Making sure error cases lead to null outputs
-  testCast<std::string, int8_t>(
+  testTryCast<std::string, int8_t>(
       "tinyint",
       {"1abc", "2", "3", "100", std::nullopt},
-      {std::nullopt, 2, 3, 100, std::nullopt},
-      false,
-      true);
+      {std::nullopt, 2, 3, 100, std::nullopt});
 
   setCastIntByTruncate(true);
-  testCast<std::string, int8_t>(
+  testTryCast<std::string, int8_t>(
       "tinyint",
       {"-",
        "-0",
@@ -1331,26 +1411,26 @@ TEST_F(CastExprTest, errorHandling) {
        std::nullopt,
        125,
        127,
-       -128},
-      false,
-      true);
+       -128});
 
-  testCast<double, int>(
+  testTryCast<double, int>(
       "integer",
       {1e12, 2.5, 3.6, 100.44, -100.101},
-      {std::numeric_limits<int32_t>::max(), 2, 3, 100, -100},
-      false,
-      true);
+      {std::numeric_limits<int32_t>::max(), 2, 3, 100, -100});
 
   setCastIntByTruncate(false);
   testCast<double, int>(
       "int", {1.888, 2.5, 3.6, 100.44, -100.101}, {2, 3, 4, 100, -100});
 
-  testCast<std::string, int8_t>(
-      "tinyint", {"1abc", "2", "3", "100", "-100"}, {1, 2, 3, 100, -100}, true);
+  testInvalidCast<std::string>(
+      "tinyint",
+      {"1abc", "2", "3", "100", "-100"},
+      "Non-whitespace character found after end of conversion");
 
-  testCast<std::string, int8_t>(
-      "tinyint", {"1", "2", "3", "100", "-100.5"}, {1, 2, 3, 100, -100}, true);
+  testInvalidCast<std::string>(
+      "tinyint",
+      {"1", "2", "3", "100", "-100.5"},
+      "Non-whitespace character found after end of conversion");
 }
 
 constexpr vector_size_t kVectorSize = 1'000;
