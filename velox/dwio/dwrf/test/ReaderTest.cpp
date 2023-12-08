@@ -127,6 +127,42 @@ std::unique_ptr<BufferedInput> createFileBufferedInput(
       std::make_shared<LocalReadFile>(path), pool);
 }
 
+// Prefetches the entire range of the reader and verifies correctness in
+// PrefetchUnits() API. Does not do any actual reading of the file.
+void verifyPrefetch(
+    DwrfRowReader* rowReader,
+    const std::vector<uint32_t>& expectedPrefetchRowSizes = {},
+    const std::vector<bool>& shouldTryPrefetch = {}) {
+  auto prefetchUnitsOpt = rowReader->prefetchUnits();
+  ASSERT_TRUE(prefetchUnitsOpt.has_value());
+  auto prefetchUnits = std::move(prefetchUnitsOpt.value());
+  auto numFetches = prefetchUnits.size();
+  auto expectedResultsSize = shouldTryPrefetch.size();
+  auto expectedRowsSize = expectedPrefetchRowSizes.size();
+  bool shouldCheckResults = expectedResultsSize != 0;
+  bool shouldCheckRowCount = expectedRowsSize != 0;
+
+  // Empty vector will skip the check, but they should never been different than
+  // actual expected prefetchUnits vector
+  DWIO_ENSURE(expectedResultsSize == numFetches || !shouldCheckResults);
+  DWIO_ENSURE(expectedRowsSize == numFetches || !shouldCheckRowCount);
+
+  for (int i = 0; i < numFetches; i++) {
+    if (shouldCheckRowCount) {
+      EXPECT_EQ(prefetchUnits[i].rowCount, expectedPrefetchRowSizes[i]);
+    }
+    if (shouldCheckResults && shouldTryPrefetch[i]) {
+      RowReader::FetchResult result = prefetchUnits[i].prefetch();
+      EXPECT_EQ(
+          result,
+          // A prefetch request for the first stripe should be already fetched,
+          // because createDwrfRowReader calls startNextStripe() synchronously.
+          i == 0 ? RowReader::FetchResult::kAlreadyFetched
+                 : RowReader::FetchResult::kFetched);
+    }
+  }
+}
+
 // This relies on schema and data inside of our fm_small and fm_large orc files,
 // and is not composeable with other schema/datas
 void verifyFlatMapReading(
@@ -220,40 +256,6 @@ void verifyFlatMapReading(
 
   // number of batches should match
   EXPECT_EQ(batchId, numBatches);
-}
-
-void verifyPrefetch(
-    DwrfRowReader* rowReader,
-    const std::vector<uint32_t>& expectedPrefetchRowSizes = {},
-    const std::vector<bool>& shouldTryPrefetch = {}) {
-  auto prefetchUnitsOpt = rowReader->prefetchUnits();
-  ASSERT_TRUE(prefetchUnitsOpt.has_value());
-  auto prefetchUnits = std::move(prefetchUnitsOpt.value());
-  auto numFetches = prefetchUnits.size();
-  auto expectedResultsSize = shouldTryPrefetch.size();
-  auto expectedRowsSize = expectedPrefetchRowSizes.size();
-  bool shouldCheckResults = expectedResultsSize != 0;
-  bool shouldCheckRowCount = expectedRowsSize != 0;
-
-  // Empty vector will skip the check, but they should never been different than
-  // actual expected prefetchUnits vector
-  DWIO_ENSURE(expectedResultsSize == numFetches || !shouldCheckResults);
-  DWIO_ENSURE(expectedRowsSize == numFetches || !shouldCheckRowCount);
-
-  for (int i = 0; i < numFetches; i++) {
-    if (shouldCheckRowCount) {
-      EXPECT_EQ(prefetchUnits[i].rowCount, expectedPrefetchRowSizes[i]);
-    }
-    if (shouldCheckResults && shouldTryPrefetch[i]) {
-      RowReader::FetchResult result = prefetchUnits[i].prefetch();
-      EXPECT_EQ(
-          result,
-          // A prefetch request for the first stripe should be already fetched,
-          // because createDwrfRowReader calls startNextStripe() synchronously.
-          i == 0 ? RowReader::FetchResult::kAlreadyFetched
-                 : RowReader::FetchResult::kFetched);
-    }
-  }
 }
 
 // schema of flat map sample file
