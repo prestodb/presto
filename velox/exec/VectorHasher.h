@@ -227,14 +227,13 @@ class VectorHasher {
   // have a miss if any of the keys has a value that is not represented.
   //
   // This method can be called concurrently from multiple threads. To allow for
-  // that the caller must provide 'scratchMemory'. 'noNulls' means that the
-  // positions in 'rows' are not checked for null values.
+  // that the caller must provide 'scratchMemory'. Values in 'rows' are
+  // expected to have no nulls.
   void lookupValueIds(
       const BaseVector& values,
       SelectivityVector& rows,
       ScratchMemory& scratchMemory,
-      raw_vector<uint64_t>& result,
-      bool noNulls = true) const;
+      raw_vector<uint64_t>& result) const;
 
   // Returns true if either range or distinct values have not overflowed.
   bool mayUseValueIds() const {
@@ -381,8 +380,7 @@ class VectorHasher {
       const DecodedVector& decoded,
       SelectivityVector& rows,
       raw_vector<uint64_t>& hashes,
-      uint64_t* result,
-      bool noNulls) const;
+      uint64_t* result) const;
 
   // Fast path for range mapping of int64/int32 keys.
   template <typename T>

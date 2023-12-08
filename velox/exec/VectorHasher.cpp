@@ -380,8 +380,7 @@ void VectorHasher::lookupValueIdsTyped(
     const DecodedVector& decoded,
     SelectivityVector& rows,
     raw_vector<uint64_t>& hashes,
-    uint64_t* result,
-    bool noNulls) const {
+    uint64_t* result) const {
   using T = typename TypeTraits<Kind>::NativeType;
   if (decoded.isConstantMapping()) {
     if (decoded.isNullAt(rows.begin())) {
@@ -401,9 +400,9 @@ void VectorHasher::lookupValueIdsTyped(
       });
     }
   } else if (decoded.isIdentityMapping()) {
-    if (Kind == TypeKind::BIGINT && isRange_ && noNulls) {
+    if (Kind == TypeKind::BIGINT && isRange_) {
       lookupIdsRangeSimd<int64_t>(decoded, rows, result);
-    } else if (Kind == TypeKind::INTEGER && isRange_ && noNulls) {
+    } else if (Kind == TypeKind::INTEGER && isRange_) {
       lookupIdsRangeSimd<int32_t>(decoded, rows, result);
     } else {
       rows.applyToSelected([&](vector_size_t row) INLINE_LAMBDA {
@@ -510,8 +509,7 @@ void VectorHasher::lookupValueIds(
     const BaseVector& values,
     SelectivityVector& rows,
     ScratchMemory& scratchMemory,
-    raw_vector<uint64_t>& result,
-    bool noNulls) const {
+    raw_vector<uint64_t>& result) const {
   scratchMemory.decoded.decode(values, rows);
   VALUE_ID_TYPE_DISPATCH(
       lookupValueIdsTyped,
@@ -519,8 +517,7 @@ void VectorHasher::lookupValueIds(
       scratchMemory.decoded,
       rows,
       scratchMemory.hashes,
-      result.data(),
-      noNulls);
+      result.data());
 }
 
 void VectorHasher::hash(
@@ -852,10 +849,14 @@ void VectorHasher::merge(const VectorHasher& other) {
 
 std::string VectorHasher::toString() const {
   std::stringstream out;
-  out << "<VectorHasher type=" << type_->toString() << "  isRange_=" << isRange_
-      << " rangeSize= " << rangeSize_ << " min=" << min_ << " max=" << max_
-      << " multiplier=" << multiplier_
-      << " numDistinct=" << uniqueValues_.size() << ">";
+  out << "VectorHasher channel: " << channel_ << " " << type_->toString()
+      << " multiplier: " << multiplier_;
+  if (isRange_) {
+    out << " range size " << rangeSize_ << ": [" << min_ << ", " << max_ << "]";
+  }
+  if (!distinctOverflow_) {
+    out << " numDistinct: " << uniqueValues_.size();
+  }
   return out.str();
 }
 
