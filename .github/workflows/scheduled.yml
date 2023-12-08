@@ -15,16 +15,40 @@
 name: "Scheduled Fuzzer Jobs"
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/scheduled.yml"
+
   schedule:
     - cron: '0 3 * * *'
+
+  workflow_dispatch:
+    ref:
+      description: 'Ref to checkout out'
+      default: 'main'
+    numThreads:
+      description: 'Number of threads'
+      default: 16
+    maxHighMemJobs:
+      description: 'Number of high memory jobs'
+      default: 8
+    maxLinkJobs:
+      description: 'Maximum number of link jobs'
+      default: 4
+    extraCMakeFlags:
+      description: 'Additional CMake flags'
+      default: ''
 
 defaults:
   run:
     shell: bash
 
+permissions:
+  contents: read
+
 jobs:
-  linux-presto-fuzzer-run:
-    runs-on: 16-core
+  compile:
+    runs-on: 8-core
     timeout-minutes: 120
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache/"
@@ -32,24 +56,83 @@ jobs:
       LINUX_DISTRO: "ubuntu"
     steps:
 
+      - name: "Restore ccache"
+        uses: actions/cache@v3
+        with:
+          path: "${{ env.CCACHE_DIR }}"
+          # We are using the benchmark ccache as it has all
+          # required features enabled, so no need to create a new one
+          key: ccache-benchmark-${{ github.sha }}
+          restore-keys: |
+            ccache-benchmark-
+
       - name: "Checkout Repo"
         uses: actions/checkout@v3
         with:
+          path: velox
           submodules: 'recursive'
+          ref: "${{ inputs.ref || 'main' }}"
+
+      - name: "Install dependencies"
+        run: cd  velox && source ./scripts/setup-ubuntu.sh
+
+      - name: "Build"
+        run: |
+          cd velox
+          make debug NUM_THREADS="${{ inputs.numThreads || 8 }}" MAX_HIGH_MEM_JOBS="${{ inputs.maxHighMemJobs || 8 }}" MAX_LINK_JOBS="${{ inputs.maxLinkJobs || 4 }}" EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON ${{ inputs.extraCMakeFlags }}"
+          ccache -s
+
+      - name: Upload presto fuzzer
+        uses: actions/upload-artifact@v3
+        with:
+          name: presto
+          path: velox/_build/debug/velox/expression/tests/velox_expression_fuzzer_test
+
+      - name: Upload spark fuzzer
+        uses: actions/upload-artifact@v3
+        with:
+          name: spark
+          path: |
+            velox/_build/debug/velox/expression/tests/spark_expression_fuzzer_test
+            velox/_build/debug/velox/expression/tests/spark_aggregation_fuzzer_test
+
+      - name: Upload aggregation fuzzer
+        uses: actions/upload-artifact@v3
+        with:
+          name: aggregation
+          path: velox/_build/debug/velox/exec/tests/velox_aggregation_fuzzer_test
+
+      - name: Upload join fuzzer
+        uses: actions/upload-artifact@v3
+        with:
+          name: join
+          path: velox/_build/debug/velox/exec/tests/velox_join_fuzzer_test
+
+  linux-presto-fuzzer-run:
+    runs-on: ubuntu-latest
+    needs: compile
+    timeout-minutes: 120
+    steps:
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v3
+        with:
+          ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
         run: source ./scripts/setup-ubuntu.sh
 
-      - name: "Build"
-        run: |
-          make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=2 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
-          ccache -s
+      - name: Download presto fuzzer
+        uses: actions/download-artifact@v3
+        with:
+          name: presto
 
       - name: "Run Presto Fuzzer"
         run: |
           mkdir -p /tmp/fuzzer_repro/
           chmod -R 777 /tmp/fuzzer_repro
-          _build/debug/velox/expression/tests/velox_expression_fuzzer_test \
+          chmod +x velox_expression_fuzzer_test
+          ./velox_expression_fuzzer_test \
                 --seed ${RANDOM} \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
@@ -73,35 +156,31 @@ jobs:
           path: |
             /tmp/fuzzer_repro
 
-
-
   linux-spark-fuzzer-run:
-    runs-on: 16-core
+    runs-on: ubuntu-latest
+    needs: compile
     timeout-minutes: 120
-    env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
-      CCACHE_BASEDIR: "${{ github.workspace }}"
-      LINUX_DISTRO: "ubuntu"
     steps:
 
       - name: "Checkout Repo"
         uses: actions/checkout@v3
         with:
-          submodules: 'recursive'
+          ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
         run: source ./scripts/setup-ubuntu.sh
 
-      - name: "Build"
-        run: |
-          make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
-          ccache -s
+      - name: Download spark fuzzer
+        uses: actions/download-artifact@v3
+        with:
+          name: spark
 
       - name: "Run Spark Fuzzer"
         run: |
           mkdir -p /tmp/spark_fuzzer_repro/
             chmod -R 777 /tmp/spark_fuzzer_repro
-            _build/debug/velox/expression/tests/spark_expression_fuzzer_test \
+            chmod +x spark_expression_fuzzer_test
+            ./spark_expression_fuzzer_test \
                 --seed ${RANDOM} \
                 --enable_variadic_signatures \
                 --lazy_vector_generation_ratio 0.2 \
@@ -127,7 +206,8 @@ jobs:
         run: |
           mkdir -p /tmp/spark_aggregate_fuzzer_repro/
           chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
-          _build/debug/velox/exec/tests/spark_aggregation_fuzzer_test \
+          chmod +x spark_aggregation_fuzzer_test
+          ./spark_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec 1800 \
                 --logtostderr=1 \
@@ -145,33 +225,31 @@ jobs:
 
 
   linux-aggregate-fuzzer-run:
-    runs-on: 16-core
+    runs-on: ubuntu-latest
+    needs: compile
     timeout-minutes: 120
-    env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
-      CCACHE_BASEDIR: "${{ github.workspace }}"
-      LINUX_DISTRO: "ubuntu"
     steps:
 
       - name: "Checkout Repo"
         uses: actions/checkout@v3
         with:
-          submodules: 'recursive'
+          ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
         run: source ./scripts/setup-ubuntu.sh
 
-      - name: "Build"
-        run: |
-          make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
-          ccache -s
+      - name: Download aggregation fuzzer
+        uses: actions/download-artifact@v3
+        with:
+          name: aggregation
 
       - name: "Run Aggregate Fuzzer"
         run: |
           mkdir -p /tmp/aggregate_fuzzer_repro/
             rm -rfv /tmp/aggregate_fuzzer_repro/*
             chmod -R 777 /tmp/aggregate_fuzzer_repro
-            _build/debug/velox/exec/tests/velox_aggregation_fuzzer_test \
+            chmod +x velox_aggregation_fuzzer_test
+            ./velox_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec 1800 \
                 --logtostderr=1 \
@@ -188,33 +266,31 @@ jobs:
             /tmp/aggregate_fuzzer_repro
 
   linux-join-fuzzer-run:
-    runs-on: 16-core
+    runs-on: ubuntu-latest
+    needs: compile
     timeout-minutes: 120
-    env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
-      CCACHE_BASEDIR: "${{ github.workspace }}"
-      LINUX_DISTRO: "ubuntu"
     steps:
 
       - name: "Checkout Repo"
         uses: actions/checkout@v3
         with:
-          submodules: 'recursive'
+          ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
         run: source ./scripts/setup-ubuntu.sh
 
-      - name: "Build"
-        run: |
-          make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
-          ccache -s
+      - name: Download join fuzzer
+        uses: actions/download-artifact@v3
+        with:
+          name: join
 
       - name: "Run Aggregate Fuzzer"
         run: |
           mkdir -p /tmp/join_fuzzer_repro/
           rm -rfv /tmp/join_fuzzer_repro/*
           chmod -R 777 /tmp/join_fuzzer_repro
-          _build/debug/velox/exec/tests/velox_join_fuzzer_test \
+          chmod +x velox_join_fuzzer_test
+          ./velox_join_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec 1800 \
                 --logtostderr=1 \

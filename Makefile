@@ -63,12 +63,6 @@ GENERATOR += -DVELOX_FORCE_COLORED_OUTPUT=ON
 endif
 endif
 
-ifndef USE_CCACHE
-ifneq ($(shell which ccache), )
-USE_CCACHE=-DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-endif
-endif
-
 NUM_THREADS ?= $(shell getconf _NPROCESSORS_CONF 2>/dev/null || echo 1)
 CPU_TARGET ?= "avx"
 
@@ -88,7 +82,6 @@ cmake:					#: Use CMake to create a Makefile build system
 		"$(BUILD_BASE_DIR)/$(BUILD_DIR)" \
 		${CMAKE_FLAGS} \
 		$(GENERATOR) \
-		$(USE_CCACHE) \
 		${EXTRA_CMAKE_FLAGS}
 
 cmake-gpu:
