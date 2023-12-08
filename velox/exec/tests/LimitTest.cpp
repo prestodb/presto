@@ -36,18 +36,24 @@ TEST_F(LimitTest, basic) {
   }
   createDuckDbTable(vectors);
 
-  auto makePlan = [&](int32_t offset, int32_t limit) {
+  auto makePlan = [&](int64_t offset, int64_t limit) {
     return PlanBuilder().values(vectors).limit(offset, limit, true).planNode();
   };
 
   assertQuery(makePlan(0, 10), "SELECT * FROM tmp LIMIT 10");
-  assertQuery(makePlan(0, 1'000), "SELECT * FROM tmp LIMIT 1000");
+  assertQuery(
+      makePlan(0, 100'0000'000'000), "SELECT * FROM tmp LIMIT 1000000000000");
   assertQuery(makePlan(0, 1'234), "SELECT * FROM tmp LIMIT 1234");
 
   assertQuery(makePlan(17, 10), "SELECT * FROM tmp OFFSET 17 LIMIT 10");
   assertQuery(makePlan(17, 983), "SELECT * FROM tmp OFFSET 17 LIMIT 983");
-  assertQuery(makePlan(17, 1'000), "SELECT * FROM tmp OFFSET 17 LIMIT 1000");
+  assertQuery(
+      makePlan(17, 100'0000'000'000),
+      "SELECT * FROM tmp OFFSET 17 LIMIT 1000000000000");
   assertQuery(makePlan(17, 2'000), "SELECT * FROM tmp OFFSET 17 LIMIT 2000");
+  assertQuery(
+      makePlan(100'000'000'000, 100'0000'000'000),
+      "SELECT * FROM tmp OFFSET 100000000000 LIMIT 1000000000000");
 
   assertQuery(makePlan(1'000, 145), "SELECT * FROM tmp OFFSET 1000 LIMIT 145");
   assertQuery(

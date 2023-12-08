@@ -1844,8 +1844,8 @@ class LimitNode : public PlanNode {
   // nodes.
   LimitNode(
       const PlanNodeId& id,
-      int32_t offset,
-      int32_t count,
+      int64_t offset,
+      int64_t count,
       bool isPartial,
       const PlanNodePtr& source)
       : PlanNode(id),
@@ -1867,11 +1867,11 @@ class LimitNode : public PlanNode {
     return sources_;
   }
 
-  int32_t offset() const {
+  int64_t offset() const {
     return offset_;
   }
 
-  int32_t count() const {
+  int64_t count() const {
     return count_;
   }
 
@@ -1890,8 +1890,8 @@ class LimitNode : public PlanNode {
  private:
   void addDetails(std::stringstream& stream) const override;
 
-  const int32_t offset_;
-  const int32_t count_;
+  const int64_t offset_;
+  const int64_t count_;
   const bool isPartial_;
   const std::vector<PlanNodePtr> sources_;
 };

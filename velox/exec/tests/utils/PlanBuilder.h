@@ -693,7 +693,7 @@ class PlanBuilder {
   /// @param isPartial Boolean indicating whether the limit node is partial or
   /// final. Partial limit can run multi-threaded. Final limit must run
   /// single-threaded.
-  PlanBuilder& limit(int32_t offset, int32_t count, bool isPartial);
+  PlanBuilder& limit(int64_t offset, int64_t count, bool isPartial);
 
   /// Add an EnforceSingleRowNode to ensure input has at most one row at
   /// runtime.

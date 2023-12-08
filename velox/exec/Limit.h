@@ -39,8 +39,8 @@ class Limit : public Operator {
   }
 
  private:
-  int32_t remainingOffset_;
-  int32_t remainingLimit_;
+  int64_t remainingOffset_;
+  int64_t remainingLimit_;
   bool finished_{false};
 };
 } // namespace facebook::velox::exec
