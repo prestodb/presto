@@ -350,6 +350,9 @@ TEST_F(BinTest, bin) {
       bin(std::numeric_limits<int64_t>::max()),
       "111111111111111111111111111111111111111111111111111111111111111");
   EXPECT_EQ(bin(0), "0");
+  auto result = evaluateOnce<std::string, int64_t>(
+      "bin(row_constructor(c0).c1)", {13}, {BIGINT()});
+  EXPECT_EQ(result, "1101");
 }
 
 TEST_F(ArithmeticTest, hypot) {

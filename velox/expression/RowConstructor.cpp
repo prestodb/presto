@@ -32,35 +32,25 @@ TypePtr RowConstructorCallToSpecialForm::resolveType(
 }
 
 ExprPtr RowConstructorCallToSpecialForm::constructSpecialForm(
-    const std::string& name,
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
     bool trackCpuUsage,
     const core::QueryConfig& config) {
-  auto rowConstructorVectorFunction =
-      vectorFunctionFactories().withRLock([&config, &name](auto& functionMap) {
-        auto functionIterator = functionMap.find(name);
-        return functionIterator->second.factory(name, {}, config);
+  auto function =
+      vectorFunctionFactories().withRLock([&config](auto& functionMap) {
+        auto functionIterator = functionMap.find(kRowConstructor);
+        if (functionIterator != functionMap.end()) {
+          return functionIterator->second.factory(kRowConstructor, {}, config);
+        } else {
+          VELOX_FAIL("Function {} is not registered.", kRowConstructor);
+        }
       });
 
   return std::make_shared<Expr>(
       type,
       std::move(compiledChildren),
-      rowConstructorVectorFunction,
-      name,
-      trackCpuUsage);
-}
-
-ExprPtr RowConstructorCallToSpecialForm::constructSpecialForm(
-    const TypePtr& type,
-    std::vector<ExprPtr>&& compiledChildren,
-    bool trackCpuUsage,
-    const core::QueryConfig& config) {
-  return constructSpecialForm(
+      function,
       kRowConstructor,
-      type,
-      std::move(compiledChildren),
-      trackCpuUsage,
-      config);
+      trackCpuUsage);
 }
 } // namespace facebook::velox::exec

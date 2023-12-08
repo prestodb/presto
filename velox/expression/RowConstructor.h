@@ -30,13 +30,5 @@ class RowConstructorCallToSpecialForm : public FunctionCallToSpecialForm {
       const core::QueryConfig& config) override;
 
   static constexpr const char* kRowConstructor = "row_constructor";
-
- protected:
-  ExprPtr constructSpecialForm(
-      const std::string& name,
-      const TypePtr& type,
-      std::vector<ExprPtr>&& compiledChildren,
-      bool trackCpuUsage,
-      const core::QueryConfig& config);
 };
 } // namespace facebook::velox::exec

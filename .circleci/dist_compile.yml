@@ -302,6 +302,7 @@ jobs:
                 --velox_fuzzer_enable_expression_reuse \
                 --max_expression_trees_per_step 2 \
                 --retry_with_try \
+                --enable_dereference \
                 --logtostderr=1 \
                 --minloglevel=0 \
                 --repro_persist_path=/tmp/spark_fuzzer_repro \
