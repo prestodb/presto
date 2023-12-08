@@ -102,7 +102,7 @@ class ProbeState {
   inline void preProbe(const Table& table, uint64_t hash, int32_t row) {
     row_ = row;
     bucketOffset_ = table.bucketOffset(hash);
-    auto tag = BaseHashTable::hashTag(hash);
+    const auto tag = BaseHashTable::hashTag(hash);
     wantedTags_ = BaseHashTable::TagVector::broadcast(tag);
     group_ = nullptr;
     indexInTags_ = kNotSet;
@@ -125,14 +125,16 @@ class ProbeState {
   }
 
   template <Operation op, typename Compare, typename Insert, typename Table>
-  inline char* FOLLY_NULLABLE fullProbe(
+  inline char* fullProbe(
       Table& table,
       int32_t firstKey,
       Compare compare,
       Insert insert,
       int64_t& numTombstones,
       bool extraCheck,
-      int64_t partitionEnd = -1) {
+      TableInsertPartitionInfo* partitionInfo = nullptr) {
+    VELOX_DCHECK(partitionInfo == nullptr || op == Operation::kInsert);
+
     if (group_ && compare(group_, row_)) {
       if (op == Operation::kErase) {
         eraseHit(table, numTombstones);
@@ -141,25 +143,37 @@ class ProbeState {
       return group_;
     }
 
-    auto alreadyChecked = group_;
+    auto* alreadyChecked = group_;
     if (extraCheck) {
       tagsInTable_ = table.loadTags(bucketOffset_);
       hits_ = simd::toBitMask(tagsInTable_ == wantedTags_);
     }
 
+    const int64_t startBucketOffset = bucketOffset_;
     int64_t insertBucketOffset = -1;
     const auto kEmptyGroup = BaseHashTable::TagVector::broadcast(0);
     const auto kTombstoneGroup =
         BaseHashTable::TagVector::broadcast(kTombstoneTag);
-    for (;;) {
+    for (int64_t numProbedBuckets = 0; numProbedBuckets < table.numBuckets();
+         ++numProbedBuckets) {
       if constexpr (op == Operation::kInsert) {
-        if (partitionEnd >= 0 && bucketOffset_ >= partitionEnd) {
-          // We have already gone over the partition boundary.  Call insert to
-          // put row in overflows.
-          return insert(row_, bucketOffset_);
+        if (partitionInfo != nullptr) {
+          if (FOLLY_UNLIKELY(!partitionInfo->inRange(bucketOffset_))) {
+            // If we have passed the partition boundary, then call insert to put
+            // row in overflows.
+            return insert(row_, bucketOffset_);
+          }
+          if (FOLLY_UNLIKELY(
+                  (bucketOffset_ <= startBucketOffset) &&
+                  (numProbedBuckets > 0))) {
+            // If this is the last bucket and wrap around, then call insert to
+            // put row in overflows.
+            return insert(row_, partitionInfo->end);
+          }
         }
       }
-      while (hits_) {
+
+      while (hits_ > 0) {
         loadNextHit<op>(table, firstKey);
         if (!(extraCheck && group_ == alreadyChecked) &&
             compare(group_, row_)) {
@@ -180,12 +194,11 @@ class ProbeState {
           VELOX_FAIL("Erasing non-existing entry");
         }
         if (indexInTags_ != kNotSet) {
-          // We came to the end of the probe without a hit. We replace the
-          // first tombstone on the way.
+          // We came to the end of the probe without a hit. We replace the first
+          // tombstone on the way.
           --numTombstones;
           return insert(row_, insertBucketOffset + indexInTags_);
         }
-        //--numTombstoneGroups;
         auto pos = bits::getAndClearLastSetBit(empty);
         return insert(row_, bucketOffset_ + pos);
       }
@@ -202,11 +215,15 @@ class ProbeState {
       tagsInTable_ = table.loadTags(bucketOffset_);
       hits_ = simd::toBitMask(tagsInTable_ == wantedTags_);
     }
+    // Throws here if we have looped through all the buckets in the table.
+    VELOX_FAIL(
+        "Have looped through all the buckets in table: {}", table.toString());
   }
 
   template <typename Table>
-  FOLLY_ALWAYS_INLINE char* FOLLY_NULLABLE
-  joinNormalizedKeyFullProbe(const Table& table, const uint64_t* keys) {
+  FOLLY_ALWAYS_INLINE char* joinNormalizedKeyFullProbe(
+      const Table& table,
+      const uint64_t* keys) {
     if (group_ && RowContainer::normalizedKey(group_) == keys[row_]) {
       table.incrementHits();
       return group_;
@@ -239,7 +256,7 @@ class ProbeState {
 
   template <Operation op, typename Table>
   inline void loadNextHit(Table& table, int32_t firstKey) {
-    int32_t hit = bits::getAndClearLastSetBit(hits_);
+    const int32_t hit = bits::getAndClearLastSetBit(hits_);
 
     if (op == Operation::kErase) {
       indexInTags_ = hit;
@@ -687,8 +704,11 @@ void HashTable<ignoreNullKeys>::allocateTables(uint64_t size) {
   VELOX_CHECK(bits::isPowerOfTwo(size), "Size is not a power of two: {}", size);
   VELOX_CHECK_GT(size, 0);
   capacity_ = size;
+  const uint64_t byteSize = capacity_ * tableSlotSize();
+  VELOX_CHECK_EQ(byteSize % kBucketSize, 0);
   numTombstones_ = 0;
-  sizeMask_ = (capacity_ * sizeof(void*)) - 1;
+  sizeMask_ = byteSize - 1;
+  numBuckets_ = byteSize / kBucketSize;
   sizeBits_ = __builtin_popcountll(sizeMask_);
   bucketOffsetMask_ = sizeMask_ & ~(kBucketSize - 1);
   // The total size is 8 bytes per slot, in groups of 16 slots with 16 bytes of
@@ -836,7 +856,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
   TestValue::adjust(
       "facebook::velox::exec::HashTable::parallelJoinBuild", rows_->pool());
   VELOX_CHECK_LE(1 + otherTables_.size(), std::numeric_limits<uint8_t>::max());
-  uint8_t numPartitions = 1 + otherTables_.size();
+  const uint8_t numPartitions = 1 + otherTables_.size();
   VELOX_CHECK_GT(
       capacity_ / numPartitions,
       minTableSizeForParallelJoinBuild_,
@@ -899,9 +919,10 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     assert(!partitionSteps.empty()); // lint
     buildExecutor_->add([step = partitionSteps.back()]() { step->prepare(); });
   }
+
   std::exception_ptr error;
   syncWorkItems(partitionSteps, error, offThreadBuildTiming_);
-  if (error) {
+  if (error != nullptr) {
     std::rethrow_exception(error);
   }
 
@@ -917,7 +938,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     buildExecutor_->add([step = buildSteps.back()]() { step->prepare(); });
   }
   syncWorkItems(buildSteps, error, offThreadBuildTiming_);
-  if (error) {
+  if (error != nullptr) {
     std::rethrow_exception(error);
   }
 
@@ -929,13 +950,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
         folly::Range<char**>(overflows.data(), overflows.size()),
         false,
         hashes);
-    insertForJoin(
-        overflows.data(),
-        hashes.data(),
-        overflows.size(),
-        0,
-        sizeMask_ + 1,
-        nullptr);
+    insertForJoin(overflows.data(), hashes.data(), overflows.size(), nullptr);
     auto table = i == 0 ? this : otherTables_[i - 1].get();
     VELOX_CHECK_EQ(table->rows()->numRows(), table->numParallelBuildRows_);
   }
@@ -998,20 +1013,18 @@ void HashTable<ignoreNullKeys>::buildJoinPartition(
   constexpr int32_t kBatch = 1024;
   raw_vector<char*> rows(kBatch);
   raw_vector<uint64_t> hashes(kBatch);
-  int32_t numPartitions = 1 + otherTables_.size();
+  const int32_t numPartitions = 1 + otherTables_.size();
+  TableInsertPartitionInfo partitionInfo{
+      buildPartitionBounds_[partition],
+      buildPartitionBounds_[partition + 1],
+      overflow};
   for (auto i = 0; i < numPartitions; ++i) {
-    auto table = i == 0 ? this : otherTables_[i - 1].get();
+    auto* table = i == 0 ? this : otherTables_[i - 1].get();
     RowContainerIterator iter;
-    while (auto numRows = table->rows_->listPartitionRows(
+    while (const auto numRows = table->rows_->listPartitionRows(
                iter, partition, kBatch, *rowPartitions[i], rows.data())) {
       hashRows(folly::Range(rows.data(), numRows), false, hashes);
-      insertForJoin(
-          rows.data(),
-          hashes.data(),
-          numRows,
-          buildPartitionBounds_[partition],
-          buildPartitionBounds_[partition + 1],
-          &overflow);
+      insertForJoin(rows.data(), hashes.data(), numRows, &partitionInfo);
       table->numParallelBuildRows_ += numRows;
     }
   }
@@ -1096,7 +1109,7 @@ bool HashTable<ignoreNullKeys>::arrayPushRow(char* row, int32_t index) {
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::pushNext(char* row, char* next) {
-  if (nextOffset_) {
+  if (nextOffset_ > 0) {
     hasDuplicates_ = true;
     auto previousNext = nextRow(row);
     nextRow(row) = next;
@@ -1110,17 +1123,16 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
     uint64_t hash,
     char* inserted,
     bool extraCheck,
-    PartitionBoundIndexType partitionBegin,
-    PartitionBoundIndexType partitionEnd,
-    std::vector<char*>* overflows) {
+    TableInsertPartitionInfo* partitionInfo) {
   auto insertFn = [&](int32_t /*row*/, PartitionBoundIndexType index) {
-    if (index < partitionBegin || index >= partitionEnd) {
-      overflows->push_back(inserted);
+    if (partitionInfo != nullptr && !partitionInfo->inRange(index)) {
+      partitionInfo->addOverflow(inserted);
       return nullptr;
     }
     storeRowPointer(index, hash, inserted);
     return nullptr;
   };
+
   if (hashMode_ == HashMode::kNormalizedKey) {
     state.fullProbe<ProbeState::Operation::kInsert>(
         *this,
@@ -1138,14 +1150,14 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
         insertFn,
         numTombstones_,
         extraCheck,
-        partitionEnd);
+        partitionInfo);
   } else {
     state.fullProbe<ProbeState::Operation::kInsert>(
         *this,
         0,
         [&](char* group, int32_t /*row*/) {
           if (compareKeys(group, inserted)) {
-            if (nextOffset_) {
+            if (nextOffset_ > 0) {
               pushNext(group, inserted);
             }
             return true;
@@ -1155,7 +1167,7 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
         insertFn,
         numTombstones_,
         extraCheck,
-        partitionEnd);
+        partitionInfo);
   }
 }
 
@@ -1164,11 +1176,9 @@ void HashTable<ignoreNullKeys>::insertForJoin(
     char** groups,
     uint64_t* hashes,
     int32_t numGroups,
-    PartitionBoundIndexType partitionBegin,
-    PartitionBoundIndexType partitionEnd,
-    std::vector<char*>* overflow) {
-  // The insertable rows are in the table, all get put in the hash
-  // table or array.
+    TableInsertPartitionInfo* partitionInfo) {
+  // The insertable rows are in the table, all get put in the hash table or
+  // array.
   if (hashMode_ == HashMode::kArray) {
     for (auto i = 0; i < numGroups; ++i) {
       auto index = hashes[i];
@@ -1178,19 +1188,12 @@ void HashTable<ignoreNullKeys>::insertForJoin(
     return;
   }
 
-  ProbeState state1;
+  ProbeState state;
   for (auto i = 0; i < numGroups; ++i) {
-    state1.preProbe(*this, hashes[i], i);
-    state1.firstProbe(*this, 0);
+    state.preProbe(*this, hashes[i], i);
+    state.firstProbe(*this, 0);
 
-    buildFullProbe(
-        state1,
-        hashes[i],
-        groups[i],
-        i,
-        partitionBegin,
-        partitionEnd,
-        overflow);
+    buildFullProbe(state, hashes[i], groups[i], i, partitionInfo);
   }
 }
 

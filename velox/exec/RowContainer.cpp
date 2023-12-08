@@ -988,8 +988,8 @@ int32_t RowContainer::listPartitionRows(
         atEnd = true;
       }
       while (bits) {
-        int32_t hit = __builtin_ctz(bits);
-        auto distance = hit + startRow - iter.rowNumber;
+        const int32_t hit = __builtin_ctz(bits);
+        const auto distance = hit + startRow - iter.rowNumber;
         skip(iter, distance);
         result[numResults++] = iter.currentRow();
         if (numResults == maxRows) {
