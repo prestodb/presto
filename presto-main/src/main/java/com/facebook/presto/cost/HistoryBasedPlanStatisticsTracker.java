@@ -248,8 +248,9 @@ public class HistoryBasedPlanStatisticsTracker
         PlanNodeStats childNodeStats = planNodeStatsMap.get(childNode.getId());
         if (childNodeStats != null) {
             double partialAggregationInputBytes = adjustedOutputBytes(childNode, childNodeStats);
-            return new PartialAggregationStatistics(Estimate.of(partialAggregationInputBytes),
-                    Estimate.of(outputBytes),
+            return new PartialAggregationStatistics(
+                    Double.isNaN(partialAggregationInputBytes) ? Estimate.unknown() : Estimate.of(partialAggregationInputBytes),
+                    Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes),
                     Estimate.of(childNodeStats.getPlanNodeOutputPositions()),
                     Estimate.of(outputPositions));
         }
