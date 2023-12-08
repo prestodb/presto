@@ -50,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.8.23";
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
 
