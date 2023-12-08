@@ -191,7 +191,7 @@ void TopNRowNumber::addInput(RowVectorPtr input) {
     ensureInputFits(input);
 
     SelectivityVector rows(numInput);
-    table_->prepareForProbe(*lookup_, input, rows, false);
+    table_->prepareForGroupProbe(*lookup_, input, rows, false);
     table_->groupProbe(*lookup_);
 
     // Initialize new partitions.

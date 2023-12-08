@@ -25,6 +25,7 @@ namespace facebook::velox::exec {
 
 using PartitionBoundIndexType = int64_t;
 
+/// Contains input and output parameters for groupProbe and joinProbe APIs.
 struct HashLookup {
   explicit HashLookup(const std::vector<std::unique_ptr<VectorHasher>>& h)
       : hashers(h) {}
@@ -36,17 +37,36 @@ struct HashLookup {
     newGroups.clear();
   }
 
-  // One entry per aggregation or join key
+  /// One entry per group-by or join key.
   const std::vector<std::unique_ptr<VectorHasher>>& hashers;
+
+  /// Scratch memory used to call VectorHasher::lookupValueIds.
+  VectorHasher::ScratchMemory scratchMemory;
+
+  /// Input to groupProbe and joinProbe APIs.
+
+  /// Set of row numbers of row to probe.
   raw_vector<vector_size_t> rows;
-  // Hash number for all input rows.
+
+  /// Hashes or value IDs for rows in 'rows'. Not aligned with 'rows'. Index is
+  /// the row number.
   raw_vector<uint64_t> hashes;
-  // If using valueIds, list of concatenated valueIds. 1:1 with 'hashes'.
-  raw_vector<uint64_t> normalizedKeys;
-  // Hit for each row of input corresponding group row or join row.
+
+  /// Results of groupProbe and joinProbe APIs.
+
+  /// Contains one entry for each row in 'rows'. Index is the row number.
+  /// For groupProbe, a pointer to an existing or new row with matching grouping
+  /// keys. For joinProbe, a pointer to the first row with matching keys or null
+  /// if no match.
   raw_vector<char*> hits;
-  // Indices of newly inserted rows (not found during probe).
+
+  /// For groupProbe, row numbers for which a new entry was inserted (didn't
+  /// exist before the groupProbe). Empty for joinProbe.
   std::vector<vector_size_t> newGroups;
+
+  /// If using valueIds, list of concatenated valueIds. 1:1 with 'hashes'.
+  /// Populated by groupProbe and joinProbe.
+  raw_vector<uint64_t> normalizedKeys;
 };
 
 struct HashTableStats {
@@ -124,7 +144,12 @@ class BaseHashTable {
 
   virtual HashStringAllocator* stringAllocator() = 0;
 
-  void prepareForProbe(
+  /// Populates 'hashes' and 'rows' fields in 'lookup' in preparation for
+  /// 'groupProbe' call. Rehashes the table if necessary. Uses lookup.hashes to
+  /// decode grouping keys from 'input'. If 'ignoreNullKeys' is true, updates
+  /// 'rows' to remove entries with null grouping keys. After this call, 'rows'
+  /// may have no entries selected.
+  void prepareForGroupProbe(
       HashLookup& lookup,
       const RowVectorPtr& input,
       SelectivityVector& rows,
@@ -138,6 +163,20 @@ class BaseHashTable {
   /// 'lookup.hits' with a nullptr representing a miss. This is for use in hash
   /// join probe. Use listJoinResults to iterate over the results.
   virtual void joinProbe(HashLookup& lookup) = 0;
+
+  /// Populates 'hashes' and 'rows' fields in 'lookup' in preparation for
+  /// 'joinProbe' call. If hash mode is not kHash, populates 'hashes' with
+  /// values IDs. Rows which do not have value IDs are removed from 'rows'
+  /// (these rows cannot possibly match). if 'decodeAndRemoveNulls' is true,
+  /// uses lookup.hashes to decode grouping keys from 'input' and updates 'rows'
+  /// to remove entries with null grouping keys. Otherwise, assumes the caller
+  /// has done that already. After this call, 'rows' may have no entries
+  /// selected.
+  void prepareForJoinProbe(
+      HashLookup& lookup,
+      const RowVectorPtr& input,
+      SelectivityVector& rows,
+      bool decodeAndRemoveNulls);
 
   /// Fills 'hits' with consecutive hash join results. The corresponding element
   /// of 'inputRows' is set to the corresponding row number in probe keys.
@@ -254,10 +293,6 @@ class BaseHashTable {
 
   RowContainer* rows() const {
     return rows_.get();
-  }
-
-  std::unique_ptr<RowContainer> moveRows() {
-    return std::move(rows_);
   }
 
   // Static functions for processing internals. Public because used in

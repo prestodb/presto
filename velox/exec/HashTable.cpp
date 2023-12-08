@@ -1947,7 +1947,20 @@ void HashTable<ignoreNullKeys>::checkConsistency() const {
 template class HashTable<true>;
 template class HashTable<false>;
 
-void BaseHashTable::prepareForProbe(
+namespace {
+void populateLookupRows(
+    const SelectivityVector& rows,
+    raw_vector<vector_size_t>& lookupRows) {
+  if (rows.isAllSelected()) {
+    std::iota(lookupRows.begin(), lookupRows.end(), 0);
+  } else {
+    lookupRows.clear();
+    rows.applyToSelected([&](auto row) { lookupRows.push_back(row); });
+  }
+}
+} // namespace
+
+void BaseHashTable::prepareForGroupProbe(
     HashLookup& lookup,
     const RowVectorPtr& input,
     SelectivityVector& rows,
@@ -1984,17 +1997,46 @@ void BaseHashTable::prepareForProbe(
       decideHashMode(input->size());
       // Do not forward 'ignoreNullKeys' to avoid redundant evaluation of
       // deselectRowsWithNulls.
-      prepareForProbe(lookup, input, rows, false);
+      prepareForGroupProbe(lookup, input, rows, false);
       return;
     }
   }
 
-  if (rows.isAllSelected()) {
-    std::iota(lookup.rows.begin(), lookup.rows.end(), 0);
-  } else {
-    lookup.rows.clear();
-    rows.applyToSelected([&](auto row) { lookup.rows.push_back(row); });
+  populateLookupRows(rows, lookup.rows);
+}
+
+void BaseHashTable::prepareForJoinProbe(
+    HashLookup& lookup,
+    const RowVectorPtr& input,
+    SelectivityVector& rows,
+    bool decodeAndRemoveNulls) {
+  auto& hashers = lookup.hashers;
+
+  if (decodeAndRemoveNulls) {
+    for (auto& hasher : hashers) {
+      auto key = input->childAt(hasher->channel())->loadedVector();
+      hasher->decode(*key, rows);
+    }
+
+    // A null in any of the keys disables the row.
+    deselectRowsWithNulls(hashers, rows);
   }
+
+  lookup.reset(rows.end());
+
+  const auto mode = hashMode();
+  for (auto i = 0; i < hashers.size(); ++i) {
+    auto& hasher = hashers[i];
+    if (mode != BaseHashTable::HashMode::kHash) {
+      auto& key = input->childAt(hasher->channel());
+      hashers_[i]->lookupValueIds(
+          *key, rows, lookup.scratchMemory, lookup.hashes);
+    } else {
+      hasher->hash(rows, i > 0, lookup.hashes);
+    }
+  }
+
+  populateLookupRows(rows, lookup.rows);
 }
 
 } // namespace facebook::velox::exec

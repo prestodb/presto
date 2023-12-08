@@ -528,7 +528,9 @@ void HashProbe::addInput(RowVectorPtr input) {
   }
   input_ = std::move(input);
 
-  if (input_->size() > 0) {
+  const auto numInput = input_->size();
+
+  if (numInput > 0) {
     noInput_ = false;
   }
 
@@ -577,28 +579,9 @@ void HashProbe::addInput(RowVectorPtr input) {
   if (!hasDecoded) {
     decodeAndDetectNonNullKeys();
   }
-
   activeRows_ = nonNullInputRows_;
-  lookup_->hashes.resize(input_->size());
-  auto mode = table_->hashMode();
-  auto& buildHashers = table_->hashers();
-  for (auto i = 0; i < keyChannels_.size(); ++i) {
-    if (mode != BaseHashTable::HashMode::kHash) {
-      auto key = input_->childAt(keyChannels_[i]);
-      buildHashers[i]->lookupValueIds(
-          *key, activeRows_, scratchMemory_, lookup_->hashes);
-    } else {
-      hashers_[i]->hash(activeRows_, i > 0, lookup_->hashes);
-    }
-  }
-  lookup_->rows.clear();
-  if (activeRows_.isAllSelected()) {
-    lookup_->rows.resize(activeRows_.size());
-    std::iota(lookup_->rows.begin(), lookup_->rows.end(), 0);
-  } else {
-    activeRows_.applyToSelected(
-        [&](auto row) { lookup_->rows.push_back(row); });
-  }
+
+  table_->prepareForJoinProbe(*lookup_.get(), input_, activeRows_, false);
 
   passingInputRowsInitialized_ = false;
   if (isLeftJoin(joinType_) || isFullJoin(joinType_) || isAntiJoin(joinType_) ||
@@ -607,7 +590,6 @@ void HashProbe::addInput(RowVectorPtr input) {
     // including rows without a match in the output. Also, make sure to
     // initialize all 'hits' to nullptr as HashTable::joinProbe will only
     // process activeRows_.
-    auto numInput = input_->size();
     auto& hits = lookup_->hits;
     hits.resize(numInput);
     std::fill(hits.data(), hits.data() + numInput, nullptr);

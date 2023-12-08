@@ -316,8 +316,6 @@ class HashProbe : public Operator {
   // side. Used by right semi project join.
   bool probeSideHasNullKeys_{false};
 
-  VectorHasher::ScratchMemory scratchMemory_;
-
   // Rows in 'filterInput_' to apply 'filter_' to.
   SelectivityVector filterInputRows_;
 
