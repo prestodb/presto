@@ -136,12 +136,11 @@ public class IcebergResourceFactory
         Configuration configuration = new Configuration(false);
 
         if (hadoopConfigResources.isEmpty()) {
-            s3ConfigurationUpdater.updateConfiguration(configuration);
-
             configuration.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
             configuration.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
         }
 
+        s3ConfigurationUpdater.updateConfiguration(configuration);
         gcsConfigurationInitialize.updateConfiguration(configuration);
 
         for (String resourcePath : hadoopConfigResources) {
