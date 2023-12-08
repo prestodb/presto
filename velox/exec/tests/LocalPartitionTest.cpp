@@ -283,6 +283,55 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
   verifyExchangeSourceOperatorStats(task, 2100, 42);
 }
 
+TEST_F(LocalPartitionTest, indicesBufferCapacity) {
+  std::vector<RowVectorPtr> vectors;
+  for (auto i = 0; i < 21; i++) {
+    vectors.emplace_back(makeRowVector({makeFlatVector<int32_t>(
+        100, [i](auto row) { return -71 + i * 10 + row; })}));
+  }
+  auto filePaths = writeToFiles(vectors);
+  auto rowType = asRowType(vectors[0]->type());
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  std::vector<core::PlanNodeId> scanNodeIds;
+  auto scanNode = [&]() {
+    auto node = PlanBuilder(planNodeIdGenerator).tableScan(rowType).planNode();
+    scanNodeIds.push_back(node->id());
+    return node;
+  };
+  CursorParameters params;
+  params.planNode = PlanBuilder(planNodeIdGenerator)
+                        .localPartition(
+                            {"c0"},
+                            {
+                                scanNode(),
+                                scanNode(),
+                                scanNode(),
+                            })
+                        .planNode();
+  params.copyResult = false;
+  params.maxDrivers = 2;
+  TaskCursor cursor(params);
+  for (auto i = 0; i < filePaths.size(); ++i) {
+    auto id = scanNodeIds[i % 3];
+    cursor.task()->addSplit(
+        id, Split(makeHiveConnectorSplit(filePaths[i]->path)));
+    cursor.task()->noMoreSplits(id);
+  }
+  int numRows = 0;
+  int capacity = 0;
+  while (cursor.moveNext()) {
+    auto* batch = cursor.current()->as<RowVector>();
+    ASSERT_EQ(batch->childrenSize(), 1);
+    auto& column = batch->childAt(0);
+    ASSERT_EQ(column->encoding(), VectorEncoding::Simple::DICTIONARY);
+    numRows += batch->size();
+    capacity += column->wrapInfo()->capacity();
+  }
+  ASSERT_EQ(numRows, 2100);
+  // MemoryPool::preferredSize is capped at 1.5 times the requested size.
+  ASSERT_LE(capacity, 1.5 * numRows * sizeof(vector_size_t));
+}
+
 TEST_F(LocalPartitionTest, blockingOnLocalExchangeQueue) {
   auto localExchangeBufferSize = "1024";
   auto baseVector = vectorMaker_.flatVector<int64_t>(

@@ -261,13 +261,12 @@ LocalPartition::LocalPartition(
 
 namespace {
 std::vector<BufferPtr> allocateIndexBuffers(
-    int numBuffers,
-    vector_size_t size,
+    const std::vector<vector_size_t>& sizes,
     memory::MemoryPool* pool) {
   std::vector<BufferPtr> indexBuffers;
-  indexBuffers.reserve(numBuffers);
-  for (auto i = 0; i < numBuffers; i++) {
-    indexBuffers.emplace_back(allocateIndices(size, pool));
+  indexBuffers.reserve(sizes.size());
+  for (auto size : sizes) {
+    indexBuffers.push_back(allocateIndices(size, pool));
   }
   return indexBuffers;
 }
@@ -330,11 +329,15 @@ void LocalPartition::addInput(RowVectorPtr input) {
     return;
   }
 
-  auto numInput = input->size();
-  auto indexBuffers = allocateIndexBuffers(numPartitions_, numInput, pool());
+  const auto numInput = input->size();
+  std::vector<vector_size_t> maxIndex(numPartitions_, 0);
+  for (auto i = 0; i < numInput; ++i) {
+    ++maxIndex[partitions_[i]];
+  }
+  auto indexBuffers = allocateIndexBuffers(maxIndex, pool());
   auto rawIndices = getRawIndices(indexBuffers);
 
-  std::vector<vector_size_t> maxIndex(numPartitions_, 0);
+  std::fill(maxIndex.begin(), maxIndex.end(), 0);
   for (auto i = 0; i < numInput; ++i) {
     auto partition = partitions_[i];
     rawIndices[partition][maxIndex[partition]] = i;
@@ -347,7 +350,6 @@ void LocalPartition::addInput(RowVectorPtr input) {
       // Do not enqueue empty partitions.
       continue;
     }
-    indexBuffers[i]->setSize(partitionSize * sizeof(vector_size_t));
     auto partitionData =
         wrapChildren(input, partitionSize, std::move(indexBuffers[i]));
 
