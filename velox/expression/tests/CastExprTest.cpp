@@ -1265,10 +1265,9 @@ TEST_F(CastExprTest, truncateVsRound) {
       "tinyint", {1111111, 2, 3, 1000, -100101}, {71, 2, 3, -24, -5});
 
   setCastIntByTruncate(false);
-  EXPECT_THROW(
-      (testCast<int32_t, int8_t>(
-          "tinyint", {1111111, 2, 3, 1000, -100101}, {71, 2, 3, -24, -5})),
-      VeloxUserError);
+  testCast<int32_t, int8_t>("tinyint", {2, 3}, {2, 3});
+  testCast<int32_t, int8_t>(
+      "tinyint", {1111111, 1000, -100101}, {0, 0, 0}, true);
 }
 
 TEST_F(CastExprTest, nullInputs) {

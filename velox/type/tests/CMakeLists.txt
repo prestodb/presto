@@ -22,7 +22,8 @@ add_executable(
   SubfieldTest.cpp
   TimestampConversionTest.cpp
   VariantTest.cpp
-  TimestampTest.cpp)
+  TimestampTest.cpp
+  ConversionsTest.cpp)
 
 add_test(velox_type_test velox_type_test)
 
