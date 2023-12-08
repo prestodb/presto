@@ -62,7 +62,9 @@ function install_gcs-sdk-cpp {
 }
 
 function install_azure-storage-sdk-cpp {
-  github_checkout azure/azure-sdk-for-cpp azure-storage-blobs_12.8.0
+  vcpkg_commit_id=7a6f366cefd27210f6a8309aed10c31104436509
+  github_checkout azure/azure-sdk-for-cpp azure-storage-files-datalake_12.8.0
+  sed -i "s/set(VCPKG_COMMIT_STRING .*)/set(VCPKG_COMMIT_STRING $vcpkg_commit_id)/" cmake-modules/AzureVcpkg.cmake
 
   cd sdk/core/azure-core
   if ! grep -q "baseline" vcpkg.json; then
@@ -71,7 +73,7 @@ function install_azure-storage-sdk-cpp {
     if [[ "$openssl_version" == 1.1.1* ]]; then
       openssl_version="1.1.1n"
     fi
-    sed -i 's/"version-string"/"builtin-baseline": "dafef74af53669ef1cc9015f55e0ce809ead62aa","version-string"/' vcpkg.json
+    sed -i "s/\"version-string\"/\"builtin-baseline\": \"$vcpkg_commit_id\",\"version-string\"/" vcpkg.json
     sed -i "s/\"version-string\"/\"overrides\": [{ \"name\": \"openssl\", \"version-string\": \"$openssl_version\" }],\"version-string\"/" vcpkg.json
   fi
   cmake_install -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
@@ -84,9 +86,11 @@ function install_azure-storage-sdk-cpp {
   cd -
   # install azure-storage-blobs
   cd sdk/storage/azure-storage-blobs
-  if ! grep -q "baseline" vcpkg.json; then
-    sed -i 's/"version-semver"/"builtin-baseline": "dafef74af53669ef1cc9015f55e0ce809ead62aa","version-semver"/' vcpkg.json
-  fi
+  cmake_install -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+
+  cd -
+  # install azure-storage-files-datalake
+  cd sdk/storage/azure-storage-files-datalake
   cmake_install -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
 }
 
