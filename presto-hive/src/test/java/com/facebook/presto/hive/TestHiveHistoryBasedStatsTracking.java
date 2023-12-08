@@ -185,6 +185,28 @@ public class TestHiveHistoryBasedStatsTracking
         }
     }
 
+    @Test
+    public void testPartialAggStatisticsGroupByPartKey()
+    {
+        try {
+            // CBO Statistics
+            getQueryRunner().execute("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, comment, custkey, '2020-09-01' as ds FROM orders where orderkey < 2000 ");
+
+            // collect HBO Statistics
+            String queryGBPartitionKey = "SELECT ds FROM test_orders group by ds";
+
+            Plan plan = plan(queryGBPartitionKey, createSession("always"));
+
+            assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
+                    .where(node -> node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL).findFirst().isPresent());
+            executeAndTrackHistory(queryGBPartitionKey, createSession("always"));
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_orders");
+        }
+    }
+
     @Override
     protected void assertPlan(@Language("SQL") String query, PlanMatchPattern pattern)
     {
