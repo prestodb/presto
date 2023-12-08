@@ -44,7 +44,6 @@ endif()
 
 set(re2_LIBRARIES ${re2_BINARY_DIR}/libre2.a)
 set(re2_INCLUDE_DIRS ${re2_SOURCE_DIR})
-add_library(re2::re2 ALIAS re2)
 
 set(RE2_ROOT ${re2_BINARY_DIR})
 set(re2_ROOT ${re2_BINARY_DIR})
