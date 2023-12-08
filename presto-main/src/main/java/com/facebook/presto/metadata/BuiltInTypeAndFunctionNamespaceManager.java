@@ -104,6 +104,8 @@ import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximat
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountIfGaussianAggregation;
 import com.facebook.presto.operator.aggregation.noisyaggregation.SfmSketchMergeAggregation;
 import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleFunction;
+import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchAggregationFunction;
+import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchWithKAggregationFunction;
 import com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchAggregationFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
@@ -163,6 +165,7 @@ import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonOperators;
+import com.facebook.presto.operator.scalar.KllSketchFunctions;
 import com.facebook.presto.operator.scalar.MapCardinalityFunction;
 import com.facebook.presto.operator.scalar.MapDistinctFromOperator;
 import com.facebook.presto.operator.scalar.MapEntriesFunction;
@@ -248,6 +251,7 @@ import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.IpPrefixOperators;
+import com.facebook.presto.type.KllSketchOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.LongEnumOperators;
 import com.facebook.presto.type.MapParametricType;
@@ -311,6 +315,7 @@ import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.KdbTreeType.KDB_TREE;
+import static com.facebook.presto.common.type.KllSketchParametricType.KLL_SKETCH;
 import static com.facebook.presto.common.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -650,6 +655,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addParametricType(FUNCTION);
         addParametricType(QDIGEST);
         addParametricType(TDIGEST);
+        addParametricType(KLL_SKETCH);
         addParametricType(BIGINT_ENUM);
         addParametricType(VARCHAR_ENUM);
     }
@@ -973,7 +979,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(DISTINCT_TYPE_HASH_CODE_OPERATOR, DISTINCT_TYPE_XX_HASH_64_OPERATOR)
                 .function(DISTINCT_TYPE_INDETERMINATE_OPERATOR)
                 .codegenScalars(MapFilterFunction.class)
-                .aggregate(ReservoirSampleFunction.class);
+                .aggregate(ReservoirSampleFunction.class)
+                .aggregate(KllSketchAggregationFunction.class)
+                .aggregate(KllSketchWithKAggregationFunction.class)
+                .scalars(KllSketchFunctions.class)
+                .scalars(KllSketchOperators.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:
