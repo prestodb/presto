@@ -15,12 +15,10 @@
  */
 
 #include <folly/init/Init.h>
+#include <gtest/gtest.h>
 
-#include "gtest/gtest.h"
-#include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/MinioServer.h"
-#include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
