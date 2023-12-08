@@ -141,14 +141,16 @@ class TableScanTest : public virtual HiveConnectorTestBase {
                      .build();
     auto outputType =
         ROW({"pkey", "c0", "c1"}, {partitionType, BIGINT(), DOUBLE()});
-    auto tableHandle = makeTableHandle();
     ColumnHandleMap assignments = {
         {"pkey", partitionKey("pkey", partitionType)},
         {"c0", regularColumn("c0", BIGINT())},
         {"c1", regularColumn("c1", DOUBLE())}};
 
     auto op = PlanBuilder()
-                  .tableScan(outputType, tableHandle, assignments)
+                  .startTableScan()
+                  .outputType(outputType)
+                  .assignments(assignments)
+                  .endTableScan()
                   .planNode();
 
     std::string partitionValueStr =
@@ -158,7 +160,10 @@ class TableScanTest : public virtual HiveConnectorTestBase {
 
     outputType = ROW({"c0", "pkey", "c1"}, {BIGINT(), partitionType, DOUBLE()});
     op = PlanBuilder()
-             .tableScan(outputType, tableHandle, assignments)
+             .startTableScan()
+             .outputType(outputType)
+             .assignments(assignments)
+             .endTableScan()
              .planNode();
     assertQuery(
         op,
@@ -166,7 +171,10 @@ class TableScanTest : public virtual HiveConnectorTestBase {
         fmt::format("SELECT c0, {}, c1 FROM tmp", partitionValueStr));
     outputType = ROW({"c0", "c1", "pkey"}, {BIGINT(), DOUBLE(), partitionType});
     op = PlanBuilder()
-             .tableScan(outputType, tableHandle, assignments)
+             .startTableScan()
+             .outputType(outputType)
+             .assignments(assignments)
+             .endTableScan()
              .planNode();
     assertQuery(
         op,
@@ -177,7 +185,10 @@ class TableScanTest : public virtual HiveConnectorTestBase {
     assignments = {{"pkey", partitionKey("pkey", partitionType)}};
     outputType = ROW({"pkey"}, {partitionType});
     op = PlanBuilder()
-             .tableScan(outputType, tableHandle, assignments)
+             .startTableScan()
+             .outputType(outputType)
+             .assignments(assignments)
+             .endTableScan()
              .planNode();
     assertQuery(
         op, split, fmt::format("SELECT {} FROM tmp", partitionValueStr));
@@ -251,19 +262,33 @@ TEST_F(TableScanTest, columnAliases) {
   std::unordered_map<std::string, std::string> aliases = {{"a", "c0"}};
   auto outputType = ROW({"a"}, {BIGINT()});
   auto op = PlanBuilder(pool_.get())
-                .tableScan(tableName, outputType, aliases)
+                .startTableScan()
+                .tableName(tableName)
+                .outputType(outputType)
+                .columnAliases(aliases)
+                .endTableScan()
                 .planNode();
   assertQuery(op, {filePath}, "SELECT c0 FROM tmp");
 
   // Use aliased column in a range filter.
   op = PlanBuilder(pool_.get())
-           .tableScan(tableName, outputType, aliases, {"a < 10"})
+           .startTableScan()
+           .tableName(tableName)
+           .outputType(outputType)
+           .columnAliases(aliases)
+           .subfieldFilter("a < 10")
+           .endTableScan()
            .planNode();
   assertQuery(op, {filePath}, "SELECT c0 FROM tmp WHERE c0 <= 10");
 
   // Use aliased column in remaining filter.
   op = PlanBuilder(pool_.get())
-           .tableScan(tableName, outputType, aliases, {}, "a % 2 = 1")
+           .startTableScan()
+           .tableName(tableName)
+           .outputType(outputType)
+           .columnAliases(aliases)
+           .remainingFilter("a % 2 = 1")
+           .endTableScan()
            .planNode();
   assertQuery(op, {filePath}, "SELECT c0 FROM tmp WHERE c0 % 2 = 1");
 }
@@ -284,7 +309,10 @@ TEST_F(TableScanTest, partitionKeyAlias) {
 
   auto outputType = ROW({"a", "ds_alias"}, {BIGINT(), VARCHAR()});
   auto op = PlanBuilder()
-                .tableScan(outputType, makeTableHandle(), assignments)
+                .startTableScan()
+                .outputType(outputType)
+                .assignments(assignments)
+                .endTableScan()
                 .planNode();
 
   assertQuery(op, split, "SELECT c0, '2021-12-02' FROM tmp");
@@ -338,20 +366,20 @@ TEST_F(TableScanTest, timestamp) {
   assertQuery(op, {filePath}, "SELECT c0, c1 FROM tmp");
 
   op = PlanBuilder(pool_.get())
-           .tableScan(
-               ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()}),
-               {"c1 is null"},
-               "",
-               dataColumns)
+           .startTableScan()
+           .outputType(ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()}))
+           .subfieldFilter("c1 is null")
+           .dataColumns(dataColumns)
+           .endTableScan()
            .planNode();
   assertQuery(op, {filePath}, "SELECT c0, c1 FROM tmp WHERE c1 is null");
 
   op = PlanBuilder(pool_.get())
-           .tableScan(
-               ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()}),
-               {"c1 < '1970-01-01 01:30:00'::TIMESTAMP"},
-               "",
-               dataColumns)
+           .startTableScan()
+           .outputType(ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()}))
+           .subfieldFilter("c1 < '1970-01-01 01:30:00'::TIMESTAMP")
+           .dataColumns(dataColumns)
+           .endTableScan()
            .planNode();
   assertQuery(
       op,
@@ -359,21 +387,28 @@ TEST_F(TableScanTest, timestamp) {
       "SELECT c0, c1 FROM tmp WHERE c1 < timestamp '1970-01-01 01:30:00'");
 
   op = PlanBuilder(pool_.get())
-           .tableScan(ROW({"c0"}, {BIGINT()}), {}, "", dataColumns)
+           .startTableScan()
+           .outputType(ROW({"c0"}, {BIGINT()}))
+           .dataColumns(dataColumns)
+           .endTableScan()
            .planNode();
   assertQuery(op, {filePath}, "SELECT c0 FROM tmp");
 
   op = PlanBuilder(pool_.get())
-           .tableScan(ROW({"c0"}, {BIGINT()}), {"c1 is null"}, "", dataColumns)
+           .startTableScan()
+           .outputType(ROW({"c0"}, {BIGINT()}))
+           .subfieldFilter("c1 is null")
+           .dataColumns(dataColumns)
+           .endTableScan()
            .planNode();
   assertQuery(op, {filePath}, "SELECT c0 FROM tmp WHERE c1 is null");
 
   op = PlanBuilder(pool_.get())
-           .tableScan(
-               ROW({"c0"}, {BIGINT()}),
-               {"c1 < timestamp'1970-01-01 01:30:00'"},
-               "",
-               dataColumns)
+           .startTableScan()
+           .outputType(ROW({"c0"}, {BIGINT()}))
+           .subfieldFilter("c1 < timestamp'1970-01-01 01:30:00'")
+           .dataColumns(dataColumns)
+           .endTableScan()
            .planNode();
   assertQuery(
       op,
@@ -416,11 +451,11 @@ DEBUG_ONLY_TEST_F(TableScanTest, timeLimitInGetOutput) {
   auto dataColumns = ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()});
   const size_t tableScanGetOutputTimeLimitMs{100};
   auto plan = PlanBuilder(pool_.get())
-                  .tableScan(
-                      ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()}),
-                      {"c1 is null"},
-                      "",
-                      dataColumns)
+                  .startTableScan()
+                  .outputType(ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()}))
+                  .subfieldFilter("c1 is null")
+                  .dataColumns(dataColumns)
+                  .endTableScan()
                   .planNode();
 
   // Ensure the getOutput is long enough to trigger the maxGetOutputTimeMs in
@@ -473,7 +508,10 @@ TEST_F(TableScanTest, subfieldPruningRowType) {
       columnType,
       std::move(requiredSubfields));
   auto op = PlanBuilder()
-                .tableScan(rowType, makeTableHandle(), assignments)
+                .startTableScan()
+                .outputType(rowType)
+                .assignments(assignments)
+                .endTableScan()
                 .planNode();
   auto split = makeHiveConnectorSplit(filePath->path);
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
@@ -526,11 +564,11 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterSubfieldsMissing) {
       std::move(requiredSubfields));
 
   auto op = PlanBuilder()
-                .tableScan(
-                    rowType,
-                    makeTableHandle(
-                        SubfieldFilters{}, parseExpr("e.a is null", rowType)),
-                    assignments)
+                .startTableScan()
+                .outputType(rowType)
+                .remainingFilter("e.a is null")
+                .assignments(assignments)
+                .endTableScan()
                 .planNode();
   auto split = makeHiveConnectorSplit(filePath->path);
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
@@ -558,12 +596,12 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterRootFieldMissing) {
   assignments["d"] = std::make_shared<HiveColumnHandle>(
       "d", HiveColumnHandle::ColumnType::kRegular, BIGINT(), BIGINT());
   auto op = PlanBuilder()
-                .tableScan(
-                    ROW({{"d", BIGINT()}}),
-                    makeTableHandle(
-                        SubfieldFilters{},
-                        parseExpr("e.a is null or e.b is null", rowType)),
-                    assignments)
+                .startTableScan()
+                .outputType(ROW({{"d", BIGINT()}}))
+                .remainingFilter("e.a is null or e.b is null")
+                .dataColumns(rowType)
+                .assignments(assignments)
+                .endTableScan()
                 .planNode();
   auto split = makeHiveConnectorSplit(filePath->path);
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
@@ -612,20 +650,22 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterStruct) {
             structType,
             std::move(subfields));
       }
-      core::TypedExprPtr remainingFilter;
+      std::string remainingFilter;
       if (filterColumn == kWholeColumn) {
-        remainingFilter = parseExpr(
-            "coalesce(c, cast(null AS ROW(a BIGINT, b BIGINT))).a % 2 == 0",
-            rowType);
+        remainingFilter =
+            "coalesce(c, cast(null AS ROW(a BIGINT, b BIGINT))).a % 2 == 0";
       } else {
-        remainingFilter = parseExpr("c.a % 2 == 0", rowType);
+        remainingFilter = "c.a % 2 == 0";
       }
       auto op =
           PlanBuilder()
-              .tableScan(
-                  outputColumn == kNoOutput ? ROW({"d"}, {BIGINT()}) : rowType,
-                  makeTableHandle(SubfieldFilters{}, remainingFilter),
-                  assignments)
+              .startTableScan()
+              .outputType(
+                  outputColumn == kNoOutput ? ROW({"d"}, {BIGINT()}) : rowType)
+              .remainingFilter(remainingFilter)
+              .dataColumns(rowType)
+              .assignments(assignments)
+              .endTableScan()
               .planNode();
       auto split = makeHiveConnectorSplit(filePath->path);
       auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
@@ -696,19 +736,22 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterMap) {
             mapType,
             std::move(subfields));
       }
-      core::TypedExprPtr remainingFilter;
+      std::string remainingFilter;
       if (filterColumn == kWholeColumn) {
-        remainingFilter = parseExpr(
-            "coalesce(b, cast(null AS MAP(BIGINT, BIGINT)))[0] == 0", rowType);
+        remainingFilter =
+            "coalesce(b, cast(null AS MAP(BIGINT, BIGINT)))[0] == 0";
       } else {
-        remainingFilter = parseExpr("b[0] == 0", rowType);
+        remainingFilter = "b[0] == 0";
       }
       auto op =
           PlanBuilder()
-              .tableScan(
-                  outputColumn == kNoOutput ? ROW({"a"}, {BIGINT()}) : rowType,
-                  makeTableHandle(SubfieldFilters{}, remainingFilter),
-                  assignments)
+              .startTableScan()
+              .outputType(
+                  outputColumn == kNoOutput ? ROW({"a"}, {BIGINT()}) : rowType)
+              .remainingFilter(remainingFilter)
+              .dataColumns(rowType)
+              .assignments(assignments)
+              .endTableScan()
               .planNode();
       auto split = makeHiveConnectorSplit(filePath->path);
       auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
@@ -786,7 +829,10 @@ TEST_F(TableScanTest, subfieldPruningMapType) {
       mapType,
       std::move(requiredSubfields));
   auto op = PlanBuilder()
-                .tableScan(rowType, makeTableHandle(), assignments)
+                .startTableScan()
+                .outputType(rowType)
+                .assignments(assignments)
+                .endTableScan()
                 .planNode();
   auto split = makeHiveConnectorSplit(filePath->path);
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
@@ -856,7 +902,10 @@ TEST_F(TableScanTest, subfieldPruningArrayType) {
       arrayType,
       std::move(requiredSubfields));
   auto op = PlanBuilder()
-                .tableScan(rowType, makeTableHandle(), assignments)
+                .startTableScan()
+                .outputType(rowType)
+                .assignments(assignments)
+                .endTableScan()
                 .planNode();
   auto split = makeHiveConnectorSplit(filePath->path);
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
@@ -928,31 +977,50 @@ TEST_F(TableScanTest, missingColumns) {
   auto outputTypeC0 = ROW({"c0"}, {BIGINT()});
 
   auto op = PlanBuilder(pool_.get())
-                .tableScan(outputType, {}, "", dataColumns)
+                .startTableScan()
+                .outputType(outputType)
+                .dataColumns(dataColumns)
+                .endTableScan()
                 .planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp");
 
   // Use missing column in a tuple domain filter.
   op = PlanBuilder(pool_.get())
-           .tableScan(outputType, {"c1 <= 100.1"}, "", dataColumns)
+           .startTableScan()
+           .outputType(outputType)
+           .subfieldFilter("c1 <= 100.1")
+           .dataColumns(dataColumns)
+           .endTableScan()
            .planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp WHERE c1 <= 100.1");
 
   // Use missing column in a tuple domain filter. Select *.
   op = PlanBuilder(pool_.get())
-           .tableScan(outputType, {"c1 <= 2000.1"}, "", dataColumns)
+           .startTableScan()
+           .outputType(outputType)
+           .subfieldFilter("c1 <= 2000.1")
+           .dataColumns(dataColumns)
+           .endTableScan()
            .planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp WHERE c1 <= 2000.1");
 
   // Use missing column in a tuple domain filter. Select c0.
   op = PlanBuilder(pool_.get())
-           .tableScan(outputTypeC0, {"c1 <= 3000.1"}, "", dataColumns)
+           .startTableScan()
+           .outputType(outputTypeC0)
+           .subfieldFilter("c1 <= 3000.1")
+           .dataColumns(dataColumns)
+           .endTableScan()
            .planNode();
   assertQuery(op, filePaths, "SELECT c0 FROM tmp WHERE c1 <= 3000.1");
 
   // Use missing column in a tuple domain filter. Select count(*).
   op = PlanBuilder(pool_.get())
-           .tableScan(ROW({}, {}), {"c1 <= 4000.1"}, "", dataColumns)
+           .startTableScan()
+           .outputType(ROW({}, {}))
+           .subfieldFilter("c1 <= 4000.1")
+           .dataColumns(dataColumns)
+           .endTableScan()
            .singleAggregation({}, {"count(1)"})
            .planNode();
   assertQuery(op, filePaths, "SELECT count(*) FROM tmp WHERE c1 <= 4000.1");
@@ -965,14 +1033,22 @@ TEST_F(TableScanTest, missingColumns) {
   ColumnHandleMap assignments;
   assignments["c0"] = regularColumn("c0", BIGINT());
   op = PlanBuilder(pool_.get())
-           .tableScan(outputTypeC0, tableHandle, assignments)
+           .startTableScan()
+           .outputType(outputTypeC0)
+           .tableHandle(tableHandle)
+           .assignments(assignments)
+           .endTableScan()
            .planNode();
   assertQuery(
       op, filePaths, "SELECT c0 FROM tmp WHERE c1 is null or c1 <= 1050.0");
 
   // Use missing column 'c1' in 'is null' filter, while not selecting anything.
   op = PlanBuilder(pool_.get())
-           .tableScan(ROW({}, {}), {"c1 is null"}, "", dataColumns)
+           .startTableScan()
+           .outputType(ROW({}, {}))
+           .subfieldFilter("c1 is null")
+           .dataColumns(dataColumns)
+           .endTableScan()
            .singleAggregation({}, {"count(1)"})
            .planNode();
   assertQuery(op, filePaths, "SELECT count(*) FROM tmp WHERE c1 is null");
@@ -984,10 +1060,12 @@ TEST_F(TableScanTest, missingColumns) {
   assignments["a"] = regularColumn("c0", BIGINT());
   assignments["b"] = regularColumn("c1", DOUBLE());
 
-  tableHandle = makeTableHandle({}, nullptr, "hive_table", dataColumns);
-
   op = PlanBuilder(pool_.get())
-           .tableScan(outputType, tableHandle, assignments)
+           .startTableScan()
+           .outputType(outputType)
+           .dataColumns(dataColumns)
+           .assignments(assignments)
+           .endTableScan()
            .planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp");
 
@@ -1016,7 +1094,10 @@ TEST_F(TableScanTest, constDictLazy) {
   // Orchestrate a Const(Dict(Lazy)) by using remaining filter that passes on
   // exactly one row.
   auto op = PlanBuilder()
-                .tableScan(rowType, {}, "c0 % 1000 = 5")
+                .startTableScan()
+                .outputType(rowType)
+                .remainingFilter("c0 % 1000 = 5")
+                .endTableScan()
                 .project({"c1 + 10"})
                 .planNode();
 
@@ -1024,14 +1105,20 @@ TEST_F(TableScanTest, constDictLazy) {
 
   // Orchestrate a Const(Dict(Lazy)) for a complex type (map)
   op = PlanBuilder()
-           .tableScan(rowType, {}, "c0 = 0")
+           .startTableScan()
+           .outputType(rowType)
+           .remainingFilter("c0 = 0")
+           .endTableScan()
            .project({"cardinality(c2)"})
            .planNode();
 
   assertQuery(op, {filePath}, "SELECT 0 FROM tmp WHERE c0 = 5");
 
   op = PlanBuilder()
-           .tableScan(rowType, {}, "c0 = 2")
+           .startTableScan()
+           .outputType(rowType)
+           .remainingFilter("c0 = 2")
+           .endTableScan()
            .project({"cardinality(c2)"})
            .planNode();
 
@@ -1562,7 +1649,11 @@ TEST_F(TableScanTest, statsBasedSkipping) {
         asRowType(rowVector->type()));
     return TableScanTest::assertQuery(
         PlanBuilder()
-            .tableScan(ROW({"c1"}, {INTEGER()}), tableHandle, assignments)
+            .startTableScan()
+            .outputType(ROW({"c1"}, {INTEGER()}))
+            .tableHandle(tableHandle)
+            .assignments(assignments)
+            .endTableScan()
             .planNode(),
         filePaths,
         query);
@@ -2052,10 +2143,11 @@ TEST_F(TableScanTest, filterPushdown) {
 
   auto task = assertQuery(
       PlanBuilder()
-          .tableScan(
-              ROW({"c1", "c3", "c0"}, {BIGINT(), BOOLEAN(), TINYINT()}),
-              tableHandle,
-              assignments)
+          .startTableScan()
+          .outputType(ROW({"c1", "c3", "c0"}, {BIGINT(), BOOLEAN(), TINYINT()}))
+          .tableHandle(tableHandle)
+          .assignments(assignments)
+          .endTableScan()
           .planNode(),
       filePaths,
       "SELECT c1, c3, c0 FROM tmp WHERE (c1 >= 0 OR c1 IS NULL) AND c3");
@@ -2070,7 +2162,11 @@ TEST_F(TableScanTest, filterPushdown) {
   assignments["c0"] = regularColumn("c0", TINYINT());
   assertQuery(
       PlanBuilder()
-          .tableScan(ROW({"c0"}, {TINYINT()}), tableHandle, assignments)
+          .startTableScan()
+          .outputType(ROW({"c0"}, {TINYINT()}))
+          .tableHandle(tableHandle)
+          .assignments(assignments)
+          .endTableScan()
           .planNode(),
       filePaths,
       "SELECT c0 FROM tmp WHERE (c1 >= 0 OR c1 IS NULL) AND c3");
@@ -2079,7 +2175,11 @@ TEST_F(TableScanTest, filterPushdown) {
   assignments.clear();
   assertQuery(
       PlanBuilder()
-          .tableScan(ROW({}, {}), tableHandle, assignments)
+          .startTableScan()
+          .outputType(ROW({}, {}))
+          .tableHandle(tableHandle)
+          .assignments(assignments)
+          .endTableScan()
           .singleAggregation({}, {"sum(1)"})
           .planNode(),
       filePaths,
@@ -2091,7 +2191,11 @@ TEST_F(TableScanTest, filterPushdown) {
   tableHandle = makeTableHandle(std::move(subfieldFilters));
   assertQuery(
       PlanBuilder()
-          .tableScan(ROW({}, {}), tableHandle, assignments)
+          .startTableScan()
+          .outputType(ROW({}, {}))
+          .tableHandle(tableHandle)
+          .assignments(assignments)
+          .endTableScan()
           .singleAggregation({}, {"sum(1)"})
           .planNode(),
       filePaths,
@@ -2110,27 +2214,36 @@ TEST_F(TableScanTest, path) {
   auto assignments = allRegularColumns(rowType);
   assignments[kPath] = synthesizedColumn(kPath, VARCHAR());
 
-  auto tableHandle = makeTableHandle();
-
   auto pathValue = fmt::format("file:{}", filePath->path);
   auto typeWithPath = ROW({kPath, "a"}, {VARCHAR(), BIGINT()});
   auto op = PlanBuilder()
-                .tableScan(typeWithPath, tableHandle, assignments)
+                .startTableScan()
+                .outputType(typeWithPath)
+                .assignments(assignments)
+                .endTableScan()
                 .planNode();
   assertQuery(
       op, {filePath}, fmt::format("SELECT '{}', * FROM tmp", pathValue));
 
   // use $path in a filter, but don't project it out
-  tableHandle = makeTableHandle(
+  auto tableHandle = makeTableHandle(
       SubfieldFilters{},
       parseExpr(fmt::format("\"{}\" = '{}'", kPath, pathValue), typeWithPath));
-
-  op = PlanBuilder().tableScan(rowType, tableHandle, assignments).planNode();
+  op = PlanBuilder()
+           .startTableScan()
+           .outputType(rowType)
+           .tableHandle(tableHandle)
+           .assignments(assignments)
+           .endTableScan()
+           .planNode();
   assertQuery(op, {filePath}, "SELECT * FROM tmp");
 
   // use $path in a filter and project it out
   op = PlanBuilder()
-           .tableScan(typeWithPath, tableHandle, assignments)
+           .startTableScan()
+           .outputType(typeWithPath)
+           .assignments(assignments)
+           .endTableScan()
            .planNode();
   assertQuery(
       op, {filePath}, fmt::format("SELECT '{}', * FROM tmp", pathValue));
@@ -2175,9 +2288,11 @@ TEST_F(TableScanTest, bucket) {
   // Query that spans on all buckets
   auto typeWithBucket =
       ROW({kBucket, "c0", "c1"}, {INTEGER(), INTEGER(), BIGINT()});
-  auto tableHandle = makeTableHandle();
   auto op = PlanBuilder()
-                .tableScan(typeWithBucket, tableHandle, assignments)
+                .startTableScan()
+                .outputType(typeWithBucket)
+                .assignments(assignments)
+                .endTableScan()
                 .planNode();
   OperatorTestBase::assertQuery(op, splits, "SELECT c0, * FROM tmp");
 
@@ -2186,12 +2301,14 @@ TEST_F(TableScanTest, bucket) {
     auto hsplit = HiveConnectorSplitBuilder(filePaths[i]->path)
                       .tableBucketNumber(bucketValue)
                       .build();
-    tableHandle = makeTableHandle();
 
     // Filter on bucket and filter on first column should produce
     // identical result for each split
     op = PlanBuilder()
-             .tableScan(typeWithBucket, tableHandle, assignments)
+             .startTableScan()
+             .outputType(typeWithBucket)
+             .assignments(assignments)
+             .endTableScan()
              .planNode();
     assertQuery(
         op,
@@ -2204,7 +2321,12 @@ TEST_F(TableScanTest, bucket) {
     hsplit = HiveConnectorSplitBuilder(filePaths[i]->path)
                  .tableBucketNumber(bucketValue)
                  .build();
-    op = PlanBuilder().tableScan(rowTypes, tableHandle, assignments).planNode();
+    op = PlanBuilder()
+             .startTableScan()
+             .outputType(rowTypes)
+             .assignments(assignments)
+             .endTableScan()
+             .planNode();
     assertQuery(
         op,
         hsplit,
@@ -2235,28 +2357,28 @@ TEST_F(TableScanTest, integerNotEqualFilter) {
 
   assertQuery(
       PlanBuilder(pool_.get())
-          .tableScan(rowType, {"c0 != 0::TINYINT"}, {})
+          .tableScan(rowType, {"c0 != 0::TINYINT"})
           .planNode(),
       {filePath},
       "SELECT * FROM tmp WHERE c0 != 0");
 
   assertQuery(
       PlanBuilder(pool_.get())
-          .tableScan(rowType, {"c1 != 1::SMALLINT"}, {})
+          .tableScan(rowType, {"c1 != 1::SMALLINT"})
           .planNode(),
       {filePath},
       "SELECT * FROM tmp WHERE c1 != 1");
 
   assertQuery(
       PlanBuilder(pool_.get())
-          .tableScan(rowType, {"c2 != (-2)::INTEGER"}, {})
+          .tableScan(rowType, {"c2 != (-2)::INTEGER"})
           .planNode(),
       {filePath},
       "SELECT * FROM tmp WHERE c2 != -2");
 
   assertQuery(
       PlanBuilder(pool_.get())
-          .tableScan(rowType, {"c3 != 3::BIGINT"}, {})
+          .tableScan(rowType, {"c3 != 3::BIGINT"})
           .planNode(),
       {filePath},
       "SELECT * FROM tmp WHERE c3 != 3");
@@ -2269,14 +2391,13 @@ TEST_F(TableScanTest, floatingPointNotEqualFilter) {
   createDuckDbTable(vectors);
 
   auto outputType = ROW({"c4"}, {DOUBLE()});
-  auto op = PlanBuilder(pool_.get())
-                .tableScan(outputType, {"c4 != 0.0"}, {})
-                .planNode();
+  auto op =
+      PlanBuilder(pool_.get()).tableScan(outputType, {"c4 != 0.0"}).planNode();
   assertQuery(op, {filePath}, "SELECT c4 FROM tmp WHERE c4 != 0.0");
 
   outputType = ROW({"c3"}, {REAL()});
   op = PlanBuilder(pool_.get())
-           .tableScan(outputType, {"c3 != cast(0.0 as REAL)"}, {})
+           .tableScan(outputType, {"c3 != cast(0.0 as REAL)"})
            .planNode();
   assertQuery(
       op, {filePath}, "SELECT c3 FROM tmp WHERE c3 != cast(0.0 as REAL)");
@@ -2309,13 +2430,13 @@ TEST_F(TableScanTest, stringNotEqualFilter) {
 
   assertQuery(
       PlanBuilder(pool_.get())
-          .tableScan(rowType, {"c0 != 'banana'"}, {})
+          .tableScan(rowType, {"c0 != 'banana'"})
           .planNode(),
       {filePath},
       "SELECT * FROM tmp WHERE c0 != 'banana'");
 
   assertQuery(
-      PlanBuilder(pool_.get()).tableScan(rowType, {"c1 != ''"}, {}).planNode(),
+      PlanBuilder(pool_.get()).tableScan(rowType, {"c1 != ''"}).planNode(),
       {filePath},
       "SELECT * FROM tmp WHERE c1 != ''");
 }
@@ -2396,13 +2517,23 @@ TEST_F(TableScanTest, remainingFilter) {
   createDuckDbTable(vectors);
 
   assertQuery(
-      PlanBuilder(pool_.get()).tableScan(rowType, {}, "c1 > c0").planNode(),
+      PlanBuilder(pool_.get())
+          .startTableScan()
+          .outputType(rowType)
+          .remainingFilter("c1 > c0")
+          .endTableScan()
+          .planNode(),
       filePaths,
       "SELECT * FROM tmp WHERE c1 > c0");
 
   // filter that never passes
   assertQuery(
-      PlanBuilder(pool_.get()).tableScan(rowType, {}, "c1 % 5 = 6").planNode(),
+      PlanBuilder(pool_.get())
+          .startTableScan()
+          .outputType(rowType)
+          .remainingFilter("c1 % 5 = 6")
+          .endTableScan()
+          .planNode(),
       filePaths,
       "SELECT * FROM tmp WHERE c1 % 5 = 6");
 
@@ -2416,11 +2547,15 @@ TEST_F(TableScanTest, remainingFilter) {
 
   // Remaining filter uses columns that are not used otherwise.
   ColumnHandleMap assignments = {{"c2", regularColumn("c2", DOUBLE())}};
-  auto tableHandle =
-      makeTableHandle(SubfieldFilters{}, parseExpr("c1 > c0", rowType));
+
   assertQuery(
       PlanBuilder(pool_.get())
-          .tableScan(ROW({"c2"}, {DOUBLE()}), tableHandle, assignments)
+          .startTableScan()
+          .outputType(ROW({"c2"}, {DOUBLE()}))
+          .remainingFilter("c1 > c0")
+          .dataColumns(rowType)
+          .assignments(assignments)
+          .endTableScan()
           .planNode(),
       filePaths,
       "SELECT c2 FROM tmp WHERE c1 > c0");
@@ -2430,14 +2565,15 @@ TEST_F(TableScanTest, remainingFilter) {
   assignments = {
       {"c1", regularColumn("c1", INTEGER())},
       {"c2", regularColumn("c2", DOUBLE())}};
-  tableHandle =
-      makeTableHandle(SubfieldFilters{}, parseExpr("c1 > c0", rowType));
+
   assertQuery(
       PlanBuilder(pool_.get())
-          .tableScan(
-              ROW({"c1", "c2"}, {INTEGER(), DOUBLE()}),
-              tableHandle,
-              assignments)
+          .startTableScan()
+          .outputType(ROW({"c1", "c2"}, {INTEGER(), DOUBLE()}))
+          .remainingFilter("c1 > c0")
+          .dataColumns(rowType)
+          .assignments(assignments)
+          .endTableScan()
           .planNode(),
       filePaths,
       "SELECT c1, c2 FROM tmp WHERE c1 > c0");
@@ -2629,7 +2765,10 @@ TEST_F(TableScanTest, aggregationPushdown) {
   // Add remaining filter to scan to expose LazyVectors wrapped in Dictionary to
   // aggregation.
   op = PlanBuilder()
-           .tableScan(rowType_, {}, "length(c5) % 2 = 0")
+           .startTableScan()
+           .outputType(rowType_)
+           .remainingFilter("length(c5) % 2 = 0")
+           .endTableScan()
            .singleAggregation({"c5"}, {"max(c0)"})
            .planNode();
   task = assertQuery(
@@ -2756,12 +2895,16 @@ TEST_F(TableScanTest, interleaveLazyEager) {
   }
   auto eagerFile = TempFilePath::create();
   writeToFile(eagerFile->path, rowsWithNulls);
-  auto tableHandle = makeTableHandle(
-      SubfieldFiltersBuilder().add("c0.c0", isNotNull()).build());
+
   ColumnHandleMap assignments = {{"c0", regularColumn("c0", column->type())}};
   CursorParameters params;
-  params.planNode =
-      PlanBuilder().tableScan(rowType, tableHandle, assignments).planNode();
+  params.planNode = PlanBuilder()
+                        .startTableScan()
+                        .outputType(rowType)
+                        .subfieldFilter("c0.c0 is not null")
+                        .assignments(assignments)
+                        .endTableScan()
+                        .planNode();
   TaskCursor cursor(params);
   cursor.task()->addSplit("0", makeHiveSplit(lazyFile->path));
   cursor.task()->addSplit("0", makeHiveSplit(eagerFile->path));
@@ -3182,7 +3325,10 @@ TEST_F(TableScanTest, readMissingFieldsInMap) {
       ROW({"m1", "a2"}, {{MAP(BIGINT(), structType), ARRAY(structType)}});
 
   auto op = PlanBuilder()
-                .tableScan(rowType, {}, "", rowType)
+                .startTableScan()
+                .outputType(rowType)
+                .dataColumns(rowType)
+                .endTableScan()
                 .project(
                     {"m1[0].a",
                      "m1[1].b",
@@ -3290,7 +3436,10 @@ TEST_F(TableScanTest, readMissingFieldsInMap) {
   rowType = ROW({"i1", "a2"}, {{INTEGER(), ARRAY(structType)}});
 
   op = PlanBuilder()
-           .tableScan(rowType, {}, "", rowType)
+           .startTableScan()
+           .outputType(rowType)
+           .dataColumns(rowType)
+           .endTableScan()
            .project({"i1"})
            .planNode();
 
@@ -3395,7 +3544,10 @@ TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
 
   auto op =
       PlanBuilder()
-          .tableScan(rowType, {}, "", rowType)
+          .startTableScan()
+          .outputType(rowType)
+          .dataColumns(rowType)
+          .endTableScan()
           .project({"st1.a", "st1.b", "st1.c", "st1.d", "i2", "d3", "b4", "c4"})
           .planNode();
 
@@ -3527,7 +3679,10 @@ TEST_F(TableScanTest, varbinaryPartitionKey) {
 
   auto outputType = ROW({"a", "ds_alias"}, {BIGINT(), VARBINARY()});
   auto op = PlanBuilder()
-                .tableScan(outputType, makeTableHandle(), assignments)
+                .startTableScan()
+                .outputType(outputType)
+                .assignments(assignments)
+                .endTableScan()
                 .planNode();
 
   assertQuery(op, split, "SELECT c0, '2021-12-02' FROM tmp");

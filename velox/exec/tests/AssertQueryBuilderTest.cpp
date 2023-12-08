@@ -86,10 +86,11 @@ TEST_F(AssertQueryBuilderTest, hiveSplits) {
 
   AssertQueryBuilder(
       PlanBuilder()
-          .tableScan(
-              ROW({"c0", "ds"}, {INTEGER(), VARCHAR()}),
-              makeTableHandle(),
-              assignments)
+          .startTableScan()
+          .outputType(ROW({"c0", "ds"}, {INTEGER(), VARCHAR()}))
+          .tableHandle(makeTableHandle())
+          .assignments(assignments)
+          .endTableScan()
           .planNode(),
       duckDbQueryRunner_)
       .split(HiveConnectorSplitBuilder(file->path)

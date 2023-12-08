@@ -108,19 +108,6 @@ PlanBuilder& PlanBuilder::tableScan(
       .endTableScan();
 }
 
-PlanBuilder& PlanBuilder::tableScan(
-    const RowTypePtr& outputType,
-    const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<connector::ColumnHandle>>& assignments) {
-  return TableScanBuilder(*this)
-      .outputType(outputType)
-      .tableHandle(tableHandle)
-      .assignments(assignments)
-      .endTableScan();
-}
-
 PlanBuilder& PlanBuilder::tpchTableScan(
     tpch::Table table,
     std::vector<std::string>&& columnNames,

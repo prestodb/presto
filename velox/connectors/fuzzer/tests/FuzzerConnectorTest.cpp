@@ -31,8 +31,12 @@ TEST_F(FuzzerConnectorTest, singleSplit) {
   const size_t numRows = 100;
   auto type = ROW({BIGINT(), DOUBLE(), VARCHAR()});
 
-  auto plan =
-      PlanBuilder().tableScan(type, makeFuzzerTableHandle(), {}).planNode();
+  auto plan = PlanBuilder()
+                  .startTableScan()
+                  .outputType(type)
+                  .tableHandle(makeFuzzerTableHandle())
+                  .endTableScan()
+                  .planNode();
 
   exec::test::AssertQueryBuilder(plan)
       .split(makeFuzzerSplit(numRows))
@@ -43,8 +47,12 @@ TEST_F(FuzzerConnectorTest, floatingPoints) {
   const size_t numRows = 1000;
   auto type = ROW({REAL(), DOUBLE()});
 
-  auto plan =
-      PlanBuilder().tableScan(type, makeFuzzerTableHandle(), {}).planNode();
+  auto plan = PlanBuilder()
+                  .startTableScan()
+                  .outputType(type)
+                  .tableHandle(makeFuzzerTableHandle())
+                  .endTableScan()
+                  .planNode();
 
   exec::test::AssertQueryBuilder(plan)
       .split(makeFuzzerSplit(numRows))
@@ -59,8 +67,12 @@ TEST_F(FuzzerConnectorTest, complexTypes) {
       REAL(),
   });
 
-  auto plan =
-      PlanBuilder().tableScan(type, makeFuzzerTableHandle(), {}).planNode();
+  auto plan = PlanBuilder()
+                  .startTableScan()
+                  .outputType(type)
+                  .tableHandle(makeFuzzerTableHandle())
+                  .endTableScan()
+                  .planNode();
 
   exec::test::AssertQueryBuilder(plan)
       .split(makeFuzzerSplit(numRows))
@@ -72,8 +84,12 @@ TEST_F(FuzzerConnectorTest, multipleSplits) {
   const size_t numSplits = 10;
   auto type = ROW({BIGINT(), DOUBLE(), VARCHAR()});
 
-  auto plan =
-      PlanBuilder().tableScan(type, makeFuzzerTableHandle(), {}).planNode();
+  auto plan = PlanBuilder()
+                  .startTableScan()
+                  .outputType(type)
+                  .tableHandle(makeFuzzerTableHandle())
+                  .endTableScan()
+                  .planNode();
 
   exec::test::AssertQueryBuilder(plan)
       .splits(makeFuzzerSplits(rowsPerSplit, numSplits))
@@ -89,8 +105,12 @@ TEST_F(FuzzerConnectorTest, randomTypes) {
   for (size_t i = 0; i < iterations; ++i) {
     auto type = VectorFuzzer({}, pool()).randRowType();
 
-    auto plan =
-        PlanBuilder().tableScan(type, makeFuzzerTableHandle(), {}).planNode();
+    auto plan = PlanBuilder()
+                    .startTableScan()
+                    .outputType(type)
+                    .tableHandle(makeFuzzerTableHandle())
+                    .endTableScan()
+                    .planNode();
     exec::test::AssertQueryBuilder(plan)
         .splits(makeFuzzerSplits(rowsPerSplit, numSplits))
         .assertTypeAndNumRows(type, rowsPerSplit * numSplits);
@@ -101,14 +121,18 @@ TEST_F(FuzzerConnectorTest, reproducible) {
   const size_t numRows = 100;
   auto type = ROW({BIGINT(), ARRAY(INTEGER()), VARCHAR()});
 
-  auto plan1 =
-      PlanBuilder()
-          .tableScan(type, makeFuzzerTableHandle(/*fuzerSeed=*/1234), {})
-          .planNode();
-  auto plan2 =
-      PlanBuilder()
-          .tableScan(type, makeFuzzerTableHandle(/*fuzerSeed=*/1234), {})
-          .planNode();
+  auto plan1 = PlanBuilder()
+                   .startTableScan()
+                   .outputType(type)
+                   .tableHandle(makeFuzzerTableHandle(/*fuzerSeed=*/1234))
+                   .endTableScan()
+                   .planNode();
+  auto plan2 = PlanBuilder()
+                   .startTableScan()
+                   .outputType(type)
+                   .tableHandle(makeFuzzerTableHandle(/*fuzerSeed=*/1234))
+                   .endTableScan()
+                   .planNode();
 
   auto results1 = exec::test::AssertQueryBuilder(plan1)
                       .split(makeFuzzerSplit(numRows))

@@ -193,7 +193,10 @@ TEST_F(AsyncConnectorTest, basic) {
   auto tableHandle = std::make_shared<TestTableHandle>();
   core::PlanNodeId scanId;
   auto plan = PlanBuilder()
-                  .tableScan(ROW({"a"}, {BIGINT()}), tableHandle, {})
+                  .startTableScan()
+                  .outputType(ROW({"a"}, {BIGINT()}))
+                  .tableHandle(tableHandle)
+                  .endTableScan()
                   .capturePlanNodeId(scanId)
                   .singleAggregation({}, {"min(a)"})
                   .planNode();
