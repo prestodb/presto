@@ -365,6 +365,22 @@ class HashTableTest : public testing::TestWithParam<bool>,
     }
   }
 
+  void store(RowContainer& rowContainer, const RowVectorPtr& data) {
+    std::vector<DecodedVector> decodedVectors;
+    for (auto& vector : data->children()) {
+      decodedVectors.emplace_back(*vector);
+    }
+
+    std::vector<char*> rows;
+    for (auto i = 0; i < data->size(); ++i) {
+      auto* row = rowContainer.newRow();
+
+      for (auto j = 0; j < decodedVectors.size(); ++j) {
+        rowContainer.store(decodedVectors[j], i, row, j);
+      }
+    }
+  }
+
   void testProbe() {
     auto lookup = std::make_unique<HashLookup>(topTable_->hashers());
     auto batchSize = batches_[0]->size();
@@ -910,4 +926,58 @@ DEBUG_ONLY_TEST_P(HashTableTest, failureInCreateRowPartitions) {
 
   // Any outstanding async work should be finish cleanly despite the exception.
   executor_->join();
+}
+
+TEST_P(HashTableTest, toStringSingleKey) {
+  std::vector<std::unique_ptr<VectorHasher>> hashers;
+  hashers.push_back(std::make_unique<VectorHasher>(BIGINT(), 0));
+
+  auto table = HashTable<false>::createForJoin(
+      std::move(hashers),
+      {}, /*dependentTypes*/
+      true /*allowDuplicates*/,
+      false /*hasProbedFlag*/,
+      1 /*minTableSizeForParallelJoinBuild*/,
+      pool());
+
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row / 2; }),
+  });
+
+  store(*table->rows(), data);
+
+  table->prepareJoinTable({});
+
+  ASSERT_NO_THROW(table->toString());
+  ASSERT_NO_THROW(table->toString(0));
+  ASSERT_NO_THROW(table->toString(10));
+  ASSERT_NO_THROW(table->toString(1000));
+  ASSERT_NO_THROW(table->toString(31, 5));
+}
+
+TEST_P(HashTableTest, toStringMultipleKeys) {
+  std::vector<std::unique_ptr<VectorHasher>> hashers;
+  hashers.push_back(std::make_unique<VectorHasher>(BIGINT(), 0));
+  hashers.push_back(std::make_unique<VectorHasher>(VARCHAR(), 1));
+
+  auto table = HashTable<false>::createForJoin(
+      std::move(hashers),
+      {}, /*dependentTypes*/
+      true /*allowDuplicates*/,
+      false /*hasProbedFlag*/,
+      1 /*minTableSizeForParallelJoinBuild*/,
+      pool());
+
+  vector_size_t size = 1'000;
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(size, [](auto row) { return row / 2; }),
+      makeFlatVector<std::string>(
+          size, [](auto row) { return std::string(row, 'x'); }),
+  });
+
+  store(*table->rows(), data);
+
+  table->prepareJoinTable({});
+
+  ASSERT_NO_THROW(table->toString());
 }

@@ -1465,27 +1465,31 @@ void HashTable<ignoreNullKeys>::decideHashMode(
 template <bool ignoreNullKeys>
 std::string HashTable<ignoreNullKeys>::toString() {
   std::stringstream out;
-  int64_t occupied = 0;
-
-  out << "[HashTable  size: " << capacity_
+  out << "[HashTable keys: " << hashers_.size()
+      << " hash mode: " << modeString(hashMode_) << " capacity: " << capacity_
       << " distinct count: " << numDistinct_
-      << " tombstone count: " << numTombstones_ << "]";
+      << " tombstones count: " << numTombstones_ << "]";
   if (table_ == nullptr) {
-    out << "(no table) ";
+    out << " (no table)";
   }
+
   for (auto& hasher : hashers_) {
-    out << hasher->toString();
+    out << std::endl << hasher->toString();
   }
+  out << std::endl;
+
   if (kTrackLoads) {
-    out << std::endl;
     out << fmt::format(
-        "{} probes {} tag loads {} row loads {} hits",
-        numProbes_,
-        numTagLoads_,
-        numRowLoads_,
-        numHits_);
+               "{} probes {} tag loads {} row loads {} hits",
+               numProbes_,
+               numTagLoads_,
+               numRowLoads_,
+               numHits_)
+        << std::endl;
   }
+
   if (hashMode_ == HashMode::kArray) {
+    int64_t occupied = 0;
     if (table_ && tableAllocation_.data() && tableAllocation_.size()) {
       // 'size_' and 'table_' may not be set if initializing.
       uint64_t size = std::min<uint64_t>(
@@ -1494,22 +1498,77 @@ std::string HashTable<ignoreNullKeys>::toString() {
         occupied += table_[i] != nullptr;
       }
     }
+    out << "Total slots used: " << occupied << std::endl;
   } else {
-    // Count of groups indexed by number of non-empty slots.
-    int64_t numGroups[sizeof(TagVector) + 1] = {};
+    int64_t occupied = 0;
+
+    // Count of buckets indexed by the number of non-empty slots.
+    // Each bucket has 16 slots. Hence, the number of non-empty slots is between
+    // 0 and 16 (17 possible values).
+    int64_t numBuckets[sizeof(TagVector) + 1] = {};
     for (int64_t bucketOffset = 0; bucketOffset < sizeMask_;
          bucketOffset += kBucketSize) {
       auto tags = loadTags(bucketOffset);
       auto filled = simd::toBitMask(tags != TagVector::broadcast(0));
-      ++numGroups[__builtin_popcount(filled)];
-      occupied += filled;
+      auto numOccupied = __builtin_popcount(filled);
+
+      ++numBuckets[numOccupied];
+      occupied += numOccupied;
     }
-    out << " occupied=" << occupied;
-    out << std::endl;
-    for (auto i = 0; i < sizeof(numGroups) / sizeof(numGroups[0]); ++i) {
-      out << numGroups[i] << " groups with " << i << " entries" << std::endl;
+
+    out << "Total buckets: " << (sizeMask_ / kBucketSize + 1) << std::endl;
+    out << "Total slots used: " << occupied << std::endl;
+    for (auto i = 1; i < sizeof(TagVector) + 1; ++i) {
+      if (numBuckets[i] > 0) {
+        out << numBuckets[i] << " buckets with " << i << " slots used"
+            << std::endl;
+      }
     }
   }
+
+  return out.str();
+}
+
+template <bool ignoreNullKeys>
+std::string HashTable<ignoreNullKeys>::toString(
+    int64_t startBucket,
+    int64_t numBuckets) const {
+  if (table_ == nullptr) {
+    return "(no table)";
+  }
+
+  VELOX_CHECK_GE(startBucket, 0);
+  VELOX_CHECK_GT(numBuckets, 0);
+
+  const int64_t totalBuckets = sizeMask_ / kBucketSize + 1;
+  if (startBucket >= totalBuckets) {
+    return "";
+  }
+
+  const int64_t endBucket =
+      std::min<int64_t>(startBucket + numBuckets, totalBuckets);
+
+  std::ostringstream out;
+  for (int64_t i = startBucket; i < endBucket; ++i) {
+    out << std::setw(1 + endBucket / 10) << i << ": ";
+
+    auto bucket = bucketAt(i * kBucketSize);
+    for (auto j = 0; j < sizeof(TagVector); ++j) {
+      if (j > 0) {
+        out << ", ";
+      }
+      const auto tag = bucket->tagAt(j);
+      if (tag == ProbeState::kTombstoneTag) {
+        out << std::setw(3) << "T";
+      } else if (tag == ProbeState::kEmptyTag) {
+        out << std::setw(3) << "E";
+      } else {
+        out << (int)tag;
+      }
+    }
+    out << std::endl;
+  }
+
   return out.str();
 }
 

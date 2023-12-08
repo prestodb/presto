@@ -487,6 +487,11 @@ class HashTable : public BaseHashTable {
 
   std::string toString() override;
 
+  /// Returns the details of the range of buckets. The range starts from
+  /// zero-based 'startBucket' and contains 'numBuckets' or however many there
+  /// are left till the end of the table.
+  std::string toString(int64_t startBucket, int64_t numBuckets = 1) const;
+
   /// Invoked to check the consistency of the internal state. The function scans
   /// all the table slots to check if the relevant slot counting are correct
   /// such as the number of used slots ('numDistinct_') and the number of
