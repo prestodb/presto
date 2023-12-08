@@ -21,8 +21,6 @@
 
 using facebook::velox::common::testutil::TestValue;
 
-DEFINE_int32(split_preload_per_driver, 2, "Prefetch split metadata");
-
 namespace facebook::velox::exec {
 
 std::atomic<uint64_t> TableScan::ioWaitNanos_;
@@ -46,6 +44,8 @@ TableScan::TableScan(
           driverCtx_->driverId,
           operatorType(),
           tableHandle_->connectorId())),
+      maxSplitPreloadPerDriver_(
+          driverCtx_->queryConfig().maxSplitPreloadPerDriver()),
       readBatchSize_(driverCtx_->queryConfig().preferredOutputBatchRows()),
       maxReadBatchSize_(driverCtx_->queryConfig().maxOutputBatchRows()),
       getOutputTimeLimitMs_(
@@ -279,13 +279,13 @@ void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
 
 void TableScan::checkPreload() {
   auto executor = connector_->executor();
-  if (FLAGS_split_preload_per_driver == 0 || !executor ||
+  if (maxSplitPreloadPerDriver_ == 0 || !executor ||
       !connector_->supportsSplitPreload()) {
     return;
   }
   if (dataSource_->allPrefetchIssued()) {
     maxPreloadedSplits_ = driverCtx_->task->numDrivers(driverCtx_->driver) *
-        FLAGS_split_preload_per_driver;
+        maxSplitPreloadPerDriver_;
     if (!splitPreloader_) {
       splitPreloader_ =
           [executor, this](std::shared_ptr<connector::ConnectorSplit> split) {

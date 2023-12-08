@@ -150,6 +150,11 @@ TaskCursor::TaskCursor(const CursorParameters& params)
         fmt::format("TaskCursorQuery_{}", cursorQueryId++));
   }
 
+  if (!params.queryConfigs.empty()) {
+    auto configCopy = params.queryConfigs;
+    queryCtx->testingOverrideConfigUnsafe(std::move(configCopy));
+  }
+
   queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);
   // Captured as a shared_ptr by the consumer callback of task_.
   auto queue = queue_;

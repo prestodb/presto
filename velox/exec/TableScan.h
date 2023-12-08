@@ -18,8 +18,6 @@
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
 
-DECLARE_int32(split_preload_per_driver);
-
 namespace facebook::velox::exec {
 
 class TableScan : public SourceOperator {
@@ -90,6 +88,8 @@ class TableScan : public SourceOperator {
       pendingDynamicFilters_;
 
   int32_t maxPreloadedSplits_{0};
+
+  const int32_t maxSplitPreloadPerDriver_{0};
 
   // Callback passed to getSplitOrFuture() for triggering async
   // preload. The callback's lifetime is the lifetime of 'this'. This

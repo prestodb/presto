@@ -182,6 +182,8 @@ DEFINE_int32(
     "prefetch. 1 means prefetch the next row group before decoding "
     "the current one");
 
+DEFINE_int32(split_preload_per_driver, 2, "Prefetch split metadata");
+
 struct RunStats {
   std::map<std::string, std::string> flags;
   int64_t micros{0};
@@ -281,6 +283,8 @@ class TpchBenchmark {
         CursorParameters params;
         params.maxDrivers = FLAGS_num_drivers;
         params.planNode = tpchPlan.plan;
+        params.queryConfigs[core::QueryConfig::kMaxSplitPreloadPerDriver] =
+            std::to_string(FLAGS_split_preload_per_driver);
         const int numSplitsPerFile = FLAGS_num_splits_per_file;
 
         bool noMoreSplits = false;
