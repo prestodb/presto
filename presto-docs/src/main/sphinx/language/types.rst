@@ -390,3 +390,21 @@ T-Digest
     <http://dx.doi.org/10.1145/347090.347195>`_ to represent the approximate distribution of a set
     of numbers. T-digest has better performance than quantile digests but only supports the
     ``DOUBLE`` type. See :doc:`/functions/tdigest`.
+
+KLL Sketch
+----------
+
+.. _kll_sketch_type:
+
+``KLL Sketch``
+^^^^^^^^^^^^^^
+
+    A KLL sketch is similar to the :ref:`qdigest <qdigest_type>`, but, like the
+    T-Digest uses a `different algorithm
+    <https://datasketches.apache.org/docs/KLL/KLLSketch.html>`_ to represent the
+    approximate distribution of a set of values. The KLL sketch in Presto
+    supports int, bigint, double, varchar, and boolean types. See
+    :doc:`/functions/sketch` for more information. In serialized form, the
+    ``kllsketch`` type stored by Presto can be read directly by any other
+    application which utilizes the Apache DataSketches library to read KLL
+    sketches.
