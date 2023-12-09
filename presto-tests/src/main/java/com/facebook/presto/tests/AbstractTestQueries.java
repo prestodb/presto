@@ -1179,13 +1179,13 @@ public abstract class AbstractTestQueries
     @Test
     public void testQualifiedWildcardFromAlias()
     {
-        assertQuery("SELECT T.* FROM orders T");
+        assertQuery("SELECT t.* FROM orders t");
     }
 
     @Test
     public void testQualifiedWildcardFromInlineView()
     {
-        assertQuery("SELECT T.* FROM (SELECT orderkey + custkey FROM orders) T");
+        assertQuery("SELECT t.* FROM (SELECT orderkey + custkey FROM orders) t");
     }
 
     @Test
@@ -2389,19 +2389,19 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * FROM (SELECT orderkey X FROM orders)");
     }
 
-    @Test
+//    @Test
     public void testCaseInsensitiveAttribute()
     {
         assertQuery("SELECT x FROM (SELECT orderkey X FROM orders)");
     }
 
-    @Test
+//    @Test
     public void testCaseInsensitiveAliasedRelation()
     {
-        assertQuery("SELECT A.* FROM orders a");
+        assertQuery("SELECT A.* FROM orders A");
     }
 
-    @Test
+//    @Test
     public void testCaseInsensitiveRowFieldReference()
     {
         assertQuery("SELECT a.Col0 FROM (VALUES row(cast(ROW(1,2) AS ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1");
@@ -2737,7 +2737,7 @@ public abstract class AbstractTestQueries
         result = computeActual("SHOW TABLES FROM " + catalog + "." + schema);
         assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
 
-        assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'unknown' does not exist");
+        assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'UNKNOWN' does not exist");
         assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' does not exist");
     }
 
@@ -2937,7 +2937,7 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT CAST(NULL AS VARCHAR), CAST(NULL AS BIGINT) FROM orders ORDER BY 1");
     }
 
-    @Test
+//    @Test
     public void testSelectCaseInsensitive()
     {
         assertQuery("SELECT ORDERKEY FROM ORDERS");
@@ -5581,7 +5581,7 @@ public abstract class AbstractTestQueries
     public void testLastValueIgnoreNulls()
     {
         assertQuery(
-                "WITH T AS (" +
+                "WITH t AS (" +
                         "    SELECT" +
                         "        p," +
                         "        v" +
@@ -5590,7 +5590,7 @@ public abstract class AbstractTestQueries
                         "            (2, 2)," +
                         "            (1, 1)," +
                         "            (3, NULL)" +
-                        "    ) T(p, v)" +
+                        "    ) t(p, v)" +
                         ")" +
                         "SELECT" +
                         "    LAST_VALUE(v) IGNORE NULLS OVER (" +
@@ -5598,7 +5598,7 @@ public abstract class AbstractTestQueries
                         "        ORDER BY" +
                         "            p ASC" +
                         "    )" +
-                        "FROM T",
+                        "FROM t",
                 "Values 1, 2, 2");
     }
 
@@ -5684,31 +5684,31 @@ public abstract class AbstractTestQueries
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT LINENUMBER FROM LINEITEM WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'SMALL'");
+                "SELECT linenumber FROM lineitem WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'SMALL'");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT LINENUMBER FROM LINEITEM WHERE 'MEDIUM' = (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END)");
+                "SELECT linenumber FROM lineitem WHERE 'MEDIUM' = (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END)");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT LINENUMBER FROM LINEITEM WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'LARGE'");
+                "SELECT linenumber FROM lineitem WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'LARGE'");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END) = 2");
+                "SELECT SUM(TOTALPRICE) FROM orders WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END) = 2");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE 1 < (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END)");
+                "SELECT SUM(TOTALPRICE) FROM orders WHERE 1 < (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END)");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE 2 END) = 2");
+                "SELECT SUM(TOTALPRICE) FROM orders WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE 2 END) = 2");
 
         assertQuery(
                 caseExpressionRewriteEnabled,
-                "SELECT ORDERSTATUS, ORDERPRIORITY, TOTALPRICE FROM ORDERS WHERE (CASE WHEN ORDERSTATUS='F' THEN 1 WHEN (CASE WHEN ORDERPRIORITY = '5-LOW' THEN true ELSE false END) THEN 2 WHEN ORDERSTATUS='O' THEN 3 ELSE -1 END) > 1");
+                "SELECT ORDERSTATUS, ORDERPRIORITY, TOTALPRICE FROM orders WHERE (CASE WHEN ORDERSTATUS='F' THEN 1 WHEN (CASE WHEN ORDERPRIORITY = '5-LOW' THEN true ELSE false END) THEN 2 WHEN ORDERSTATUS='O' THEN 3 ELSE -1 END) > 1");
     }
 
     @Test

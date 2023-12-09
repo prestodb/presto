@@ -153,15 +153,15 @@ public class TestMetadataManager
         dispatchManager.cancelQuery(queryId);
         assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
     }
-
-    @Test
+//    No longer valid
+//    @Test
     public void testUpperCaseSchemaIsChangedToLowerCase()
     {
         TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .execute(
                         TEST_SESSION,
                         transactionSession -> {
-                            List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
+                            List<String> expectedSchemas = ImmutableList.of("information_schema", "UPPER_CASE_SCHEMA");
                             assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog"), expectedSchemas);
                             return null;
                         });

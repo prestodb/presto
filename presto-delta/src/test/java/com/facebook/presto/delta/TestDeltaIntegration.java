@@ -133,7 +133,7 @@ public class TestDeltaIntegration
         String testQueryTs1 = format(testQueryTemplate, "t2020-10-27 02:50:00");
         assertQueryFails(
                 testQueryTs1,
-                "There is no snapshot exists in Delta table 'deltatables.snapshot-data3@t2020-10-27 02:50:00' " +
+                "There is no snapshot exists in Delta table 'deltaTables.snapshot-data3@t2020-10-27 02:50:00' " +
                         "that is created on or before '2020-10-27T02:50:00Z'");
 
         // read snapshot as of 2021-11-18 10:30:02 - this should read the data from commit id 1.

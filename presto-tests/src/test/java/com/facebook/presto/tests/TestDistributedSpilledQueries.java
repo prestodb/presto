@@ -75,4 +75,11 @@ public class TestDistributedSpilledQueries
         // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
         //       due to long running query test created many spill files on disk.
     }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table tpch.tiny.ORDERS does not exist");
+    }
 }

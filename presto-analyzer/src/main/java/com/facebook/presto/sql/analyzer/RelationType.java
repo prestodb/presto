@@ -176,7 +176,7 @@ public class RelationType
             if (columnAliases == null) {
                 fieldsBuilder.add(Field.newQualified(
                         field.getNodeLocation(),
-                        QualifiedName.of(relationAlias),
+                        QualifiedName.of(ImmutableList.of(relationAlias), true),
                         columnAlias,
                         field.getType(),
                         field.isHidden(),
@@ -189,7 +189,7 @@ public class RelationType
                 columnAlias = Optional.of(columnAliases.get(i));
                 fieldsBuilder.add(Field.newQualified(
                         field.getNodeLocation(),
-                        QualifiedName.of(relationAlias),
+                        QualifiedName.of(ImmutableList.of(relationAlias), true),
                         columnAlias,
                         field.getType(),
                         false,

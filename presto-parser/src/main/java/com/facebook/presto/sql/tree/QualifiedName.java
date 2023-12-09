@@ -44,11 +44,12 @@ public class QualifiedName
         return of(ImmutableList.of(name));
     }
 
-    public static QualifiedName of(Iterable<String> originalParts)
+    public static QualifiedName of(Iterable<String> originalParts, boolean... skipCaseConversion)
     {
+        boolean skipToLowerCase = skipCaseConversion.length > 0 ? skipCaseConversion[0] : false;
         requireNonNull(originalParts, "originalParts is null");
         checkArgument(!isEmpty(originalParts), "originalParts is empty");
-        List<String> parts = ImmutableList.copyOf(transform(originalParts, part -> part.toLowerCase(ENGLISH)));
+        List<String> parts = ImmutableList.copyOf(transform(originalParts, part -> !skipToLowerCase ? part.toLowerCase(ENGLISH) : part));
 
         return new QualifiedName(ImmutableList.copyOf(originalParts), parts);
     }

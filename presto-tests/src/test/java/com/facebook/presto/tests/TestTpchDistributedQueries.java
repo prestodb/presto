@@ -72,12 +72,19 @@ public class TestTpchDistributedQueries
 
         boolean sampleSizeFound = false;
         for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
+            int sampleSize = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
             if (sampleSize > 0 && sampleSize < total) {
                 sampleSizeFound = true;
                 break;
             }
         }
         assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
+    }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table tpch.tiny.ORDERS does not exist");
     }
 }

@@ -1452,13 +1452,13 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_insert_partitioned_table " +
                 "(" +
-                "  ORDER_KEY BIGINT," +
-                "  SHIP_PRIORITY INTEGER," +
-                "  ORDER_STATUS VARCHAR" +
+                "  order_key BIGINT," +
+                "  ship_priority INTEGER," +
+                "  order_status VARCHAR" +
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
+                "partitioned_by = ARRAY[ 'ship_priority', 'order_status' ]" +
                 ") ";
 
         assertUpdate(session, createTable);
@@ -2011,12 +2011,12 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_metadata_delete " +
                 "(" +
-                "  ORDER_KEY BIGINT," +
-                "  LINE_NUMBER INTEGER," +
-                "  LINE_STATUS VARCHAR" +
+                "  order_key BIGINT," +
+                "  line_number INTEGER," +
+                "  line_status VARCHAR" +
                 ") " +
                 "WITH (" +
-                PARTITIONED_BY_PROPERTY + " = ARRAY[ 'LINE_NUMBER', 'LINE_STATUS' ]" +
+                PARTITIONED_BY_PROPERTY + " = ARRAY[ 'line_number', 'line_status' ]" +
                 ") ";
 
         assertUpdate(createTable);
@@ -2029,25 +2029,25 @@ public class TestHiveIntegrationSmokeTest
 
         // Delete returns number of rows deleted, or null if obtaining the number is hard or impossible.
         // Currently, Hive implementation always returns null.
-        assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' and LINE_NUMBER=CAST(3 AS INTEGER)");
+        assertUpdate("DELETE FROM test_metadata_delete WHERE line_status='F' and line_number=CAST(3 AS INTEGER)");
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'F' or linenumber<>3");
 
         // TODO This use case can be supported
         try {
-            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE lower(LINE_STATUS)='f' and LINE_NUMBER=CAST(4 AS INTEGER)");
+            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE lower(LINE_STATUS)='f' and line_number=CAST(4 AS INTEGER)");
             fail("expected exception");
         }
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
         }
 
-        assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='O'");
+        assertUpdate("DELETE FROM test_metadata_delete WHERE line_status='O'");
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
 
         try {
-            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
+            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE order_key=1");
             fail("expected exception");
         }
         catch (RuntimeException e) {
@@ -3817,8 +3817,8 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(
                     session,
                     "CREATE TABLE test_grouped_joinDual\n" +
-                            "WITH (bucket_count = 13, bucketed_by = ARRAY['keyD']) AS\n" +
-                            "SELECT orderkey keyD, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['keyd']) AS\n" +
+                            "SELECT orderkey keyd, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
                     30000);
             assertUpdate(
                     session,
@@ -3968,11 +3968,11 @@ public class TestHiveIntegrationSmokeTest
 
             @Language("SQL") String groupBySingleBucketed =
                     "SELECT\n" +
-                            "  keyD,\n" +
+                            "  keyd,\n" +
                             "  count(valueD)\n" +
                             "FROM\n" +
                             "  test_grouped_joinDual\n" +
-                            "GROUP BY keyD";
+                            "GROUP BY keyd";
             @Language("SQL") String expectedSingleGroupByQuery = "SELECT orderkey, 2 from orders";
             @Language("SQL") String groupByOfUnionBucketed =
                     "SELECT\n" +
@@ -4029,9 +4029,9 @@ public class TestHiveIntegrationSmokeTest
                     "SELECT\n" +
                             "  key, sum(cnt) cnt\n" +
                             "FROM (\n" +
-                            "  SELECT keyD key, count(valueD) cnt\n" +
+                            "  SELECT keyd key, count(valueD) cnt\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             "UNION ALL\n" +
                             "  SELECT keyN key, 1 cnt\n" +
                             "  FROM test_grouped_joinN\n" +
@@ -4057,27 +4057,27 @@ public class TestHiveIntegrationSmokeTest
             @Language("SQL") String joinGroupedWithGrouped =
                     "SELECT key1, count1, count2\n" +
                             "FROM (\n" +
-                            "  SELECT keyD key1, count(valueD) count1\n" +
+                            "  SELECT keyd key1, count(valueD) count1\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             ") JOIN (\n" +
-                            "  SELECT keyD key2, count(valueD) count2\n" +
+                            "  SELECT keyd key2, count(valueD) count2\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             ")\n" +
                             "ON key1 = key2";
             @Language("SQL") String expectedJoinGroupedWithGrouped = "SELECT orderkey, 2, 2 from orders";
             @Language("SQL") String joinGroupedWithUngrouped =
-                    "SELECT keyD, countD, valueN\n" +
+                    "SELECT keyd, countD, valueN\n" +
                             "FROM (\n" +
-                            "  SELECT keyD, count(valueD) countD\n" +
+                            "  SELECT keyd, count(valueD) countD\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             ") JOIN (\n" +
                             "  SELECT keyN, valueN\n" +
                             "  FROM test_grouped_joinN\n" +
                             ")\n" +
-                            "ON keyD = keyN";
+                            "ON keyd = keyN";
             @Language("SQL") String expectedJoinGroupedWithUngrouped = "SELECT orderkey, 2, comment from orders";
             @Language("SQL") String joinUngroupedWithGrouped =
                     "SELECT keyN, valueN, countD\n" +
@@ -4085,20 +4085,20 @@ public class TestHiveIntegrationSmokeTest
                             "  SELECT keyN, valueN\n" +
                             "  FROM test_grouped_joinN\n" +
                             ") JOIN (\n" +
-                            "  SELECT keyD, count(valueD) countD\n" +
+                            "  SELECT keyd, count(valueD) countD\n" +
                             "  FROM test_grouped_joinDual\n" +
-                            "  GROUP BY keyD\n" +
+                            "  GROUP BY keyd\n" +
                             ")\n" +
-                            "ON keyN = keyD";
+                            "ON keyN = keyd";
             @Language("SQL") String expectedJoinUngroupedWithGrouped = "SELECT orderkey, comment, 2 from orders";
             @Language("SQL") String groupOnJoinResult =
-                    "SELECT keyD, count(valueD), count(valueN)\n" +
+                    "SELECT keyd, count(valueD), count(valueN)\n" +
                             "FROM\n" +
                             "  test_grouped_joinDual\n" +
                             "JOIN\n" +
                             "  test_grouped_joinN\n" +
-                            "ON keyD=keyN\n" +
-                            "GROUP BY keyD";
+                            "ON keyd=keyN\n" +
+                            "GROUP BY keyd";
             @Language("SQL") String expectedGroupOnJoinResult = "SELECT orderkey, 2, 2 from orders";
 
             @Language("SQL") String groupOnUngroupedJoinResult =

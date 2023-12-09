@@ -60,7 +60,6 @@ import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -95,7 +94,6 @@ public class CassandraMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return cassandraSession.getCaseSensitiveSchemaNames().stream()
-                .map(name -> name.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
     }
 
@@ -140,7 +138,7 @@ public class CassandraMetadata
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             try {
                 for (String tableName : cassandraSession.getCaseSensitiveTableNames(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                    tableNames.add(new SchemaTableName(schemaName, tableName));
                 }
             }
             catch (SchemaNotFoundException e) {
@@ -166,7 +164,7 @@ public class CassandraMetadata
         CassandraTable table = cassandraSession.getTable(getTableName(tableHandle));
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
+            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()), columnHandle);
         }
         return columnHandles.build();
     }
@@ -302,7 +300,7 @@ public class CassandraMetadata
             queryBuilder.append(", ")
                     .append(name)
                     .append(" ")
-                    .append(toCassandraType(type, protocolVersion).name().toLowerCase(ENGLISH));
+                    .append(toCassandraType(type, protocolVersion).name());
         }
         queryBuilder.append(") ");
 

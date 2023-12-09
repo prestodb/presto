@@ -27,7 +27,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 
 @Immutable
@@ -48,15 +47,15 @@ public class QualifiedTablePrefix
     public QualifiedTablePrefix(String catalogName, String schemaName)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
+        this.schemaName = Optional.of(schemaName);
         this.tableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName, String tableName)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
-        this.tableName = Optional.of(checkTableName(tableName));
+        this.schemaName = Optional.of(schemaName);
+        this.tableName = Optional.of(tableName);
     }
 
     @JsonCreator
@@ -124,8 +123,8 @@ public class QualifiedTablePrefix
     public boolean matches(QualifiedObjectName objectName)
     {
         return Objects.equals(catalogName, objectName.getCatalogName())
-                && schemaName.map(schema -> Objects.equals(schema, objectName.getSchemaName())).orElse(true)
-                && tableName.map(table -> Objects.equals(table, objectName.getObjectName())).orElse(true);
+                && schemaName.map(schema -> schema.equalsIgnoreCase(objectName.getSchemaName())).orElse(true)
+                && tableName.map(table -> table.equalsIgnoreCase(objectName.getObjectName())).orElse(true);
     }
 
     @Override

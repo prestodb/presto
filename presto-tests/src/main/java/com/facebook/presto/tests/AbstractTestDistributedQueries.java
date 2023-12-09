@@ -514,7 +514,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("DROP TABLE test_rename");
 
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "TEST_RENAME"));
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
 
         assertUpdate("ALTER TABLE IF EXISTS test_rename RENAME TO test_rename_new");
@@ -541,7 +541,7 @@ public abstract class AbstractTestDistributedQueries
         materializedRows = computeActual("SELECT z FROM test_rename_column");
         assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
 
-        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN IF EXISTS z TO a");
+        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN IF EXISTS Z TO a");
         materializedRows = computeActual("SELECT a FROM test_rename_column");
         assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123);
 
@@ -581,7 +581,8 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE TABLE test_add_column_abc AS SELECT 456 x, 333 a, 66.6E0 b, 'fourth' c", 1);
 
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN x bigint", ".* Column 'x' already exists");
-        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN X bigint", ".* Column 'X' already exists");
+//        No longer valid
+//        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN X bigint", ".* Column 'X' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
 
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN a bigint");

@@ -87,7 +87,7 @@ public class TestPlannerWarnings
         List<WarningCode> warningCodes = warnings.stream()
                 .map(PrestoWarning::getWarningCode)
                 .collect(toImmutableList());
-        assertPlannerWarnings(queryRunner, "SELECT * FROM NATION", ImmutableMap.of(), warningCodes, Optional.of(ImmutableList.of(new TestWarningsRule(warnings), new PassRemoteProjectSanityChecker())));
+        assertPlannerWarnings(queryRunner, "SELECT * FROM nation", ImmutableMap.of(), warningCodes, Optional.of(ImmutableList.of(new TestWarningsRule(warnings), new PassRemoteProjectSanityChecker())));
     }
 
     public static void assertPlannerWarnings(LocalQueryRunner queryRunner, @Language("SQL") String sql, Map<String, String> sessionProperties, List<WarningCode> expectedWarnings, Optional<List<Rule<?>>> rules)

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -76,8 +75,8 @@ public class DereferenceExpression
      */
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
-        List<String> parts = tryParseParts(expression.base, expression.field.getValue().toLowerCase(Locale.ENGLISH));
-        return parts == null ? null : QualifiedName.of(parts);
+        List<String> parts = tryParseParts(expression.base, expression.field.getValue());
+        return parts == null ? null : QualifiedName.of(parts, true);
     }
 
     public static Expression from(QualifiedName name)

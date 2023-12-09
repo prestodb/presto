@@ -267,7 +267,7 @@ public class TestEventListener
             throws Exception
     {
         int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
-        String query = "EXPLAIN (type distributed, format graphviz) SELECT * FROM LINEITEM limit 1";
+        String query = "EXPLAIN (type distributed, format graphviz) SELECT * FROM lineitem limit 1";
         Session sessionForEventLoggingWithStats = Session.builder(session)
                 .setSystemProperty("print_stats_for_non_join_query", "true")
                 .build();

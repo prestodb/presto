@@ -61,11 +61,14 @@ import static java.util.Locale.ENGLISH;
 public class MySqlClient
         extends BaseJdbcClient
 {
+    private final boolean checkDriverCaseSupport;
+
     @Inject
     public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
             throws SQLException
     {
         super(connectorId, config, "`", connectionFactory(config, mySqlConfig));
+        this.checkDriverCaseSupport = config.getCheckDriverCaseSupport();
     }
 
     private static ConnectionFactory connectionFactory(BaseJdbcConfig config, MySqlConfig mySqlConfig)
@@ -209,7 +212,7 @@ public class MySqlClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && checkDriverCaseSupport) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
             String sql = format(

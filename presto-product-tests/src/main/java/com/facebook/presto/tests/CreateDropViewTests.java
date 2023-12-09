@@ -43,7 +43,7 @@ public class CreateDropViewTests
     public void querySimpleViewQualified()
     {
         executeWith(createViewAs("SELECT * FROM nation"), view -> {
-            assertThat(query(format("SELECT %s.n_regionkey FROM %s", view.getName(), view.getName())))
+            assertThat(query(format("SELECT n_regionkey FROM %s", view.getName(), view.getName())))
                     .hasRowsCount(25);
         });
     }

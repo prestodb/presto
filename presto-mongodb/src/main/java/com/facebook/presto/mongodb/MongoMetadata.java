@@ -49,7 +49,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -101,7 +100,7 @@ public class MongoMetadata
 
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             for (String tableName : mongoSession.getAllTables(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                tableNames.add(new SchemaTableName(schemaName, tableName));
             }
         }
         return tableNames.build();

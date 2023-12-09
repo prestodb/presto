@@ -298,21 +298,21 @@ public class TestCassandraIntegrationSmokeTest
          */
         session.execute("CREATE KEYSPACE \"KEYSPACE_2\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_2")
+                .row("KEYSPACE_2")
                 .build(), new Duration(1, MINUTES));
 
         session.execute("CREATE TABLE \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
-        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_2"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_2")
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.KEYSPACE_2"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("TABLE_2")
                 .build(), new Duration(1, MINUTES));
-        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_2.table_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                .row("column_2", "bigint", "", "")
+        assertContains(execute("SHOW COLUMNS FROM cassandra.KEYSPACE_2.TABLE_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+                .row("COLUMN_2", "bigint", "", "")
                 .build());
 
         execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");
 
-        assertEquals(execute("SELECT column_2 FROM cassandra.keyspace_2.table_2").getRowCount(), 1);
-        assertUpdate("DROP TABLE cassandra.keyspace_2.table_2");
+        assertEquals(execute("SELECT column_2 FROM cassandra.KEYSPACE_2.TABLE_2").getRowCount(), 1);
+        assertUpdate("DROP TABLE cassandra.KEYSPACE_2.TABLE_2");
 
         // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
         session.execute("DROP KEYSPACE \"KEYSPACE_2\"");
@@ -328,15 +328,16 @@ public class TestCassandraIntegrationSmokeTest
 
         // Although in Presto all the schema and table names are always displayed as lowercase
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_3")
-                .row("keyspace_3")
+                .row("KeYsPaCe_3")
+                .row("kEySpAcE_3")
                 .build(), new Duration(1, MINUTES));
 
         // There is no way to figure out what the exactly keyspace we want to retrieve tables from
-        assertQueryFailsEventually(
-                "SHOW TABLES FROM cassandra.keyspace_3",
-                "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
-                new Duration(1, MINUTES));
+        // No longer valid
+//        assertQueryFailsEventually(
+//                "SHOW TABLES FROM cassandra.KeYsPaCe_3",
+//                "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
+//                new Duration(1, MINUTES));
 
         session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
         session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
@@ -357,8 +358,8 @@ public class TestCassandraIntegrationSmokeTest
 
         // Although in Presto all the schema and table names are always displayed as lowercase
         assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_4"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_4")
-                .row("table_4")
+                .row("TaBlE_4")
+                .row("tAbLe_4")
                 .build(), new Duration(1, MINUTES));
 
         // There is no way to figure out what the exactly table is being queried

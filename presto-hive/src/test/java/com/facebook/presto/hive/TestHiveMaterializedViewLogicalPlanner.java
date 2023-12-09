@@ -149,10 +149,10 @@ public class TestHiveMaterializedViewLogicalPlanner
                     "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", table));
 
             String viewPart = format(
-                    "WITH X AS (SELECT orderkey, orderpriority, ds FROM %s), " +
-                            "Y AS (SELECT orderkey, orderpriority, ds FROM X), " +
-                            "Z AS (SELECT orderkey, orderpriority, ds FROM Y) " +
-                            "SELECT orderkey, orderpriority, ds FROM Z",
+                    "WITH x AS (SELECT orderkey, orderpriority, ds FROM %s), " +
+                            "y AS (SELECT orderkey, orderpriority, ds FROM x), " +
+                            "z AS (SELECT orderkey, orderpriority, ds FROM y) " +
+                            "SELECT orderkey, orderpriority, ds FROM z",
                     table);
 
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS %s", view, viewPart));

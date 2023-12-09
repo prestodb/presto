@@ -297,7 +297,7 @@ public class NativeCassandraSession
         // Ensure that the error message is deterministic
         List<KeyspaceMetadata> sortedKeyspaces = Ordering.from(comparing(KeyspaceMetadata::getName)).immutableSortedCopy(keyspaces);
         for (KeyspaceMetadata keyspace : sortedKeyspaces) {
-            if (keyspace.getName().equalsIgnoreCase(caseInsensitiveSchemaName)) {
+            if (keyspace.getName().equals(caseInsensitiveSchemaName)) { // Changing case sensitivity
                 if (result != null) {
                     throw new PrestoException(
                             NOT_SUPPORTED,

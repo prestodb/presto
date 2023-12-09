@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import org.testng.annotations.Test;
 
 /**
  * Test that Presto works with {@link com.facebook.presto.sql.planner.iterative.IterativeOptimizer} disabled.
@@ -27,5 +28,12 @@ public class TestNonIterativeDistributedQueries
             throws Exception
     {
         return TpchQueryRunnerBuilder.builder().setSingleExtraProperty("experimental.iterative-optimizer-enabled", "false").build();
+    }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        // Expected to fail as Table is stored in Uppercase in H2 db and exists in tpch as lowercase
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"", "Table tpch.tiny.ORDERS does not exist");
     }
 }

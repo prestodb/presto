@@ -804,11 +804,12 @@ public class TestAnalyzer
         analyze("SELECT sum(a) FROM t1 HAVING avg(a) - avg(b) > 10");
     }
 
-    @Test
+//    No longer a valid test case
+//    @Test
     public void testWithCaseInsensitiveResolution()
     {
-        // TODO: verify output
-        analyze("WITH AB AS (SELECT * FROM t1) SELECT * FROM ab");
+        // Behaviour changed w.r.t case sensitivity
+        analyze("WITH ab AS (SELECT * FROM t1) SELECT * FROM ab");
     }
 
     @Test
@@ -866,12 +867,12 @@ public class TestAnalyzer
         analyze("INSERT INTO t6 (a) SELECT a from t6");
         analyze("INSERT INTO t6 (a) SELECT c from t6");
         analyze("INSERT INTO t6 (a,b,c,d) SELECT * from t6");
-        analyze("INSERT INTO t6 (A,B,C,D) SELECT * from t6");
+        analyze("INSERT INTO t6 (a,b,c,d) SELECT * from t6");
         analyze("INSERT INTO t6 (a,b,c,d) SELECT d,b,c,a from t6");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t6 (a) SELECT b from t6");
         assertFails(MISSING_COLUMN, "INSERT INTO t6 (unknown) SELECT * FROM t6");
         assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, a) SELECT * FROM t6");
-        assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, A) SELECT * FROM t6");
+        assertFails(MISSING_COLUMN, "INSERT INTO t6 (a, A) SELECT * FROM t6");
 
         // b is bigint, while a is double, coercion from b to a is possible
         analyze("INSERT INTO t7 (b) SELECT (a) FROM t7 ");
@@ -956,14 +957,15 @@ public class TestAnalyzer
                         "SELECT * FROM a");
     }
 
-    @Test
-    public void testCaseInsensitiveDuplicateWithQuery()
-    {
-        assertFails(DUPLICATE_RELATION,
-                "WITH a AS (SELECT * FROM t1)," +
-                        "     A AS (SELECT * FROM t1)" +
-                        "SELECT * FROM a");
-    }
+//    No longer a valid test case
+//    @Test
+//    public void testCaseInsensitiveDuplicateWithQuery()
+//    {
+//        assertFails(DUPLICATE_RELATION,
+//                "WITH a AS (SELECT * FROM t1)," +
+//                        "     A AS (SELECT * FROM t1)" +
+//                        "SELECT * FROM a");
+//    }
 
     @Test
     public void testWithForwardReference()

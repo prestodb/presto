@@ -262,7 +262,7 @@ class AstBuilder
 
         return new CreateSchema(
                 getLocation(context),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 context.EXISTS() != null,
                 properties);
     }
@@ -272,7 +272,7 @@ class AstBuilder
     {
         return new DropSchema(
                 getLocation(context),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 context.EXISTS() != null,
                 context.CASCADE() != null);
     }
@@ -282,7 +282,7 @@ class AstBuilder
     {
         return new RenameSchema(
                 getLocation(context),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 (Identifier) visit(context.identifier()));
     }
 
@@ -306,7 +306,7 @@ class AstBuilder
 
         return new CreateTableAsSelect(
                 getLocation(context),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.EXISTS() != null,
                 properties,
@@ -328,7 +328,7 @@ class AstBuilder
         }
         return new CreateTable(
                 getLocation(context),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 visit(context.tableElement(), TableElement.class),
                 context.EXISTS() != null,
                 properties,
@@ -372,19 +372,19 @@ class AstBuilder
     @Override
     public Node visitDropTable(SqlBaseParser.DropTableContext context)
     {
-        return new DropTable(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
+        return new DropTable(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
     public Node visitDropView(SqlBaseParser.DropViewContext context)
     {
-        return new DropView(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
+        return new DropView(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
     public Node visitDropMaterializedView(SqlBaseParser.DropMaterializedViewContext context)
     {
-        return new DropMaterializedView(Optional.of(getLocation(context)), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
+        return new DropMaterializedView(Optional.of(getLocation(context)), getQualifiedNameWithCase(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
@@ -392,7 +392,7 @@ class AstBuilder
     {
         return new RefreshMaterializedView(
                 getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                new Table(getLocation(context), getQualifiedNameWithCase(context.qualifiedName())),
                 (Expression) visit(context.booleanExpression()));
     }
 
@@ -405,7 +405,7 @@ class AstBuilder
         }
 
         return new Insert(
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 columnAliases,
                 (Query) visit(context.query()));
     }
@@ -415,7 +415,7 @@ class AstBuilder
     {
         return new Delete(
                 getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                new Table(getLocation(context), getQualifiedNameWithCase(context.qualifiedName())),
                 visitIfPresent(context.booleanExpression(), Expression.class));
     }
 
@@ -438,13 +438,13 @@ class AstBuilder
     @Override
     public Node visitTruncateTable(SqlBaseParser.TruncateTableContext context)
     {
-        return new TruncateTable(getLocation(context), getQualifiedName(context.qualifiedName()));
+        return new TruncateTable(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()));
     }
 
     @Override
     public Node visitRenameTable(SqlBaseParser.RenameTableContext context)
     {
-        return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to), context.EXISTS() != null);
+        return new RenameTable(getLocation(context), getQualifiedNameWithCase(context.from), getQualifiedNameWithCase(context.to), context.EXISTS() != null);
     }
 
     @Override
@@ -452,7 +452,7 @@ class AstBuilder
     {
         return new RenameColumn(
                 getLocation(context),
-                getQualifiedName(context.tableName),
+                getQualifiedNameWithCase(context.tableName),
                 (Identifier) visit(context.from),
                 (Identifier) visit(context.to),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
@@ -468,7 +468,7 @@ class AstBuilder
         }
         return new Analyze(
                 getLocation(context),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 properties);
     }
 
@@ -476,7 +476,7 @@ class AstBuilder
     public Node visitAddColumn(SqlBaseParser.AddColumnContext context)
     {
         return new AddColumn(getLocation(context),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 (ColumnDefinition) visit(context.columnDefinition()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
@@ -486,7 +486,7 @@ class AstBuilder
     public Node visitDropColumn(SqlBaseParser.DropColumnContext context)
     {
         return new DropColumn(getLocation(context),
-                getQualifiedName(context.tableName),
+                getQualifiedNameWithCase(context.tableName),
                 (Identifier) visit(context.column),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
@@ -505,7 +505,7 @@ class AstBuilder
 
         return new CreateView(
                 getLocation(context),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.REPLACE() != null,
                 security);
@@ -526,7 +526,7 @@ class AstBuilder
 
         return new CreateMaterializedView(
                 Optional.of(getLocation(context)),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.EXISTS() != null,
                 properties,
@@ -893,7 +893,7 @@ class AstBuilder
     public Node visitSelectAll(SqlBaseParser.SelectAllContext context)
     {
         if (context.qualifiedName() != null) {
-            return new AllColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
+            return new AllColumns(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()));
         }
 
         return new AllColumns(getLocation(context));
@@ -911,7 +911,7 @@ class AstBuilder
     @Override
     public Node visitTable(SqlBaseParser.TableContext context)
     {
-        return new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
+        return new Table(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()));
     }
 
     @Override
@@ -970,7 +970,7 @@ class AstBuilder
         return new ShowTables(
                 getLocation(context),
                 Optional.ofNullable(context.qualifiedName())
-                        .map(this::getQualifiedName),
+                        .map(this::getQualifiedNameWithCase),
                 getTextIfPresent(context.pattern)
                         .map(AstBuilder::unquote),
                 getTextIfPresent(context.escape)
@@ -1002,13 +1002,13 @@ class AstBuilder
     @Override
     public Node visitShowColumns(SqlBaseParser.ShowColumnsContext context)
     {
-        return new ShowColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
+        return new ShowColumns(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()));
     }
 
     @Override
     public Node visitShowStats(SqlBaseParser.ShowStatsContext context)
     {
-        return new ShowStats(Optional.of(getLocation(context)), new Table(getQualifiedName(context.qualifiedName())));
+        return new ShowStats(Optional.of(getLocation(context)), new Table(getQualifiedNameWithCase(context.qualifiedName())));
     }
 
     @Override
@@ -1318,10 +1318,10 @@ class AstBuilder
     public Node visitTableName(SqlBaseParser.TableNameContext context)
     {
         if (context.tableVersionExpression() != null) {
-            return new Table(getLocation(context), getQualifiedName(context.qualifiedName()), (TableVersionExpression) visit(context.tableVersionExpression()));
+            return new Table(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()), (TableVersionExpression) visit(context.tableVersionExpression()));
         }
 
-        return new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
+        return new Table(getLocation(context), getQualifiedNameWithCase(context.qualifiedName()));
     }
 
     @Override
@@ -1839,7 +1839,7 @@ class AstBuilder
     {
         return new LikeClause(
                 getLocation(context),
-                getQualifiedName(context.qualifiedName()),
+                getQualifiedNameWithCase(context.qualifiedName()),
                 Optional.ofNullable(context.optionType)
                         .map(AstBuilder::getPropertiesOption));
     }
@@ -2184,6 +2184,15 @@ class AstBuilder
                 .collect(Collectors.toList());
 
         return QualifiedName.of(parts);
+    }
+
+    private QualifiedName getQualifiedNameWithCase(SqlBaseParser.QualifiedNameContext context)
+    {
+        List<String> parts = visit(context.identifier(), Identifier.class).stream()
+                .map(Identifier::getValue) // TODO: preserve quotedness
+                .collect(Collectors.toList());
+
+        return QualifiedName.of(parts, true);
     }
 
     private static boolean isDistinct(SqlBaseParser.SetQuantifierContext setQuantifier)

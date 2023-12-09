@@ -73,10 +73,11 @@ public class AlterTableTests
                 .hasRowsCount(1);
         assertThat(query(format("SELECT count(nationkey) FROM %s", TABLE_NAME)))
                 .containsExactly(row(25));
-        assertThat(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO nATIoNkEy", TABLE_NAME)))
-                .failsWithMessage("Column 'nationkey' already exists");
-        assertThat(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_regionkeY", TABLE_NAME)))
-                .failsWithMessage("Column 'n_regionkey' already exists");
+//        No longer valid as Presto does not convert case anymore
+//        assertThat(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO nATIoNkEy", TABLE_NAME)))
+//                .failsWithMessage("Column 'nationkey' already exists");
+//        assertThat(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_regionkeY", TABLE_NAME)))
+//                .failsWithMessage("Column 'n_regionkey' already exists");
 
         assertThat(query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_nationkey", TABLE_NAME)));
     }
@@ -92,8 +93,9 @@ public class AlterTableTests
                 .hasRowsCount(1);
         assertThat(() -> query(format("ALTER TABLE %s ADD COLUMN n_nationkey BIGINT", TABLE_NAME)))
                 .failsWithMessage("Column 'n_nationkey' already exists");
-        assertThat(() -> query(format("ALTER TABLE %s ADD COLUMN n_naTioNkEy BIGINT", TABLE_NAME)))
-                .failsWithMessage("Column 'n_naTioNkEy' already exists");
+//        Same as above since presto does not convert case anymore
+//        assertThat(() -> query(format("ALTER TABLE %s ADD COLUMN n_naTioNkEy BIGINT", TABLE_NAME)))
+//                .failsWithMessage("Column 'n_naTioNkEy' already exists");
     }
 
     @Test(groups = {ALTER_TABLE, SMOKE})
