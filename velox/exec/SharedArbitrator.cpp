@@ -16,7 +16,9 @@
 
 #include "velox/exec/SharedArbitrator.h"
 
+#include "velox/common/base/Counters.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 
@@ -61,6 +63,7 @@ std::string memoryPoolAbortMessage(
 
 SharedArbitrator::SharedArbitrator(const MemoryArbitrator::Config& config)
     : MemoryArbitrator(config), freeCapacity_(capacity_) {
+  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, capacity_);
   VELOX_CHECK_EQ(kind_, config.kind);
 }
 
@@ -190,11 +193,13 @@ bool SharedArbitrator::growMemory(
   ScopedArbitration scopedArbitration(pool, this);
   MemoryPool* requestor = pool->root();
   if (FOLLY_UNLIKELY(requestor->aborted())) {
+    RECORD_METRIC_VALUE(kMetricArbitratorFailuresCount);
     ++numFailures_;
     VELOX_MEM_POOL_ABORTED("The requestor has already been aborted");
   }
 
   if (FOLLY_UNLIKELY(!ensureCapacity(requestor, targetBytes))) {
+    RECORD_METRIC_VALUE(kMetricArbitratorFailuresCount);
     ++numFailures_;
     VELOX_MEM_LOG(ERROR) << "Can't grow " << requestor->name()
                          << " capacity to "
@@ -227,6 +232,7 @@ bool SharedArbitrator::growMemory(
       << requestor->name() << ", request " << succinctBytes(targetBytes)
       << " after " << numRetries
       << " retries, Arbitrator state: " << toString();
+  RECORD_METRIC_VALUE(kMetricArbitratorFailuresCount);
   ++numFailures_;
   return false;
 }
@@ -253,6 +259,7 @@ bool SharedArbitrator::ensureCapacity(
   incrementFreeCapacity(reclaimedBytes);
   // Check if the requestor has been aborted in reclaim operation above.
   if (requestor->aborted()) {
+    RECORD_METRIC_VALUE(kMetricArbitratorFailuresCount);
     ++numFailures_;
     VELOX_MEM_POOL_ABORTED("The requestor pool has been aborted");
   }
@@ -327,6 +334,7 @@ bool SharedArbitrator::arbitrateMemory(
   freedBytes += reclaimUsedMemoryFromCandidates(
       requestor, candidates, growTarget - freedBytes);
   if (requestor->aborted()) {
+    RECORD_METRIC_VALUE(kMetricArbitratorFailuresCount);
     ++numFailures_;
     VELOX_MEM_POOL_ABORTED("The requestor pool has been aborted.");
   }
@@ -442,6 +450,7 @@ uint64_t SharedArbitrator::reclaim(
 void SharedArbitrator::abort(
     MemoryPool* pool,
     const std::exception_ptr& error) {
+  RECORD_METRIC_VALUE(kMetricArbitratorAbortedCount);
   ++numAborted_;
   try {
     pool->abort(error);
@@ -463,6 +472,7 @@ uint64_t SharedArbitrator::decrementFreeCapacity(uint64_t bytes) {
 uint64_t SharedArbitrator::decrementFreeCapacityLocked(uint64_t bytes) {
   const uint64_t targetBytes = std::min(freeCapacity_, bytes);
   VELOX_CHECK_LE(targetBytes, freeCapacity_);
+  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, -1 * targetBytes);
   freeCapacity_ -= targetBytes;
   return targetBytes;
 }
@@ -473,6 +483,7 @@ void SharedArbitrator::incrementFreeCapacity(uint64_t bytes) {
 }
 
 void SharedArbitrator::incrementFreeCapacityLocked(uint64_t bytes) {
+  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, bytes);
   freeCapacity_ += bytes;
   if (FOLLY_UNLIKELY(freeCapacity_ > capacity_)) {
     VELOX_FAIL(
@@ -539,6 +550,8 @@ SharedArbitrator::ScopedArbitration::~ScopedArbitration() {
   const auto arbitrationTime =
       std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::steady_clock::now() - startTime_);
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kMetricArbitratorArbitrationTimeMs, arbitrationTime.count() / 1'000);
   arbitrator_->arbitrationTimeUs_ += arbitrationTime.count();
   arbitrator_->finishArbitration();
 }
@@ -548,6 +561,7 @@ void SharedArbitrator::startArbitration(MemoryPool* requestor) {
   ContinueFuture waitPromise{ContinueFuture::makeEmpty()};
   {
     std::lock_guard<std::mutex> l(mutex_);
+    RECORD_METRIC_VALUE(kMetricArbitratorRequestsCount);
     ++numRequests_;
     if (running_) {
       waitPromises_.emplace_back(fmt::format(
@@ -570,6 +584,8 @@ void SharedArbitrator::startArbitration(MemoryPool* requestor) {
       MicrosecondTimer timer(&waitTimeUs);
       waitPromise.wait();
     }
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kMetricArbitratorQueueTimeMs, waitTimeUs / 1'000);
     queueTimeUs_ += waitTimeUs;
   }
 }

@@ -1087,6 +1087,7 @@ void HashBuild::reclaim(
   // build processing and is not under non-reclaimable execution section.
   if (nonReclaimableState()) {
     // TODO: reduce the log frequency if it is too verbose.
+    RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     ++stats.numNonReclaimableAttempts;
     LOG(WARNING) << "Can't reclaim from hash build operator, state_["
                  << stateName(state_) << "], nonReclaimableSection_["
@@ -1107,6 +1108,7 @@ void HashBuild::reclaim(
     VELOX_CHECK(buildOp->canReclaim());
     if (buildOp->nonReclaimableState()) {
       // TODO: reduce the log frequency if it is too verbose.
+      RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
       ++stats.numNonReclaimableAttempts;
       LOG(WARNING) << "Can't reclaim from hash build operator, state_["
                    << stateName(buildOp->state_) << "], nonReclaimableSection_["

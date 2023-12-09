@@ -1,3 +1,4 @@
+
 ==============
 Runtime Metric
 ==============
@@ -86,9 +87,43 @@ Memory Management
      - The number of times that the memory reclaim wait timeouts.
    * - memory_non_reclaimable_count
      - Count
-     - The number of times that the memory reclaim fails because of
-       non-reclaimable section which is an indicator that the memory reservation
-       is not sufficient.
+     - The number of times that the memory reclaim fails because the operator is executing a
+       non-reclaimable section where it is expected to have reserved enough memory to execute
+       without asking for more. Therefore, it is an indicator that the memory reservation
+       is not sufficient. It excludes counting instances where the operator is in a
+       non-reclaimable state due to currently being on-thread and running or being already
+       cancelled.
+   * - arbitrator_requests_count
+     - Count
+     - The number of times a memory arbitration request was initiated by a
+       memory pool attempting to grow its capacity.
+   * - arbitrator_aborted_count
+     - Count
+     - The number of times a query level memory pool is aborted as a result of
+       a memory arbitration process. The memory pool aborted will eventually
+       result in a cancelling the original query.
+   * - arbitrator_failures_count
+     - Count
+     - The number of times a memory arbitration request failed. This may occur
+       either because the requester was terminated during the processing of
+       its request, the arbitration request would surpass the maximum allowed
+       capacity for the requester, or the arbitration process couldn't release
+       the requested amount of memory.
+   * - arbitrator_queue_time_ms
+     - Histogram
+     - The distribution of the amount of time an arbitration request stays queued
+       in range of [0, 600s] with 20 buckets. It is configured to report the
+       latency at P50, P90, P99, and P100 percentiles.
+   * - arbitrator_arbitration_time_ms
+     - Histogram
+     - The distribution of the amount of time it take to complete a single
+       arbitration request stays queued in range of [0, 600s] with 20
+       buckets. It is configured to report the latency at P50, P90, P99,
+       and P100 percentiles.
+   * - arbitrator_free_capacity_bytes
+     - Average
+     - The average of total free memory capacity which is managed by the
+       memory arbitrator.
 
 Spilling
 --------
