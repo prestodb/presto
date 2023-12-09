@@ -84,6 +84,7 @@ class ReaderOptions {
     maxCoalesceDistance_ = other.maxCoalesceDistance_;
     maxCoalesceBytes_ = other.maxCoalesceBytes_;
     prefetchRowGroups_ = other.prefetchRowGroups_;
+    loadQuantum_ = other.loadQuantum_;
     return *this;
   }
 
