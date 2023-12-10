@@ -1154,5 +1154,16 @@ TEST_F(Re2FunctionsTest, invalidEscapeChar) {
   }
 }
 
+TEST_F(Re2FunctionsTest, regexExtractAllLarge) {
+  auto input = makeRowVector({});
+  input->resize(1);
+
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "regexp_extract_all('1a 2b 14m', '(\\d+)([a-z]+)', CAST('4611686018427387904' AS BIGINT))",
+          input),
+      "No group 4611686018427387904 in regex '(\\d+)([a-z]+)")
+}
+
 } // namespace
 } // namespace facebook::velox::functions

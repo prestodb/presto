@@ -239,7 +239,7 @@ class Re2Match final : public VectorFunction {
   }
 };
 
-void checkForBadGroupId(int groupId, const RE2& re) {
+void checkForBadGroupId(int64_t groupId, const RE2& re) {
   if (UNLIKELY(groupId < 0 || groupId > re.NumberOfCapturingGroups())) {
     VELOX_USER_FAIL("No group {} in regex '{}'", groupId, re.pattern());
   }
