@@ -285,7 +285,7 @@ jobs:
         with:
           name: join
 
-      - name: "Run Aggregate Fuzzer"
+      - name: "Run Join Fuzzer"
         run: |
           mkdir -p /tmp/join_fuzzer_repro/
           rm -rfv /tmp/join_fuzzer_repro/*
