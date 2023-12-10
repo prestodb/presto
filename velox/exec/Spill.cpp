@@ -75,7 +75,7 @@ SpillState::SpillState(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Synchronized<common::SpillStats>* stats,
-    const std::unordered_map<std::string, std::string>& writeFileOptions)
+    const std::string& fileCreateConfig)
     : getSpillDirPathCb_(getSpillDirPathCb),
       fileNamePrefix_(fileNamePrefix),
       maxPartitions_(maxPartitions),
@@ -84,7 +84,7 @@ SpillState::SpillState(
       targetFileSize_(targetFileSize),
       writeBufferSize_(writeBufferSize),
       compressionKind_(compressionKind),
-      writeFileOptions_(writeFileOptions),
+      fileCreateConfig_(fileCreateConfig),
       pool_(pool),
       stats_(stats),
       partitionWriters_(maxPartitions_) {}
@@ -127,7 +127,7 @@ uint64_t SpillState::appendToPartition(
         fmt::format("{}/{}-spill-{}", spillDir, fileNamePrefix_, partition),
         targetFileSize_,
         writeBufferSize_,
-        writeFileOptions_,
+        fileCreateConfig_,
         pool_,
         stats_);
   }

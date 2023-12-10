@@ -400,7 +400,8 @@ void RowNumber::setupHashTableSpiller() {
       spillConfig.writeBufferSize,
       spillConfig.compressionKind,
       memory::spillMemoryPool(),
-      spillConfig.executor);
+      spillConfig.executor,
+      spillConfig.fileCreateConfig);
 }
 
 void RowNumber::setupInputSpiller() {
@@ -418,7 +419,8 @@ void RowNumber::setupInputSpiller() {
       spillConfig.writeBufferSize,
       spillConfig.compressionKind,
       memory::spillMemoryPool(),
-      spillConfig.executor);
+      spillConfig.executor,
+      spillConfig.fileCreateConfig);
 
   const auto& hashers = table_->hashers();
 

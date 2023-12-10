@@ -747,6 +747,7 @@ void TopNRowNumber::setupSpiller() {
       spillConfig_->writeBufferSize,
       spillConfig_->compressionKind,
       memory::spillMemoryPool(),
-      spillConfig_->executor);
+      spillConfig_->executor,
+      spillConfig_->fileCreateConfig);
 }
 } // namespace facebook::velox::exec

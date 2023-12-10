@@ -976,7 +976,8 @@ void GroupingSet::spill() {
         spillConfig_->writeBufferSize,
         spillConfig_->compressionKind,
         memory::spillMemoryPool(),
-        spillConfig_->executor);
+        spillConfig_->executor,
+        spillConfig_->fileCreateConfig);
   }
   spiller_->spill();
   if (sortedAggregations_) {
@@ -1003,7 +1004,8 @@ void GroupingSet::spill(const RowContainerIterator& rowIterator) {
       spillConfig_->writeBufferSize,
       spillConfig_->compressionKind,
       memory::spillMemoryPool(),
-      spillConfig_->executor);
+      spillConfig_->executor,
+      spillConfig_->fileCreateConfig);
 
   spiller_->spill(rowIterator);
   table_->clear();

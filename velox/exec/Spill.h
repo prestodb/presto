@@ -330,8 +330,7 @@ class SpillState {
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
       folly::Synchronized<common::SpillStats>* stats,
-      const std::unordered_map<std::string, std::string>& writeFileOptions =
-          {});
+      const std::string& fileCreateConfig = {});
 
   /// Indicates if a given 'partition' has been spilled or not.
   bool isPartitionSpilled(uint32_t partition) const {
@@ -415,7 +414,7 @@ class SpillState {
   const uint64_t targetFileSize_;
   const uint64_t writeBufferSize_;
   const common::CompressionKind compressionKind_;
-  const std::unordered_map<std::string, std::string> writeFileOptions_;
+  const std::string fileCreateConfig_;
   memory::MemoryPool* const pool_;
   folly::Synchronized<common::SpillStats>* const stats_;
 

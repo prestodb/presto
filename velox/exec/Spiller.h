@@ -61,8 +61,7 @@ class Spiller {
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
       folly::Executor* executor,
-      const std::unordered_map<std::string, std::string>& writeFileOptions =
-          {});
+      const std::string& fileCreateConfig = {});
 
   Spiller(
       Type type,
@@ -74,8 +73,7 @@ class Spiller {
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
       folly::Executor* executor,
-      const std::unordered_map<std::string, std::string>& writeFileOptions =
-          {});
+      const std::string& fileCreateConfig = {});
 
   Spiller(
       Type type,
@@ -88,8 +86,7 @@ class Spiller {
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
       folly::Executor* executor,
-      const std::unordered_map<std::string, std::string>& writeFileOptions =
-          {});
+      const std::string& fileCreateConfig = {});
 
   Spiller(
       Type type,
@@ -103,8 +100,7 @@ class Spiller {
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
       folly::Executor* executor,
-      const std::unordered_map<std::string, std::string>& writeFileOptions =
-          {});
+      const std::string& fileCreateConfig = {});
 
   Type type() const {
     return type_;
@@ -216,7 +212,7 @@ class Spiller {
       common::CompressionKind compressionKind,
       memory::MemoryPool* pool,
       folly::Executor* executor,
-      const std::unordered_map<std::string, std::string>& writeFileOptions);
+      const std::string& fileCreateConfig);
 
   // Invoked to spill. If 'startRowIter' is not null, then we only spill rows
   // from row container starting at the offset pointed by 'startRowIter'.

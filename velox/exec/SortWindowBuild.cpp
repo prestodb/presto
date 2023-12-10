@@ -150,7 +150,8 @@ void SortWindowBuild::setupSpiller() {
       spillConfig_->writeBufferSize,
       spillConfig_->compressionKind,
       memory::spillMemoryPool(),
-      spillConfig_->executor);
+      spillConfig_->executor,
+      spillConfig_->fileCreateConfig);
 }
 
 void SortWindowBuild::spill() {

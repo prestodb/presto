@@ -151,7 +151,8 @@ std::optional<common::SpillConfig> DriverCtx::makeSpillConfig(
       queryConfig.maxSpillLevel(),
       queryConfig.writerFlushThresholdBytes(),
       queryConfig.testingSpillPct(),
-      queryConfig.spillCompressionKind());
+      queryConfig.spillCompressionKind(),
+      queryConfig.spillFileCreateConfig());
 }
 
 std::atomic_uint64_t BlockingState::numBlockedDrivers_{0};

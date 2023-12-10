@@ -44,7 +44,7 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Executor* executor,
-    const std::unordered_map<std::string, std::string>& writeFileOptions)
+    const std::string& fileCreateConfig)
     : Spiller(
           type,
           container,
@@ -59,7 +59,7 @@ Spiller::Spiller(
           compressionKind,
           pool,
           executor,
-          writeFileOptions) {
+          fileCreateConfig) {
   VELOX_CHECK(
       type_ == Type::kOrderByInput || type_ == Type::kAggregateInput,
       "Unexpected spiller type: {}",
@@ -78,7 +78,7 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Executor* executor,
-    const std::unordered_map<std::string, std::string>& writeFileOptions)
+    const std::string& fileCreateConfig)
     : Spiller(
           type,
           container,
@@ -93,7 +93,7 @@ Spiller::Spiller(
           compressionKind,
           pool,
           executor,
-          writeFileOptions) {
+          fileCreateConfig) {
   VELOX_CHECK(
       type_ == Type::kAggregateOutput || type_ == Type::kOrderByOutput,
       "Unexpected spiller type: {}",
@@ -113,7 +113,7 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Executor* executor,
-    const std::unordered_map<std::string, std::string>& writeFileOptions)
+    const std::string& fileCreateConfig)
     : Spiller(
           type,
           nullptr,
@@ -128,7 +128,7 @@ Spiller::Spiller(
           compressionKind,
           pool,
           executor,
-          writeFileOptions) {
+          fileCreateConfig) {
   VELOX_CHECK_EQ(
       type_,
       Type::kHashJoinProbe,
@@ -148,7 +148,7 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Executor* executor,
-    const std::unordered_map<std::string, std::string>& writeFileOptions)
+    const std::string& fileCreateConfig)
     : Spiller(
           type,
           container,
@@ -163,7 +163,7 @@ Spiller::Spiller(
           compressionKind,
           pool,
           executor,
-          writeFileOptions) {
+          fileCreateConfig) {
   VELOX_CHECK_EQ(
       type_,
       Type::kHashJoinBuild,
@@ -185,7 +185,7 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Executor* executor,
-    const std::unordered_map<std::string, std::string>& writeFileOptions)
+    const std::string& fileCreateConfig)
     : type_(type),
       container_(container),
       executor_(executor),
@@ -203,7 +203,7 @@ Spiller::Spiller(
           compressionKind,
           pool_,
           &stats_,
-          writeFileOptions) {
+          fileCreateConfig) {
   TestValue::adjust(
       "facebook::velox::exec::Spiller", const_cast<HashBitRange*>(&bits_));
 

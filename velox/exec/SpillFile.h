@@ -39,7 +39,7 @@ class SpillWriteFile {
   static std::unique_ptr<SpillWriteFile> create(
       uint32_t id,
       const std::string& pathPrefix,
-      const std::unordered_map<std::string, std::string>& fileOptions);
+      const std::string& fileCreateConfig);
 
   uint32_t id() const {
     return id_;
@@ -67,7 +67,7 @@ class SpillWriteFile {
   SpillWriteFile(
       uint32_t id,
       const std::string& pathPrefix,
-      const std::unordered_map<std::string, std::string>& fileOptions);
+      const std::string& fileCreateConfig);
 
   // The spill file id which is monotonically increasing and unique for each
   // associated spill partition.
@@ -117,7 +117,7 @@ class SpillWriter {
       const std::string& pathPrefix,
       uint64_t targetFileSize,
       uint64_t writeBufferSize,
-      const std::unordered_map<std::string, std::string>& fileOptions,
+      const std::string& fileCreateConfig,
       memory::MemoryPool* pool,
       folly::Synchronized<common::SpillStats>* stats);
 
@@ -180,7 +180,7 @@ class SpillWriter {
   const std::string pathPrefix_;
   const uint64_t targetFileSize_;
   const uint64_t writeBufferSize_;
-  const std::unordered_map<std::string, std::string> fileOptions_;
+  const std::string fileCreateConfig_;
   memory::MemoryPool* const pool_;
   folly::Synchronized<common::SpillStats>* const stats_;
 
