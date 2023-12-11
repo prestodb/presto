@@ -17,6 +17,7 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.BaseHiveTableLayoutHandle;
 import com.facebook.presto.hive.HivePartition;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -35,6 +36,7 @@ public class IcebergTableLayoutHandle
         extends BaseHiveTableLayoutHandle
 {
     private final List<IcebergColumnHandle> partitionColumns;
+    private final List<Column> dataColumns;
     private final Map<String, IcebergColumnHandle> predicateColumns;
     private final Optional<Set<IcebergColumnHandle>> requestedColumns;
     private final IcebergTableHandle table;
@@ -42,6 +44,7 @@ public class IcebergTableLayoutHandle
     @JsonCreator
     public IcebergTableLayoutHandle(
             @JsonProperty("partitionColumns") List<IcebergColumnHandle> partitionColumns,
+            @JsonProperty("dataColumns") List<Column> dataColumns,
             @JsonProperty("domainPredicate") TupleDomain<Subfield> domainPredicate,
             @JsonProperty("remainingPredicate") RowExpression remainingPredicate,
             @JsonProperty("predicateColumns") Map<String, IcebergColumnHandle> predicateColumns,
@@ -52,6 +55,7 @@ public class IcebergTableLayoutHandle
     {
         this(
                 partitionColumns,
+                dataColumns,
                 domainPredicate,
                 remainingPredicate,
                 predicateColumns,
@@ -64,6 +68,7 @@ public class IcebergTableLayoutHandle
 
     protected IcebergTableLayoutHandle(
             List<IcebergColumnHandle> partitionColumns,
+            List<Column> dataColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             Map<String, IcebergColumnHandle> predicateColumns,
@@ -76,6 +81,7 @@ public class IcebergTableLayoutHandle
         super(domainPredicate, remainingPredicate, pushdownFilterEnabled, partitionColumnPredicate, partitions);
 
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
+        this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.table = requireNonNull(table, "table is null");
@@ -85,6 +91,12 @@ public class IcebergTableLayoutHandle
     public List<IcebergColumnHandle> getPartitionColumns()
     {
         return partitionColumns;
+    }
+
+    @JsonProperty
+    public List<Column> getDataColumns()
+    {
+        return dataColumns;
     }
 
     @JsonProperty
@@ -140,6 +152,7 @@ public class IcebergTableLayoutHandle
     public static class Builder
     {
         private List<IcebergColumnHandle> partitionColumns;
+        private List<Column> dataColumns;
         private TupleDomain<Subfield> domainPredicate;
         private RowExpression remainingPredicate;
         private Map<String, IcebergColumnHandle> predicateColumns;
@@ -152,6 +165,12 @@ public class IcebergTableLayoutHandle
         public Builder setPartitionColumns(List<IcebergColumnHandle> partitionColumns)
         {
             this.partitionColumns = partitionColumns;
+            return this;
+        }
+
+        public Builder setDataColumns(List<Column> dataColumns)
+        {
+            this.dataColumns = dataColumns;
             return this;
         }
 
@@ -207,6 +226,7 @@ public class IcebergTableLayoutHandle
         {
             return new IcebergTableLayoutHandle(
                     partitionColumns,
+                    dataColumns,
                     domainPredicate,
                     remainingPredicate,
                     predicateColumns,

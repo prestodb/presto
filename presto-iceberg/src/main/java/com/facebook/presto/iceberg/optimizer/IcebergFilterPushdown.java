@@ -60,6 +60,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
+import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -192,6 +193,7 @@ public class IcebergFilterPushdown
                             session,
                             new IcebergTableLayoutHandle.Builder()
                                     .setPartitionColumns(partitionColumns)
+                                    .setDataColumns(toHiveColumns(icebergTable.schema().columns()))
                                     .setDomainPredicate(domainPredicate)
                                     .setRemainingPredicate(remainingExpressions.getRemainingExpression())
                                     .setPredicateColumns(predicateColumns)
