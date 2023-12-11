@@ -258,7 +258,8 @@ public class TestFeaturesConfig
                 .setRemoveRedundantCastToVarcharInJoin(true)
                 .setHandleComplexEquiJoins(false)
                 .setSkipHashGenerationForJoinWithTableScanInput(false)
-                .setCteMaterializationStrategy(CteMaterializationStrategy.NONE));
+                .setCteMaterializationStrategy(CteMaterializationStrategy.NONE)
+                .setKHyperLogLogAggregationGroupNumberLimit(0));
     }
 
     @Test
@@ -463,6 +464,7 @@ public class TestFeaturesConfig
                 .put("cte-materialization-strategy", "ALL")
                 .put("optimizer.handle-complex-equi-joins", "true")
                 .put("optimizer.skip-hash-generation-for-join-with-table-scan-input", "true")
+                .put("khyperloglog-agg-group-limit", "1000")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -664,7 +666,8 @@ public class TestFeaturesConfig
                 .setRemoveRedundantCastToVarcharInJoin(false)
                 .setHandleComplexEquiJoins(true)
                 .setSkipHashGenerationForJoinWithTableScanInput(true)
-                .setCteMaterializationStrategy(CteMaterializationStrategy.ALL);
+                .setCteMaterializationStrategy(CteMaterializationStrategy.ALL)
+                .setKHyperLogLogAggregationGroupNumberLimit(1000);
         assertFullMapping(properties, expected);
     }
 

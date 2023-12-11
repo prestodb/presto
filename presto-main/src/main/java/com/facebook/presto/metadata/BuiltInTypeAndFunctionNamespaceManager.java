@@ -944,7 +944,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
                 .aggregates(MergeKHyperLogLogAggregationFunction.class)
-                .aggregates(KHyperLogLogAggregationFunction.class)
+                .function(new KHyperLogLogAggregationFunction(featuresConfig.getKHyperLogLogAggregationGroupNumberLimit()))
                 .scalars(KHyperLogLogFunctions.class)
                 .scalars(KHyperLogLogOperators.class)
                 .scalars(WilsonInterval.class)
