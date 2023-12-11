@@ -1355,6 +1355,10 @@ TEST_P(OrderByOutputOnly, basic) {
           spiller_->spill(0, dummy),
           "Unexpected spiller type: ORDER_BY_OUTPUT");
     }
+    {
+      std::vector<char*> emptyRows;
+      VELOX_ASSERT_THROW(spiller_->spill(emptyRows), "");
+    }
     auto spillRows =
         std::vector<char*>(rows.begin(), rows.begin() + numListedRows);
     spiller_->spill(spillRows);

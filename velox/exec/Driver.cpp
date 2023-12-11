@@ -23,7 +23,6 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Operator.h"
-#include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 
 using facebook::velox::common::testutil::TestValue;

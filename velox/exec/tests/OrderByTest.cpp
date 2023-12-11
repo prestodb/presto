@@ -1295,3 +1295,61 @@ DEBUG_ONLY_TEST_F(OrderByTest, abortDuringInputgProcessing) {
     waitForAllTasksToBeDeleted();
   }
 }
+
+DEBUG_ONLY_TEST_F(OrderByTest, spillWithNoMoreOutput) {
+  const auto rowType =
+      ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), VARCHAR()});
+  const auto vectors = createVectors(rowType, 1024, 4 << 20);
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId orderNodeId;
+  const auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .values(vectors)
+          .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
+          .capturePlanNodeId(orderNodeId)
+          .planNode();
+
+  const auto expectedResult = AssertQueryBuilder(plan).copyResults(pool_.get());
+
+  std::atomic_int numOutputs{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::getOutput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "OrderBy") {
+          return;
+        }
+        if (!op->testingNoMoreInput()) {
+          return;
+        }
+        if (++numOutputs != 2) {
+          return;
+        }
+        ASSERT_TRUE(!op->isFinished());
+        op->reclaim(1'000'000'000, reclaimerStats_);
+        ASSERT_EQ(reclaimerStats_.reclaimedBytes, 0);
+      })));
+
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto task =
+      AssertQueryBuilder(plan)
+          .spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, "true")
+          .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+          // Set output buffer size to extreme large to read all the
+          // output rows in one vector.
+          .config(
+              QueryConfig::kPreferredOutputBatchRows,
+              std::to_string(1'000'000'000))
+          .config(
+              QueryConfig::kMaxOutputBatchRows, std::to_string(1'000'000'000))
+          .config(
+              QueryConfig::kPreferredOutputBatchBytes,
+              std::to_string(1'000'000'000))
+          .maxDrivers(1)
+          .assertResults(expectedResult);
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  auto& planStats = taskStats.at(orderNodeId);
+  ASSERT_EQ(planStats.spilledBytes, 0);
+  ASSERT_EQ(planStats.spilledRows, 0);
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+}

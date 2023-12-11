@@ -286,6 +286,10 @@ void SortBuffer::spillOutput() {
     // Already spilled.
     return;
   }
+  if (numOutputRows_ == sortedRows_.size()) {
+    // All the output has been produced.
+    return;
+  }
 
   spiller_ = std::make_unique<Spiller>(
       Spiller::Type::kOrderByOutput,

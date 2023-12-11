@@ -494,9 +494,7 @@ void Spiller::spill(const RowContainerIterator* startRowIter) {
 void Spiller::spill(std::vector<char*>& rows) {
   CHECK_NOT_FINALIZED();
   VELOX_CHECK_EQ(type_, Type::kOrderByOutput);
-  if (rows.empty()) {
-    return;
-  }
+  VELOX_CHECK(!rows.empty());
 
   markAllPartitionsSpilled();
 
