@@ -125,7 +125,7 @@ jobs:
           name: 'Run Unit Tests'
           command: |
             cd presto-native-execution/_build/debug
-            ctest -j 10 -VV --output-on-failure --exclude-regex velox.*
+            ctest -j 10 -VV --output-on-failure --no-tests=error
       - persist_to_workspace:
           root: presto-native-execution
           paths:
