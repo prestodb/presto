@@ -218,8 +218,8 @@ public class NativeExecutionTask
             try {
                 errorTracker.startRequest();
                 BaseResponse<TaskInfo> response = doSendUpdateRequest();
-                errorTracker.requestSucceeded();
                 if (response.hasValue()) {
+                    errorTracker.requestSucceeded();
                     return response.getValue();
                 }
                 else {
