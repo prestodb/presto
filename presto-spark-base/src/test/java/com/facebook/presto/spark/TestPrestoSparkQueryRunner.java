@@ -49,6 +49,7 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_QUERY
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ERROR_CODES;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
@@ -1068,6 +1069,53 @@ public class TestPrestoSparkQueryRunner
                 .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "2MB")
                 .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "2MB")
                 .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, "true")
+                .setSystemProperty(OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES, "query_max_memory_per_node=100MB,query_max_total_memory_per_node=100MB")
+                .setSystemProperty(OUT_OF_MEMORY_RETRY_SPARK_CONFIGS, "spark.executor.memory=1G")
+                .build();
+
+        // Query should succeed since memory will be increased on retry
+        assertQuery(
+                session,
+                "select * from lineitem l join orders o on l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testRetryOnOutOfMemoryWithIncreasedContainerSizeWithSessionPropertiesProvidedErrorCode()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "2MB")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "2MB")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, "false")
+                .build();
+
+        // Query should fail with OOM
+        assertQueryFails(
+                session,
+                "select * from lineitem l join orders o on l.orderkey = o.orderkey",
+                ".*Query exceeded per-node .* memory limit of 2MB.*");
+
+        session = Session.builder(getSession())
+                .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "2MB")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "2MB")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, "true")
+                // Do not provide any error code. INCREASE_CONTAINER_SIZE strategy won't be applied
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ERROR_CODES, "")
+                .setSystemProperty(OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES, "query_max_memory_per_node=100MB,query_max_total_memory_per_node=100MB")
+                .setSystemProperty(OUT_OF_MEMORY_RETRY_SPARK_CONFIGS, "spark.executor.memory=1G")
+                .build();
+
+        // Query should fail with OOM
+        assertQueryFails(
+                session,
+                "select * from lineitem l join orders o on l.orderkey = o.orderkey",
+                ".*Query exceeded per-node .* memory limit of 2MB.*");
+
+        session = Session.builder(getSession())
+                .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "2MB")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "2MB")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, "true")
+                // Support EXCEEDED_LOCAL_MEMORY_LIMIT as the retry error code. INCREASE_CONTAINER_SIZE strategy will be applied
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ERROR_CODES, "EXCEEDED_LOCAL_MEMORY_LIMIT")
                 .setSystemProperty(OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES, "query_max_memory_per_node=100MB,query_max_total_memory_per_node=100MB")
                 .setSystemProperty(OUT_OF_MEMORY_RETRY_SPARK_CONFIGS, "spark.executor.memory=1G")
                 .build();
