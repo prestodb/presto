@@ -7,7 +7,7 @@ See the [User Manual](https://prestodb.github.io/docs/current/) for deployment i
 ## Requirements
 
 * Mac OS X or Linux
-* Java 8 Update 151 or higher (8u151+), 64-bit. Both Oracle JDK and OpenJDK are supported.
+* Java 11, 64-bit. Both Oracle JDK and OpenJDK are supported.
 * Maven 3.3.9+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
@@ -42,13 +42,13 @@ After building Presto for the first time, you can load the project into your IDE
 After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that a 1.8 JDK is selected (create one if none exist)
+* In the SDKs section, ensure that a JDK 11 is selected (create one if none exist)
 * In the Project section, ensure the Project language level is set to 8.0 as Presto makes use of several Java 8 language features
 
 Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
 
 * Main Class: `com.facebook.presto.server.PrestoServer`
-* VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
+* VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true`
 * Working directory: `$MODULE_WORKING_DIR$` or `$MODULE_DIR$`(Depends your version of IntelliJ)
 * Use classpath of module: `presto-main`
 

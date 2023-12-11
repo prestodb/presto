@@ -2520,5 +2520,14 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>java-8-api</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <properties>
+                <maven.compiler.release>8</maven.compiler.release>
+            </properties>
+        </profile>
     </profiles>
 </project>
