@@ -190,6 +190,7 @@ set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
+  set(BUILD_TESTING ON) # some third-party dependency could have disabled this.
   include(CTest) # include after project() but before add_subdirectory()
   include_directories(${VELOX_GTEST_INCUDE_DIR})
 else()
