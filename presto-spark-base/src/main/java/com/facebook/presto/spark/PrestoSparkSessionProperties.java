@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
@@ -54,6 +56,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED = "spark_retry_on_out_of_memory_with_increased_memory_settings_enabled";
     public static final String OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES = "out_of_memory_retry_presto_session_properties";
     public static final String OUT_OF_MEMORY_RETRY_SPARK_CONFIGS = "out_of_memory_retry_spark_configs";
+    public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ERROR_CODES = "spark_retry_on_out_of_memory_with_increased_memory_settings_error_codes";
     public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR = "spark_average_input_data_size_per_executor";
     public static final String SPARK_MAX_EXECUTOR_COUNT = "spark_max_executor_count";
     public static final String SPARK_MIN_EXECUTOR_COUNT = "spark_min_executor_count";
@@ -183,6 +186,15 @@ public class PrestoSparkSessionProperties
                         prestoSparkConfig.getOutOfMemoryRetrySparkConfigs(),
                         true,
                         value -> MAP_SPLITTER.split(nullToEmpty((String) value)),
+                        value -> value),
+                new PropertyMetadata<>(
+                        SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ERROR_CODES,
+                        "Error Codes to retry with increase memory settings",
+                        VARCHAR,
+                        List.class,
+                        ImmutableList.of(EXCEEDED_LOCAL_MEMORY_LIMIT.name(), SPARK_EXECUTOR_OOM.name()),
+                        false,
+                        value -> Splitter.on(',').trimResults().omitEmptyStrings().splitToList(value.toString().toUpperCase()),
                         value -> value),
                 dataSizeProperty(
                         SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR,
@@ -349,6 +361,11 @@ public class PrestoSparkSessionProperties
     public static Map<String, String> getOutOfMemoryRetrySparkConfigs(Session session)
     {
         return session.getSystemProperty(OUT_OF_MEMORY_RETRY_SPARK_CONFIGS, Map.class);
+    }
+
+    public static List<String> getRetryOnOutOfMemoryWithIncreasedMemoryErrorCodes(Session session)
+    {
+        return session.getSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ERROR_CODES, List.class);
     }
 
     public static DataSize getAverageInputDataSizePerExecutor(Session session)
