@@ -115,6 +115,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandl
 import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
+import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
@@ -193,6 +194,7 @@ public abstract class IcebergAbstractMetadata
                 session,
                 new IcebergTableLayoutHandle.Builder()
                         .setPartitionColumns(getPartitionKeyColumnHandles(icebergTable, typeManager))
+                        .setDataColumns(toHiveColumns(icebergTable.schema().columns()))
                         .setDomainPredicate(constraint.getSummary().transform(IcebergAbstractMetadata::toSubfield))
                         .setRemainingPredicate(TRUE_CONSTANT)
                         .setPredicateColumns(predicateColumns)
