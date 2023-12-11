@@ -128,6 +128,7 @@ bool SeekableArrayInputStream::Next(const void** buffer, int32_t* size) {
     *buffer = data + position;
     *size = static_cast<int32_t>(currentSize);
     position += currentSize;
+    totalRead_ += currentSize;
     return true;
   }
 

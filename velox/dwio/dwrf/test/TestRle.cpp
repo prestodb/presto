@@ -1858,9 +1858,8 @@ TEST(RLEv1, seekTest) {
       151, 12,  193, 190, 224, 143, 9,   129, 245, 133, 204, 8,   182, 209, 250,
       178, 8,   148, 139, 144, 193, 11,  230, 182, 245, 164, 7,   149, 204, 161,
       226, 14,  175, 229, 148, 166, 13,  148, 140, 189, 216, 3};
-  dwio::common::SeekableInputStream* const stream =
-      new dwio::common::SeekableArrayInputStream(
-          buffer, VELOX_ARRAY_SIZE(buffer));
+  auto* stream = new dwio::common::SeekableArrayInputStream(
+      buffer, VELOX_ARRAY_SIZE(buffer));
   const long junk[] = {
       -1192035722, 1672896916,  1491444859,  -1244121273, -791680696,
       1681943525,  -571055948,  -1744759283, -998345856,  240559198,
@@ -2969,8 +2968,16 @@ TEST(RLEv1, seekTest) {
       *pool,
       true,
       dwio::common::INT_BYTE_SIZE);
+  ASSERT_EQ(stream->totalRead(), 0);
+  auto lastTotalReadBytes = stream->totalRead();
+  auto getNumReadBytes = [&] {
+    auto ans = stream->totalRead() - lastTotalReadBytes;
+    lastTotalReadBytes = stream->totalRead();
+    return ans;
+  };
   std::vector<int64_t> data(2048);
   rle->next(data.data(), data.size(), nullptr);
+  ASSERT_EQ(getNumReadBytes(), VELOX_ARRAY_SIZE(buffer));
   for (size_t i = 0; i < data.size(); ++i) {
     if (i < 1024) {
       EXPECT_EQ(i / 4, data[i]) << "Wrong output at " << i;
@@ -2979,6 +2986,7 @@ TEST(RLEv1, seekTest) {
     }
   }
   rle->next(data.data(), data.size(), nullptr);
+  ASSERT_EQ(getNumReadBytes(), 0);
   for (size_t i = 0; i < data.size(); ++i) {
     EXPECT_EQ(junk[i], data[i]) << "Wrong output at " << i;
   }
@@ -2987,7 +2995,9 @@ TEST(RLEv1, seekTest) {
     --i;
     dwio::common::PositionProvider location(positions[i]);
     rle->seekToRowGroup(location);
+    ASSERT_EQ(getNumReadBytes(), 0);
     rle->next(data.data(), 1, nullptr);
+    ASSERT_GT(getNumReadBytes(), 0);
     if (i < 1024) {
       EXPECT_EQ(i / 4, data[0]) << "Wrong output at " << i;
     } else if (i < 2048) {
@@ -3003,6 +3013,7 @@ TEST(RLEv1, seekTest) {
   position.push_back(0);
   dwio::common::PositionProvider pp{position};
   rle->seekToRowGroup(pp);
+  ASSERT_EQ(getNumReadBytes(), 0);
   // Seek is fine, but read should fail
   EXPECT_THROW(rle->next(data.data(), 1, nullptr), VeloxException);
 
@@ -3011,7 +3022,10 @@ TEST(RLEv1, seekTest) {
   position.push_back(VELOX_ARRAY_SIZE(buffer));
   position.push_back(1);
   dwio::common::PositionProvider pp2{position};
-  EXPECT_THROW(rle->seekToRowGroup(pp2), VeloxException);
+  // Seek is fine (because it's lazy), but read should fail
+  rle->seekToRowGroup(pp2);
+  ASSERT_EQ(getNumReadBytes(), 0);
+  EXPECT_THROW(rle->next(data.data(), 1, nullptr), VeloxException);
 }
 
 TEST(RLEv1, testLeadingNulls) {

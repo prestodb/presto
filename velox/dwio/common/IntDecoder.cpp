@@ -30,6 +30,7 @@ FOLLY_ALWAYS_INLINE void IntDecoder<isSigned>::skipVarints(uint64_t items) {
 template <bool isSigned>
 FOLLY_ALWAYS_INLINE uint64_t
 IntDecoder<isSigned>::skipVarintsInBuffer(uint64_t items) {
+  VELOX_DCHECK_EQ(pendingSkip, 0);
   static constexpr uint64_t kVarintMask = 0x8080808080808080L;
   if (bufferStart == bufferEnd) {
     const void* bufferPointer;
@@ -70,7 +71,8 @@ IntDecoder<isSigned>::skipVarintsInBuffer(uint64_t items) {
 }
 
 template <bool isSigned>
-void IntDecoder<isSigned>::skipLongsFast(uint64_t numValues) {
+void IntDecoder<isSigned>::skipLongs(uint64_t numValues) {
+  VELOX_DCHECK_EQ(pendingSkip, 0);
   if (useVInts) {
     skipVarints(numValues);
   } else {
@@ -78,12 +80,13 @@ void IntDecoder<isSigned>::skipLongsFast(uint64_t numValues) {
   }
 }
 
-template void IntDecoder<true>::skipLongsFast(uint64_t numValues);
-template void IntDecoder<false>::skipLongsFast(uint64_t numValues);
+template void IntDecoder<true>::skipLongs(uint64_t numValues);
+template void IntDecoder<false>::skipLongs(uint64_t numValues);
 
 template <bool isSigned>
 template <typename T>
 void IntDecoder<isSigned>::bulkReadFixed(uint64_t size, T* result) {
+  VELOX_DCHECK_EQ(pendingSkip, 0);
   if (isSigned) {
     switch (numBytes) {
       case 2:
@@ -127,6 +130,7 @@ void IntDecoder<isSigned>::bulkReadRowsFixed(
     RowSet rows,
     int32_t initialRow,
     T* result) {
+  VELOX_DCHECK_EQ(pendingSkip, 0);
   if (isSigned) {
     switch (numBytes) {
       case 2:
@@ -915,6 +919,7 @@ FOLLY_ALWAYS_INLINE void varintSwitch(
 template <bool isSigned>
 template <typename T>
 void IntDecoder<isSigned>::bulkRead(uint64_t size, T* result) {
+  skipPending();
   if (!useVInts) {
     bulkReadFixed(size, result);
     return;
@@ -966,6 +971,7 @@ void IntDecoder<isSigned>::bulkReadRows(
     RowSet rows,
     T* result,
     int32_t initialRow) {
+  skipPending();
   if (!useVInts) {
     bulkReadRowsFixed(rows, initialRow, result);
     return;

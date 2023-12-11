@@ -74,7 +74,7 @@ void RleDecoderV1<isSigned>::seekToRowGroup(
   // force reading a new header
   remainingValues = 0;
   // skip ahead the given number of records
-  skip(location.next());
+  this->pendingSkip = location.next();
 }
 
 template void RleDecoderV1<true>::seekToRowGroup(
@@ -83,7 +83,9 @@ template void RleDecoderV1<false>::seekToRowGroup(
     dwio::common::PositionProvider& location);
 
 template <bool isSigned>
-void RleDecoderV1<isSigned>::skip(uint64_t numValues) {
+void RleDecoderV1<isSigned>::skipPending() {
+  uint64_t numValues = this->pendingSkip;
+  this->pendingSkip = 0;
   while (numValues > 0) {
     if (remainingValues == 0) {
       readHeader();
@@ -99,14 +101,15 @@ void RleDecoderV1<isSigned>::skip(uint64_t numValues) {
   }
 }
 
-template void RleDecoderV1<true>::skip(uint64_t numValues);
-template void RleDecoderV1<false>::skip(uint64_t numValues);
+template void RleDecoderV1<true>::skipPending();
+template void RleDecoderV1<false>::skipPending();
 
 template <bool isSigned>
 void RleDecoderV1<isSigned>::next(
     int64_t* const data,
     const uint64_t numValues,
     const uint64_t* const nulls) {
+  skipPending();
   uint64_t position = 0;
   // skipNulls()
   if (nulls) {
@@ -216,6 +219,7 @@ template <bool isSigned>
 void RleDecoderV1<isSigned>::nextLengths(
     int32_t* const data,
     const int32_t numValues) {
+  skipPending();
   uint32_t position = 0;
   while (position < numValues) {
     // If we are out of values, read more.

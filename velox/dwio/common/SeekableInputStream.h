@@ -78,6 +78,7 @@ class SeekableArrayInputStream : public SeekableInputStream {
   uint64_t length;
   uint64_t position;
   uint64_t blockSize;
+  int64_t totalRead_ = 0;
   void loadIfAvailable();
 
  public:
@@ -107,6 +108,12 @@ class SeekableArrayInputStream : public SeekableInputStream {
   virtual void seekToPosition(PositionProvider& position) override;
   virtual std::string getName() const override;
   virtual size_t positionSize() override;
+
+  /// Return the total number of bytes returned from Next() calls.  Intended to
+  /// be used for test validation.
+  int64_t totalRead() const {
+    return totalRead_;
+  }
 };
 
 /**

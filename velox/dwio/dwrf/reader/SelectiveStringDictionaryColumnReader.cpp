@@ -105,11 +105,11 @@ void SelectiveStringDictionaryColumnReader::loadDictionary(
   dwio::common::ensureCapacity<StringView>(
       values.values, values.numValues, &memoryPool_);
   // The lengths are read in the low addresses of the string views array.
-  int64_t* int64Values = values.values->asMutable<int64_t>();
-  lengthDecoder.next(int64Values, values.numValues, nullptr);
+  auto* lengths = values.values->asMutable<int32_t>();
+  lengthDecoder.nextLengths(lengths, values.numValues);
   int64_t stringsBytes = 0;
   for (auto i = 0; i < values.numValues; ++i) {
-    stringsBytes += int64Values[i];
+    stringsBytes += lengths[i];
   }
   // read bytes from underlying string
   values.strings = AlignedBuffer::allocate<char>(stringsBytes, &memoryPool_);
@@ -123,8 +123,8 @@ void SelectiveStringDictionaryColumnReader::loadDictionary(
   // the lengths at the start of values.
   auto offset = stringsBytes;
   for (int32_t i = values.numValues - 1; i >= 0; --i) {
-    offset -= int64Values[i];
-    views[i] = StringView(strings + offset, int64Values[i]);
+    offset -= lengths[i];
+    views[i] = StringView(strings + offset, lengths[i]);
   }
 }
 

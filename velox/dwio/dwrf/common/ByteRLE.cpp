@@ -340,6 +340,7 @@ std::unique_ptr<ByteRleEncoder> createBooleanRleEncoder(
 }
 
 void ByteRleDecoder::nextBuffer() {
+  VELOX_DCHECK_EQ(pendingSkip_, 0);
   int32_t bufferLength;
   const void* bufferPointer;
   DWIO_ENSURE(
@@ -361,7 +362,7 @@ void ByteRleDecoder::seekToRowGroup(
   // force reading a new header
   remainingValues = 0;
   // skip ahead the given number of records
-  ByteRleDecoder::skip(positionProvider.next());
+  pendingSkip_ = positionProvider.next();
 }
 
 void ByteRleDecoder::skipBytes(size_t count) {
@@ -377,26 +378,11 @@ void ByteRleDecoder::skipBytes(size_t count) {
   }
 }
 
-void ByteRleDecoder::skip(uint64_t numValues) {
-  while (numValues > 0) {
-    if (remainingValues == 0) {
-      readHeader();
-    }
-    size_t count = std::min(static_cast<size_t>(numValues), remainingValues);
-    remainingValues -= count;
-    numValues -= count;
-    // for literals we need to skip over count bytes, which may involve
-    // reading from the underlying stream
-    if (!repeating) {
-      skipBytes(count);
-    }
-  }
-}
-
 void ByteRleDecoder::next(
     char* data,
     uint64_t numValues,
     const uint64_t* nulls) {
+  skipPending();
   uint64_t position = 0;
   // skip over null values
   while (nulls && position < numValues && bits::isBitNull(nulls, position)) {
@@ -473,24 +459,20 @@ void BooleanRleDecoder::seekToRowGroup(
       encodingKey_.toString(),
       ", ",
       inputStream->getName());
-  if (consumed != 0) {
-    remainingBits = 8 - consumed;
-    ByteRleDecoder::next(
-        reinterpret_cast<char*>(&reversedLastByte), 1, nullptr);
-    bits::reverseBits(&reversedLastByte, 1);
-  } else {
-    remainingBits = 0;
-  }
+  pendingSkip_ = 8 * pendingSkip_ + consumed;
+  remainingBits = 0;
 }
 
-void BooleanRleDecoder::skip(uint64_t numValues) {
+void BooleanRleDecoder::skipPending() {
+  auto numValues = pendingSkip_;
+  pendingSkip_ = 0;
   if (numValues <= remainingBits) {
     remainingBits -= numValues;
   } else {
     numValues -= remainingBits;
     remainingBits = 0;
-    uint64_t bytesSkipped = numValues / 8;
-    ByteRleDecoder::skip(bytesSkipped);
+    pendingSkip_ = numValues / 8;
+    ByteRleDecoder::skipPending();
     uint64_t bitsToSkip = numValues % 8;
     if (bitsToSkip) {
       ByteRleDecoder::next(
@@ -505,6 +487,7 @@ void BooleanRleDecoder::next(
     char* data,
     uint64_t numValues,
     const uint64_t* nulls) {
+  skipPending();
   uint64_t nonNulls = numValues;
   if (nulls) {
     nonNulls = bits::countNonNulls(nulls, 0, numValues);

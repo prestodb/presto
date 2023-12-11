@@ -164,7 +164,7 @@ void RleDecoderV2<isSigned>::seekToRowGroup(
       dwio::common::IntDecoder<isSigned>::bufferStart = 0;
   runRead = runLength = 0;
   // skip ahead the given number of records
-  skip(location.next());
+  this->pendingSkip = location.next();
 }
 
 template void RleDecoderV2<true>::seekToRowGroup(
@@ -173,24 +173,34 @@ template void RleDecoderV2<false>::seekToRowGroup(
     dwio::common::PositionProvider& location);
 
 template <bool isSigned>
-void RleDecoderV2<isSigned>::skip(uint64_t numValues) {
+void RleDecoderV2<isSigned>::skipPending() {
   // simple for now, until perf tests indicate something encoding specific is
   // needed
-  const uint64_t N = 64;
+  constexpr int64_t N = 64;
   int64_t dummy[N];
-
+  auto numValues = this->pendingSkip;
+  this->pendingSkip = 0;
   while (numValues) {
     uint64_t nRead = std::min(N, numValues);
-    next(dummy, nRead, nullptr);
+    doNext(dummy, nRead, nullptr);
     numValues -= nRead;
   }
 }
 
-template void RleDecoderV2<true>::skip(uint64_t numValues);
-template void RleDecoderV2<false>::skip(uint64_t numValues);
+template void RleDecoderV2<true>::skipPending();
+template void RleDecoderV2<false>::skipPending();
 
 template <bool isSigned>
 void RleDecoderV2<isSigned>::next(
+    int64_t* const data,
+    const uint64_t numValues,
+    const uint64_t* const nulls) {
+  skipPending();
+  doNext(data, numValues, nulls);
+}
+
+template <bool isSigned>
+void RleDecoderV2<isSigned>::doNext(
     int64_t* const data,
     const uint64_t numValues,
     const uint64_t* const nulls) {
@@ -229,11 +239,11 @@ void RleDecoderV2<isSigned>::next(
   }
 }
 
-template void RleDecoderV2<true>::next(
+template void RleDecoderV2<true>::doNext(
     int64_t* const data,
     const uint64_t numValues,
     const uint64_t* const nulls);
-template void RleDecoderV2<false>::next(
+template void RleDecoderV2<false>::doNext(
     int64_t* const data,
     const uint64_t numValues,
     const uint64_t* const nulls);

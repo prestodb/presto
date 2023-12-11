@@ -96,7 +96,7 @@ void testInts(std::function<T()> generator) {
     if (numRead + stride >= count / 2) {
       break;
     }
-    decoder->skipLongsFast(stride);
+    decoder->skip(stride);
     numRead += stride;
     stride = (stride * 2 + 1) % 31;
     int64_t num;

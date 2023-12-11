@@ -27,6 +27,7 @@ void DirectDecoder<isSigned>::seekToRowGroup(
   IntDecoder<isSigned>::inputStream->seekToPosition(location);
   // force a re-read from the stream
   IntDecoder<isSigned>::bufferEnd = IntDecoder<isSigned>::bufferStart;
+  this->pendingSkip = 0;
 }
 
 template void DirectDecoder<true>::seekToRowGroup(
@@ -35,19 +36,12 @@ template void DirectDecoder<false>::seekToRowGroup(
     dwio::common::PositionProvider& location);
 
 template <bool isSigned>
-void DirectDecoder<isSigned>::skip(uint64_t numValues) {
-  IntDecoder<isSigned>::skipLongs(numValues);
-}
-
-template void DirectDecoder<true>::skip(uint64_t numValues);
-template void DirectDecoder<false>::skip(uint64_t numValues);
-
-template <bool isSigned>
 template <typename T>
 void DirectDecoder<isSigned>::nextValues(
     T* data,
     uint64_t numValues,
     const uint64_t* nulls) {
+  skipPending();
   uint64_t position = 0;
   // skipNulls()
   if (nulls) {

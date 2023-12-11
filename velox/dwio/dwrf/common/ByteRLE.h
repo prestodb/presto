@@ -111,14 +111,18 @@ class ByteRleDecoder {
   virtual ~ByteRleDecoder() = default;
 
   /**
-   * Seek to a specific row group.
+   * Seek to a specific row group.  Should not read the underlying input stream
+   * to avoid decoding same data multiple times.
    */
   virtual void seekToRowGroup(dwio::common::PositionProvider& positionProvider);
 
   /**
-   * Seek over a given number of values.
+   * Seek over a given number of values.  Does not decode the underlying input
+   * stream.
    */
-  virtual void skip(uint64_t numValues);
+  void skip(uint64_t numValues) {
+    pendingSkip_ += numValues;
+  }
 
   /**
    * Read a number of values into the batch.
@@ -138,26 +142,9 @@ class ByteRleDecoder {
 
   void skipBytes(size_t bytes);
 
-  template <bool hasNulls>
-  inline void skip(int32_t numValues, int32_t current, const uint64_t* nulls) {
-    if (hasNulls) {
-      numValues = bits::countNonNulls(nulls, current, current + numValues);
-    }
-    while (numValues > 0) {
-      if (remainingValues == 0) {
-        readHeader();
-      }
-      uint64_t count = std::min<int32_t>(numValues, remainingValues);
-      remainingValues -= count;
-      numValues -= count;
-      if (!repeating) {
-        skipBytes(count);
-      }
-    }
-  }
-
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
+    skipPending();
     int32_t current = visitor.start();
     skip<hasNulls>(current, 0, nulls);
     int32_t toSkip;
@@ -199,6 +186,18 @@ class ByteRleDecoder {
     }
   }
 
+ private:
+  template <bool kHasNulls>
+  inline void skip(int32_t numValues, int32_t current, const uint64_t* nulls) {
+    if constexpr (kHasNulls) {
+      numValues = bits::countNonNulls(nulls, current, current + numValues);
+    }
+    pendingSkip_ += numValues;
+    if (pendingSkip_ > 0) {
+      skipPending();
+    }
+  }
+
  protected:
   void nextBuffer();
 
@@ -221,6 +220,22 @@ class ByteRleDecoder {
     }
   }
 
+  virtual void skipPending() {
+    auto numValues = pendingSkip_;
+    pendingSkip_ = 0;
+    while (numValues > 0) {
+      if (remainingValues == 0) {
+        readHeader();
+      }
+      auto count = std::min<int64_t>(numValues, remainingValues);
+      remainingValues -= count;
+      numValues -= count;
+      if (!repeating) {
+        skipBytes(count);
+      }
+    }
+  }
+
   std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
   size_t remainingValues;
   char value;
@@ -228,6 +243,7 @@ class ByteRleDecoder {
   const char* bufferEnd;
   bool repeating;
   EncodingKey encodingKey_;
+  int64_t pendingSkip_ = 0;
 };
 
 /**
@@ -266,7 +282,9 @@ class BooleanRleDecoder : public ByteRleDecoder {
   void seekToRowGroup(
       dwio::common::PositionProvider& positionProvider) override;
 
-  void skip(uint64_t numValues) override;
+  void skip(uint64_t numValues) {
+    pendingSkip_ += numValues;
+  }
 
   void next(char* data, uint64_t numValues, const uint64_t* nulls) override;
 
@@ -274,22 +292,9 @@ class BooleanRleDecoder : public ByteRleDecoder {
     return ByteRleDecoder::loadIndices(startIndex) + 1;
   }
 
-  // Advances 'dataPosition' by 'numValue' non-nulls, where 'current'
-  // is the position in 'nulls'.
-  template <bool hasNulls>
-  void skip(
-      int32_t numValues,
-      int32_t current,
-      const uint64_t* nulls,
-      int32_t& dataPosition) {
-    if (hasNulls) {
-      numValues = bits::countNonNulls(nulls, current, current + numValues);
-    }
-    dataPosition += numValues;
-  }
-
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
+    skipPending();
     int32_t end = visitor.rowAt(visitor.numRows() - 1) + 1;
     int32_t totalNulls = 0;
     // Reads all the non-null bits between 0 and last row into 'bits',
@@ -339,6 +344,23 @@ class BooleanRleDecoder : public ByteRleDecoder {
       }
     }
   }
+
+ private:
+  // Advances 'dataPosition' by 'numValue' non-nulls, where 'current'
+  // is the position in 'nulls'.
+  template <bool hasNulls>
+  static void skip(
+      int32_t numValues,
+      int32_t current,
+      const uint64_t* nulls,
+      int32_t& dataPosition) {
+    if (hasNulls) {
+      numValues = bits::countNonNulls(nulls, current, current + numValues);
+    }
+    dataPosition += numValues;
+  }
+
+  void skipPending() override;
 
  protected:
   size_t remainingBits;

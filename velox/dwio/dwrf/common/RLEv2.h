@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "velox/common/base/Nulls.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/Adaptor.h"
 #include "velox/dwio/common/DataBuffer.h"
@@ -46,10 +45,7 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
    */
   void seekToRowGroup(dwio::common::PositionProvider&) override;
 
-  /**
-   * Seek over a given number of values.
-   */
-  void skip(uint64_t numValues) override;
+  void skipPending() override;
 
   /**
    * Read a number of values into the batch.
@@ -57,23 +53,17 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
   void next(int64_t* data, uint64_t numValues, const uint64_t* nulls) override;
 
   void nextLengths(int32_t* const data, const int32_t numValues) override {
+    skipPending();
     for (int i = 0; i < numValues; ++i) {
       data[i] = readValue();
     }
   }
 
-  template <bool hasNulls>
-  inline void skip(int32_t numValues, int32_t current, const uint64_t* nulls) {
-    if constexpr (hasNulls) {
-      numValues = bits::countNonNulls(nulls, current, current + numValues);
-    }
-    skip(numValues);
-  }
-
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
+    skipPending();
     int32_t current = visitor.start();
-    skip<hasNulls>(current, 0, nulls);
+    this->template skip<hasNulls>(current, 0, nulls);
 
     int32_t toSkip;
     bool atEnd = false;
@@ -86,7 +76,7 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
         if (hasNulls && !allowNulls) {
           toSkip = visitor.checkAndSkipNulls(nulls, current, atEnd);
           if (!Visitor::dense) {
-            skip<false>(toSkip, current, nullptr);
+            this->template skip<false>(toSkip, current, nullptr);
           }
           if (atEnd) {
             return;
@@ -100,7 +90,7 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
 
       ++current;
       if (toSkip) {
-        skip<hasNulls>(toSkip, current, nulls);
+        this->template skip<hasNulls>(toSkip, current, nulls);
         current += toSkip;
       }
       if (atEnd) {
@@ -221,6 +211,11 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
       const uint64_t* nulls);
 
   int64_t readValue();
+
+  void doNext(
+      int64_t* const data,
+      const uint64_t numValues,
+      const uint64_t* const nulls);
 
   unsigned char firstByte;
   uint64_t runLength;

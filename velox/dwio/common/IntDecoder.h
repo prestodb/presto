@@ -19,6 +19,7 @@
 #include <folly/Likely.h>
 #include <folly/Range.h>
 #include <folly/Varint.h>
+#include "velox/common/base/Nulls.h"
 #include "velox/common/encode/Coding.h"
 #include "velox/dwio/common/IntCodecCommon.h"
 #include "velox/dwio/common/SeekableInputStream.h"
@@ -52,18 +53,24 @@ class IntDecoder {
   virtual ~IntDecoder() = default;
 
   /**
-   * Seek to a specific row group.
+   * Seek to a specific row group.  Should not read the underlying input stream
+   * to avoid decoding same data multiple times.
    */
   virtual void seekToRowGroup(
       dwio::common::PositionProvider& positionProvider) = 0;
 
   /**
-   * Seek over a given number of values.
+   * Seek over a given number of values.  Does not decode the underlying input
+   * stream.
    */
-  virtual void skip(uint64_t numValues) = 0;
+  void skip(uint64_t numValues) {
+    pendingSkip += numValues;
+  }
 
   /**
-   * Read a number of values into the batch.
+   * Read a number of values into the batch.  Should call skipPending() in the
+   * beginning.
+   *
    * @param data the array to read into
    * @param numValues the number of values to read
    * @param nulls If the pointer is null, all values are read. If the
@@ -117,17 +124,9 @@ class IntDecoder {
    * Load RowIndex values for the stream being read.
    * @return updated start index after this stream's index values.
    */
-  size_t loadIndices(size_t startIndex) {
+  size_t loadIndices(size_t startIndex) const {
     return inputStream->positionSize() + startIndex + 1;
   }
-
-  void skipLongs(uint64_t numValues) {
-    skipLongsFast(numValues);
-  }
-
-  // Optimized variant of skipLongs using popcnt. Used on selective
-  // path only pending validation.
-  void skipLongsFast(uint64_t numValues);
 
   // Reads 'size' consecutive T' and stores then in 'result'.
   template <typename T>
@@ -142,6 +141,22 @@ class IntDecoder {
   bulkReadRows(RowSet rows, T* FOLLY_NONNULL result, int32_t initialRow = 0);
 
  protected:
+  // Actually skip the pending entries.
+  virtual void skipPending() = 0;
+
+  template <bool kHasNulls>
+  inline void skip(int32_t numValues, int32_t current, const uint64_t* nulls) {
+    if constexpr (kHasNulls) {
+      numValues = bits::countNonNulls(nulls, current, current + numValues);
+    }
+    pendingSkip += numValues;
+    if (pendingSkip > 0) {
+      skipPending();
+    }
+  }
+
+  void skipLongs(uint64_t numValues);
+
   template <typename T>
   void bulkReadFixed(uint64_t size, T* FOLLY_NONNULL result);
 
@@ -163,21 +178,12 @@ class IntDecoder {
   template <typename cppType>
   cppType readLittleEndianFromBigEndian();
 
-  // Applies 'visitor to 'numRows' consecutive values.
-  template <typename Visitor>
-  void readDense(int32_t numRows, Visitor& visitor) {
-    auto data = visitor.mutableValues(numRows);
-    bulkRead(numRows, data);
-    visitor.processN(data, numRows);
-  }
-
  private:
   uint64_t skipVarintsInBuffer(uint64_t items);
   void skipVarints(uint64_t items);
   int128_t readVsHugeInt();
   uint128_t readVuHugeInt();
 
- protected:
   // note: there is opportunity for performance gains here by avoiding
   //       this by directly supporting deserialization into the correct
   //       target data type
@@ -205,16 +211,19 @@ class IntDecoder {
     }
   }
 
+ protected:
   const std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
   const char* FOLLY_NULLABLE bufferStart;
   const char* FOLLY_NULLABLE bufferEnd;
   const bool useVInts;
   const uint32_t numBytes;
   bool bigEndian;
+  int64_t pendingSkip = 0;
 };
 
 template <bool isSigned>
 FOLLY_ALWAYS_INLINE signed char IntDecoder<isSigned>::readByte() {
+  VELOX_DCHECK_EQ(pendingSkip, 0);
   if (UNLIKELY(bufferStart == bufferEnd)) {
     int32_t bufferLength;
     const void* bufferPointer;
@@ -230,6 +239,7 @@ FOLLY_ALWAYS_INLINE signed char IntDecoder<isSigned>::readByte() {
 
 template <bool isSigned>
 FOLLY_ALWAYS_INLINE uint64_t IntDecoder<isSigned>::readVuLong() {
+  VELOX_DCHECK_EQ(pendingSkip, 0);
   if (LIKELY(bufferEnd - bufferStart >= folly::kMaxVarintLength64)) {
     const char* p = bufferStart;
     uint64_t val;
@@ -317,6 +327,7 @@ FOLLY_ALWAYS_INLINE int64_t IntDecoder<isSigned>::readVsLong() {
 
 template <bool isSigned>
 inline int64_t IntDecoder<isSigned>::readLongLE() {
+  VELOX_DCHECK_EQ(pendingSkip, 0);
   int64_t result = 0;
   if (bufferStart && bufferStart + sizeof(int64_t) <= bufferEnd) {
     bufferStart += numBytes;
@@ -357,6 +368,7 @@ inline int64_t IntDecoder<isSigned>::readLongLE() {
 template <bool isSigned>
 template <typename cppType>
 inline cppType IntDecoder<isSigned>::readLittleEndianFromBigEndian() {
+  VELOX_DCHECK_EQ(pendingSkip, 0);
   cppType bigEndianValue = 0;
   // Input is in Big Endian layout of size numBytes.
   if (bufferStart && bufferStart + sizeof(int64_t) <= bufferEnd) {
@@ -413,6 +425,7 @@ inline int128_t IntDecoder<isSigned>::readVsHugeInt() {
 
 template <bool isSigned>
 inline uint128_t IntDecoder<isSigned>::readVuHugeInt() {
+  VELOX_DCHECK_EQ(pendingSkip, 0);
   uint128_t value = 0;
   uint128_t work;
   uint32_t offset = 0;

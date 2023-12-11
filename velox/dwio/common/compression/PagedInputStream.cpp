@@ -271,6 +271,8 @@ void PagedInputStream::clearDecompressionState() {
   remainingLength_ = 0;
   inputBufferPtr_ = nullptr;
   inputBufferPtrEnd_ = nullptr;
+  lastHeaderOffset_ = input_->ByteCount();
+  bytesReturnedAtLastHeaderOffset_ = bytesReturned_;
 }
 
 void PagedInputStream::seekToPosition(
@@ -282,8 +284,7 @@ void PagedInputStream::seekToPosition(
   // to the beginning of the last view or last header, whichever is
   // later. If we are returning views into the decompression buffer,
   // we can backup to the beginning of the decompressed buffer
-  auto alreadyRead =
-      bytesReturned_ - bytesReturnedAtLastHeaderOffset_ + pendingSkip_;
+  auto alreadyRead = bytesReturned_ - bytesReturnedAtLastHeaderOffset_;
 
   // outsideOriginalWindow is true if we are returning views into
   // the input stream's buffer and we are seeking below the start of the last
@@ -302,6 +303,7 @@ void PagedInputStream::seekToPosition(
     clearDecompressionState();
     pendingSkip_ = uncompressedOffset;
   } else {
+    alreadyRead += pendingSkip_;
     if (uncompressedOffset < alreadyRead) {
       BackUp(alreadyRead - uncompressedOffset);
     } else {
