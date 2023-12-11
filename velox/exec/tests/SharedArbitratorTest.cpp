@@ -3820,6 +3820,8 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
       runHashJoinTask(vectors, nullptr, numDrivers, false).data;
   const auto expectedOrderResult =
       runOrderByTask(vectors, nullptr, numDrivers, false).data;
+  const auto expectedRowNumberResult =
+      runRowNumberTask(vectors, nullptr, numDrivers, false).data;
   const auto expectedTopNResult =
       runTopNTask(vectors, nullptr, numDrivers, false).data;
 
@@ -3870,6 +3872,14 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
             task = runOrderByTask(
                        vectors, queryCtx, numDrivers, true, expectedOrderResult)
                        .task;
+          } else if ((i % 4) == 2) {
+            task = runRowNumberTask(
+                       vectors,
+                       queryCtx,
+                       numDrivers,
+                       true,
+                       expectedRowNumberResult)
+                       .task;
           } else {
             task = runTopNTask(
                        vectors, queryCtx, numDrivers, true, expectedTopNResult)
@@ -3883,7 +3893,6 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
           }
         }
 
-        // TODO: Add RowNumber task after fixing its spiller bug.
         std::lock_guard<std::mutex> l(mutex);
         if (folly::Random().oneIn(3)) {
           zombieTasks.emplace_back(std::move(task));
