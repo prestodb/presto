@@ -18,7 +18,6 @@ import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -42,7 +41,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 public class TestKHyperLogLogAggregationFunction
 {
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
-    private static final String NAME = KHyperLogLogAggregationFunction.class.getAnnotation(AggregationFunction.class).value();
+    private static final String NAME = KHyperLogLogAggregationFunction.getFunctionName();
 
     @Test
     public void testSimpleKHyperLogLog()
