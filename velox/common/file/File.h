@@ -143,6 +143,11 @@ class WriteFile {
   // Appends data to the end of the file.
   virtual void append(std::string_view data) = 0;
 
+  // Appends data to the end of the file.
+  virtual void append(std::unique_ptr<folly::IOBuf> /* data */) {
+    VELOX_NYI("IOBuf appending is not implemented");
+  }
+
   // Flushes any local buffers, i.e. ensures the backing medium received
   // all data that has been appended.
   virtual void flush() = 0;
