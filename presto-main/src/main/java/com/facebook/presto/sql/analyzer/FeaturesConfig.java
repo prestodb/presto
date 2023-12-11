@@ -295,6 +295,7 @@ public class FeaturesConfig
 
     private boolean removeRedundantCastToVarcharInJoin = true;
     private boolean skipHashGenerationForJoinWithTableScanInput;
+    private long kHyperLogLogAggregationGroupNumberLimit;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2955,6 +2956,19 @@ public class FeaturesConfig
     public FeaturesConfig setSkipHashGenerationForJoinWithTableScanInput(boolean skipHashGenerationForJoinWithTableScanInput)
     {
         this.skipHashGenerationForJoinWithTableScanInput = skipHashGenerationForJoinWithTableScanInput;
+        return this;
+    }
+
+    public long getKHyperLogLogAggregationGroupNumberLimit()
+    {
+        return kHyperLogLogAggregationGroupNumberLimit;
+    }
+
+    @Config("khyperloglog-agg-group-limit")
+    @ConfigDescription("Maximum number of groups for khyperloglog_agg per task")
+    public FeaturesConfig setKHyperLogLogAggregationGroupNumberLimit(long kHyperLogLogAggregationGroupNumberLimit)
+    {
+        this.kHyperLogLogAggregationGroupNumberLimit = kHyperLogLogAggregationGroupNumberLimit;
         return this;
     }
 }
