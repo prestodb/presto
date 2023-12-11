@@ -3007,6 +3007,52 @@ TEST_F(AggregationTest, noAggregationsNoGroupingKeys) {
   ASSERT_EQ(result->type()->size(), 0);
 }
 
+// Reproduces hang in partial distinct aggregation described in
+// https://github.com/facebookincubator/velox/issues/7967 .
+TEST_F(AggregationTest, distinctHang) {
+  static const int32_t kMin = std::numeric_limits<int32_t>::min();
+  static const int32_t kMax = std::numeric_limits<int32_t>::max();
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(
+          5'000,
+          [](auto row) {
+            if (row % 2 == 0) {
+              return kMin + row;
+            } else {
+              return kMax - row;
+            }
+          }),
+      makeFlatVector<int64_t>(
+          5'000,
+          [](auto row) {
+            if (row % 2 == 0) {
+              return kMin - row;
+            } else {
+              return kMax + row;
+            }
+          }),
+  });
+
+  auto newData = makeRowVector({
+      makeFlatVector<int64_t>(
+          5'000, [](auto row) { return kMin + row + 5'000; }),
+      makeFlatVector<int64_t>(5'000, [](auto row) { return kMin - row; }),
+  });
+
+  createDuckDbTable({data, newData});
+
+  core::PlanNodeId aggNodeId;
+  auto plan = PlanBuilder()
+                  .values({data, newData, data})
+                  .partialAggregation({"c0", "c1"}, {})
+                  .capturePlanNodeId(aggNodeId)
+                  .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .config(QueryConfig::kMaxPartialAggregationMemory, "400000")
+      .assertResults("SELECT distinct c0, c1 FROM tmp");
+}
+
 // Trigger memory pool allocation at HashAggregation::populateAggregateInputs by
 // aggregating null constant. Ensure the allocation happens outside of
 // HashAggregation's constructor.

@@ -150,10 +150,10 @@ void HashAggregation::addInput(RowVectorPtr input) {
     if (newDistincts_) {
       // Save input to use for output in getOutput().
       input_ = input;
-    } else if (abandonPartialEarly) {
-      // If no new distinct groups (meaning we don't have anything to output)
-      // and we are abandoning the partial aggregation, then we need to ensure
-      // we 'need input'. For that we need to reset the 'partial full' flag.
+    } else {
+      // If no new distinct groups (meaning we don't have anything to output),
+      // then we need to ensure we 'need input'. For that we need to reset
+      // the 'partial full' flag.
       partialFull_ = false;
     }
   }
