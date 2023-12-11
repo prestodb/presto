@@ -435,6 +435,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   struct Stats {
     /// The current memory usage.
     uint64_t currentBytes{0};
+    /// The current reserved memory.
+    uint64_t reservedBytes{0};
     /// The peak memory usage.
     uint64_t peakBytes{0};
     /// The accumulative memory usage.
@@ -466,11 +468,11 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
     std::string toString() const;
 
-    /// Returns true if the current bytes is zero.
+    /// Returns true if the current and reserved bytes are zero.
     /// Note that peak or cumulative bytes might be non-zero and we are still
     /// empty at this moment.
     bool empty() const {
-      return currentBytes == 0;
+      return currentBytes == 0 && reservedBytes == 0;
     }
   };
 

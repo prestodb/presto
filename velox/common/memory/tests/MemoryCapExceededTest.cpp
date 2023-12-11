@@ -72,10 +72,10 @@ TEST_P(MemoryCapExceededTest, singleDriver) {
       "2.00MB, memory manager cap is UNLIMITED, requestor "
       "'op.2.0.0.Aggregation' with current usage 3.70MB"};
   std::vector<std::string> expectedDetailedTexts = {
-      "node.1 usage 1.00MB peak 1.00MB",
-      "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
-      "node.2 usage 4.00MB peak 4.00MB",
-      "op.2.0.0.Aggregation usage 3.70MB peak 3.70MB",
+      "node.1 usage 1.00MB reserved 1.00MB peak 1.00MB",
+      "op.1.0.0.FilterProject usage 12.00KB reserved 1.00MB peak 12.00KB",
+      "node.2 usage 4.00MB reserved 4.00MB peak 4.00MB",
+      "op.2.0.0.Aggregation usage 3.70MB reserved 4.00MB peak 3.70MB",
       "Top 2 leaf memory pool usages:"};
 
   std::vector<RowVectorPtr> data;
