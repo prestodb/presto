@@ -286,6 +286,7 @@ Name                                        Description
 ``running-mode``                            Set to ``query-bank`` to make the Verifier run in ``query-bank`` mode. Supports
                                             ``query-bank`` and ``control-test``. Defaults to ``control-test``.
 ``save-snapshot``                           Set to ``true`` to save checksums to ``mysql`` database.
+``extended-insert-verification``            Set to ``true`` to run extended insert verification logic.
 =========================================== ===============================================================================
 
 

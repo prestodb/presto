@@ -102,7 +102,6 @@ public class VerificationFactory
         QueryRewriter queryRewriter = queryRewriterFactory.create(queryActions.getHelperAction());
         switch (queryType) {
             case CREATE_TABLE_AS_SELECT:
-            case INSERT:
             case QUERY:
                 DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
                         sourceQuery,
@@ -126,6 +125,47 @@ public class VerificationFactory
                         executor,
                         snapshotQueryConsumer,
                         snapshotQueries);
+            case INSERT:
+                determinismAnalyzer = new DeterminismAnalyzer(
+                        sourceQuery,
+                        queryActions.getHelperAction(),
+                        queryRewriter,
+                        checksumValidator,
+                        typeManager,
+                        determinismAnalyzerConfig);
+                failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(sqlParser, queryActions.getHelperAction()));
+                if (verifierConfig.isExtendedInsertVerification()) {
+                    return new ExtendedInsertDataVerification(
+                            queryActions,
+                            sourceQuery,
+                            queryRewriter,
+                            determinismAnalyzer,
+                            failureResolverManager,
+                            exceptionClassifier,
+                            verificationContext,
+                            verifierConfig,
+                            typeManager,
+                            checksumValidator,
+                            executor,
+                            snapshotQueryConsumer,
+                            snapshotQueries);
+                }
+                else {
+                    return new DataVerification(
+                            queryActions,
+                            sourceQuery,
+                            queryRewriter,
+                            determinismAnalyzer,
+                            failureResolverManager,
+                            exceptionClassifier,
+                            verificationContext,
+                            verifierConfig,
+                            typeManager,
+                            checksumValidator,
+                            executor,
+                            snapshotQueryConsumer,
+                            snapshotQueries);
+                }
             case CREATE_VIEW:
                 return new CreateViewVerification(
                         sqlParser,

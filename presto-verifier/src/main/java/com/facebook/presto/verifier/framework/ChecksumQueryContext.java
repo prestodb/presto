@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -21,6 +25,8 @@ public class ChecksumQueryContext
 {
     private Optional<String> checksumQueryId = Optional.empty();
     private Optional<String> checksumQuery = Optional.empty();
+
+    private List<String> additionalChecksumQueryIds = new ArrayList<>();
 
     public Optional<String> getChecksumQueryId()
     {
@@ -33,6 +39,11 @@ public class ChecksumQueryContext
         this.checksumQueryId = Optional.of(checksumQueryId);
     }
 
+    public void addAdditionalChecksumQueryIds(String additionalChecksumQueryId)
+    {
+        this.additionalChecksumQueryIds.add(additionalChecksumQueryId);
+    }
+
     public Optional<String> getChecksumQuery()
     {
         return checksumQuery;
@@ -42,5 +53,10 @@ public class ChecksumQueryContext
     {
         checkState(!this.checksumQuery.isPresent(), "controlChecksumQuery is already set");
         this.checksumQuery = Optional.of(checksumQuery);
+    }
+
+    public List<String> getAdditionalChecksumQueryIds()
+    {
+        return ImmutableList.copyOf(additionalChecksumQueryIds);
     }
 }

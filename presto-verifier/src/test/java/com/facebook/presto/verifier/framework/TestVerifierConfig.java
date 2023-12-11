@@ -50,6 +50,7 @@ public class TestVerifierConfig
                 .setExplain(false)
                 .setConcurrentControlAndTest(false)
                 .setRunningMode("control-test")
+                .setExtendedInsertVerification(false)
                 .setSaveSnapshot(false));
     }
 
@@ -79,6 +80,7 @@ public class TestVerifierConfig
                 .put("explain", "true")
                 .put("concurrent-control-and-test", "true")
                 .put("running-mode", "query-bank")
+                .put("extended-verification", "true")
                 .put("save-snapshot", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
@@ -104,6 +106,7 @@ public class TestVerifierConfig
                 .setExplain(true)
                 .setConcurrentControlAndTest(true)
                 .setRunningMode("query-bank")
+                .setExtendedInsertVerification(true)
                 .setSaveSnapshot(true);
 
         assertFullMapping(properties, expected);

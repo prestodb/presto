@@ -449,6 +449,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 .setTeardownQueryIds(queryContext.getTeardownQueryIds())
                 .setChecksumQueryId(checksumQueryContext.getChecksumQueryId())
                 .setChecksumQuery(checksumQueryContext.getChecksumQuery())
+                .setAdditionalChecksumQueryIds(checksumQueryContext.getAdditionalChecksumQueryIds())
                 .setQueryActionStats(queryContext.getMainQueryStats());
         updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
         updateQueryInfo(queryInfo, queryResult);

@@ -59,6 +59,8 @@ public class VerifierConfig
 
     private boolean explain;
     private boolean saveSnapshot;
+
+    private boolean extendedInsertVerification = true;
     private String runningMode = CONTROL_TEST_MODE;
 
     @NotNull
@@ -360,6 +362,19 @@ public class VerifierConfig
     public VerifierConfig setSaveSnapshot(boolean saveSnapshot)
     {
         this.saveSnapshot = saveSnapshot;
+        return this;
+    }
+
+    public boolean isExtendedInsertVerification()
+    {
+        return extendedInsertVerification;
+    }
+
+    @ConfigDescription("Run extended insert verification logic in verifier.")
+    @Config("extended-insert-verification")
+    public VerifierConfig setExtendedInsertVerification(boolean extendedInsertVerification)
+    {
+        this.extendedInsertVerification = extendedInsertVerification;
         return this;
     }
 

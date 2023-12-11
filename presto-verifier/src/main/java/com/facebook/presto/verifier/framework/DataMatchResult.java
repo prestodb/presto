@@ -23,6 +23,8 @@ import java.util.OptionalLong;
 
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.COLUMN_MISMATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH_PARTITION_DATA_BREAKDOWN;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH_PARTITION_METADATA;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.SCHEMA_MISMATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.SNAPSHOT_DOES_NOT_EXIST;
@@ -33,20 +35,40 @@ import static java.util.Objects.requireNonNull;
 public class DataMatchResult
         implements MatchResult
 {
+    public void updateType(String type)
+    {
+        this.type = Optional.of(type);
+        if (matchType.equals(MATCH)) {
+            if (type.equals("PARTITION_METADATA")) {
+                matchType = MATCH_PARTITION_METADATA;
+            }
+            else if (type.equals("PARTITION_DATA_BREAKDOWN")) {
+                matchType = MATCH_PARTITION_DATA_BREAKDOWN;
+            }
+            else if (type.equals("BUCKET")) {
+                matchType = MatchType.MATCH_BUCKET;
+            }
+        }
+    }
+
     public enum MatchType
     {
         MATCH,
+        MATCH_PARTITION_METADATA,
+        MATCH_PARTITION_DATA_BREAKDOWN,
+        MATCH_BUCKET,
         SCHEMA_MISMATCH,
         ROW_COUNT_MISMATCH,
         COLUMN_MISMATCH,
         SNAPSHOT_DOES_NOT_EXIST,
     }
 
-    private final MatchType matchType;
+    private MatchType matchType;
     private final Optional<ChecksumResult> controlChecksum;
     private final OptionalLong controlRowCount;
     private final OptionalLong testRowCount;
     private final List<ColumnMatchResult<?>> mismatchedColumns;
+    private Optional<String> type = Optional.empty();
 
     public DataMatchResult(
             MatchType matchType,
@@ -65,7 +87,7 @@ public class DataMatchResult
     @Override
     public boolean isMatched()
     {
-        return matchType == MATCH;
+        return matchType == MATCH || matchType == MATCH_PARTITION_METADATA || matchType == MATCH_PARTITION_DATA_BREAKDOWN || matchType == MatchType.MATCH_BUCKET;
     }
 
     @Override
@@ -99,14 +121,28 @@ public class DataMatchResult
     public String getReport()
     {
         StringBuilder message = new StringBuilder()
-                .append(matchType.name().replace("_", " "))
-                .append('\n');
+                .append(matchType.name().replace("_", " "));
         if (matchType == SCHEMA_MISMATCH || matchType == SNAPSHOT_DOES_NOT_EXIST) {
             return message.toString();
         }
 
         checkState(controlRowCount.isPresent(), "controlRowCount is missing");
         checkState(testRowCount.isPresent(), "testRowCount is missing");
+        if (!type.isPresent()) {
+            message.append(" [ Main query result ]\n");
+        }
+        else if (type.get().equals("PARTITION_METADATA")) {
+            message.append(" [ Partition metadata query result ]\n");
+        }
+        else if (type.get().equals("PARTITION_DATA_BREAKDOWN")) {
+            message.append(" [ Partition data breakdown result ]\n");
+        }
+        else if (type.get().equals("BUCKET")) {
+            message.append(" [ Bucket query result ]\n");
+        }
+        else {
+            message.append(" [ Something is wrong, reach out to ke1024 ]\n");
+        }
         message.append(format("Control %s rows, Test %s rows%n", controlRowCount.getAsLong(), testRowCount.getAsLong()));
         if (matchType == ROW_COUNT_MISMATCH) {
             return message.toString();

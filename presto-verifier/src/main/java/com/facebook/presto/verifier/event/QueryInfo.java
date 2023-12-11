@@ -44,6 +44,8 @@ public class QueryInfo
     private final List<String> teardownQueryIds;
     private final String checksumQueryId;
     private final String query;
+
+    private final List<String> additionalChecksumQueryIds;
     private final List<String> setupQueries;
     private final List<String> teardownQueries;
     private final String checksumQuery;
@@ -66,6 +68,7 @@ public class QueryInfo
             List<String> teardownQueryIds,
             Optional<String> checksumQueryId,
             Optional<String> query,
+            List<String> additionalChecksumQueryIds,
             Optional<List<String>> setupQueries,
             Optional<List<String>> teardownQueries,
             Optional<String> checksumQuery,
@@ -83,6 +86,7 @@ public class QueryInfo
         this.teardownQueryIds = ImmutableList.copyOf(teardownQueryIds);
         this.checksumQueryId = checksumQueryId.orElse(null);
         this.query = query.orElse(null);
+        this.additionalChecksumQueryIds = ImmutableList.copyOf(additionalChecksumQueryIds);
         this.setupQueries = setupQueries.orElse(null);
         this.teardownQueries = teardownQueries.orElse(null);
         this.checksumQuery = checksumQuery.orElse(null);
@@ -173,6 +177,12 @@ public class QueryInfo
     }
 
     @EventField
+    public List<String> getAdditionalChecksumQueryIds()
+    {
+        return additionalChecksumQueryIds;
+    }
+
+    @EventField
     public String getJsonPlan()
     {
         return jsonPlan;
@@ -239,6 +249,8 @@ public class QueryInfo
         private Optional<String> jsonPlan = Optional.empty();
         private Optional<QueryActionStats> queryActionStats = Optional.empty();
         private Optional<String> outputTableName = Optional.empty();
+
+        private List<String> additionalChecksumQueryIds = ImmutableList.of();
 
         private Builder(
                 String catalog,
@@ -312,6 +324,12 @@ public class QueryInfo
             return this;
         }
 
+        public Builder setAdditionalChecksumQueryIds(List<String> additionalChecksumQueryIds)
+        {
+            this.additionalChecksumQueryIds = requireNonNull(ImmutableList.copyOf(additionalChecksumQueryIds), "additionalChecksumQueryIds is null");
+            return this;
+        }
+
         public QueryInfo build()
         {
             return new QueryInfo(
@@ -323,6 +341,7 @@ public class QueryInfo
                     teardownQueryIds,
                     checksumQueryId,
                     query,
+                    additionalChecksumQueryIds,
                     setupQueries,
                     teardownQueries,
                     checksumQuery,

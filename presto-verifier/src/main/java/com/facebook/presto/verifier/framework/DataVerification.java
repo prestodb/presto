@@ -52,11 +52,11 @@ import static java.util.Objects.requireNonNull;
 public class DataVerification
         extends AbstractVerification<QueryObjectBundle, DataMatchResult, Void>
 {
-    private final QueryRewriter queryRewriter;
-    private final DeterminismAnalyzer determinismAnalyzer;
-    private final FailureResolverManager failureResolverManager;
-    private final TypeManager typeManager;
-    private final ChecksumValidator checksumValidator;
+    protected final QueryRewriter queryRewriter;
+    protected final DeterminismAnalyzer determinismAnalyzer;
+    protected final FailureResolverManager failureResolverManager;
+    protected final TypeManager typeManager;
+    protected final ChecksumValidator checksumValidator;
 
     public DataVerification(
             QueryActions queryActions,
