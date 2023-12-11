@@ -187,7 +187,7 @@ TEST(TestQueryConfig, capacityConversion) {
 
   std::unordered_map<CapacityUnit, std::string> unitStrLookup{
       {CapacityUnit::BYTE, "B"},
-      {CapacityUnit::KILOBYTE, "kB"},
+      {CapacityUnit::KILOBYTE, "KB"},
       {CapacityUnit::MEGABYTE, "MB"},
       {CapacityUnit::GIGABYTE, "GB"},
       {CapacityUnit::TERABYTE, "TB"},

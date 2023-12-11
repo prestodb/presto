@@ -20,7 +20,8 @@ namespace facebook::velox::core {
 QueryCtx::QueryCtx(
     folly::Executor* executor,
     QueryConfig&& queryConfig,
-    std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
+    std::unordered_map<std::string, std::shared_ptr<Config>>
+        connectorSessionProperties,
     cache::AsyncDataCache* cache,
     std::shared_ptr<memory::MemoryPool> pool,
     folly::Executor* spillExecutor,
@@ -29,7 +30,7 @@ QueryCtx::QueryCtx(
       executor_(executor),
       spillExecutor_(spillExecutor),
       cache_(cache),
-      connectorConfigs_(connectorConfigs),
+      connectorSessionProperties_(connectorSessionProperties),
       pool_(std::move(pool)),
       queryConfig_{std::move(queryConfig)} {
   initPool(queryId);
@@ -38,7 +39,8 @@ QueryCtx::QueryCtx(
 QueryCtx::QueryCtx(
     folly::Executor* executor,
     QueryConfig&& queryConfig,
-    std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
+    std::unordered_map<std::string, std::shared_ptr<Config>>
+        connectorSessionProperties,
     cache::AsyncDataCache* cache,
     std::shared_ptr<memory::MemoryPool> pool,
     std::shared_ptr<folly::Executor> spillExecutor,
@@ -47,7 +49,7 @@ QueryCtx::QueryCtx(
       executor_(executor),
       spillExecutor_(spillExecutor.get()),
       cache_(cache),
-      connectorConfigs_(connectorConfigs),
+      connectorSessionProperties_(connectorSessionProperties),
       pool_(std::move(pool)),
       queryConfig_{std::move(queryConfig)} {
   initPool(queryId);
@@ -56,13 +58,14 @@ QueryCtx::QueryCtx(
 QueryCtx::QueryCtx(
     folly::Executor::KeepAlive<> executorKeepalive,
     std::unordered_map<std::string, std::string> queryConfigValues,
-    std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs,
+    std::unordered_map<std::string, std::shared_ptr<Config>>
+        connectorSessionProperties,
     cache::AsyncDataCache* cache,
     std::shared_ptr<memory::MemoryPool> pool,
     const std::string& queryId)
     : queryId_(queryId),
       cache_(cache),
-      connectorConfigs_(connectorConfigs),
+      connectorSessionProperties_(connectorSessionProperties),
       pool_(std::move(pool)),
       executorKeepalive_(std::move(executorKeepalive)),
       queryConfig_{std::move(queryConfigValues)} {

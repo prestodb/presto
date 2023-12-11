@@ -49,13 +49,12 @@ void HiveConnectorTestBase::TearDown() {
 }
 
 void HiveConnectorTestBase::resetHiveConnector(
-    const std::shared_ptr<const Config>& connectorProperties) {
+    const std::shared_ptr<const Config>& config) {
   connector::unregisterConnector(kHiveConnectorId);
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(
-              kHiveConnectorId, connectorProperties, ioExecutor_.get());
+          ->newConnector(kHiveConnectorId, config, ioExecutor_.get());
   connector::registerConnector(hiveConnector);
 }
 

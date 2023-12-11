@@ -41,7 +41,8 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     auto hiveConnector =
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(kHiveConnectorId, nullptr);
+            ->newConnector(
+                kHiveConnectorId, std::make_shared<core::MemConfig>());
     connector::registerConnector(hiveConnector);
   }
 
@@ -412,12 +413,12 @@ TEST_F(ParquetTableScanTest, readAsLowerCase) {
           std::thread::hardware_concurrency());
   std::shared_ptr<core::QueryCtx> queryCtx =
       std::make_shared<core::QueryCtx>(executor.get());
-  std::unordered_map<std::string, std::string> configs = {
+  std::unordered_map<std::string, std::string> session = {
       {std::string(
-           connector::hive::HiveConfig::kFileColumnNamesReadAsLowerCase),
+           connector::hive::HiveConfig::kFileColumnNamesReadAsLowerCaseSession),
        "true"}};
-  queryCtx->setConnectorConfigOverridesUnsafe(
-      kHiveConnectorId, std::move(configs));
+  queryCtx->setConnectorSessionOverridesUnsafe(
+      kHiveConnectorId, std::move(session));
   params.queryCtx = queryCtx;
   params.planNode = plan;
   const int numSplitsPerFile = 1;

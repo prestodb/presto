@@ -89,9 +89,9 @@ class QueryCtx {
     return queryConfig_;
   }
 
-  Config* getConnectorConfig(const std::string& connectorId) const {
-    auto it = connectorConfigs_.find(connectorId);
-    if (it == connectorConfigs_.end()) {
+  Config* connectorSessionProperties(const std::string& connectorId) const {
+    auto it = connectorSessionProperties_.find(connectorId);
+    if (it == connectorSessionProperties_.end()) {
       return getEmptyConfig();
     }
     return it->second.get();
@@ -106,10 +106,10 @@ class QueryCtx {
 
   // Overrides the previous connector-specific configuration. Note that this
   // function is NOT thread-safe and should probably only be used in tests.
-  void setConnectorConfigOverridesUnsafe(
+  void setConnectorSessionOverridesUnsafe(
       const std::string& connectorId,
       std::unordered_map<std::string, std::string>&& configOverrides) {
-    connectorConfigs_[connectorId] =
+    connectorSessionProperties_[connectorId] =
         std::make_shared<MemConfig>(std::move(configOverrides));
   }
 
@@ -144,7 +144,8 @@ class QueryCtx {
   folly::Executor* const spillExecutor_{nullptr};
   cache::AsyncDataCache* const cache_;
 
-  std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
+  std::unordered_map<std::string, std::shared_ptr<Config>>
+      connectorSessionProperties_;
   std::shared_ptr<memory::MemoryPool> pool_;
   folly::Executor::KeepAlive<> executorKeepalive_;
   QueryConfig queryConfig_;

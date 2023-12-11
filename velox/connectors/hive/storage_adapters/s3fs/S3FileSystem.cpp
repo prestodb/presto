@@ -469,8 +469,10 @@ struct AwsInstance {
 
  private:
   void doInitialize(const Config* config) {
+    std::shared_ptr<HiveConfig> hiveConfig = std::make_shared<HiveConfig>(
+        std::make_shared<core::MemConfig>(config->values()));
     awsOptions_.loggingOptions.logLevel =
-        inferS3LogLevel(HiveConfig::s3GetLogLevel(config));
+        inferS3LogLevel(hiveConfig->s3GetLogLevel());
     // In some situations, curl triggers a SIGPIPE signal causing the entire
     // process to be terminated without any notification.
     // This behavior is seen via Prestissimo on AmazonLinux2 on AWS EC2.
@@ -506,12 +508,14 @@ void finalizeS3() {
 
 class S3FileSystem::Impl {
  public:
-  Impl(const Config* config) : config_(config) {
+  Impl(const Config* config) {
+    hiveConfig_ = std::make_shared<HiveConfig>(
+        std::make_shared<core::MemConfig>(config->values()));
     VELOX_CHECK(getAwsInstance()->isInitialized(), "S3 is not initialized");
     Aws::Client::ClientConfiguration clientConfig;
-    clientConfig.endpointOverride = HiveConfig::s3Endpoint(config_);
+    clientConfig.endpointOverride = hiveConfig_->s3Endpoint();
 
-    if (HiveConfig::s3UseSSL(config_)) {
+    if (hiveConfig_->s3UseSSL()) {
       clientConfig.scheme = Aws::Http::Scheme::HTTPS;
     } else {
       clientConfig.scheme = Aws::Http::Scheme::HTTP;
@@ -523,7 +527,7 @@ class S3FileSystem::Impl {
         credentialsProvider,
         clientConfig,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-        HiveConfig::s3UseVirtualAddressing(config_));
+        hiveConfig_->s3UseVirtualAddressing());
     ++fileSystemCount;
   }
 
@@ -560,9 +564,9 @@ class S3FileSystem::Impl {
   // Return an AWSCredentialsProvider based on the config.
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> getCredentialsProvider()
       const {
-    auto accessKey = HiveConfig::s3AccessKey(config_);
-    auto secretKey = HiveConfig::s3SecretKey(config_);
-    const auto iamRole = HiveConfig::s3IAMRole(config_);
+    auto accessKey = hiveConfig_->s3AccessKey();
+    auto secretKey = hiveConfig_->s3SecretKey();
+    const auto iamRole = hiveConfig_->s3IAMRole();
 
     int keyCount = accessKey.has_value() + secretKey.has_value();
     // keyCount=0 means both are not specified
@@ -573,7 +577,7 @@ class S3FileSystem::Impl {
         "Invalid configuration: both access key and secret key must be specified");
 
     int configCount = (accessKey.has_value() && secretKey.has_value()) +
-        iamRole.has_value() + HiveConfig::s3UseInstanceCredentials(config_);
+        iamRole.has_value() + hiveConfig_->s3UseInstanceCredentials();
     VELOX_USER_CHECK(
         (configCount <= 1),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
@@ -583,13 +587,13 @@ class S3FileSystem::Impl {
           accessKey.value(), secretKey.value());
     }
 
-    if (HiveConfig::s3UseInstanceCredentials(config_)) {
+    if (hiveConfig_->s3UseInstanceCredentials()) {
       return getDefaultCredentialsProvider();
     }
 
     if (iamRole.has_value()) {
       return getIAMRoleCredentialsProvider(
-          iamRole.value(), HiveConfig::s3IAMRoleSessionName(config_));
+          iamRole.value(), hiveConfig_->s3IAMRoleSessionName());
     }
 
     return getDefaultCredentialsProvider();
@@ -607,7 +611,7 @@ class S3FileSystem::Impl {
   }
 
  private:
-  const Config* config_;
+  std::shared_ptr<HiveConfig> hiveConfig_;
   std::shared_ptr<Aws::S3::S3Client> client_;
 };
 

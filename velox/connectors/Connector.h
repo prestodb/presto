@@ -237,7 +237,7 @@ class ConnectorQueryCtx {
   ConnectorQueryCtx(
       memory::MemoryPool* operatorPool,
       memory::MemoryPool* connectorPool,
-      const Config* connectorConfig,
+      const Config* sessionProperties,
       const common::SpillConfig* spillConfig,
       std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator,
       cache::AsyncDataCache* cache,
@@ -247,7 +247,7 @@ class ConnectorQueryCtx {
       int driverId)
       : operatorPool_(operatorPool),
         connectorPool_(connectorPool),
-        config_(connectorConfig),
+        sessionProperties_(sessionProperties),
         spillConfig_(spillConfig),
         expressionEvaluator_(std::move(expressionEvaluator)),
         cache_(cache),
@@ -256,7 +256,7 @@ class ConnectorQueryCtx {
         taskId_(taskId),
         driverId_(driverId),
         planNodeId_(planNodeId) {
-    VELOX_CHECK_NOT_NULL(connectorConfig);
+    VELOX_CHECK_NOT_NULL(sessionProperties);
   }
 
   /// Returns the associated operator's memory pool which is a leaf kind of
@@ -272,8 +272,8 @@ class ConnectorQueryCtx {
     return connectorPool_;
   }
 
-  const Config* config() const {
-    return config_;
+  const Config* sessionProperties() const {
+    return sessionProperties_;
   }
 
   const common::SpillConfig* spillConfig() const {
@@ -315,7 +315,7 @@ class ConnectorQueryCtx {
  private:
   memory::MemoryPool* const operatorPool_;
   memory::MemoryPool* const connectorPool_;
-  const Config* config_;
+  const Config* const sessionProperties_;
   const common::SpillConfig* const spillConfig_;
   std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator_;
   cache::AsyncDataCache* cache_;
@@ -328,10 +328,7 @@ class ConnectorQueryCtx {
 
 class Connector {
  public:
-  explicit Connector(
-      const std::string& id,
-      std::shared_ptr<const Config> properties)
-      : id_(id), properties_(std::move(properties)) {}
+  explicit Connector(const std::string& id) : id_(id) {}
 
   virtual ~Connector() = default;
 
@@ -339,8 +336,8 @@ class Connector {
     return id_;
   }
 
-  const std::shared_ptr<const Config>& connectorProperties() const {
-    return properties_;
+  virtual const std::shared_ptr<const Config>& connectorConfig() const {
+    VELOX_NYI("connectorConfig is not supported yet");
   }
 
   // Returns true if this connector would accept a filter dynamically generated
@@ -391,8 +388,6 @@ class Connector {
   static folly::Synchronized<
       std::unordered_map<std::string_view, std::weak_ptr<cache::ScanTracker>>>
       trackers_;
-
-  const std::shared_ptr<const Config> properties_;
 };
 
 class ConnectorFactory {
@@ -410,7 +405,7 @@ class ConnectorFactory {
 
   virtual std::shared_ptr<Connector> newConnector(
       const std::string& id,
-      std::shared_ptr<const Config> properties,
+      std::shared_ptr<const Config> config,
       folly::Executor* FOLLY_NULLABLE executor = nullptr) = 0;
 
  private:

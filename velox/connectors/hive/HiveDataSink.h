@@ -17,6 +17,7 @@
 
 #include "velox/common/compression/Compression.h"
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/PartitionIdGenerator.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Writer.h"
@@ -415,7 +416,7 @@ class HiveDataSink : public DataSink {
       std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
       const ConnectorQueryCtx* connectorQueryCtx,
       CommitStrategy commitStrategy,
-      const std::shared_ptr<const Config>& connectorProperties);
+      const std::shared_ptr<const HiveConfig>& hiveConfig);
 
   static uint32_t maxBucketCount() {
     static const uint32_t kMaxBucketCount = 100'000;
@@ -543,7 +544,7 @@ class HiveDataSink : public DataSink {
   const std::shared_ptr<const HiveInsertTableHandle> insertTableHandle_;
   const ConnectorQueryCtx* const connectorQueryCtx_;
   const CommitStrategy commitStrategy_;
-  const std::shared_ptr<const Config> connectorProperties_;
+  const std::shared_ptr<const HiveConfig> hiveConfig_;
   const uint32_t maxOpenWriters_;
   const std::vector<column_index_t> partitionChannels_;
   const std::unique_ptr<PartitionIdGenerator> partitionIdGenerator_;

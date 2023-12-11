@@ -17,6 +17,7 @@
 
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/FileHandle.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/PlanNode.h"
 
 namespace facebook::velox::dwio::common {
@@ -30,8 +31,12 @@ class HiveConnector : public Connector {
  public:
   HiveConnector(
       const std::string& id,
-      std::shared_ptr<const Config> properties,
+      std::shared_ptr<const Config> config,
       folly::Executor* FOLLY_NULLABLE executor);
+
+  const std::shared_ptr<const Config>& connectorConfig() const override {
+    return hiveConfig_->config();
+  }
 
   bool canAddDynamicFilter() const override {
     return true;
@@ -70,6 +75,7 @@ class HiveConnector : public Connector {
   }
 
  protected:
+  const std::shared_ptr<HiveConfig> hiveConfig_;
   FileHandleFactory fileHandleFactory_;
   folly::Executor* FOLLY_NULLABLE executor_;
 };
@@ -91,9 +97,9 @@ class HiveConnectorFactory : public ConnectorFactory {
 
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
-      std::shared_ptr<const Config> properties,
+      std::shared_ptr<const Config> config,
       folly::Executor* FOLLY_NULLABLE executor = nullptr) override {
-    return std::make_shared<HiveConnector>(id, properties, executor);
+    return std::make_shared<HiveConnector>(id, config, executor);
   }
 };
 

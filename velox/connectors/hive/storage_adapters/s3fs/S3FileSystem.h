@@ -17,8 +17,10 @@
 #pragma once
 
 #include "velox/common/file/FileSystems.h"
+#include "velox/connectors/hive/HiveConfig.h"
 
 namespace facebook::velox::filesystems {
+using namespace facebook::velox::connector::hive;
 
 bool initializeS3(const Config* config);
 

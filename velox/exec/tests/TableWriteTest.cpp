@@ -31,6 +31,7 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 #include <re2/re2.h>
+#include <string>
 
 using namespace facebook::velox;
 using namespace facebook::velox::core;
@@ -2036,9 +2037,9 @@ TEST_P(PartitionedTableWriterTest, maxPartitions) {
   if (testMode_ == TestMode::kPartitioned) {
     VELOX_ASSERT_THROW(
         AssertQueryBuilder(plan)
-            .connectorConfig(
+            .connectorSessionProperty(
                 kHiveConnectorId,
-                HiveConfig::kMaxPartitionsPerWriters,
+                HiveConfig::kMaxPartitionsPerWritersSession,
                 folly::to<std::string>(maxPartitions))
             .copyResults(pool()),
         fmt::format(
@@ -2046,9 +2047,9 @@ TEST_P(PartitionedTableWriterTest, maxPartitions) {
   } else {
     VELOX_ASSERT_THROW(
         AssertQueryBuilder(plan)
-            .connectorConfig(
+            .connectorSessionProperty(
                 kHiveConnectorId,
-                HiveConfig::kMaxPartitionsPerWriters,
+                HiveConfig::kMaxPartitionsPerWritersSession,
                 folly::to<std::string>(maxPartitions))
             .copyResults(pool()),
         "Exceeded open writer limit");
@@ -2195,9 +2196,9 @@ TEST_P(UnpartitionedTableWriterTest, runtimeStatsCheck) {
     const std::shared_ptr<Task> task =
         AssertQueryBuilder(plan, duckDbQueryRunner_)
             .config(QueryConfig::kTaskWriterCount, std::to_string(1))
-            .connectorConfig(
+            .connectorSessionProperty(
                 kHiveConnectorId,
-                HiveConfig::kOrcWriterMaxStripeSize,
+                HiveConfig::kOrcWriterMaxStripeSizeSession,
                 testData.maxStripeSize)
             .assertResults("SELECT count(*) FROM tmp");
     auto stats = task->taskStats().pipelineStats.front().operatorStats;
@@ -2237,9 +2238,9 @@ TEST_P(UnpartitionedTableWriterTest, immutableSettings) {
     std::unordered_map<std::string, std::string> propFromFile{
         {"hive.immutable-partitions",
          testData.immutablePartitionsEnabled ? "true" : "false"}};
-    std::shared_ptr<const Config> connectorProperties{
+    std::shared_ptr<const Config> config{
         std::make_shared<core::MemConfig>(propFromFile)};
-    resetHiveConnector(connectorProperties);
+    resetHiveConnector(config);
 
     auto input = makeVectors(10, 10);
     auto outputDirectory = TempDirectoryPath::create();
@@ -2310,9 +2311,9 @@ TEST_P(BucketedTableOnlyWriteTest, bucketCountLimit) {
     if (testData.expectedError) {
       VELOX_ASSERT_THROW(
           AssertQueryBuilder(plan)
-              .connectorConfig(
+              .connectorSessionProperty(
                   kHiveConnectorId,
-                  HiveConfig::kMaxPartitionsPerWriters,
+                  HiveConfig::kMaxPartitionsPerWritersSession,
                   // Make sure we have a sufficient large writer limit.
                   folly::to<std::string>(testData.bucketCount * 2))
               .copyResults(pool()),
@@ -3112,7 +3113,7 @@ TEST_P(BucketSortOnlyTableWriterTest, sortWriterSpill) {
 DEBUG_ONLY_TEST_P(BucketSortOnlyTableWriterTest, outputBatchRows) {
   struct {
     uint32_t maxOutputRows;
-    uint64_t maxOutputBytes;
+    std::string maxOutputBytes;
     int expectedOutputCount;
 
     // TODO: add output size check with spilling enabled
@@ -3124,12 +3125,12 @@ DEBUG_ONLY_TEST_P(BucketSortOnlyTableWriterTest, outputBatchRows) {
           expectedOutputCount);
     }
   } testSettings[] = {// we have 4 buckets thus 4 writers.
-                      {10000, 1000000, 4},
+                      {10000, "1000KB", 4},
                       // when maxOutputRows = 1, 1000 rows triggers 1000 writes
-                      {1, 1000, 1000},
-                      // estimatedRowSize is ~62, when maxOutputSize = 62 * 100,
-                      // 1000 rows triggers ~10 writes
-                      {10000, 6200, 12}};
+                      {1, "1KB", 1000},
+                      // estimatedRowSize is ~62bytes, when maxOutputSize = 62 *
+                      // 100, 1000 rows triggers ~10 writes
+                      {10000, "6200B", 12}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -3177,13 +3178,13 @@ DEBUG_ONLY_TEST_P(BucketSortOnlyTableWriterTest, outputBatchRows) {
     const std::shared_ptr<Task> task =
         AssertQueryBuilder(plan, duckDbQueryRunner_)
             .config(QueryConfig::kTaskWriterCount, std::to_string(1))
-            .connectorConfig(
+            .connectorSessionProperty(
                 kHiveConnectorId,
-                HiveConfig::kSortWriterMaxOutputRows,
+                HiveConfig::kSortWriterMaxOutputRowsSession,
                 folly::to<std::string>(testData.maxOutputRows))
-            .connectorConfig(
+            .connectorSessionProperty(
                 kHiveConnectorId,
-                HiveConfig::kSortWriterMaxOutputBytes,
+                HiveConfig::kSortWriterMaxOutputBytesSession,
                 folly::to<std::string>(testData.maxOutputBytes))
             .assertResults("SELECT count(*) FROM tmp");
     auto stats = task->taskStats().pipelineStats.front().operatorStats;

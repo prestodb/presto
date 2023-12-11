@@ -20,7 +20,8 @@ add_executable(
   HiveConnectorTest.cpp
   HiveConnectorSerDeTest.cpp
   PartitionIdGeneratorTest.cpp
-  TableHandleTest.cpp)
+  TableHandleTest.cpp
+  HiveConfigTest.cpp)
 add_test(velox_hive_connector_test velox_hive_connector_test)
 
 target_link_libraries(

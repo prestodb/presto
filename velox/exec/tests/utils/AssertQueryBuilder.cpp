@@ -77,11 +77,11 @@ AssertQueryBuilder& AssertQueryBuilder::configs(
   return *this;
 }
 
-AssertQueryBuilder& AssertQueryBuilder::connectorConfig(
+AssertQueryBuilder& AssertQueryBuilder::connectorSessionProperty(
     const std::string& connectorId,
     const std::string& key,
     const std::string& value) {
-  connectorConfigs_[connectorId][key] = value;
+  connectorSessionProperties_[connectorId][key] = value;
   return *this;
 }
 
@@ -228,7 +228,7 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>>
 AssertQueryBuilder::readCursor() {
   VELOX_CHECK_NOT_NULL(params_.planNode);
 
-  if (!configs_.empty() || !connectorConfigs_.empty()) {
+  if (!configs_.empty() || !connectorSessionProperties_.empty()) {
     if (params_.queryCtx == nullptr) {
       // NOTE: the destructor of 'executor_' will wait for all the async task
       // activities to finish on AssertQueryBuilder dtor.
@@ -246,10 +246,10 @@ AssertQueryBuilder::readCursor() {
   if (!configs_.empty()) {
     params_.queryCtx->testingOverrideConfigUnsafe(std::move(configs_));
   }
-  if (!connectorConfigs_.empty()) {
-    for (auto& [connectorId, configs] : connectorConfigs_) {
-      params_.queryCtx->setConnectorConfigOverridesUnsafe(
-          connectorId, std::move(configs));
+  if (!connectorSessionProperties_.empty()) {
+    for (auto& [connectorId, sessionProperties] : connectorSessionProperties_) {
+      params_.queryCtx->setConnectorSessionOverridesUnsafe(
+          connectorId, std::move(sessionProperties));
     }
   }
 

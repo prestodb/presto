@@ -3404,9 +3404,9 @@ TEST_F(TableScanTest, readMissingFieldsInMap) {
   // Now run query with column mapping using names - we should not be able to
   // find any names.
   result = AssertQueryBuilder(op)
-               .connectorConfig(
+               .connectorSessionProperty(
                    kHiveConnectorId,
-                   connector::hive::HiveConfig::kOrcUseColumnNames,
+                   connector::hive::HiveConfig::kOrcUseColumnNamesSession,
                    "true")
                .split(split)
                .copyResults(pool());
@@ -3629,9 +3629,9 @@ TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
   // Now run query with column mapping using names - we should not be able to
   // find any names, except for the last string column.
   result = AssertQueryBuilder(op)
-               .connectorConfig(
+               .connectorSessionProperty(
                    kHiveConnectorId,
-                   connector::hive::HiveConfig::kOrcUseColumnNames,
+                   connector::hive::HiveConfig::kOrcUseColumnNamesSession,
                    "true")
                .split(split)
                .copyResults(pool());

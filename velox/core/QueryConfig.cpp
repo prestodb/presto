@@ -43,7 +43,7 @@ CapacityUnit valueOfCapacityUnit(const std::string& unitStr) {
   if (unitStr == "B") {
     return CapacityUnit::BYTE;
   }
-  if (unitStr == "kB") {
+  if (unitStr == "KB") {
     return CapacityUnit::KILOBYTE;
   }
   if (unitStr == "MB") {

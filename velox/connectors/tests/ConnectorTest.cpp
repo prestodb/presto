@@ -25,7 +25,7 @@ namespace {
 
 class TestConnector : public connector::Connector {
  public:
-  TestConnector(const std::string& id) : connector::Connector(id, nullptr) {}
+  TestConnector(const std::string& id) : connector::Connector(id) {}
 
   std::unique_ptr<connector::DataSource> createDataSource(
       const RowTypePtr& /* outputType */,
