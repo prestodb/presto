@@ -198,8 +198,10 @@ class MemoryManager {
 
   MemoryArbitrator* arbitrator();
 
-  /// Returns debug string of this memory manager.
-  std::string toString() const;
+  /// Returns debug string of this memory manager. If 'detail' is true, it
+  /// returns the detailed tree memory usage from all the top level root memory
+  /// pools.
+  std::string toString(bool detail = false) const;
 
   /// Returns the memory manger's internal default root memory pool for testing
   /// purpose.

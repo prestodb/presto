@@ -86,7 +86,7 @@ MemoryManager::~MemoryManager() {
         0,
         "There are {} unexpected alive memory pools allocated by user on memory manager destruction:\n{}",
         numPools(),
-        toString());
+        toString(true));
   }
 }
 
@@ -200,7 +200,7 @@ MemoryArbitrator* MemoryManager::arbitrator() {
   return arbitrator_.get();
 }
 
-std::string MemoryManager::toString() const {
+std::string MemoryManager::toString(bool detail) const {
   std::stringstream out;
   out << "Memory Manager[capacity "
       << (capacity_ == kMaxMemory ? "UNLIMITED" : succinctBytes(capacity_))
@@ -208,10 +208,18 @@ std::string MemoryManager::toString() const {
       << succinctBytes(getTotalBytes()) << " number of pools " << numPools()
       << "\n";
   out << "List of root pools:\n";
-  out << "\t" << defaultRoot_->name() << "\n";
+  if (detail) {
+    out << defaultRoot_->treeMemoryUsage();
+  } else {
+    out << "\t" << defaultRoot_->name() << "\n";
+  }
   std::vector<std::shared_ptr<MemoryPool>> pools = getAlivePools();
   for (const auto& pool : pools) {
-    out << "\t" << pool->name() << "\n";
+    if (detail) {
+      out << pool->treeMemoryUsage();
+    } else {
+      out << "\t" << pool->name() << "\n";
+    }
   }
   out << allocator_->toString() << "\n";
   out << arbitrator_->toString();
