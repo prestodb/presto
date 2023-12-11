@@ -19,16 +19,10 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
 
+#include "velox/core/QueryCtx.h"
 #include "velox/substrait/SubstraitToVeloxPlan.h"
 #include "velox/substrait/TypeUtils.h"
 #include "velox/substrait/VariantToVectorConverter.h"
-
-#ifndef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-#include "velox/core/QueryCtx.h"
-#else
-#include "velox/common/base/Fs.h"
-#include "velox/substrait/VeloxToSubstraitType.h"
-#endif
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;

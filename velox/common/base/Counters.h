@@ -23,12 +23,6 @@ namespace facebook::velox {
 /// Velox metrics Registration.
 void registerVeloxMetrics();
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-inline void registerVeloxCounters() {
-  registerVeloxMetrics();
-}
-#endif
-
 constexpr folly::StringPiece kMetricHiveFileHandleGenerateLatencyMs{
     "velox.hive_file_handle_generate_latency_ms"};
 

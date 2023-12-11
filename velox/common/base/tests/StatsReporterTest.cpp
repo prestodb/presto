@@ -36,16 +36,17 @@ class TestReporter : public BaseStatsReporter {
   mutable std::unordered_map<std::string, std::vector<int32_t>>
       histogramPercentilesMap;
 
-  void addStatExportType(const char* key, StatType statType) const override {
+  void registerMetricExportType(const char* key, StatType statType)
+      const override {
     statTypeMap[key] = statType;
   }
 
-  void addStatExportType(folly::StringPiece key, StatType statType)
+  void registerMetricExportType(folly::StringPiece key, StatType statType)
       const override {
     statTypeMap[key.str()] = statType;
   }
 
-  void addHistogramExportPercentiles(
+  void registerHistogramMetricExportType(
       const char* key,
       int64_t /* bucketWidth */,
       int64_t /* min */,
@@ -54,7 +55,7 @@ class TestReporter : public BaseStatsReporter {
     histogramPercentilesMap[key] = pcts;
   }
 
-  void addHistogramExportPercentiles(
+  void registerHistogramMetricExportType(
       folly::StringPiece key,
       int64_t /* bucketWidth */,
       int64_t /* min */,
@@ -63,27 +64,30 @@ class TestReporter : public BaseStatsReporter {
     histogramPercentilesMap[key.str()] = pcts;
   }
 
-  void addStatValue(const std::string& key, const size_t value) const override {
+  void addMetricValue(const std::string& key, const size_t value)
+      const override {
     counterMap[key] += value;
   }
 
-  void addStatValue(const char* key, const size_t value) const override {
+  void addMetricValue(const char* key, const size_t value) const override {
     counterMap[key] += value;
   }
 
-  void addStatValue(folly::StringPiece key, size_t value) const override {
+  void addMetricValue(folly::StringPiece key, size_t value) const override {
     counterMap[key.str()] += value;
   }
 
-  void addHistogramValue(const std::string& key, size_t value) const override {
+  void addHistogramMetricValue(const std::string& key, size_t value)
+      const override {
     counterMap[key] = std::max(counterMap[key], value);
   }
 
-  void addHistogramValue(const char* key, size_t value) const override {
+  void addHistogramMetricValue(const char* key, size_t value) const override {
     counterMap[key] = std::max(counterMap[key], value);
   }
 
-  void addHistogramValue(folly::StringPiece key, size_t value) const override {
+  void addHistogramMetricValue(folly::StringPiece key, size_t value)
+      const override {
     counterMap[key.str()] = std::max(counterMap[key.str()], value);
   }
 };
