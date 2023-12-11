@@ -166,6 +166,36 @@ TEST_F(FindFirstTest, predicateFailures) {
   verify("find_first_index(c0, -3, x -> (10 / x > 2))", data, expected);
 }
 
+TEST_F(FindFirstTest, invalidIndex) {
+  auto data = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[1, 2, 3]",
+          "[-1, 2]",
+          "[-2, -3, -4]",
+          "[-5, -6]",
+      }),
+      makeFlatVector<int32_t>({2, 0, 0, 1}),
+  });
+
+  // Index 0 is not valid. Expect an error.
+  VELOX_ASSERT_THROW(
+      evaluate("find_first(c0, c1, x -> (x > 0))", data),
+      "SQL array indices start at 1. Got 0.");
+
+  // There are 2 rows with invalid index. Mark array argument in one of these
+  // rows as NULL. Still expect the other row to trigger an error.
+  data->childAt(0)->setNull(1, true);
+  VELOX_ASSERT_THROW(
+      evaluate("find_first(c0, c1, x -> (x > 0))", data),
+      "SQL array indices start at 1. Got 0.");
+
+  // Mark array argument in the other row as NULL. Expect no errors.
+  data->childAt(0)->setNull(2, true);
+  auto expected = makeNullableFlatVector<int32_t>(
+      {2, std::nullopt, std::nullopt, std::nullopt});
+  verify("find_first(c0, c1, x -> (x > 0))", data, expected);
+}
+
 // Verify that null arrays with non-zero offsets/sizes are processed correctly.
 TEST_F(FindFirstTest, nulls) {
   auto data = makeRowVector({

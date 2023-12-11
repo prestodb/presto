@@ -80,7 +80,7 @@ class FindFirstFunctionBase : public exec::VectorFunction {
     StartIndexProcessor startIndexProcessor;
     if (startIndex != nullptr) {
       startIndexProcessor.process(
-          startIndex, rows, rawOffsets, rawSizes, context);
+          startIndex, rows, rawNulls, rawOffsets, rawSizes, context);
       rawOffsets = startIndexProcessor.adjustedOffsets->as<vector_size_t>();
       rawSizes = startIndexProcessor.adjustedSizes->as<vector_size_t>();
     }
@@ -143,6 +143,7 @@ class FindFirstFunctionBase : public exec::VectorFunction {
     void process(
         const VectorPtr& startIndex,
         const SelectivityVector& rows,
+        const uint64_t* rawNulls,
         const vector_size_t* rawOffsets,
         const vector_size_t* rawSizes,
         exec::EvalCtx& context) {
@@ -157,7 +158,10 @@ class FindFirstFunctionBase : public exec::VectorFunction {
       auto* rawAdjustedSizes = adjustedSizes->asMutable<vector_size_t>();
 
       rows.applyToSelected([&](auto row) {
-        if (startIndexDecoder->isNullAt(row)) {
+        if (rawNulls != nullptr && bits::isBitNull(rawNulls, row)) {
+          rawAdjustedOffsets[row] = 0;
+          rawAdjustedSizes[row] = 0;
+        } else if (startIndexDecoder->isNullAt(row)) {
           rawAdjustedOffsets[row] = 0;
           rawAdjustedSizes[row] = 0;
         } else {
