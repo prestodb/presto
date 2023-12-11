@@ -16,8 +16,6 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -42,18 +40,15 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.exceptions.CommitFailedException;
-import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
-import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.Tasks;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -69,9 +64,9 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isPrestoView;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -438,16 +433,5 @@ public class HiveTableOperations
             log.warn(e, "Unable to parse version from metadata location: %s", metadataLocation);
             return -1;
         }
-    }
-
-    private static List<Column> toHiveColumns(List<NestedField> columns)
-    {
-        return columns.stream()
-                .map(column -> new Column(
-                        column.name(),
-                        HiveType.toHiveType(HiveSchemaUtil.convert(column.type())),
-                        Optional.empty(),
-                        Optional.empty()))
-                .collect(toImmutableList());
     }
 }

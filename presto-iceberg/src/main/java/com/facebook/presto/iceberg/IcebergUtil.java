@@ -28,6 +28,8 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ColumnHandle;
@@ -58,9 +60,11 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.SnapshotUtil;
 import org.joda.time.DateTimeZone;
 
@@ -261,6 +265,17 @@ public final class IcebergUtil
             }
         }
         return columns.build();
+    }
+
+    public static List<Column> toHiveColumns(List<NestedField> columns)
+    {
+        return columns.stream()
+                .map(column -> new Column(
+                        column.name(),
+                        HiveType.toHiveType(HiveSchemaUtil.convert(column.type())),
+                        Optional.empty(),
+                        Optional.empty()))
+                .collect(toImmutableList());
     }
 
     public static FileFormat getFileFormat(Table table)
@@ -617,8 +632,8 @@ public final class IcebergUtil
 
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
     {
-        List<Types.NestedField> icebergColumns = columns.stream()
-                .map(column -> Types.NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType())))
+        List<NestedField> icebergColumns = columns.stream()
+                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType())))
                 .collect(toImmutableList());
         return new Schema(Types.StructType.of(icebergColumns).asStructType().fields());
     }
