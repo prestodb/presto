@@ -554,7 +554,10 @@ if(VELOX_BUILD_TESTING OR VELOX_BUILD_TEST_UTILS)
   resolve_dependency(cpr)
 endif()
 
-include(CTest) # include after project() but before add_subdirectory()
+if(VELOX_BUILD_TESTING)
+  set(BUILD_TESTING ON)
+  include(CTest) # include after project() but before add_subdirectory()
+endif()
 
 include_directories(.)
 

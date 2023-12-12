@@ -259,7 +259,7 @@ jobs:
       - run:
           name: "Run Unit Tests"
           command: |
-            cd _build/debug && ctest -j 16 -VV --output-on-failure
+            cd _build/debug && ctest -j 16 -VV --output-on-failure --no-tests=error
           no_output_timeout: 1h
       - store_test_results:
           path: /tmp/test_xml_output/
@@ -361,7 +361,7 @@ jobs:
       - run:
           name: "Run Unit Tests"
           command: |
-            cd _build/release && ctest -j 16 -VV --output-on-failure
+            cd _build/release && ctest -j 16 -VV --output-on-failure --no-tests=error
           no_output_timeout: 1h
       - post-steps
 
@@ -452,7 +452,7 @@ jobs:
             curl -sL https://rpm.nodesource.com/setup_10.x | bash -
             yum install -y nodejs
             npm install -g azurite
-            cd _build/release && ctest -j 16 -VV --output-on-failure
+            cd _build/release && ctest -j 16 -VV --output-on-failure --no-tests=error
           no_output_timeout: 1h
       - post-steps
 

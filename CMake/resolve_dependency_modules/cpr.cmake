@@ -37,3 +37,6 @@ FetchContent_Declare(
 set(BUILD_SHARED_LIBS OFF)
 set(CPR_USE_SYSTEM_CURL OFF)
 FetchContent_MakeAvailable(cpr)
+# libcpr in its CMakeLists.txt file disables the BUILD_TESTING globally when
+# CPR_USE_SYSTEM_CURL=OFF. unset BUILD_TESTING here.
+unset(BUILD_TESTING)

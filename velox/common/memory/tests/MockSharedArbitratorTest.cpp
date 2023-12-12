@@ -582,7 +582,8 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailsTask) {
   } catch (const VeloxRuntimeError& e) {
     ASSERT_EQ(velox::error_code::kMemAborted, e.errorCode());
     ASSERT_TRUE(
-        std::string(e.what()).find("usage 384.00MB peak 384.00MB") !=
+        std::string(e.what()).find(
+            "usage 384.00MB reserved 384.00MB peak 384.00MB") !=
         std::string::npos);
   } catch (...) {
     FAIL();
