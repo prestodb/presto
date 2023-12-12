@@ -215,8 +215,8 @@ public final class TimeZoneKey
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
         // if zineId is in incorrect format, return null
-        if (!originalZoneId.matches("^ETC/GMT[+-]\\d{1,2}:\\d{2}$")) {
-            return originalZoneId;
+        if (!originalZoneId.matches("^(ETC/)?GMT[+-]\\d{1,2}(:\\d{2})?$")) {
+            return zoneId;
         }
 
         boolean startsWithEtc = zoneId.startsWith("etc/");
