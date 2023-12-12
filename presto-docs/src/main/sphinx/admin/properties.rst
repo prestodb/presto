@@ -845,3 +845,28 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     to hit the limit on matches for subsequent rows as well, you want to use the
     correct algorithm from the beginning so as not to waste time and resources.
     The more rows you are processing, the larger this value should be.
+
+CTE Materialization Properties
+--------------------------------------
+
+``query.cte-hash-partition-count``
+^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``100``
+
+    The number of partitions to be used for materializing Common Table Expressions (CTEs) in queries.
+    This setting determines how many buckets or writers should be used when materializing the CTEs, potentially affecting the performance of queries involving CTE materialization.
+    A higher number of partitions might improve parallelism but also increases overhead in terms of memory and network communication.
+    Recommended value: 4 - 10x times the size of the cluster.
+    This can also be specified on a per-query basis using the ``cte_hash_partition_count`` session property.
+
+``query.cte-partitioning-provider-catalog``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``system``
+
+    The name of the catalog to be used for Common Table Expressions (CTE) and which provides custom partitioning for Common Table Expression (CTE) materialization.
+    This setting specifies which catalog should be used for CTE materialization and for determining how to partition the materialization of CTEs in queries.
+    This can also be specified on a per-query basis using the ``cte_partitioning_provider_catalog`` session property.
