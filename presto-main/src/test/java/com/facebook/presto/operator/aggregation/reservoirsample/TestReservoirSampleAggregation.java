@@ -201,7 +201,7 @@ public class TestReservoirSampleAggregation
         assertTrue(result instanceof List);
         List<Object> resultItems = (List<Object>) result;
         Long processedCount = (Long) resultItems.get(0);
-        assertEquals(processedCount, items.size());
+        assertEquals(processedCount, Long.valueOf(items.size()));
         List<Object> sample = (List<Object>) resultItems.get(1);
         assertTrue(items.containsAll(sample));
     }
