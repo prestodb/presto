@@ -211,7 +211,8 @@ public class TemporaryTableUtil
                         Optional.of(partitioningScheme),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty()),
+                        Optional.empty(),
+                        Optional.of(Boolean.TRUE)),
                 Optional.of(insertReference),
                 outputVar,
                 Optional.empty(),
@@ -348,7 +349,8 @@ public class TemporaryTableUtil
                                     Optional.of(partitioningScheme),
                                     Optional.empty(),
                                     enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty(),
-                                    Optional.empty())),
+                                    Optional.empty(),
+                                    Optional.of(Boolean.TRUE))),
                     variableAllocator.newVariable("intermediaterows", BIGINT),
                     variableAllocator.newVariable("intermediatefragments", VARBINARY),
                     variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
@@ -369,7 +371,8 @@ public class TemporaryTableUtil
                     Optional.of(partitioningScheme),
                     Optional.empty(),
                     enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    Optional.of(Boolean.TRUE));
         }
 
         return new TableFinishNode(

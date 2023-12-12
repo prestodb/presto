@@ -764,7 +764,8 @@ public class PruneUnreferencedOutputs
                     node.getTablePartitioningScheme(),
                     node.getPreferredShufflePartitioningScheme(),
                     node.getStatisticsAggregation(),
-                    node.getTaskCountIfScaledWriter());
+                    node.getTaskCountIfScaledWriter(),
+                    node.getIsTemporaryTableWriter());
         }
 
         @Override
