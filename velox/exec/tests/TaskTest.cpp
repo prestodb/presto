@@ -1464,4 +1464,51 @@ DEBUG_ONLY_TEST_F(TaskTest, resumeAfterTaskFinish) {
   task.reset();
   waitForAllTasksToBeDeleted();
 }
+
+DEBUG_ONLY_TEST_F(TaskTest, driverEnqueAfterFailedAndPausedTask) {
+  const auto data = makeRowVector({
+      makeFlatVector<int64_t>(50, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(50, [](auto row) { return row; }),
+  });
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  const auto plan = PlanBuilder(planNodeIdGenerator)
+                        .values({data})
+                        .singleAggregation({"c0"}, {"sum(c1)"}, {})
+                        .planFragment();
+
+  std::atomic<bool> driverWaitFlag{true};
+  folly::EventCount driverWait;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::enter",
+      std::function<void(const velox::exec::ThreadState*)>(
+          ([&](const velox::exec::ThreadState* /*unused*/) {
+            driverWait.await([&]() { return !driverWaitFlag.load(); });
+          })));
+
+  auto task = Task::create(
+      "task",
+      std::move(plan),
+      0,
+      std::make_shared<core::QueryCtx>(driverExecutor_.get()));
+  task->start(4, 1);
+
+  // Request pause.
+  auto pauseWait = task->requestPause();
+  // Fail the task.
+  task->requestAbort();
+
+  // Unblock drivers.
+  driverWaitFlag = false;
+  driverWait.notifyAll();
+  // Let driver threads run before resume.
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  // Wait for task pause to complete.
+  pauseWait.wait();
+
+  // Resume the task and expect all drivers to close.
+  Task::resume(task);
+  ASSERT_TRUE(waitForTaskAborted(task.get()));
+  task.reset();
+  waitForAllTasksToBeDeleted();
+}
 } // namespace facebook::velox::exec::test
