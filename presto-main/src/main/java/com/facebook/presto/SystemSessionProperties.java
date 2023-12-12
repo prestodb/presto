@@ -312,6 +312,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
     public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
     public static final String NATIVE_SPILL_WRITE_BUFFER_SIZE = "native_spill_write_buffer_size";
+    public static final String NATIVE_SPILL_FILE_CREATE_CONFIG = "native_spill_file_create_config";
     public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
@@ -1565,6 +1566,13 @@ public final class SystemSessionProperties
                         "Native Execution only. The maximum size in bytes to buffer the serialized spill data before writing to disk for IO efficiency.\n" +
                                 "If set to zero, buffering is disabled.",
                         1024L * 1024L,
+                        false),
+                stringProperty(
+                        NATIVE_SPILL_FILE_CREATE_CONFIG,
+                        "Native Execution only. Config used to create spill files. This config is \n" +
+                                "provided to underlying file system and the config is free form. The form should be\n" +
+                                "defined by the underlying file system.",
+                        "",
                         false),
                 booleanProperty(
                         NATIVE_JOIN_SPILL_ENABLED,
