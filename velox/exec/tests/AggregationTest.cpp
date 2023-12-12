@@ -697,10 +697,10 @@ TEST_F(AggregationTest, hashmodes) {
   makeModeTestKeys(rowType, 20000, 2, 2, 2, 4, 4, 4, batches);
   // 20K rows with all at slightly higher cardinality, still in array range.
   makeModeTestKeys(rowType, 20000, 2, 2, 2, 4, 16, 4, batches);
-  // 100K rows with cardinality outside of array range. We transit to
+  // 25K rows with cardinality outside of array range. We transit to
   // generic hash table from normalized keys when running out of quota
   // for distinct string storage for the sixth key.
-  makeModeTestKeys(rowType, 100000, 1000000, 2, 2, 4, 4, 1000000, batches);
+  makeModeTestKeys(rowType, 25000, 1000000, 2, 2, 4, 4, 1000000, batches);
   createDuckDbTable(batches);
   auto op =
       PlanBuilder()
@@ -708,10 +708,17 @@ TEST_F(AggregationTest, hashmodes) {
           .singleAggregation({"c0", "c1", "c2", "c3", "c4", "c5"}, {"sum(1)"})
           .planNode();
 
+  std::atomic<BaseHashTable::HashMode> mode{BaseHashTable::HashMode::kArray};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashTable::setHashMode",
+      std::function<void(void*)>([&](void* newMode) {
+        mode = *reinterpret_cast<BaseHashTable::HashMode*>(newMode);
+      }));
   assertQuery(
       op,
       "SELECT c0, c1, C2, C3, C4, C5, sum(1) FROM tmp "
       " GROUP BY c0, c1, c2, c3, c4, c5");
+  EXPECT_EQ(mode, BaseHashTable::HashMode::kHash);
 }
 
 TEST_F(AggregationTest, rangeToDistinct) {
