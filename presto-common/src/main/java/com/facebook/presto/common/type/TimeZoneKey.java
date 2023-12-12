@@ -210,9 +210,14 @@ public final class TimeZoneKey
         return normalizeZoneId(zoneId).equals("utc");
     }
 
-    private static String normalizeZoneId(String originalZoneId)
+    public static String normalizeZoneId(String originalZoneId)
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
+
+        // if zineId is in incorrect format, return null
+        if (!originalZoneId.matches("^ETC/GMT[+-]\\d{1,2}:\\d{2}$")) {
+            return originalZoneId;
+        }
 
         boolean startsWithEtc = zoneId.startsWith("etc/");
         if (startsWithEtc) {
