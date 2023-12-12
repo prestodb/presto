@@ -19,7 +19,7 @@ public interface TaskShutDownListener
 {
     void handleShutdown(TaskId taskId);
 
-    void forceFailure(TaskId taskId);
+    void forceFailure(TaskId taskId, String errorMessage);
 
     boolean isTaskDone();
 }

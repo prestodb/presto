@@ -243,12 +243,12 @@ public class TaskHandle
         hostShutDownListener.get().handleShutdown(taskId);
     }
 
-    public void forceFailure()
+    public void forceFailure(String errorMessage)
     {
         if (!hostShutDownListener.isPresent()) {
             return;
         }
-        hostShutDownListener.get().forceFailure(taskId);
+        hostShutDownListener.get().forceFailure(taskId, errorMessage);
     }
 
     public boolean isTaskDone()

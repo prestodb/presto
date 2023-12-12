@@ -41,9 +41,9 @@ public class TaskShutdownManager
     }
 
     @Override
-    public void forceFailure(TaskId taskId)
+    public void forceFailure(TaskId taskId, String detail)
     {
-        String errorMessage = String.format("the shutdown process force the task to fail due to unable to recover", taskId);
+        String errorMessage = String.format("the shutdown process force the task to fail due to unable to recover. Detail: %s, taskId: %s", detail, taskId);
         taskStateMachine.failed(new PrestoException(UNRECOVERABLE_HOST_SHUTTING_DOWN, errorMessage));
     }
 

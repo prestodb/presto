@@ -281,7 +281,7 @@ public class TaskExecutor
                         TaskId taskId = taskHandle.getTaskId();
                         if (!taskHandle.getOutputBuffer().isPresent()) {
                             log.info("No output buffer for task %s", taskId);
-                            taskHandle.forceFailure();
+                            taskHandle.forceFailure("No output buffer for task");
                             return;
                         }
 
@@ -316,7 +316,7 @@ public class TaskExecutor
                             if (!outputBuffer.isDrainable()) {
                                 log.info("The output buffer for task %s is not drainable, fail the output buffer to notify downstream.", taskId);
                                 outputBuffer.fail();
-                                taskHandle.forceFailure();
+                                taskHandle.forceFailure(String.format("The output buffer for task %s is not drainable. outputBuffer type: %s", taskId, outputBuffer.getInfo().getType()));
                                 return;
                             }
 
