@@ -210,17 +210,16 @@ public final class TimeZoneKey
         return normalizeZoneId(zoneId).equals("utc");
     }
 
-    private static String normalizeZoneId(String originalZoneId)
+    public static String normalizeZoneId(String originalZoneId)
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
-        // if zineId is in incorrect format, return null
-        if (!originalZoneId.matches("^(ETC/)?GMT[+-]\\d{1,2}(:\\d{2})?$")) {
-            return zoneId;
-        }
-
         boolean startsWithEtc = zoneId.startsWith("etc/");
         if (startsWithEtc) {
+            if (!originalZoneId.matches("^(ETC/)?GMT[+-]\\d{1,2}(:\\d{2})?$")) {
+                return zoneId;
+            }
+
             zoneId = zoneId.substring(4);
         }
 
@@ -269,10 +268,6 @@ public final class TimeZoneKey
         char signChar = zoneId.charAt(0);
         if (signChar != '+' && signChar != '-') {
             return originalZoneId;
-        }
-        if (startsWithEtcGmt) {
-            // Flip sign for Etc/GMT(+/-)H[H]
-            signChar = signChar == '-' ? '+' : '-';
         }
 
         // extract the tens and ones characters for the hour
