@@ -78,7 +78,7 @@ Installing and Running the Presto Docker container
      
 4. To start the Presto server in the Docker container, run the command:
 
-   ``docker run -p 8080:8080 -it -v ./config.properties:/opt/presto-server/etc/config.properties -v ./jvm.config:/opt/presto-server/etc/jvm.config --name prestodb/presto:latest``
+   ``docker run -p 8080:8080 -it -v ./config.properties:/opt/presto-server/etc/config.properties -v ./jvm.config:/opt/presto-server/etc/jvm.config --name presto prestodb/presto:latest``
 
    This command assigns the name ``presto`` for the newly-created container that uses the downloaded image ``prestodb/presto:latest``.
 
