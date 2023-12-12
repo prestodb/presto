@@ -35,6 +35,13 @@ enum TaskState { kRunning, kFinished, kCanceled, kAborted, kFailed };
 
 std::string taskStateString(TaskState state);
 
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& os,
+    TaskState state) {
+  os << taskStateString(state);
+  return os;
+}
+
 struct BarrierState {
   int32_t numRequested;
   std::vector<std::shared_ptr<Driver>> drivers;
