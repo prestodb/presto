@@ -23,21 +23,22 @@ on:
     - cron: '0 3 * * *'
 
   workflow_dispatch:
-    ref:
-      description: 'Ref to checkout out'
-      default: 'main'
-    numThreads:
-      description: 'Number of threads'
-      default: 16
-    maxHighMemJobs:
-      description: 'Number of high memory jobs'
-      default: 8
-    maxLinkJobs:
-      description: 'Maximum number of link jobs'
-      default: 4
-    extraCMakeFlags:
-      description: 'Additional CMake flags'
-      default: ''
+    inputs:
+      ref:
+        description: 'Ref to checkout out'
+        default: 'main'
+      numThreads:
+        description: 'Number of threads'
+        default: 16
+      maxHighMemJobs:
+        description: 'Number of high memory jobs'
+        default: 8
+      maxLinkJobs:
+        description: 'Maximum number of link jobs'
+        default: 4
+      extraCMakeFlags:
+        description: 'Additional CMake flags'
+        default: ''
 
 defaults:
   run:
