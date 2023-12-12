@@ -578,7 +578,8 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getTablePartitioningScheme(),
                                     originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                     statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter()),
+                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
+                                    originalTableWriterNode.getIsTemporaryTableWriter()),
                             fixedParallelism(),
                             fixedParallelism());
                 }
@@ -603,7 +604,8 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getTablePartitioningScheme(),
                                     originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                     statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter()),
+                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
+                                    originalTableWriterNode.getIsTemporaryTableWriter()),
                             exchange.getProperties());
                 }
             }
@@ -632,7 +634,8 @@ public class AddLocalExchanges
                                 originalTableWriterNode.getTablePartitioningScheme(),
                                 originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                 statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                originalTableWriterNode.getTaskCountIfScaledWriter()),
+                                originalTableWriterNode.getTaskCountIfScaledWriter(),
+                                originalTableWriterNode.getIsTemporaryTableWriter()),
                         exchange.getProperties());
             }
 
