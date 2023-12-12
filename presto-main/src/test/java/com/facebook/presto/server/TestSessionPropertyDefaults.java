@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.CTE_HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -65,6 +66,7 @@ public class TestSessionPropertyDefaults
                 .setSystemProperty(QUERY_MAX_MEMORY, "1GB")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .setSystemProperty(HASH_PARTITION_COUNT, "43")
+                .setSystemProperty(CTE_HASH_PARTITION_COUNT, "100")
                 .setSystemProperty("override", "should be overridden")
                 .setCatalogSessionProperty("testCatalog", "explicit_set", "explicit_set")
                 .build();
@@ -73,6 +75,7 @@ public class TestSessionPropertyDefaults
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
+                .put(CTE_HASH_PARTITION_COUNT, "100")
                 .put("override", "should be overridden")
                 .build());
         assertEquals(
@@ -89,6 +92,7 @@ public class TestSessionPropertyDefaults
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
+                .put(CTE_HASH_PARTITION_COUNT, "100")
                 .put("system_default", "system_default")
                 .put("override", "overridden")
                 .build());

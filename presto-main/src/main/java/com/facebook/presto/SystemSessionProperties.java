@@ -88,7 +88,11 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    public static final String CTE_HASH_PARTITION_COUNT = "cte_hash_partition_count";
+
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
+
+    public static final String CTE_PARTITIONING_PROVIDER_CATALOG = "cte_partitioning_provider_catalog";
     public static final String EXCHANGE_MATERIALIZATION_STRATEGY = "exchange_materialization_strategy";
     public static final String USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT = "use_stream_exchange_for_mark_distinct";
     public static final String GROUPED_EXECUTION = "grouped_execution";
@@ -409,10 +413,20 @@ public final class SystemSessionProperties
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getHashPartitionCount(),
                         false),
+                integerProperty(
+                        CTE_HASH_PARTITION_COUNT,
+                        "Number of partitions for materializing CTEs",
+                        queryManagerConfig.getCteHashPartitionCount(),
+                        false),
                 stringProperty(
                         PARTITIONING_PROVIDER_CATALOG,
                         "Name of the catalog providing custom partitioning",
                         queryManagerConfig.getPartitioningProviderCatalog(),
+                        false),
+                stringProperty(
+                        CTE_PARTITIONING_PROVIDER_CATALOG,
+                        "Name of the catalog providing custom partitioning for cte materialization",
+                        queryManagerConfig.getCtePartitioningProviderCatalog(),
                         false),
                 new PropertyMetadata<>(
                         EXCHANGE_MATERIALIZATION_STRATEGY,
@@ -1935,9 +1949,19 @@ public final class SystemSessionProperties
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
     }
 
+    public static int getCteHashPartitionCount(Session session)
+    {
+        return session.getSystemProperty(CTE_HASH_PARTITION_COUNT, Integer.class);
+    }
+
     public static String getPartitioningProviderCatalog(Session session)
     {
         return session.getSystemProperty(PARTITIONING_PROVIDER_CATALOG, String.class);
+    }
+
+    public static String getCtePartitioningProviderCatalog(Session session)
+    {
+        return session.getSystemProperty(CTE_PARTITIONING_PROVIDER_CATALOG, String.class);
     }
 
     public static ExchangeMaterializationStrategy getExchangeMaterializationStrategy(Session session)

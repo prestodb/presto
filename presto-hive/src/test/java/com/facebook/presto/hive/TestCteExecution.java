@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
@@ -48,7 +47,7 @@ public class TestCteExecution
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION, REGION, PART, SUPPLIER),
                 ImmutableMap.of(
-                        "query.partitioning-provider-catalog", "hive"),
+                        "query.cte-partitioning-provider-catalog", "hive"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
                         "hive.enable-parquet-dereference-pushdown", "true"),
@@ -823,7 +822,6 @@ public class TestCteExecution
         return Session.builder(super.getSession())
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
-                .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "hive")
                 .build();
     }
 }
