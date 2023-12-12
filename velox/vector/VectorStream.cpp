@@ -15,12 +15,14 @@
  */
 #include "velox/vector/VectorStream.h"
 #include <memory>
+#include "velox/common/base/RawVector.h"
 
 namespace facebook::velox {
 
 void VectorSerializer::append(const RowVectorPtr& vector) {
   const IndexRange allRows{0, vector->size()};
-  append(vector, folly::Range(&allRows, 1));
+  Scratch scratch;
+  append(vector, folly::Range(&allRows, 1), scratch);
 }
 
 namespace {
@@ -102,8 +104,16 @@ void VectorStreamGroup::createStreamTree(
 
 void VectorStreamGroup::append(
     const RowVectorPtr& vector,
-    const folly::Range<const IndexRange*>& ranges) {
-  serializer_->append(vector, ranges);
+    const folly::Range<const IndexRange*>& ranges,
+    Scratch& scratch) {
+  serializer_->append(vector, ranges, scratch);
+}
+
+void VectorStreamGroup::append(
+    const RowVectorPtr& vector,
+    const folly::Range<const vector_size_t*>& rows,
+    Scratch& scratch) {
+  serializer_->append(vector, rows, scratch);
 }
 
 void VectorStreamGroup::append(const RowVectorPtr& vector) {
@@ -118,8 +128,18 @@ void VectorStreamGroup::flush(OutputStream* out) {
 void VectorStreamGroup::estimateSerializedSize(
     VectorPtr vector,
     const folly::Range<const IndexRange*>& ranges,
-    vector_size_t** sizes) {
-  getVectorSerde()->estimateSerializedSize(vector, ranges, sizes);
+    vector_size_t** sizes,
+    Scratch& scratch) {
+  getVectorSerde()->estimateSerializedSize(vector, ranges, sizes, scratch);
+}
+
+// static
+void VectorStreamGroup::estimateSerializedSize(
+    VectorPtr vector,
+    folly::Range<const vector_size_t*> rows,
+    vector_size_t** sizes,
+    Scratch& scratch) {
+  getVectorSerde()->estimateSerializedSize(vector, rows, sizes, scratch);
 }
 
 // static
@@ -148,7 +168,8 @@ folly::IOBuf rowVectorToIOBuf(
   streamGroup->createStreamTree(asRowType(rowVector->type()), rangeEnd);
 
   IndexRange range{0, rangeEnd};
-  streamGroup->append(rowVector, folly::Range<IndexRange*>(&range, 1));
+  Scratch scratch;
+  streamGroup->append(rowVector, folly::Range<IndexRange*>(&range, 1), scratch);
 
   IOBufOutputStream stream(pool);
   streamGroup->flush(&stream);

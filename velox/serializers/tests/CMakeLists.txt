@@ -28,3 +28,15 @@ target_link_libraries(
   gtest_main
   gflags::gflags
   glog::glog)
+
+add_executable(velox_serializer_benchmark SerializerBenchmark.cpp)
+
+target_link_libraries(
+  velox_serializer_benchmark
+  velox_presto_serializer
+  velox_vector_test_lib
+  velox_vector_fuzzer
+  gtest
+  gtest_main
+  gflags::gflags
+  glog::glog)

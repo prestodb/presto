@@ -41,7 +41,8 @@ class UnsafeRowSerializerTest : public ::testing::Test,
     auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
     auto serializer = serde_->createSerializer(rowType, numRows, arena.get());
 
-    serializer->append(rowVector, folly::Range(rows.data(), numRows));
+    Scratch scratch;
+    serializer->append(rowVector, folly::Range(rows.data(), numRows), scratch);
     auto size = serializer->maxSerializedSize();
     OStreamOutputStream out(output);
     serializer->flush(&out);

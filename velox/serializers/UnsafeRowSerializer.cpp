@@ -23,7 +23,8 @@ namespace facebook::velox::serializer::spark {
 void UnsafeRowVectorSerde::estimateSerializedSize(
     VectorPtr /* vector */,
     const folly::Range<const IndexRange*>& /* ranges */,
-    vector_size_t** /* sizes */) {
+    vector_size_t** /* sizes */,
+    Scratch& /*scratch*/) {
   VELOX_UNSUPPORTED();
 }
 
@@ -37,7 +38,8 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
 
   void append(
       const RowVectorPtr& vector,
-      const folly::Range<const IndexRange*>& ranges) override {
+      const folly::Range<const IndexRange*>& ranges,
+      Scratch& /*scratch*/) override {
     size_t totalSize = 0;
     row::UnsafeRowFast unsafeRow(vector);
     if (auto fixedRowSize =

@@ -26,7 +26,8 @@ class UnsafeRowVectorSerde : public VectorSerde {
   void estimateSerializedSize(
       VectorPtr vector,
       const folly::Range<const IndexRange*>& ranges,
-      vector_size_t** sizes) override;
+      vector_size_t** sizes,
+      Scratch& scratch) override;
 
   // This method is not used in production code. It is only used to
   // support round-trip tests for deserialization.
