@@ -210,7 +210,7 @@ public final class TimeZoneKey
         return normalizeZoneId(zoneId).equals("utc");
     }
 
-    public static String normalizeZoneId(String originalZoneId)
+    private static String normalizeZoneId(String originalZoneId)
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
