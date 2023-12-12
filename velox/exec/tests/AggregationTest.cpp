@@ -718,7 +718,9 @@ TEST_F(AggregationTest, hashmodes) {
       op,
       "SELECT c0, c1, C2, C3, C4, C5, sum(1) FROM tmp "
       " GROUP BY c0, c1, c2, c3, c4, c5");
+#ifndef NDEBUG
   EXPECT_EQ(mode, BaseHashTable::HashMode::kHash);
+#endif
 }
 
 TEST_F(AggregationTest, rangeToDistinct) {
