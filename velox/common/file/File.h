@@ -216,6 +216,7 @@ class InMemoryWriteFile final : public WriteFile {
   explicit InMemoryWriteFile(std::string* FOLLY_NONNULL file) : file_(file) {}
 
   void append(std::string_view data) final;
+  void append(std::unique_ptr<folly::IOBuf> data) final;
   void flush() final {}
   void close() final {}
   uint64_t size() const final;
@@ -282,6 +283,7 @@ class LocalWriteFile final : public WriteFile {
   ~LocalWriteFile();
 
   void append(std::string_view data) final;
+  void append(std::unique_ptr<folly::IOBuf> data) final;
   void flush() final;
   void close() final;
   uint64_t size() const final;

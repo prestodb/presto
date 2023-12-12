@@ -28,12 +28,21 @@ using facebook::velox::common::Region;
 
 constexpr int kOneMB = 1 << 20;
 
-void writeData(WriteFile* writeFile) {
-  writeFile->append("aaaaa");
-  writeFile->append("bbbbb");
-  writeFile->append(std::string(kOneMB, 'c'));
-  writeFile->append("ddddd");
-  ASSERT_EQ(writeFile->size(), 15 + kOneMB);
+void writeData(WriteFile* writeFile, bool useIOBuf = false) {
+  if (useIOBuf) {
+    std::unique_ptr<folly::IOBuf> buf = folly::IOBuf::copyBuffer("aaaaa");
+    buf->appendToChain(folly::IOBuf::copyBuffer("bbbbb"));
+    buf->appendToChain(folly::IOBuf::copyBuffer(std::string(kOneMB, 'c')));
+    buf->appendToChain(folly::IOBuf::copyBuffer("ddddd"));
+    writeFile->append(std::move(buf));
+    ASSERT_EQ(writeFile->size(), 15 + kOneMB);
+  } else {
+    writeFile->append("aaaaa");
+    writeFile->append("bbbbb");
+    writeFile->append(std::string(kOneMB, 'c'));
+    writeFile->append("ddddd");
+    ASSERT_EQ(writeFile->size(), 15 + kOneMB);
+  }
 }
 
 void readData(ReadFile* readFile, bool checkFileSize = true) {
@@ -78,13 +87,15 @@ void readData(ReadFile* readFile, bool checkFileSize = true) {
 
 // We could templated this test, but that's kinda overkill for how simple it is.
 TEST(InMemoryFile, writeAndRead) {
-  std::string buf;
-  {
-    InMemoryWriteFile writeFile(&buf);
-    writeData(&writeFile);
+  for (bool useIOBuf : {true, false}) {
+    std::string buf;
+    {
+      InMemoryWriteFile writeFile(&buf);
+      writeData(&writeFile, useIOBuf);
+    }
+    InMemoryReadFile readFile(buf);
+    readData(&readFile);
   }
-  InMemoryReadFile readFile(buf);
-  readData(&readFile);
 }
 
 TEST(InMemoryFile, preadv) {
@@ -115,15 +126,17 @@ TEST(InMemoryFile, preadv) {
 }
 
 TEST(LocalFile, writeAndRead) {
-  auto tempFile = ::exec::test::TempFilePath::create();
-  const auto& filename = tempFile->path.c_str();
-  remove(filename);
-  {
-    LocalWriteFile writeFile(filename);
-    writeData(&writeFile);
+  for (bool useIOBuf : {true, false}) {
+    auto tempFile = ::exec::test::TempFilePath::create();
+    const auto& filename = tempFile->path.c_str();
+    remove(filename);
+    {
+      LocalWriteFile writeFile(filename);
+      writeData(&writeFile, useIOBuf);
+    }
+    LocalReadFile readFile(filename);
+    readData(&readFile);
   }
-  LocalReadFile readFile(filename);
-  readData(&readFile);
 }
 
 TEST(LocalFile, viaRegistry) {
