@@ -74,6 +74,7 @@ import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.spi.StandardErrorCode.UNRECOVERABLE_HOST_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -635,13 +636,6 @@ public final class SqlStageExecution
                     .filter(task -> task.getTaskId().equals(taskId))
                     .collect(onlyElement());
             failedTask.updateLastTaskStatus(taskStatus);
-
-            RuntimeException failure = taskStatus.getFailures().stream()
-                    .findFirst()
-                    .map(this::rewriteTransportFailure)
-                    .map(ExecutionFailureInfo::toException)
-                    .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-
             if (isFailedTasksBelowThreshold()) {
                 try {
                     taskGracefulShutdownCallback.get().recover(taskId);
@@ -654,11 +648,14 @@ public final class SqlStageExecution
                     // In an ideal world, this exception is not supposed to happen.
                     // However, it could happen, for example, if connector throws exception.
                     // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
-                    failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
+                    RuntimeException failure = new RuntimeException();
+                    failure.addSuppressed(new PrestoException(UNRECOVERABLE_HOST_SHUTTING_DOWN, format("Encountered error when trying to recover task %s", taskId), t));
                     stateMachine.transitionToFailed(failure);
                 }
             }
             else {
+                RuntimeException failure = new RuntimeException();
+                failure.addSuppressed(new PrestoException(UNRECOVERABLE_HOST_SHUTTING_DOWN, format("The Failed Tasks exceeds the threshold", taskId)));
                 stateMachine.transitionToFailed(failure);
             }
         }
