@@ -1395,6 +1395,9 @@ bool isTableScanSupported(const TypePtr& type) {
   if (type->kind() == TypeKind::UNKNOWN) {
     return false;
   }
+  if (type->kind() == TypeKind::HUGEINT) {
+    return false;
+  }
 
   for (auto i = 0; i < type->size(); ++i) {
     if (!isTableScanSupported(type->childAt(i))) {
