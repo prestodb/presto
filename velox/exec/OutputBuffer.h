@@ -187,8 +187,9 @@ class OutputBuffer {
   // Gets the memory utilization ratio in this output buffer.
   double getUtilization() const;
 
-  // Indicates if this output buffer is over-utilized and thus blocks its
-  // producers.
+  // Indicates if this output buffer is over-utilized, i.e. at least half full,
+  // and will start blocking producers soon. This is used to dynamically scale
+  // the number of consumers, for example, increase number of TableWriter tasks.
   bool isOverutilized() const;
 
  private:
