@@ -214,9 +214,24 @@ public final class TimeZoneKey
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
+        boolean startsWithEtcGmt = zoneId.startsWith("etc/gmt");
+        if (startsWithEtcGmt) {
+            String patternForEtcGmt = "etc/gmt[+-]?[0-9]{1,2}";
+            if (!zoneId.matches(patternForEtcGmt)) {
+                return zoneId;
+            }
+            zoneId = zoneId.substring(7);
+        }
+
         boolean startsWithEtc = zoneId.startsWith("etc/");
-        if (startsWithEtc) {
-            zoneId = zoneId.substring(4);
+        boolean startsWithEtcUtc = zoneId.startsWith("etc/utc");
+
+        if (startsWithEtc && !startsWithEtcGmt) {
+            String patternForEtc = "etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]?[0-9]{1,2}";
+            if (!zoneId.matches(patternForEtc)) {
+                return zoneId;
+            }
+            zoneId = zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "");
         }
 
         if (isUtcEquivalentName(zoneId)) {
@@ -229,19 +244,6 @@ public final class TimeZoneKey
 
         // In some zones systems, these will start with UTC, GMT or UT.
         int length = zoneId.length();
-        boolean startsWithEtcGmt = false;
-        if (length > 3 && (zoneId.startsWith("utc") || zoneId.startsWith("gmt"))) {
-            if (startsWithEtc && zoneId.startsWith("gmt")) {
-                startsWithEtcGmt = true;
-            }
-            zoneId = zoneId.substring(3);
-            length = zoneId.length();
-        }
-        else if (length > 2 && zoneId.startsWith("ut")) {
-            zoneId = zoneId.substring(2);
-            length = zoneId.length();
-        }
-
         // (+/-)00:00 is UTC
         if ("+00:00".equals(zoneId) || "-00:00".equals(zoneId)) {
             return "utc";
@@ -265,7 +267,9 @@ public final class TimeZoneKey
         if (signChar != '+' && signChar != '-') {
             return originalZoneId;
         }
-        if (startsWithEtcGmt) {
+
+
+        if (startsWithEtcUtc) {
             // Flip sign for Etc/GMT(+/-)H[H]
             signChar = signChar == '-' ? '+' : '-';
         }
