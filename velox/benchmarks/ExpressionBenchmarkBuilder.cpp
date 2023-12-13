@@ -39,9 +39,9 @@ ExpressionBenchmarkSet& ExpressionBenchmarkSet::addExpressions(
 // Make sure all input vectors are generated.
 void ExpressionBenchmarkBuilder::ensureInputVectors() {
   for (auto& [_, benchmarkSet] : benchmarkSets_) {
-    if (!benchmarkSet.inputRowVetor_) {
+    if (!benchmarkSet.inputRowVector_) {
       VectorFuzzer fuzzer(benchmarkSet.fuzzerOptions_, pool());
-      benchmarkSet.inputRowVetor_ = std::dynamic_pointer_cast<RowVector>(
+      benchmarkSet.inputRowVector_ = std::dynamic_pointer_cast<RowVector>(
           fuzzer.fuzzFlat(benchmarkSet.inputType_));
     }
   }
@@ -64,10 +64,10 @@ void ExpressionBenchmarkBuilder::testBenchmarks() {
     }
     // Evaluate the first expression.
     auto it = benchmarkSet.expressions_.begin();
-    auto refResult = evalExpression(it->second, benchmarkSet.inputRowVetor_);
+    auto refResult = evalExpression(it->second, benchmarkSet.inputRowVector_);
     it++;
     while (it != benchmarkSet.expressions_.end()) {
-      auto result = evalExpression(it->second, benchmarkSet.inputRowVetor_);
+      auto result = evalExpression(it->second, benchmarkSet.inputRowVector_);
       test::assertEqualVectors(refResult, result);
       it++;
     }
@@ -86,9 +86,9 @@ void ExpressionBenchmarkBuilder::registerBenchmarks() {
   for (auto& [setName, benchmarkSet] : benchmarkSets_) {
     for (auto& [exprName, exprSet] : benchmarkSet.expressions_) {
       auto name = fmt::format("{}##{}", setName, exprName);
-      auto& inputVector = benchmarkSet.inputRowVetor_;
-      auto times = benchmarkSet.itterations_;
-      // The compiler does not allow capturing exprSet int the lambda
+      auto& inputVector = benchmarkSet.inputRowVector_;
+      auto times = benchmarkSet.iterations_;
+      // The compiler does not allow capturing exprSet int the lambda.
       auto& exprSetLocal = exprSet;
       folly::addBenchmark(
           __FILE__, name, [this, &inputVector, &exprSetLocal, times]() {
@@ -104,7 +104,7 @@ void ExpressionBenchmarkBuilder::registerBenchmarks() {
             for (auto i = 0; i < times; i++) {
               exprSetLocal.eval(rows, evalCtx, results);
 
-              // TODO: add flag to enable/disable flatenning.
+              // TODO: add flag to enable/disable flattening.
               BaseVector::flattenVector(results[0]);
 
               // TODO: add flag to enable/disable reuse.

@@ -47,23 +47,23 @@ class ExpressionBenchmarkSet {
   ExpressionBenchmarkSet& withFuzzerOptions(
       const VectorFuzzer::Options& options) {
     VELOX_CHECK(
-        !inputRowVetor_,
+        !inputRowVector_,
         "input row vector is already passed, fuzzer wont be used");
     fuzzerOptions_ = options;
     return *this;
   }
 
-  ExpressionBenchmarkSet& withIterations(int itterations) {
-    itterations_ = itterations;
+  ExpressionBenchmarkSet& withIterations(int iterations) {
+    iterations_ = iterations;
     return *this;
   }
 
  private:
   ExpressionBenchmarkSet(
       ExpressionBenchmarkBuilder& builder,
-      const RowVectorPtr& inputRowVetor)
-      : inputRowVetor_(inputRowVetor),
-        inputType_(inputRowVetor_->type()),
+      const RowVectorPtr& inputRowVector)
+      : inputRowVector_(inputRowVector),
+        inputType_(inputRowVector_->type()),
         builder_(builder) {}
 
   ExpressionBenchmarkSet(
@@ -74,9 +74,9 @@ class ExpressionBenchmarkSet {
   // All the expressions that belongs to this set.
   std::vector<std::pair<std::string, exec::ExprSet>> expressions_;
 
-  // The input that will be used for for benchmarking expressions. If not set,
+  // The input that will be used for benchmarking expressions. If not set,
   // a flat input vector is fuzzed using fuzzerOptions_.
-  RowVectorPtr inputRowVetor_;
+  RowVectorPtr inputRowVector_;
 
   // The type of the input that will be used for all the expressions
   // benchmarked.
@@ -84,11 +84,11 @@ class ExpressionBenchmarkSet {
 
   // User can provide fuzzer options for the input row vector used for this
   // benchmark. Note that the fuzzer will be used to generate a flat input row
-  // vector if inputRowVetor_ is nullptr.
+  // vector if inputRowVector_ is nullptr.
   VectorFuzzer::Options fuzzerOptions_{.vectorSize = 10000, .nullRatio = 0};
 
   // Number of times to run each benchmark.
-  int itterations_ = 1000;
+  int iterations_ = 1000;
 
   bool disableTesting_ = false;
 
@@ -108,7 +108,7 @@ class ExpressionBenchmarkBuilder
   void registerBenchmarks();
 
   // All benchmarks within one group set are expected to have the same results.
-  // If disbleTesting=true for a group set, testing is skipped.
+  // If disableTesting=true for a group set, testing is skipped.
   void testBenchmarks();
 
   test::VectorMaker& vectorMaker() {
@@ -117,9 +117,9 @@ class ExpressionBenchmarkBuilder
 
   ExpressionBenchmarkSet& addBenchmarkSet(
       const std::string& name,
-      const RowVectorPtr& inputRowVetor) {
+      const RowVectorPtr& inputRowVector) {
     VELOX_CHECK(!benchmarkSets_.count(name));
-    benchmarkSets_.emplace(name, ExpressionBenchmarkSet(*this, inputRowVetor));
+    benchmarkSets_.emplace(name, ExpressionBenchmarkSet(*this, inputRowVector));
     return benchmarkSets_.at(name);
   }
 
