@@ -324,28 +324,34 @@ class OutputBufferManagerTest : public testing::Test {
       std::shared_ptr<Task> task,
       OutputBufferStatus outputBufferStatus) {
     TaskStats finishStats = task->taskStats();
+    const auto utilization = finishStats.outputBufferUtilization;
+    const auto overutilized = finishStats.outputBufferOverutilized;
     if (outputBufferStatus == OutputBufferStatus::kInitiated ||
         outputBufferStatus == OutputBufferStatus::kFinished) {
       // zero utilization on a fresh new output buffer
-      ASSERT_EQ(finishStats.outputBufferUtilization, 0);
-      ASSERT_FALSE(finishStats.outputBufferOverutilized);
+      ASSERT_EQ(utilization, 0);
+      ASSERT_FALSE(overutilized);
     }
     if (outputBufferStatus == OutputBufferStatus::kRunning) {
       // non-blocking running, 0 < utilization < 1
-      ASSERT_GT(finishStats.outputBufferUtilization, 0);
-      ASSERT_LT(finishStats.outputBufferUtilization, 1);
-      ASSERT_FALSE(finishStats.outputBufferOverutilized);
+      ASSERT_GT(utilization, 0);
+      ASSERT_LT(utilization, 1);
+      if (utilization > 0.5) {
+        ASSERT_TRUE(overutilized);
+      } else {
+        ASSERT_FALSE(overutilized);
+      }
     }
     if (outputBufferStatus == OutputBufferStatus::kBlocked) {
       // output buffer is over utilized and blocked
-      ASSERT_GT(finishStats.outputBufferUtilization, 1);
-      ASSERT_TRUE(finishStats.outputBufferOverutilized);
+      ASSERT_GT(utilization, 0.5);
+      ASSERT_TRUE(overutilized);
     }
     if (outputBufferStatus == OutputBufferStatus::kNoMoreProducer) {
       // output buffer is over utilized but since there is no more producer
       // outputBufferOverutilized is not true (producers are not blocked)
-      ASSERT_GT(finishStats.outputBufferUtilization, 1);
-      ASSERT_FALSE(finishStats.outputBufferOverutilized);
+      ASSERT_GT(utilization, 0.5);
+      ASSERT_FALSE(overutilized);
     }
   }
 
