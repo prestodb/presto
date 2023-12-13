@@ -681,7 +681,13 @@ StopReason Driver::runInternal(
               return StopReason::kBlock;
             }
           }
-          if (op->isFinished()) {
+          bool finished{false};
+          CALL_OPERATOR(
+              finished = op->isFinished(),
+              op,
+              curOperatorId_,
+              kOpMethodIsFinished);
+          if (finished) {
             guard.notThrown();
             close();
             return StopReason::kAtEnd;
