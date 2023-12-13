@@ -88,11 +88,11 @@ class Tree {
 
   const_iterator begin() const {
     return cbegin();
-  };
+  }
 
   const_iterator end() const {
     return cend();
-  };
+  }
 
   const_iterator cbegin() const {
     return const_iterator{*this, 0};

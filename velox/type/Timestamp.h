@@ -318,7 +318,7 @@ struct Timestamp {
   // Needed for serialization of FlatVector<Timestamp>
   operator StringView() const {
     return StringView("TODO: Implement");
-  };
+  }
 
   std::string toString(const TimestampToStringOptions& options = {}) const {
     std::tm tm;
