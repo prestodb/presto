@@ -515,9 +515,7 @@ TEST_F(AverageAggregationTest, avgDecimal) {
       /*config*/ {},
       /*testWithTableScan*/ false);
 
-  // Add more rows to show that average result starts deviating from expected
-  // result with varying row count.
-  // Making sure the error value is consistent.
+  // Add more rows to show that average result is still accurate.
   for (int i = 0; i < 10; ++i) {
     rawVector.push_back(DecimalUtil::kLongDecimalMin);
   }
@@ -526,10 +524,7 @@ TEST_F(AverageAggregationTest, avgDecimal) {
   auto result = assertQueryBuilder.copyResults(pool());
 
   auto actualResult = result->childAt(0)->asFlatVector<int128_t>();
-  ASSERT_NE(actualResult->valueAt(0), underFlowTestResult->valueAt(0));
-  ASSERT_EQ(
-      underFlowTestResult->valueAt(0) - actualResult->valueAt(0),
-      static_cast<int128_t>(-13));
+  ASSERT_EQ(actualResult->valueAt(0), underFlowTestResult->valueAt(0));
 
   // Test constant vector.
   testAggregations(
