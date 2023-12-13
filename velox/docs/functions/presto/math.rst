@@ -304,6 +304,11 @@ Probability Functions: cdf
     The lambda parameter must be a positive real number (of type DOUBLE) and value must be a non-negative integer.
 
 
+.. function:: weibull_cdf(a, b, value) -> double
+
+    Compute the Weibull cdf with given parameters a, b: P(N <= value). The ``a``
+    and ``b`` parameters must be positive doubles and ``value`` must also be a double.
+
 ====================================
 Probability Functions: inverse_cdf
 ====================================
