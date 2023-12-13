@@ -67,8 +67,7 @@ TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {
       makeFlatVector<int16_t>({0, 0, 1825 /*America/Los_Angeles*/}));
   tsWithTZVector->setNull(1, true);
 
-  for (const std::string& timezone :
-       {"America/Los_Angeles", "America/New_York"}) {
+  for (const char* timezone : {"America/Los_Angeles", "America/New_York"}) {
     setQueryTimeZone(timezone);
     auto expected = makeNullableFlatVector<Timestamp>(
         {Timestamp(1996, 0), std::nullopt, Timestamp(19920, 0)});
