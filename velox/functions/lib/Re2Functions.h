@@ -48,11 +48,13 @@ enum class PatternKind {
 
 struct PatternMetadata {
   PatternKind patternKind;
-  // Contains the length of the fixed pattern for patterns of kind kFixed,
-  // kPrefix, and kSuffix. Contains the count of wildcard character '_' for
-  // patterns of kind kExactlyN and kAtLeastN. Contains 0 otherwise.
-  vector_size_t length;
-  // Contains the fixed pattern in patterns of kind kSubstring.
+  // Contains the length of the unescaped fixed pattern for patterns of kind
+  // kFixed, kPrefix, kSuffix and kSubstring. Contains the count of wildcard
+  // character '_' for patterns of kind kExactlyN and kAtLeastN. Contains 0
+  // otherwise.
+  size_t length;
+  // Contains the unescaped fixed pattern in patterns of kind kFixed, kPrefix,
+  // kSuffix and kSubstring.
   std::string fixedPattern = "";
 };
 inline const int kMaxCompiledRegexes = 20;
@@ -115,7 +117,9 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractSignatures();
 /// prefix, and suffix patterns. Return the pair {pattern kind, number of '_'
 /// characters} for patterns with wildcard characters only. Return
 /// {kGenericPattern, 0} for generic patterns).
-PatternMetadata determinePatternKind(StringView pattern);
+PatternMetadata determinePatternKind(
+    StringView pattern,
+    std::optional<char> escapeChar);
 
 std::shared_ptr<exec::VectorFunction> makeLike(
     const std::string& name,
