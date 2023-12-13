@@ -229,7 +229,8 @@ class ProbeState {
       return group_;
     }
     const auto kEmptyGroup = BaseHashTable::TagVector::broadcast(kEmptyTag);
-    for (;;) {
+    for (int64_t numProbedBuckets = 0; numProbedBuckets < table.numBuckets();
+         ++numProbedBuckets) {
       if (!hits_) {
         const uint16_t empty = simd::toBitMask(tagsInTable_ == kEmptyGroup);
         if (empty) {
@@ -249,6 +250,8 @@ class ProbeState {
           reinterpret_cast<uint8_t*>(table.table_), bucketOffset_);
       hits_ = simd::toBitMask(tagsInTable_ == wantedTags_) & kFullMask;
     }
+    // Throws here if we have looped through all the buckets in the table.
+    VELOX_FAIL("Have looped through all the buckets in table");
   }
 
  private:
@@ -1073,7 +1076,9 @@ void HashTable<ignoreNullKeys>::insertForGroupBy(
             reinterpret_cast<char*>(table_) +
             bucketOffset(hashes[i + kPrefetchDistance]));
       }
-      for (;;) {
+      bool inserted{false};
+      for (int64_t numProbedBuckets = 0; numProbedBuckets < numBuckets();
+           ++numProbedBuckets) {
         MaskType free =
             ~simd::toBitMask(
                 BaseHashTable::TagVector::batch_bool_type(tagsInTable)) &
@@ -1081,12 +1086,18 @@ void HashTable<ignoreNullKeys>::insertForGroupBy(
         if (free) {
           auto freeOffset = bits::getAndClearLastSetBit(free);
           storeRowPointer(offset + freeOffset, hash, groups[i]);
+          inserted = true;
           break;
         }
         offset = nextBucketOffset(offset);
         tagsInTable =
             BaseHashTable::loadTags(reinterpret_cast<uint8_t*>(table_), offset);
       }
+      // Throws here if we have looped through all the buckets in the table.
+      VELOX_CHECK(
+          inserted,
+          "Have looped through all the buckets in table: {}",
+          toString());
     }
   }
 }
