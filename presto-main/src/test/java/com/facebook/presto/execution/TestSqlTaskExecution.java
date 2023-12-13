@@ -1524,7 +1524,7 @@ public class TestSqlTaskExecution
             outputBufferConsumer.consume(pageCountForSplit1 + pageCountForSplit2, ASSERT_WAIT_TIMEOUT);
             outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
 
-            if (outputBuffer.isDrainable()) {
+            if (outputBuffer.forceNoMoreBufferIfPossibleOrKill()) {
                 outputBufferConsumer.abort(); // complete the task by calling abort on it
             }
             else {
@@ -1714,7 +1714,7 @@ public class TestSqlTaskExecution
             outputBufferConsumer.consume(100 * 5 * 3, ASSERT_WAIT_TIMEOUT);
             outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
 
-            if (outputBuffer.isDrainable()) {
+            if (outputBuffer.forceNoMoreBufferIfPossibleOrKill()) {
                 outputBufferConsumer.abort(); // complete the task by calling abort on it
             }
             else {

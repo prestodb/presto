@@ -331,7 +331,7 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public boolean isDrainable()
+    public boolean forceNoMoreBufferIfPossibleOrKill()
     {
         return state.get() == FLUSHING || state.get() == FINISHED;
     }

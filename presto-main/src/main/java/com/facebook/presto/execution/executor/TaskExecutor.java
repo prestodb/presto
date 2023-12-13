@@ -313,7 +313,7 @@ public class TaskExecutor
                             outputBuffer.setNoMorePages();
                             log.info("After Sending no more pages to output buffer for task %s= %s", taskId, outputBuffer.getInfo());
 
-                            if (!outputBuffer.isDrainable()) {
+                            if (!outputBuffer.forceNoMoreBufferIfPossibleOrKill()) {
                                 log.info("The output buffer for task %s is not drainable, fail the output buffer to notify downstream.", taskId);
                                 outputBuffer.fail();
                                 taskHandle.forceFailure(String.format("The output buffer for task %s is not drainable. outputBuffer type: %s", taskId, outputBuffer.getInfo().getType()));

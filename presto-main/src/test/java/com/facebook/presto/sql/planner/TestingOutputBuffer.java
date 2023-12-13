@@ -151,7 +151,7 @@ public class TestingOutputBuffer
     }
 
     @Override
-    public boolean isDrainable()
+    public boolean forceNoMoreBufferIfPossibleOrKill()
     {
         throw new UnsupportedOperationException();
     }

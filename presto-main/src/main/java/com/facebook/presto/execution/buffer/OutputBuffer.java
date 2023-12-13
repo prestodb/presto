@@ -140,5 +140,5 @@ public interface OutputBuffer
 
     boolean isAllPagesConsumed();
 
-    boolean isDrainable();
+    boolean forceNoMoreBufferIfPossibleOrKill();
 }

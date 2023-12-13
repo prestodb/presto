@@ -415,8 +415,8 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public boolean isDrainable()
+    public boolean forceNoMoreBufferIfPossibleOrKill()
     {
-        return delegate.isDrainable();
+        return delegate.forceNoMoreBufferIfPossibleOrKill();
     }
 }
