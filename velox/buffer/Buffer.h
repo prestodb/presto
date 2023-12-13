@@ -58,7 +58,7 @@ class Buffer {
   static inline constexpr bool is_pod_like_v =
       std::is_trivially_destructible_v<T>&& std::is_trivially_copyable_v<T>;
 
-  virtual ~Buffer(){};
+  virtual ~Buffer() {}
 
   void addRef() {
     referenceCount_.fetch_add(1);
