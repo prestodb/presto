@@ -140,6 +140,9 @@ void ExchangeClient::request(const RequestSpec& requestSpec) {
           RequestSpec requestSpec;
           {
             std::lock_guard<std::mutex> l(queue_->mutex());
+            if (closed_) {
+              return;
+            }
             if (!response.atEnd) {
               if (response.bytes > 0) {
                 producingSources_.push(requestSource);
