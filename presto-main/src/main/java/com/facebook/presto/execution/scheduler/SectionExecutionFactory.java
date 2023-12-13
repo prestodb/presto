@@ -359,7 +359,7 @@ public class SectionExecutionFactory
                             .filter(task -> activeNodeIDs.contains(task.getNodeId()))
                             .filter(task -> task instanceof HttpRemoteTask)
                             .map(task -> (HttpRemoteTask) task)
-                            .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                            .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING || task.getTaskStatus().getState() == TaskState.PLANNED)
                             .collect(toList());
 
                     if (activeRemoteTasks.isEmpty()) {
