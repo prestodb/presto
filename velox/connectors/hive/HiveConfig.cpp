@@ -53,7 +53,12 @@ std::string HiveConfig::insertExistingPartitionsBehaviorString(
 }
 
 HiveConfig::InsertExistingPartitionsBehavior
-HiveConfig::insertExistingPartitionsBehavior() const {
+HiveConfig::insertExistingPartitionsBehavior(const Config* session) const {
+  if (session->isValueExists(kInsertExistingPartitionsBehaviorSession)) {
+    return stringToInsertExistingPartitionsBehavior(
+        session->get<std::string>(kInsertExistingPartitionsBehaviorSession)
+            .value());
+  }
   const auto behavior =
       config_->get<std::string>(kInsertExistingPartitionsBehavior);
   return behavior.has_value()

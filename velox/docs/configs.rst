@@ -385,7 +385,7 @@ Each query can override the config by setting corresponding query session proper
      - 100
      - Maximum number of (bucketed) partitions per a single table writer instance.
    * - insert-existing-partitions-behavior
-     -
+     - insert_existing_partitions_behavior
      - string
      - ERROR
      - **Allowed values:** ``OVERWRITE``, ``ERROR``. The behavior on insert existing partitions. This property only derives

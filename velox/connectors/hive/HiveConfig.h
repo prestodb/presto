@@ -37,6 +37,8 @@ class HiveConfig {
       InsertExistingPartitionsBehavior behavior);
 
   /// Behavior on insert into existing partitions.
+  static constexpr const char* kInsertExistingPartitionsBehaviorSession =
+      "insert_existing_partitions_behavior";
   static constexpr const char* kInsertExistingPartitionsBehavior =
       "insert-existing-partitions-behavior";
 
@@ -146,7 +148,8 @@ class HiveConfig {
   static constexpr const char* kSortWriterMaxOutputBytesSession =
       "sort_writer_max_output_bytes";
 
-  InsertExistingPartitionsBehavior insertExistingPartitionsBehavior() const;
+  InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
+      const Config* session) const;
 
   uint32_t maxPartitionsPerWriters(const Config* session) const;
 

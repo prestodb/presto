@@ -738,8 +738,8 @@ std::pair<std::string, std::string> HiveDataSink::getWriterFileNames(
 HiveWriterParameters::UpdateMode HiveDataSink::getUpdateMode() const {
   if (insertTableHandle_->isInsertTable()) {
     if (insertTableHandle_->isPartitioned()) {
-      const auto insertBehavior =
-          hiveConfig_->insertExistingPartitionsBehavior();
+      const auto insertBehavior = hiveConfig_->insertExistingPartitionsBehavior(
+          connectorQueryCtx_->sessionProperties());
       switch (insertBehavior) {
         case HiveConfig::InsertExistingPartitionsBehavior::kOverwrite:
           return HiveWriterParameters::UpdateMode::kOverwrite;

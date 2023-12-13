@@ -29,7 +29,7 @@ TEST(HiveConfigTest, defaultConfig) {
   HiveConfig* hiveConfig = new HiveConfig(std::make_shared<MemConfig>());
   const auto emptySession = std::make_unique<MemConfig>();
   ASSERT_EQ(
-      hiveConfig->insertExistingPartitionsBehavior(),
+      hiveConfig->insertExistingPartitionsBehavior(emptySession.get()),
       facebook::velox::connector::hive::HiveConfig::
           InsertExistingPartitionsBehavior::kError);
   ASSERT_EQ(hiveConfig->maxPartitionsPerWriters(emptySession.get()), 100);
@@ -96,7 +96,7 @@ TEST(HiveConfigTest, overrideConfig) {
       new HiveConfig(std::make_shared<MemConfig>(configFromFile));
   auto emptySession = std::make_unique<MemConfig>();
   ASSERT_EQ(
-      hiveConfig->insertExistingPartitionsBehavior(),
+      hiveConfig->insertExistingPartitionsBehavior(emptySession.get()),
       facebook::velox::connector::hive::HiveConfig::
           InsertExistingPartitionsBehavior::kOverwrite);
   ASSERT_EQ(hiveConfig->maxPartitionsPerWriters(emptySession.get()), 120);
@@ -134,6 +134,7 @@ TEST(HiveConfigTest, overrideConfig) {
 TEST(HiveConfigTest, overrideSession) {
   HiveConfig* hiveConfig = new HiveConfig(std::make_shared<MemConfig>());
   const std::unordered_map<std::string, std::string> sessionOverride = {
+      {HiveConfig::kInsertExistingPartitionsBehaviorSession, "OVERWRITE"},
       {HiveConfig::kOrcUseColumnNamesSession, "true"},
       {HiveConfig::kFileColumnNamesReadAsLowerCaseSession, "true"},
       {HiveConfig::kOrcWriterMaxStripeSizeSession, "22MB"},
@@ -142,9 +143,9 @@ TEST(HiveConfigTest, overrideSession) {
       {HiveConfig::kSortWriterMaxOutputBytesSession, "20MB"}};
   const auto session = std::make_unique<MemConfig>(sessionOverride);
   ASSERT_EQ(
-      hiveConfig->insertExistingPartitionsBehavior(),
+      hiveConfig->insertExistingPartitionsBehavior(session.get()),
       facebook::velox::connector::hive::HiveConfig::
-          InsertExistingPartitionsBehavior::kError);
+          InsertExistingPartitionsBehavior::kOverwrite);
   ASSERT_EQ(hiveConfig->maxPartitionsPerWriters(session.get()), 100);
   ASSERT_EQ(hiveConfig->immutablePartitions(), false);
   ASSERT_EQ(hiveConfig->s3UseVirtualAddressing(), true);
