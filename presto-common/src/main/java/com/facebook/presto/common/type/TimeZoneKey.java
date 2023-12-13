@@ -225,6 +225,7 @@ public final class TimeZoneKey
 
         boolean startsWithEtc = zoneId.startsWith("etc/");
         boolean startsWithEtcUtc = zoneId.startsWith("etc/utc");
+
         if (startsWithEtc && !startsWithEtcGmt) {
             String patternForEtc = "etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]?[0-9]{1,2}";
             if (!zoneId.matches(patternForEtc)) {
