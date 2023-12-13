@@ -89,4 +89,29 @@ int32_t DecimalUtil::toByteArray(int128_t value, char* out) {
   return length;
 }
 
+void DecimalUtil::computeAverage(
+    int128_t& avg,
+    const int128_t& sum,
+    int64_t count,
+    int64_t overflow) {
+  if (overflow == 0) {
+    divideWithRoundUp<int128_t, int128_t, int64_t>(
+        avg, sum, count, false, 0, 0);
+  } else {
+    VELOX_DCHECK_LE(overflow, count);
+    __uint128_t quotMul, remMul;
+    __int128_t quotSum, remSum;
+    __int128_t remTotal;
+    remMul = DecimalUtil::divideWithRoundUp<__uint128_t, __uint128_t, int64_t>(
+        quotMul, kOverflowMultiplier, count, true, 0, 0);
+    remMul *= overflow;
+    quotMul *= overflow;
+    remSum = DecimalUtil::divideWithRoundUp<__int128_t, __int128_t, int64_t>(
+        quotSum, sum, count, true, 0, 0);
+    DecimalUtil::divideWithRoundUp<__int128_t, __int128_t, int64_t>(
+        remTotal, remMul + remSum, count, true, 0, 0);
+    avg = quotMul + quotSum + remTotal;
+  }
+}
+
 } // namespace facebook::velox

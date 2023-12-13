@@ -193,6 +193,22 @@ TEST(DecimalTest, valueInPrecisionRange) {
       DecimalUtil::kLongDecimalMin - 1, LongDecimalType::kMaxPrecision));
 }
 
+TEST(DecimalTest, computeAverage) {
+  auto validateSameValues = [](int128_t value, int64_t maxCount) {
+    SCOPED_TRACE(fmt::format("value={} maxCount={}", value, maxCount));
+    int128_t sum = 0;
+    int64_t overflow = 0;
+    for (int64_t i = 1; i <= maxCount; ++i) {
+      overflow += DecimalUtil::addWithOverflow(sum, sum, value);
+      int128_t avg;
+      DecimalUtil::computeAverage(avg, sum, i, overflow);
+      ASSERT_EQ(avg, value);
+    }
+  };
+  validateSameValues(DecimalUtil::kLongDecimalMin, 1'000'000);
+  validateSameValues(DecimalUtil::kLongDecimalMax, 1'000'000);
+}
+
 TEST(DecimalAggregateTest, adjustSumForOverflow) {
   struct SumWithOverflow {
     int128_t sum{0};

@@ -232,7 +232,7 @@ class DecimalUtil {
       ++quotient;
     }
     r = quotient * resultSign;
-    return remainder;
+    return remainder * resultSign;
   }
 
   /*
@@ -311,38 +311,12 @@ class DecimalUtil {
     return sum;
   }
 
-  /*
-   * Computes average. If there is an overflow value uses the following
-   * expression to compute the average.
-   *                       ---                                         ---
-   *                      |    overflow_multiplier          sum          |
-   * average = overflow * |     -----------------  +  ---------------    |
-   *                      |         count              count * overflow  |
-   *                       ---                                         ---
-   */
-  inline static void computeAverage(
+  /// avg = (sum + overflow * kOverflowMultiplier) / count
+  static void computeAverage(
       int128_t& avg,
       const int128_t& sum,
-      const int64_t count,
-      const int64_t overflow) {
-    if (overflow == 0) {
-      divideWithRoundUp<int128_t, int128_t, int64_t>(
-          avg, sum, count, false, 0, 0);
-    } else {
-      __uint128_t sumA{0};
-      auto remainderA =
-          DecimalUtil::divideWithRoundUp<__uint128_t, __uint128_t, int64_t>(
-              sumA, kOverflowMultiplier, count, true, 0, 0);
-      double totalRemainder = (double)remainderA / count;
-      __uint128_t sumB{0};
-      auto remainderB =
-          DecimalUtil::divideWithRoundUp<__uint128_t, __int128_t, int64_t>(
-              sumB, sum, count * overflow, true, 0, 0);
-      totalRemainder += (double)remainderB / (count * overflow);
-      DecimalUtil::addWithOverflow(avg, sumA, sumB);
-      avg = avg * overflow + (int)(totalRemainder * overflow);
-    }
-  }
+      int64_t count,
+      int64_t overflow);
 
   /// Origins from java side BigInteger#bitLength.
   ///
