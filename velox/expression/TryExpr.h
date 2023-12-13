@@ -44,7 +44,7 @@ class TryExpr : public SpecialForm {
   void nullOutErrors(
       const SelectivityVector& rows,
       EvalCtx& context,
-      VectorPtr& result);
+      VectorPtr& result) const;
 
  private:
   // This is safe to call only after all metadata is computed for input

@@ -93,7 +93,7 @@ void applyListenersOnError(
 void TryExpr::nullOutErrors(
     const SelectivityVector& rows,
     EvalCtx& context,
-    VectorPtr& result) {
+    VectorPtr& result) const {
   auto errors = context.errors();
   if (errors) {
     applyListenersOnError(rows, context);
