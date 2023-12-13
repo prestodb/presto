@@ -92,6 +92,12 @@ template <>
         decimalType.precision(),
         decimalType.scale());
   }
+
+  if (type->isIntervalDayTime()) {
+    return ::duckdb::Value::INTERVAL(
+        0, 0, vector->as<SimpleVector<int64_t>>()->valueAt(index));
+  }
+
   return ::duckdb::Value(vector->as<SimpleVector<T>>()->valueAt(index));
 }
 
@@ -879,10 +885,6 @@ void DuckDbQueryRunner::createTable(
           appender.Append(duckValueAt<TypeKind::BIGINT>(columnVector, row));
         } else if (rowType.childAt(column)->isLongDecimal()) {
           appender.Append(duckValueAt<TypeKind::HUGEINT>(columnVector, row));
-        } else if (type->isIntervalDayTime()) {
-          auto value = ::duckdb::Value::INTERVAL(
-              0, 0, columnVector->as<SimpleVector<int64_t>>()->valueAt(row));
-          appender.Append(value);
         } else {
           VELOX_CHECK(
               type->equivalent(*columnVector->type()),
