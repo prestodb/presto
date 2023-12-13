@@ -648,13 +648,13 @@ public final class SqlStageExecution
                     // In an ideal world, this exception is not supposed to happen.
                     // However, it could happen, for example, if connector throws exception.
                     // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
-                    RuntimeException failure = new RuntimeException();
+                    RuntimeException failure = new RuntimeException("taskGracefulShutdownCallback run into error");
                     failure.addSuppressed(new PrestoException(UNRECOVERABLE_HOST_SHUTTING_DOWN, format("Encountered error when trying to recover task %s", taskId), t));
                     stateMachine.transitionToFailed(failure);
                 }
             }
             else {
-                RuntimeException failure = new RuntimeException();
+                RuntimeException failure = new RuntimeException("FailedTasks exceed the threshold");
                 failure.addSuppressed(new PrestoException(UNRECOVERABLE_HOST_SHUTTING_DOWN, format("The Failed Tasks exceeds the threshold", taskId)));
                 stateMachine.transitionToFailed(failure);
             }
