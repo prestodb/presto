@@ -49,7 +49,7 @@ inline std::exception_ptr makeBadCastException(
       std::current_exception(),
       makeErrorMessage(input, row, resultType, errorDetails),
       false));
-};
+}
 
 // Copied from format.h of fmt.
 inline int countDigits(uint128_t n) {

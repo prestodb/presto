@@ -27,7 +27,7 @@ namespace common {
 class RandGen {
  public:
   RandGen()
-      : rand_{}, mt_{rand_()}, dist_(0, std::numeric_limits<int32_t>::max()){};
+      : rand_{}, mt_{rand_()}, dist_(0, std::numeric_limits<int32_t>::max()) {}
 
   template <typename T>
   T gen(int32_t max) {
