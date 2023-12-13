@@ -147,7 +147,7 @@ void Exchange::recordExchangeClientStats() {
 
   auto lockedStats = stats_.wlock();
   const auto exchangeClientStats = exchangeClient_->stats();
-  for (const auto& [name, value] : exchangeClient_->stats()) {
+  for (const auto& [name, value] : exchangeClientStats) {
     lockedStats->runtimeStats.erase(name);
     lockedStats->runtimeStats.insert({name, value});
   }
