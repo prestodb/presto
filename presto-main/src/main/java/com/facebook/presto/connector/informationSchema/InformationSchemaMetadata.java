@@ -296,7 +296,10 @@ public class InformationSchemaMetadata
                             .filter(this::isLowerCase)
                             .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> metadataResolver.getView(objectName).isPresent() || metadataResolver.getTableHandle(objectName).isPresent())
+                    .filter(objectName -> {
+                        Optional<TableHandle> tableHandle = metadataResolver.getTableHandle(objectName);
+                        return tableHandle.isPresent() || metadataResolver.getView(objectName).isPresent();
+                    })
                     .map(QualifiedTablePrefix::toQualifiedTablePrefix)
                     .collect(toImmutableSet());
         }
