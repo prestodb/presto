@@ -485,9 +485,9 @@ StopReason Driver::runInternal(
 
   try {
     // Invoked to initialize the operators once before driver starts execution.
-    self->initializeOperators();
+    initializeOperators();
 
-    TestValue::adjust("facebook::velox::exec::Driver::runInternal", self.get());
+    TestValue::adjust("facebook::velox::exec::Driver::runInternal", this);
 
     const int32_t numOperators = operators_.size();
     ContinueFuture future;
@@ -501,11 +501,10 @@ StopReason Driver::runInternal(
         }
 
         auto op = operators_[i].get();
-        VELOX_CHECK(op->isInitialized());
-
         // In case we are blocked, this index will point to the operator, whose
         // queuedTime we should update.
         curOperatorId_ = i;
+
         CALL_OPERATOR(
             blockingReason_ = op->isBlocked(&future),
             op,
@@ -517,9 +516,10 @@ StopReason Driver::runInternal(
           guard.notThrown();
           return StopReason::kBlock;
         }
-        Operator* nextOp = nullptr;
-        if (i < operators_.size() - 1) {
-          nextOp = operators_[i + 1].get();
+
+        if (i < numOperators - 1) {
+          Operator* nextOp = operators_[i + 1].get();
+
           CALL_OPERATOR(
               blockingReason_ = nextOp->isBlocked(&future),
               nextOp,
