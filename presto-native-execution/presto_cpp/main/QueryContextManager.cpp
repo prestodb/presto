@@ -15,6 +15,7 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
@@ -52,6 +53,15 @@ std::string toVeloxConfig(const std::string& name) {
   return it == kPrestoToVeloxMapping.end() ? name : it->second;
 }
 
+std::string toVeloxConnectorConfig(const std::string& name) {
+  using velox::connector::hive::HiveConfig;
+  static const folly::F14FastMap<std::string, std::string>
+      kPrestoToVeloxMapping = {
+          {"native_file_create_config", HiveConfig::kFileCreateConfig}};
+  auto it = kPrestoToVeloxMapping.find(name);
+  return it == kPrestoToVeloxMapping.end() ? name : it->second;
+}
+
 std::unordered_map<std::string, std::string> toConfigs(
     const protocol::SessionRepresentation& session) {
   // Use base velox query config as the starting point and add Presto session
@@ -76,10 +86,12 @@ toConnectorConfigs(const protocol::SessionRepresentation& session) {
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
       connectorConfigs;
   for (const auto& entry : session.catalogProperties) {
-    connectorConfigs.insert(
-        {entry.first,
-         std::unordered_map<std::string, std::string>(
-             entry.second.begin(), entry.second.end())});
+    std::unordered_map<std::string, std::string> connectorConfig;
+    for (const auto& property : entry.second) {
+      connectorConfig.emplace(
+          toVeloxConnectorConfig(property.first), property.second);
+    }
+    connectorConfigs.insert({entry.first, std::move(connectorConfig)});
   }
 
   return connectorConfigs;
