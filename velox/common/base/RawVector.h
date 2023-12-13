@@ -67,7 +67,9 @@ class raw_vector {
     data_ = other.data_;
     size_ = other.size_;
     capacity_ = other.capacity_;
-    simd::memset(&other, 0, sizeof(other));
+    other.data_ = nullptr;
+    other.size_ = 0;
+    other.capacity_ = 0;
   }
 
   bool empty() const {
