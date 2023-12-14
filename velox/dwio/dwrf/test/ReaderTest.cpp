@@ -82,9 +82,14 @@ class TestReaderP
  protected:
   folly::Executor* executor() {
     if (GetParam() && !executor_) {
-      std::make_shared<folly::CPUThreadPoolExecutor>(2);
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          getDecodingParallelismFactor());
     }
     return executor_.get();
+  }
+
+  size_t getDecodingParallelismFactor() {
+    return GetParam() ? 2 : 0;
   }
 
  private:
@@ -1818,7 +1823,8 @@ TEST_P(TestReaderP, testUpcastBoolean) {
       TypeWithId::create(rowType),
       streams,
       labels,
-      executor());
+      executor(),
+      getDecodingParallelismFactor());
 
   VectorPtr batch;
   reader->next(104, batch);
@@ -1868,7 +1874,8 @@ TEST_P(TestReaderP, testUpcastIntDirect) {
       TypeWithId::create(rowType),
       streams,
       labels,
-      executor());
+      executor(),
+      getDecodingParallelismFactor());
 
   VectorPtr batch;
   reader->next(100, batch);
@@ -1935,7 +1942,8 @@ TEST_P(TestReaderP, testUpcastIntDict) {
       TypeWithId::create(rowType),
       streams,
       labels,
-      executor());
+      executor(),
+      getDecodingParallelismFactor());
 
   VectorPtr batch;
   reader->next(100, batch);
@@ -1990,7 +1998,8 @@ TEST_P(TestReaderP, testUpcastFloat) {
       TypeWithId::create(rowType),
       streams,
       labels,
-      executor());
+      executor(),
+      getDecodingParallelismFactor());
 
   VectorPtr batch;
   reader->next(100, batch);

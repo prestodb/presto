@@ -159,7 +159,8 @@ class ColumnReaderTestBase {
           fileTypeWithId,
           streams_,
           labels_,
-          executor_.get());
+          executor_.get(),
+          parallelDecoding() ? 2 : 0);
       selectiveColumnReader_ = nullptr;
     }
   }

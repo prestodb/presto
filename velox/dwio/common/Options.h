@@ -117,6 +117,7 @@ class RowReaderOptions {
   // 'ioExecutor' enables parallelism when performing file system read
   // operations.
   std::shared_ptr<folly::Executor> decodingExecutor_;
+  size_t decodingParallelismFactor_{0};
   bool appendRowNumberColumn_ = false;
   // Function to populate metrics related to feature projection stats
   // in Koski. This gets fired in FlatMapColumnReader.
@@ -308,6 +309,10 @@ class RowReaderOptions {
     decodingExecutor_ = executor;
   }
 
+  void setDecodingParallelismFactor(size_t factor) {
+    decodingParallelismFactor_ = factor;
+  }
+
   /*
    * Set to true, if you want to add a new column to the results containing the
    * row numbers.  These row numbers are relative to the beginning of file (0 as
@@ -362,6 +367,10 @@ class RowReaderOptions {
 
   const std::shared_ptr<folly::Executor>& getDecodingExecutor() const {
     return decodingExecutor_;
+  }
+
+  size_t getDecodingParallelismFactor() const {
+    return decodingParallelismFactor_;
   }
 };
 

@@ -37,6 +37,10 @@ DwrfRowReader::DwrfRowReader(
       executor_{options_.getDecodingExecutor()},
       columnSelector_{std::make_shared<ColumnSelector>(
           ColumnSelector::apply(opts.getSelector(), reader->getSchema()))} {
+  if (executor_) {
+    LOG(INFO) << "Using parallel decoding with a parallelism factor of "
+              << options_.getDecodingParallelismFactor();
+  }
   auto& fileFooter = getReader().getFooter();
   uint32_t numberOfStripes = fileFooter.stripesSize();
   currentStripe_ = numberOfStripes;
@@ -526,6 +530,7 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
         stripeStreams,
         streamLabels,
         executor_.get(),
+        options_.getDecodingParallelismFactor(),
         flatMapContext);
   }
   DWIO_ENSURE(

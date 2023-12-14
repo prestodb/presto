@@ -351,6 +351,7 @@ void testDataTypeWriter(
         streams,
         labels,
         nullptr,
+        0,
         FlatMapContext{
             .sequence = sequence,
             .inMapDecoder = nullptr,
@@ -936,7 +937,7 @@ void testMapWriter(
       memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       const auto reader = ColumnReader::build(
-          dataTypeWithId, dataTypeWithId, streams, labels, nullptr);
+          dataTypeWithId, dataTypeWithId, streams, labels, nullptr, 0);
       VectorPtr out;
 
       // Read map/row
@@ -1072,7 +1073,7 @@ void testMapWriterRow(
       memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       const auto reader = ColumnReader::build(
-          dataTypeWithId, dataTypeWithId, streams, labels, nullptr);
+          dataTypeWithId, dataTypeWithId, streams, labels, nullptr, 0);
       VectorPtr out;
 
       // Read map/row
@@ -2081,7 +2082,7 @@ struct IntegerColumnWriterTypedTestCase {
       memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       auto columnReader =
-          ColumnReader::build(reqType, reqType, streams, labels, nullptr);
+          ColumnReader::build(reqType, reqType, streams, labels, nullptr, 0);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
         // TODO Make reuse work
@@ -3318,7 +3319,7 @@ struct StringColumnWriterTestCase {
       memory::AllocationPool allocPool(pool.get());
       StreamLabels labels(allocPool);
       auto columnReader =
-          ColumnReader::build(reqType, reqType, streams, labels, nullptr);
+          ColumnReader::build(reqType, reqType, streams, labels, nullptr, 0);
 
       for (size_t j = 0; j != repetitionCount; ++j) {
         if (!writeDirect) {
@@ -4395,7 +4396,7 @@ struct DictColumnWriterTestCase {
     memory::AllocationPool allocPool(pool.get());
     StreamLabels labels(allocPool);
     auto reader =
-        ColumnReader::build(reqType, reqType, streams, labels, nullptr);
+        ColumnReader::build(reqType, reqType, streams, labels, nullptr, 0);
     VectorPtr out;
     reader->next(batch->size(), out);
     compareResults(batch, out);

@@ -52,12 +52,15 @@ class RemoveGuard {
 enum class Decoding { SERIAL, PARALLEL };
 
 class ValueTypes {
+  static constexpr size_t kParallelismFactor = 2;
+
  public:
   ValueTypes(Decoding decoding, std::initializer_list<std::string> values)
       : values_(std::move(values)),
         executor_{
             decoding == Decoding::PARALLEL
-                ? std::make_shared<folly::CPUThreadPoolExecutor>(10)
+                ? std::make_shared<folly::CPUThreadPoolExecutor>(
+                      kParallelismFactor)
                 : nullptr} {}
 
   auto size() const {
@@ -74,6 +77,10 @@ class ValueTypes {
 
   const std::shared_ptr<folly::Executor>& decodingExecutor() const {
     return executor_;
+  }
+
+  const size_t decodingParallelismFactor() const {
+    return executor_ ? kParallelismFactor : 0;
   }
 
  private:
@@ -167,6 +174,8 @@ TEST_P(E2EReaderTest, SharedDictionaryFlatmapReadAsStruct) {
 
   RowReaderOptions rowReaderOptions;
   rowReaderOptions.setDecodingExecutor(GetParam().decodingExecutor());
+  rowReaderOptions.setDecodingParallelismFactor(
+      GetParam().decodingParallelismFactor());
   rowReaderOptions.select(cs);
   rowReaderOptions.setFlatmapNodeIdsAsStruct(structEncodingMap);
   auto rowReader = reader->createRowReader(rowReaderOptions);

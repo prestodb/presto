@@ -116,6 +116,7 @@ class ColumnReader {
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
       folly::Executor* FOLLY_NULLABLE executor,
+      size_t decodingParallelismFactor,
       FlatMapContext flatMapContext = {});
 };
 
@@ -128,6 +129,7 @@ class ColumnReaderFactory {
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
       folly::Executor* FOLLY_NULLABLE executor,
+      size_t decodingParallelismFactor,
       FlatMapContext flatMapContext = {}) {
     return ColumnReader::build(
         requestedType,
@@ -135,6 +137,7 @@ class ColumnReaderFactory {
         stripe,
         streamLabels,
         executor,
+        decodingParallelismFactor,
         std::move(flatMapContext));
   }
 
