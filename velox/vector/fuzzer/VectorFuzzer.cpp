@@ -436,6 +436,14 @@ VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
 
   ScopedOptions restorer(this);
   opts_.allowLazyVector = false;
+  // Have a lower cap on repeated sizes inside constant. Otherwise will OOM when
+  // flattening.
+  if (opts_.maxConstantContainerSize.has_value()) {
+    opts_.containerLength = std::min<int32_t>(
+        opts_.maxConstantContainerSize.value(), opts_.containerLength);
+    opts_.complexElementsMaxSize = std::min<int32_t>(
+        opts_.maxConstantContainerSize.value(), opts_.complexElementsMaxSize);
+  }
   return BaseVector::wrapInConstant(
       size, constantIndex, fuzz(type, innerVectorSize));
 }
