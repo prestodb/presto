@@ -337,11 +337,11 @@ public abstract class AbstractTestNativeAggregations
     public void testArbitrary()
     {
         // Non-deterministic queries
-        assertQuerySucceeds("SELECT orderkey, arbitrary(comment) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, any_value(comment) FROM lineitem GROUP BY 1");
         assertQuerySucceeds("SELECT orderkey, arbitrary(discount) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, any_value(linenumber) FROM lineitem GROUP BY 1");
         assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber_as_smallint) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber_as_tinyint) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, any_value(linenumber_as_tinyint) FROM lineitem GROUP BY 1");
         assertQuerySucceeds("SELECT orderkey, arbitrary(tax_as_real) FROM lineitem GROUP BY 1");
     }
 

@@ -329,6 +329,7 @@ import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GE
 import static com.facebook.presto.geospatial.type.BingTileType.BING_TILE;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.aggregation.AlternativeArbitraryAggregationFunction.ALTERNATIVE_ANY_VALUE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.AlternativeArbitraryAggregationFunction.ALTERNATIVE_ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.AlternativeMaxAggregationFunction.ALTERNATIVE_MAX;
 import static com.facebook.presto.operator.aggregation.AlternativeMinAggregationFunction.ALTERNATIVE_MIN;
@@ -992,6 +993,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         // Replace some aggregations for Velox to override intermediate aggregation type.
         if (featuresConfig.isUseAlternativeFunctionSignatures()) {
             builder.override(ARBITRARY_AGGREGATION, ALTERNATIVE_ARBITRARY_AGGREGATION);
+            builder.override(ANY_VALUE_AGGREGATION, ALTERNATIVE_ANY_VALUE_AGGREGATION);
             builder.override(MAX_AGGREGATION, ALTERNATIVE_MAX);
             builder.override(MIN_AGGREGATION, ALTERNATIVE_MIN);
             builder.override(MAX_BY, ALTERNATIVE_MAX_BY);
