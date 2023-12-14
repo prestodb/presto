@@ -236,11 +236,13 @@ public final class TimeZoneKey
         return zoneId;
     }
 
-    private static String flipSign(String zoneId) {
+    private static String flipSign(String zoneId)
+    {
         return zoneId.charAt(0) == '+' ? "-" + zoneId.substring(1) : "+" + zoneId.substring(1);
     }
 
-    private static boolean isUtcTimeZone(String zoneId) {
+    private static boolean isUtcTimeZone(String zoneId)
+    {
         return zoneId.contains("utc");
     }
 
