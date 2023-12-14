@@ -21,7 +21,6 @@ import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceMa
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -229,7 +228,7 @@ public class TestJdbcResultSet
 
         statement.execute("CREATE TYPE cat.sch.pair AS (fst integer, snd varchar)");
         checkRepresentation("CAST((1,'1001') AS cat.sch.pair)", Types.JAVA_OBJECT, (rs, column) -> {
-            assertEquals(rs.getObject(1), Lists.newArrayList(1, "1001"));
+            assertEquals(rs.getObject(1), ImmutableMap.of("fst", 1, "snd", "1001"));
         });
     }
 
