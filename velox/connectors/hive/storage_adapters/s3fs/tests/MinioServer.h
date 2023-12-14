@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include "velox/core/Config.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
