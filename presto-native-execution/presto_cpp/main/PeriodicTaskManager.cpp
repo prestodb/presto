@@ -75,7 +75,7 @@ PeriodicTaskManager::PeriodicTaskManager(
       taskManager_(taskManager),
       memoryAllocator_(memoryAllocator),
       asyncDataCache_(asyncDataCache),
-      arbitrator_(velox::memory::MemoryManager::getInstance().arbitrator()),
+      arbitrator_(velox::memory::defaultMemoryManager().arbitrator()),
       connectors_(connectors) {}
 
 void PeriodicTaskManager::start() {
