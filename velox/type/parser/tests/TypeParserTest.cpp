@@ -133,6 +133,17 @@ TEST_F(TestTypeSignature, mapType) {
   ASSERT_EQ(
       *parseType("maP(DECIMAL(10,5), DECIMAL(20, 4))"),
       *MAP(DECIMAL(10, 5), DECIMAL(20, 4)));
+
+  // Complex types as map keys.
+  ASSERT_EQ(
+      *parseType("map(row(bigint),bigint)"), *MAP(ROW({BIGINT()}), BIGINT()));
+
+  ASSERT_EQ(
+      *parseType("map(array(double),bigint)"), *MAP(ARRAY(DOUBLE()), BIGINT()));
+
+  ASSERT_EQ(
+      *parseType("map(map(tinyint, varchar),bigint)"),
+      *MAP(MAP(TINYINT(), VARCHAR()), BIGINT()));
 }
 
 TEST_F(TestTypeSignature, invalidType) {
@@ -221,10 +232,12 @@ TEST_F(TestTypeSignature, rowType) {
 }
 
 TEST_F(TestTypeSignature, typesWithSpaces) {
-  // Type is not registered.
   VELOX_ASSERT_THROW(
       parseType("row(time time with time zone)"),
       "Failed to parse type [time with time zone]. Type not registered.");
+
+  ASSERT_EQ(
+      *parseType("timestamp with time zone"), *TIMESTAMP_WITH_TIME_ZONE());
 
   // Type is registered.
   ASSERT_EQ(

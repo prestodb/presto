@@ -38,8 +38,7 @@
 %token <long long>   NUMBER
 %token YYEOF         0
 
-%nterm <std::shared_ptr<const Type>> special_type function_type decimal_type row_type array_type map_type variable_type
-%nterm <std::shared_ptr<const Type>> type single_word_type
+%nterm <std::shared_ptr<const Type>> type special_type function_type decimal_type row_type array_type map_type variable_type
 %nterm <RowArguments> type_list_opt_names
 %nterm <std::vector<std::shared_ptr<const Type>>> type_list
 %nterm <std::pair<std::string, std::shared_ptr<const Type>>> named_type
@@ -66,13 +65,10 @@ special_type : array_type                  { $$ = $1; }
              | function_type               { $$ = $1; }
              ;
 
-single_word_type : WORD          { $$ = typeFromString($1); }
-                 | variable_type { $$ = $1; }
-                 | decimal_type                { $$ = $1; }
-
-type : special_type     { $$ = $1; }
-     | single_word_type { $$ = $1; }
-     ;
+type : WORD          { $$ = typeFromString($1); }
+     | special_type  { $$ = $1; }
+     | variable_type { $$ = $1; }
+     | decimal_type  { $$ = $1; }
 
 type_with_spaces : type_with_spaces WORD { $1.push_back($2); $$ = std::move($1); }
                  | WORD WORD             { $$.push_back($1); $$.push_back($2); }
@@ -104,8 +100,8 @@ array_type : ARRAY LPAREN type RPAREN             { $$ = ARRAY($3); }
            | ARRAY LPAREN type_with_spaces RPAREN { $$ = ARRAY(inferTypeWithSpaces($3, true).second); }
            ;
 
-map_type : MAP LPAREN single_word_type COMMA type RPAREN             { $$ = MAP($3, $5); }
-         | MAP LPAREN single_word_type COMMA type_with_spaces RPAREN { $$ = MAP($3, inferTypeWithSpaces($5, true).second); }
+map_type : MAP LPAREN type COMMA type RPAREN                         { $$ = MAP($3, $5); }
+         | MAP LPAREN type COMMA type_with_spaces RPAREN             { $$ = MAP($3, inferTypeWithSpaces($5, true).second); }
          | MAP LPAREN type_with_spaces COMMA type RPAREN             { $$ = MAP(inferTypeWithSpaces($3, true).second, $5); }
          | MAP LPAREN type_with_spaces COMMA type_with_spaces RPAREN { $$ = MAP(inferTypeWithSpaces($3, true).second,
                                                                                 inferTypeWithSpaces($5, true).second); }
@@ -117,5 +113,5 @@ function_type : FUNCTION LPAREN type_list RPAREN { auto returnType = $3.back(); 
 %%
 
 void facebook::velox::type::Parser::error(const std::string& msg) {
-    VELOX_FAIL("Failed to parse type [{}]. {}", scanner->input(), msg);
+  VELOX_FAIL("Failed to parse type [{}]. {}", scanner->input(), msg);
 }
