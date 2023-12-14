@@ -148,6 +148,11 @@ class HiveConfig {
   static constexpr const char* kSortWriterMaxOutputBytesSession =
       "sort_writer_max_output_bytes";
 
+  /// Config used to create sink files. This config is provided to underlying
+  /// file system and the config is free form. The form should be defined by
+  /// the underlying file system.
+  static constexpr const char* kFileCreateConfig = "file-create-config";
+
   InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const Config* session) const;
 
@@ -200,6 +205,8 @@ class HiveConfig {
   uint32_t sortWriterMaxOutputRows(const Config* session) const;
 
   uint64_t sortWriterMaxOutputBytes(const Config* session) const;
+
+  std::string fileCreateConfig(const Config* session) const;
 
   HiveConfig(std::shared_ptr<const Config> config) {
     VELOX_CHECK_NOT_NULL(

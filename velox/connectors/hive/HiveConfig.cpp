@@ -214,4 +214,11 @@ uint64_t HiveConfig::sortWriterMaxOutputBytes(const Config* session) const {
   return 10UL << 20;
 }
 
+std::string HiveConfig::fileCreateConfig(const Config* session) const {
+  if (session->isValueExists(kFileCreateConfig)) {
+    return session->get<std::string>(kFileCreateConfig).value();
+  }
+  return config_->get<std::string>(kFileCreateConfig, "");
+}
+
 } // namespace facebook::velox::connector::hive

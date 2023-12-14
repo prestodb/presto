@@ -41,6 +41,10 @@ class FileSink : public Closeable {
     /// Connector properties are required to create a FileSink on FileSystems
     /// such as S3.
     const std::shared_ptr<const Config>& connectorProperties{nullptr};
+    /// Config used to create sink files. This config is provided to underlying
+    /// file system and the config is free form. The form should be defined by
+    /// the underlying file system.
+    const std::string fileCreateConfig{""};
     memory::MemoryPool* pool{nullptr};
     MetricsLogPtr metricLogger{MetricsLog::voidLog()};
     IoStatistics* stats{nullptr};

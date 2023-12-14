@@ -595,6 +595,8 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   setMemoryReclaimers(writerInfo_.back().get());
 
   dwio::common::WriterOptions options;
+  const auto* connectorSessionProperties =
+      connectorQueryCtx_->sessionProperties();
   options.schema = inputType_;
   options.memoryPool = writerInfo_.back()->writerPool.get();
   options.compressionKind = insertTableHandle_->compressionKind();
@@ -603,11 +605,10 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   }
   options.nonReclaimableSection =
       writerInfo_.back()->nonReclaimableSectionHolder.get();
-  options.maxStripeSize = std::optional(hiveConfig_->getOrcWriterMaxStripeSize(
-      connectorQueryCtx_->sessionProperties()));
-  options.maxDictionaryMemory =
-      std::optional(hiveConfig_->getOrcWriterMaxDictionaryMemory(
-          connectorQueryCtx_->sessionProperties()));
+  options.maxStripeSize = std::optional(
+      hiveConfig_->getOrcWriterMaxStripeSize(connectorSessionProperties));
+  options.maxDictionaryMemory = std::optional(
+      hiveConfig_->getOrcWriterMaxDictionaryMemory(connectorSessionProperties));
   ioStats_.emplace_back(std::make_shared<io::IoStatistics>());
 
   // Prevents the memory allocation during the writer creation.
@@ -617,6 +618,8 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
           writePath,
           {.bufferWrite = false,
            .connectorProperties = hiveConfig_->config(),
+           .fileCreateConfig =
+               hiveConfig_->fileCreateConfig(connectorSessionProperties),
            .pool = writerInfo_.back()->sinkPool.get(),
            .metricLogger = dwio::common::MetricsLog::voidLog(),
            .stats = ioStats_.back().get()}),
