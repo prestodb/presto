@@ -362,14 +362,21 @@ public class SectionExecutionFactory
                             .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING || task.getTaskStatus().getState() == TaskState.PLANNED)
                             .collect(toList());
 
-                    if (activeRemoteTasks.isEmpty()) {
-                        throw new PrestoException(REMOTE_TASK_ERROR, String.format("Running out of the eligible remote tasks to recover task %s", failedTaskId));
-                    }
-
-                    Collections.shuffle(activeRemoteTasks);
+                    int allTaskCount = stageExecution.getAllTasks().size();
 
                     synchronized (stageExecution) {
                         Collection<ScheduledSplit> allUnprocessedSplits = taskToRecover.getAllUnprocessedSplits(planNodeId);
+
+                        if (allUnprocessedSplits.isEmpty()) {
+                            return;
+                        }
+
+                        if (activeRemoteTasks.isEmpty()) {
+                            throw new PrestoException(REMOTE_TASK_ERROR, String.format("Running out of the eligible remote tasks to recover task %s, all task count: %d", failedTaskId, allTaskCount));
+                        }
+
+                        Collections.shuffle(activeRemoteTasks);
+
                         Iterator<List<ScheduledSplit>> splits = Iterables.partition(allUnprocessedSplits,
                                 SPLIT_RETRY_BATCH_SIZE).iterator();
                         log.info("Need to retry %s number of splits for the failed task %s", allUnprocessedSplits.size(), failedTaskId);
