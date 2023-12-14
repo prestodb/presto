@@ -45,6 +45,8 @@ std::string toVeloxConfig(const std::string& name) {
            QueryConfig::kSpillCompressionKind},
           {"native_spill_write_buffer_size",
            QueryConfig::kSpillWriteBufferSize},
+          {"native_spill_file_create_config",
+           QueryConfig::kSpillFileCreateConfig},
           {"native_join_spill_enabled", QueryConfig::kJoinSpillEnabled},
           {"native_debug_validate_output_from_operators",
            QueryConfig::kValidateOutputFromOperators}};
