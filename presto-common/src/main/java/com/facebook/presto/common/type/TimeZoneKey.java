@@ -221,6 +221,10 @@ public final class TimeZoneKey
             return "utc";
         }
 
+        if (zoneId.equals(originalZoneId.toLowerCase(ENGLISH))) {
+            throw new TimeZoneNotSupportedException(originalZoneId);
+        }
+
         if (isShortOffsetTimeZone(zoneId)) {
             return normalizeShortOffset(zoneId);
         }
