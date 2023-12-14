@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <vector>
 #include "folly/Executor.h"
 
 namespace facebook::velox::dwio::common {
