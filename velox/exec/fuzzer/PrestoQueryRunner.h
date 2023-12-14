@@ -19,7 +19,7 @@
 #include <folly/SocketAddress.h>
 #include <folly/io/async/EventBaseThread.h>
 #include "velox/common/memory/Memory.h"
-#include "velox/exec/tests/utils/ReferenceQueryRunner.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec::test {

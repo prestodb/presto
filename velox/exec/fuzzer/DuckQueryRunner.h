@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/exec/tests/utils/ReferenceQueryRunner.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 
 namespace facebook::velox::exec::test {
 

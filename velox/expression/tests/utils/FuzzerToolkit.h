@@ -57,4 +57,49 @@ void sortSignatureTemplates(std::vector<SignatureTemplate>& signatures);
 void compareExceptions(
     std::exception_ptr exceptionPtr,
     std::exception_ptr otherExceptionPr);
+
+/// Parse the comma separated list of function names, and use it to filter the
+/// input signatures. Return a signature map that (1) only include functions
+/// appearing in onlyFunctions if onlyFunctions is non-empty, and (2) not
+/// include any functions appearing in skipFunctions if skipFunctions is
+/// non-empty.
+/// @tparam SignatureMapType can be AggregateFunctionSignatureMap or
+/// WindowFunctionMap.
+template <typename SignatureMapType>
+SignatureMapType filterSignatures(
+    const SignatureMapType& input,
+    const std::string& onlyFunctions,
+    const std::unordered_set<std::string>& skipFunctions) {
+  if (onlyFunctions.empty() && skipFunctions.empty()) {
+    return input;
+  }
+
+  SignatureMapType output;
+  if (!onlyFunctions.empty()) {
+    // Parse, lower case and trim it.
+    std::vector<folly::StringPiece> nameList;
+    folly::split(',', onlyFunctions, nameList);
+    std::unordered_set<std::string> nameSet;
+    for (const auto& it : nameList) {
+      auto str = folly::trimWhitespace(it).toString();
+      folly::toLowerAscii(str);
+      nameSet.insert(str);
+    }
+
+    for (const auto& it : input) {
+      if (nameSet.count(it.first) > 0) {
+        output.insert(it);
+      }
+    }
+  } else {
+    output = input;
+  }
+
+  for (auto s : skipFunctions) {
+    auto str = s;
+    folly::toLowerAscii(str);
+    output.erase(str);
+  }
+  return output;
+}
 } // namespace facebook::velox::test

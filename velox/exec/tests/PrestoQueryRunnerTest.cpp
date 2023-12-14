@@ -16,9 +16,9 @@
 
 #include <gtest/gtest.h>
 
+#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/exec/tests/utils/PrestoQueryRunner.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"

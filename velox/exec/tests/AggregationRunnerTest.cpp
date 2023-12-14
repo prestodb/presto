@@ -20,8 +20,8 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include "velox/common/base/Fs.h"
-#include "velox/exec/tests/utils/AggregationFuzzerRunner.h"
-#include "velox/exec/tests/utils/DuckQueryRunner.h"
+#include "velox/exec/fuzzer/AggregationFuzzerRunner.h"
+#include "velox/exec/fuzzer/DuckQueryRunner.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 

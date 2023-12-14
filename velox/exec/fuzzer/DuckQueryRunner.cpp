@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/utils/DuckQueryRunner.h"
+#include "velox/exec/fuzzer/DuckQueryRunner.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 
 namespace facebook::velox::exec::test {

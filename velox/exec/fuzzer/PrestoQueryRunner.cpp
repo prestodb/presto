@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/exec/tests/utils/PrestoQueryRunner.h"
+#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include <cpr/cpr.h>
 #include <folly/json.h>
 #include <iostream>

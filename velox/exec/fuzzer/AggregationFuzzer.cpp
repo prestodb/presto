@@ -13,68 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/utils/AggregationFuzzer.h"
-#include <boost/random/uniform_int_distribution.hpp>
-#include "velox/common/base/Fs.h"
+#include "velox/exec/fuzzer/AggregationFuzzer.h"
 
-#include "velox/common/file/FileSystems.h"
-#include "velox/connectors/hive/HiveConnector.h"
-#include "velox/connectors/hive/HiveConnectorSplit.h"
+#include <boost/random/uniform_int_distribution.hpp>
+
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
 
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/expression/SignatureBinder.h"
-#include "velox/expression/tests/utils/ArgumentTypeFuzzer.h"
 
 #include "velox/exec/PartitionFunction.h"
-#include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/fuzzer/AggregationFuzzerBase.h"
 #include "velox/expression/tests/utils/FuzzerToolkit.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
-#include "velox/vector/tests/utils/VectorMaker.h"
-
-DEFINE_int32(steps, 10, "Number of plans to generate and execute.");
-
-DEFINE_int32(
-    duration_sec,
-    0,
-    "For how long it should run (in seconds). If zero, "
-    "it executes exactly --steps iterations and exits.");
-
-DEFINE_int32(
-    batch_size,
-    100,
-    "The number of elements on each generated vector.");
-
-DEFINE_int32(num_batches, 10, "The number of generated vectors.");
-
-DEFINE_int32(
-    max_num_varargs,
-    5,
-    "The maximum number of variadic arguments fuzzer will generate for "
-    "functions that accept variadic arguments. Fuzzer will generate up to "
-    "max_num_varargs arguments for the variadic list in addition to the "
-    "required arguments by the function.");
-
-DEFINE_double(
-    null_ratio,
-    0.1,
-    "Chance of adding a null constant to the plan, or null value in a vector "
-    "(expressed as double from 0 to 1).");
-
-DEFINE_string(
-    repro_persist_path,
-    "",
-    "Directory path for persistence of data and SQL when fuzzer fails for "
-    "future reproduction. Empty string disables this feature.");
-
-DEFINE_bool(
-    enable_window_reference_verification,
-    false,
-    "When true, the results of the window aggregation are compared to reference DB results");
 
 DEFINE_bool(
     enable_sorted_aggregations,
@@ -82,24 +35,20 @@ DEFINE_bool(
     "When true, generates plans with aggregations over sorted inputs");
 
 DEFINE_bool(
-    persist_and_run_once,
+    enable_window_reference_verification,
     false,
-    "Persist repro info before evaluation and only run one iteration. "
-    "This is to rerun with the seed number and persist repro info upon a "
-    "crash failure. Only effective if repro_persist_path is set.");
-
-DEFINE_bool(
-    log_signature_stats,
-    false,
-    "Log statistics about function signatures");
+    "When true, the results of the window aggregation are compared to reference DB results");
 
 using facebook::velox::test::CallableSignature;
 using facebook::velox::test::SignatureTemplate;
 
 namespace facebook::velox::exec::test {
+
+class AggregationFuzzerBase;
+
 namespace {
 
-class AggregationFuzzer {
+class AggregationFuzzer : public AggregationFuzzerBase {
  public:
   AggregationFuzzer(
       AggregateFunctionSignatureMap signatureMap,
@@ -112,28 +61,10 @@ class AggregationFuzzer {
       const std::unordered_map<std::string, std::string>& queryConfigs,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner);
 
-  struct PlanWithSplits {
-    core::PlanNodePtr plan;
-    std::vector<exec::Split> splits;
-  };
-
   void go();
   void go(const std::string& planPath);
 
  private:
-  static inline const std::string kHiveConnectorId = "test-hive";
-
-  std::shared_ptr<InputGenerator> findInputGenerator(
-      const CallableSignature& signature);
-
-  static exec::Split makeSplit(const std::string& filePath);
-
-  std::vector<exec::Split> makeSplits(
-      const std::vector<RowVectorPtr>& inputs,
-      const std::string& path);
-
-  PlanWithSplits deserialize(const folly::dynamic& obj);
-
   struct Stats {
     // Names of functions that were tested.
     std::unordered_set<std::string> functionNames;
@@ -177,66 +108,8 @@ class AggregationFuzzer {
     void print(size_t numIterations) const;
   };
 
-  static VectorFuzzer::Options getFuzzerOptions(
-      VectorFuzzer::Options::TimestampPrecision timestampPrecision) {
-    VectorFuzzer::Options opts;
-    opts.vectorSize = FLAGS_batch_size;
-    opts.stringVariableLength = true;
-    opts.stringLength = 4'000;
-    opts.nullRatio = FLAGS_null_ratio;
-    opts.timestampPrecision = timestampPrecision;
-    return opts;
-  }
-
-  void seed(size_t seed) {
-    currentSeed_ = seed;
-    vectorFuzzer_.reSeed(seed);
-    rng_.seed(currentSeed_);
-  }
-
-  void reSeed() {
-    seed(rng_());
-  }
-
-  // Generate at least one and up to 5 scalar columns to be used as grouping,
-  // partition or sorting keys.
-  // Column names are generated using template '<prefix>N', where N is
-  // zero-based ordinal number of the column.
-  std::vector<std::string> generateKeys(
-      const std::string& prefix,
-      std::vector<std::string>& names,
-      std::vector<TypePtr>& types);
-
-  // Similar to generateKeys, but restricts types to orderable types (i.e. no
-  // maps).
-  std::vector<std::string> generateSortingKeys(
-      const std::string& prefix,
-      std::vector<std::string>& names,
-      std::vector<TypePtr>& types);
-
-  struct SignatureStats {
-    /// Number of times a signature was chosen.
-    size_t numRuns{0};
-
-    /// Number of times generated query plan failed.
-    size_t numFailed{0};
-  };
-
-  std::pair<CallableSignature, SignatureStats&> pickSignature();
-
-  std::vector<RowVectorPtr> generateInputData(
-      std::vector<std::string> names,
-      std::vector<TypePtr> types,
-      const std::optional<CallableSignature>& signature);
-
-  // Generate a RowVector of the given types of children with an additional
-  // child named "row_number" of BIGINT row numbers that differentiates every
-  // row. Row numbers start from 0. This additional input vector is needed for
-  // result verification of window aggregations.
-  std::vector<RowVectorPtr> generateInputDataWithRowNumber(
-      std::vector<std::string> names,
-      std::vector<TypePtr> types,
-      const CallableSignature& signature);
+  void updateReferenceQueryStats(
+      AggregationFuzzerBase::ReferenceQueryErrorCode errorCode);
 
   // Return 'true' if query plans failed.
   bool verifyWindow(
@@ -264,17 +137,6 @@ class AggregationFuzzer {
       const std::vector<RowVectorPtr>& input);
 
   void verifyAggregation(const std::vector<PlanWithSplits>& plans);
-
-  std::optional<MaterializedRowMultiset> computeReferenceResults(
-      const core::PlanNodePtr& plan,
-      const std::vector<RowVectorPtr>& input);
-
-  velox::test::ResultOrError execute(
-      const core::PlanNodePtr& plan,
-      const std::vector<exec::Split>& splits = {},
-      bool injectSpill = false,
-      bool abandonPartial = false,
-      int32_t maxDrivers = 2);
 
   static bool hasPartialGroupBy(const core::PlanNodePtr& plan) {
     auto partialAgg = core::PlanNode::findFirstNode(
@@ -335,47 +197,6 @@ class AggregationFuzzer {
     }
   }
 
-  // @param customVerification If false, results are compared as is. Otherwise,
-  // only row counts are compared.
-  // @param customVerifiers Custom verifier for each aggregate function. These
-  // can be null. If not null and customVerification is true, custom verifier is
-  // used to further verify the results.
-  void testPlan(
-      const PlanWithSplits& planWithSplits,
-      bool injectSpill,
-      bool abandonPartial,
-      bool customVerification,
-      const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
-      const velox::test::ResultOrError& expected,
-      int32_t maxDrivers = 2);
-
-  void printSignatureStats();
-
-  const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>
-      customVerificationFunctions_;
-  const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>
-      customInputGenerators_;
-  const std::unordered_map<std::string, std::string> queryConfigs_;
-  const bool persistAndRunOnce_;
-  const std::string reproPersistPath_;
-
-  std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner_;
-
-  std::vector<CallableSignature> signatures_;
-  std::vector<SignatureTemplate> signatureTemplates_;
-
-  // Stats for 'signatures_' and 'signatureTemplates_'. Stats for 'signatures_'
-  // come before stats for 'signatureTemplates_'.
-  std::vector<SignatureStats> signatureStats_;
-
-  FuzzerGenerator rng_;
-  size_t currentSeed_{0};
-
-  std::shared_ptr<memory::MemoryPool> rootPool_{
-      memory::defaultMemoryManager().addRootPool()};
-  std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild("leaf")};
-  VectorFuzzer vectorFuzzer_;
-
   Stats stats_;
 };
 } // namespace
@@ -405,34 +226,9 @@ void aggregateFuzzer(
 
 namespace {
 
-std::string printStat(size_t n, size_t total) {
-  return fmt::format("{} ({:.2f}%)", n, (double)n / total * 100);
-}
-
-void printStats(
-    size_t numFunctions,
-    size_t numSignatures,
-    size_t numSupportedFunctions,
-    size_t numSupportedSignatures) {
-  LOG(INFO) << fmt::format(
-      "Total functions: {} ({} signatures)", numFunctions, numSignatures);
-  LOG(INFO) << "Functions with at least one supported signature: "
-            << printStat(numSupportedFunctions, numFunctions);
-
-  size_t numNotSupportedFunctions = numFunctions - numSupportedFunctions;
-  LOG(INFO) << "Functions with no supported signature: "
-            << printStat(numNotSupportedFunctions, numFunctions);
-  LOG(INFO) << "Supported function signatures: "
-            << printStat(numSupportedSignatures, numSignatures);
-
-  size_t numNotSupportedSignatures = numSignatures - numSupportedSignatures;
-  LOG(INFO) << "Unsupported function signatures: "
-            << printStat(numNotSupportedSignatures, numSignatures);
-}
-
 AggregationFuzzer::AggregationFuzzer(
     AggregateFunctionSignatureMap signatureMap,
-    size_t initialSeed,
+    size_t seed,
     const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>&
         customVerificationFunctions,
     const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
@@ -440,21 +236,13 @@ AggregationFuzzer::AggregationFuzzer(
     VectorFuzzer::Options::TimestampPrecision timestampPrecision,
     const std::unordered_map<std::string, std::string>& queryConfigs,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner)
-    : customVerificationFunctions_{customVerificationFunctions},
-      customInputGenerators_{customInputGenerators},
-      queryConfigs_{queryConfigs},
-      persistAndRunOnce_{FLAGS_persist_and_run_once},
-      reproPersistPath_{FLAGS_repro_persist_path},
-      referenceQueryRunner_{std::move(referenceQueryRunner)},
-      vectorFuzzer_{getFuzzerOptions(timestampPrecision), pool_.get()} {
-  filesystems::registerLocalFileSystem();
-  auto hiveConnector =
-      connector::getConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(kHiveConnectorId, std::make_shared<core::MemConfig>());
-  connector::registerConnector(hiveConnector);
-
-  seed(initialSeed);
+    : AggregationFuzzerBase{
+          seed,
+          customVerificationFunctions,
+          customInputGenerators,
+          timestampPrecision,
+          queryConfigs,
+          std::move(referenceQueryRunner)} {
   VELOX_CHECK(!signatureMap.empty(), "No function signatures available.");
 
   if (persistAndRunOnce_ && reproPersistPath_.empty()) {
@@ -464,358 +252,13 @@ AggregationFuzzer::AggregationFuzzer(
     exit(1);
   }
 
-  size_t numFunctions = 0;
-  size_t numSignatures = 0;
-  size_t numSupportedFunctions = 0;
-  size_t numSupportedSignatures = 0;
-
-  for (auto& [name, signatures] : signatureMap) {
-    ++numFunctions;
-    bool hasSupportedSignature = false;
-    for (auto& signature : signatures) {
-      ++numSignatures;
-
-      if (signature->variableArity()) {
-        LOG(WARNING) << "Skipping variadic function signature: " << name
-                     << signature->toString();
-        continue;
-      }
-
-      if (!signature->variables().empty()) {
-        bool skip = false;
-        std::unordered_set<std::string> typeVariables;
-        for (auto& [variableName, variable] : signature->variables()) {
-          if (variable.isIntegerParameter()) {
-            LOG(WARNING) << "Skipping generic function signature: " << name
-                         << signature->toString();
-            skip = true;
-            break;
-          }
-
-          typeVariables.insert(variableName);
-        }
-        if (skip) {
-          continue;
-        }
-
-        signatureTemplates_.push_back(
-            {name, signature.get(), std::move(typeVariables)});
-      } else {
-        CallableSignature callable{
-            .name = name,
-            .args = {},
-            .returnType = SignatureBinder::tryResolveType(
-                signature->returnType(), {}, {}),
-            .constantArgs = {}};
-        VELOX_CHECK_NOT_NULL(callable.returnType);
-
-        // Process each argument and figure out its type.
-        for (const auto& arg : signature->argumentTypes()) {
-          auto resolvedType = SignatureBinder::tryResolveType(arg, {}, {});
-          VELOX_CHECK_NOT_NULL(resolvedType);
-
-          // SignatureBinder::tryResolveType produces ROW types with empty field
-          // names. These won't work with TableScan.
-          if (resolvedType->isRow()) {
-            std::vector<std::string> names;
-            for (auto i = 0; i < resolvedType->size(); ++i) {
-              names.push_back(fmt::format("field{}", i));
-            }
-
-            std::vector<TypePtr> types = resolvedType->asRow().children();
-
-            resolvedType = ROW(std::move(names), std::move(types));
-          }
-
-          callable.args.emplace_back(resolvedType);
-        }
-
-        signatures_.emplace_back(callable);
-      }
-
-      ++numSupportedSignatures;
-      hasSupportedSignature = true;
-    }
-    if (hasSupportedSignature) {
-      ++numSupportedFunctions;
-    }
-  }
-
-  printStats(
-      numFunctions,
-      numSignatures,
-      numSupportedFunctions,
-      numSupportedSignatures);
+  addAggregationSignatures(signatureMap);
+  printStats(functionsStats);
 
   sortCallableSignatures(signatures_);
   sortSignatureTemplates(signatureTemplates_);
 
   signatureStats_.resize(signatures_.size() + signatureTemplates_.size());
-}
-
-template <typename T>
-bool isDone(size_t i, T startTime) {
-  if (FLAGS_duration_sec > 0) {
-    std::chrono::duration<double> elapsed =
-        std::chrono::system_clock::now() - startTime;
-    return elapsed.count() >= FLAGS_duration_sec;
-  }
-  return i >= FLAGS_steps;
-}
-
-std::string makeFunctionCall(
-    const std::string& name,
-    const std::vector<std::string>& argNames,
-    bool sortedInputs) {
-  std::ostringstream call;
-  call << name << "(" << folly::join(", ", argNames);
-  if (sortedInputs) {
-    call << " ORDER BY " << folly::join(", ", argNames);
-  }
-  call << ")";
-
-  return call.str();
-}
-
-std::vector<std::string> makeNames(size_t n) {
-  std::vector<std::string> names;
-  for (auto i = 0; i < n; ++i) {
-    names.push_back(fmt::format("c{}", i));
-  }
-  return names;
-}
-
-folly::dynamic serialize(
-    const AggregationFuzzer::PlanWithSplits& planWithSplits,
-    const std::string& dirPath,
-    std::unordered_map<std::string, std::string>& filePaths) {
-  folly::dynamic obj = folly::dynamic::object();
-  obj["plan"] = planWithSplits.plan->serialize();
-  if (planWithSplits.splits.empty()) {
-    return obj;
-  }
-
-  folly::dynamic jsonSplits = folly::dynamic::array();
-  jsonSplits.reserve(planWithSplits.splits.size());
-  for (const auto& split : planWithSplits.splits) {
-    const auto filePath =
-        std::dynamic_pointer_cast<connector::hive::HiveConnectorSplit>(
-            split.connectorSplit)
-            ->filePath;
-    if (filePaths.count(filePath) == 0) {
-      const auto newFilePath = fmt::format("{}/{}", dirPath, filePaths.size());
-      fs::copy(filePath, newFilePath);
-      filePaths.insert({filePath, newFilePath});
-    }
-    jsonSplits.push_back(filePaths.at(filePath));
-  }
-  obj["splits"] = jsonSplits;
-  return obj;
-}
-
-void persistReproInfo(
-    const std::vector<AggregationFuzzer::PlanWithSplits>& plans,
-    const std::string& basePath) {
-  if (!common::generateFileDirectory(basePath.c_str())) {
-    return;
-  }
-
-  // Create a new directory
-  const auto dirPathOptional =
-      common::generateTempFolderPath(basePath.c_str(), "aggregationVerifier");
-  if (!dirPathOptional.has_value()) {
-    LOG(ERROR)
-        << "Failed to create directory for persisting plans using base path: "
-        << basePath;
-    return;
-  }
-
-  const auto dirPath = dirPathOptional.value();
-
-  // Save plans and splits.
-  const std::string planPath = fmt::format("{}/{}", dirPath, kPlanNodeFileName);
-  std::unordered_map<std::string, std::string> filePaths;
-  try {
-    folly::dynamic array = folly::dynamic::array();
-    array.reserve(plans.size());
-    for (auto planWithSplits : plans) {
-      array.push_back(serialize(planWithSplits, dirPath, filePaths));
-    }
-    auto planJson = folly::toJson(array);
-    saveStringToFile(planJson, planPath.c_str());
-    LOG(INFO) << "Persisted aggregation plans to " << planPath;
-  } catch (std::exception& e) {
-    LOG(ERROR) << "Failed to store aggregation plans to " << planPath << ": "
-               << e.what();
-  }
-}
-
-std::pair<CallableSignature, AggregationFuzzer::SignatureStats&>
-AggregationFuzzer::pickSignature() {
-  size_t idx = boost::random::uniform_int_distribution<uint32_t>(
-      0, signatures_.size() + signatureTemplates_.size() - 1)(rng_);
-  CallableSignature signature;
-  if (idx < signatures_.size()) {
-    signature = signatures_[idx];
-  } else {
-    const auto& signatureTemplate =
-        signatureTemplates_[idx - signatures_.size()];
-    signature.name = signatureTemplate.name;
-    velox::test::ArgumentTypeFuzzer typeFuzzer(
-        *signatureTemplate.signature, rng_);
-    VELOX_CHECK(typeFuzzer.fuzzArgumentTypes(FLAGS_max_num_varargs));
-    signature.args = typeFuzzer.argumentTypes();
-  }
-
-  return {signature, signatureStats_[idx]};
-}
-
-std::vector<std::string> AggregationFuzzer::generateKeys(
-    const std::string& prefix,
-    std::vector<std::string>& names,
-    std::vector<TypePtr>& types) {
-  static const std::vector<TypePtr> kNonFloatingPointTypes{
-      BOOLEAN(),
-      TINYINT(),
-      SMALLINT(),
-      INTEGER(),
-      BIGINT(),
-      VARCHAR(),
-      VARBINARY(),
-      TIMESTAMP(),
-  };
-
-  auto numKeys = boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
-  std::vector<std::string> keys;
-  for (auto i = 0; i < numKeys; ++i) {
-    keys.push_back(fmt::format("{}{}", prefix, i));
-
-    // Pick random, possibly complex, type.
-    types.push_back(vectorFuzzer_.randType(kNonFloatingPointTypes, 2));
-    names.push_back(keys.back());
-  }
-  return keys;
-}
-
-std::vector<std::string> AggregationFuzzer::generateSortingKeys(
-    const std::string& prefix,
-    std::vector<std::string>& names,
-    std::vector<TypePtr>& types) {
-  auto numKeys = boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
-  std::vector<std::string> keys;
-  for (auto i = 0; i < numKeys; ++i) {
-    keys.push_back(fmt::format("{}{}", prefix, i));
-
-    // Pick random, possibly complex, type.
-    types.push_back(vectorFuzzer_.randOrderableType(2));
-    names.push_back(keys.back());
-  }
-  return keys;
-}
-
-std::shared_ptr<InputGenerator> AggregationFuzzer::findInputGenerator(
-    const CallableSignature& signature) {
-  auto generatorIt = customInputGenerators_.find(signature.name);
-  if (generatorIt != customInputGenerators_.end()) {
-    return generatorIt->second;
-  }
-
-  return nullptr;
-}
-
-std::vector<RowVectorPtr> AggregationFuzzer::generateInputData(
-    std::vector<std::string> names,
-    std::vector<TypePtr> types,
-    const std::optional<CallableSignature>& signature) {
-  std::shared_ptr<InputGenerator> generator;
-  if (signature.has_value()) {
-    generator = findInputGenerator(signature.value());
-  }
-
-  const auto size = vectorFuzzer_.getOptions().vectorSize;
-
-  auto inputType = ROW(std::move(names), std::move(types));
-  std::vector<RowVectorPtr> input;
-  for (auto i = 0; i < FLAGS_num_batches; ++i) {
-    std::vector<VectorPtr> children;
-
-    if (generator != nullptr) {
-      children = generator->generate(
-          signature->args, vectorFuzzer_, rng_, pool_.get());
-    }
-
-    for (auto i = children.size(); i < inputType->size(); ++i) {
-      children.push_back(vectorFuzzer_.fuzz(inputType->childAt(i), size));
-    }
-
-    input.push_back(std::make_shared<RowVector>(
-        pool_.get(), inputType, nullptr, size, std::move(children)));
-  }
-
-  if (generator != nullptr) {
-    generator->reset();
-  }
-
-  return input;
-}
-
-std::vector<RowVectorPtr> AggregationFuzzer::generateInputDataWithRowNumber(
-    std::vector<std::string> names,
-    std::vector<TypePtr> types,
-    const CallableSignature& signature) {
-  names.push_back("row_number");
-  types.push_back(BIGINT());
-
-  auto generator = findInputGenerator(signature);
-
-  std::vector<RowVectorPtr> input;
-  auto size = vectorFuzzer_.getOptions().vectorSize;
-  velox::test::VectorMaker vectorMaker{pool_.get()};
-  int64_t rowNumber = 0;
-  for (auto j = 0; j < FLAGS_num_batches; ++j) {
-    std::vector<VectorPtr> children;
-
-    if (generator != nullptr) {
-      children =
-          generator->generate(signature.args, vectorFuzzer_, rng_, pool_.get());
-    }
-
-    for (auto i = children.size(); i < types.size() - 1; ++i) {
-      children.push_back(vectorFuzzer_.fuzz(types[i], size));
-    }
-    children.push_back(vectorMaker.flatVector<int64_t>(
-        size, [&](auto /*row*/) { return rowNumber++; }));
-    input.push_back(vectorMaker.rowVector(names, children));
-  }
-
-  if (generator != nullptr) {
-    generator->reset();
-  }
-
-  return input;
-}
-
-// static
-exec::Split AggregationFuzzer::makeSplit(const std::string& filePath) {
-  return exec::Split{std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, filePath, dwio::common::FileFormat::DWRF)};
-}
-
-AggregationFuzzer::PlanWithSplits AggregationFuzzer::deserialize(
-    const folly::dynamic& obj) {
-  auto plan = velox::ISerializable::deserialize<core::PlanNode>(
-      obj["plan"], pool_.get());
-
-  std::vector<exec::Split> splits;
-  if (obj.count("splits") > 0) {
-    auto paths =
-        ISerializable::deserialize<std::vector<std::string>>(obj["splits"]);
-    for (const auto& path : paths) {
-      splits.push_back(makeSplit(path));
-    }
-  }
-
-  return PlanWithSplits{plan, splits};
 }
 
 void AggregationFuzzer::go(const std::string& planPath) {
@@ -992,103 +435,6 @@ void AggregationFuzzer::go() {
   printSignatureStats();
 }
 
-void AggregationFuzzer::printSignatureStats() {
-  if (!FLAGS_log_signature_stats) {
-    return;
-  }
-
-  for (auto i = 0; i < signatureStats_.size(); ++i) {
-    const auto& stats = signatureStats_[i];
-    if (stats.numRuns == 0) {
-      continue;
-    }
-
-    if (stats.numFailed * 1.0 / stats.numRuns < 0.5) {
-      continue;
-    }
-
-    if (i < signatures_.size()) {
-      LOG(INFO) << "Signature #" << i << " failed " << stats.numFailed
-                << " out of " << stats.numRuns
-                << " times: " << signatures_[i].toString();
-    } else {
-      const auto& signatureTemplate =
-          signatureTemplates_[i - signatures_.size()];
-      LOG(INFO) << "Signature template #" << i << " failed " << stats.numFailed
-                << " out of " << stats.numRuns
-                << " times: " << signatureTemplate.name << "("
-                << signatureTemplate.signature->toString() << ")";
-    }
-  }
-}
-
-velox::test::ResultOrError AggregationFuzzer::execute(
-    const core::PlanNodePtr& plan,
-    const std::vector<exec::Split>& splits,
-    bool injectSpill,
-    bool abandonPartial,
-    int32_t maxDrivers) {
-  LOG(INFO) << "Executing query plan: " << std::endl
-            << plan->toString(true, true);
-
-  velox::test::ResultOrError resultOrError;
-  try {
-    std::shared_ptr<TempDirectoryPath> spillDirectory;
-    AssertQueryBuilder builder(plan);
-
-    builder.configs(queryConfigs_);
-
-    if (injectSpill) {
-      spillDirectory = exec::test::TempDirectoryPath::create();
-      builder.spillDirectory(spillDirectory->path)
-          .config(core::QueryConfig::kSpillEnabled, "true")
-          .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-          .config(core::QueryConfig::kTestingSpillPct, "100");
-    }
-
-    if (abandonPartial) {
-      builder.config(core::QueryConfig::kAbandonPartialAggregationMinRows, "1")
-          .config(core::QueryConfig::kAbandonPartialAggregationMinPct, "0")
-          .config(core::QueryConfig::kMaxPartialAggregationMemory, "0")
-          .config(core::QueryConfig::kMaxExtendedPartialAggregationMemory, "0");
-    }
-
-    if (!splits.empty()) {
-      builder.splits(splits);
-    }
-
-    resultOrError.result =
-        builder.maxDrivers(maxDrivers).copyResults(pool_.get());
-  } catch (VeloxUserError& e) {
-    // NOTE: velox user exception is accepted as it is caused by the invalid
-    // fuzzer test inputs.
-    resultOrError.exceptionPtr = std::current_exception();
-  }
-
-  return resultOrError;
-}
-
-std::optional<MaterializedRowMultiset>
-AggregationFuzzer::computeReferenceResults(
-    const core::PlanNodePtr& plan,
-    const std::vector<RowVectorPtr>& input) {
-  if (auto sql = referenceQueryRunner_->toSql(plan)) {
-    try {
-      return referenceQueryRunner_->execute(
-          sql.value(), input, plan->outputType());
-    } catch (std::exception& e) {
-      ++stats_.numReferenceQueryFailed;
-      LOG(WARNING) << "Query failed in the reference DB";
-      return std::nullopt;
-    }
-  } else {
-    LOG(INFO) << "Query not supported by the reference DB";
-    ++stats_.numVerificationNotSupported;
-  }
-
-  return std::nullopt;
-}
-
 void makeAlternativePlansWithValues(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
@@ -1263,57 +609,12 @@ void makeStreamingPlansWithTableScan(
           .planNode());
 }
 
-void AggregationFuzzer::testPlan(
-    const PlanWithSplits& planWithSplits,
-    bool injectSpill,
-    bool abandonPartial,
-    bool customVerification,
-    const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
-    const velox::test::ResultOrError& expected,
-    int32_t maxDrivers) {
-  auto actual = execute(
-      planWithSplits.plan,
-      planWithSplits.splits,
-      injectSpill,
-      abandonPartial,
-      maxDrivers);
-
-  // Compare results or exceptions (if any). Fail is anything is different.
-  if (expected.exceptionPtr || actual.exceptionPtr) {
-    // Throws in case exceptions are not compatible.
-    velox::test::compareExceptions(expected.exceptionPtr, actual.exceptionPtr);
-    return;
-  }
-
-  if (!customVerification) {
-    VELOX_CHECK(
-        assertEqualResults({expected.result}, {actual.result}),
-        "Logically equivalent plans produced different results");
-    return;
-  }
-
-  VELOX_CHECK_EQ(
-      expected.result->size(),
-      actual.result->size(),
-      "Logically equivalent plans produced different number of rows");
-
-  for (auto& verifier : customVerifiers) {
-    if (verifier == nullptr) {
-      continue;
-    }
-
-    if (verifier->supportsCompare()) {
-      VELOX_CHECK(
-          verifier->compare(expected.result, actual.result),
-          "Logically equivalent plans produced different results");
-    } else if (verifier->supportsVerify()) {
-      VELOX_CHECK(
-          verifier->verify(actual.result),
-          "Result of a logically equivalent plan failed custom verification");
-    } else {
-      VELOX_UNREACHABLE(
-          "Custom verifier must support either 'compare' or 'verify' API.");
-    }
+void AggregationFuzzer::updateReferenceQueryStats(
+    AggregationFuzzerBase::ReferenceQueryErrorCode errorCode) {
+  if (errorCode == ReferenceQueryErrorCode::kReferenceQueryFail) {
+    ++stats_.numReferenceQueryFailed;
+  } else if (errorCode == ReferenceQueryErrorCode::kReferenceQueryUnsupported) {
+    ++stats_.numVerificationNotSupported;
   }
 }
 
@@ -1348,7 +649,9 @@ bool AggregationFuzzer::verifyWindow(
 
     if (!customVerification && enableWindowVerification) {
       if (resultOrError.result) {
-        if (auto expectedResult = computeReferenceResults(plan, input)) {
+        auto referenceResult = computeReferenceResults(plan, input);
+        updateReferenceQueryStats(referenceResult.second);
+        if (auto expectedResult = referenceResult.first) {
           ++stats_.numVerified;
           VELOX_CHECK(
               assertEqualResults(
@@ -1370,57 +673,6 @@ bool AggregationFuzzer::verifyWindow(
     }
     throw;
   }
-}
-
-namespace {
-void writeToFile(
-    const std::string& path,
-    const VectorPtr& vector,
-    memory::MemoryPool* pool) {
-  dwrf::WriterOptions options;
-  options.schema = vector->type();
-  options.memoryPool = pool;
-  auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
-  auto sink =
-      std::make_unique<dwio::common::WriteFileSink>(std::move(writeFile), path);
-  dwrf::Writer writer(std::move(sink), options);
-  writer.write(vector);
-  writer.close();
-}
-
-bool isTableScanSupported(const TypePtr& type) {
-  if (type->kind() == TypeKind::ROW && type->size() == 0) {
-    return false;
-  }
-  if (type->kind() == TypeKind::UNKNOWN) {
-    return false;
-  }
-  if (type->kind() == TypeKind::HUGEINT) {
-    return false;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (!isTableScanSupported(type->childAt(i))) {
-      return false;
-    }
-  }
-
-  return true;
-}
-} // namespace
-
-std::vector<exec::Split> AggregationFuzzer::makeSplits(
-    const std::vector<RowVectorPtr>& inputs,
-    const std::string& path) {
-  std::vector<exec::Split> splits;
-  auto writerPool = rootPool_->addAggregateChild("writer");
-  for (auto i = 0; i < inputs.size(); ++i) {
-    const std::string filePath = fmt::format("{}/{}", path, i);
-    writeToFile(filePath, inputs[i], writerPool.get());
-    splits.push_back(makeSplit(filePath));
-  }
-
-  return splits;
 }
 
 void resetCustomVerifiers(
@@ -1544,7 +796,9 @@ bool AggregationFuzzer::verifyAggregation(
     std::optional<MaterializedRowMultiset> expectedResult;
     if (resultOrError.result != nullptr) {
       if (!customVerification) {
-        expectedResult = computeReferenceResults(firstPlan, input);
+        auto referenceResult = computeReferenceResults(firstPlan, input);
+        updateReferenceQueryStats(referenceResult.second);
+        expectedResult = referenceResult.first;
       } else {
         ++stats_.numVerificationSkipped;
 
@@ -1595,7 +849,9 @@ bool AggregationFuzzer::verifySortedAggregation(
     ++stats_.numFailed;
   }
 
-  auto expectedResult = computeReferenceResults(firstPlan, input);
+  auto referenceResult = computeReferenceResults(firstPlan, input);
+  updateReferenceQueryStats(referenceResult.second);
+  auto expectedResult = referenceResult.first;
   if (expectedResult && resultOrError.result) {
     ++stats_.numVerified;
     VELOX_CHECK(
@@ -1697,7 +953,9 @@ void AggregationFuzzer::verifyAggregation(
 
   std::optional<MaterializedRowMultiset> expectedResult;
   if (!customVerification) {
-    expectedResult = computeReferenceResults(plan, input);
+    auto referenceResult = computeReferenceResults(plan, input);
+    updateReferenceQueryStats(referenceResult.second);
+    expectedResult = referenceResult.first;
   }
 
   if (expectedResult && resultOrError.result) {
@@ -1716,26 +974,26 @@ void AggregationFuzzer::verifyAggregation(
 void AggregationFuzzer::Stats::print(size_t numIterations) const {
   LOG(INFO) << "Total functions tested: " << functionNames.size();
   LOG(INFO) << "Total masked aggregations: "
-            << printStat(numMask, numIterations);
+            << printPercentageStat(numMask, numIterations);
   LOG(INFO) << "Total global aggregations: "
-            << printStat(numGlobal, numIterations);
+            << printPercentageStat(numGlobal, numIterations);
   LOG(INFO) << "Total group-by aggregations: "
-            << printStat(numGroupBy, numIterations);
+            << printPercentageStat(numGroupBy, numIterations);
   LOG(INFO) << "Total distinct aggregations: "
-            << printStat(numDistinct, numIterations);
+            << printPercentageStat(numDistinct, numIterations);
   LOG(INFO) << "Total aggregations over sorted inputs: "
-            << printStat(numSortedInputs, numIterations);
+            << printPercentageStat(numSortedInputs, numIterations);
   LOG(INFO) << "Total window expressions: "
-            << printStat(numWindow, numIterations);
+            << printPercentageStat(numWindow, numIterations);
   LOG(INFO) << "Total aggregations verified against reference DB: "
-            << printStat(numVerified, numIterations);
+            << printPercentageStat(numVerified, numIterations);
   LOG(INFO)
       << "Total aggregations not verified (non-deterministic function / not supported by reference DB / reference DB failed): "
-      << printStat(numVerificationSkipped, numIterations) << " / "
-      << printStat(numVerificationNotSupported, numIterations) << " / "
-      << printStat(numReferenceQueryFailed, numIterations);
+      << printPercentageStat(numVerificationSkipped, numIterations) << " / "
+      << printPercentageStat(numVerificationNotSupported, numIterations)
+      << " / " << printPercentageStat(numReferenceQueryFailed, numIterations);
   LOG(INFO) << "Total failed aggregations: "
-            << printStat(numFailed, numIterations);
+            << printPercentageStat(numFailed, numIterations);
 }
 
 } // namespace

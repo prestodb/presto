@@ -102,6 +102,7 @@ target_link_libraries(
   velox_common_compression)
 
 if(${VELOX_BUILD_TESTING})
+  add_subdirectory(fuzzer)
   add_subdirectory(tests)
 elseif(${VELOX_BUILD_TEST_UTILS})
   add_subdirectory(tests/utils)

@@ -24,7 +24,8 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/Aggregate.h"
-#include "velox/exec/tests/utils/AggregationFuzzer.h"
+#include "velox/exec/fuzzer/AggregationFuzzer.h"
+#include "velox/exec/fuzzer/AggregationFuzzerOptions.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -65,50 +66,12 @@ namespace facebook::velox::exec::test {
 ///         --seed 123 \
 ///         --v=1 \
 ///         --only "min,max"
-
 class AggregationFuzzerRunner {
  public:
-  struct Options {
-    /// Comma-separated list of functions to test. By default, all functions
-    /// are tested.
-    std::string onlyFunctions;
-
-    /// Set of functions to not test.
-    std::unordered_set<std::string> skipFunctions;
-
-    /// Set of functions whose results are non-deterministic. These can be
-    /// order-dependent functions whose results depend on the order of input
-    /// rows, or functions that return complex-typed results containing
-    /// floating-point fields.
-    ///
-    /// For some functions, the result can be transformed to a deterministic
-    /// value. If such transformation exists, it can be specified to be used for
-    /// results verification. If no transformation is specified, results are not
-    /// verified.
-    ///
-    /// Keys are function names. Values are optional transformations. "{}"
-    /// should be used to indicate the original value, i.e. "f({})"
-    /// transformation applies function 'f' to aggregation result.
-    std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>
-        customVerificationFunctions;
-
-    std::unordered_map<std::string, std::shared_ptr<InputGenerator>>
-        customInputGenerators;
-
-    /// Timestamp precision to use when generating inputs of type TIMESTAMP.
-    VectorFuzzer::Options::TimestampPrecision timestampPrecision{
-        VectorFuzzer::Options::TimestampPrecision::kNanoSeconds};
-
-    /// A set of configuration properties to use when running query plans.
-    /// Could be used to specify timezone or enable/disable settings that
-    /// affect semantics of individual aggregate functions.
-    std::unordered_map<std::string, std::string> queryConfigs;
-  };
-
   static int run(
       size_t seed,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner,
-      const Options& options) {
+      const AggregationFuzzerOptions& options) {
     return runFuzzer(
         seed, std::nullopt, std::move(referenceQueryRunner), options);
   }
@@ -119,19 +82,19 @@ class AggregationFuzzerRunner {
     return runFuzzer(0, planPath, std::move(referenceQueryRunner), {});
   }
 
- private:
+ protected:
   static int runFuzzer(
       size_t seed,
       const std::optional<std::string>& planPath,
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner,
-      const Options& options) {
+      const AggregationFuzzerOptions& options) {
     auto signatures = facebook::velox::exec::getAggregateFunctionSignatures();
     if (signatures.empty()) {
       LOG(ERROR) << "No aggregate functions registered.";
       exit(1);
     }
 
-    auto filteredSignatures = filterSignatures(
+    auto filteredSignatures = velox::test::filterSignatures(
         signatures, options.onlyFunctions, options.skipFunctions);
     if (filteredSignatures.empty()) {
       LOG(ERROR)
@@ -155,51 +118,6 @@ class AggregationFuzzerRunner {
         std::move(referenceQueryRunner));
     // Calling gtest here so that it can be recognized as tests in CI systems.
     return RUN_ALL_TESTS();
-  }
-
-  static std::unordered_set<std::string> splitNames(const std::string& names) {
-    // Parse, lower case and trim it.
-    std::vector<folly::StringPiece> nameList;
-    folly::split(',', names, nameList);
-    std::unordered_set<std::string> nameSet;
-
-    for (const auto& it : nameList) {
-      auto str = folly::trimWhitespace(it).toString();
-      folly::toLowerAscii(str);
-      nameSet.insert(str);
-    }
-    return nameSet;
-  }
-
-  // Parse the comma separated list of function names, and use it to filter the
-  // input signatures.
-  static facebook::velox::exec::AggregateFunctionSignatureMap filterSignatures(
-      const facebook::velox::exec::AggregateFunctionSignatureMap& input,
-      const std::string& onlyFunctions,
-      const std::unordered_set<std::string>& skipFunctions) {
-    if (onlyFunctions.empty() && skipFunctions.empty()) {
-      return input;
-    }
-
-    facebook::velox::exec::AggregateFunctionSignatureMap output;
-    if (!onlyFunctions.empty()) {
-      // Parse, lower case and trim it.
-      auto nameSet = splitNames(onlyFunctions);
-      for (const auto& it : input) {
-        if (nameSet.count(it.first) > 0) {
-          output.insert(it);
-        }
-      }
-    } else {
-      output = input;
-    }
-
-    for (auto s : skipFunctions) {
-      auto str = s;
-      folly::toLowerAscii(str);
-      output.erase(str);
-    }
-    return output;
   }
 };
 
