@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_type_converter OBJECT TypeParser.cpp)
+add_library(presto_type_converter TypeParser.cpp)
 
 target_link_libraries(presto_type_converter velox_type_parser)
 
