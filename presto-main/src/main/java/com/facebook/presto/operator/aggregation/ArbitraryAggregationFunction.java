@@ -85,6 +85,11 @@ public class ArbitraryAggregationFunction
                 ImmutableList.of(parseTypeSignature("T")));
     }
 
+    protected static String getAnyValueName()
+    {
+        return ANY_VALUE_NAME;
+    }
+
     @Override
     public String getDescription()
     {
