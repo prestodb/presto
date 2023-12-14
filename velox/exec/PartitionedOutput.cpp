@@ -93,6 +93,7 @@ BlockingReason Destination::flush(
       *current_->pool(),
       listener.get(),
       std::max<int64_t>(kMinMessageSize, current_->size()));
+  int64_t flushedRows = rowsInCurrent_;
   current_->flush(&stream);
   current_.reset();
   bytesInCurrent_ = 0;
@@ -102,7 +103,8 @@ BlockingReason Destination::flush(
   bool blocked = bufferManager.enqueue(
       taskId_,
       destination_,
-      std::make_unique<SerializedPage>(stream.getIOBuf(bufferReleaseFn)),
+      std::make_unique<SerializedPage>(
+          stream.getIOBuf(bufferReleaseFn), nullptr, flushedRows),
       future);
   return blocked ? BlockingReason::kWaitForConsumer
                  : BlockingReason::kNotBlocked;
