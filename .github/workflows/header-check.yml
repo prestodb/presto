@@ -1,0 +1,23 @@
+name: header-check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'presto-native-execution/**'
+
+jobs:
+  header-check:
+    runs-on: ubuntu-latest
+    container:
+      image: prestocpp/velox-check:mikesh-20210609
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - name: Update velox
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+      - name: Check license headers
+        run: |
+          cd presto-native-execution
+          make header-check
