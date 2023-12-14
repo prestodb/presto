@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/OutputBuffer.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
@@ -217,6 +218,17 @@ void releaseAfterAcknowledge(
     promise.setValue();
   }
 }
+
+uint64_t maxBufferSize(
+    const core::QueryConfig& config,
+    PartitionedOutputNode::Kind bufferKind) {
+  if (bufferKind == PartitionedOutputNode::Kind::kArbitrary) {
+    return config.maxArbitraryBufferSize();
+  }
+
+  return config.maxPartitionedOutputBufferSize();
+}
+
 } // namespace
 
 OutputBuffer::OutputBuffer(
@@ -226,8 +238,7 @@ OutputBuffer::OutputBuffer(
     uint32_t numDrivers)
     : task_(std::move(task)),
       kind_(kind),
-      maxSize_(
-          task_->queryCtx()->queryConfig().maxPartitionedOutputBufferSize()),
+      maxSize_(maxBufferSize(task_->queryCtx()->queryConfig(), kind)),
       continueSize_((maxSize_ * kContinuePct) / 100),
       arbitraryBuffer_(
           isArbitrary() ? std::make_unique<ArbitraryBuffer>() : nullptr),
@@ -295,9 +306,9 @@ void OutputBuffer::addOutputBuffersLocked(int numBuffers) {
       for (const auto& data : dataToBroadcast_) {
         buffer->enqueue(data);
       }
-    }
-    if (atEnd_ && isBroadcast()) {
-      buffer->enqueue(nullptr);
+      if (atEnd_) {
+        buffer->enqueue(nullptr);
+      }
     }
     buffers_.emplace_back(std::move(buffer));
   }

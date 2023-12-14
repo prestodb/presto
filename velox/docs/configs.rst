@@ -94,7 +94,14 @@ Generic Configuration
    * - max_page_partitioning_buffer_size
      - integer
      - 32MB
-     - The target size for a Task's buffered output. The producer Drivers are blocked when the buffered size exceeds this.
+     - The maximum size in bytes for the task's buffered output when output is partitioned using hash of partitioning keys. See PartitionedOutputNode::Kind::kPartitioned.
+       The producer Drivers are blocked when the buffered size exceeds this.
+       The Drivers are resumed when the buffered size goes below OutputBufferManager::kContinuePct (90)% of this.
+   * - max_arbitrary_buffer_size
+     - integer
+     - 32MB
+     - The maximum size in bytes for the task's buffered output when output is distributed randomly among consumers. See PartitionedOutputNode::Kind::kArbitrary.
+       The producer Drivers are blocked when the buffered size exceeds this.
        The Drivers are resumed when the buffered size goes below OutputBufferManager::kContinuePct (90)% of this.
    * - min_table_rows_for_parallel_join_build
      - integer

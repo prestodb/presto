@@ -156,6 +156,9 @@ class QueryConfig {
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "max_page_partitioning_buffer_size";
 
+  static constexpr const char* kMaxArbitraryBufferSize =
+      "max_arbitrary_buffer_size";
+
   /// Preferred size of batches in bytes to be returned by operators from
   /// Operator::getOutput. It is used when an estimate of average row size is
   /// known. Otherwise kPreferredOutputBatchRows is used.
@@ -394,13 +397,24 @@ class QueryConfig {
     return get<uint64_t>(kOrderBySpillMemoryThreshold, kDefault);
   }
 
-  // Returns the target size for a Task's buffered output. The
-  // producer Drivers are blocked when the buffered size exceeds
-  // this. The Drivers are resumed when the buffered size goes below
-  // OutputBufferManager::kContinuePct % of this.
+  /// Returns the maximum size in bytes for the task's buffered output when
+  /// output is partitioned using hash of partitioning keys. See
+  /// PartitionedOutputNode::Kind::kPartitioned.
+  ///
+  /// The producer Drivers are blocked when the buffered size exceeds
+  /// this. The Drivers are resumed when the buffered size goes below
+  /// OutputBufferManager::kContinuePct % of this.
   uint64_t maxPartitionedOutputBufferSize() const {
     static constexpr uint64_t kDefault = 32UL << 20;
     return get<uint64_t>(kMaxPartitionedOutputBufferSize, kDefault);
+  }
+
+  /// Returns the maximum size in bytes for the task's buffered output when
+  /// output is distributed randomly among consumers. See
+  /// PartitionedOutputNode::Kind::kArbitrary.
+  uint64_t maxArbitraryBufferSize() const {
+    static constexpr uint64_t kDefault = 32UL << 20;
+    return get<uint64_t>(kMaxArbitraryBufferSize, kDefault);
   }
 
   uint64_t maxLocalExchangeBufferSize() const {
