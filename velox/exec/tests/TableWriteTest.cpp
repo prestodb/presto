@@ -3125,9 +3125,9 @@ DEBUG_ONLY_TEST_P(BucketSortOnlyTableWriterTest, outputBatchRows) {
           expectedOutputCount);
     }
   } testSettings[] = {// we have 4 buckets thus 4 writers.
-                      {10000, "1000KB", 4},
+                      {10000, "1000kB", 4},
                       // when maxOutputRows = 1, 1000 rows triggers 1000 writes
-                      {1, "1KB", 1000},
+                      {1, "1kB", 1000},
                       // estimatedRowSize is ~62bytes, when maxOutputSize = 62 *
                       // 100, 1000 rows triggers ~10 writes
                       {10000, "6200B", 12}};
