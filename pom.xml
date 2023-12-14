@@ -1184,9 +1184,9 @@
             </dependency>
 
             <dependency>
-                <groupId>mysql</groupId>
-                <artifactId>mysql-connector-java</artifactId>
-                <version>5.1.48</version>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>8.3.0</version>
             </dependency>
 
             <dependency>
@@ -1728,7 +1728,7 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>testing-mysql-server-5</artifactId>
+                <artifactId>testing-mysql-server-8</artifactId>
                 <version>${dep.testing-mysql-server-5.version}</version>
             </dependency>
 
