@@ -591,6 +591,18 @@ TEST_F(Re2FunctionsTest, likePatternWildcard) {
   testLike("\nabcde\n", "%bcf%", false);
 }
 
+TEST_F(Re2FunctionsTest, likePatternEscapingEscapeChar) {
+  testLike(R"(\)", R"(\\)", '\\', true);
+  testLike(R"(\abc)", R"(\\%)", '\\', true);
+  testLike(R"(\abc)", R"(\\abc)", '\\', true);
+  testLike(R"(abc\abc)", R"(abc\\abc)", '\\', true);
+  testLike(R"(\abcdef)", R"(\\abc%)", '\\', true);
+  testLike(R"(\abcdefghijkl)", R"(\\abc%gh%)", '\\', true);
+  testLike(R"(abc\abc)", R"(%\\%)", '\\', true);
+  testLike(R"(abcdef\abcdef)", R"(%\\abc%)", '\\', true);
+  testLike(R"(abcdef\\\abcdef)", R"(%\\\\\\abc%)", '\\', true);
+}
+
 TEST_F(Re2FunctionsTest, likePatternFixed) {
   testLike("", "", true);
   testLike("abcde", "abcde", true);
