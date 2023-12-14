@@ -210,88 +210,82 @@ public final class TimeZoneKey
         return normalizeZoneId(zoneId).equals("utc");
     }
 
-    private static String normalizeZoneId(String originalZoneId)
+    public static String normalizeZoneId(String originalZoneId)
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
-        boolean startsWithEtcGmt = zoneId.startsWith("etc/gmt");
-        if (startsWithEtcGmt) {
-            String patternForEtcGmt = "etc/gmt[+-]?[0-9]{1,2}";
-            if (!zoneId.matches(patternForEtcGmt)) {
-                return zoneId;
-            }
-            zoneId = zoneId.substring(7);
-        }
+        zoneId = normalizeEtcGmtZone(zoneId);
+        zoneId = normalizeEtcZone(zoneId);
 
-        boolean startsWithEtc = zoneId.startsWith("etc/");
-        boolean startsWithEtcUtc = zoneId.startsWith("etc/utc");
-
-        if (startsWithEtc && !startsWithEtcGmt) {
-            String patternForEtc = "etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]?[0-9]{1,2}";
-            if (!zoneId.matches(patternForEtc)) {
-                return zoneId;
-            }
-            zoneId = zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "");
-        }
-
-        if (isUtcEquivalentName(zoneId)) {
+        if (isUtcEquivalentName(zoneId) || isFixedOffsetTimeZone(zoneId)) {
             return "utc";
         }
 
-        //
-        // Normalize fixed offset time zones.
-        //
-
-        // In some zones systems, these will start with UTC, GMT or UT.
-        int length = zoneId.length();
-        // (+/-)00:00 is UTC
-        if ("+00:00".equals(zoneId) || "-00:00".equals(zoneId)) {
-            return "utc";
+        if (isShortOffsetTimeZone(zoneId)) {
+            return normalizeShortOffset(zoneId);
         }
 
-        // if zoneId matches XXX:XX, it is likely +HH:mm, so just return it
-        // since only offset time zones will contain a `:` character
-        if (length == 6 && zoneId.charAt(3) == ':') {
+        if (isUtcTimeZone(originalZoneId)) {
+            return flipSign(zoneId);
+        }
+
+        return zoneId;
+    }
+
+    private static String flipSign(String zoneId) {
+        return zoneId.charAt(0) == '+' ? "-" + zoneId.substring(1) : "+" + zoneId.substring(1);
+    }
+
+    private static boolean isUtcTimeZone(String zoneId) {
+        return zoneId.contains("utc");
+    }
+
+    private static String normalizeEtcGmtZone(String zoneId)
+    {
+        if (zoneId.startsWith("etc/gmt")) {
+            String patternForEtcGmt = "etc/gmt[+-]\\d{1,2}(:\\d{1,2})?";
+            if (zoneId.matches(patternForEtcGmt)) {
+                return zoneId.substring(7);
+            }
+        }
+        return zoneId;
+    }
+
+    private static String normalizeEtcZone(String zoneId)
+    {
+        if (zoneId.startsWith("etc/") && !zoneId.startsWith("etc/gmt")) {
+            String patternForEtc = "etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{1,2}(:\\d{1,2})?";
+            if (zoneId.matches(patternForEtc)) {
+                return zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "");
+            }
+        }
+        return zoneId;
+    }
+
+    private static boolean isFixedOffsetTimeZone(String zoneId)
+    {
+        return "+00:00".equals(zoneId) || "-00:00".equals(zoneId);
+    }
+
+    private static boolean isShortOffsetTimeZone(String zoneId)
+    {
+        return zoneId.length() == 2 || zoneId.length() == 3;
+    }
+
+    private static String normalizeShortOffset(String zoneId)
+    {
+        char signChar = zoneId.charAt(0);
+        if (signChar != '+' && signChar != '-') {
             return zoneId;
         }
 
-        //
-        // Rewrite (+/-)H[H] to (+/-)HH:00
-        //
-        if (length != 2 && length != 3) {
-            return originalZoneId;
-        }
+        char hourTens = zoneId.length() == 2 ? '0' : zoneId.charAt(1);
+        char hourOnes = zoneId.length() == 2 ? zoneId.charAt(1) : zoneId.charAt(2);
 
-        // zone must start with a plus or minus sign
-        char signChar = zoneId.charAt(0);
-        if (signChar != '+' && signChar != '-') {
-            return originalZoneId;
-        }
-
-
-        if (startsWithEtcUtc) {
-            // Flip sign for Etc/GMT(+/-)H[H]
-            signChar = signChar == '-' ? '+' : '-';
-        }
-
-        // extract the tens and ones characters for the hour
-        char hourTens;
-        char hourOnes;
-        if (length == 2) {
-            hourTens = '0';
-            hourOnes = zoneId.charAt(1);
-        }
-        else {
-            hourTens = zoneId.charAt(1);
-            hourOnes = zoneId.charAt(2);
-        }
-
-        // do we have a valid hours offset time zone?
         if (!isDigit(hourTens) || !isDigit(hourOnes)) {
-            return originalZoneId;
+            return zoneId;
         }
 
-        // is this offset 0 (e.g., UTC)?
         if (hourTens == '0' && hourOnes == '0') {
             return "utc";
         }
