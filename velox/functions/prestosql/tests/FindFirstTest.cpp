@@ -194,6 +194,27 @@ TEST_F(FindFirstTest, invalidIndex) {
   auto expected = makeNullableFlatVector<int32_t>(
       {2, std::nullopt, std::nullopt, std::nullopt});
   verify("find_first(c0, c1, x -> (x > 0))", data, expected);
+
+  // All null or empty arrays.
+  data = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({
+          "[]",
+          "null",
+          "[]",
+          "null",
+      }),
+      makeFlatVector<int32_t>({2, 0, 0, 1}),
+  });
+
+  // Index 0 is not valid. Expect an error in the 3rd row.
+  VELOX_ASSERT_THROW(
+      evaluate("find_first(c0, c1, x -> (x > 0))", data),
+      "SQL array indices start at 1. Got 0.");
+
+  // Mark 3rd row null. Expect no error.
+  data->setNull(2, true);
+  expected = makeAllNullFlatVector<int32_t>(4);
+  verify("find_first(c0, c1, x -> (x > 0))", data, expected);
 }
 
 // Verify that null arrays with non-zero offsets/sizes are processed correctly.

@@ -20,6 +20,14 @@
 namespace facebook::velox::functions {
 namespace {
 
+void recordInvalidStartIndex(vector_size_t row, exec::EvalCtx& context) {
+  try {
+    VELOX_USER_FAIL("SQL array indices start at 1. Got 0.");
+  } catch (const VeloxUserError& exception) {
+    context.setVeloxExceptionError(row, std::current_exception());
+  }
+}
+
 class FindFirstFunctionBase : public exec::VectorFunction {
  public:
   bool isDefaultNullBehavior() const override {
@@ -175,11 +183,7 @@ class FindFirstFunctionBase : public exec::VectorFunction {
             rawAdjustedOffsets[row] = 0;
             rawAdjustedSizes[row] = 0;
 
-            try {
-              VELOX_USER_FAIL("SQL array indices start at 1. Got 0.");
-            } catch (const VeloxUserError& exception) {
-              context.setVeloxExceptionError(row, std::current_exception());
-            }
+            recordInvalidStartIndex(row, context);
           } else if (start > 0) {
             rawAdjustedOffsets[row] = offset + (start - 1);
             rawAdjustedSizes[row] = size - (start - 1);
@@ -271,9 +275,27 @@ class FindFirstFunction : public FindFirstFunctionBase {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     auto flatArray = prepareInputArray(args[0], rows, context);
+    auto startIndexVector = (args.size() == 3 ? args[1] : nullptr);
 
     if (flatArray->elements()->size() == 0) {
       // All arrays are NULL or empty.
+
+      if (startIndexVector != nullptr) {
+        // Check start indices for zeros.
+
+        exec::LocalDecodedVector startIndexDecoder(
+            context, *startIndexVector, rows);
+        rows.applyToSelected([&](auto row) {
+          if (flatArray->isNullAt(row) || startIndexDecoder->isNullAt(row)) {
+            return;
+          }
+          const auto start = startIndexDecoder->valueAt<int64_t>(row);
+          if (start == 0) {
+            recordInvalidStartIndex(row, context);
+          }
+        });
+      }
+
       auto localResult = BaseVector::createNullConstant(
           outputType, rows.end(), context.pool());
       context.moveOrCopyResult(localResult, rows, result);
@@ -281,7 +303,6 @@ class FindFirstFunction : public FindFirstFunctionBase {
     }
 
     auto* predicateVector = args.back()->asUnchecked<FunctionVector>();
-    auto startIndexVector = (args.size() == 3 ? args[1] : nullptr);
 
     // Collect indices of the first matching elements or NULLs if no match or
     // error.
