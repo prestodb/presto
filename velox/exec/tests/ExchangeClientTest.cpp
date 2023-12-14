@@ -264,5 +264,81 @@ TEST_F(ExchangeClientTest, multiPageFetch) {
   ASSERT_TRUE(atEnd);
 }
 
+TEST_F(ExchangeClientTest, sourceTimeout) {
+  constexpr int32_t kNumSources = 3;
+  common::testutil::TestValue::enable();
+  ExchangeClient client("test", 17, pool(), 1 << 20);
+
+  bool atEnd;
+  ContinueFuture future;
+  auto pages = client.next(1, &atEnd, &future);
+  ASSERT_EQ(0, pages.size());
+  ASSERT_FALSE(atEnd);
+
+  for (auto i = 0; i < kNumSources; ++i) {
+    client.addRemoteTaskId(fmt::format("local://{}", i));
+  }
+  client.noMoreRemoteTasks();
+
+  // Fetch a page. No page is found. All sources are fetching.
+  pages = client.next(1, &atEnd, &future);
+  EXPECT_TRUE(pages.empty());
+
+  std::mutex mutex;
+  std::unordered_set<void*> sourcesWithTimeout;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::test::LocalExchangeSource::timeout",
+      std::function<void(void*)>(([&](void* source) {
+        std::lock_guard<std::mutex> l(mutex);
+        sourcesWithTimeout.insert(source);
+      })));
+
+#ifndef NDEBUG
+  // Wait until all sources have timed out at least once.
+  constexpr int32_t kMaxIters =
+      3 * kNumSources * ExchangeClient::kDefaultMaxWaitSeconds;
+  int32_t counter = 0;
+  for (; counter < kMaxIters; ++counter) {
+    {
+      std::lock_guard<std::mutex> l(mutex);
+      if (sourcesWithTimeout.size() == kNumSources) {
+        break;
+      }
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+  ASSERT_LT(counter, kMaxIters);
+#endif
+
+  const auto& queue = client.queue();
+  for (auto i = 0; i < 10; ++i) {
+    enqueue(*queue, makePage(1'000 + i));
+  }
+
+  // Fetch one page.
+  pages = client.next(1, &atEnd, &future);
+  ASSERT_EQ(1, pages.size());
+  ASSERT_FALSE(atEnd);
+
+  // Fetch multiple pages. Each page is slightly larger than 1K bytes, hence,
+  // only 4 pages fit.
+  pages = client.next(5'000, &atEnd, &future);
+  ASSERT_EQ(4, pages.size());
+  ASSERT_FALSE(atEnd);
+
+  // Fetch the rest of the pages.
+  pages = client.next(10'000, &atEnd, &future);
+  ASSERT_EQ(5, pages.size());
+  ASSERT_FALSE(atEnd);
+
+  // Signal no-more-data for all sources.
+  for (auto i = 0; i < kNumSources; ++i) {
+    enqueue(*queue, nullptr);
+  }
+  pages = client.next(10'000, &atEnd, &future);
+  ASSERT_EQ(0, pages.size());
+  ASSERT_TRUE(atEnd);
+}
+
 } // namespace
 } // namespace facebook::velox::exec
