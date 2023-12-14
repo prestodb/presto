@@ -161,6 +161,10 @@ class FlatMapColumnReader : public ColumnReader {
       VectorPtr& result,
       const uint64_t* FOLLY_NULLABLE nulls) override;
 
+  bool isFlatMap() const override {
+    return true;
+  }
+
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes_;
@@ -193,6 +197,10 @@ class FlatMapStructEncodingColumnReader : public ColumnReader {
       uint64_t numValues,
       VectorPtr& result,
       const uint64_t* FOLLY_NULLABLE nulls) override;
+
+  bool isFlatMap() const override {
+    return true;
+  }
 
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;

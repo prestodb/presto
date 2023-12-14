@@ -17,6 +17,7 @@
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/common/IntCodecCommon.h"
 #include "velox/dwio/common/IntDecoder.h"
+#include "velox/dwio/common/ParallelFor.h"
 #include "velox/dwio/common/TypeUtils.h"
 #include "velox/dwio/common/exception/Exceptions.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
@@ -1764,6 +1765,7 @@ class StructColumnReader : public ColumnReader {
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
   std::vector<std::unique_ptr<ColumnReader>> children_;
   folly::Executor* FOLLY_NULLABLE executor_;
+  std::unique_ptr<dwio::common::ParallelFor> parallelForOnChildren_;
 
  public:
   StructColumnReader(
@@ -1816,6 +1818,9 @@ StructColumnReader::StructColumnReader(
       proto::ColumnEncoding_Kind_DIRECT,
       "Unknown encoding for StructColumnReader");
 
+  // Can parallelize if top level and doesn't have any flatmap children
+  bool canParallelize = fileType->parent() == nullptr; // isTopLevel ?
+
   // count the number of selected sub-columns
   const auto& cs = stripe.getColumnSelector();
   auto project = stripe.getRowReaderOptions().getProjectSelectedType();
@@ -1826,14 +1831,16 @@ StructColumnReader::StructColumnReader(
     // or constant reader based on its expression
     if (cs.shouldReadNode(child->id())) {
       if (i < fileType_->size()) {
-        children_.push_back(ColumnReader::build(
+        auto childColumnReader = ColumnReader::build(
             child,
             fileType_->childAt(i),
             stripe,
             streamLabels.append(folly::to<std::string>(i)),
             executor,
             decodingParallelismFactor,
-            makeCopyWithNullDecoder(flatMapContext_)));
+            makeCopyWithNullDecoder(flatMapContext_));
+        canParallelize = canParallelize && !childColumnReader->isFlatMap();
+        children_.push_back(std::move(childColumnReader));
       } else {
         children_.push_back(
             std::make_unique<NullColumnReader>(stripe, child->type()));
@@ -1842,6 +1849,12 @@ StructColumnReader::StructColumnReader(
       children_.emplace_back();
     }
   }
+
+  parallelForOnChildren_ = std::make_unique<dwio::common::ParallelFor>(
+      executor,
+      0,
+      children_.size(),
+      canParallelize ? decodingParallelismFactor : 0);
 }
 
 uint64_t StructColumnReader::skip(uint64_t numValues) {
@@ -1885,12 +1898,14 @@ void StructColumnReader::next(
     childrenVectorsPtr = &childrenVectors;
   }
 
-  for (uint64_t i = 0; i < children_.size(); ++i) {
-    auto& reader = children_[i];
-    if (reader) {
-      reader->next(numValues, (*childrenVectorsPtr)[i], nullsPtr);
-    }
-  }
+  VELOX_CHECK(parallelForOnChildren_, "ParallelFor should be initialized");
+  parallelForOnChildren_->execute(
+      [this, numValues, childrenVectorsPtr, nullsPtr](size_t i) {
+        auto& reader = children_[i];
+        if (reader) {
+          reader->next(numValues, (*childrenVectorsPtr)[i], nullsPtr);
+        }
+      });
 
   if (result) {
     result->setNullCount(nullCount);

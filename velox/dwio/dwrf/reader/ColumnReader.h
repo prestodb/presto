@@ -107,6 +107,10 @@ class ColumnReader {
     VELOX_NYI();
   }
 
+  virtual bool isFlatMap() const {
+    return false;
+  }
+
   /**
    * Create a reader for the given stripe.
    */
