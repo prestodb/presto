@@ -758,6 +758,10 @@ bool equalsFloatingPointWithEpsilonTyped(const variant& a, const variant& b) {
   if (std::isnan(f1) && std::isnan(f2)) {
     return true;
   }
+  if (std::isinf(f1)) {
+    // fabs(inf - inf) is indeterminate.
+    return f1 == f2;
+  }
 
   // Check if the numbers are really close -- needed
   // when comparing numbers near zero.

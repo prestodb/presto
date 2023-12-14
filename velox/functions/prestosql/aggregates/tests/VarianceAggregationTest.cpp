@@ -292,5 +292,22 @@ TEST_F(VarianceAggregationTest, varianceWithoutPrecisionLoss) {
   }
 }
 
+TEST_F(VarianceAggregationTest, varianceMergeEmpty) {
+  auto accumulators = makeRowVector({
+      makeRowVector({
+          makeFlatVector<int64_t>({0, 2}),
+          makeFlatVector<double>({0, 1.45419e163}),
+          makeFlatVector<double>({0, HUGE_VAL}),
+      }),
+  });
+  auto node = PlanBuilder(pool())
+                  .values({accumulators})
+                  .finalAggregation({}, {"variance(c0)"}, {{DOUBLE()}})
+                  .planNode();
+  auto expected =
+      makeRowVector({makeFlatVector(std::vector<double>({HUGE_VAL}))});
+  AssertQueryBuilder(node).assertResults(expected);
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

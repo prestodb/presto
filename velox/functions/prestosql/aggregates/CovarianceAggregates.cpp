@@ -48,7 +48,7 @@ struct RegrIndices : public CovarIndices {
 constexpr RegrIndices kRegrIndices{{1, 3, 4, 0}, 2};
 
 struct CovarAccumulator {
-  double count() const {
+  int64_t count() const {
     return count_;
   }
 
@@ -79,6 +79,13 @@ struct CovarAccumulator {
       double meanYOther,
       double c2Other) {
     if (countOther == 0) {
+      return;
+    }
+    if (count_ == 0) {
+      count_ = countOther;
+      meanX_ = meanXOther;
+      meanY_ = meanYOther;
+      c2_ = c2Other;
       return;
     }
 
@@ -215,12 +222,14 @@ struct CorrAccumulator : public CovarAccumulator {
       return;
     }
 
-    m2X_ += m2XOther +
-        count() * countOther * std::pow(meanX() - meanXOther, 2) /
-            (double)(count() + countOther);
-    m2Y_ += m2YOther +
-        count() * countOther * std::pow(meanY() - meanYOther, 2) /
-            (double)(count() + countOther);
+    if (count() == 0) {
+      m2X_ = m2XOther;
+      m2Y_ = m2YOther;
+    } else {
+      auto k = 1.0 * count() / (count() + countOther) * countOther;
+      m2X_ += m2XOther + k * std::pow(meanX() - meanXOther, 2);
+      m2Y_ += m2YOther + k * std::pow(meanY() - meanYOther, 2);
+    }
 
     CovarAccumulator::merge(countOther, meanXOther, meanYOther, c2Other);
   }
@@ -307,10 +316,13 @@ struct RegrAccumulator : public CovarAccumulator {
     if (countOther == 0) {
       return;
     }
-
-    m2X_ += m2XOther +
-        count() / (count() + countOther) * countOther *
-            std::pow(meanX() - meanXOther, 2);
+    if (count() == 0) {
+      m2X_ = m2XOther;
+    } else {
+      m2X_ += m2XOther +
+          1.0 * count() / (count() + countOther) * countOther *
+              std::pow(meanX() - meanXOther, 2);
+    }
     CovarAccumulator::merge(countOther, meanXOther, meanYOther, c2Other);
   }
 

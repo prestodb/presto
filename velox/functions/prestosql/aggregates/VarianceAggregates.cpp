@@ -38,7 +38,7 @@ struct VarianceAccumulator {
   VarianceAccumulator(int64_t count, double value)
       : count_(count), mean_(value), m2_(0.0) {}
 
-  double count() const {
+  int64_t count() const {
     return count_;
   }
 
@@ -63,6 +63,12 @@ struct VarianceAccumulator {
 
   void merge(int64_t countOther, double meanOther, double m2Other) {
     if (countOther == 0) {
+      return;
+    }
+    if (count_ == 0) {
+      count_ = countOther;
+      mean_ = meanOther;
+      m2_ = m2Other;
       return;
     }
     int64_t newCount = countOther + count();
