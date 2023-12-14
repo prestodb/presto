@@ -25,8 +25,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
@@ -192,7 +190,7 @@ public class PrestoSparkSessionProperties
                         "Error Codes to retry with increase memory settings",
                         VARCHAR,
                         List.class,
-                        ImmutableList.of(EXCEEDED_LOCAL_MEMORY_LIMIT.name(), SPARK_EXECUTOR_OOM.name()),
+                        prestoSparkConfig.getRetryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes(),
                         false,
                         value -> Splitter.on(',').trimResults().omitEmptyStrings().splitToList(value.toString().toUpperCase()),
                         value -> value),
