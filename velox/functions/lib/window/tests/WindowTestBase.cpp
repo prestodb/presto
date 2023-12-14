@@ -139,7 +139,7 @@ RowVectorPtr WindowTestBase::makeRandomInputVector(vector_size_t size) {
       {makeRandomInputVector(BIGINT(), size, 0.2),
        makeRandomInputVector(VARCHAR(), size, 0.3),
        makeFlatVector<int64_t>(size, genRandomFrameValue),
-       makeFlatVector<int64_t>(size, genRandomFrameValue)});
+       makeFlatVector<int32_t>(size, genRandomFrameValue)});
 }
 
 void WindowTestBase::testWindowFunction(

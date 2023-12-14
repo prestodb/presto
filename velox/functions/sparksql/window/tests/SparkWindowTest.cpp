@@ -25,6 +25,7 @@ namespace {
 
 static const std::vector<std::string> kSparkWindowFunctions = {
     std::string("nth_value(c0, 1)"),
+    std::string("nth_value(c0, c3)"),
     std::string("row_number()"),
     std::string("rank()"),
     std::string("dense_rank()")};

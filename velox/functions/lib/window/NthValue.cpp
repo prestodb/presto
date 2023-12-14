@@ -32,34 +32,35 @@ class NthValueFunction : public exec::WindowFunction {
       : WindowFunction(resultType, pool, nullptr), ignoreNulls_(ignoreNulls) {
     VELOX_CHECK_EQ(args.size(), 2);
     VELOX_CHECK_NULL(args[0].constantValue);
+    auto offsetType = args[1].type;
+    VELOX_USER_CHECK(
+        (offsetType->isInteger() || offsetType->isBigint()),
+        "Invalid offset type: {}",
+        offsetType->toString());
     valueIndex_ = args[0].index.value();
-    if (args[1].type->isInteger()) {
-      VELOX_USER_CHECK(
-          args[1].constantValue, "Offset must be literal for spark");
+    if (args[1].constantValue) {
       if (args[1].constantValue->isNullAt(0)) {
         isConstantOffsetNull_ = true;
         return;
       }
-      constantOffset_ =
-          args[1]
-              .constantValue->template as<ConstantVector<int32_t>>()
-              ->valueAt(0);
-      VELOX_USER_CHECK_GE(
-          constantOffset_.value(), 1, "Offset must be at least 1");
-    } else {
-      if (args[1].constantValue) {
-        if (args[1].constantValue->isNullAt(0)) {
-          isConstantOffsetNull_ = true;
-          return;
-        }
+      if (offsetType->isInteger()) {
+        constantOffset_ =
+            args[1]
+                .constantValue->template as<ConstantVector<int32_t>>()
+                ->valueAt(0);
+      } else {
         constantOffset_ =
             args[1]
                 .constantValue->template as<ConstantVector<int64_t>>()
                 ->valueAt(0);
-        VELOX_USER_CHECK_GE(
-            constantOffset_.value(), 1, "Offset must be at least 1");
+      }
+      VELOX_USER_CHECK_GE(
+          constantOffset_.value(), 1, "Offset must be at least 1");
+    } else {
+      offsetIndex_ = args[1].index.value();
+      if (offsetType->isInteger()) {
+        offsets_ = BaseVector::create<FlatVector<int32_t>>(INTEGER(), 0, pool);
       } else {
-        offsetIndex_ = args[1].index.value();
         offsets_ = BaseVector::create<FlatVector<int64_t>>(BIGINT(), 0, pool);
       }
     }
@@ -149,8 +150,7 @@ class NthValueFunction : public exec::WindowFunction {
       const vector_size_t* frameStarts,
       const vector_size_t* frameEnds,
       vector_size_t leastFrame) {
-    vector_size_t constantOffsetValue =
-        static_cast<vector_size_t>(constantOffset_.value());
+    auto constantOffsetValue = constantOffset_.value();
     if (ignoreNulls) {
       auto rawNulls = nulls_->as<uint64_t>();
       validRows.applyToSelected([&](auto i) {
@@ -169,18 +169,19 @@ class NthValueFunction : public exec::WindowFunction {
     }
   }
 
-  template <bool ignoreNulls>
+  template <bool ignoreNulls, typename T>
   void setRowNumbersApplyLoop(
       const SelectivityVector& validRows,
       const vector_size_t* frameStarts,
       const vector_size_t* frameEnds,
       vector_size_t leastFrame = 0) {
     auto rawNulls = nulls_->as<uint64_t>();
+    auto offsetsVector = offsets_->as<FlatVector<T>>();
     validRows.applyToSelected([&](auto i) {
-      if (offsets_->isNullAt(i)) {
+      if (offsetsVector->isNullAt(i)) {
         rowNumbers_[i] = kNullRow;
       } else {
-        vector_size_t offset = offsets_->valueAt(i);
+        T offset = offsetsVector->valueAt(i);
         VELOX_USER_CHECK_GE(offset, 1, "Offset must be at least 1");
         if constexpr (ignoreNulls) {
           setRowNumberIgnoreNulls(
@@ -204,10 +205,21 @@ class NthValueFunction : public exec::WindowFunction {
         offsetIndex_, partitionOffset_, numRows, 0, offsets_);
 
     if (ignoreNulls) {
-      setRowNumbersApplyLoop<true>(
-          validRows, frameStarts, frameEnds, leastFrame);
+      if (offsets_->type()->isInteger()) {
+        setRowNumbersApplyLoop<true, int32_t>(
+            validRows, frameStarts, frameEnds, leastFrame);
+      } else {
+        setRowNumbersApplyLoop<true, int64_t>(
+            validRows, frameStarts, frameEnds, leastFrame);
+      }
     } else {
-      setRowNumbersApplyLoop<false>(validRows, frameStarts, frameEnds);
+      if (offsets_->type()->isInteger()) {
+        setRowNumbersApplyLoop<false, int32_t>(
+            validRows, frameStarts, frameEnds);
+      } else {
+        setRowNumbersApplyLoop<false, int64_t>(
+            validRows, frameStarts, frameEnds);
+      }
     }
   }
 
@@ -222,27 +234,29 @@ class NthValueFunction : public exec::WindowFunction {
     invalidRows_.applyToSelected([&](auto i) { rowNumbers_[i] = kNullRow; });
   }
 
+  template <typename T>
   inline void setRowNumber(
       vector_size_t i,
       const vector_size_t* frameStarts,
       const vector_size_t* frameEnds,
-      vector_size_t offset) {
+      T offset) {
     auto frameStart = frameStarts[i];
     auto frameEnd = frameEnds[i];
     auto rowNumber = frameStart + offset - 1;
     rowNumbers_[i] = rowNumber <= frameEnd ? rowNumber : kNullRow;
   }
 
+  template <typename T>
   inline void setRowNumberIgnoreNulls(
       vector_size_t i,
       const uint64_t* rawNulls,
       vector_size_t leastFrame,
       const vector_size_t* frameStarts,
       const vector_size_t* frameEnds,
-      vector_size_t offset) {
+      T offset) {
     auto frameStart = frameStarts[i];
     auto frameEnd = frameEnds[i];
-    vector_size_t nonNullCount = 0;
+    T nonNullCount = 0;
     for (auto j = frameStart; j <= frameEnd; j++) {
       if (!bits::isBitSet(rawNulls, j - leastFrame)) {
         ++nonNullCount;
@@ -271,7 +285,7 @@ class NthValueFunction : public exec::WindowFunction {
 
   // This vector is used to extract values of the offset argument column
   // (if not a constant offset value).
-  FlatVectorPtr<int64_t> offsets_;
+  VectorPtr offsets_ = nullptr;
 
   // This offset tracks how far along the partition rows have been output.
   // This can be used to optimize reading offset column values corresponding
