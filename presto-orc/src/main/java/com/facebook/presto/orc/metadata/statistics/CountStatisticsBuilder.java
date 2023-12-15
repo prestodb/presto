@@ -20,7 +20,7 @@ public class CountStatisticsBuilder
         implements StatisticsBuilder
 {
     private long nonNullValueCount;
-    private long size;
+    private long storageSize;
     private long rawSize;
 
     @Override
@@ -49,7 +49,7 @@ public class CountStatisticsBuilder
     @Override
     public ColumnStatistics buildColumnStatistics()
     {
-        return new ColumnStatistics(nonNullValueCount, null);
+        return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }
 
     @Override
@@ -59,8 +59,8 @@ public class CountStatisticsBuilder
     }
 
     @Override
-    public void incrementSize(long size)
+    public void incrementSize(long storageSize)
     {
-        this.size += size;
+        this.storageSize += storageSize;
     }
 }

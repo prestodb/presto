@@ -69,6 +69,7 @@ public abstract class DictionaryColumnWriter
     protected final Optional<DwrfDataEncryptor> dwrfEncryptor;
     protected final OrcEncoding orcEncoding;
     protected final MetadataWriter metadataWriter;
+    protected long rawSize;
 
     private final CompressedMetadataWriter compressedMetadataWriter;
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
@@ -140,6 +141,8 @@ public abstract class DictionaryColumnWriter
     protected abstract void beginDataRowGroup();
 
     protected abstract void movePresentStreamToDirectWriter(PresentOutputStream presentStream);
+
+    protected abstract void updateRawSizeInDirectWriter(long rawSize);
 
     protected abstract void writeDataStreams(
             int rowGroupValueCount,
@@ -254,6 +257,7 @@ public abstract class DictionaryColumnWriter
             if (!success) {
                 return resetDirectWriter(directWriter);
             }
+            updateRawSizeInDirectWriter(rowGroup.getColumnStatistics().getRawSize());
             directWriter.finishRowGroup();
         }
 
@@ -280,6 +284,7 @@ public abstract class DictionaryColumnWriter
         // Conversion to DirectStream succeeded, Transfer the present stream to direct writer and assign
         // this a new PresentStream, so one writer is responsible for one present stream.
         movePresentStreamToDirectWriter(presentStream);
+        updateRawSizeInDirectWriter(rawSize);
         presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
 
         // free the dictionary
@@ -350,7 +355,9 @@ public abstract class DictionaryColumnWriter
             rowGroupBuilder.addIndexes(getDictionaryEntries() - 1, rowGroupIndexes, rowGroupOffset);
             rowGroupOffset = 0;
         }
-        return blockStatistics.getRawBytesIncludingNulls();
+        long rawSize = blockStatistics.getRawBytesIncludingNulls();
+        this.rawSize += rawSize;
+        return rawSize;
     }
 
     @Override
@@ -377,6 +384,8 @@ public abstract class DictionaryColumnWriter
         }
         rowGroupOffset = 0;
         rowGroupBuilder.reset();
+        rawSize = 0;
+
         return ImmutableMap.of(column, statistics);
     }
 
@@ -548,6 +557,7 @@ public abstract class DictionaryColumnWriter
         rawBytesEstimate = 0;
         totalValueCount = 0;
         totalNonNullValueCount = 0;
+        rawSize = 0;
 
         if (directEncoded) {
             getDirectColumnWriter().reset();
