@@ -25,7 +25,7 @@ public class BooleanStatisticsBuilder
         implements StatisticsBuilder
 {
     private long nonNullValueCount;
-    private long size;
+    private long storageSize;
     private long rawSize;
     private long trueValueCount;
 
@@ -68,9 +68,9 @@ public class BooleanStatisticsBuilder
     {
         Optional<BooleanStatistics> booleanStatistics = buildBooleanStatistics();
         if (booleanStatistics.isPresent()) {
-            return new BooleanColumnStatistics(nonNullValueCount, null, booleanStatistics.get());
+            return new BooleanColumnStatistics(nonNullValueCount, null, rawSize, storageSize, booleanStatistics.get());
         }
-        return new ColumnStatistics(nonNullValueCount, null);
+        return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }
 
     @Override
@@ -80,9 +80,9 @@ public class BooleanStatisticsBuilder
     }
 
     @Override
-    public void incrementSize(long size)
+    public void incrementSize(long storageSize)
     {
-        this.size += size;
+        this.storageSize += storageSize;
     }
 
     public static Optional<BooleanStatistics> mergeBooleanStatistics(List<ColumnStatistics> stats)

@@ -58,7 +58,7 @@ public class ByteColumnWriter
     private final boolean compressed;
     private final ByteOutputStream dataStream;
     private final PresentOutputStream presentStream;
-    private CompressedMetadataWriter metadataWriter;
+    private final CompressedMetadataWriter metadataWriter;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
     private long columnStatisticsRetainedSizeInBytes;
@@ -125,7 +125,7 @@ public class ByteColumnWriter
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null, rawSize, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;
