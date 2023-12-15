@@ -40,14 +40,19 @@ public class TestPage
     @Test
     public void testGetRegion()
     {
-        assertEquals(new Page(10).getRegion(5, 5).getPositionCount(), 5);
+        Page page = new Page(10);
+        Page region = page.getRegion(0, 10);
+        assertEquals(page.getRegion(5, 5).getPositionCount(), 5);
+        assertEquals(region.getPositionCount(), 10);
+        assertEquals(page, region);
     }
 
     @Test
     public void testGetEmptyRegion()
     {
+        Page page = new Page(10);
         assertEquals(new Page(0).getRegion(0, 0).getPositionCount(), 0);
-        assertEquals(new Page(10).getRegion(5, 0).getPositionCount(), 0);
+        assertEquals(page.getRegion(5, 0).getPositionCount(), 0);
     }
 
     @Test(expectedExceptions = IndexOutOfBoundsException.class, expectedExceptionsMessageRegExp = "Invalid position 1 and length 1 in page with 0 positions")
