@@ -15,7 +15,9 @@
  */
 
 #include "velox/common/base/SpillStats.h"
+#include "velox/common/base/Counters.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/base/SuccinctPrinter.h"
 
 namespace facebook::velox::common {
@@ -220,6 +222,9 @@ void updateGlobalSpillRunStats(uint64_t numRuns) {
 void updateGlobalSpillAppendStats(
     uint64_t numRows,
     uint64_t serializationTimeUs) {
+  RECORD_METRIC_VALUE(kMetricSpilledRowsCount, numRows);
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kMetricSpillSerializationTimeMs, serializationTimeUs / 1'000);
   auto statsLocked = localSpillStats().wlock();
   statsLocked->spilledRows += numRows;
   statsLocked->spillSerializationTimeUs += serializationTimeUs;
@@ -230,10 +235,12 @@ void incrementGlobalSpilledPartitionStats() {
 }
 
 void updateGlobalSpillFillTime(uint64_t timeUs) {
+  RECORD_HISTOGRAM_METRIC_VALUE(kMetricSpillFillTimeMs, timeUs / 1'000);
   localSpillStats().wlock()->spillFillTimeUs += timeUs;
 }
 
 void updateGlobalSpillSortTime(uint64_t timeUs) {
+  RECORD_HISTOGRAM_METRIC_VALUE(kMetricSpillSortTimeMs, timeUs / 1'000);
   localSpillStats().wlock()->spillSortTimeUs += timeUs;
 }
 
@@ -241,6 +248,10 @@ void updateGlobalSpillWriteStats(
     uint64_t spilledBytes,
     uint64_t flushTimeUs,
     uint64_t writeTimeUs) {
+  RECORD_METRIC_VALUE(kMetricSpillDiskWritesCount);
+  RECORD_METRIC_VALUE(kMetricSpilledBytes, spilledBytes);
+  RECORD_HISTOGRAM_METRIC_VALUE(kMetricSpillFlushTimeMs, flushTimeUs / 1'000);
+  RECORD_HISTOGRAM_METRIC_VALUE(kMetricSpillWriteTimeMs, writeTimeUs / 1'000);
   auto statsLocked = localSpillStats().wlock();
   ++statsLocked->spillDiskWrites;
   statsLocked->spilledBytes += spilledBytes;
@@ -249,11 +260,13 @@ void updateGlobalSpillWriteStats(
 }
 
 void updateGlobalSpillMemoryBytes(uint64_t spilledInputBytes) {
+  RECORD_METRIC_VALUE(kMetricSpilledInputBytes, spilledInputBytes);
   auto statsLocked = localSpillStats().wlock();
   statsLocked->spilledInputBytes += spilledInputBytes;
 }
 
 void incrementGlobalSpilledFiles() {
+  RECORD_METRIC_VALUE(kMetricSpilledFilesCount);
   ++localSpillStats().wlock()->spilledFiles;
 }
 

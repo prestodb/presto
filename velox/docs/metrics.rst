@@ -137,8 +137,50 @@ Spilling
      - Description
    * - spill_max_level_exceeded_count
      - Count
-     - The number of times that a spillable operator hits the max spill level
+     - The number of times that a spill-able operator hits the max spill level
        limit.
+   * - spill_input_bytes
+     - Sum
+     - The number of bytes in memory to spill.
+   * - spill_bytes
+     - Sum
+     - The number of bytes spilled to disk which can be the number of compressed
+       bytes if compression is enabled.
+   * - spill_rows_count
+     - Count
+     - The number of spilled rows.
+   * - spill_files_count
+     - Count
+     - The number of spilled files.
+   * - spill_fill_time_ms
+     - Histogram
+     - The distribution of the amount of time spent on filling rows for spilling
+       in range of [0, 600s] with 20 buckets. It is configured to report the
+       latency at P50, P90, P99, and P100 percentiles.
+   * - spill_sort_time_ms
+     - Histogram
+     - The distribution of the amount of time spent on sorting rows for spilling
+       in range of [0, 600s] with 20 buckets. It is configured to report the
+       latency at P50, P90, P99, and P100 percentiles.
+   * - spill_serialization_time_ms
+     - Histogram
+     - The distribution of the amount of time spent on serializing rows for
+       spilling in range of [0, 600s] with 20 buckets. It is configured to report
+       the latency at P50, P90, P99, and P100 percentiles.
+   * - spill_disk_writes_count
+     - Count
+     - The number of disk writes to spill rows.
+   * - spill_flush_time_ms
+     - Histogram
+     - The distribution of the amount of time spent on copy out serialized
+       rows for disk write in range of [0, 600s] with 20 buckets. It is configured
+       to report the latency at P50, P90, P99, and P100 percentiles. Note:  If
+       compression is enabled, this includes the compression time.
+   * - spill_write_time_ms
+     - Histogram
+     - The distribution of the amount of time spent on writing spilled rows to
+       disk in range of [0, 600s] with 20 buckets. It is configured to report the
+       latency at P50, P90, P99, and P100 percentiles.
 
 Hive Connector
 --------------
