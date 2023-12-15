@@ -91,6 +91,12 @@ class Window : public Operator {
   // Creates WindowFunction and frame objects for this operator.
   void createWindowFunctions();
 
+  // Converts WindowNode::Frame to Window::WindowFrame.
+  WindowFrame createWindowFrame(
+      const std::shared_ptr<const core::WindowNode>& windowNode,
+      const core::WindowNode::Frame& frame,
+      const RowTypePtr& inputType);
+
   // Creates the buffers for peer and frame row
   // indices to send in window function apply invocations.
   void createPeerAndFrameBuffers();
@@ -129,11 +135,6 @@ class Window : public Operator {
   vector_size_t callApplyLoop(
       vector_size_t numOutputRows,
       const RowVectorPtr& result);
-
-  // Converts WindowNode::Frame to Window::WindowFrame.
-  WindowFrame createWindowFrame(
-      core::WindowNode::Frame frame,
-      const RowTypePtr& inputType);
 
   // Update frame bounds for kPreceding, kFollowing row frames.
   void updateKRowsFrameBounds(
@@ -179,12 +180,6 @@ class Window : public Operator {
   // It represents the frame spec for the function computation.
   std::vector<WindowFrame> windowFrames_;
 
-  // Number of input rows.
-  vector_size_t numRows_ = 0;
-
-  // Number of rows that be fit into an output block.
-  vector_size_t numRowsPerOutput_;
-
   // The following 4 Buffers are used to pass peer and frame start and
   // end values to the WindowFunction::apply method. These
   // buffers can be allocated once and reused across all the getOutput
@@ -208,6 +203,12 @@ class Window : public Operator {
   // output values.
   // There is one SelectivityVector per window function.
   std::vector<SelectivityVector> validFrames_;
+
+  // Number of input rows.
+  vector_size_t numRows_ = 0;
+
+  // Number of rows that be fit into an output block.
+  vector_size_t numRowsPerOutput_;
 
   // Number of rows output from the WindowOperator so far. The rows
   // are output in the same order of the pointers in sortedRows. This

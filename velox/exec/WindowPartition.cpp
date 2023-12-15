@@ -171,4 +171,165 @@ std::pair<vector_size_t, vector_size_t> WindowPartition::computePeerBuffers(
   return {peerStart, peerEnd};
 }
 
+// Searches for start[frameColumn] in orderByColumn.
+// The search could return the first or last row matching start[frameColumn].
+// If a matching row is not present, then the index of the first row greater
+// than value is returned if the rows are in ascending order. For descending,
+// first row smaller than value is returned.
+// The search starts with a binary search for a starting point that is the
+// largest value < frame bound or (smallest value > frame bound for
+// descending). After finding that point it does a sequential search for the
+// required value.
+template <bool isAscending>
+vector_size_t WindowPartition::searchFrameValue(
+    bool firstMatch,
+    vector_size_t start,
+    vector_size_t end,
+    vector_size_t currentRow,
+    column_index_t orderByColumn,
+    column_index_t frameColumn) const {
+  auto current = partition_[currentRow];
+  bool crossedBound = false;
+  vector_size_t begin = start;
+  vector_size_t finish = end;
+  int compareResult;
+  while (finish - begin >= 2) {
+    auto mid = (begin + finish) / 2;
+    compareResult =
+        data_->compare(partition_[mid], current, orderByColumn, frameColumn);
+    if constexpr (isAscending) {
+      crossedBound = compareResult >= 0;
+    } else {
+      crossedBound = compareResult <= 0;
+    }
+
+    if (crossedBound) {
+      finish = mid;
+    } else {
+      begin = mid;
+    }
+  }
+
+  return linearSearchFrameValue<isAscending>(
+      firstMatch, begin, end, currentRow, orderByColumn, frameColumn);
+}
+
+template <bool isAscending>
+vector_size_t WindowPartition::linearSearchFrameValue(
+    bool firstMatch,
+    vector_size_t start,
+    vector_size_t end,
+    vector_size_t currentRow,
+    column_index_t orderByColumn,
+    column_index_t frameColumn) const {
+  auto current = partition_[currentRow];
+  bool crossedBound = false;
+  for (vector_size_t i = start; i < end; ++i) {
+    auto compareResult =
+        data_->compare(partition_[i], current, orderByColumn, frameColumn);
+
+    // The bound value was found. Return if firstMatch required.
+    // If the last match is required, then we need to find the first row that
+    // crosses the bound and return the prior row.
+    if (compareResult == 0) {
+      if (firstMatch) {
+        return i;
+      }
+    }
+
+    if constexpr (isAscending) {
+      crossedBound = compareResult > 0;
+    } else {
+      crossedBound = compareResult < 0;
+    }
+    // Bound is crossed. Last match needs the previous row.
+    // But for first row matches, this is the first
+    // row that has crossed, but not equals boundary (The equal boundary case
+    // is covered by the condition above). So the bound matches this row itself.
+    if (crossedBound) {
+      if (firstMatch) {
+        return i;
+      } else {
+        return i - 1;
+      }
+    }
+  }
+
+  // Return a row beyond the partition boundary. The logic to determine valid
+  // frames handles the out of bound and empty frames from this value.
+  return end == numRows() ? numRows() + 1 : -1;
+}
+
+template <bool isAscending>
+void WindowPartition::updateKRangeFrameBounds(
+    bool firstMatch,
+    bool isPreceding,
+    vector_size_t startRow,
+    vector_size_t numRows,
+    column_index_t frameColumn,
+    const vector_size_t* rawPeerBounds,
+    vector_size_t* rawFrameBounds) const {
+  column_index_t orderByColumn = sortKeyInfo_[0].first;
+  RowColumn frameRowColumn = data_->columnAt(frameColumn);
+
+  vector_size_t start = 0;
+  vector_size_t end;
+  for (auto i = 0; i < numRows; i++) {
+    auto currentRow = startRow + i;
+    bool frameIsNull = RowContainer::isNullAt(
+        partition_[currentRow],
+        frameRowColumn.nullByte(),
+        frameRowColumn.nullMask());
+
+    // For NULL values, CURRENT ROW semantics apply. So get frame bound from
+    // peer buffer.
+    if (frameIsNull) {
+      rawFrameBounds[i] = rawPeerBounds[i];
+    } else {
+      // If the search is for a preceding bound then rows between
+      // [0, currentRow] are examined. For following bounds, rows between
+      // [currentRow, numRows()) are checked.
+      if (isPreceding) {
+        start = 0;
+        end = currentRow + 1;
+      } else {
+        start = currentRow;
+        end = partition_.size();
+      }
+      rawFrameBounds[i] = searchFrameValue<isAscending>(
+          firstMatch, start, end, currentRow, orderByColumn, frameColumn);
+    }
+  }
+}
+
+void WindowPartition::computeKRangeFrameBounds(
+    bool isStartBound,
+    bool isPreceding,
+    column_index_t frameColumn,
+    vector_size_t startRow,
+    vector_size_t numRows,
+    const vector_size_t* rawPeerBuffer,
+    vector_size_t* rawFrameBounds) const {
+  // Start bounds require first match. End bounds require last match.
+  if (sortKeyInfo_[0].second.isAscending()) {
+    updateKRangeFrameBounds<true>(
+        isStartBound,
+        isPreceding,
+        startRow,
+        numRows,
+        frameColumn,
+        rawPeerBuffer,
+        rawFrameBounds);
+  } else {
+    updateKRangeFrameBounds<false>(
+        isStartBound,
+        isPreceding,
+        startRow,
+        numRows,
+        frameColumn,
+        rawPeerBuffer,
+        rawFrameBounds);
+  }
+}
+
 } // namespace facebook::velox::exec

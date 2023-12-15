@@ -140,6 +140,18 @@ TEST_F(WindowTest, variableWidthAggregate) {
   testWindowFunction(input, "max(c2)", kOverClauses);
 }
 
+// Tests function with k RANGE PRECEDING (FOLLOWING) frames.
+TEST_F(WindowTest, rangeFrames) {
+  for (const auto& function : kAggregateFunctions) {
+    // count function is skipped as DuckDB returns inconsistent results
+    // with Velox for rows with empty frames. Velox expects empty frames to
+    // return 0, but DuckDB returns null.
+    if (function != "count(c2)") {
+      testKRangeFrames(function);
+    }
+  }
+}
+
 TEST_F(WindowTest, spill) {
   const vector_size_t size = 1'000;
   auto data = makeRowVector(

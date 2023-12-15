@@ -1339,6 +1339,21 @@ WindowNode::WindowNode(
         "Sorting keys must be unique and not overlap with partitioning keys. Found duplicate key: {}",
         key->name());
   }
+
+  for (const auto& windowFunction : windowFunctions_) {
+    if (windowFunction.frame.type == WindowType::kRange) {
+      if (windowFunction.frame.startValue || windowFunction.frame.endValue) {
+        // This is RANGE frame with a k limit bound like
+        // RANGE BETWEEN 5 PRECEDING AND CURRENT ROW.
+        // Such frames require that the ORDER BY have a single sorting key
+        // for comparison.
+        VELOX_USER_CHECK_EQ(
+            sortingKeys_.size(),
+            1,
+            "Window frame of type RANGE PRECEDING or FOLLOWING requires single sorting key in ORDER BY.");
+      }
+    }
+  }
 }
 
 void WindowNode::addDetails(std::stringstream& stream) const {

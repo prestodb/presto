@@ -107,8 +107,58 @@ class WindowPartition {
       vector_size_t* rawPeerStarts,
       vector_size_t* rawPeerEnds) const;
 
+  /// Sets in 'rawFrameBounds' the frame boundary for the k range
+  /// preceding/following frame.
+  /// @param isStartBound start or end boundary of the frame.
+  /// @param isPreceding preceding or following boundary.
+  /// @param frameColumn column which has the range boundary for that row.
+  /// @param startRow starting row in the partition for this buffer computation.
+  /// @param numRows number of rows to compute buffer for.
+  /// @param rawPeerStarts buffer of peer row values for each row. If the frame
+  /// column is null, then its peer row value is the frame boundary.
+  void computeKRangeFrameBounds(
+      bool isStartBound,
+      bool isPreceding,
+      column_index_t frameColumn,
+      vector_size_t startRow,
+      vector_size_t numRows,
+      const vector_size_t* rawPeerStarts,
+      vector_size_t* rawFrameBounds) const;
+
  private:
   bool compareRowsWithSortKeys(const char* lhs, const char* rhs) const;
+
+  // Searches for 'currentRow[frameColumn]' in 'orderByColumn' of rows between
+  // 'start' and 'end' in the partition. 'firstMatch' specifies if first or last
+  // row is matched.
+  template <bool isAscending>
+  vector_size_t searchFrameValue(
+      bool firstMatch,
+      vector_size_t start,
+      vector_size_t end,
+      vector_size_t currentRow,
+      column_index_t orderByColumn,
+      column_index_t frameColumn) const;
+
+  template <bool isAscending>
+  vector_size_t linearSearchFrameValue(
+      bool firstMatch,
+      vector_size_t start,
+      vector_size_t end,
+      vector_size_t currentRow,
+      column_index_t orderByColumn,
+      column_index_t frameColumn) const;
+
+  // Iterates over 'numBlockRows' and searches frame value for each row.
+  template <bool isAscending>
+  void updateKRangeFrameBounds(
+      bool firstMatch,
+      bool isPreceding,
+      vector_size_t startRow,
+      vector_size_t numRows,
+      column_index_t frameColumn,
+      const vector_size_t* rawPeerBounds,
+      vector_size_t* rawFrameBounds) const;
 
   // The RowContainer associated with the partition.
   // It is owned by the WindowBuild that creates the partition.

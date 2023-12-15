@@ -742,12 +742,12 @@ TEST_F(PlanNodeToStringTest, window) {
   plan = PlanBuilder()
              .tableScan(ROW({"a", "b", "c"}, {VARCHAR(), BIGINT(), BIGINT()}))
              .window({"window1(c) over (partition by a "
-                      "range between current row and b following)"})
+                      "rows between current row and b following)"})
              .planNode();
   ASSERT_EQ("-- Window\n", plan->toString());
   ASSERT_EQ(
       "-- Window[partition by [a] "
-      "w0 := window1(ROW[\"c\"]) RANGE between CURRENT ROW and b FOLLOWING] "
+      "w0 := window1(ROW[\"c\"]) ROWS between CURRENT ROW and b FOLLOWING] "
       "-> a:VARCHAR, b:BIGINT, c:BIGINT, w0:BIGINT\n",
       plan->toString(true, false));
 
@@ -779,12 +779,12 @@ TEST_F(PlanNodeToStringTest, window) {
   plan = PlanBuilder()
              .tableScan(ROW({"a", "b", "c"}, {VARCHAR(), BIGINT(), BIGINT()}))
              .streamingWindow({"window1(c) over (partition by a "
-                               "range between current row and b following)"})
+                               "rows between current row and b following)"})
              .planNode();
   ASSERT_EQ("-- Window\n", plan->toString());
   ASSERT_EQ(
       "-- Window[STREAMING partition by [a] "
-      "w0 := window1(ROW[\"c\"]) RANGE between CURRENT ROW and b FOLLOWING] "
+      "w0 := window1(ROW[\"c\"]) ROWS between CURRENT ROW and b FOLLOWING] "
       "-> a:VARCHAR, b:BIGINT, c:BIGINT, w0:BIGINT\n",
       plan->toString(true, false));
 }

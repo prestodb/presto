@@ -62,6 +62,8 @@ More details:
 
   If no frame is specified, a default frame of RANGE UNBOUNDED PRECEDING is used.
 
+  More details about window frames can be found at :doc:`/develop/window`
+
 SQL Example
 ___________
 
