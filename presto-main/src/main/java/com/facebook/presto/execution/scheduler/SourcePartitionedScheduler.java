@@ -19,6 +19,7 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.EmptySplit;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
@@ -310,7 +312,8 @@ public class SourcePartitionedScheduler
             }
 
             // assign the splits with successful placements
-            overallNewTasks.addAll(assignSplits(splitAssignment, noMoreSplitsNotification));
+            int retryOnGracefulShutdown = 3;
+            overallNewTasks.addAll(assignSplits(splitAssignment, noMoreSplitsNotification, splitPlacementPolicy, retryOnGracefulShutdown));
 
             // Assert that "placement future is not done" implies "pendingSplits is not empty".
             // The other way around is not true. One obvious reason is (un)lucky timing, where the placement is unblocked between `computeAssignments` and this line.
@@ -462,7 +465,7 @@ public class SourcePartitionedScheduler
         whenFinishedOrNewLifespanAdded.set(null);
     }
 
-    private Set<RemoteTask> assignSplits(Multimap<InternalNode, Split> splitAssignment, Multimap<InternalNode, Lifespan> noMoreSplitsNotification)
+    private Set<RemoteTask> assignSplits(Multimap<InternalNode, Split> splitAssignment, Multimap<InternalNode, Lifespan> noMoreSplitsNotification, SplitPlacementPolicy splitPlacementPolicy, int retryOnGracefulShutdown)
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
 
@@ -481,11 +484,27 @@ public class SourcePartitionedScheduler
                 noMoreSplits.putAll(partitionedNode, noMoreSplitsNotification.get(node));
             }
 
-            newTasks.addAll(stage.scheduleSplits(
-                    node,
-                    nodes,
-                    splits,
-                    noMoreSplits.build()));
+            try {
+                Set<RemoteTask> tasksScheduled = stage.scheduleSplits(
+                        node,
+                        nodes,
+                        splits,
+                        noMoreSplits.build());
+                newTasks.addAll(tasksScheduled);
+            }
+            catch (PrestoException e) {
+                // this assumes it to be not grouped execution. i.e. LifeSpan = TaskWide
+                if (noMoreSplitsNotification.isEmpty() && retryOnGracefulShutdown > 0) {
+                    Set<Split> splitSet = splitAssignment.values().stream().collect(Collectors.toSet());
+                    SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(splitSet);
+                    Multimap<InternalNode, Split> newSplitAssignment = splitPlacementResult.getAssignments();
+                    return assignSplits(newSplitAssignment, noMoreSplitsNotification, splitPlacementPolicy, retryOnGracefulShutdown - 1);
+                }
+                else {
+                    // re-raise the exception
+                    throw e;
+                }
+            }
         }
         return newTasks.build();
     }

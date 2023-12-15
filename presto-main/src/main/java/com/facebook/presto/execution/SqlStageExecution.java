@@ -524,13 +524,7 @@ public final class SqlStageExecution
 
             if (isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled) {
                 if (!nodeNotShutDown) {
-                    Optional<InternalNode> firstActiveNode = nodes.stream().filter(n -> n.getNodeIdentifier() != node.getNodeIdentifier()).findFirst();
-                    if (!firstActiveNode.isPresent()) {
-                        throw new RuntimeException(String.format("Unable to find the next active nodes to assign the retried splits"));
-                    }
-                    Collection<RemoteTask> tasksToAssignRetriedSplits = this.tasks.get(firstActiveNode.get());
-                    boolean retriedNodeNotShutDown = tasksToAssignRetriedSplits.iterator().next().addSplits(splits);
-                    checkState(retriedNodeNotShutDown, "The node to assign the retried splits also shutdown");
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "node is shutting down when scheduleSplits is called");
                 }
             }
         }
