@@ -17,7 +17,7 @@
 
 #include "velox/exec/WindowFunction.h"
 #include "velox/expression/SignatureBinder.h"
-#include "velox/type/Type.h"
+#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
 namespace facebook::velox::exec::test {
 
@@ -105,6 +105,29 @@ TEST_F(WindowFunctionRegistryTest, mixedCaseName) {
   testResolveWindowFunction("window_FUNC", {BIGINT(), DOUBLE()}, BIGINT());
   testResolveWindowFunction(
       "window_fUNC_alias", {BIGINT(), DOUBLE()}, BIGINT());
+}
+
+TEST_F(WindowFunctionRegistryTest, prefix) {
+  // Remove all functions and check for no entries.
+  exec::windowFunctions().clear();
+  EXPECT_EQ(0, exec::windowFunctions().size());
+
+  // Register without prefix and memorize function maps.
+  window::prestosql::registerAllWindowFunctions();
+  const auto windowFuncMapBase = exec::windowFunctions();
+
+  // Remove all functions and check for no entries.
+  exec::windowFunctions().clear();
+  EXPECT_EQ(0, exec::windowFunctions().size());
+
+  // Register with prefix and check all functions have the prefix.
+  const std::string prefix{"test.abc_schema."};
+  window::prestosql::registerAllWindowFunctions(prefix);
+  auto& windowFuncMap = exec::windowFunctions();
+  for (const auto& entry : windowFuncMap) {
+    EXPECT_EQ(prefix, entry.first.substr(0, prefix.size()));
+    EXPECT_EQ(1, windowFuncMapBase.count(entry.first.substr(prefix.size())));
+  }
 }
 
 } // namespace facebook::velox::exec::test

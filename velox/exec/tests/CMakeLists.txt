@@ -132,6 +132,7 @@ target_link_libraries(
   velox_type
   velox_vector
   velox_vector_fuzzer
+  velox_window
   Boost::atomic
   Boost::context
   Boost::date_time
