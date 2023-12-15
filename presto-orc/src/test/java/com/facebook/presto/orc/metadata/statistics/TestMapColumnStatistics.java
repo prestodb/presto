@@ -43,21 +43,21 @@ public class TestMapColumnStatistics
     public void testEqualsHashCode(KeyInfo[] keys)
     {
         MapColumnStatisticsBuilder builder1 = new MapColumnStatisticsBuilder(true);
-        builder1.addMapStatistics(keys[0], new ColumnStatistics(3L, null));
-        builder1.addMapStatistics(keys[1], new ColumnStatistics(5L, null));
+        builder1.addMapStatistics(keys[0], new ColumnStatistics(3L, null, 1L, 2L));
+        builder1.addMapStatistics(keys[1], new ColumnStatistics(5L, null, 1L, 2L));
         builder1.increaseValueCount(8);
         ColumnStatistics columnStatistics1 = builder1.buildColumnStatistics();
 
         // same as builder1
         MapColumnStatisticsBuilder builder2 = new MapColumnStatisticsBuilder(true);
-        builder2.addMapStatistics(keys[0], new ColumnStatistics(3L, null));
-        builder2.addMapStatistics(keys[1], new ColumnStatistics(5L, null));
+        builder2.addMapStatistics(keys[0], new ColumnStatistics(3L, null, 1L, 2L));
+        builder2.addMapStatistics(keys[1], new ColumnStatistics(5L, null, 1L, 2L));
         builder2.increaseValueCount(8);
         ColumnStatistics columnStatistics2 = builder2.buildColumnStatistics();
 
         MapColumnStatisticsBuilder builder3 = new MapColumnStatisticsBuilder(true);
-        builder3.addMapStatistics(keys[1], new ColumnStatistics(5L, null));
-        builder3.addMapStatistics(keys[2], new ColumnStatistics(6L, null));
+        builder3.addMapStatistics(keys[1], new ColumnStatistics(5L, null, 1L, 2L));
+        builder3.addMapStatistics(keys[2], new ColumnStatistics(6L, null, 1L, 2L));
         builder3.increaseValueCount(11);
         ColumnStatistics columnStatistics3 = builder3.buildColumnStatistics();
 

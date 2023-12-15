@@ -138,6 +138,11 @@ public class LongColumnWriter
         presentStream = updatedPresentStream;
     }
 
+    void updateRawSize(long rawSize)
+    {
+        statisticsBuilder.incrementRawSize(rawSize);
+    }
+
     @Override
     public long writeBlock(Block block)
     {
