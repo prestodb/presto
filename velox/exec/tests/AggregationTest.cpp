@@ -3019,8 +3019,8 @@ TEST_F(AggregationTest, noAggregationsNoGroupingKeys) {
 // Reproduces hang in partial distinct aggregation described in
 // https://github.com/facebookincubator/velox/issues/7967 .
 TEST_F(AggregationTest, distinctHang) {
-  static const int32_t kMin = std::numeric_limits<int32_t>::min();
-  static const int32_t kMax = std::numeric_limits<int32_t>::max();
+  static const int64_t kMin = std::numeric_limits<int32_t>::min();
+  static const int64_t kMax = std::numeric_limits<int32_t>::max();
   auto data = makeRowVector({
       makeFlatVector<int64_t>(
           5'000,
