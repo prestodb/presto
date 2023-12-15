@@ -286,7 +286,7 @@ public class SourcePartitionedScheduler
                 }
 
                 // calculate placements for splits
-                SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(scheduleGroup.pendingSplits);
+                SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(scheduleGroup.pendingSplits, false);
                 splitAssignment = splitPlacementResult.getAssignments();
 
                 // remove splits with successful placements
@@ -496,7 +496,7 @@ public class SourcePartitionedScheduler
                 // this assumes it to be not grouped execution. i.e. LifeSpan = TaskWide
                 if (noMoreSplitsNotification.isEmpty() && retryOnGracefulShutdown > 0) {
                     Set<Split> splitSet = splitAssignment.values().stream().collect(Collectors.toSet());
-                    SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(splitSet);
+                    SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(splitSet, true);
                     Multimap<InternalNode, Split> newSplitAssignment = splitPlacementResult.getAssignments();
                     return assignSplits(newSplitAssignment, noMoreSplitsNotification, splitPlacementPolicy, retryOnGracefulShutdown - 1);
                 }

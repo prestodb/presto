@@ -36,8 +36,10 @@ import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
@@ -242,6 +244,14 @@ public class SimpleTtlNodeSelector
                 toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask)) : immediateFuture(null);
 
         return new SplitPlacementResult(blocked, assignment.build());
+    }
+
+    @Override
+    public SplitPlacementResult randomizedComputeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
+    {
+        Multimap<InternalNode, Split> assignment = HashMultimap.create();
+        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
+        return new SplitPlacementResult(blocked, assignment);
     }
 
     @Override

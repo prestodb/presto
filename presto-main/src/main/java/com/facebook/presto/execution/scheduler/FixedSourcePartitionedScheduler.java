@@ -313,7 +313,7 @@ public class FixedSourcePartitionedScheduler
         }
 
         @Override
-        public SplitPlacementResult computeAssignments(Set<Split> splits)
+        public SplitPlacementResult computeAssignments(Set<Split> splits, boolean gracefulRetry)
         {
             return nodeSelector.computeAssignments(splits, remoteTasks.get(), bucketNodeMap);
         }

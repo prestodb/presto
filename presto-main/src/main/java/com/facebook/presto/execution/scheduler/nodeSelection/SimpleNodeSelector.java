@@ -227,6 +227,58 @@ public class SimpleNodeSelector
     }
 
     @Override
+    public SplitPlacementResult randomizedComputeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
+    {
+        Multimap<InternalNode, Split> assignment = HashMultimap.create();
+        NodeMap nodeMap = this.nodeMap.get().get();
+        List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
+        NodeSelection randomNodeSelection = new RandomNodeSelection(eligibleNodes, minCandidates);
+
+        NodeProvider nodeProvider = nodeMap.getActiveNodeProvider(nodeSelectionHashStrategy);
+        for (Split split : splits) {
+            List<InternalNode> candidateNodes;
+            switch (split.getNodeSelectionStrategy()) {
+                case HARD_AFFINITY:
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
+                    break;
+                case SOFT_AFFINITY:
+                    // Using all nodes for soft affinity scheduling with modular hashing because otherwise temporarily down nodes would trigger too much rehashing
+                    if (nodeSelectionHashStrategy == MODULAR_HASHING) {
+                        nodeProvider = new ModularHashingNodeProvider(nodeMap.getAllNodes());
+                    }
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
+                    candidateNodes = ImmutableList.<InternalNode>builder()
+                            .addAll(candidateNodes)
+                            .addAll(randomNodeSelection.pickNodes(split))
+                            .build();
+                    break;
+                case NO_PREFERENCE:
+                    candidateNodes = randomNodeSelection.pickNodes(split);
+                    break;
+                default:
+                    throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", split.getNodeSelectionStrategy()));
+            }
+
+            if (candidateNodes.isEmpty()) {
+                log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getActiveNodes());
+                throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+            }
+
+            split = new Split(
+                    split.getConnectorId(),
+                    split.getTransactionHandle(),
+                    split.getConnectorSplit(),
+                    split.getLifespan(),
+                    new SplitContext(false));
+
+            InternalNode chosenNode = candidateNodes.get(0);
+            assignment.put(chosenNode, split);
+        }
+        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
+        return new SplitPlacementResult(blocked, assignment);
+    }
+
+    @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);

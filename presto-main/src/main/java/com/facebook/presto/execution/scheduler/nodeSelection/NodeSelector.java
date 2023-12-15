@@ -50,6 +50,7 @@ public interface NodeSelector
      */
     SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks);
 
+    SplitPlacementResult randomizedComputeAssignments(Set<Split> splits, List<RemoteTask> existingTasks);
     /**
      * Identifies the nodes for running the specified splits based on a precomputed fixed partitioning.
      *

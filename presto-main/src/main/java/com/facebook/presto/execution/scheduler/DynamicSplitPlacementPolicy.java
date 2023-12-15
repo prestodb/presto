@@ -37,9 +37,14 @@ public class DynamicSplitPlacementPolicy
     }
 
     @Override
-    public SplitPlacementResult computeAssignments(Set<Split> splits)
+    public SplitPlacementResult computeAssignments(Set<Split> splits, boolean gracefulRetry)
     {
-        return nodeSelector.computeAssignments(splits, remoteTasks.get());
+        if (gracefulRetry) {
+            return nodeSelector.randomizedComputeAssignments(splits, remoteTasks.get());
+        }
+        else {
+            return nodeSelector.computeAssignments(splits, remoteTasks.get());
+        }
     }
 
     @Override
