@@ -113,4 +113,5 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, noThreadContextSet) {
 #if IS_BUILDING_WITH_ASAN() == 0
   ASSERT_DEATH((*nullpointer = 6), ".*ThreadDebugInfo object not found.*");
 #endif
+  folly::compiler_must_not_elide(nullpointer);
 }
