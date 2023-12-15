@@ -121,10 +121,11 @@ public final class HttpRequestSessionContext
 
     private final Optional<SessionPropertyManager> sessionPropertyManager;
     private final Optional<Tracer> tracer;
+    private final String prestoVersion;
 
-    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, String prestoVersion)
     {
-        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty());
+        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty(), prestoVersion);
     }
 
     /**
@@ -136,7 +137,12 @@ public final class HttpRequestSessionContext
      * session context creation stage.
      * @throws WebApplicationException
      */
-    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager)
+    public HttpRequestSessionContext(
+            HttpServletRequest servletRequest,
+            SqlParserOptions sqlParserOptions,
+            TracerProvider tracerProvider,
+            Optional<SessionPropertyManager> sessionPropertyManager,
+            String prestoVersion)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -234,6 +240,7 @@ public final class HttpRequestSessionContext
                 traceToken = Optional.ofNullable(tracerHandle.getTraceToken());
             }
         }
+        this.prestoVersion = trimEmptyToNull(prestoVersion);
     }
 
     private static Map<String, String> getRequestHeaders(HttpServletRequest servletRequest)
@@ -514,6 +521,12 @@ public final class HttpRequestSessionContext
     public Optional<Tracer> getTracer()
     {
         return tracer;
+    }
+
+    @Override
+    public String getPrestoVersion()
+    {
+        return prestoVersion;
     }
 
     /**

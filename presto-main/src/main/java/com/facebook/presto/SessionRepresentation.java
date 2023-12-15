@@ -68,6 +68,7 @@ public final class SessionRepresentation
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
+    private final String prestoVersion;
 
     @ThriftConstructor
     @JsonCreator
@@ -94,7 +95,8 @@ public final class SessionRepresentation
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("roles") Map<String, SelectedRole> roles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
-            @JsonProperty("sessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+            @JsonProperty("sessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            @JsonProperty("prestoVersion") String prestoVersion)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -117,6 +119,7 @@ public final class SessionRepresentation
         this.roles = ImmutableMap.copyOf(roles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         this.sessionFunctions = ImmutableMap.copyOf(sessionFunctions);
+        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
 
         ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         for (Entry<ConnectorId, Map<String, String>> entry : catalogProperties.entrySet()) {
@@ -292,6 +295,13 @@ public final class SessionRepresentation
         return sessionFunctions;
     }
 
+    @ThriftField(24)
+    @JsonProperty
+    public String getPrestoVersion()
+    {
+        return prestoVersion;
+    }
+
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return toSession(sessionPropertyManager, emptyMap(), emptyMap());
@@ -336,6 +346,7 @@ public final class SessionRepresentation
                 sessionFunctions,
                 Optional.empty(),
                 // we use NOOP to create a session from the representation as worker does not require warning collectors
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                prestoVersion);
     }
 }

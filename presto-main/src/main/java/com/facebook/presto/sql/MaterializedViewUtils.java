@@ -103,6 +103,7 @@ public final class MaterializedViewUtils
                 .setUserAgent(session.getUserAgent().orElse(null))
                 .setClientInfo(session.getClientInfo().orElse(null))
                 .setStartTime(session.getStartTime())
+                .setPrestoVersion(session.getPrestoVersion())
                 .build();
     }
 

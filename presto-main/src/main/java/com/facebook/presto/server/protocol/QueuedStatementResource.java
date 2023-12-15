@@ -24,6 +24,7 @@ import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.ServerConfig;
@@ -133,6 +134,8 @@ public class QueuedStatementResource
 
     private final QueryBlockingRateLimiter queryRateLimiter;
 
+    private final String prestoVersion;
+
     @Inject
     public QueuedStatementResource(
             DispatchManager dispatchManager,
@@ -142,7 +145,8 @@ public class QueuedStatementResource
             ServerConfig serverConfig,
             TracerProviderManager tracerProviderManager,
             SessionPropertyManager sessionPropertyManager,
-            QueryBlockingRateLimiter queryRateLimiter)
+            QueryBlockingRateLimiter queryRateLimiter,
+            InternalNodeManager nodeManager)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryResultsProvider = queryResultsProvider;
@@ -171,6 +175,7 @@ public class QueuedStatementResource
                 200,
                 200,
                 MILLISECONDS);
+        this.prestoVersion = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getVersion();
     }
 
     @Managed
@@ -220,7 +225,8 @@ public class QueuedStatementResource
                 servletRequest,
                 sqlParserOptions,
                 tracerProviderManager.getTracerProvider(),
-                Optional.of(sessionPropertyManager));
+                Optional.of(sessionPropertyManager),
+                prestoVersion);
         Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, 0);
         queries.put(query.getQueryId(), query);
 

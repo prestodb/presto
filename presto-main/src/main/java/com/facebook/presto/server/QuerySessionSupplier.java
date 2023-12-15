@@ -99,7 +99,8 @@ public class QuerySessionSupplier
                 .setClientTags(context.getClientTags())
                 .setTraceToken(context.getTraceToken())
                 .setResourceEstimates(context.getResourceEstimates())
-                .setTracer(context.getTracer());
+                .setTracer(context.getTracer())
+                .setPrestoVersion(context.getPrestoVersion());
 
         if (forcedSessionTimeZone.isPresent()) {
             sessionBuilder.setTimeZoneKey(forcedSessionTimeZone.get());

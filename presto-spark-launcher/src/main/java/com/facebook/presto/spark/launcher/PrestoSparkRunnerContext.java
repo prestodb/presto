@@ -45,6 +45,7 @@ public class PrestoSparkRunnerContext
     private final Optional<String> queryStatusInfoOutputLocation;
     private final Optional<String> queryDataOutputLocation;
     private final List<ExecutionStrategy> executionStrategies;
+    private final String prestoVersion;
 
     public PrestoSparkRunnerContext(
             String user,
@@ -66,7 +67,8 @@ public class PrestoSparkRunnerContext
             Optional<String> sparkQueueName,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            List<ExecutionStrategy> executionStrategies)
+            List<ExecutionStrategy> executionStrategies,
+            String prestoVersion)
     {
         this.user = user;
         this.principal = principal;
@@ -88,6 +90,7 @@ public class PrestoSparkRunnerContext
         this.queryStatusInfoOutputLocation = queryStatusInfoOutputLocation;
         this.queryDataOutputLocation = queryDataOutputLocation;
         this.executionStrategies = executionStrategies;
+        this.prestoVersion = prestoVersion;
     }
 
     public String getUser()
@@ -190,6 +193,11 @@ public class PrestoSparkRunnerContext
         return executionStrategies;
     }
 
+    public String getPrestoVersion()
+    {
+        return prestoVersion;
+    }
+
     public static class Builder
     {
         private String user;
@@ -212,6 +220,7 @@ public class PrestoSparkRunnerContext
         private Optional<String> queryStatusInfoOutputLocation;
         private Optional<String> queryDataOutputLocation;
         private List<ExecutionStrategy> executionStrategies;
+        private String prestoVersion;
 
         public Builder(PrestoSparkRunnerContext prestoSparkRunnerContext)
         {
@@ -235,6 +244,7 @@ public class PrestoSparkRunnerContext
             this.queryStatusInfoOutputLocation = prestoSparkRunnerContext.getQueryStatusInfoOutputLocation();
             this.queryDataOutputLocation = prestoSparkRunnerContext.getQueryDataOutputLocation();
             this.executionStrategies = prestoSparkRunnerContext.getExecutionStrategies();
+            this.prestoVersion = prestoSparkRunnerContext.getPrestoVersion();
         }
 
         public Builder setExecutionStrategies(List<ExecutionStrategy> executionStrategies)
@@ -265,7 +275,8 @@ public class PrestoSparkRunnerContext
                     sparkQueueName,
                     queryStatusInfoOutputLocation,
                     queryDataOutputLocation,
-                    executionStrategies);
+                    executionStrategies,
+                    prestoVersion);
         }
     }
 }

@@ -192,4 +192,10 @@ public class FullConnectorSession
     {
         return session.getWarningCollector();
     }
+
+    @Override
+    public String getPrestoVersion()
+    {
+        return session.getPrestoVersion();
+    }
 }

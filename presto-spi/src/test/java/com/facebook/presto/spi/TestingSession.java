@@ -123,6 +123,12 @@ public final class TestingSession
         {
             return WarningCollector.NOOP;
         }
+
+        @Override
+        public String getPrestoVersion()
+        {
+            return "test_version";
+        }
     };
 
     private TestingSession() {}

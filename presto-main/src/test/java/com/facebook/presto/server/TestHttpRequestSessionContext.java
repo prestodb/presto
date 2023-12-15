@@ -108,7 +108,7 @@ public class TestHttpRequestSessionContext
                 "testRemote",
                 ImmutableMap.of());
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions(), "test_version");
         assertEquals(context.getSource(), "testSource");
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
@@ -148,7 +148,7 @@ public class TestHttpRequestSessionContext
                         .build(),
                 "testRemote",
                 ImmutableMap.of());
-        new HttpRequestSessionContext(request, new SqlParserOptions());
+        new HttpRequestSessionContext(request, new SqlParserOptions(), "test_version");
     }
 
     @Test
@@ -170,7 +170,7 @@ public class TestHttpRequestSessionContext
         SqlParserOptions options = new SqlParserOptions();
         options.allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class));
 
-        new HttpRequestSessionContext(request, options);
+        new HttpRequestSessionContext(request, options, "test_version");
     }
 
     @Test
@@ -199,7 +199,7 @@ public class TestHttpRequestSessionContext
                 "testRemote",
                 ImmutableMap.of());
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions(), "test_version");
         assertEquals(
                 context.getIdentity().getExtraCredentials(),
                 ImmutableMap.builder()

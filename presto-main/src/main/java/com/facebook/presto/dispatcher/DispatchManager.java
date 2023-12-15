@@ -340,6 +340,7 @@ public class DispatchManager
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
                         .setSource(sessionContext.getSource())
+                        .setPrestoVersion(sessionContext.getPrestoVersion())
                         .build();
             }
             DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, Optional.empty(), throwable);

@@ -207,6 +207,12 @@ public class TestingConnectorSession
     }
 
     @Override
+    public String getPrestoVersion()
+    {
+        return "test_version";
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

@@ -1198,6 +1198,12 @@ public abstract class AbstractTestHiveClient
             {
                 return WarningCollector.NOOP;
             }
+
+            @Override
+            public String getPrestoVersion()
+            {
+                return "test_version";
+            }
         };
     }
 

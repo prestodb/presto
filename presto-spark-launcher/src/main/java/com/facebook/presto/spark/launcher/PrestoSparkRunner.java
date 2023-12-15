@@ -97,7 +97,8 @@ public class PrestoSparkRunner
             Optional<String> traceToken,
             Optional<String> sparkQueueName,
             Optional<String> queryStatusInfoOutputLocation,
-            Optional<String> queryDataOutputLocation)
+            Optional<String> queryDataOutputLocation,
+            String prestoVersion)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
         PrestoSparkRunnerContext prestoSparkRunnerContext = new PrestoSparkRunnerContext(
@@ -120,7 +121,8 @@ public class PrestoSparkRunner
                 sparkQueueName,
                 queryStatusInfoOutputLocation,
                 queryDataOutputLocation,
-                getExecutionStrategies(sessionProperties));
+                getExecutionStrategies(sessionProperties),
+                prestoVersion);
         try {
             execute(queryExecutionFactory, prestoSparkRunnerContext);
         }
@@ -162,7 +164,8 @@ public class PrestoSparkRunner
                 Optional.empty(),
                 prestoSparkRunnerContext.getSessionProperties(),
                 prestoSparkRunnerContext.getCatalogSessionProperties(),
-                prestoSparkRunnerContext.getTraceToken());
+                prestoSparkRunnerContext.getTraceToken(),
+                prestoSparkRunnerContext.getPrestoVersion());
 
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),

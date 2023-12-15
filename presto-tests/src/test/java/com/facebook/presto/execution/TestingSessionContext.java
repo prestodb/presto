@@ -158,4 +158,10 @@ public class TestingSessionContext
     {
         return session.getSessionFunctions();
     }
+
+    @Override
+    public String getPrestoVersion()
+    {
+        return session.getPrestoVersion();
+    }
 }

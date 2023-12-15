@@ -80,4 +80,6 @@ public interface SessionContext
     boolean supportClientTransaction();
 
     Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions();
+
+    String getPrestoVersion();
 }

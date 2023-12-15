@@ -2823,7 +2823,8 @@ class StatementAnalyzer
                         .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                         .setUserAgent(session.getUserAgent().orElse(null))
                         .setClientInfo(session.getClientInfo().orElse(null))
-                        .setStartTime(session.getStartTime());
+                        .setStartTime(session.getStartTime())
+                        .setPrestoVersion(session.getPrestoVersion());
                 session.getConnectorProperties().forEach((connectorId, properties) -> properties.forEach((k, v) -> viewSessionBuilder.setConnectionProperty(connectorId, k, v)));
                 Session viewSession = viewSessionBuilder.build();
                 StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);

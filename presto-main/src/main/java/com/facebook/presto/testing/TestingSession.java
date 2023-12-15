@@ -68,7 +68,8 @@ public final class TestingSession
                 .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")
-                .setUserAgent("agent");
+                .setUserAgent("agent")
+                .setPrestoVersion("test_version");
     }
 
     public static Catalog createBogusTestingCatalog(String catalogName)

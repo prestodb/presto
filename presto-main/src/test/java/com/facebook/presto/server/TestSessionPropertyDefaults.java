@@ -65,6 +65,7 @@ public class TestSessionPropertyDefaults
                 .setSystemProperty(HASH_PARTITION_COUNT, "43")
                 .setSystemProperty("override", "should be overridden")
                 .setCatalogSessionProperty("testCatalog", "explicit_set", "explicit_set")
+                .setPrestoVersion("test_version")
                 .build();
 
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()

@@ -86,7 +86,7 @@ public class TestQuerySessionSupplier
     @Test
     public void testCreateSession()
     {
-        HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST, new SqlParserOptions());
+        HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST, new SqlParserOptions(), "test_version");
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
@@ -133,7 +133,7 @@ public class TestQuerySessionSupplier
                         .build(),
                 "remoteAddress",
                 ImmutableMap.of());
-        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1, new SqlParserOptions());
+        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1, new SqlParserOptions(), "test_version");
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
         HttpServletRequest request2 = new MockHttpServletRequest(
@@ -143,7 +143,7 @@ public class TestQuerySessionSupplier
                         .build(),
                 "remoteAddress",
                 ImmutableMap.of());
-        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2, new SqlParserOptions());
+        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2, new SqlParserOptions(), "test_version");
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
@@ -157,7 +157,7 @@ public class TestQuerySessionSupplier
                         .build(),
                 "testRemote",
                 ImmutableMap.of());
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions(), "test_version");
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),

@@ -619,7 +619,8 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 session.getSystemProperties(),
                 catalogSessionProperties.build(),
-                session.getTraceToken());
+                session.getTraceToken(),
+                session.getPrestoVersion());
     }
 
     @Override

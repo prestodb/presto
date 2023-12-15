@@ -63,4 +63,6 @@ public interface ConnectorSession
     }
 
     WarningCollector getWarningCollector();
+
+    String getPrestoVersion();
 }

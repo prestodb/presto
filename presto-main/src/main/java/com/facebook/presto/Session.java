@@ -93,6 +93,7 @@ public final class Session
     private final AccessControlContext context;
     private final Optional<Tracer> tracer;
     private final WarningCollector warningCollector;
+    private final String prestoVersion;
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
     private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
@@ -123,7 +124,8 @@ public final class Session
             Map<String, String> preparedStatements,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             Optional<Tracer> tracer,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            String prestoVersion)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -164,6 +166,7 @@ public final class Session
         this.context = new AccessControlContext(queryId, clientInfo, source);
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
     }
 
     public QueryId getQueryId()
@@ -319,6 +322,11 @@ public final class Session
         return warningCollector;
     }
 
+    public String getPrestoVersion()
+    {
+        return prestoVersion;
+    }
+
     public OptimizerInformationCollector getOptimizerInformationCollector()
     {
         return optimizerInformationCollector;
@@ -427,7 +435,8 @@ public final class Session
                 preparedStatements,
                 sessionFunctions,
                 tracer,
-                warningCollector);
+                warningCollector,
+                prestoVersion);
     }
 
     public Session withDefaultProperties(
@@ -482,7 +491,8 @@ public final class Session
                 preparedStatements,
                 sessionFunctions,
                 tracer,
-                warningCollector);
+                warningCollector,
+                prestoVersion);
     }
 
     public ConnectorSession toConnectorSession()
@@ -544,7 +554,8 @@ public final class Session
                 unprocessedCatalogProperties,
                 identity.getRoles(),
                 preparedStatements,
-                sessionFunctions);
+                sessionFunctions,
+                prestoVersion);
     }
 
     @Override
@@ -607,6 +618,7 @@ public final class Session
         private final Map<String, String> preparedStatements = new HashMap<>();
         private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = new HashMap<>();
         private WarningCollector warningCollector = WarningCollector.NOOP;
+        private String prestoVersion;
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -639,6 +651,7 @@ public final class Session
             this.sessionFunctions.putAll(session.sessionFunctions);
             this.tracer = requireNonNull(session.tracer, "tracer is null");
             this.warningCollector = requireNonNull(session.warningCollector, "warningCollector is null");
+            this.prestoVersion = requireNonNull(session.prestoVersion, "prestoVersion is null");
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -789,6 +802,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setPrestoVersion(String prestoVersion)
+        {
+            this.prestoVersion = prestoVersion;
+            return this;
+        }
+
         public <T> T getSystemProperty(String name, Class<T> type)
         {
             return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
@@ -820,7 +839,8 @@ public final class Session
                     preparedStatements,
                     sessionFunctions,
                     tracer,
-                    warningCollector);
+                    warningCollector,
+                    prestoVersion);
         }
     }
 

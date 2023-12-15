@@ -94,7 +94,8 @@ public class PrestoSparkLauncherCommand
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    "test_version");
         }
     }
 }

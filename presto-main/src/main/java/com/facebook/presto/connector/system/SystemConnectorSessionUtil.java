@@ -44,6 +44,7 @@ public final class SystemConnectorSessionUtil
                 .setTimeZoneKey(session.getSqlFunctionProperties().getTimeZoneKey())
                 .setLocale(session.getLocale())
                 .setStartTime(session.getStartTime())
+                .setPrestoVersion(session.getPrestoVersion())
                 .build();
     }
 }
