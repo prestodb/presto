@@ -103,11 +103,11 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        if (statistics.getNumNulls() == rowCount) {
+        if (statistics.isNumNullsSet() && statistics.getNumNulls() == rowCount) {
             return Domain.onlyNull(type);
         }
 
-        boolean hasNullValue = statistics.getNumNulls() != 0L;
+        boolean hasNullValue = !statistics.isNumNullsSet() || statistics.getNumNulls() != 0L;
 
         if (!statistics.hasNonNullValue() || statistics.genericGetMin() == null || statistics.genericGetMax() == null) {
             return Domain.create(ValueSet.all(type), hasNullValue);
