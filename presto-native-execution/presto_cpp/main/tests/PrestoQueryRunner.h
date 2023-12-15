@@ -17,7 +17,7 @@
 #include <folly/io/async/EventBaseThread.h>
 #include "presto_cpp/main/http/HttpClient.h"
 #include "velox/common/memory/Memory.h"
-#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
+#include "velox/exec/tests/utils/ReferenceQueryRunner.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::presto::test {

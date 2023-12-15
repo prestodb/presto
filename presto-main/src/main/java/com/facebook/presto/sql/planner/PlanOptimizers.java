@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
+import com.facebook.presto.sql.planner.iterative.rule.LeftJoinWithArrayContainsToEquiJoinCondition;
 import com.facebook.presto.sql.planner.iterative.rule.MergeDuplicateAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
@@ -526,6 +527,13 @@ public class PlanOptimizers
                                 new CrossJoinWithOrFilterToInnerJoin(metadata.getFunctionAndTypeManager()),
                                 new CrossJoinWithArrayContainsToInnerJoin(metadata.getFunctionAndTypeManager()),
                                 new CrossJoinWithArrayNotContainsToAntiJoin(metadata, metadata.getFunctionAndTypeManager()))),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new LeftJoinWithArrayContainsToEquiJoinCondition(metadata.getFunctionAndTypeManager()))),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,

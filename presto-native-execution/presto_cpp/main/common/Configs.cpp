@@ -734,7 +734,7 @@ BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
 
 void BaseVeloxQueryConfig::updateLoadedValues(
     std::unordered_map<std::string, std::string>& values) const {
-  /// Update velox config with values from presto system config.
+  // Update velox config with values from presto system config.
   auto systemConfig = SystemConfig::instance();
 
   using namespace velox::core;
