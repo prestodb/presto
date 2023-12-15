@@ -465,7 +465,7 @@ public final class HttpRemoteTask
 
         // only add pending split if not done
         TaskState state = getTaskStatus().getState();
-        if (state.isDone()) {
+        if (state == GRACEFUL_SHUTDOWN) {
             // The Remote Host for this HttpRemoteTask is preempted.
             return false;
         }
