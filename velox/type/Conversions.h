@@ -103,11 +103,12 @@ struct Converter<
       bool negative = false;
       // Setting decimalPoint flag
       bool decimalPoint = false;
-      if (v[0] == '-') {
+      if (v[0] == '-' || v[0] == '+') {
         if (len == 1) {
-          VELOX_USER_FAIL("Cannot cast an '-' string to an integral value.");
+          VELOX_USER_FAIL(
+              "Cannot cast an '{}' string to an integral value.", v[0]);
         }
-        negative = true;
+        negative = v[0] == '-';
         index = 1;
       }
       if (negative) {

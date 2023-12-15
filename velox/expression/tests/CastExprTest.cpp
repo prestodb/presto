@@ -1150,8 +1150,6 @@ TEST_F(CastExprTest, primitiveInvalidCornerCases) {
         "bigint", {"infinity"}, "Encountered a non-digit character");
     testInvalidCast<std::string>(
         "bigint", {"nan"}, "Encountered a non-digit character");
-    testInvalidCast<std::string>(
-        "tinyint", {"+1"}, "Encountered a non-digit character");
   }
 
   // To floating-point.
@@ -1253,7 +1251,9 @@ TEST_F(CastExprTest, primitiveValidCornerCases) {
     testCast<std::string, int8_t>("tinyint", {"1.23444"}, {1});
     testCast<std::string, int8_t>("tinyint", {".2355"}, {0});
     testCast<std::string, int8_t>("tinyint", {"-1.8"}, {-1});
+    testCast<std::string, int8_t>("tinyint", {"+1"}, {1});
     testCast<std::string, int8_t>("tinyint", {"1."}, {1});
+    testCast<std::string, int8_t>("tinyint", {"-1"}, {-1});
     testCast<std::string, int8_t>("tinyint", {"-1."}, {-1});
     testCast<std::string, int8_t>("tinyint", {"0."}, {0});
     testCast<std::string, int8_t>("tinyint", {"."}, {0});

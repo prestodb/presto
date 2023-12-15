@@ -290,7 +290,9 @@ Valid examples if cast_to_int_by_truncate=true
   SELECT cast('12345.67' as bigint); -- 12345
   SELECT cast('1.2' as tinyint); -- 1
   SELECT cast('-1.8' as tinyint); -- -1
+  SELECT cast('+1' as tinyint); -- 1
   SELECT cast('1.' as tinyint); -- 1
+  SELECT cast('-1' as tinyint); -- -1
   SELECT cast('-1.' as tinyint); -- -1
   SELECT cast('0.' as tinyint); -- 0
   SELECT cast('.' as tinyint); -- 0

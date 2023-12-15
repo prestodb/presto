@@ -485,6 +485,7 @@ TEST_F(ConversionsTest, toIntegeralTypes) {
             "0.",
             ".",
             "-.",
+            "+1",
         },
         {
             1,
@@ -496,12 +497,9 @@ TEST_F(ConversionsTest, toIntegeralTypes) {
             0,
             0,
             0,
+            1,
         },
         /*truncate*/ true);
-
-    // When TRUNCATE = true, invalid cases.
-    testConversion<std::string, int8_t>(
-        {"1234567", "+1"}, {}, /*truncate*/ true, false, /*expectError*/ true);
     testConversion<std::string, int64_t>(
         {
             "1a",
