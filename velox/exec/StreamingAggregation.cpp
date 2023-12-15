@@ -61,41 +61,13 @@ void StreamingAggregation::initialize() {
   aggregates_ = toAggregateInfo(
       *aggregationNode_, *operatorCtx_, numKeys, expressionEvaluator, true);
 
-  // Setup masks and accumulators
-  const auto numAggregates = aggregationNode_->aggregates().size();
-  std::vector<std::optional<column_index_t>> masks;
-  masks.reserve(numAggregates);
-  std::vector<Accumulator> accumulators;
-  accumulators.reserve(numAggregates);
-  for (const auto& aggregate : aggregates_) {
-    masks.emplace_back(aggregate.mask);
-    accumulators.emplace_back(
-        aggregate.function.get(), aggregate.intermediateType);
-  }
-  masks_ = std::make_unique<AggregationMasks>(std::move(masks));
+  // Setup SortedAggregations.
+  sortedAggregations_ =
+      SortedAggregations::create(aggregates_, inputType, pool());
+  masks_ = std::make_unique<AggregationMasks>(extractMaskChannels(aggregates_));
+  rows_ = makeRowContainer(groupingKeyTypes);
 
-  rows_ = std::make_unique<RowContainer>(
-      groupingKeyTypes,
-      !aggregationNode_->ignoreNullKeys(),
-      accumulators,
-      std::vector<TypePtr>{},
-      false,
-      false,
-      false,
-      false,
-      pool());
-
-  for (auto i = 0; i < aggregates_.size(); ++i) {
-    auto& function = aggregates_[i].function;
-    function->setAllocator(&rows_->stringAllocator());
-
-    const auto rowColumn = rows_->columnAt(numKeys + i);
-    function->setOffsets(
-        rowColumn.offset(),
-        rowColumn.nullByte(),
-        rowColumn.nullMask(),
-        rows_->rowSizeOffset());
-  }
+  initializeAggregates(numKeys);
 
   aggregationNode_.reset();
 }
@@ -162,13 +134,22 @@ RowVectorPtr StreamingAggregation::createOutput(size_t numGroups) {
 
   auto numKeys = groupingKeys_.size();
   for (auto i = 0; i < aggregates_.size(); ++i) {
-    auto& aggregate = aggregates_.at(i).function;
+    const auto& aggregate = aggregates_.at(i);
+    if (!aggregate.sortingKeys.empty()) {
+      continue;
+    }
+    const auto& function = aggregate.function;
     auto& result = output->childAt(numKeys + i);
     if (isPartialOutput(step_)) {
-      aggregate->extractAccumulators(groups_.data(), numGroups, &result);
+      function->extractAccumulators(groups_.data(), numGroups, &result);
     } else {
-      aggregate->extractValues(groups_.data(), numGroups, &result);
+      function->extractValues(groups_.data(), numGroups, &result);
     }
+  }
+
+  if (sortedAggregations_) {
+    sortedAggregations_->extractValues(
+        folly::Range<char**>(groups_.data(), numGroups), output);
   }
 
   return output;
@@ -223,9 +204,14 @@ const SelectivityVector& StreamingAggregation::getSelectivityVector(
 
 void StreamingAggregation::evaluateAggregates() {
   for (auto i = 0; i < aggregates_.size(); ++i) {
-    auto& aggregate = aggregates_.at(i).function;
-    auto& inputs = aggregates_.at(i).inputs;
-    auto& constantInputs = aggregates_.at(i).constantInputs;
+    const auto& aggregate = aggregates_.at(i);
+    if (!aggregate.sortingKeys.empty()) {
+      continue;
+    }
+
+    const auto& function = aggregate.function;
+    const auto& inputs = aggregate.inputs;
+    const auto& constantInputs = aggregate.constantInputs;
 
     std::vector<VectorPtr> args;
     for (auto j = 0; j < inputs.size(); ++j) {
@@ -239,10 +225,14 @@ void StreamingAggregation::evaluateAggregates() {
     const auto& rows = getSelectivityVector(i);
 
     if (isRawInput(step_)) {
-      aggregate->addRawInput(inputGroups_.data(), rows, args, false);
+      function->addRawInput(inputGroups_.data(), rows, args, false);
     } else {
-      aggregate->addIntermediateResults(inputGroups_.data(), rows, args, false);
+      function->addIntermediateResults(inputGroups_.data(), rows, args, false);
     }
+  }
+
+  if (sortedAggregations_) {
+    sortedAggregations_->addInput(inputGroups_.data(), input_);
   }
 }
 
@@ -269,19 +259,7 @@ RowVectorPtr StreamingAggregation::getOutput() {
   auto numPrevGroups = numGroups_;
 
   assignGroups();
-
-  // Initialize aggregates for the new groups.
-  std::vector<vector_size_t> newGroups;
-  newGroups.resize(numGroups_ - numPrevGroups);
-  std::iota(newGroups.begin(), newGroups.end(), numPrevGroups);
-
-  for (auto i = 0; i < aggregates_.size(); ++i) {
-    auto& aggregate = aggregates_.at(i).function;
-
-    aggregate->initializeNewGroups(
-        groups_.data(), folly::Range(newGroups.data(), newGroups.size()));
-  }
-
+  initializeNewGroups(numPrevGroups);
   evaluateAggregates();
 
   RowVectorPtr output;
@@ -305,5 +283,79 @@ RowVectorPtr StreamingAggregation::getOutput() {
 
   return output;
 }
+
+std::unique_ptr<RowContainer> StreamingAggregation::makeRowContainer(
+    const std::vector<TypePtr>& groupingKeyTypes) {
+  std::vector<Accumulator> accumulators;
+  accumulators.reserve(aggregates_.size());
+  for (const auto& aggregate : aggregates_) {
+    accumulators.emplace_back(
+        aggregate.function.get(), aggregate.intermediateType);
+  }
+
+  if (sortedAggregations_ != nullptr) {
+    accumulators.push_back(sortedAggregations_->accumulator());
+  }
+
+  return std::make_unique<RowContainer>(
+      groupingKeyTypes,
+      !aggregationNode_->ignoreNullKeys(),
+      accumulators,
+      std::vector<TypePtr>{},
+      false,
+      false,
+      false,
+      false,
+      pool());
+}
+
+void StreamingAggregation::initializeNewGroups(size_t numPrevGroups) {
+  if (numGroups_ == numPrevGroups) {
+    return;
+  }
+
+  std::vector<vector_size_t> newGroups;
+  newGroups.resize(numGroups_ - numPrevGroups);
+  std::iota(newGroups.begin(), newGroups.end(), numPrevGroups);
+
+  for (const auto& aggregate : aggregates_) {
+    if (!aggregate.sortingKeys.empty()) {
+      continue;
+    }
+
+    aggregate.function->initializeNewGroups(
+        groups_.data(), folly::Range(newGroups.data(), newGroups.size()));
+  }
+
+  if (sortedAggregations_) {
+    sortedAggregations_->initializeNewGroups(
+        groups_.data(), folly::Range(newGroups.data(), newGroups.size()));
+  }
+}
+
+void StreamingAggregation::initializeAggregates(uint32_t numKeys) {
+  for (auto i = 0; i < aggregates_.size(); ++i) {
+    auto& function = aggregates_[i].function;
+    function->setAllocator(&rows_->stringAllocator());
+
+    const auto rowColumn = rows_->columnAt(numKeys + i);
+    function->setOffsets(
+        rowColumn.offset(),
+        rowColumn.nullByte(),
+        rowColumn.nullMask(),
+        rows_->rowSizeOffset());
+  }
+
+  if (sortedAggregations_) {
+    sortedAggregations_->setAllocator(&rows_->stringAllocator());
+    const auto rowColumn =
+        rows_->columnAt(rows_->keyTypes().size() + aggregates_.size());
+    sortedAggregations_->setOffsets(
+        rowColumn.offset(),
+        rowColumn.nullByte(),
+        rowColumn.nullMask(),
+        rows_->rowSizeOffset());
+  }
+};
 
 } // namespace facebook::velox::exec

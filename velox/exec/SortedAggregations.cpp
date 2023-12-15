@@ -61,7 +61,7 @@ struct RowPointers {
 } // namespace
 
 SortedAggregations::SortedAggregations(
-    std::vector<AggregateInfo*> aggregates,
+    const std::vector<const AggregateInfo*>& aggregates,
     const RowTypePtr& inputType,
     memory::MemoryPool* pool) {
   // Collect inputs and sorting keys from all aggregates.
@@ -99,13 +99,35 @@ SortedAggregations::SortedAggregations(
   inputData_ = std::make_unique<RowContainer>(types, pool);
   decodedInputs_.resize(inputs_.size());
 
-  for (auto& aggregate : aggregates) {
+  for (const auto& aggregate : aggregates) {
     auto it =
         aggregates_
-            .emplace(toSortingSpec(*aggregate), std::vector<AggregateInfo*>{})
+            .emplace(
+                toSortingSpec(*aggregate), std::vector<const AggregateInfo*>{})
             .first;
     it->second.push_back(aggregate);
   }
+}
+
+std::unique_ptr<SortedAggregations> SortedAggregations::create(
+    const std::vector<AggregateInfo>& aggregates,
+    const RowTypePtr& inputType,
+    memory::MemoryPool* pool) {
+  std::vector<const AggregateInfo*> sortedAggs;
+  for (auto& aggregate : aggregates) {
+    if (!aggregate.sortingKeys.empty()) {
+      VELOX_USER_CHECK(
+          !aggregate.distinct,
+          "Aggregations over sorted unique values are not supported yet");
+      sortedAggs.push_back(&aggregate);
+    }
+  }
+
+  if (sortedAggs.empty()) {
+    return nullptr;
+  }
+
+  return std::make_unique<SortedAggregations>(sortedAggs, inputType, pool);
 }
 
 SortedAggregations::SortingSpec SortedAggregations::toSortingSpec(
@@ -408,5 +430,4 @@ void SortedAggregations::extractValues(
     }
   }
 }
-
 } // namespace facebook::velox::exec

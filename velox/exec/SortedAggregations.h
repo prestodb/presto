@@ -31,7 +31,14 @@ class SortedAggregations {
   /// @param inputType Input row type for the aggregation operator.
   /// @param pool Memory pool.
   SortedAggregations(
-      std::vector<AggregateInfo*> aggregates,
+      const std::vector<const AggregateInfo*>& aggregates,
+      const RowTypePtr& inputType,
+      memory::MemoryPool* pool);
+
+  /// Create a SortedAggregations instance using aggregation infos. Return null
+  /// if there is no sorted aggregation.
+  static std::unique_ptr<SortedAggregations> create(
+      const std::vector<AggregateInfo>& aggregates,
       const RowTypePtr& inputType,
       memory::MemoryPool* pool);
 
@@ -128,8 +135,9 @@ class SortedAggregations {
   };
 
   // Aggregates grouped by sorting keys and orders.
-  folly::F14FastMap<SortingSpec, std::vector<AggregateInfo*>, Hash, EqualTo>
-      aggregates_;
+  folly::
+      F14FastMap<SortingSpec, std::vector<const AggregateInfo*>, Hash, EqualTo>
+          aggregates_;
 
   // Indices of all inputs for all aggregates.
   std::vector<column_index_t> inputs_;

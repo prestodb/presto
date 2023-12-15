@@ -38,15 +38,6 @@ bool areAllLazyNotLoaded(const std::vector<VectorPtr>& vectors) {
   });
 }
 
-std::vector<std::optional<column_index_t>> maskChannels(
-    const std::vector<AggregateInfo>& aggregates) {
-  std::vector<std::optional<column_index_t>> masks;
-  masks.reserve(aggregates.size());
-  for (const auto& aggregate : aggregates) {
-    masks.push_back(aggregate.mask);
-  }
-  return masks;
-}
 } // namespace
 
 GroupingSet::GroupingSet(
@@ -69,7 +60,7 @@ GroupingSet::GroupingSet(
       isRawInput_(isRawInput),
       queryConfig_(operatorCtx->task()->queryCtx()->queryConfig()),
       aggregates_(std::move(aggregates)),
-      masks_(maskChannels(aggregates_)),
+      masks_(extractMaskChannels(aggregates_)),
       ignoreNullKeys_(ignoreNullKeys),
       spillMemoryThreshold_(operatorCtx->driverCtx()
                                 ->queryConfig()
@@ -99,26 +90,12 @@ GroupingSet::GroupingSet(
         allAreSinglyReferenced(aggregate.inputs, channelUseCount));
   }
 
-  // Setup SortedAggregations.
-  std::vector<AggregateInfo*> sortedAggs;
-  for (auto& aggregate : aggregates_) {
-    if (!aggregate.sortingKeys.empty()) {
-      VELOX_USER_CHECK(
-          !isPartial_,
-          "Partial aggregations over sorted inputs are not supported");
-
-      VELOX_USER_CHECK(
-          !aggregate.distinct,
-          "Aggregations over sorted unique values are not supported yet");
-
-      sortedAggs.push_back(&aggregate);
-      continue;
-    }
-  }
-
-  if (!sortedAggs.empty()) {
-    sortedAggregations_ =
-        std::make_unique<SortedAggregations>(sortedAggs, inputType, &pool_);
+  sortedAggregations_ =
+      SortedAggregations::create(aggregates_, inputType, &pool_);
+  if (isPartial_) {
+    VELOX_USER_CHECK_NULL(
+        sortedAggregations_,
+        "Partial aggregations over sorted inputs are not supported");
   }
 
   for (auto& aggregate : aggregates_) {
