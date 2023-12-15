@@ -20,10 +20,6 @@
 #include <optional>
 #include <string>
 
-#include "velox/expression/VectorWriters.h"
-#include "velox/type/StringView.h"
-#include "velox/vector/BaseVector.h"
-
 namespace facebook::velox::functions {
 namespace {
 
@@ -594,7 +590,7 @@ class LikeGeneric final : public VectorFunction {
                         const StringView& pattern,
                         const std::optional<char>& escapeChar) -> bool {
       PatternMetadata patternMetadata =
-          determinePatternKind(pattern, escapeChar);
+          determinePatternKind(std::string_view(pattern), escapeChar);
       const auto reducedLength = patternMetadata.length;
       const auto& fixedPattern = patternMetadata.fixedPattern;
 
@@ -971,7 +967,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractSignatures() {
 }
 
 std::string unescape(
-    StringView pattern,
+    std::string_view pattern,
     size_t start,
     size_t end,
     std::optional<char> escapeChar) {
@@ -1023,7 +1019,9 @@ std::string unescape(
 // Iterates through a pattern string. Transparently handles escape sequences.
 class PatternStringIterator {
  public:
-  PatternStringIterator(StringView pattern, std::optional<char> escapeChar)
+  PatternStringIterator(
+      std::string_view pattern,
+      std::optional<char> escapeChar)
       : pattern_(pattern), escapeChar_(escapeChar) {}
 
   // Advance the cursor to next char, escape char is automatically handled.
@@ -1118,7 +1116,7 @@ class PatternStringIterator {
     return pattern_.data()[index];
   }
 
-  const StringView pattern_;
+  std::string_view pattern_;
   const std::optional<char> escapeChar_;
 
   size_t currentStart_{0};
@@ -1128,7 +1126,7 @@ class PatternStringIterator {
 };
 
 PatternMetadata determinePatternKind(
-    StringView pattern,
+    std::string_view pattern,
     std::optional<char> escapeChar) {
   const size_t patternLength = pattern.size();
 
@@ -1279,7 +1277,8 @@ std::shared_ptr<exec::VectorFunction> makeLike(
 
   PatternMetadata patternMetadata;
   try {
-    patternMetadata = determinePatternKind(pattern, escapeChar);
+    patternMetadata =
+        determinePatternKind(std::string_view(pattern), escapeChar);
   } catch (...) {
     return std::make_shared<exec::AlwaysFailingVectorFunction>(
         std::current_exception());

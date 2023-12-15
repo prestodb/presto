@@ -462,16 +462,16 @@ TEST_F(Re2FunctionsTest, likePattern) {
 
 TEST_F(Re2FunctionsTest, likeDeterminePatternKind) {
   auto testPattern =
-      [&](StringView pattern, PatternKind patternKind, vector_size_t length) {
+      [&](std::string_view pattern, PatternKind patternKind, size_t length) {
         PatternMetadata patternMetadata =
             determinePatternKind(pattern, std::nullopt);
         EXPECT_EQ(patternMetadata.patternKind, patternKind);
         EXPECT_EQ(patternMetadata.length, length);
       };
 
-  auto testPatternString = [&](StringView pattern,
+  auto testPatternString = [&](std::string_view pattern,
                                PatternKind patternKind,
-                               StringView fixedPattern) {
+                               std::string_view fixedPattern) {
     PatternMetadata patternMetadata =
         determinePatternKind(pattern, std::nullopt);
     EXPECT_EQ(patternMetadata.patternKind, patternKind);
@@ -526,9 +526,9 @@ TEST_F(Re2FunctionsTest, likeDeterminePatternKind) {
 }
 
 TEST_F(Re2FunctionsTest, likeDeterminePatternKindWithEscapeChar) {
-  auto testPattern = [&](StringView pattern,
+  auto testPattern = [&](std::string_view pattern,
                          PatternKind patternKind,
-                         StringView fixedPattern) {
+                         std::string_view fixedPattern) {
     PatternMetadata patternMetadata = determinePatternKind(pattern, '\\');
     EXPECT_EQ(patternMetadata.patternKind, patternKind);
     EXPECT_EQ(patternMetadata.length, fixedPattern.size());

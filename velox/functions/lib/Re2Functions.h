@@ -118,7 +118,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractSignatures();
 /// characters} for patterns with wildcard characters only. Return
 /// {kGenericPattern, 0} for generic patterns).
 PatternMetadata determinePatternKind(
-    StringView pattern,
+    std::string_view pattern,
     std::optional<char> escapeChar);
 
 std::shared_ptr<exec::VectorFunction> makeLike(
