@@ -45,6 +45,10 @@ class BaseVeloxQueryConfigTest : public testing::Test {
           fileSystem->openFileForWrite(systemConfigFilePath);
       systemConfigFile->append(
           fmt::format("{}=true\n", SystemConfig::kUseLegacyArrayAgg));
+      systemConfigFile->append(
+          fmt::format("{}=17MB\n", SystemConfig::kSinkMaxBufferSize));
+      systemConfigFile->append(fmt::format(
+          "{}=6MB\n", SystemConfig::kDriverMaxPagePartitioningBufferSize));
       systemConfigFile->close();
       SystemConfig::instance()->initialize(systemConfigFilePath);
     }
@@ -108,15 +112,19 @@ TEST_F(BaseVeloxQueryConfigTest, mutableConfig) {
 }
 
 TEST_F(BaseVeloxQueryConfigTest, fromSystemConfig) {
+#define GET_VAL(_name_) cfg->optionalProperty(std::string(_name_))
+
   auto cfg = BaseVeloxQueryConfig::instance();
-  ASSERT_FALSE(cfg->optionalProperty<bool>(
-                      std::string(QueryConfig::kPrestoArrayAggIgnoreNulls))
-                   .value());
+  ASSERT_EQ("false", GET_VAL(QueryConfig::kPrestoArrayAggIgnoreNulls));
+
   setUpConfigFile(true, true);
   cfg->initialize(configFilePath);
-  ASSERT_TRUE(cfg->optionalProperty<bool>(
-                     std::string(QueryConfig::kPrestoArrayAggIgnoreNulls))
-                  .value());
+
+  ASSERT_EQ("true", GET_VAL(QueryConfig::kPrestoArrayAggIgnoreNulls));
+  ASSERT_EQ("17825792", GET_VAL(QueryConfig::kMaxArbitraryBufferSize));
+  ASSERT_EQ("6291456", GET_VAL(QueryConfig::kMaxPartitionedOutputBufferSize));
+
+#undef GET_VAL
 }
 
 } // namespace facebook::presto::test
