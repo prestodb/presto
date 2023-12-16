@@ -28,6 +28,7 @@ import com.facebook.airlift.stats.ExponentialDecay;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.util.Failures;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -67,9 +68,13 @@ import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareHead;
 import static com.facebook.presto.failureDetector.FailureDetector.State.ALIVE;
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
+import static com.facebook.presto.failureDetector.FailureDetector.State.GONE_INTERMEDIATE;
+import static com.facebook.presto.failureDetector.FailureDetector.State.GONE_LEAF;
 import static com.facebook.presto.failureDetector.FailureDetector.State.UNKNOWN;
 import static com.facebook.presto.failureDetector.FailureDetector.State.UNRESPONSIVE;
+import static com.facebook.presto.server.ServerConfig.POOL_TYPE;
 import static com.facebook.presto.spi.HostAddress.fromUri;
+import static com.facebook.presto.spi.NodePoolType.DEFAULT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -182,8 +187,9 @@ public class HeartbeatFailureDetector
                 }
 
                 Exception lastFailureException = task.getStats().getLastFailureException();
+
                 if (lastFailureException instanceof ConnectException) {
-                    return GONE;
+                    return rewriteGoneState(task);
                 }
                 if (lastFailureException instanceof SocketTimeoutException) {
                     // TODO: distinguish between process unresponsiveness (e.g GC pause) and host reboot
@@ -195,6 +201,25 @@ public class HeartbeatFailureDetector
         }
 
         return UNKNOWN;
+    }
+
+    private State rewriteGoneState(MonitoringTask task)
+    {
+        if (getPoolType(task.getService()) == NodePoolType.INTERMEDIATE) {
+            return GONE_INTERMEDIATE;
+        }
+        else if (getPoolType(task.getService()) == NodePoolType.LEAF) {
+            return GONE_LEAF;
+        }
+        return GONE;
+    }
+
+    private static NodePoolType getPoolType(ServiceDescriptor service)
+    {
+        if (!service.getProperties().containsKey(POOL_TYPE)) {
+            return DEFAULT;
+        }
+        return NodePoolType.valueOf(service.getProperties().get(POOL_TYPE));
     }
 
     @Managed(description = "Number of failed services")

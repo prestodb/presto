@@ -177,7 +177,6 @@ public class TestHighMemoryTaskKiller
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),
                 new CounterStat(),
-                new SpoolingOutputBufferFactory(new FeaturesConfig()));
                 new SpoolingOutputBufferFactory(new FeaturesConfig()),
                 NodePoolType.DEFAULT,
                 false,

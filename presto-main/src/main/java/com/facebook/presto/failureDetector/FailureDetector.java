@@ -29,6 +29,8 @@ public interface FailureDetector
         UNKNOWN,
         ALIVE,
         GONE,
+        GONE_LEAF,
+        GONE_INTERMEDIATE,
         UNRESPONSIVE,
     }
 }
