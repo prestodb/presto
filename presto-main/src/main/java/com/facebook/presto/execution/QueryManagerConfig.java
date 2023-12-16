@@ -51,9 +51,9 @@ public class QueryManagerConfig
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
     private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
     private boolean useStreamingExchangeForMarkDistinct;
-    private boolean enableWorkerIsolation;
-    private boolean enableRetryForFailedSplits;
-    private boolean enableGracefulShutdown;
+    private boolean enableWorkerIsolation = true;
+    private boolean enableRetryForFailedSplits = true;
+    private boolean enableGracefulShutdown = true;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
