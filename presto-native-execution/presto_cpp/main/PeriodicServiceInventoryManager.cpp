@@ -31,7 +31,7 @@ PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
       ciphers_(std::move(ciphers)),
       id_(std::move(id)),
       frequencyMs_(frequencyMs),
-      pool_(velox::memory::addDefaultLeafMemoryPool(id_)),
+      pool_(velox::memory::deprecatedAddDefaultLeafMemoryPool(id_)),
       eventBaseThread_(false /*autostart*/) {}
 
 void PeriodicServiceInventoryManager::start() {

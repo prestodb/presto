@@ -61,6 +61,7 @@ target_link_libraries(
   velox_presto_serializer
   velox_serialization
   velox_type
+  velox_type_parser
   Boost::filesystem
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}

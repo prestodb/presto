@@ -62,7 +62,7 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
   std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
 
   auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
@@ -80,7 +80,7 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
   const std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
   auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxBatchQueryPlanConverter converter(
       shuffleName,
@@ -95,7 +95,12 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
 }
 } // namespace
 
-class PlanConverterTest : public ::testing::Test {};
+class PlanConverterTest : public ::testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 // Leaf stage plan for select regionkey, sum(1) from nation group by 1
 // Scan + Partial Agg + Repartitioning
