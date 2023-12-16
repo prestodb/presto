@@ -17,6 +17,7 @@
 
 #include <charconv>
 
+#include "velox/common/base/CountBits.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/expression/StringWriter.h"
@@ -49,27 +50,6 @@ inline std::exception_ptr makeBadCastException(
       std::current_exception(),
       makeErrorMessage(input, row, resultType, errorDetails),
       false));
-}
-
-// Copied from format.h of fmt.
-inline int countDigits(uint128_t n) {
-  int count = 1;
-  for (;;) {
-    if (n < 10) {
-      return count;
-    }
-    if (n < 100) {
-      return count + 1;
-    }
-    if (n < 1000) {
-      return count + 2;
-    }
-    if (n < 10000) {
-      return count + 3;
-    }
-    n /= 10000u;
-    count += 4;
-  }
 }
 
 /// @brief Convert the unscaled value of a decimal to varchar and write to raw

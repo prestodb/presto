@@ -79,3 +79,8 @@ target_link_libraries(velox_benchmark_basic_vector_fuzzer
 add_executable(velox_cast_benchmark CastBenchmark.cpp)
 target_link_libraries(velox_cast_benchmark ${velox_benchmark_deps}
                       velox_vector_test_lib)
+
+add_executable(velox_format_datetime_benchmark FormatDateTimeBenchmark.cpp)
+target_link_libraries(
+  velox_format_datetime_benchmark ${velox_benchmark_deps} velox_vector_test_lib
+  velox_functions_spark velox_functions_prestosql)

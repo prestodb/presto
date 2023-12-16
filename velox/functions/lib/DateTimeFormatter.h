@@ -175,9 +175,17 @@ class DateTimeFormatter {
 
   DateTimeResult parse(const std::string_view& input) const;
 
-  std::string format(
+  /// Returns max size of the formatted string. Can be used to preallocate
+  /// memory before calling format() to avoid extra copy.
+  uint32_t maxResultSize(const date::time_zone* timezone) const;
+
+  /// Result buffer is pre-allocated according to maxResultSize.
+  /// Returns actual size.
+  int32_t format(
       const Timestamp& timestamp,
-      const date::time_zone* timezone) const;
+      const date::time_zone* timezone,
+      const uint32_t maxResultSize,
+      char* result) const;
 
  private:
   std::unique_ptr<char[]> literalBuf_;

@@ -1130,31 +1130,25 @@ template <typename T>
 struct DateFormatFunction : public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  const date::time_zone* sessionTimeZone_ = nullptr;
-  std::shared_ptr<DateTimeFormatter> mysqlDateTime_;
-  bool isConstFormat_ = false;
-
-  FOLLY_ALWAYS_INLINE void setFormatter(const arg_type<Varchar>* formatString) {
-    if (formatString != nullptr) {
-      mysqlDateTime_ = buildMysqlDateTimeFormatter(
-          std::string_view(formatString->data(), formatString->size()));
-      isConstFormat_ = true;
-    }
-  }
-
   FOLLY_ALWAYS_INLINE void initialize(
       const core::QueryConfig& config,
       const arg_type<Timestamp>* /*timestamp*/,
       const arg_type<Varchar>* formatString) {
     sessionTimeZone_ = getTimeZoneFromConfig(config);
-    setFormatter(formatString);
+    if (formatString != nullptr) {
+      setFormatter(*formatString);
+      isConstFormat_ = true;
+    }
   }
 
   FOLLY_ALWAYS_INLINE void initialize(
       const core::QueryConfig& /*config*/,
       const arg_type<TimestampWithTimezone>* /*timestamp*/,
       const arg_type<Varchar>* formatString) {
-    setFormatter(formatString);
+    if (formatString != nullptr) {
+      setFormatter(*formatString);
+      isConstFormat_ = true;
+    }
   }
 
   FOLLY_ALWAYS_INLINE bool call(
@@ -1162,16 +1156,13 @@ struct DateFormatFunction : public TimestampWithTimezoneSupport<T> {
       const arg_type<Timestamp>& timestamp,
       const arg_type<Varchar>& formatString) {
     if (!isConstFormat_) {
-      mysqlDateTime_ = buildMysqlDateTimeFormatter(
-          std::string_view(formatString.data(), formatString.size()));
+      setFormatter(formatString);
     }
 
-    auto formattedResult = mysqlDateTime_->format(timestamp, sessionTimeZone_);
-    auto resultSize = formattedResult.size();
+    result.reserve(maxResultSize_);
+    const auto resultSize = mysqlDateTime_->format(
+        timestamp, sessionTimeZone_, maxResultSize_, result.data());
     result.resize(resultSize);
-    if (resultSize != 0) {
-      std::memcpy(result.data(), formattedResult.data(), resultSize);
-    }
     return true;
   }
 
@@ -1182,6 +1173,18 @@ struct DateFormatFunction : public TimestampWithTimezoneSupport<T> {
     auto timestamp = this->toTimestamp(timestampWithTimezone);
     return call(result, timestamp, formatString);
   }
+
+ private:
+  FOLLY_ALWAYS_INLINE void setFormatter(const arg_type<Varchar> formatString) {
+    mysqlDateTime_ = buildMysqlDateTimeFormatter(
+        std::string_view(formatString.data(), formatString.size()));
+    maxResultSize_ = mysqlDateTime_->maxResultSize(sessionTimeZone_);
+  }
+
+  const date::time_zone* sessionTimeZone_ = nullptr;
+  std::shared_ptr<DateTimeFormatter> mysqlDateTime_;
+  uint32_t maxResultSize_;
+  bool isConstFormat_ = false;
 };
 
 template <typename T>
@@ -1233,18 +1236,13 @@ template <typename T>
 struct FormatDateTimeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  const date::time_zone* sessionTimeZone_ = nullptr;
-  std::shared_ptr<DateTimeFormatter> jodaDateTime_;
-  bool isConstFormat_ = false;
-
   FOLLY_ALWAYS_INLINE void initialize(
       const core::QueryConfig& config,
       const arg_type<Timestamp>* /*timestamp*/,
       const arg_type<Varchar>* formatString) {
     sessionTimeZone_ = getTimeZoneFromConfig(config);
     if (formatString != nullptr) {
-      jodaDateTime_ = buildJodaDateTimeFormatter(
-          std::string_view(formatString->data(), formatString->size()));
+      setFormatter(*formatString);
       isConstFormat_ = true;
     }
   }
@@ -1252,12 +1250,11 @@ struct FormatDateTimeFunction {
   FOLLY_ALWAYS_INLINE void ensureFormatter(
       const arg_type<Varchar>& formatString) {
     if (!isConstFormat_) {
-      jodaDateTime_ = buildJodaDateTimeFormatter(
-          std::string_view(formatString.data(), formatString.size()));
+      setFormatter(formatString);
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Varchar>& result,
       const arg_type<Timestamp>& timestamp,
       const arg_type<Varchar>& formatString) {
@@ -1265,16 +1262,13 @@ struct FormatDateTimeFunction {
 
     // TODO: We should give dateTimeFormatter a sink/ostream to prevent the
     // copy.
-    auto formattedResult = jodaDateTime_->format(timestamp, sessionTimeZone_);
-    auto resultSize = formattedResult.size();
+    result.reserve(maxResultSize_);
+    const auto resultSize = jodaDateTime_->format(
+        timestamp, sessionTimeZone_, maxResultSize_, result.data());
     result.resize(resultSize);
-    if (resultSize != 0) {
-      std::memcpy(result.data(), formattedResult.data(), resultSize);
-    }
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Varchar>& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone,
       const arg_type<Varchar>& formatString) {
@@ -1285,14 +1279,24 @@ struct FormatDateTimeFunction {
     int16_t timeZoneId = *timestampWithTimezone.template at<1>();
     auto* timezonePtr = date::locate_zone(util::getTimeZoneName(timeZoneId));
 
-    auto formattedResult = jodaDateTime_->format(timestamp, timezonePtr);
-    auto resultSize = formattedResult.size();
+    auto maxResultSize = jodaDateTime_->maxResultSize(timezonePtr);
+    result.reserve(maxResultSize);
+    auto resultSize = jodaDateTime_->format(
+        timestamp, timezonePtr, maxResultSize, result.data());
     result.resize(resultSize);
-    if (resultSize != 0) {
-      std::memcpy(result.data(), formattedResult.data(), resultSize);
-    }
-    return true;
   }
+
+ private:
+  FOLLY_ALWAYS_INLINE void setFormatter(const arg_type<Varchar>& formatString) {
+    jodaDateTime_ = buildJodaDateTimeFormatter(
+        std::string_view(formatString.data(), formatString.size()));
+    maxResultSize_ = jodaDateTime_->maxResultSize(sessionTimeZone_);
+  }
+
+  const date::time_zone* sessionTimeZone_ = nullptr;
+  std::shared_ptr<DateTimeFormatter> jodaDateTime_;
+  uint32_t maxResultSize_;
+  bool isConstFormat_ = false;
 };
 
 template <typename T>

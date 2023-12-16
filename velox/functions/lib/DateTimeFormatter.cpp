@@ -17,8 +17,10 @@
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include <folly/String.h>
 #include <velox/common/base/Exceptions.h>
+#include <charconv>
 #include <cstring>
 #include <stdexcept>
+#include "velox/common/base/CountBits.h"
 #include "velox/external/date/date.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/DateTimeFormatterBuilder.h"
@@ -179,38 +181,55 @@ static std::
         };
 constexpr int monthsFullLength[] = {7, 8, 5, 5, 3, 4, 4, 6, 9, 7, 8, 8};
 
-/// Pads the content with desired padding characters. E.g. if we need to pad 999
-/// with three 0s in front, the result will be '000999'
-/// \param content the content that is going to be padded.
-/// \param padding the padding that is going to be used to pad the content.
-/// \param totalDigits the total number of digits the padded result is desired
-/// to be. If totalDigits is already smaller than content length, the original
-/// content will be returned with no padding
-/// \param padFront if the padding is in front of the content or back of the
-/// content.
+// Pads the content with desired padding characters. E.g. if we need to pad 999
+// with three 0s in front, the result will be '000999'.
+// @param content the content that is going to be padded.
+// @param padding the padding that is going to be used to pad the content.
+// @param totalDigits the total number of digits the padded result is desired
+// to be. If totalDigits is already smaller than content length, the original
+// content will be returned with no padding.
+// @param maxResultEnd the end pointer to result.
+// @param result the pointer to string result.
+// @param padFront if the padding is in front of the content or back of the
+// content.
 template <typename T>
-std::string padContent(
+int32_t padContent(
     const T& content,
     char padding,
-    size_t totalDigits,
-    bool padFront = true) {
-  std::string strContent = folly::to<std::string>(content);
-  auto contentLength = strContent.size();
+    const size_t totalDigits,
+    char* maxResultEnd,
+    char* result,
+    const bool padFront = true) {
+  const bool isNegative = content < 0;
+  const auto digitLength =
+      isNegative ? countDigits(-(__int128_t)content) : countDigits(content);
+  const auto contentLength = isNegative ? digitLength + 1 : digitLength;
   if (contentLength == 0) {
-    return std::string(totalDigits, padding);
+    std::fill(result, result + totalDigits, padding);
+    return totalDigits;
   }
 
-  bool isNegative = strContent[0] == '-';
-  auto digitLength = contentLength - (isNegative ? 1 : 0);
+  std::to_chars_result toStatus;
   if (digitLength >= totalDigits) {
-    return strContent;
+    toStatus = std::to_chars(result, maxResultEnd, content);
+    return toStatus.ptr - result;
   }
-  std::string paddingStr(totalDigits - digitLength, padding);
+  const auto paddingSize = totalDigits - digitLength;
   if (padFront) {
-    return strContent.insert((isNegative ? 1 : 0), paddingStr);
-  } else {
-    return strContent.append(paddingStr);
+    if (isNegative) {
+      *result = '-';
+      std::fill(result + 1, result + 1 + paddingSize, padding);
+      toStatus =
+          std::to_chars(result + 1 + paddingSize, maxResultEnd, -content);
+    } else {
+      std::fill(result, result + paddingSize, padding);
+      toStatus = std::to_chars(result + paddingSize, maxResultEnd, content);
+    }
+    return toStatus.ptr - result;
   }
+  toStatus = std::to_chars(result, maxResultEnd, content);
+  std::fill(toStatus.ptr, toStatus.ptr + paddingSize, padding);
+  return toStatus.ptr - result + paddingSize;
 }
 
 size_t countOccurence(const std::string_view& base, const std::string& target) {
@@ -927,9 +946,82 @@ void parseFromPattern(
 
 } // namespace
 
-std::string DateTimeFormatter::format(
-    const Timestamp& timestamp,
+uint32_t DateTimeFormatter::maxResultSize(
     const date::time_zone* timezone) const {
+  uint32_t size = 0;
+  for (const auto& token : tokens_) {
+    if (token.type == DateTimeToken::Type::kLiteral) {
+      size += token.literal.size();
+      continue;
+    }
+    switch (token.pattern.specifier) {
+      case DateTimeFormatSpecifier::ERA:
+      case DateTimeFormatSpecifier::HALFDAY_OF_DAY:
+        // Fixed size.
+        size += 2;
+        break;
+      case DateTimeFormatSpecifier::YEAR_OF_ERA:
+        // Timestamp is in [-32767-01-01, 32767-12-31] range.
+        size += std::max((int)token.pattern.minRepresentDigits, 6);
+        break;
+      case DateTimeFormatSpecifier::DAY_OF_WEEK_0_BASED:
+      case DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED:
+        size += std::max((int)token.pattern.minRepresentDigits, 1);
+        break;
+      case DateTimeFormatSpecifier::DAY_OF_WEEK_TEXT:
+      case DateTimeFormatSpecifier::MONTH_OF_YEAR_TEXT:
+        // 9 is the max size of elements in weekdaysFull or monthsFull.
+        size += token.pattern.minRepresentDigits <= 3 ? 3 : 9;
+        break;
+      case DateTimeFormatSpecifier::YEAR:
+        // Timestamp is in [-32767-01-01, 32767-12-31] range.
+        size += token.pattern.minRepresentDigits == 2
+            ? 2
+            : std::max((int)token.pattern.minRepresentDigits, 6);
+        break;
+      case DateTimeFormatSpecifier::CENTURY_OF_ERA:
+      case DateTimeFormatSpecifier::DAY_OF_YEAR:
+        size += std::max((int)token.pattern.minRepresentDigits, 3);
+        break;
+      case DateTimeFormatSpecifier::MONTH_OF_YEAR:
+      case DateTimeFormatSpecifier::DAY_OF_MONTH:
+      case DateTimeFormatSpecifier::HOUR_OF_HALFDAY:
+      case DateTimeFormatSpecifier::CLOCK_HOUR_OF_HALFDAY:
+      case DateTimeFormatSpecifier::HOUR_OF_DAY:
+      case DateTimeFormatSpecifier::CLOCK_HOUR_OF_DAY:
+      case DateTimeFormatSpecifier::MINUTE_OF_HOUR:
+      case DateTimeFormatSpecifier::SECOND_OF_MINUTE:
+        size += std::max((int)token.pattern.minRepresentDigits, 2);
+        break;
+      case DateTimeFormatSpecifier::FRACTION_OF_SECOND:
+        // Nanosecond is considered.
+        size += std::max((int)token.pattern.minRepresentDigits, 9);
+        break;
+      case DateTimeFormatSpecifier::TIMEZONE:
+        if (timezone == nullptr) {
+          VELOX_USER_FAIL("Timezone unknown")
+        }
+        size += std::max(
+            token.pattern.minRepresentDigits, timezone->name().length());
+        break;
+      // Not supported.
+      case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID:
+      case DateTimeFormatSpecifier::WEEK_YEAR:
+      case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
+      default:
+        VELOX_UNSUPPORTED(
+            "format is not supported for specifier {}",
+            token.pattern.specifier);
+    }
+  }
+  return size;
+}
+
+int32_t DateTimeFormatter::format(
+    const Timestamp& timestamp,
+    const date::time_zone* timezone,
+    const uint32_t maxResultSize,
+    char* result) const {
   Timestamp t = timestamp;
   if (timezone != nullptr) {
     t.toTimezone(*timezone);
@@ -941,30 +1033,45 @@ std::string DateTimeFormatter::format(
   const date::year_month_day calDate(daysTimePoint);
   const date::weekday weekday(daysTimePoint);
 
-  std::string result;
+  const char* resultStart = result;
+  char* maxResultEnd = result + maxResultSize;
   for (auto& token : tokens_) {
     if (token.type == DateTimeToken::Type::kLiteral) {
-      result += token.literal;
+      std::memcpy(result, token.literal.data(), token.literal.size());
+      result += token.literal.size();
     } else {
       switch (token.pattern.specifier) {
-        case DateTimeFormatSpecifier::ERA:
-          result += static_cast<signed>(calDate.year()) > 0 ? "AD" : "BC";
-          break;
-
+        case DateTimeFormatSpecifier::ERA: {
+          const std::string_view piece =
+              static_cast<signed>(calDate.year()) > 0 ? "AD" : "BC";
+          std::memcpy(result, piece.data(), piece.length());
+          result += piece.length();
+        } break;
         case DateTimeFormatSpecifier::CENTURY_OF_ERA: {
           auto year = static_cast<signed>(calDate.year());
           year = (year < 0 ? -year : year);
           auto century = year / 100;
-          result += padContent(century, '0', token.pattern.minRepresentDigits);
+          result += padContent(
+              century,
+              '0',
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
         } break;
 
         case DateTimeFormatSpecifier::YEAR_OF_ERA: {
           auto year = static_cast<signed>(calDate.year());
           if (token.pattern.minRepresentDigits == 2) {
-            result += padContent(std::abs(year) % 100, '0', 2);
+            result +=
+                padContent(std::abs(year) % 100, '0', 2, maxResultEnd, result);
           } else {
             year = year <= 0 ? std::abs(year - 1) : year;
-            result += padContent(year, '0', token.pattern.minRepresentDigits);
+            result += padContent(
+                year,
+                '0',
+                token.pattern.minRepresentDigits,
+                maxResultEnd,
+                result);
           }
         } break;
 
@@ -976,17 +1083,24 @@ std::string DateTimeFormatter::format(
                   DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED) {
             weekdayNum = 7;
           }
-          result +=
-              padContent(weekdayNum, '0', token.pattern.minRepresentDigits);
+          result += padContent(
+              weekdayNum,
+              '0',
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
         } break;
 
         case DateTimeFormatSpecifier::DAY_OF_WEEK_TEXT: {
           auto weekdayNum = weekday.c_encoding();
+          std::string_view piece;
           if (token.pattern.minRepresentDigits <= 3) {
-            result += weekdaysShort[weekdayNum];
+            piece = weekdaysShort[weekdayNum];
           } else {
-            result += weekdaysFull[weekdayNum];
+            piece = weekdaysFull[weekdayNum];
           }
+          std::memcpy(result, piece.data(), piece.length());
+          result += piece.length();
         } break;
 
         case DateTimeFormatSpecifier::YEAR: {
@@ -994,13 +1108,19 @@ std::string DateTimeFormatter::format(
           if (token.pattern.minRepresentDigits == 2) {
             year = std::abs(year);
             auto twoDigitYear = year % 100;
-            result +=
-                padContent(twoDigitYear, '0', token.pattern.minRepresentDigits);
+            result += padContent(
+                twoDigitYear,
+                '0',
+                token.pattern.minRepresentDigits,
+                maxResultEnd,
+                result);
           } else {
             result += padContent(
                 static_cast<signed>(calDate.year()),
                 '0',
-                token.pattern.minRepresentDigits);
+                token.pattern.minRepresentDigits,
+                maxResultEnd,
+                result);
           }
         } break;
 
@@ -1011,34 +1131,49 @@ std::string DateTimeFormatter::format(
               (date::sys_days{calDate} - date::sys_days{firstDayOfTheYear})
                   .count();
           delta += 1;
-          result += padContent(delta, '0', token.pattern.minRepresentDigits);
+          result += padContent(
+              delta,
+              '0',
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
         } break;
 
         case DateTimeFormatSpecifier::MONTH_OF_YEAR:
           result += padContent(
               static_cast<unsigned>(calDate.month()),
               '0',
-              token.pattern.minRepresentDigits);
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
           break;
 
-        case DateTimeFormatSpecifier::MONTH_OF_YEAR_TEXT:
+        case DateTimeFormatSpecifier::MONTH_OF_YEAR_TEXT: {
+          std::string_view piece;
           if (token.pattern.minRepresentDigits <= 3) {
-            result += monthsShort[static_cast<unsigned>(calDate.month()) - 1];
+            piece = monthsShort[static_cast<unsigned>(calDate.month()) - 1];
           } else {
-            result += monthsFull[static_cast<unsigned>(calDate.month()) - 1];
+            piece = monthsFull[static_cast<unsigned>(calDate.month()) - 1];
           }
-          break;
+          std::memcpy(result, piece.data(), piece.length());
+          result += piece.length();
+        } break;
 
         case DateTimeFormatSpecifier::DAY_OF_MONTH:
           result += padContent(
               static_cast<unsigned>(calDate.day()),
               '0',
-              token.pattern.minRepresentDigits);
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
           break;
 
-        case DateTimeFormatSpecifier::HALFDAY_OF_DAY:
-          result += durationInTheDay.hours().count() < 12 ? "AM" : "PM";
-          break;
+        case DateTimeFormatSpecifier::HALFDAY_OF_DAY: {
+          const std::string_view piece =
+              durationInTheDay.hours().count() < 12 ? "AM" : "PM";
+          std::memcpy(result, piece.data(), piece.length());
+          result += piece.length();
+        } break;
 
         case DateTimeFormatSpecifier::HOUR_OF_HALFDAY:
         case DateTimeFormatSpecifier::CLOCK_HOUR_OF_HALFDAY:
@@ -1057,31 +1192,41 @@ std::string DateTimeFormatter::format(
               DateTimeFormatSpecifier::CLOCK_HOUR_OF_DAY) {
             hourNum = (hourNum + 23) % 24 + 1;
           }
-          result += padContent(hourNum, '0', token.pattern.minRepresentDigits);
+          result += padContent(
+              hourNum,
+              '0',
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
         } break;
 
         case DateTimeFormatSpecifier::MINUTE_OF_HOUR:
           result += padContent(
               durationInTheDay.minutes().count() % 60,
               '0',
-              token.pattern.minRepresentDigits);
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
           break;
 
         case DateTimeFormatSpecifier::SECOND_OF_MINUTE:
           result += padContent(
               durationInTheDay.seconds().count() % 60,
               '0',
-              token.pattern.minRepresentDigits);
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
           break;
 
         case DateTimeFormatSpecifier::FRACTION_OF_SECOND: {
-          result += formatFractionOfSecond(
+          const auto& piece = formatFractionOfSecond(
               durationInTheDay.subseconds().count(),
               token.pattern.minRepresentDigits);
-          break;
-        }
+          std::memcpy(result, piece.data(), piece.length());
+          result += piece.length();
+        } break;
 
-        case DateTimeFormatSpecifier::TIMEZONE:
+        case DateTimeFormatSpecifier::TIMEZONE: {
           // TODO: implement short name time zone, need a map from full name to
           // short name
           if (token.pattern.minRepresentDigits <= 3) {
@@ -1090,8 +1235,10 @@ std::string DateTimeFormatter::format(
           if (timezone == nullptr) {
             VELOX_USER_FAIL("Timezone unknown")
           }
-          result += timezone->name();
-          break;
+          const auto& piece = timezone->name();
+          std::memcpy(result, piece.data(), piece.length());
+          result += piece.length();
+        } break;
 
         case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID:
           // TODO: implement timezone offset id formatting, need a map from full
@@ -1105,7 +1252,9 @@ std::string DateTimeFormatter::format(
       }
     }
   }
-  return result;
+  auto resultSize = result - resultStart;
+  VELOX_CHECK_LE(resultSize, maxResultSize, "Bad allocation size for result.");
+  return resultSize;
 }
 
 DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
