@@ -17,7 +17,7 @@
 #include <folly/io/async/EventBaseThread.h>
 #include "presto_cpp/main/http/HttpClient.h"
 #include "velox/common/memory/Memory.h"
-#include "velox/exec/tests/utils/ReferenceQueryRunner.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::presto::test {
@@ -82,7 +82,7 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   const std::string user_;
   folly::EventBaseThread eventBaseThread_{false};
   std::shared_ptr<velox::memory::MemoryPool> rootPool_{
-      velox::memory::defaultMemoryManager().addRootPool()};
+      velox::memory::deprecatedDefaultMemoryManager().addRootPool()};
   std::shared_ptr<velox::memory::MemoryPool> pool_{
       rootPool_->addLeafChild("leaf")};
 };
