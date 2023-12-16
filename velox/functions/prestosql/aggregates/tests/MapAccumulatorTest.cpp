@@ -23,6 +23,11 @@ namespace {
 
 class MapAccumulatorTest : public testing::Test, public test::VectorTestBase {
  protected:
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   // Takes a vector of unique keys and a matching vector of non-null values.
   template <typename K>
   void test(const VectorPtr& uniqueKeys, const VectorPtr& values) {

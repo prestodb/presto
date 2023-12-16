@@ -152,6 +152,10 @@ TestDecrypter testDecrypter;
 
 class CompressionTest : public TestWithParam<TestParams> {
  public:
+  static void SetUpTestCase() {
+    MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     auto tuple = GetParam();
     kind_ = std::get<0>(tuple);
@@ -163,39 +167,38 @@ class CompressionTest : public TestWithParam<TestParams> {
   CompressionKind kind_;
   const Encrypter* encrypter_;
   const Decrypter* decrypter_;
+  std::shared_ptr<MemoryPool> pool_ =
+      MemoryManager::getInstance()->addLeafPool();
 };
 
 TEST_P(CompressionTest, compressOriginalString) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 128;
 
   // simple, short string which will result in the original being saved
   char testData[] = "hello world!";
   compressAndVerify(
-      kind_, memSink, block, *pool, testData, sizeof(testData), encrypter_);
+      kind_, memSink, block, *pool_, testData, sizeof(testData), encrypter_);
   decompressAndVerify(
-      memSink, kind_, block, testData, sizeof(testData), *pool, decrypter_);
+      memSink, kind_, block, testData, sizeof(testData), *pool_, decrypter_);
 }
 
 TEST_P(CompressionTest, compressSimpleRepeatedString) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   constexpr uint64_t block = 128;
 
   // simple repeated string (128 'a's) which should be compressed
   char testData[block];
   std::memset(testData, 'a', block);
-  compressAndVerify(kind_, memSink, block, *pool, testData, block, encrypter_);
+  compressAndVerify(kind_, memSink, block, *pool_, testData, block, encrypter_);
   decompressAndVerify(
-      memSink, kind_, block, testData, block, *pool, decrypter_);
+      memSink, kind_, block, testData, block, *pool_, decrypter_);
 }
 
 TEST_P(CompressionTest, compressTwoBlocks) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 128;
   constexpr size_t size = 170;
@@ -203,13 +206,13 @@ TEST_P(CompressionTest, compressTwoBlocks) {
   // testData will be compressed in two blocks
   char testData[size];
   std::memset(testData, 'a', size);
-  compressAndVerify(kind_, memSink, block, *pool, testData, size, encrypter_);
-  decompressAndVerify(memSink, kind_, block, testData, size, *pool, decrypter_);
+  compressAndVerify(kind_, memSink, block, *pool_, testData, size, encrypter_);
+  decompressAndVerify(
+      memSink, kind_, block, testData, size, *pool_, decrypter_);
 }
 
 TEST_P(CompressionTest, compressRandomLetters) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
   constexpr size_t dataSize = 1024 * 1024; // 1M
@@ -218,14 +221,13 @@ TEST_P(CompressionTest, compressRandomLetters) {
   char testData[dataSize];
   generateRandomData(testData, dataSize, true);
   compressAndVerify(
-      kind_, memSink, block, *pool, testData, dataSize, encrypter_);
+      kind_, memSink, block, *pool_, testData, dataSize, encrypter_);
   decompressAndVerify(
-      memSink, kind_, block, testData, dataSize, *pool, decrypter_);
+      memSink, kind_, block, testData, dataSize, *pool_, decrypter_);
 }
 
 TEST_P(CompressionTest, compressRandomBytes) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
   constexpr size_t dataSize = 1024 * 1024; // 1M
@@ -234,9 +236,9 @@ TEST_P(CompressionTest, compressRandomBytes) {
   char testData[dataSize];
   generateRandomData(testData, dataSize, false);
   compressAndVerify(
-      kind_, memSink, block, *pool, testData, dataSize, encrypter_);
+      kind_, memSink, block, *pool_, testData, dataSize, encrypter_);
   decompressAndVerify(
-      memSink, kind_, block, testData, dataSize, *pool, decrypter_);
+      memSink, kind_, block, testData, dataSize, *pool_, decrypter_);
 }
 
 void verifyProto(
@@ -261,8 +263,7 @@ void verifyProto(
 }
 
 TEST_P(CompressionTest, compressProtoBuf) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 256;
 
@@ -272,8 +273,8 @@ TEST_P(CompressionTest, compressProtoBuf) {
       static_cast<proto::CompressionKind>(static_cast<int32_t>(kind_)));
   ps.set_writerversion(789);
 
-  TestBufferPool bufferPool(*pool, block);
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  TestBufferPool bufferPool(*pool_, block);
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   Config config;
   std::unique_ptr<BufferedOutputStream> compressStream =
       createCompressor(kind_, bufferPool, holder, config, encrypter_);
@@ -281,7 +282,7 @@ TEST_P(CompressionTest, compressProtoBuf) {
   EXPECT_TRUE(ps.SerializeToZeroCopyStream(compressStream.get()));
   compressStream->flush();
 
-  verifyProto(memSink, kind_, block, *pool, ps, decrypter_);
+  verifyProto(memSink, kind_, block, *pool_, ps, decrypter_);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
@@ -299,6 +300,10 @@ typedef std::tuple<CompressionKind, const Encrypter*> TestParams2;
 
 class RecordPositionTest : public TestWithParam<TestParams2> {
  public:
+  static void SetUpTestCase() {
+    MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     auto tuple = GetParam();
     kind_ = std::get<0>(tuple);
@@ -308,17 +313,18 @@ class RecordPositionTest : public TestWithParam<TestParams2> {
  protected:
   CompressionKind kind_;
   const Encrypter* encrypter_;
+  std::shared_ptr<MemoryPool> pool_ =
+      MemoryManager::getInstance()->addLeafPool();
 };
 
 TEST_P(RecordPositionTest, testRecordPosition) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
   uint64_t block = 256;
   uint64_t initial = 128;
 
-  TestBufferPool bufferPool(*pool, block);
+  TestBufferPool bufferPool(*pool_, block);
   DataBufferHolder holder{
-      *pool, block, initial, DEFAULT_PAGE_GROW_RATIO, &memSink};
+      *pool_, block, initial, DEFAULT_PAGE_GROW_RATIO, &memSink};
   Config config;
   std::unique_ptr<BufferedOutputStream> stream =
       createCompressor(kind_, bufferPool, holder, config, encrypter_);
@@ -380,8 +386,7 @@ TEST_P(RecordPositionTest, testRecordPosition) {
 }
 
 TEST_P(CompressionTest, getCompressionBufferOOM) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(10L << 20, {.pool = pool.get()});
+  MemorySink memSink(10L << 20, {.pool = pool_.get()});
   const uint64_t compressBlockSize{2L << 20};
 
   struct {
@@ -404,7 +409,7 @@ TEST_P(CompressionTest, getCompressionBufferOOM) {
     config->set<uint64_t>(Config::COMPRESSION_BLOCK_SIZE, compressBlockSize);
     WriterContext context{
         config,
-        defaultMemoryManager().addRootPool(
+        MemoryManager::getInstance()->addRootPool(
             "oomOnCompression",
             kind_ == facebook::velox::common::CompressionKind_NONE ? 3L << 20
                                                                    : 6L << 20)};

@@ -111,6 +111,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
  public:
   static void SetUpTestCase() {
     TestValue::enable();
+    memory::MemoryManager::testingSetInstance({});
   }
 
   explicit SpillerTest(const TestParam& param)

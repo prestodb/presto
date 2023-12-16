@@ -67,6 +67,10 @@ class ExpressionVerifierUnitTest : public testing::Test, public VectorTestBase {
   }
 
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   core::TypedExprPtr parseExpression(
       const std::string& text,
       const RowTypePtr& rowType) {
@@ -75,7 +79,8 @@ class ExpressionVerifierUnitTest : public testing::Test, public VectorTestBase {
     return core::Expressions::inferTypes(untyped, rowType, pool_.get());
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   core::QueryCtx queryCtx_{};
   core::ExecCtx execCtx_{pool_.get(), &queryCtx_};
 };

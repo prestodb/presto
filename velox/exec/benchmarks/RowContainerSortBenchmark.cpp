@@ -63,7 +63,7 @@ facebook::velox::parquet::ParquetReader createReader(
 std::vector<std::optional<StringView>> getDataFromFile() {
   const std::string sample(getExampleFilePath("str_sort.parquet"));
   auto rowType = ROW({"query_sig", "result_sig"}, {VARCHAR(), VARCHAR()});
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   facebook::velox::dwio::common::ReaderOptions readerOptions{pool.get()};
   facebook::velox::parquet::ParquetReader reader =
       createReader(sample, readerOptions);
@@ -101,7 +101,7 @@ std::vector<char*> store(
 template <typename T>
 void rowContainerStdSortBenchmark(uint32_t iterations, size_t cardinality) {
   folly::BenchmarkSuspender suspender;
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   VectorMaker vectorMaker(pool.get());
 
   for (size_t k = 0; k < iterations; ++k) {
@@ -131,7 +131,7 @@ void rowContainerStdSortBenchmark(uint32_t iterations, size_t cardinality) {
 template <typename T>
 void rowContainerTimSortBenchmark(uint32_t iterations, size_t cardinality) {
   folly::BenchmarkSuspender suspender;
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   VectorMaker vectorMaker(pool.get());
 
   for (size_t k = 0; k < iterations; ++k) {
@@ -166,7 +166,7 @@ void BM_Int64_timSort(uint32_t iterations, size_t cardinality) {
 
 void BM_STR_stdSort(uint32_t iterations) {
   folly::BenchmarkSuspender suspender;
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   VectorMaker vectorMaker(pool.get());
   auto data = getDataFromFile();
   auto vector =
@@ -191,7 +191,7 @@ void BM_STR_stdSort(uint32_t iterations) {
 
 void BM_STR_timSort(uint32_t iterations) {
   folly::BenchmarkSuspender suspender;
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   VectorMaker vectorMaker(pool.get());
   auto data = getDataFromFile();
   auto vector =
@@ -234,6 +234,7 @@ BENCHMARK_DRAW_LINE();
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
+  facebook::velox::memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;
 }

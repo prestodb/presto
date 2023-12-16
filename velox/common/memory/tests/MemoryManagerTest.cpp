@@ -257,9 +257,10 @@ TEST_F(MemoryManagerTest, addPoolWithArbitrator) {
   ASSERT_EQ(aggregationPool->capacity(), initialPoolCapacity);
 }
 
+// TODO: remove this test when remove deprecatedDefaultMemoryManager.
 TEST_F(MemoryManagerTest, defaultMemoryManager) {
-  auto& managerA = toMemoryManager(defaultMemoryManager());
-  auto& managerB = toMemoryManager(defaultMemoryManager());
+  auto& managerA = toMemoryManager(deprecatedDefaultMemoryManager());
+  auto& managerB = toMemoryManager(deprecatedDefaultMemoryManager());
   const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
   ASSERT_EQ(managerA.numPools(), 0);
   ASSERT_EQ(managerA.testingDefaultRoot().getChildCount(), kSharedPoolCount);
@@ -303,24 +304,25 @@ TEST_F(MemoryManagerTest, defaultMemoryManager) {
       "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
 }
 
+// TODO: remove this test when remove deprecatedAddDefaultLeafMemoryPool.
 TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {
-  auto& manager = toMemoryManager(defaultMemoryManager());
+  auto& manager = toMemoryManager(deprecatedDefaultMemoryManager());
   const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
   ASSERT_EQ(manager.testingDefaultRoot().getChildCount(), kSharedPoolCount);
   {
-    auto poolA = addDefaultLeafMemoryPool();
+    auto poolA = deprecatedAddDefaultLeafMemoryPool();
     ASSERT_EQ(poolA->kind(), MemoryPool::Kind::kLeaf);
-    auto poolB = addDefaultLeafMemoryPool();
+    auto poolB = deprecatedAddDefaultLeafMemoryPool();
     ASSERT_EQ(poolB->kind(), MemoryPool::Kind::kLeaf);
     EXPECT_EQ(
         kSharedPoolCount + 2, manager.testingDefaultRoot().getChildCount());
     {
-      auto poolC = addDefaultLeafMemoryPool();
+      auto poolC = deprecatedAddDefaultLeafMemoryPool();
       ASSERT_EQ(poolC->kind(), MemoryPool::Kind::kLeaf);
       EXPECT_EQ(
           kSharedPoolCount + 3, manager.testingDefaultRoot().getChildCount());
       {
-        auto poolD = addDefaultLeafMemoryPool();
+        auto poolD = deprecatedAddDefaultLeafMemoryPool();
         ASSERT_EQ(poolD->kind(), MemoryPool::Kind::kLeaf);
         EXPECT_EQ(
             kSharedPoolCount + 4, manager.testingDefaultRoot().getChildCount());
@@ -333,7 +335,7 @@ TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {
   }
   EXPECT_EQ(kSharedPoolCount, manager.testingDefaultRoot().getChildCount());
 
-  auto namedPool = addDefaultLeafMemoryPool("namedPool");
+  auto namedPool = deprecatedAddDefaultLeafMemoryPool("namedPool");
   ASSERT_EQ(namedPool->name(), "namedPool");
 }
 
@@ -399,16 +401,17 @@ TEST_F(MemoryManagerTest, memoryPoolManagement) {
 // effects for other tests using process singleton memory manager. Might need to
 // use folly::Singleton for isolation by tag.
 TEST_F(MemoryManagerTest, globalMemoryManager) {
-  auto& manager = MemoryManager::getInstance();
-  auto& managerII = MemoryManager::getInstance();
+  MemoryManager::initialize({});
+  auto* manager = MemoryManager::getInstance();
+  auto* managerII = MemoryManager::getInstance();
   const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
   {
-    auto& rootI = manager.testingDefaultRoot();
+    auto& rootI = manager->testingDefaultRoot();
     const std::string childIName("some_child");
     auto childI = rootI.addLeafChild(childIName);
     ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 1);
 
-    auto& rootII = managerII.testingDefaultRoot();
+    auto& rootII = managerII->testingDefaultRoot();
     ASSERT_EQ(kSharedPoolCount + 1, rootII.getChildCount());
     std::vector<MemoryPool*> pools{};
     rootII.visitChildren([&pools](MemoryPool* child) {
@@ -424,42 +427,20 @@ TEST_F(MemoryManagerTest, globalMemoryManager) {
     }
     ASSERT_EQ(matchedCount, 1);
 
-    auto childII = manager.addLeafPool("another_child");
+    auto childII = manager->addLeafPool("another_child");
     ASSERT_EQ(childII->kind(), MemoryPool::Kind::kLeaf);
     ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 2);
     ASSERT_EQ(childII->parent()->name(), kDefaultRootName.str());
     childII.reset();
     ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 1);
     ASSERT_EQ(rootII.getChildCount(), kSharedPoolCount + 1);
-    auto userRootChild = manager.addRootPool("rootChild");
+    auto userRootChild = manager->addRootPool("rootChild");
     ASSERT_EQ(userRootChild->kind(), MemoryPool::Kind::kAggregate);
     ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 1);
     ASSERT_EQ(rootII.getChildCount(), kSharedPoolCount + 1);
-    ASSERT_EQ(manager.numPools(), 2);
+    ASSERT_EQ(manager->numPools(), 2);
   }
-  ASSERT_EQ(manager.numPools(), 0);
-  {
-    auto& manager = MemoryManager::getInstance();
-    auto& defaultManager = defaultMemoryManager();
-    ASSERT_EQ(&manager, &defaultManager);
-    auto pool = addDefaultLeafMemoryPool();
-    ASSERT_EQ(pool->kind(), MemoryPool::Kind::kLeaf);
-    ASSERT_EQ(pool->parent()->name(), kDefaultRootName.str());
-    ASSERT_EQ(manager.numPools(), 1);
-    ASSERT_EQ(
-        manager.testingDefaultRoot().getChildCount(), kSharedPoolCount + 1);
-    pool.reset();
-    ASSERT_EQ(manager.testingDefaultRoot().getChildCount(), kSharedPoolCount);
-  }
-  ASSERT_EQ(manager.numPools(), 0);
-}
-
-TEST_F(MemoryManagerTest, GlobalMemoryManagerQuota) {
-  auto& manager = MemoryManager::getInstance();
-  MemoryManager::getInstance({.alignment = 32});
-
-  auto& coercedManager = MemoryManager::getInstance({.alignment = 64});
-  ASSERT_EQ(manager.alignment(), coercedManager.alignment());
+  ASSERT_EQ(manager->numPools(), 0);
 }
 
 TEST_F(MemoryManagerTest, alignmentOptionCheck) {
@@ -637,7 +618,7 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
 
 TEST_F(MemoryManagerTest, testCheckUsageLeak) {
   FLAGS_velox_memory_leak_check_enabled = true;
-  auto& manager = MemoryManager::getInstance(
+  auto& manager = MemoryManager::testingSetInstance(
       memory::MemoryManagerOptions{.checkUsageLeak = false});
 
   auto rootPool = manager.addRootPool("duplicateRootPool", kMaxMemory);

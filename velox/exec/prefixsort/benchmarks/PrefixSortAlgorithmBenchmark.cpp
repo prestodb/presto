@@ -53,7 +53,8 @@ class PrefixSortAlgorithmBenchmark {
   }
 
  private:
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   folly::Random::DefaultGenerator rng_;
 };
 
@@ -84,6 +85,7 @@ BENCHMARK(PrefixSort_algorithm_10000k) {
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
+  memory::MemoryManager::initialize({});
   bm.seed(FLAGS_sort_data_seed);
   data10k = bm.generateTestVector(10'000);
   data100k = bm.generateTestVector(100'000);

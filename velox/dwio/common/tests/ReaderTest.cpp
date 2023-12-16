@@ -24,7 +24,12 @@ namespace {
 
 using namespace facebook::velox::common;
 
-class ReaderTest : public testing::Test, public test::VectorTestBase {};
+class ReaderTest : public testing::Test, public test::VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(ReaderTest, projectColumnsFilterStruct) {
   constexpr int kSize = 10;

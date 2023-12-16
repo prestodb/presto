@@ -53,6 +53,11 @@ class PrefixSortAlgorithmTest : public testing::Test,
     testingDecodeInPlace(data1);
     ASSERT_EQ(data1, data2);
   }
+
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
 };
 
 TEST_F(PrefixSortAlgorithmTest, quickSort) {

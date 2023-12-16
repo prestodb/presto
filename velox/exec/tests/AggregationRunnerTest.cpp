@@ -74,6 +74,7 @@ int main(int argc, char** argv) {
 
   facebook::velox::aggregate::prestosql::registerAllAggregateFunctions();
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
+  facebook::velox::memory::MemoryManager::initialize({});
 
   auto duckQueryRunner =
       std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();

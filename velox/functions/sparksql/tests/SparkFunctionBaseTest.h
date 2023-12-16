@@ -30,6 +30,7 @@ class SparkFunctionBaseTest : public FunctionBaseTest {
   static void SetUpTestCase() {
     parse::registerTypeResolver();
     sparksql::registerFunctions("");
+    memory::MemoryManager::testingSetInstance({});
   }
 };
 

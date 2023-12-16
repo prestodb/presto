@@ -24,6 +24,10 @@ using namespace facebook::velox::test;
 
 class IsWritableVectorTest : public testing::Test, public VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   // We use templates here to avoid the compiler automatically creating new
   // shared_ptrs which it would do if we used VectorPtr.
   template <typename T, typename V>

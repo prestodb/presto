@@ -21,9 +21,15 @@
 using namespace facebook::velox::memory;
 
 namespace facebook::velox::dwrf {
+class EntropyEncodingSelectorTests : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
-TEST(TestEntropyEncodingSelector, Ctor) {
-  auto pool = addDefaultLeafMemoryPool();
+TEST_F(EntropyEncodingSelectorTests, Ctor) {
+  auto pool = MemoryManager::getInstance()->addLeafPool();
   float slightlyOver = 1.0f + std::numeric_limits<float>::epsilon() * 2;
   float slightlyUnder = -std::numeric_limits<float>::epsilon();
   EXPECT_ANY_THROW(
@@ -70,7 +76,7 @@ class EntropyEncodingSelectorTest {
         decision_{decision} {}
 
   void runTest() const {
-    auto pool = addDefaultLeafMemoryPool();
+    auto pool = MemoryManager::getInstance()->addLeafPool();
     StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     dwio::common::DataBuffer<uint32_t> rows{*pool};
     rows.reserve(size_);
@@ -88,7 +94,7 @@ class EntropyEncodingSelectorTest {
   }
 };
 
-TEST(TestEntropyEncodingSelector, NoHeuristic) {
+TEST_F(EntropyEncodingSelectorTests, NoHeuristic) {
   class TestCase : public EntropyEncodingSelectorTest {
    public:
     explicit TestCase(
@@ -131,7 +137,7 @@ TEST(TestEntropyEncodingSelector, NoHeuristic) {
   }
 }
 
-TEST(TestEntropyEncodingSelector, NoSampling) {
+TEST_F(EntropyEncodingSelectorTests, NoSampling) {
   class TestCase : public EntropyEncodingSelectorTest {
    public:
     explicit TestCase(
@@ -181,7 +187,7 @@ std::string alphabeticRoundRobin(size_t index, size_t size) {
   return std::string(size % (index + 1), element);
 }
 
-TEST(TestEntropyEncodingSelector, Sampling) {
+TEST_F(EntropyEncodingSelectorTests, Sampling) {
   class TestCase : public EntropyEncodingSelectorTest {
    public:
     explicit TestCase(

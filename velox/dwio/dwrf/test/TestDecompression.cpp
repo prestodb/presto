@@ -36,15 +36,38 @@ using namespace folly::io;
 
 const std::string simpleFile(getExampleFilePath("simple-file.binary"));
 
-std::shared_ptr<MemoryPool> pool = addDefaultLeafMemoryPool();
+class DecompressionTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
 
-TEST(TestDecompression, testPrintBufferEmpty) {
+  std::unique_ptr<SeekableInputStream> createTestDecompressor(
+      CompressionKind kind,
+      std::unique_ptr<SeekableInputStream> input,
+      uint64_t bufferSize) {
+    return createDecompressor(
+        kind, std::move(input), bufferSize, *pool_, "Test Decompression");
+  }
+
+  SeekableFileInputStream createSeekableFileInputStream() {
+    auto readFile = std::make_shared<LocalReadFile>(simpleFile);
+    auto file = std::make_shared<ReadFileInputStream>(std::move(readFile));
+    return SeekableFileInputStream(
+        std::move(file), 0, 200, *pool_, LogType::TEST, 20);
+  }
+
+  std::shared_ptr<MemoryPool> pool_ =
+      memory::MemoryManager::getInstance()->addLeafPool();
+};
+
+TEST_F(DecompressionTest, testPrintBufferEmpty) {
   std::ostringstream str;
   printBuffer(str, nullptr, 0);
   EXPECT_EQ("", str.str());
 }
 
-TEST(TestDecompression, testPrintBufferSmall) {
+TEST_F(DecompressionTest, testPrintBufferSmall) {
   std::vector<char> buffer(10);
   std::ostringstream str;
   for (size_t i = 0; i < 10; ++i) {
@@ -54,7 +77,7 @@ TEST(TestDecompression, testPrintBufferSmall) {
   EXPECT_EQ("0000000 00 01 02 03 04 05 06 07 08 09\n", str.str());
 }
 
-TEST(TestDecompression, testPrintBufferLong) {
+TEST_F(DecompressionTest, testPrintBufferLong) {
   std::vector<char> buffer(300);
   std::ostringstream str;
   for (size_t i = 0; i < 300; ++i) {
@@ -90,7 +113,7 @@ TEST(TestDecompression, testPrintBufferLong) {
   EXPECT_EQ(expected.str(), str.str());
 }
 
-TEST(TestDecompression, testArrayBackup) {
+TEST_F(DecompressionTest, testArrayBackup) {
   std::vector<char> bytes(200);
   for (size_t i = 0; i < bytes.size(); ++i) {
     bytes[i] = static_cast<char>(i);
@@ -123,7 +146,7 @@ TEST(TestDecompression, testArrayBackup) {
   EXPECT_EQ(200, stream.ByteCount());
 }
 
-TEST(TestDecompression, testArraySkip) {
+TEST_F(DecompressionTest, testArraySkip) {
   std::vector<char> bytes(200);
   for (size_t i = 0; i < bytes.size(); ++i) {
     bytes[i] = static_cast<char>(i);
@@ -145,7 +168,7 @@ TEST(TestDecompression, testArraySkip) {
   EXPECT_EQ("SeekableArrayInputStream 200 of 200", stream.getName());
 }
 
-TEST(TestDecompression, testArrayCombo) {
+TEST_F(DecompressionTest, testArrayCombo) {
   std::vector<char> bytes(200);
   for (size_t i = 0; i < bytes.size(); ++i) {
     bytes[i] = static_cast<char>(i);
@@ -175,14 +198,7 @@ void checkBytes(const char* data, int32_t length, uint32_t startValue) {
   }
 }
 
-SeekableFileInputStream createSeekableFileInputStream() {
-  auto readFile = std::make_shared<LocalReadFile>(simpleFile);
-  auto file = std::make_shared<ReadFileInputStream>(std::move(readFile));
-  return SeekableFileInputStream(
-      std::move(file), 0, 200, *pool, LogType::TEST, 20);
-}
-
-TEST(TestDecompression, testFileBackup) {
+TEST_F(DecompressionTest, testFileBackup) {
   auto stream = createSeekableFileInputStream();
   const void* ptr;
   int32_t len;
@@ -211,7 +227,7 @@ TEST(TestDecompression, testFileBackup) {
   EXPECT_EQ(200, stream.ByteCount());
 }
 
-TEST(TestDecompression, testFileSkip) {
+TEST_F(DecompressionTest, testFileSkip) {
   auto stream = createSeekableFileInputStream();
   const void* ptr;
   int32_t len;
@@ -229,7 +245,7 @@ TEST(TestDecompression, testFileSkip) {
   EXPECT_EQ(std::string(simpleFile) + " from 0 for 200", stream.getName());
 }
 
-TEST(TestDecompression, testFileCombo) {
+TEST_F(DecompressionTest, testFileCombo) {
   auto stream = createSeekableFileInputStream();
   const void* ptr;
   int32_t len;
@@ -247,7 +263,7 @@ TEST(TestDecompression, testFileCombo) {
   EXPECT_EQ(true, !stream.Next(&ptr, &len));
 }
 
-TEST(TestDecompression, testFileSeek) {
+TEST_F(DecompressionTest, testFileSeek) {
   auto stream = createSeekableFileInputStream();
   const void* ptr;
   int32_t len;
@@ -278,18 +294,7 @@ TEST(TestDecompression, testFileSeek) {
   }
 }
 
-namespace {
-std::unique_ptr<SeekableInputStream> createTestDecompressor(
-    CompressionKind kind,
-    std::unique_ptr<SeekableInputStream> input,
-    uint64_t bufferSize) {
-  return createDecompressor(
-      kind, std::move(input), bufferSize, *pool, "Test Decompression");
-}
-
-} // namespace
-
-TEST(TestDecompression, testCreateNone) {
+TEST_F(DecompressionTest, testCreateNone) {
   std::vector<char> bytes(10);
   for (uint32_t i = 0; i < bytes.size(); ++i) {
     bytes[i] = static_cast<char>(i);
@@ -307,7 +312,7 @@ TEST(TestDecompression, testCreateNone) {
   }
 }
 
-TEST(TestDecompression, testLzoEmpty) {
+TEST_F(DecompressionTest, testLzoEmpty) {
   const unsigned char buffer[] = {0};
   std::unique_ptr<SeekableInputStream> result = createTestDecompressor(
       CompressionKind_LZO,
@@ -322,7 +327,7 @@ TEST(TestDecompression, testLzoEmpty) {
   ASSERT_TRUE(!result->Next(&ptr, &length));
 }
 
-TEST(TestDecompression, testLzoSmall) {
+TEST_F(DecompressionTest, testLzoSmall) {
   const unsigned char buffer[] = {
       70,  0,   0,   48,  88,  88,  88, 88, 97, 98, 99, 100, 97,
       98,  99,  100, 65,  66,  67,  68, 65, 66, 67, 68, 119, 120,
@@ -344,7 +349,7 @@ TEST(TestDecompression, testLzoSmall) {
   ASSERT_TRUE(!result->Next(&ptr, &length));
 }
 
-TEST(TestDecompression, testLzoLong) {
+TEST_F(DecompressionTest, testLzoLong) {
   // set up a framed lzo buffer with 100,000 'a'
   unsigned char buffer[482];
   bzero(buffer, VELOX_ARRAY_SIZE(buffer));
@@ -384,7 +389,7 @@ TEST(TestDecompression, testLzoLong) {
   ASSERT_TRUE(!result->Next(&ptr, &length));
 }
 
-TEST(TestDecompression, testLz4Empty) {
+TEST_F(DecompressionTest, testLz4Empty) {
   const unsigned char buffer[] = {0};
   std::unique_ptr<SeekableInputStream> result = createTestDecompressor(
       CompressionKind_LZ4,
@@ -399,7 +404,7 @@ TEST(TestDecompression, testLz4Empty) {
   ASSERT_TRUE(!result->Next(&ptr, &length));
 }
 
-TEST(TestDecompression, testLz4Small) {
+TEST_F(DecompressionTest, testLz4Small) {
   const unsigned char buffer[] = {60,  0,   0,   128, 88,  88,  88,  88,  97,
                                   98,  99,  100, 4,   0,   64,  65,  66,  67,
                                   68,  4,   0,   176, 119, 120, 121, 122, 119,
@@ -421,7 +426,7 @@ TEST(TestDecompression, testLz4Small) {
   ASSERT_TRUE(!result->Next(&ptr, &length));
 }
 
-TEST(TestDecompression, testLz4Long) {
+TEST_F(DecompressionTest, testLz4Long) {
   // set up a framed lzo buffer with 100,000 'a'
   unsigned char buffer[406];
   memset(buffer, 255, VELOX_ARRAY_SIZE(buffer));
@@ -454,7 +459,7 @@ TEST(TestDecompression, testLz4Long) {
   ASSERT_TRUE(!result->Next(&ptr, &length));
 }
 
-TEST(TestDecompression, testCreateZlib) {
+TEST_F(DecompressionTest, testCreateZlib) {
   const unsigned char buffer[] = {0x0b, 0x0, 0x0, 0x0, 0x1, 0x2, 0x3, 0x4};
   std::unique_ptr<SeekableInputStream> result = createTestDecompressor(
       CompressionKind_ZLIB,
@@ -484,7 +489,7 @@ TEST(TestDecompression, testCreateZlib) {
   }
 }
 
-TEST(TestDecompression, testLiteralBlocks) {
+TEST_F(DecompressionTest, testLiteralBlocks) {
   const unsigned char buffer[] = {0x19, 0x0, 0x0, 0x0, 0x1, 0x2, 0x3, 0x4,
                                   0x5,  0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xb,
                                   0x0,  0x0, 0xc, 0xd, 0xe, 0xf, 0x10};
@@ -527,7 +532,7 @@ TEST(TestDecompression, testLiteralBlocks) {
   EXPECT_EQ(16, static_cast<const char*>(ptr)[2]);
 }
 
-TEST(TestDecompression, testInflate) {
+TEST_F(DecompressionTest, testInflate) {
   const unsigned char buffer[] = {
       0xe, 0x0, 0x0, 0x63, 0x60, 0x64, 0x62, 0xc0, 0x8d, 0x0};
   std::unique_ptr<SeekableInputStream> result = createTestDecompressor(
@@ -546,7 +551,7 @@ TEST(TestDecompression, testInflate) {
   }
 }
 
-TEST(TestDecompression, testInflateSequence) {
+TEST_F(DecompressionTest, testInflateSequence) {
   const unsigned char buffer[] = {0xe,  0x0,  0x0,  0x63, 0x60, 0x64, 0x62,
                                   0xc0, 0x8d, 0x0,  0xe,  0x0,  0x0,  0x63,
                                   0x60, 0x64, 0x62, 0xc0, 0x8d, 0x0};
@@ -581,7 +586,7 @@ TEST(TestDecompression, testInflateSequence) {
   }
 }
 
-TEST(TestDecompression, testSkipZlib) {
+TEST_F(DecompressionTest, testSkipZlib) {
   const unsigned char buffer[] = {0x19, 0x0, 0x0, 0x0, 0x1, 0x2, 0x3, 0x4,
                                   0x5,  0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xb,
                                   0x0,  0x0, 0xc, 0xd, 0xe, 0xf, 0x10};
@@ -659,7 +664,7 @@ class CompressBuffer {
   }
 };
 
-TEST(TestDecompression, testBasic) {
+TEST_F(DecompressionTest, testBasic) {
   const int32_t N = 1024;
   std::vector<char> buf(N * sizeof(int));
   for (int32_t i = 0; i < N; ++i) {
@@ -692,7 +697,7 @@ TEST(TestDecompression, testBasic) {
   }
 }
 
-TEST(TestDecompression, testMultiBuffer) {
+TEST_F(DecompressionTest, testMultiBuffer) {
   const int32_t N = 1024;
   std::vector<char> buf(N * sizeof(int));
   for (int32_t i = 0; i < N; ++i) {
@@ -740,7 +745,7 @@ TEST(TestDecompression, testMultiBuffer) {
   }
 }
 
-TEST(TestDecompression, testSkipSnappy) {
+TEST_F(DecompressionTest, testSkipSnappy) {
   const int32_t N = 1024;
   std::vector<char> buf(N * sizeof(int));
   for (int32_t i = 0; i < N; ++i) {
@@ -776,7 +781,7 @@ TEST(TestDecompression, testSkipSnappy) {
   }
 }
 
-TEST(TestDecompression, testDelayedSkip) {
+TEST_F(DecompressionTest, testDelayedSkip) {
   constexpr int32_t N = 1024;
   std::vector<int> buf(N);
   for (int32_t i = 0; i < N; ++i) {
@@ -852,8 +857,21 @@ compress(char* buf, size_t size, char* output, size_t offset, Codec& codec) {
 
 class TestSeek : public ::testing::Test {
  public:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   ~TestSeek() override {}
-  static void runTest(Codec& codec, CompressionKind kind) {
+
+  std::unique_ptr<SeekableInputStream> createTestDecompressor(
+      CompressionKind kind,
+      std::unique_ptr<SeekableInputStream> input,
+      uint64_t bufferSize) {
+    return createDecompressor(
+        kind, std::move(input), bufferSize, *pool_, "Test Decompression");
+  }
+
+  void runTest(Codec& codec, CompressionKind kind) {
     constexpr size_t inputSize = 1024;
     constexpr size_t outputSize = 4096;
     char output[outputSize];
@@ -862,14 +880,13 @@ class TestSeek : public ::testing::Test {
     size_t offset1;
     size_t offset2;
     prepareTestData(codec, input1, input2, inputSize, output, offset1, offset2);
-    auto pool = addDefaultLeafMemoryPool();
 
     std::unique_ptr<SeekableInputStream> stream = createDecompressor(
         kind,
         std::unique_ptr<SeekableInputStream>(
             new SeekableArrayInputStream(output, offset2, outputSize / 10)),
         outputSize,
-        *pool,
+        *pool_,
         "TestSeek Decompressor",
         nullptr);
 
@@ -907,6 +924,9 @@ class TestSeek : public ::testing::Test {
     offset1 = compress(input1, inputSize, output, 0, codec);
     offset2 = compress(input2, inputSize, output, offset1, codec);
   }
+
+  std::shared_ptr<MemoryPool> pool_ =
+      memory::MemoryManager::getInstance()->addLeafPool();
 };
 
 TEST_F(TestSeek, Zlib) {

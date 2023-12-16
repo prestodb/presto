@@ -69,7 +69,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     auto queryCtx = std::make_shared<core::QueryCtx>(
         executor_.get(), core::QueryConfig(std::move(configCopy)));
     queryCtx->testingOverrideMemoryPool(
-        memory::defaultMemoryManager().addRootPool(
+        memory::MemoryManager::getInstance()->addRootPool(
             queryCtx->queryId(), maxMemory, MemoryReclaimer::create()));
     core::PlanFragment planFragment{planNode};
     return Task::create(

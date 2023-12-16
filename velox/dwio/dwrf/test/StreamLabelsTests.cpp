@@ -22,8 +22,16 @@ using namespace ::testing;
 using facebook::velox::memory::AllocationPool;
 using namespace facebook::velox::dwrf;
 
-TEST(StreamLabelsTest, E2E) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+class StreamLabelsTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    facebook::velox::memory::MemoryManager::testingSetInstance({});
+  }
+};
+
+TEST_F(StreamLabelsTest, E2E) {
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
   AllocationPool allocationPool(pool.get());
   StreamLabels root(allocationPool);
   auto c0 = root.append("c0");

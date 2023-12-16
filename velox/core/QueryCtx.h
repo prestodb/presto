@@ -134,7 +134,7 @@ class QueryCtx {
 
   void initPool(const std::string& queryId) {
     if (pool_ == nullptr) {
-      pool_ = memory::defaultMemoryManager().addRootPool(
+      pool_ = memory::deprecatedDefaultMemoryManager().addRootPool(
           QueryCtx::generatePoolName(queryId));
     }
   }

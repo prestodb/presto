@@ -42,7 +42,7 @@ void runBenchmark(int nullEvery) {
 
   auto type = CppToType<float>::create();
   auto typeWithId = TypeWithId::create(type, 1);
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   VectorPtr vector;
   // Prepare input
   BufferPtr values = AlignedBuffer::allocate<float>(kVectorSize, pool.get());
@@ -78,7 +78,7 @@ void runBenchmark(int nullEvery) {
     auto config = std::make_shared<dwrf::Config>();
     WriterContext context{
         config,
-        memory::defaultMemoryManager().addRootPool(
+        memory::MemoryManager::getInstance()->addRootPool(
             "FloatColumnWriterBenchmark")};
     auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
     writer->write(vector, common::Ranges::of(0, kVectorSize));
@@ -131,6 +131,7 @@ BENCHMARK(FloatColumnWriterBenchmark10000) {
 
 int32_t main(int32_t argc, char* argv[]) {
   folly::init(&argc, &argv);
+  memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;
 }

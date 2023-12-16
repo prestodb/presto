@@ -659,8 +659,8 @@ class WriterContext : public CompressionBufferPool {
   template <typename TestType>
   friend class WriterEncodingIndexTest2;
 
-  VELOX_FRIEND_TEST(TestWriterContext, GetIntDictionaryEncoder);
-  VELOX_FRIEND_TEST(TestWriterContext, RemoveIntDictionaryEncoderForNode);
+  VELOX_FRIEND_TEST(WriterContextTest, GetIntDictionaryEncoder);
+  VELOX_FRIEND_TEST(WriterContextTest, RemoveIntDictionaryEncoderForNode);
 };
 
 } // namespace facebook::velox::dwrf

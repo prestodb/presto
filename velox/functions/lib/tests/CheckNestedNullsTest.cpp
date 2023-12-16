@@ -22,7 +22,12 @@
 
 namespace facebook::velox::functions::test {
 class CheckNestedNullsTest : public testing::Test,
-                             public facebook::velox::test::VectorTestBase {};
+                             public facebook::velox::test::VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(CheckNestedNullsTest, array) {
   auto baseVector = makeArrayVectorFromJson<int32_t>({

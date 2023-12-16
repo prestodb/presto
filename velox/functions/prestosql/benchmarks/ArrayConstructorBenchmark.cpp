@@ -28,7 +28,8 @@ int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
 
   functions::prestosql::registerArrayFunctions();
-  auto anotherPool = memory::addDefaultLeafMemoryPool("bm");
+  memory::MemoryManager::initialize({});
+  auto anotherPool = memory::MemoryManager::getInstance()->addLeafPool("bm");
 
   ExpressionBenchmarkBuilder benchmarkBuilder;
 

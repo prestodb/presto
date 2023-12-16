@@ -31,6 +31,10 @@ using namespace facebook::velox::test;
 
 class UnsafeRowFuzzTests : public ::testing::Test {
  public:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   UnsafeRowFuzzTests() {
     clearBuffers();
   }
@@ -90,7 +94,7 @@ class UnsafeRowFuzzTests : public ::testing::Test {
   std::array<char[kBufferSize], kNumBuffers> buffers_{};
 
   std::shared_ptr<memory::MemoryPool> pool_ =
-      memory::addDefaultLeafMemoryPool();
+      memory::MemoryManager::getInstance()->addLeafPool();
 };
 
 TEST_F(UnsafeRowFuzzTests, fast) {

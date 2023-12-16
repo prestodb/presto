@@ -30,10 +30,14 @@ class BufferedWriterTest : public testing::TestWithParam<bool> {
  protected:
   BufferedWriterTest()
       : usePool_(GetParam()),
-        pool_(memory::addDefaultLeafMemoryPool("BufferedWriterTest")) {}
+        pool_(memory::MemoryManager::getInstance()->addLeafPool(
+            "BufferedWriterTest")) {}
 
   void SetUp() override {}
-  static void SetUpTestCase() {}
+
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
 
   // Indicates test with buffered writer interface which takes memory pool or
   // not.

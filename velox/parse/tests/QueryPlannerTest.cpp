@@ -20,6 +20,10 @@ namespace facebook::velox::core::test {
 
 class QueryPlannerTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void assertPlan(
       const std::string& sql,
       const std::unordered_map<std::string, std::vector<RowVectorPtr>>&
@@ -54,7 +58,8 @@ class QueryPlannerTest : public testing::Test {
         std::vector<VectorPtr>{});
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 
 TEST_F(QueryPlannerTest, values) {

@@ -20,7 +20,12 @@
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
-class HashRangeBitTest : public test::VectorTestBase, public testing::Test {};
+class HashRangeBitTest : public test::VectorTestBase, public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(HashRangeBitTest, hashBitRange) {
   HashBitRange bitRange(29, 31);

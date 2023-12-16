@@ -27,6 +27,10 @@ namespace {
 
 class VectorFuzzerTest : public testing::Test {
  public:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   memory::MemoryPool* pool() const {
     return pool_.get();
   }
@@ -78,7 +82,8 @@ class VectorFuzzerTest : public testing::Test {
   void validateMaxSizes(VectorPtr vector, size_t maxSize);
 
  private:
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 
 TEST_F(VectorFuzzerTest, flatPrimitive) {

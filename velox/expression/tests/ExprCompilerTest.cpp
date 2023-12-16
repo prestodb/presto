@@ -29,12 +29,13 @@ namespace facebook::velox::exec::test {
 class ExprCompilerTest : public testing::Test,
                          public velox::test::VectorTestBase {
  protected:
-  void SetUp() override {
-    functions::prestosql::registerAllScalarFunctions();
-  }
-
   static void SetUpTestCase() {
     parse::registerTypeResolver();
+    functions::prestosql::registerAllScalarFunctions();
+    memory::MemoryManager::testingSetInstance({});
+  }
+
+  void SetUp() override {
     functions::prestosql::registerAllScalarFunctions();
   }
 

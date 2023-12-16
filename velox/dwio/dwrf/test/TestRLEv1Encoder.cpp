@@ -86,14 +86,21 @@ void decodeAndVerify(
   delete[] decodedData;
 }
 
-class RleEncoderV1Test : public testing::Test {};
+class RleEncoderV1Test : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
 
-TEST(RleEncoderV1Test, encodeMinAndMax) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
+};
+
+TEST_F(RleEncoderV1Test, encodeMinAndMax) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<false> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -109,12 +116,11 @@ TEST(RleEncoderV1Test, encodeMinAndMax) {
   decodeAndVerify<false>(memSink, data.data(), 2, nullptr);
 }
 
-TEST(RleEncoderV1Test, encodeMinAndMaxint32) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, encodeMinAndMaxint32) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<true> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -131,12 +137,11 @@ TEST(RleEncoderV1Test, encodeMinAndMaxint32) {
   decodeAndVerify<true>(memSink, data.data(), 2, nullptr);
 }
 
-TEST(RleEncoderV1Test, deltaIncreasingSequanceUnsigned) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, deltaIncreasingSequanceUnsigned) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<false> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -150,12 +155,11 @@ TEST(RleEncoderV1Test, deltaIncreasingSequanceUnsigned) {
   delete[] data;
 }
 
-TEST(RleEncoderV1Test, deltaIncreasingSequanceUnsignedNull) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, deltaIncreasingSequanceUnsignedNull) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<false> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -171,12 +175,11 @@ TEST(RleEncoderV1Test, deltaIncreasingSequanceUnsignedNull) {
   delete[] nulls;
 }
 
-TEST(RleEncoderV1Test, deltaDecreasingSequanceUnsigned) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, deltaDecreasingSequanceUnsigned) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<false> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -190,12 +193,11 @@ TEST(RleEncoderV1Test, deltaDecreasingSequanceUnsigned) {
   delete[] data;
 }
 
-TEST(RleEncoderV1Test, deltaDecreasingSequanceSigned) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, deltaDecreasingSequanceSigned) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<true> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -209,12 +211,11 @@ TEST(RleEncoderV1Test, deltaDecreasingSequanceSigned) {
   delete[] data;
 }
 
-TEST(RleEncoderV1Test, deltaDecreasingSequanceSignedNull) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, deltaDecreasingSequanceSignedNull) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<true> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -230,12 +231,11 @@ TEST(RleEncoderV1Test, deltaDecreasingSequanceSignedNull) {
   delete[] nulls;
 }
 
-TEST(RleEncoderV1Test, randomSequanceSigned) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, randomSequanceSigned) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<true> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -249,12 +249,11 @@ TEST(RleEncoderV1Test, randomSequanceSigned) {
   delete[] data;
 }
 
-TEST(RleEncoderV1Test, allNull) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, allNull) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<true> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -270,12 +269,11 @@ TEST(RleEncoderV1Test, allNull) {
   delete[] nulls;
 }
 
-TEST(RleEncoderV1Test, recordPosition) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, recordPosition) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<true> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);
@@ -292,12 +290,11 @@ TEST(RleEncoderV1Test, recordPosition) {
   EXPECT_EQ(pos.at(1), size - 130);
 }
 
-TEST(RleEncoderV1Test, backfillPosition) {
-  auto pool = memory::addDefaultLeafMemoryPool();
-  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
+TEST_F(RleEncoderV1Test, backfillPosition) {
+  MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool_.get()});
 
   uint64_t block = 1024;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
 
   RleEncoderV1<true> encoder(
       std::make_unique<BufferedOutputStream>(holder), true, 8);

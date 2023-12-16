@@ -27,6 +27,10 @@ namespace {
 
 class CompactRowTest : public ::testing::Test, public VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   /// TODO Replace with VectorFuzzer::fuzzInputRow once
   /// https://github.com/facebookincubator/velox/issues/6195 is fixed.
   RowVectorPtr fuzzInputRow(VectorFuzzer& fuzzer, const RowTypePtr& rowType) {

@@ -260,7 +260,7 @@ class ExchangeFuzzer : public VectorTestBase {
       LOG(INFO) << "Memory after run="
                 << succinctBytes(memory::AllocationTraits::pageBytes(
                        memory::MemoryManager::getInstance()
-                           .allocator()
+                           ->allocator()
                            .numAllocated()));
 
       if (FLAGS_duration_sec == 0 && FLAGS_steps &&
@@ -371,7 +371,7 @@ class ExchangeFuzzer : public VectorTestBase {
     auto queryCtx = std::make_shared<core::QueryCtx>(
         executor_.get(), core::QueryConfig(std::move(configCopy)));
     queryCtx->testingOverrideMemoryPool(
-        memory::defaultMemoryManager().addRootPool(
+        memory::MemoryManager::getInstance()->addRootPool(
             queryCtx->queryId(), maxMemory));
     core::PlanFragment planFragment{planNode};
     return Task::create(
@@ -414,7 +414,7 @@ int main(int argc, char** argv) {
 
   auto allocator = std::make_shared<memory::MmapAllocator>(options);
   memory::MemoryAllocator::setDefaultInstance(allocator.get());
-  memory::MemoryManager::getInstance(memory::MemoryManagerOptions{
+  memory::MemoryManager::initialize(memory::MemoryManagerOptions{
       .capacity = static_cast<int64_t>(options.capacity),
       .allocator = allocator.get()});
 

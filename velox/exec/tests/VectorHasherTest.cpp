@@ -25,6 +25,10 @@ using namespace facebook::velox::test;
 
 class VectorHasherTest : public testing::Test, public VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     allRows_ = SelectivityVector(100);
 

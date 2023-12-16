@@ -35,9 +35,16 @@ void testCreateNodeToColumnIdMapping(
   auto typeWithId = dwio::common::TypeWithId::create(type);
   EXPECT_EQ(expected, TestLayoutPlanner{*typeWithId}.getNodeToColumnMap());
 }
+
+class LayoutPlannerTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 } // namespace
 
-TEST(LayoutPlannerTests, CreateNodeToColumnIdMapping) {
+TEST_F(LayoutPlannerTest, CreateNodeToColumnIdMapping) {
   testCreateNodeToColumnIdMapping(ROW({BOOLEAN()}), {{0, 0}, {1, 0}});
   testCreateNodeToColumnIdMapping(
       ROW(
@@ -89,13 +96,13 @@ TEST(LayoutPlannerTests, CreateNodeToColumnIdMapping) {
        {17, 5}});
 }
 
-TEST(LayoutPlannerTests, Basic) {
+TEST_F(LayoutPlannerTest, Basic) {
   auto config = std::make_shared<Config>();
   config->set(
       Config::COMPRESSION, common::CompressionKind::CompressionKind_NONE);
   WriterContext context{
       config,
-      facebook::velox::memory::defaultMemoryManager().addRootPool(
+      facebook::velox::memory::MemoryManager::getInstance()->addRootPool(
           "LayoutPlannerTests")};
   // fake streams
   std::vector<DwrfStreamIdentifier> streams;

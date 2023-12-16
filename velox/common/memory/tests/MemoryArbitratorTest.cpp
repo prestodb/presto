@@ -32,7 +32,12 @@ constexpr int64_t GB = 1024L * MB;
 
 namespace facebook::velox::memory {
 
-class MemoryArbitrationTest : public testing::Test {};
+class MemoryArbitrationTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(MemoryArbitrationTest, stats) {
   MemoryArbitrator::Stats stats;
@@ -211,6 +216,7 @@ class MemoryArbitratorFactoryTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     MemoryArbitrator::registerFactory(kind_, factory_);
+    memory::MemoryManager::testingSetInstance({});
   }
 
   static void TearDownTestCase() {
@@ -240,6 +246,10 @@ TEST_F(MemoryArbitratorFactoryTest, create) {
 
 class MemoryReclaimerTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   MemoryReclaimerTest() {
     const auto seed =
         std::chrono::system_clock::now().time_since_epoch().count();
@@ -287,7 +297,7 @@ TEST_F(MemoryReclaimerTest, common) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     std::vector<std::shared_ptr<MemoryPool>> pools;
-    auto pool = defaultMemoryManager().addRootPool(
+    auto pool = memory::MemoryManager::getInstance()->addRootPool(
         "shrinkAPIs", kMaxMemory, memory::MemoryReclaimer::create());
     pools.push_back(pool);
 
@@ -415,7 +425,7 @@ TEST_F(MemoryReclaimerTest, mockReclaim) {
   const int numAllocationsPerLeaf = 10;
   const int allocBytes = 10;
   std::atomic<uint64_t> totalUsedBytes{0};
-  auto root = defaultMemoryManager().addRootPool(
+  auto root = memory::MemoryManager::getInstance()->addRootPool(
       "mockReclaim", kMaxMemory, MemoryReclaimer::create());
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int i = 0; i < numChildren; ++i) {
@@ -475,7 +485,7 @@ TEST_F(MemoryReclaimerTest, mockReclaimMoreThanAvailable) {
   const int numAllocationsPerLeaf = 10;
   const int allocBytes = 100;
   std::atomic<uint64_t> totalUsedBytes{0};
-  auto root = defaultMemoryManager().addRootPool(
+  auto root = memory::MemoryManager::getInstance()->addRootPool(
       "mockReclaimMoreThanAvailable", kMaxMemory, MemoryReclaimer::create());
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int i = 0; i < numChildren; ++i) {
@@ -515,7 +525,7 @@ TEST_F(MemoryReclaimerTest, orderedReclaim) {
   const std::vector<int> initAllocUnitsVec = {10, 11, 8, 16, 5};
   ASSERT_EQ(initAllocUnitsVec.size(), numChildren);
   std::atomic<uint64_t> totalUsedBytes{0};
-  auto root = defaultMemoryManager().addRootPool(
+  auto root = memory::MemoryManager::getInstance()->addRootPool(
       "orderedReclaim", kMaxMemory, MemoryReclaimer::create());
   int totalAllocUnits{0};
   std::vector<std::shared_ptr<MemoryPool>> childPools;
@@ -643,7 +653,7 @@ TEST_F(MemoryReclaimerTest, orderedReclaim) {
 }
 
 TEST_F(MemoryReclaimerTest, arbitrationContext) {
-  auto root = defaultMemoryManager().addRootPool(
+  auto root = memory::MemoryManager::getInstance()->addRootPool(
       "arbitrationContext", kMaxMemory, MemoryReclaimer::create());
   ASSERT_FALSE(isSpillMemoryPool(root.get()));
   ASSERT_TRUE(isSpillMemoryPool(spillMemoryPool()));
@@ -684,7 +694,7 @@ TEST_F(MemoryReclaimerTest, arbitrationContext) {
 }
 
 TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
-  auto root = defaultMemoryManager().addRootPool(
+  auto root = memory::MemoryManager::getInstance()->addRootPool(
       "concurrentRandomMockReclaims", kMaxMemory, MemoryReclaimer::create());
 
   std::atomic<uint64_t> totalUsedBytes{0};

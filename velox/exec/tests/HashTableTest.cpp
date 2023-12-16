@@ -89,6 +89,10 @@ class HashTableTestHelper {
 class HashTableTest : public testing::TestWithParam<bool>,
                       public VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     common::testutil::TestValue::enable();
     if (GetParam()) {

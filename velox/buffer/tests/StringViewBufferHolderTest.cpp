@@ -35,11 +35,16 @@ std::string inlinedString() {
 
 class StringViewBufferHolderTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::initialize({});
+  }
+
   StringViewBufferHolder makeHolder() {
     return StringViewBufferHolder(pool_.get());
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 
 TEST_F(StringViewBufferHolderTest, inlinedStringViewDoesNotCopyToBuffer) {

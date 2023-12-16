@@ -48,7 +48,8 @@ class HyperLogLogFunctionsTest : public functions::test::FunctionBaseTest {
     return serialized;
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   HashStringAllocator allocator_{pool_.get()};
 };
 

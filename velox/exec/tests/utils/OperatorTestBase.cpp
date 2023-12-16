@@ -56,6 +56,7 @@ OperatorTestBase::~OperatorTestBase() {
 void OperatorTestBase::SetUpTestCase() {
   FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   FLAGS_velox_memory_leak_check_enabled = true;
+  memory::MemoryManager::testingSetInstance({});
   exec::SharedArbitrator::registerFactory();
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();

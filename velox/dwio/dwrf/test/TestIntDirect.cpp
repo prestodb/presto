@@ -30,7 +30,7 @@ using namespace facebook::velox::dwrf;
 
 template <typename T, bool isSigned, bool vInt>
 void testInts(std::function<T()> generator) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   constexpr size_t count = 10240;
   DataBuffer<T> buffer{*pool, count};
   std::array<uint64_t, count / 64> nulls;
@@ -134,37 +134,44 @@ void testInts(std::function<T()> generator) {
   }
 }
 
-TEST(TestDirect, fixedWidthShort) {
+class DirectTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
+
+TEST_F(DirectTest, fixedWidthShort) {
   testInts<int16_t, true, false>([]() -> int16_t {
     return static_cast<int16_t>(folly::Random::rand32());
   });
 }
 
-TEST(TestDirect, fixedWidthInt) {
+TEST_F(DirectTest, fixedWidthInt) {
   testInts<int32_t, true, false>(
       []() -> int32_t { return folly::Random::rand32(); });
 }
 
-TEST(TestDirect, fixedWidthLong) {
+TEST_F(DirectTest, fixedWidthLong) {
   testInts<int64_t, true, false>(
       []() -> int64_t { return folly::Random::rand64(); });
 }
 
-TEST(TestDirect, vIntSignedShort) {
+TEST_F(DirectTest, vIntSignedShort) {
   folly::Random::DefaultGenerator rng;
   rng.seed(2);
   testInts<int16_t, true, true>(
       [&]() -> int16_t { return folly::Random::rand32(rng); });
 }
 
-TEST(TestDirect, vIntSignedInt) {
+TEST_F(DirectTest, vIntSignedInt) {
   folly::Random::DefaultGenerator rng;
   rng.seed(2);
   testInts<int64_t, true, true>(
       [&]() -> int32_t { return folly::Random::rand32(rng); });
 }
 
-TEST(TestDirect, vIntSignedLong) {
+TEST_F(DirectTest, vIntSignedLong) {
   folly::Random::DefaultGenerator rng;
   rng.seed(2);
   int32_t count = 0;
@@ -178,7 +185,7 @@ TEST(TestDirect, vIntSignedLong) {
   });
 }
 
-TEST(TestDirect, vIntUnsignedLong) {
+TEST_F(DirectTest, vIntUnsignedLong) {
   folly::Random::DefaultGenerator rng;
   rng.seed(1);
   int32_t count = 0;
@@ -218,7 +225,7 @@ void testCorruptedVarInts() {
                , exception::LoggedException);
 }
 
-TEST(TestDirect, corruptedInts) {
+TEST_F(DirectTest, corruptedInts) {
   testCorruptedVarInts<false>();
   testCorruptedVarInts<true>();
 }

@@ -68,6 +68,13 @@ struct GeneratedVectorFunctionConfigDouble {
   static constexpr bool isDefaultNullStrict = false;
 };
 
+class TestConcatTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
+
 TEST(TestConcat, BasicConcatRow) {
   GeneratedVectorFunctionConfigDouble::GeneratedCodeClass concat;
   auto args =
@@ -89,7 +96,7 @@ TEST(TestConcat, EvalConcatFunction) {
   auto outRowType =
       ROW({"pl", "mi"},
           {std::make_shared<DoubleType>(), std::make_shared<DoubleType>()});
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   auto inRowVector = BaseVector::create(inRowType, rowLength, pool.get());
   auto outRowVector = BaseVector::create(outRowType, rowLength, pool.get());
 
@@ -191,7 +198,7 @@ struct GeneratedVectorFunctionConfigBool {
 
 TEST(TestBooEvalVectorFunction, EvalBoolExpression) {
   // TODO: Move those to test class
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const size_t vectorSize = 1000;
   auto queryCtx = std::make_shared<core::QueryCtx>();
   auto execCtx = std::make_unique<core::ExecCtx>(pool.get(), queryCtx.get());

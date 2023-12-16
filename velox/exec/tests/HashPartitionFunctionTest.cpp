@@ -21,7 +21,12 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
 class HashPartitionFunctionTest : public test::VectorTestBase,
-                                  public testing::Test {};
+                                  public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(HashPartitionFunctionTest, function) {
   const int numRows = 10'000;

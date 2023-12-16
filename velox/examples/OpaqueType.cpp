@@ -187,9 +187,10 @@ int main(int argc, char** argv) {
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_map_resolver_vector, "map_resolver_vector");
 
+  memory::MemoryManager::initialize({});
   // Create memory pool and other query-related structures.
   auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 
   // Next, we need to generate an input batch of data (rowVector). We create a

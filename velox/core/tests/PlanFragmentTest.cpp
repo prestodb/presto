@@ -27,6 +27,10 @@ using facebook::velox::exec::test::PlanBuilder;
 namespace {
 class PlanFragmentTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     rowType_ = ROW({"c0", "c1", "c2"}, {BIGINT(), BIGINT(), BIGINT()});
     rowTypeWithProjection_ = ROW(
@@ -74,7 +78,8 @@ class PlanFragmentTest : public testing::Test {
   RowTypePtr probeTypeWithProjection_;
   std::vector<RowVectorPtr> emptyProbeVectors_;
   std::shared_ptr<PlanNode> probeValueNode_;
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 }; // namespace
 

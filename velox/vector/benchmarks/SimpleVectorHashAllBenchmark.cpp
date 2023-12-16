@@ -89,7 +89,7 @@ void vectorBenchmark(
     bool sequences,
     VectorEncoding::Simple encoding) {
   folly::BenchmarkSuspender suspender;
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   VectorMaker vectorMaker(pool.get());
 
   for (size_t k = 0; k < iterations; ++k) {
@@ -468,6 +468,7 @@ BENCHMARK_DRAW_LINE();
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
+  facebook::velox::memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;
 }

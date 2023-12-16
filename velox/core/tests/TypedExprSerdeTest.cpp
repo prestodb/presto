@@ -23,6 +23,10 @@ namespace facebook::velox::core::test {
 class TypedExprSerDeTest : public testing::Test,
                            public velox::test::VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   TypedExprSerDeTest() {
     Type::registerSerDe();
 

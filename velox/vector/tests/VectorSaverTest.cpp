@@ -29,6 +29,10 @@ namespace facebook::velox::test {
 
 class VectorSaverTest : public testing::Test, public VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   VectorSaverTest() {
     registerJsonType();
     registerHyperLogLogType();

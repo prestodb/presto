@@ -45,6 +45,10 @@ class DirectBufferedInputTest : public testing::Test {
  protected:
   static constexpr int32_t kLoadQuantum = 8 << 20;
 
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     executor_ = std::make_unique<folly::IOThreadPoolExecutor>(10, 10);
     ioStats_ = std::make_shared<IoStatistics>();
@@ -125,7 +129,8 @@ class DirectBufferedInputTest : public testing::Test {
   std::shared_ptr<IoStatistics> ioStats_;
   std::shared_ptr<IoStatistics> fileIoStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 
 TEST_F(DirectBufferedInputTest, basic) {

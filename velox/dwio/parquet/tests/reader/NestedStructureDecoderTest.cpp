@@ -28,9 +28,12 @@ class NestedStructureDecoderTest : public testing::Test {
  protected:
   static constexpr int32_t kMaxNumValues = 10'000;
 
- protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
-    pool_ = memory::addDefaultLeafMemoryPool();
+    pool_ = memory::MemoryManager::getInstance()->addLeafPool();
 
     dwio::common::ensureCapacity<bool>(
         nullsBuffer_, kMaxNumValues, pool_.get());

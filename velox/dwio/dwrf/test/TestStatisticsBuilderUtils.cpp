@@ -52,20 +52,29 @@ std::shared_ptr<FlatVector<T>> makeFlatVectorNoNulls(
   return makeFlatVector<T>(pool, BufferPtr(nullptr), 0, length, values);
 }
 
-TEST(TestStatisticsBuilderUtils, addIntegerValues) {
+class TestStatisticsBuilderUtils : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
+  const std::shared_ptr<memory::MemoryPool> pool_ =
+      memory::MemoryManager::getInstance()->addLeafPool();
+};
+
+TEST_F(TestStatisticsBuilderUtils, addIntegerValues) {
   IntegerStatisticsBuilder builder{options};
 
   // add values non null
-  auto pool = memory::addDefaultLeafMemoryPool();
   size_t size = 10;
 
-  auto values = AlignedBuffer::allocate<int32_t>(size, pool.get());
+  auto values = AlignedBuffer::allocate<int32_t>(size, pool_.get());
   auto* valuesPtr = values->asMutable<int32_t>();
   for (size_t i = 0; i < size; ++i) {
     valuesPtr[i] = i + 1;
   }
 
-  auto vec = makeFlatVectorNoNulls<int32_t>(pool.get(), size, values);
+  auto vec = makeFlatVectorNoNulls<int32_t>(pool_.get(), size, values);
   {
     StatisticsBuilderUtils::addValues<int32_t>(
         builder, vec, common::Ranges::of(0, size));
@@ -79,10 +88,10 @@ TEST(TestStatisticsBuilderUtils, addIntegerValues) {
   }
 
   // add values with null
-  auto nulls = allocateNulls(size, pool.get());
+  auto nulls = allocateNulls(size, pool_.get());
   bits::setNull(nulls->asMutable<uint64_t>(), 3);
 
-  vec = makeFlatVector<int32_t>(pool.get(), nulls, 1, size, values);
+  vec = makeFlatVector<int32_t>(pool_.get(), nulls, 1, size, values);
 
   {
     StatisticsBuilderUtils::addValues<int32_t>(
@@ -97,21 +106,20 @@ TEST(TestStatisticsBuilderUtils, addIntegerValues) {
   }
 }
 
-TEST(TestStatisticsBuilderUtils, addDoubleValues) {
+TEST_F(TestStatisticsBuilderUtils, addDoubleValues) {
   DoubleStatisticsBuilder builder{options};
 
   // add values non null
-  auto pool = memory::addDefaultLeafMemoryPool();
   size_t size = 10;
 
-  auto values = AlignedBuffer::allocate<float>(size, pool.get());
+  auto values = AlignedBuffer::allocate<float>(size, pool_.get());
   auto* valuesPtr = values->asMutable<float>();
   for (size_t i = 0; i < size; ++i) {
     valuesPtr[i] = i + 1;
   }
 
   {
-    auto vec = makeFlatVectorNoNulls<float>(pool.get(), size, values);
+    auto vec = makeFlatVectorNoNulls<float>(pool_.get(), size, values);
     StatisticsBuilderUtils::addValues<float>(
         builder, vec, common::Ranges::of(0, size));
     auto stats = builder.build();
@@ -124,11 +132,11 @@ TEST(TestStatisticsBuilderUtils, addDoubleValues) {
   }
 
   // add values with null
-  auto nulls = allocateNulls(size, pool.get());
+  auto nulls = allocateNulls(size, pool_.get());
   bits::setNull(nulls->asMutable<uint64_t>(), 3);
 
   {
-    auto vec = makeFlatVector<float>(pool.get(), nulls, 1, size, values);
+    auto vec = makeFlatVector<float>(pool_.get(), nulls, 1, size, values);
 
     StatisticsBuilderUtils::addValues<float>(
         builder, vec, common::Ranges::of(0, size));
@@ -142,14 +150,13 @@ TEST(TestStatisticsBuilderUtils, addDoubleValues) {
   }
 }
 
-TEST(TestStatisticsBuilderUtils, addStringValues) {
+TEST_F(TestStatisticsBuilderUtils, addStringValues) {
   StringStatisticsBuilder builder{options};
 
   // add values non null
-  auto pool = memory::addDefaultLeafMemoryPool();
   size_t size = 10;
 
-  auto values = AlignedBuffer::allocate<StringView>(10, pool.get());
+  auto values = AlignedBuffer::allocate<StringView>(10, pool_.get());
   auto* valuesPtr = values->asMutable<StringView>();
   char c = 'a';
   for (size_t i = 0; i < size; ++i, ++c) {
@@ -157,7 +164,7 @@ TEST(TestStatisticsBuilderUtils, addStringValues) {
   }
 
   {
-    auto vec = makeFlatVectorNoNulls<StringView>(pool.get(), size, values);
+    auto vec = makeFlatVectorNoNulls<StringView>(pool_.get(), size, values);
     StatisticsBuilderUtils::addValues(
         builder, vec, common::Ranges::of(0, size));
     auto stats = builder.build();
@@ -170,11 +177,11 @@ TEST(TestStatisticsBuilderUtils, addStringValues) {
   }
 
   // add values with null
-  auto nulls = allocateNulls(size, pool.get());
+  auto nulls = allocateNulls(size, pool_.get());
   bits::setNull(nulls->asMutable<uint64_t>(), 3);
 
   {
-    auto vec = makeFlatVector<StringView>(pool.get(), nulls, 1, size, values);
+    auto vec = makeFlatVector<StringView>(pool_.get(), nulls, 1, size, values);
     StatisticsBuilderUtils::addValues(
         builder, vec, common::Ranges::of(0, size));
     auto stats = builder.build();
@@ -187,14 +194,13 @@ TEST(TestStatisticsBuilderUtils, addStringValues) {
   }
 }
 
-TEST(TestStatisticsBuilderUtils, addBooleanValues) {
+TEST_F(TestStatisticsBuilderUtils, addBooleanValues) {
   BooleanStatisticsBuilder builder{options};
 
   // add values non null
-  auto pool = memory::addDefaultLeafMemoryPool();
   size_t size = 10;
 
-  auto values = AlignedBuffer::allocate<bool>(size, pool.get());
+  auto values = AlignedBuffer::allocate<bool>(size, pool_.get());
   auto valuesPtr = values->asMutableRange<bool>();
   for (int32_t i = 0; i < size; ++i) {
     valuesPtr[i] = true;
@@ -202,7 +208,7 @@ TEST(TestStatisticsBuilderUtils, addBooleanValues) {
   valuesPtr[6] = false;
 
   {
-    auto vec = makeFlatVectorNoNulls<bool>(pool.get(), size, values);
+    auto vec = makeFlatVectorNoNulls<bool>(pool_.get(), size, values);
 
     StatisticsBuilderUtils::addValues(
         builder, vec, common::Ranges::of(0, size));
@@ -214,11 +220,11 @@ TEST(TestStatisticsBuilderUtils, addBooleanValues) {
   }
 
   // add values with null
-  auto nulls = allocateNulls(size, pool.get());
+  auto nulls = allocateNulls(size, pool_.get());
   bits::setNull(nulls->asMutable<uint64_t>(), 3);
 
   {
-    auto vec = makeFlatVector<bool>(pool.get(), nulls, 1, size, values);
+    auto vec = makeFlatVector<bool>(pool_.get(), nulls, 1, size, values);
 
     StatisticsBuilderUtils::addValues(
         builder, vec, common::Ranges::of(0, size));
@@ -230,17 +236,16 @@ TEST(TestStatisticsBuilderUtils, addBooleanValues) {
   }
 }
 
-TEST(TestStatisticsBuilderUtils, addValues) {
+TEST_F(TestStatisticsBuilderUtils, addValues) {
   StatisticsBuilder builder{options};
 
   // add values non null
-  auto pool = memory::addDefaultLeafMemoryPool();
   size_t size = 10;
 
-  auto values = AlignedBuffer::allocate<bool>(size, pool.get());
+  auto values = AlignedBuffer::allocate<bool>(size, pool_.get());
 
   {
-    auto vec = makeFlatVectorNoNulls<bool>(pool.get(), size, values);
+    auto vec = makeFlatVectorNoNulls<bool>(pool_.get(), size, values);
 
     StatisticsBuilderUtils::addValues(
         builder, vec, common::Ranges::of(0, size));
@@ -250,11 +255,11 @@ TEST(TestStatisticsBuilderUtils, addValues) {
   }
 
   // add values with null
-  auto nulls = allocateNulls(size, pool.get());
+  auto nulls = allocateNulls(size, pool_.get());
   bits::setNull(nulls->asMutable<uint64_t>(), 3);
 
   {
-    auto vec = makeFlatVector<bool>(pool.get(), nulls, 1, size, values);
+    auto vec = makeFlatVector<bool>(pool_.get(), nulls, 1, size, values);
 
     StatisticsBuilderUtils::addValues(
         builder, vec, common::Ranges::of(0, size));
@@ -264,14 +269,13 @@ TEST(TestStatisticsBuilderUtils, addValues) {
   }
 }
 
-TEST(TestStatisticsBuilderUtils, addBinaryValues) {
+TEST_F(TestStatisticsBuilderUtils, addBinaryValues) {
   BinaryStatisticsBuilder builder{options};
 
   // add values non null
-  auto pool = memory::addDefaultLeafMemoryPool();
   size_t size = 10;
 
-  auto values = AlignedBuffer::allocate<StringView>(size, pool.get());
+  auto values = AlignedBuffer::allocate<StringView>(size, pool_.get());
   auto* valuesPtr = values->asMutable<StringView>();
 
   std::array<char, 10> data;
@@ -283,7 +287,7 @@ TEST(TestStatisticsBuilderUtils, addBinaryValues) {
   }
 
   {
-    auto vec = makeFlatVectorNoNulls<StringView>(pool.get(), size, values);
+    auto vec = makeFlatVectorNoNulls<StringView>(pool_.get(), size, values);
 
     StatisticsBuilderUtils::addValues(
         builder, vec, common::Ranges::of(0, size));
@@ -295,11 +299,11 @@ TEST(TestStatisticsBuilderUtils, addBinaryValues) {
   }
 
   // add values with null
-  auto nulls = allocateNulls(size, pool.get());
+  auto nulls = allocateNulls(size, pool_.get());
   bits::setNull(nulls->asMutable<uint64_t>(), 3);
 
   {
-    auto vec = makeFlatVector<StringView>(pool.get(), nulls, 1, size, values);
+    auto vec = makeFlatVector<StringView>(pool_.get(), nulls, 1, size, values);
 
     StatisticsBuilderUtils::addValues(
         builder, vec, common::Ranges::of(0, size));

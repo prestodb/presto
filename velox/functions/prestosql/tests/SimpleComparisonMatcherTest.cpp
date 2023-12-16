@@ -29,6 +29,10 @@ namespace {
 class SimpleComparisonMatcherTest : public testing::Test,
                                     public test::VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     functions::prestosql::registerAllScalarFunctions(prefix_);
     parse::registerTypeResolver();

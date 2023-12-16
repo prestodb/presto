@@ -42,6 +42,7 @@ class ExprToSubfieldFilterTest : public testing::Test {
   static void SetUpTestSuite() {
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
+    memory::MemoryManager::testingSetInstance({});
   }
 
   core::TypedExprPtr parseExpr(
@@ -66,7 +67,7 @@ class ExprToSubfieldFilterTest : public testing::Test {
 
  private:
   std::shared_ptr<memory::MemoryPool> pool_ =
-      memory::addDefaultLeafMemoryPool();
+      memory::MemoryManager::getInstance()->addLeafPool();
   core::QueryCtx queryCtx_;
   SimpleExpressionEvaluator evaluator_{&queryCtx_, pool_.get()};
 };

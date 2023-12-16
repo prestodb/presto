@@ -20,7 +20,12 @@
 
 namespace facebook::velox::test {
 
-class VectorPoolTest : public testing::Test, public test::VectorTestBase {};
+class VectorPoolTest : public testing::Test, public test::VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(VectorPoolTest, basic) {
   VectorPool vectorPool(pool());

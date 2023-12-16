@@ -76,7 +76,8 @@ class TaskQueue {
   };
 
   explicit TaskQueue(uint64_t maxBytes)
-      : pool_(memory::addDefaultLeafMemoryPool()), maxBytes_(maxBytes) {}
+      : pool_(memory::MemoryManager::getInstance()->addLeafPool()),
+        maxBytes_(maxBytes) {}
 
   void setNumProducers(int32_t n) {
     numProducers_ = n;

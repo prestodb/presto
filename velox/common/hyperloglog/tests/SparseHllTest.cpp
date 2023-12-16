@@ -30,6 +30,10 @@ uint64_t hashOne(T value) {
 
 class SparseHllTest : public ::testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   template <typename T>
   void testMergeWith(const std::vector<T>& left, const std::vector<T>& right) {
     testMergeWith(left, right, false);
@@ -98,7 +102,8 @@ class SparseHllTest : public ::testing::Test {
     return serialized;
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   HashStringAllocator allocator_{pool_.get()};
 };
 
@@ -170,6 +175,10 @@ TEST_F(SparseHllTest, mergeWith) {
 
 class SparseHllToDenseTest : public ::testing::TestWithParam<int8_t> {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   std::string serialize(DenseHll& denseHll) {
     auto size = denseHll.serializedSize();
     std::string serialized;
@@ -178,7 +187,8 @@ class SparseHllToDenseTest : public ::testing::TestWithParam<int8_t> {
     return serialized;
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   HashStringAllocator allocator_{pool_.get()};
 };
 

@@ -33,6 +33,10 @@ namespace facebook::velox::dwrf {
 
 class StripeLoadKeysTest : public Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     HiveTypeParser parser;
     auto type = parser.parse("struct<a:int>");
@@ -63,7 +67,7 @@ class StripeLoadKeysTest : public Test {
 
     TestDecrypterFactory factory;
     auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
-    pool_ = addDefaultLeafMemoryPool();
+    pool_ = MemoryManager::getInstance()->addLeafPool();
 
     reader_ = std::make_unique<ReaderBase>(
         *pool_,

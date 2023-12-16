@@ -24,12 +24,21 @@ using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::memory;
 using namespace facebook::velox::dwrf;
 
-TEST(BufferedOutputStream, blockAligned) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(1024, {.pool = pool.get()});
+class BufferedOutputStreamTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    MemoryManager::testingSetInstance({});
+  }
+
+  std::shared_ptr<MemoryPool> pool_ =
+      MemoryManager::getInstance()->addLeafPool();
+};
+
+TEST_F(BufferedOutputStreamTest, blockAligned) {
+  MemorySink memSink(1024, {.pool = pool_.get()});
 
   uint64_t block = 10;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
   for (int32_t i = 0; i < 100; ++i) {
     char* buf;
@@ -48,12 +57,11 @@ TEST(BufferedOutputStream, blockAligned) {
   }
 }
 
-TEST(BufferedOutputStream, blockNotAligned) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(1024, {.pool = pool.get()});
+TEST_F(BufferedOutputStreamTest, blockNotAligned) {
+  MemorySink memSink(1024, {.pool = pool_.get()});
 
   uint64_t block = 10;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
 
   char* buf;
@@ -93,12 +101,11 @@ TEST(BufferedOutputStream, blockNotAligned) {
   }
 }
 
-TEST(BufferedOutputStream, protoBufSerialization) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(1024, {.pool = pool.get()});
+TEST_F(BufferedOutputStreamTest, protoBufSerialization) {
+  MemorySink memSink(1024, {.pool = pool_.get()});
 
   uint64_t block = 10;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
 
   proto::PostScript ps;
@@ -118,13 +125,12 @@ TEST(BufferedOutputStream, protoBufSerialization) {
   ASSERT_EQ(ps.writerversion(), ps2.writerversion());
 }
 
-TEST(BufferedOutputStream, increaseSize) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(1024, {.pool = pool.get()});
+TEST_F(BufferedOutputStreamTest, increaseSize) {
+  MemorySink memSink(1024, {.pool = pool_.get()});
 
   uint64_t max = 512;
   uint64_t min = 16;
-  DataBufferHolder holder{*pool, max, min, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, max, min, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
 
   char* buf;
@@ -173,13 +179,12 @@ TEST(BufferedOutputStream, increaseSize) {
   }
 }
 
-TEST(BufferedOutputStream, recordPosition) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(1024, {.pool = pool.get()});
+TEST_F(BufferedOutputStreamTest, recordPosition) {
+  MemorySink memSink(1024, {.pool = pool_.get()});
   uint64_t block = 256;
   uint64_t initial = 128;
   DataBufferHolder holder{
-      *pool, block, initial, DEFAULT_PAGE_GROW_RATIO, &memSink};
+      *pool_, block, initial, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
 
   TestPositionRecorder recorder;
@@ -233,11 +238,20 @@ TEST(BufferedOutputStream, recordPosition) {
   EXPECT_EQ(pos.at(0), block + 100);
 }
 
-TEST(AppendOnlyBufferedStream, Basic) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink memSink(1024, {.pool = pool.get()});
+class AppendOnlyBufferedStreamTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    MemoryManager::testingSetInstance({});
+  }
+
+  std::shared_ptr<MemoryPool> pool_ =
+      MemoryManager::getInstance()->addLeafPool();
+};
+
+TEST_F(AppendOnlyBufferedStreamTest, Basic) {
+  MemorySink memSink(1024, {.pool = pool_.get()});
   uint64_t block = 10;
-  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool_, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   auto bufStream = std::make_unique<BufferedOutputStream>(holder);
   AppendOnlyBufferedStream appendable(std::move(bufStream));
 

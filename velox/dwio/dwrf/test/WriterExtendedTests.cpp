@@ -114,10 +114,18 @@ void testWriterDefaultFlushPolicy(
       false);
 }
 
-TEST(E2EWriterTests, FlushPolicySimpleEncoding) {
+class E2EWriterTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
+
+TEST_F(E2EWriterTest, FlushPolicySimpleEncoding) {
   const size_t batchCount = 200;
   const size_t size = 1000;
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -168,10 +176,11 @@ TEST(E2EWriterTests, FlushPolicySimpleEncoding) {
 
 // Many streams are not yet allocated prior to the first flush, hence first
 // flush is delayed if we rely on stream usage to estimate stripe size.
-TEST(E2EWriterTests, FlushPolicyDictionaryEncoding) {
+TEST_F(E2EWriterTest, FlushPolicyDictionaryEncoding) {
   const size_t batchCount = 500;
   const size_t size = 1000;
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -310,10 +319,11 @@ TEST(E2EWriterTests, FlushPolicyDictionaryEncoding) {
 }
 
 // stream usage seems to have a delta that is close to compression block size?
-TEST(E2EWriterTests, FlushPolicyNestedTypes) {
+TEST_F(E2EWriterTest, FlushPolicyNestedTypes) {
   const size_t batchCount = 10;
   const size_t size = 1000;
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -371,10 +381,11 @@ TEST(E2EWriterTests, FlushPolicyNestedTypes) {
 }
 
 // Flat map has 1.5 orders of magnitude inflated stream memory usage.
-TEST(E2EWriterTests, FlushPolicyFlatMap) {
+TEST_F(E2EWriterTest, FlushPolicyFlatMap) {
   const size_t batchCount = 10;
   const size_t size = 500;
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
 
   HiveTypeParser parser;
   // A mixture of columns where dictionary sharing is not necessarily

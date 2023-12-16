@@ -49,6 +49,11 @@ class PlanNodeToStringTest : public testing::Test, public test::VectorTestBase {
                 .planNode();
   }
 
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   RowVectorPtr data_;
   core::PlanNodePtr plan_;
 };

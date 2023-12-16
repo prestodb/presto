@@ -22,22 +22,30 @@ using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::memory;
 using facebook::velox::VeloxException;
 
-TEST(DataBufferHolderTests, InputCheck) {
-  auto pool = addDefaultLeafMemoryPool();
-  VELOX_ASSERT_THROW((DataBufferHolder{*pool, 0}), "");
-  VELOX_ASSERT_THROW((DataBufferHolder{*pool, 1024, 2048}), "");
-  VELOX_ASSERT_THROW((DataBufferHolder{*pool, 1024, 1024, 1.1f}), "");
+class DataBufferHolderTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    MemoryManager::testingSetInstance({});
+  }
 
-  { DataBufferHolder holder{*pool, 1024}; }
-  { DataBufferHolder holder{*pool, 1024, 512}; }
-  { DataBufferHolder holder{*pool, 1024, 512, 3.0f}; }
+  std::shared_ptr<MemoryPool> pool_{
+      MemoryManager::getInstance()->addLeafPool()};
+};
+
+TEST_F(DataBufferHolderTest, InputCheck) {
+  VELOX_ASSERT_THROW((DataBufferHolder{*pool_, 0}), "");
+  VELOX_ASSERT_THROW((DataBufferHolder{*pool_, 1024, 2048}), "");
+  VELOX_ASSERT_THROW((DataBufferHolder{*pool_, 1024, 1024, 1.1f}), "");
+
+  { DataBufferHolder holder{*pool_, 1024}; }
+  { DataBufferHolder holder{*pool_, 1024, 512}; }
+  { DataBufferHolder holder{*pool_, 1024, 512, 3.0f}; }
 }
 
-TEST(DataBufferHolderTests, TakeAndGetBuffer) {
-  auto pool = addDefaultLeafMemoryPool();
-  MemorySink sink{1024, {.pool = pool.get()}};
-  DataBufferHolder holder{*pool, 1024, 0, 2.0f, &sink};
-  DataBuffer<char> buffer{*pool, 512};
+TEST_F(DataBufferHolderTest, TakeAndGetBuffer) {
+  MemorySink sink{1024, {.pool = pool_.get()}};
+  DataBufferHolder holder{*pool_, 1024, 0, 2.0f, &sink};
+  DataBuffer<char> buffer{*pool_, 512};
   std::memset(buffer.data(), 'a', 512);
   holder.take(buffer);
   ASSERT_EQ(holder.size(), 512);
@@ -56,11 +64,10 @@ TEST(DataBufferHolderTests, TakeAndGetBuffer) {
   ASSERT_EQ(holder.getBuffers().size(), 0);
 }
 
-TEST(DataBufferHolderTests, TruncateBufferHolder) {
-  auto pool = addDefaultLeafMemoryPool();
-  DataBufferHolder holder{*pool, 1024};
+TEST_F(DataBufferHolderTest, TruncateBufferHolder) {
+  DataBufferHolder holder{*pool_, 1024};
   constexpr size_t BUF_SIZE = 10;
-  DataBuffer<char> buffer{*pool, BUF_SIZE};
+  DataBuffer<char> buffer{*pool_, BUF_SIZE};
   std::memset(buffer.data(), 'a', BUF_SIZE);
   for (int32_t i = 0; i < 12; i++) {
     holder.take(buffer);
@@ -81,10 +88,9 @@ TEST(DataBufferHolderTests, TruncateBufferHolder) {
   }
 }
 
-TEST(DataBufferHolderTests, TakeAndGetBufferNoOutput) {
-  auto pool = addDefaultLeafMemoryPool();
-  DataBufferHolder holder{*pool, 1024};
-  DataBuffer<char> buffer{*pool, 512};
+TEST_F(DataBufferHolderTest, TakeAndGetBufferNoOutput) {
+  DataBufferHolder holder{*pool_, 1024};
+  DataBuffer<char> buffer{*pool_, 512};
   std::memset(buffer.data(), 'a', 512);
   holder.take(buffer);
   ASSERT_EQ(holder.size(), 512);
@@ -92,7 +98,7 @@ TEST(DataBufferHolderTests, TakeAndGetBufferNoOutput) {
   holder.take(buffer);
   ASSERT_EQ(holder.size(), 1024);
 
-  DataBuffer<char> output{*pool, 128};
+  DataBuffer<char> output{*pool_, 128};
   holder.spill(output);
   ASSERT_EQ(output.size(), 1024);
   for (size_t i = 0; i < 512; ++i) {
@@ -111,10 +117,9 @@ TEST(DataBufferHolderTests, TakeAndGetBufferNoOutput) {
   }
 }
 
-TEST(DataBufferHolderTests, Reset) {
-  auto pool = addDefaultLeafMemoryPool();
-  DataBufferHolder holder{*pool, 1024};
-  DataBuffer<char> buffer{*pool, 512};
+TEST_F(DataBufferHolderTest, Reset) {
+  DataBufferHolder holder{*pool_, 1024};
+  DataBuffer<char> buffer{*pool_, 512};
   std::memset(buffer.data(), 'a', 512);
   holder.take(buffer);
   ASSERT_EQ(holder.size(), 512);
@@ -125,18 +130,16 @@ TEST(DataBufferHolderTests, Reset) {
   ASSERT_FALSE(holder.isSuppressed());
 }
 
-TEST(DataBufferHolderTests, TryResize) {
-  auto pool = addDefaultLeafMemoryPool();
-  DataBufferHolder holder{*pool, 1024, 128};
+TEST_F(DataBufferHolderTest, TryResize) {
+  DataBufferHolder holder{*pool_, 1024, 128};
 
-  auto runTest = [&pool, &holder](
-                     uint64_t size,
+  auto runTest = [&](uint64_t size,
                      uint64_t capacity,
                      uint64_t headerSize,
                      uint64_t increment,
                      bool expected,
                      uint64_t expectedSize) {
-    DataBuffer<char> buffer{*pool, size};
+    DataBuffer<char> buffer{*pool_, size};
     ASSERT_EQ(size, buffer.size());
     if (capacity > size) {
       buffer.reserve(capacity);
@@ -240,10 +243,9 @@ TEST(DataBufferHolderTests, TryResize) {
       1024 + headerSize);
 }
 
-TEST(DataBufferHolderTests, TestGrowRatio) {
-  auto pool = addDefaultLeafMemoryPool();
-  DataBufferHolder holder{*pool, 1024, 16, 4.0f};
-  DataBuffer<char> buffer{*pool, 16};
+TEST_F(DataBufferHolderTest, TestGrowRatio) {
+  DataBufferHolder holder{*pool_, 1024, 16, 4.0f};
+  DataBuffer<char> buffer{*pool_, 16};
   ASSERT_TRUE(holder.tryResize(buffer, 0, 1));
   ASSERT_EQ(buffer.size(), 64);
 }

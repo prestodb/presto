@@ -36,6 +36,7 @@ class FunctionCallToSpecialFormTest : public testing::Test,
  protected:
   static void SetUpTestCase() {
     registerFunctionCallToSpecialForms();
+    memory::MemoryManager::testingSetInstance({});
   }
   const core::QueryConfig config_{{}};
 };

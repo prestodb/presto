@@ -41,8 +41,8 @@ class ParquetReaderBenchmark {
  public:
   explicit ParquetReaderBenchmark(bool disableDictionary)
       : disableDictionary_(disableDictionary) {
-    rootPool_ =
-        memory::defaultMemoryManager().addRootPool("ParquetReaderBenchmark");
+    rootPool_ = memory::MemoryManager::getInstance()->addRootPool(
+        "ParquetReaderBenchmark");
     leafPool_ = rootPool_->addLeafChild("ParquetReaderBenchmark");
     dataSetBuilder_ = std::make_unique<DataSetBuilder>(*leafPool_, 0);
     auto path = fileFolder_->path + "/" + fileName_;
@@ -403,6 +403,7 @@ PARQUET_BENCHMARKS_NO_FILTER(ARRAY(BIGINT()), List);
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
+  memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;
 }

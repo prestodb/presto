@@ -127,6 +127,10 @@ class ExprEncodingsTest
     : public testing::TestWithParam<std::tuple<int, int, bool>>,
       public VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     // This test throws a lot of exceptions, so turn off stack trace capturing.
     FLAGS_velox_exception_user_stacktrace_enabled = false;

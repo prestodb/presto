@@ -326,6 +326,10 @@ struct RowTypeTrait {
 // A class with utilities for testing expression codegen
 class ExpressionCodegenTestBase : public testing::Test {
  public:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   // Given an expression, assert that the nullability of the elements of the
   // output row matches the expected nullability
   template <typename InputRowTypeTrait>
@@ -581,7 +585,8 @@ class ExpressionCodegenTestBase : public testing::Test {
   }
 
   std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<facebook::velox::core::ExecCtx>(
           pool_.get(),

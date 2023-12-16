@@ -22,7 +22,12 @@
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 
-class LazyVectorTest : public testing::Test, public VectorTestBase {};
+class LazyVectorTest : public testing::Test, public VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(LazyVectorTest, lazyInDictionary) {
   // We have a dictionary over LazyVector. We load for some indices in

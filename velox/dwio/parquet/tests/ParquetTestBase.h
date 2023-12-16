@@ -33,9 +33,14 @@ namespace facebook::velox::parquet {
 
 class ParquetTestBase : public testing::Test, public test::VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     dwio::common::LocalFileSink::registerFactory();
-    rootPool_ = memory::defaultMemoryManager().addRootPool("ParquetTests");
+    rootPool_ =
+        memory::MemoryManager::getInstance()->addRootPool("ParquetTests");
     leafPool_ = rootPool_->addLeafChild("ParquetTests");
     tempPath_ = exec::test::TempDirectoryPath::create();
   }

@@ -36,8 +36,12 @@ struct Multipart {
 
 class HashStringAllocatorTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::initialize({});
+  }
+
   void SetUp() override {
-    pool_ = memory::addDefaultLeafMemoryPool();
+    pool_ = memory::MemoryManager::getInstance()->addLeafPool();
     allocator_ = std::make_unique<HashStringAllocator>(pool_.get());
     rng_.seed(1);
   }
@@ -483,7 +487,7 @@ TEST_F(HashStringAllocatorTest, stlAllocatorOverflow) {
 TEST_F(HashStringAllocatorTest, externalLeak) {
   constexpr int32_t kSize = HashStringAllocator ::kMaxAlloc * 10;
   auto root =
-      memory::MemoryManager::getInstance().addRootPool("HSALeakTestRoot");
+      memory::MemoryManager::getInstance()->addRootPool("HSALeakTestRoot");
   auto pool = root->addLeafChild("HSALeakLeaf");
   auto initialBytes = pool->currentBytes();
   auto allocator = std::make_unique<HashStringAllocator>(pool.get());

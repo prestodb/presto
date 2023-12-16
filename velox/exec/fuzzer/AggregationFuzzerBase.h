@@ -232,7 +232,7 @@ class AggregationFuzzerBase {
   size_t currentSeed_{0};
 
   std::shared_ptr<memory::MemoryPool> rootPool_{
-      memory::defaultMemoryManager().addRootPool()};
+      memory::MemoryManager::getInstance()->addRootPool()};
   std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild("leaf")};
   VectorFuzzer vectorFuzzer_;
 };

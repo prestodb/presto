@@ -32,7 +32,7 @@ using namespace facebook::velox::exec::test;
 class HiveConnectorTest : public exec::test::HiveConnectorTestBase {
  protected:
   std::shared_ptr<memory::MemoryPool> pool_ =
-      memory::addDefaultLeafMemoryPool();
+      memory::MemoryManager::getInstance()->addLeafPool();
 };
 
 void validateNullConstant(const ScanSpec& spec, const Type& type) {

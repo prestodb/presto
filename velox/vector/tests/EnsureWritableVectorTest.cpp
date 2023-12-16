@@ -21,7 +21,12 @@
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 
-class EnsureWritableVectorTest : public testing::Test, public VectorTestBase {};
+class EnsureWritableVectorTest : public testing::Test, public VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(EnsureWritableVectorTest, flat) {
   SelectivityVector rows(1'000);

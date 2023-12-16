@@ -31,7 +31,7 @@ std::vector<int64_t> decodeRLEv2(
     size_t n,
     size_t count,
     const uint64_t* nulls = nullptr) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::make_unique<dwio::common::SeekableArrayInputStream>(bytes, l),
       RleVersion_2,
@@ -73,7 +73,14 @@ void checkResults(
   }
 }
 
-TEST(RLEv2, basicDelta0) {
+class RLEv2Test : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
+
+TEST_F(RLEv2Test, basicDelta0) {
   const size_t count = 20;
   std::vector<int64_t> values;
   for (size_t i = 0; i < count; ++i) {
@@ -89,7 +96,7 @@ TEST(RLEv2, basicDelta0) {
   checkResults(values, decodeRLEv2(bytes, l, count, count), count);
 };
 
-TEST(RLEv2, basicDelta1) {
+TEST_F(RLEv2Test, basicDelta1) {
   std::vector<int64_t> values(5);
   values[0] = -500;
   values[1] = -400;
@@ -110,7 +117,7 @@ TEST(RLEv2, basicDelta1) {
       values.size());
 };
 
-TEST(RLEv2, basicDelta2) {
+TEST_F(RLEv2Test, basicDelta2) {
   std::vector<int64_t> values(5);
   values[0] = -500;
   values[1] = -600;
@@ -131,7 +138,7 @@ TEST(RLEv2, basicDelta2) {
       values.size());
 };
 
-TEST(RLEv2, basicDelta3) {
+TEST_F(RLEv2Test, basicDelta3) {
   std::vector<int64_t> values(5);
   values[0] = 500;
   values[1] = 400;
@@ -152,7 +159,7 @@ TEST(RLEv2, basicDelta3) {
       values.size());
 };
 
-TEST(RLEv2, basicDelta4) {
+TEST_F(RLEv2Test, basicDelta4) {
   std::vector<int64_t> values(5);
   values[0] = 500;
   values[1] = 600;
@@ -173,8 +180,8 @@ TEST(RLEv2, basicDelta4) {
       values.size());
 };
 
-TEST(RLEv2, delta0Width) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv2Test, delta0Width) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {
       0x4e, 0x2, 0x0, 0x1, 0x2, 0xc0, 0x2, 0x42, 0x0};
   std::unique_ptr<dwio::common::IntDecoder<false>> decoder =
@@ -196,7 +203,7 @@ TEST(RLEv2, delta0Width) {
   EXPECT_EQ(0x42, values[5]);
 }
 
-TEST(RLEv2, basicDelta0WithNulls) {
+TEST_F(RLEv2Test, basicDelta0WithNulls) {
   std::vector<int64_t> values;
   uint64_t nulls[1];
   size_t idx = 0;
@@ -222,7 +229,7 @@ TEST(RLEv2, basicDelta0WithNulls) {
       values, decodeRLEv2(bytes, l, count, count, nulls), count, nulls);
 };
 
-TEST(RLEv2, shortRepeats) {
+TEST_F(RLEv2Test, shortRepeats) {
   const size_t runLength = 7;
   const size_t nVals = 10;
   const size_t count = nVals * runLength;
@@ -244,7 +251,7 @@ TEST(RLEv2, shortRepeats) {
   checkResults(values, decodeRLEv2(bytes, l, count, count), count);
 };
 
-TEST(RLEv2, multiByteShortRepeats) {
+TEST_F(RLEv2Test, multiByteShortRepeats) {
   const size_t runLength = 7;
   const size_t nVals = 3;
   const size_t count = nVals * runLength;
@@ -267,8 +274,8 @@ TEST(RLEv2, multiByteShortRepeats) {
   checkResults(values, decodeRLEv2(bytes, l, count, count), count);
 };
 
-TEST(RLEv2, 0to2Repeat1Direct) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv2Test, 0to2Repeat1Direct) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {0x46, 0x02, 0x02, 0x40};
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(
@@ -286,7 +293,7 @@ TEST(RLEv2, 0to2Repeat1Direct) {
   }
 };
 
-TEST(RLEv2, bitSize2Direct) {
+TEST_F(RLEv2Test, bitSize2Direct) {
   // 0,1 repeated 10 times (signed ints)
   const size_t count = 20;
   std::vector<int64_t> values;
@@ -303,7 +310,7 @@ TEST(RLEv2, bitSize2Direct) {
   checkResults(values, decodeRLEv2(bytes, l, count, count), count);
 };
 
-TEST(RLEv2, bitSize4Direct) {
+TEST_F(RLEv2Test, bitSize4Direct) {
   // 0,2 repeated 10 times (signed ints)
   const size_t count = 20;
   std::vector<int64_t> values;
@@ -322,7 +329,7 @@ TEST(RLEv2, bitSize4Direct) {
   checkResults(values, decodeRLEv2(bytes, l, count, count), count);
 };
 
-TEST(RLEv2, multipleRunsDirect) {
+TEST_F(RLEv2Test, multipleRunsDirect) {
   std::vector<int64_t> values;
   // 0,1 repeated 10 times (signed ints)
   for (size_t i = 0; i < 20; ++i) {
@@ -365,8 +372,8 @@ TEST(RLEv2, multipleRunsDirect) {
       values.size());
 };
 
-TEST(RLEv2, largeNegativesDirect) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv2Test, largeNegativesDirect) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {
       0x7e, 0x04, 0xcf, 0xca, 0xcc, 0x91, 0xba, 0x38, 0x93, 0xab, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -390,7 +397,7 @@ TEST(RLEv2, largeNegativesDirect) {
   EXPECT_EQ(-5535739865598783616, data[4]) << "Output wrong at " << 4;
 };
 
-TEST(RLEv2, overflowDirect) {
+TEST_F(RLEv2Test, overflowDirect) {
   std::vector<int64_t> values(4);
   values[0] = 4513343538618202719l;
   values[1] = 4513343538618202711l;
@@ -412,7 +419,7 @@ TEST(RLEv2, overflowDirect) {
       values.size());
 };
 
-TEST(RLEv2, basicPatched0) {
+TEST_F(RLEv2Test, basicPatched0) {
   long v[] = {2030, 2000, 2020, 1000000, 2040, 2050, 2060, 2070, 2080, 2090};
   std::vector<int64_t> values;
   for (size_t i = 0; i < sizeof(v) / sizeof(long); ++i) {
@@ -449,7 +456,7 @@ TEST(RLEv2, basicPatched0) {
       values.size());
 };
 
-TEST(RLEv2, basicPatched1) {
+TEST_F(RLEv2Test, basicPatched1) {
   long v[] = {20, 2,   3,    2,   1,  3, 17,  71,  35, 2,   1,    139,   2,
               2,  3,   1783, 475, 2,  1, 1,   3,   1,  3,   2,    32,    1,
               2,  3,   1,    8,   30, 1, 3,   414, 1,  1,   135,  3,     3,
@@ -488,7 +495,7 @@ TEST(RLEv2, basicPatched1) {
       values.size());
 };
 
-TEST(RLEv2, mixedPatchedAndShortRepeats) {
+TEST_F(RLEv2Test, mixedPatchedAndShortRepeats) {
   long v[] = {20,  2,   3,    2,   1,  3,  17,  71,   35,  2,   1,    139,   2,
               2,   3,   1783, 475, 2,  1,  1,   3,    1,   3,   2,    32,    1,
               2,   3,   1,    8,   30, 1,  3,   414,  1,   1,   135,  3,     3,
@@ -548,8 +555,8 @@ TEST(RLEv2, mixedPatchedAndShortRepeats) {
       values.size());
 };
 
-TEST(RLEv2, basicDirectSeek) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv2Test, basicDirectSeek) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   // 0,1 repeated 10 times (signed ints) followed by
   // 0,2 repeated 10 times (signed ints)
   const unsigned char bytes[] = {
@@ -600,8 +607,8 @@ TEST(RLEv2, basicDirectSeek) {
   EXPECT_EQ(2, data[0]);
 };
 
-TEST(RLEv2, bitsLeftByPreviousStream) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv2Test, bitsLeftByPreviousStream) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   // test for #109
   // 118 DIRECT values, followed by PATHCED values
   const unsigned char bytes[] = {
@@ -666,8 +673,15 @@ TEST(RLEv2, bitsLeftByPreviousStream) {
   }
 };
 
-TEST(RLEv1, simpleTest) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+class RLEv1Test : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
+
+TEST_F(RLEv1Test, simpleTest) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {
       0x61, 0xff, 0x64, 0xfb, 0x02, 0x03, 0x5, 0x7, 0xb};
   std::unique_ptr<dwio::common::IntDecoder<false>> rle =
@@ -692,8 +706,8 @@ TEST(RLEv1, simpleTest) {
   EXPECT_EQ(11, data[104]);
 };
 
-TEST(RLEv1, signedNullLiteralTest) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv1Test, signedNullLiteralTest) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {0xf8, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7};
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(
@@ -712,8 +726,8 @@ TEST(RLEv1, signedNullLiteralTest) {
   }
 }
 
-TEST(RLEv1, splitHeader) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv1Test, splitHeader) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {0x0, 0x00, 0xdc, 0xba, 0x98, 0x76};
   std::unique_ptr<dwio::common::IntDecoder<false>> rle =
       createRleDecoder<false>(
@@ -732,8 +746,8 @@ TEST(RLEv1, splitHeader) {
   }
 }
 
-TEST(RLEv1, splitRuns) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv1Test, splitRuns) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {
       0x7d, 0x01, 0xff, 0x01, 0xfb, 0x01, 0x02, 0x03, 0x04, 0x05};
   dwio::common::SeekableInputStream* const stream =
@@ -766,8 +780,8 @@ TEST(RLEv1, splitRuns) {
   EXPECT_EQ(5, data[0]);
 }
 
-TEST(RLEv1, testSigned) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv1Test, testSigned) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {0x7f, 0xff, 0x20};
   dwio::common::SeekableInputStream* const stream =
       new dwio::common::SeekableArrayInputStream(
@@ -790,8 +804,8 @@ TEST(RLEv1, testSigned) {
   }
 }
 
-TEST(RLEv1, testNull) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv1Test, testNull) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {0x75, 0x02, 0x00};
   dwio::common::SeekableInputStream* const stream =
       new dwio::common::SeekableArrayInputStream(
@@ -822,8 +836,8 @@ TEST(RLEv1, testNull) {
   }
 }
 
-TEST(RLEv1, testAllNulls) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv1Test, testAllNulls) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {0xf0, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
                                   0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
                                   0x0d, 0x0e, 0x0f, 0x3d, 0x00, 0x12};
@@ -862,8 +876,8 @@ TEST(RLEv1, testAllNulls) {
   rle->next(data.data(), data.size(), allNull.data());
 }
 
-TEST(RLEv1, skipTest) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv1Test, skipTest) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   // Create the RLE stream from Java's TestRunLengthIntegerEncoding.testSkips
   // for (size_t i = 0; i < 1024; ++i)
   //   out.write(i);
@@ -1104,8 +1118,8 @@ TEST(RLEv1, skipTest) {
   }
 }
 
-TEST(RLEv1, seekTest) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv1Test, seekTest) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   // Create the RLE stream from Java's
   // TestRunLengthIntegerEncoding.testUncompressedSeek
   // for (size_t i = 0; i < 1024; ++i)
@@ -3028,8 +3042,8 @@ TEST(RLEv1, seekTest) {
   EXPECT_THROW(rle->next(data.data(), 1, nullptr), VeloxException);
 }
 
-TEST(RLEv1, testLeadingNulls) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+TEST_F(RLEv1Test, testLeadingNulls) {
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const unsigned char buffer[] = {0xfb, 0x01, 0x02, 0x03, 0x04, 0x05};
   std::unique_ptr<dwio::common::IntDecoder<false>> rle =
       createRleDecoder<false>(

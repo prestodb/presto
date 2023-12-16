@@ -143,7 +143,7 @@ class TpchQueryBuilder {
   static constexpr const char* kSupplier = "supplier";
   static constexpr const char* kPartsupp = "partsupp";
   std::shared_ptr<memory::MemoryPool> pool_ =
-      memory::addDefaultLeafMemoryPool();
+      memory::MemoryManager::getInstance()->addLeafPool();
 };
 
 } // namespace facebook::velox::exec::test

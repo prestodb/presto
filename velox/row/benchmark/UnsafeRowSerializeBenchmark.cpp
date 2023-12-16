@@ -200,7 +200,8 @@ class SerializeBenchmark {
     return pool_.get();
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 
 #define SERDE_BENCHMARKS(name, rowType)      \
@@ -299,6 +300,7 @@ SERDE_BENCHMARKS(
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
+  facebook::velox::memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;
 }

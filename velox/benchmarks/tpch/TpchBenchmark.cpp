@@ -582,6 +582,7 @@ BENCHMARK(q22) {
 }
 
 int tpchBenchmarkMain() {
+  facebook::velox::memory::MemoryManager::initialize({});
   benchmark.initialize();
   queryBuilder =
       std::make_shared<TpchQueryBuilder>(toFileFormat(FLAGS_data_format));

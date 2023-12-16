@@ -28,7 +28,8 @@ namespace {
 
 using namespace facebook::velox;
 
-std::shared_ptr<memory::MemoryPool> pool{memory::addDefaultLeafMemoryPool()};
+std::shared_ptr<memory::MemoryPool> pool{
+    memory::MemoryManager::getInstance()->addLeafPool()};
 
 VectorFuzzer::Options getOpts(size_t n, double nullRatio = 0) {
   VectorFuzzer::Options opts;
@@ -130,6 +131,7 @@ BENCHMARK_RELATIVE_MULTI(flatMapArrayNested, n) {
 int main(int argc, char* argv[]) {
   folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+  memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;
 }

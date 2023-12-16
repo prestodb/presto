@@ -48,8 +48,12 @@ void addStats(
 
 class EncryptedStatsTest : public Test {
  protected:
+  static void SetUpTestCase() {
+    MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
-    pool_ = defaultMemoryManager().addRootPool("EncryptedStatsTest");
+    pool_ = MemoryManager::getInstance()->addRootPool("EncryptedStatsTest");
     sinkPool_ = pool_->addLeafChild("sink");
     ProtoWriter writer{pool_, *sinkPool_};
     auto& context = const_cast<const ProtoWriter&>(writer).getContext();
@@ -173,7 +177,8 @@ TEST_F(EncryptedStatsTest, getColumnStatisticsKeyNotLoaded) {
 std::unique_ptr<ReaderBase> createCorruptedFileReader(
     uint64_t footerLen,
     uint32_t cacheLen) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
   MemorySink sink{1024, {.pool = pool.get()}};
   DataBufferHolder holder{*pool, 1024, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
   BufferedOutputStream output{holder};
@@ -211,7 +216,14 @@ std::unique_ptr<ReaderBase> createCorruptedFileReader(
       *pool, std::make_unique<BufferedInput>(readFile, *pool));
 }
 
-TEST(ReaderBaseTest, InvalidPostScriptThrows) {
+class ReaderBaseTest : public Test {
+ protected:
+  static void SetUpTestCase() {
+    MemoryManager::testingSetInstance({});
+  }
+};
+
+TEST_F(ReaderBaseTest, InvalidPostScriptThrows) {
   EXPECT_THROW(
       { createCorruptedFileReader(1'000'000, 0); }, exception::LoggedException);
   EXPECT_THROW(

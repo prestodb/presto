@@ -20,8 +20,19 @@ DECLARE_int32(velox_memory_num_shared_leaf_pools);
 
 namespace facebook::velox::memory {
 namespace {
-constexpr folly::StringPiece kDefaultRootName{"__default_root__"};
-constexpr folly::StringPiece kDefaultLeafName("__default_leaf__");
+static constexpr std::string_view kDefaultRootName{"__default_root__"};
+static constexpr std::string_view kDefaultLeafName("__default_leaf__");
+
+std::mutex& instanceMutex() {
+  static std::mutex kMutex;
+  return kMutex;
+}
+
+// Must be called while holding a lock over instanceMutex().
+std::unique_ptr<MemoryManager>& instance() {
+  static std::unique_ptr<MemoryManager> kInstance;
+  return kInstance;
+}
 } // namespace
 
 MemoryManager::MemoryManager(const MemoryManagerOptions& options)
@@ -44,7 +55,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       poolDestructionCb_([&](MemoryPool* pool) { dropPool(pool); }),
       defaultRoot_{std::make_shared<MemoryPoolImpl>(
           this,
-          kDefaultRootName.str(),
+          std::string(kDefaultRootName),
           MemoryPool::Kind::kAggregate,
           nullptr,
           nullptr,
@@ -82,18 +93,50 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
 MemoryManager::~MemoryManager() {
   if (checkUsageLeak_) {
     VELOX_CHECK_EQ(
-        numPools(),
+        pools_.size(),
         0,
-        "There are {} unexpected alive memory pools allocated by user on memory manager destruction:\n{}",
-        numPools(),
+        "There are unexpected alive memory pools allocated by user on memory manager destruction:\n{}",
         toString(true));
   }
 }
 
 // static
-MemoryManager& MemoryManager::getInstance(const MemoryManagerOptions& options) {
-  static MemoryManager manager{options};
-  return manager;
+MemoryManager& MemoryManager::deprecatedGetInstance(
+    const MemoryManagerOptions& options) {
+  std::lock_guard<std::mutex> l(instanceMutex());
+  auto& instanceRef = instance();
+  if (instanceRef == nullptr) {
+    instanceRef = std::make_unique<MemoryManager>(options);
+  }
+  return *instanceRef;
+}
+
+// static
+void MemoryManager::initialize(const MemoryManagerOptions& options) {
+  std::lock_guard<std::mutex> l(instanceMutex());
+  auto& instanceRef = instance();
+  VELOX_CHECK_NULL(
+      instanceRef,
+      "The memory manager has already been set: {}",
+      instanceRef->toString());
+  instanceRef = std::make_unique<MemoryManager>(options);
+}
+
+// static.
+MemoryManager* MemoryManager::getInstance() {
+  std::lock_guard<std::mutex> l(instanceMutex());
+  auto& instanceRef = instance();
+  VELOX_CHECK_NOT_NULL(instanceRef, "The memory manager is not set");
+  return instanceRef.get();
+}
+
+// static.
+MemoryManager& MemoryManager::testingSetInstance(
+    const MemoryManagerOptions& options) {
+  std::lock_guard<std::mutex> l(instanceMutex());
+  auto& instanceRef = instance();
+  instanceRef = std::make_unique<MemoryManager>(options);
+  return *instanceRef;
 }
 
 int64_t MemoryManager::capacity() const {
@@ -240,23 +283,24 @@ std::vector<std::shared_ptr<MemoryPool>> MemoryManager::getAlivePools() const {
   return pools;
 }
 
-MemoryManager& defaultMemoryManager() {
-  return MemoryManager::getInstance();
+MemoryManager& deprecatedDefaultMemoryManager() {
+  return MemoryManager::deprecatedGetInstance();
 }
 
-std::shared_ptr<MemoryPool> addDefaultLeafMemoryPool(
+std::shared_ptr<MemoryPool> deprecatedAddDefaultLeafMemoryPool(
     const std::string& name,
     bool threadSafe) {
-  auto& memoryManager = defaultMemoryManager();
+  auto& memoryManager = deprecatedDefaultMemoryManager();
   return memoryManager.addLeafPool(name, threadSafe);
 }
 
 MemoryPool& deprecatedSharedLeafPool() {
-  return defaultMemoryManager().deprecatedSharedLeafPool();
+  return deprecatedDefaultMemoryManager().deprecatedSharedLeafPool();
 }
 
 memory::MemoryPool* spillMemoryPool() {
-  static auto pool = memory::addDefaultLeafMemoryPool("_sys.spilling");
+  static auto pool =
+      memory::MemoryManager::getInstance()->addLeafPool("_sys.spilling");
   return pool.get();
 }
 

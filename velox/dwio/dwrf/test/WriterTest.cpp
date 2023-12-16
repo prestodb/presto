@@ -32,7 +32,12 @@ namespace facebook::velox::dwrf {
 
 class WriterTest : public Test {
  public:
-  WriterTest() : pool_(addDefaultLeafMemoryPool("WriterTest")) {}
+  static void SetUpTestCase() {
+    MemoryManager::testingSetInstance({});
+  }
+
+  WriterTest()
+      : pool_(MemoryManager::getInstance()->addLeafPool("WriterTest")) {}
 
   WriterBase& createWriter(
       const std::shared_ptr<Config>& config,
@@ -45,7 +50,8 @@ class WriterTest : public Test {
     }
     writer_ = std::make_unique<WriterBase>(std::move(sink));
     writer_->initContext(
-        config, defaultMemoryManager().addRootPool("WriterTest"));
+        config,
+        memory::MemoryManager::getInstance()->addRootPool("WriterTest"));
     auto& context = writer_->getContext();
     context.initBuffer();
     writer_->getSink().init(
@@ -458,9 +464,10 @@ class MockFileSink : public dwio::common::FileSink {
   MOCK_METHOD(void, write, (std::vector<DataBuffer<char>>&));
 };
 
-TEST(WriterBaseTest, FlushWriterSinkUponClose) {
+TEST_F(WriterTest, FlushWriterSinkUponClose) {
   auto config = std::make_shared<Config>();
-  auto pool = defaultMemoryManager().addRootPool("FlushWriterSinkUponClose");
+  auto pool = memory::MemoryManager::getInstance()->addRootPool(
+      "FlushWriterSinkUponClose");
   auto sink = std::make_unique<MockFileSink>();
   MockFileSink* sinkPtr = sink.get();
   EXPECT_CALL(*sinkPtr, write(_)).Times(1);

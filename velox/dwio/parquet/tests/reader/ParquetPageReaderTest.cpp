@@ -24,20 +24,16 @@ using namespace facebook::velox::parquet;
 
 class ParquetPageReaderTest : public ParquetTestBase {};
 
-namespace {
-auto defaultPool = memory::addDefaultLeafMemoryPool();
-}
-
 TEST_F(ParquetPageReaderTest, smallPage) {
   auto readFile =
       std::make_shared<LocalReadFile>(getExampleFilePath("small_page_header"));
   auto file = std::make_shared<ReadFileInputStream>(std::move(readFile));
   auto headerSize = file->getLength();
   auto inputStream = std::make_unique<SeekableFileInputStream>(
-      std::move(file), 0, headerSize, *defaultPool, LogType::TEST);
+      std::move(file), 0, headerSize, *leafPool_, LogType::TEST);
   auto pageReader = std::make_unique<PageReader>(
       std::move(inputStream),
-      *defaultPool,
+      *leafPool_,
       thrift::CompressionCodec::type::GZIP,
       headerSize);
   auto header = pageReader->readPageHeader();
@@ -62,10 +58,10 @@ TEST_F(ParquetPageReaderTest, largePage) {
   auto file = std::make_shared<ReadFileInputStream>(std::move(readFile));
   auto headerSize = file->getLength();
   auto inputStream = std::make_unique<SeekableFileInputStream>(
-      std::move(file), 0, headerSize, *defaultPool, LogType::TEST);
+      std::move(file), 0, headerSize, *leafPool_, LogType::TEST);
   auto pageReader = std::make_unique<PageReader>(
       std::move(inputStream),
-      *defaultPool,
+      *leafPool_,
       thrift::CompressionCodec::type::GZIP,
       headerSize);
   auto header = pageReader->readPageHeader();
@@ -91,14 +87,14 @@ TEST_F(ParquetPageReaderTest, corruptedPageHeader) {
   auto file = std::make_shared<ReadFileInputStream>(std::move(readFile));
   auto headerSize = file->getLength();
   auto inputStream = std::make_unique<SeekableFileInputStream>(
-      std::move(file), 0, headerSize, *defaultPool, LogType::TEST);
+      std::move(file), 0, headerSize, *leafPool_, LogType::TEST);
 
   // In the corrupted_page_header, the min_value length is set incorrectly on
   // purpose. This is to simulate the situation where the Parquet Page Header is
   // corrupted. And an error is expected to be thrown.
   auto pageReader = std::make_unique<PageReader>(
       std::move(inputStream),
-      *defaultPool,
+      *leafPool_,
       thrift::CompressionCodec::type::GZIP,
       headerSize);
 

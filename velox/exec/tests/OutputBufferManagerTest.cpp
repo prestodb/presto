@@ -36,8 +36,13 @@ class OutputBufferManagerTest : public testing::Test {
     rowType_ = ROW(std::move(names), std::move(types));
   }
 
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
-    pool_ = facebook::velox::memory::addDefaultLeafMemoryPool();
+    pool_ =
+        facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
     bufferManager_ = OutputBufferManager::getInstance().lock();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::

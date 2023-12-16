@@ -33,6 +33,7 @@ class PrestoSerializerTest
  protected:
   static void SetUpTestCase() {
     serializer::presto::PrestoVectorSerde::registerVectorSerde();
+    memory::MemoryManager::testingSetInstance({});
   }
 
   void SetUp() override {

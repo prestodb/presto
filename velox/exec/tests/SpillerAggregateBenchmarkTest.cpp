@@ -24,6 +24,7 @@ using namespace facebook::velox::exec;
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+  memory::MemoryManager::initialize({});
   serializer::presto::PrestoVectorSerde::registerVectorSerde();
   filesystems::registerLocalFileSystem();
 

@@ -17,7 +17,12 @@
 
 namespace facebook::velox::test {
 
-class VectorToStringTest : public testing::Test, public VectorTestBase {};
+class VectorToStringTest : public testing::Test, public VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(VectorToStringTest, flatIntegers) {
   // No nulls.

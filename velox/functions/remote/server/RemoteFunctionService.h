@@ -35,7 +35,8 @@ class RemoteFunctionServiceHandler
       std::unique_ptr<remote::RemoteFunctionRequest> request) override;
 
  private:
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   const std::string functionPrefix_;
 };
 

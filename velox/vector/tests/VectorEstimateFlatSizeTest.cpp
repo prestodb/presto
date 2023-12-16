@@ -23,6 +23,10 @@ class VectorEstimateFlatSizeTest : public testing::Test,
  protected:
   using test::VectorTestBase::makeArrayVector;
 
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   ArrayVectorPtr makeArrayVector(
       const TypePtr& type,
       vector_size_t size,

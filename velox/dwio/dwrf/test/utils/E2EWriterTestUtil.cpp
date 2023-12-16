@@ -48,7 +48,7 @@ namespace facebook::velox::dwrf {
   return std::make_unique<dwrf::Writer>(
       std::move(sink),
       options,
-      velox::memory::defaultMemoryManager().addRootPool());
+      velox::memory::MemoryManager::getInstance()->addRootPool());
 }
 
 /* static */ std::unique_ptr<Writer> E2EWriterTestUtil::writeData(

@@ -102,7 +102,12 @@ class SimpleVectorTest : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   VectorMaker maker_{pool_.get()};
 };
 

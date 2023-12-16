@@ -25,9 +25,14 @@
 using namespace facebook::velox;
 
 class VariantToVectorTest : public testing::Test {
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 
  public:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   template <TypeKind KIND>
   void testCreateVector(
       const TypePtr& type,

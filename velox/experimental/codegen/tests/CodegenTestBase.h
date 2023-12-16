@@ -104,7 +104,7 @@ class CodegenTestCore {
             udfManager_,
             useSymbolForArithmetic_,
             eventSequence_);
-    pool_ = memory::addDefaultLeafMemoryPool();
+    pool_ = MemoryManager::getInstance()->addLeafPool();
     queryCtx_ = std::make_shared<core::QueryCtx>(executor_.get());
     execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
 
@@ -296,6 +296,10 @@ class CodegenTestCore {
 
 class CodegenTestBase : public CodegenTestCore, public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   /// Run the  same expressions with and without the codegen and
   /// compare the results
   /// \tparam SQLType

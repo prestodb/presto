@@ -80,7 +80,8 @@ using namespace facebook::velox::memory;
 namespace facebook::velox::exec::test {
 
 void SpillerBenchmarkBase::setUp() {
-  rootPool_ = defaultMemoryManager().addRootPool(FLAGS_spiller_benchmark_name);
+  rootPool_ = memory::MemoryManager::getInstance()->addRootPool(
+      FLAGS_spiller_benchmark_name);
   pool_ = rootPool_->addLeafChild(FLAGS_spiller_benchmark_name);
 
   rowType_ =

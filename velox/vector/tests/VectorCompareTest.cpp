@@ -25,6 +25,10 @@ namespace facebook::velox {
 class VectorCompareTest : public testing::Test,
                           public velox::test::VectorTestBase {
  public:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   bool static constexpr kExpectNull = true;
   bool static constexpr kExpectNotNull = false;
   bool static constexpr kEqualsOnly = true;
@@ -221,7 +225,7 @@ TEST_F(VectorCompareTest, compareStopAtNullRow) {
 }
 
 TEST_F(VectorCompareTest, CompareWithNullChildVector) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   test::VectorMaker maker{pool.get()};
   auto rowType = ROW({"a", "b", "c"}, {INTEGER(), INTEGER(), INTEGER()});
   const auto& rowVector1 = std::make_shared<RowVector>(

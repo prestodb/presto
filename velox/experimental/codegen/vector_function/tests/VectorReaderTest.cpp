@@ -21,12 +21,19 @@
 #include "velox/experimental/codegen/vector_function/StringTypes.h"
 
 namespace facebook::velox::codegen {
-TEST(VectorReader, ReadDoublesVectors) {
+class VectorReaderTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
+
+TEST_F(VectorReaderTest, ReadDoublesVectors) {
   const size_t vectorSize = 1000;
   auto inRowType = ROW({"columnA", "columnB"}, {DOUBLE(), DOUBLE()});
   auto outRowType = ROW({"expr1", "expr2"}, {DOUBLE(), DOUBLE()});
 
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   auto inRowVector = BaseVector::create(inRowType, vectorSize, pool.get());
   auto outRowVector = BaseVector::create(outRowType, vectorSize, pool.get());
 
@@ -52,9 +59,9 @@ TEST(VectorReader, ReadDoublesVectors) {
   }
 }
 
-TEST(VectorReader, ReadBoolVectors) {
+TEST_F(VectorReaderTest, ReadBoolVectors) {
   // TODO: Move those to test class
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   const size_t vectorSize = 1000;
 
   auto inRowType = ROW({"columnA", "columnB"}, {BOOLEAN(), BOOLEAN()});

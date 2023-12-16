@@ -56,6 +56,7 @@
 class JoinFuzzerRunner {
  public:
   static int run(size_t seed) {
+    facebook::velox::memory::MemoryManager::initialize({});
     facebook::velox::serializer::presto::PrestoVectorSerde::
         registerVectorSerde();
     facebook::velox::filesystems::registerLocalFileSystem();

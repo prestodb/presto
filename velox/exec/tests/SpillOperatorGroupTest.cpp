@@ -30,7 +30,8 @@ using namespace facebook::velox::exec;
 class SpillOperatorGroupTest : public testing::Test {
  protected:
   SpillOperatorGroupTest(int32_t numOperators = 1)
-      : numOperators_(numOperators), pool_(memory::addDefaultLeafMemoryPool()) {
+      : numOperators_(numOperators),
+        pool_(memory::MemoryManager::getInstance()->addLeafPool()) {
     // All this is to prepare valid driver context for our mock operators.
     VectorMaker vectorMaker{pool_.get()};
     std::vector<RowVectorPtr> values = {vectorMaker.rowVector(
@@ -47,6 +48,10 @@ class SpillOperatorGroupTest : public testing::Test {
     driver_ = Driver::testingCreate();
     driverCtx_ = std::make_unique<DriverCtx>(task_, 0, 0, 0, 0);
     driverCtx_->driver = driver_.get();
+  }
+
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
   }
 
   void SetUp() override {

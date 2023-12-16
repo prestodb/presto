@@ -16,6 +16,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "velox/common/memory/Memory.h"
+#include "velox/common/memory/MemoryPool.h"
 #include "velox/dwio/common/ChainedBuffer.h"
 
 using namespace ::testing;
@@ -25,25 +27,33 @@ namespace velox {
 namespace dwio {
 namespace common {
 
-TEST(ChainedBufferTests, testCreate) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
-  ChainedBuffer<int32_t> buf{*pool, 128, 1024};
+class ChainedBufferTests : public Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
+};
+
+TEST_F(ChainedBufferTests, testCreate) {
+  ChainedBuffer<int32_t> buf{*pool_, 128, 1024};
   ASSERT_EQ(buf.capacity(), 128);
   ASSERT_EQ(buf.pages_.size(), 1);
-  ChainedBuffer<int32_t> buf2{*pool, 256, 1024};
+  ChainedBuffer<int32_t> buf2{*pool_, 256, 1024};
   ASSERT_EQ(buf2.capacity(), 256);
   ASSERT_EQ(buf2.pages_.size(), 1);
-  ChainedBuffer<int32_t> buf3{*pool, 257, 1024};
+  ChainedBuffer<int32_t> buf3{*pool_, 257, 1024};
   ASSERT_EQ(buf3.capacity(), 512);
   ASSERT_EQ(buf3.pages_.size(), 2);
 
   ASSERT_THROW(
-      (ChainedBuffer<int32_t>{*pool, 256, 257}), exception::LoggedException);
+      (ChainedBuffer<int32_t>{*pool_, 256, 257}), exception::LoggedException);
 }
 
-TEST(ChainedBufferTests, testReserve) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
-  ChainedBuffer<int32_t> buf{*pool, 16, 1024};
+TEST_F(ChainedBufferTests, testReserve) {
+  ChainedBuffer<int32_t> buf{*pool_, 16, 1024};
   buf.reserve(16);
   buf.reserve(17);
   ASSERT_EQ(buf.capacity(), 32);
@@ -59,9 +69,8 @@ TEST(ChainedBufferTests, testReserve) {
   ASSERT_EQ(buf.pages_.size(), 5);
 }
 
-TEST(ChainedBufferTests, testAppend) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
-  ChainedBuffer<int32_t> buf{*pool, 16, 64};
+TEST_F(ChainedBufferTests, testAppend) {
+  ChainedBuffer<int32_t> buf{*pool_, 16, 64};
   for (size_t i = 0; i < 16; ++i) {
     buf.unsafeAppend(i);
     ASSERT_EQ(buf.capacity(), 16);
@@ -84,29 +93,27 @@ TEST(ChainedBufferTests, testAppend) {
   ASSERT_EQ(buf[buf.size() - 1], 100);
 }
 
-TEST(ChainedBufferTests, testClear) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
-  ChainedBuffer<int32_t> buf{*pool, 128, 1024};
+TEST_F(ChainedBufferTests, testClear) {
+  ChainedBuffer<int32_t> buf{*pool_, 128, 1024};
   buf.clear();
   ASSERT_EQ(buf.capacity(), 128);
   ASSERT_EQ(buf.size(), 0);
   ASSERT_EQ(buf.pages_.size(), 1);
 
-  ChainedBuffer<int32_t> buf2{*pool, 1024, 1024};
+  ChainedBuffer<int32_t> buf2{*pool_, 1024, 1024};
   buf2.clear();
   ASSERT_EQ(buf2.capacity(), 256);
   ASSERT_EQ(buf2.size(), 0);
   ASSERT_EQ(buf2.pages_.size(), 1);
 }
 
-TEST(ChainedBufferTests, testApplyRange) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+TEST_F(ChainedBufferTests, testApplyRange) {
   std::vector<std::tuple<uint64_t, uint64_t, int32_t>> result;
   auto fn = [&](auto ptr, auto begin, auto end) {
     result.push_back({begin, end, *ptr});
   };
 
-  ChainedBuffer<int32_t> buf{*pool, 64, 64};
+  ChainedBuffer<int32_t> buf{*pool_, 64, 64};
   for (size_t i = 0; i < 64 / 16; ++i) {
     for (size_t j = 0; j < 16; ++j) {
       buf.unsafeAppend(i);
@@ -153,9 +160,8 @@ TEST(ChainedBufferTests, testApplyRange) {
           std::tuple<uint64_t, uint64_t, int32_t>{0, 16, 3}));
 }
 
-TEST(ChainedBufferTests, testGetPage) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
-  ChainedBuffer<int32_t> buf{*pool, 1024, 1024};
+TEST_F(ChainedBufferTests, testGetPage) {
+  ChainedBuffer<int32_t> buf{*pool_, 1024, 1024};
   ASSERT_EQ(
       std::addressof(buf.getPageUnsafe(0)), std::addressof(buf.pages_.at(0)));
   ASSERT_EQ(
@@ -166,7 +172,7 @@ TEST(ChainedBufferTests, testGetPage) {
       std::addressof(buf.getPageUnsafe(1023)),
       std::addressof(buf.pages_.at(3)));
 
-  ChainedBuffer<int64_t> buf2{*pool, 1024, 1024};
+  ChainedBuffer<int64_t> buf2{*pool_, 1024, 1024};
   ASSERT_EQ(
       std::addressof(buf2.getPageUnsafe(0)), std::addressof(buf2.pages_.at(0)));
   ASSERT_EQ(
@@ -180,9 +186,8 @@ TEST(ChainedBufferTests, testGetPage) {
       std::addressof(buf2.pages_.at(7)));
 }
 
-TEST(ChainedBufferTests, testGetPageIndex) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
-  ChainedBuffer<int8_t> buf{*pool, 1024, 1024};
+TEST_F(ChainedBufferTests, testGetPageIndex) {
+  ChainedBuffer<int8_t> buf{*pool_, 1024, 1024};
   ASSERT_EQ(buf.getPageIndex(0), 0);
   ASSERT_EQ(buf.getPageIndex(256), 0);
   ASSERT_EQ(buf.getPageIndex(1023), 0);
@@ -190,7 +195,7 @@ TEST(ChainedBufferTests, testGetPageIndex) {
   ASSERT_EQ(buf.getPageIndex(4095), 3);
   ASSERT_EQ(buf.getPageIndex(4096), 4);
 
-  ChainedBuffer<int32_t> buf2{*pool, 1024, 1024};
+  ChainedBuffer<int32_t> buf2{*pool_, 1024, 1024};
   ASSERT_EQ(buf2.getPageIndex(0), 0);
   ASSERT_EQ(buf2.getPageIndex(255), 0);
   ASSERT_EQ(buf2.getPageIndex(256), 1);
@@ -198,9 +203,8 @@ TEST(ChainedBufferTests, testGetPageIndex) {
   ASSERT_EQ(buf2.getPageIndex(4096), 16);
 }
 
-TEST(ChainedBufferTests, testGetPageOffset) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
-  ChainedBuffer<int8_t> buf{*pool, 1024, 1024};
+TEST_F(ChainedBufferTests, testGetPageOffset) {
+  ChainedBuffer<int8_t> buf{*pool_, 1024, 1024};
   ASSERT_EQ(buf.getPageOffset(0), 0);
   ASSERT_EQ(buf.getPageOffset(256), 256);
   ASSERT_EQ(buf.getPageOffset(1023), 1023);
@@ -208,7 +212,7 @@ TEST(ChainedBufferTests, testGetPageOffset) {
   ASSERT_EQ(buf.getPageOffset(4095), 1023);
   ASSERT_EQ(buf.getPageOffset(4096), 0);
 
-  ChainedBuffer<int32_t> buf2{*pool, 1024, 1024};
+  ChainedBuffer<int32_t> buf2{*pool_, 1024, 1024};
   ASSERT_EQ(buf2.getPageOffset(0), 0);
   ASSERT_EQ(buf2.getPageOffset(255), 255);
   ASSERT_EQ(buf2.getPageOffset(256), 0);
@@ -216,14 +220,14 @@ TEST(ChainedBufferTests, testGetPageOffset) {
   ASSERT_EQ(buf2.getPageOffset(4096), 0);
 }
 
-TEST(ChainedBufferTests, testBitCount) {
+TEST_F(ChainedBufferTests, testBitCount) {
   ASSERT_EQ(ChainedBuffer<int32_t>::bitCount(0), 0);
   ASSERT_EQ(ChainedBuffer<int32_t>::bitCount(1), 1);
   ASSERT_EQ(ChainedBuffer<int32_t>::bitCount(4), 1);
   ASSERT_EQ(ChainedBuffer<int32_t>::bitCount(15), 4);
 }
 
-TEST(ChainedBufferTests, testTrailingZeros) {
+TEST_F(ChainedBufferTests, testTrailingZeros) {
   ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(1), 0);
   ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(12), 2);
   ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(1u << 31), 31);
@@ -231,7 +235,7 @@ TEST(ChainedBufferTests, testTrailingZeros) {
       ChainedBuffer<int32_t>::trailingZeros(0), exception::LoggedException);
 }
 
-TEST(ChainedBufferTests, testPowerOf2) {
+TEST_F(ChainedBufferTests, testPowerOf2) {
   ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(1), 0);
   ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(12), 2);
   ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(1u << 31), 31);

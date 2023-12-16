@@ -24,6 +24,10 @@ namespace {
 class AddressableNonNullValueListTest : public testing::Test,
                                         public test::VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void test(const VectorPtr& data, const VectorPtr& uniqueData) {
     using T = HashStringAllocator::Position;
     using Set = folly::F14FastSet<

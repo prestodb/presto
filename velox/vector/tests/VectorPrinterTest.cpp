@@ -19,7 +19,12 @@
 
 namespace facebook::velox::test {
 
-class VectorPrinterTest : public testing::Test, public VectorTestBase {};
+class VectorPrinterTest : public testing::Test, public VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 // Sanity check that printVector doesn't fail or crash.
 TEST_F(VectorPrinterTest, basic) {

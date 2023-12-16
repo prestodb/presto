@@ -30,7 +30,7 @@ using namespace facebook::velox::memory;
 
 static size_t generateAutoId(int64_t startId, int64_t count) {
   size_t capacity = count * folly::kMaxVarintLength64;
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   DataBufferHolder holder{*pool, capacity};
   auto output = std::make_unique<BufferedOutputStream>(holder);
   auto encoder =
@@ -44,7 +44,7 @@ static size_t generateAutoId(int64_t startId, int64_t count) {
 
 static size_t generateAutoId2(int64_t startId, int64_t count) {
   size_t capacity = count * folly::kMaxVarintLength64;
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   DataBufferHolder holder{*pool, capacity};
   auto output = std::make_unique<BufferedOutputStream>(holder);
   auto encoder =
@@ -205,6 +205,7 @@ BENCHMARK_RELATIVE(GenerateAutoIdNew_64) {
 
 int32_t main(int32_t argc, char* argv[]) {
   folly::init(&argc, &argv);
+  memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;
 }

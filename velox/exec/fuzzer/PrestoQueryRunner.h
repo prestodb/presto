@@ -88,7 +88,7 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   const std::chrono::milliseconds timeout_;
   folly::EventBaseThread eventBaseThread_{false};
   std::shared_ptr<velox::memory::MemoryPool> rootPool_{
-      velox::memory::defaultMemoryManager().addRootPool()};
+      velox::memory::MemoryManager::getInstance()->addRootPool()};
   std::shared_ptr<velox::memory::MemoryPool> pool_{
       rootPool_->addLeafChild("leaf")};
 };

@@ -98,13 +98,18 @@ class ValueTypes {
   bool asStruct_;
 };
 
-class E2EReaderTest : public testing::TestWithParam<ValueTypes> {};
+class E2EReaderTest : public testing::TestWithParam<ValueTypes> {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 } // namespace
 
 TEST_P(E2EReaderTest, SharedDictionaryFlatmapReadAsStruct) {
   const size_t batchCount = 10;
   size_t size = 1;
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
 
   std::vector<uint32_t> flatMapCols(GetParam().size());
   std::iota(flatMapCols.begin(), flatMapCols.end(), 0);

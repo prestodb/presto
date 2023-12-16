@@ -25,7 +25,14 @@ using namespace facebook::velox::memory;
 
 namespace facebook::velox::dwrf {
 
-TEST(DefaultFlushPolicyTest, StripeProgressTest) {
+class DefaultFlushPolicyTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
+
+TEST_F(DefaultFlushPolicyTest, StripeProgressTest) {
   struct TestCase {
     const uint64_t stripeSizeThreshold;
     const int64_t stripeSize;
@@ -49,7 +56,7 @@ TEST(DefaultFlushPolicyTest, StripeProgressTest) {
   }
 }
 
-TEST(DefaultFlushPolicyTest, AdditionalCriteriaTest) {
+TEST_F(DefaultFlushPolicyTest, AdditionalCriteriaTest) {
   struct TestCase {
     const bool stripeProgressDecision;
     const bool overMemoryBudget;
@@ -119,7 +126,7 @@ TEST(DefaultFlushPolicyTest, AdditionalCriteriaTest) {
   }
 }
 
-TEST(RowsPerStripeFlushPolicyTest, EmptyFile) {
+TEST_F(DefaultFlushPolicyTest, EmptyFile) {
   // Empty vector creation succeeds.
   RowsPerStripeFlushPolicy policy({});
 
@@ -128,7 +135,7 @@ TEST(RowsPerStripeFlushPolicyTest, EmptyFile) {
       exception::LoggedException);
 }
 
-TEST(RowsPerStripeFlushPolicyTest, InvalidCases) {
+TEST_F(DefaultFlushPolicyTest, InvalidCases) {
   // Vector with 0 rows, throws
   ASSERT_THROW(
       RowsPerStripeFlushPolicy policy({5, 7, 0, 10}),
@@ -136,10 +143,12 @@ TEST(RowsPerStripeFlushPolicyTest, InvalidCases) {
 }
 
 // RowsPerStripeFlushPolicy has no dictionary flush criteria.
-TEST(RowsPerSTripeFlushPolicyTest, DictionaryCriteriaTest) {
+TEST_F(DefaultFlushPolicyTest, DictionaryCriteriaTest) {
   auto config = std::make_shared<Config>();
   WriterContext context{
-      config, defaultMemoryManager().addRootPool("DictionaryCriteriaTest")};
+      config,
+      memory::MemoryManager::getInstance()->addRootPool(
+          "DictionaryCriteriaTest")};
 
   RowsPerStripeFlushPolicy policy({42});
   EXPECT_EQ(
@@ -152,7 +161,7 @@ TEST(RowsPerSTripeFlushPolicyTest, DictionaryCriteriaTest) {
       FlushDecision::SKIP, policy.shouldFlushDictionary(true, true, context));
 }
 
-TEST(RowsPerStripeFlushPolicyTest, FlushTest) {
+TEST_F(DefaultFlushPolicyTest, FlushTest) {
   RowsPerStripeFlushPolicy policy({5, 7, 12});
 
   ASSERT_FALSE(policy.shouldFlush(

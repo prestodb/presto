@@ -26,6 +26,10 @@ using namespace facebook::velox::test;
 
 class RowContainerTest : public exec::test::RowContainerTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void testExtractColumn(
       RowContainer& container,
       const std::vector<char*>& rows,

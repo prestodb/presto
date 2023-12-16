@@ -36,6 +36,10 @@ uint64_t hashOne(T value) {
 
 class DenseHllTest : public ::testing::TestWithParam<int8_t> {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   DenseHll roundTrip(DenseHll& hll) {
     auto size = hll.serializedSize();
     std::string serialized;
@@ -100,7 +104,8 @@ class DenseHllTest : public ::testing::TestWithParam<int8_t> {
         expected.cardinality());
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   HashStringAllocator allocator_{pool_.get()};
 };
 

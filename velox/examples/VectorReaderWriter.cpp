@@ -38,6 +38,7 @@ auto serial() {
 
 int main() {
   const int num_rows = 8;
+  memory::MemoryManager::initialize({});
 
   /****************** Vector Writer **********************/
 
@@ -46,7 +47,7 @@ int main() {
   // Array<Map<int,int>>
   auto type = TypeFactory<TypeKind::ARRAY>::create(
       TypeFactory<TypeKind::MAP>::create(BIGINT(), BIGINT()));
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
 
   // result vector
   VectorPtr result;

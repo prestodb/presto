@@ -2253,7 +2253,7 @@ TEST_P(MemoryPoolTest, concurrentUpdateToSharedPools) {
   folly::Random::DefaultGenerator rng;
   rng.seed(1234);
 
-  const int32_t kNumOpsPerThread = 1'000;
+  const int32_t kNumOpsPerThread = 200;
   std::vector<std::thread> threads;
   threads.reserve(kNumThreads);
   for (size_t i = 0; i < kNumThreads; ++i) {

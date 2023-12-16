@@ -23,7 +23,12 @@
 namespace facebook::velox::connector::hive {
 
 class PartitionIdGeneratorTest : public ::testing::Test,
-                                 public test::VectorTestBase {};
+                                 public test::VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(PartitionIdGeneratorTest, consecutiveIdsSingleKey) {
   auto numPartitions = 100;

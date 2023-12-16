@@ -66,6 +66,10 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
   }
 
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     allocator_ = memory::MemoryAllocator::getInstance();
     tempDir_ = exec::test::TempDirectoryPath::create();

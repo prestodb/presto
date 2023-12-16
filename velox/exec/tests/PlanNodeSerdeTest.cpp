@@ -28,6 +28,10 @@ namespace facebook::velox::exec::test {
 class PlanNodeSerdeTest : public testing::Test,
                           public velox::test::VectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   PlanNodeSerdeTest() {
     functions::prestosql::registerAllScalarFunctions();
     aggregate::prestosql::registerAllAggregateFunctions();

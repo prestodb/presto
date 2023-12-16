@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
   facebook::velox::window::prestosql::registerAllWindowFunctions();
   facebook::velox::functions::prestosql::registerInternalFunctions();
+  facebook::velox::memory::MemoryManager::initialize({});
 
   ::testing::InitGoogleTest(&argc, argv);
 

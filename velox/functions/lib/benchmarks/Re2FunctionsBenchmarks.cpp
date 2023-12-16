@@ -105,6 +105,7 @@ void registerRe2Functions() {
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
   facebook::velox::functions::test::registerRe2Functions();
+  facebook::velox::memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;
 }

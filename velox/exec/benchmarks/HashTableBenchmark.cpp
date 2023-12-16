@@ -560,7 +560,8 @@ class HashTableBenchmark : public VectorTestBase {
         << std::endl;
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
   std::unique_ptr<VectorMaker> vectorMaker_{
       std::make_unique<VectorMaker>(pool_.get())};
   // Bitmap of positions in batches_ that end up in the table.
@@ -619,7 +620,7 @@ int main(int argc, char** argv) {
 
   auto allocator = std::make_shared<memory::MmapAllocator>(options);
   memory::MemoryAllocator::setDefaultInstance(allocator.get());
-  memory::MemoryManager::getInstance(memory::MemoryManagerOptions{
+  memory::MemoryManager::initialize(memory::MemoryManagerOptions{
       .capacity = static_cast<int64_t>(options.capacity),
       .allocator = allocator.get()});
 

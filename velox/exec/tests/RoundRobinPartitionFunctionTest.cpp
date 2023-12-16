@@ -22,12 +22,17 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
 class RoundRobinPartitionFunctionTest : public test::VectorTestBase,
-                                        public testing::Test {};
+                                        public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
 
 TEST_F(RoundRobinPartitionFunctionTest, basic) {
   exec::RoundRobinPartitionFunction partitionFunction(10);
 
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   test::VectorMaker vm(pool.get());
 
   auto data = vm.rowVector(ROW({}, {}), 1024);

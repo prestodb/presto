@@ -34,6 +34,10 @@ class PeeledEncodingTest : public testing::Test, public VectorTestBase {
   };
 
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   static DictionaryWrap generateDictionaryWrap(
       VectorFuzzer& fuzzer,
       vector_size_t size) {

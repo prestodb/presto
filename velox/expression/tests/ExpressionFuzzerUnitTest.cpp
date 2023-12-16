@@ -22,6 +22,10 @@
 namespace facebook::velox::test {
 class ExpressionFuzzerUnitTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   uint32_t countLevelOfNesting(core::TypedExprPtr expression) {
     if (expression->inputs().empty()) {
       return 0;
@@ -50,7 +54,8 @@ class ExpressionFuzzerUnitTest : public testing::Test {
     auto index = folly::Random::rand32(kSupportedTypes.size(), seed);
     return kSupportedTypes[index];
   }
-  std::shared_ptr<memory::MemoryPool> pool{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 
   std::shared_ptr<VectorFuzzer> vectorfuzzer{
       std::make_shared<VectorFuzzer>(VectorFuzzer::Options{}, pool.get())};

@@ -26,26 +26,35 @@ using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::dwio::common {
 
-void runTest() {
-  auto root = TempDirectoryPath::create();
-  auto filePath = fs::path(root->path) / "xxx/yyy/zzz/test_file.ext";
+class LocalFileSinkTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
 
-  ASSERT_FALSE(fs::exists(filePath.string()));
+  void runTest() {
+    auto root = TempDirectoryPath::create();
+    auto filePath = fs::path(root->path) / "xxx/yyy/zzz/test_file.ext";
 
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
-  auto localFileSink = FileSink::create(
-      fmt::format("file:{}", filePath.string()), {.pool = pool.get()});
-  ASSERT_TRUE(localFileSink->isBuffered());
-  localFileSink->close();
+    ASSERT_FALSE(fs::exists(filePath.string()));
 
-  EXPECT_TRUE(fs::exists(filePath.string()));
-}
+    auto localFileSink = FileSink::create(
+        fmt::format("file:{}", filePath.string()), {.pool = pool_.get()});
+    ASSERT_TRUE(localFileSink->isBuffered());
+    localFileSink->close();
 
-TEST(LocalFileSinkTest, missingRegistration) {
+    EXPECT_TRUE(fs::exists(filePath.string()));
+  }
+
+  std::shared_ptr<velox::memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
+};
+
+TEST_F(LocalFileSinkTest, missingRegistration) {
   VELOX_ASSERT_THROW(runTest(), "FileSink is not registered for file:");
 }
 
-TEST(LocalFileSinkTest, create) {
+TEST_F(LocalFileSinkTest, create) {
   LocalFileSink::registerFactory();
   runTest();
 }

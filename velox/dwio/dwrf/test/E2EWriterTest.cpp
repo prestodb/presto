@@ -25,6 +25,7 @@
 #include "velox/dwio/common/encryption/TestProvider.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/common/tests/utils/MapBuilder.h"
+#include "velox/dwio/dwrf/common/Config.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 #include "velox/dwio/dwrf/test/utils/E2EWriterTestUtil.h"
@@ -40,7 +41,6 @@ using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwio::common::encryption;
 using namespace facebook::velox::dwio::common::encryption::test;
 using namespace facebook::velox::test;
-using namespace facebook::velox::dwrf;
 using namespace facebook::velox::dwrf::encryption;
 using namespace facebook::velox::type::fbhive;
 using namespace facebook::velox;
@@ -50,25 +50,24 @@ using folly::Random;
 constexpr uint64_t kSizeMB = 1024UL * 1024UL;
 
 namespace {
-auto defaultPool = memory::addDefaultLeafMemoryPool();
-}
-
 class E2EWriterTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     TestValue::enable();
+    memory::MemoryManager::testingSetInstance({});
   }
 
   E2EWriterTest() {
-    rootPool_ = memory::defaultMemoryManager().addRootPool("E2EWriterTest");
+    rootPool_ =
+        memory::MemoryManager::getInstance()->addRootPool("E2EWriterTest");
     leafPool_ = rootPool_->addLeafChild("leaf");
   }
 
-  std::unique_ptr<DwrfReader> createReader(
+  std::unique_ptr<dwrf::DwrfReader> createReader(
       const MemorySink& sink,
       const dwio::common::ReaderOptions& opts) {
     std::string_view data(sink.data(), sink.size());
-    return std::make_unique<DwrfReader>(
+    return std::make_unique<dwrf::DwrfReader>(
         opts,
         std::make_unique<BufferedInput>(
             std::make_shared<InMemoryReadFile>(data), opts.getMemoryPool()));
@@ -105,11 +104,11 @@ class E2EWriterTest : public testing::Test {
 
     writer.close();
 
-    dwio::common::ReaderOptions readerOpts{defaultPool.get()};
+    dwio::common::ReaderOptions readerOpts{leafPool_.get()};
     RowReaderOptions rowReaderOpts;
     auto reader = createReader(*sinkPtr, readerOpts);
     auto rowReader = reader->createRowReader(rowReaderOpts);
-    auto dwrfRowReader = dynamic_cast<DwrfRowReader*>(rowReader.get());
+    auto dwrfRowReader = dynamic_cast<dwrf::DwrfRowReader*>(rowReader.get());
     bool preload = true;
     std::unordered_set<uint32_t> actualNodeIds;
     for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
@@ -118,7 +117,7 @@ class E2EWriterTest : public testing::Test {
       for (int32_t j = 0; j < footer.encoding_size(); ++j) {
         auto encoding = footer.encoding(j);
         if (encoding.kind() ==
-            proto::ColumnEncoding_Kind::ColumnEncoding_Kind_MAP_FLAT) {
+            dwrf::proto::ColumnEncoding_Kind::ColumnEncoding_Kind_MAP_FLAT) {
           actualNodeIds.insert(encoding.node());
         }
       }
@@ -172,7 +171,7 @@ class E2EWriterTest : public testing::Test {
     auto reader = createReader(*sinkPtr, readerOpts);
     auto rowReader = reader->createRowReader(rowReaderOpts);
 
-    auto dwrfRowReader = dynamic_cast<DwrfRowReader*>(rowReader.get());
+    auto dwrfRowReader = dynamic_cast<dwrf::DwrfRowReader*>(rowReader.get());
     bool preload = true;
 
     auto typeWithId = TypeWithId::create(type);
@@ -183,7 +182,7 @@ class E2EWriterTest : public testing::Test {
       auto valueTypeId = mapTypeId + 2;
       for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
         auto currentStripeInfo = dwrfRowReader->loadStripe(i, preload);
-        StripeStreamsImpl stripeStreams(
+        dwrf::StripeStreamsImpl stripeStreams(
             *dwrfRowReader,
             dwrfRowReader->getColumnSelector(),
             rowReaderOpts,
@@ -195,16 +194,16 @@ class E2EWriterTest : public testing::Test {
         folly::F14FastMap<int64_t, dwio::common::KeyInfo> sequenceToKey;
 
         stripeStreams.visitStreamsOfNode(
-            valueTypeId, [&](const StreamInformation& stream) {
+            valueTypeId, [&](const dwrf::StreamInformation& stream) {
               auto sequence = stream.getSequence();
               // No need to load shared dictionary stream here.
               if (sequence == 0) {
                 return;
               }
 
-              EncodingKey seqEk(valueTypeId, sequence);
+              dwrf::EncodingKey seqEk(valueTypeId, sequence);
               const auto& keyInfo = stripeStreams.getEncoding(seqEk).key();
-              auto key = constructKey(keyInfo);
+              auto key = dwrf::constructKey(keyInfo);
               sequenceToKey.emplace(sequence, key);
             });
 
@@ -234,7 +233,7 @@ class E2EWriterTest : public testing::Test {
         const auto& entry = stats.mapstatistics().stats(i);
         ASSERT_TRUE(entry.stats().has_size());
         EXPECT_EQ(
-            featureStreamSizes.at(constructKey(entry.key())),
+            featureStreamSizes.at(dwrf::constructKey(entry.key())),
             entry.stats().size());
       }
     }
@@ -309,12 +308,12 @@ TEST_F(E2EWriterTest, DISABLED_TestFileCreation) {
   auto path = "/tmp/e2e_generated_file.orc";
   auto localWriteFile = std::make_unique<LocalWriteFile>(path, true, false);
   auto sink = std::make_unique<WriteFileSink>(std::move(localWriteFile), path);
-  E2EWriterTestUtil::writeData(
+  dwrf::E2EWriterTestUtil::writeData(
       std::move(sink),
       type,
       batches,
       config,
-      E2EWriterTestUtil::simpleFlushPolicyFactory(true));
+      dwrf::E2EWriterTestUtil::simpleFlushPolicyFactory(true));
 }
 
 VectorPtr createRowVector(
@@ -371,7 +370,7 @@ TEST_F(E2EWriterTest, E2E) {
     size = 200;
   }
 
-  E2EWriterTestUtil::testWriter(*leafPool_, type, batches, 1, 1, config);
+  dwrf::E2EWriterTestUtil::testWriter(*leafPool_, type, batches, 1, 1, config);
 }
 
 TEST_F(E2EWriterTest, FlatMapDictionaryEncoding) {
@@ -379,7 +378,7 @@ TEST_F(E2EWriterTest, FlatMapDictionaryEncoding) {
   // Start with a size larger than stride to cover splitting into
   // strides. Continue with smaller size for faster test.
   size_t size = 1100;
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -408,7 +407,7 @@ TEST_F(E2EWriterTest, FlatMapDictionaryEncoding) {
     size = 200;
   }
 
-  E2EWriterTestUtil::testWriter(*pool, type, batches, 1, 1, config);
+  dwrf::E2EWriterTestUtil::testWriter(*pool, type, batches, 1, 1, config);
 }
 
 TEST_F(E2EWriterTest, MaxFlatMapKeys) {
@@ -419,7 +418,7 @@ TEST_F(E2EWriterTest, MaxFlatMapKeys) {
   const uint32_t keyLimit = 2000;
   const auto randomStart = Random::rand32(100);
 
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   b::row row;
   for (int32_t i = 0; i < keyLimit; ++i) {
     row.push_back(b::pair{randomStart + i, Random::rand64()});
@@ -434,8 +433,13 @@ TEST_F(E2EWriterTest, MaxFlatMapKeys) {
   config->set(dwrf::Config::MAP_FLAT_COLS, {0});
   config->set(dwrf::Config::MAP_FLAT_MAX_KEYS, keyLimit);
 
-  E2EWriterTestUtil::testWriter(
-      *pool, type, E2EWriterTestUtil::generateBatches(batch), 1, 1, config);
+  dwrf::E2EWriterTestUtil::testWriter(
+      *pool,
+      type,
+      dwrf::E2EWriterTestUtil::generateBatches(batch),
+      1,
+      1,
+      config);
 }
 
 TEST_F(E2EWriterTest, PresentStreamIsSuppressedOnFlatMap) {
@@ -445,7 +449,8 @@ TEST_F(E2EWriterTest, PresentStreamIsSuppressedOnFlatMap) {
 
   const auto randomStart = Random::rand32(100);
 
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
   b::row row;
   row.push_back(b::pair{randomStart, Random::rand64()});
 
@@ -462,18 +467,18 @@ TEST_F(E2EWriterTest, PresentStreamIsSuppressedOnFlatMap) {
       dwio::common::FileSink::Options{.pool = leafPool_.get()});
   auto sinkPtr = sink.get();
 
-  auto writer = E2EWriterTestUtil::writeData(
+  auto writer = dwrf::E2EWriterTestUtil::writeData(
       std::move(sink),
       type,
-      E2EWriterTestUtil::generateBatches(std::move(batch)),
+      dwrf::E2EWriterTestUtil::generateBatches(std::move(batch)),
       config,
-      E2EWriterTestUtil::simpleFlushPolicyFactory(true));
+      dwrf::E2EWriterTestUtil::simpleFlushPolicyFactory(true));
 
-  dwio::common::ReaderOptions readerOpts{defaultPool.get()};
+  dwio::common::ReaderOptions readerOpts{leafPool_.get()};
   RowReaderOptions rowReaderOpts;
   auto reader = createReader(*sinkPtr, readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
-  auto dwrfRowReader = dynamic_cast<DwrfRowReader*>(rowReader.get());
+  auto dwrfRowReader = dynamic_cast<dwrf::DwrfRowReader*>(rowReader.get());
   bool preload = true;
   std::unordered_set<uint32_t> actualNodeIds;
   for (int i = 0; i < reader->getNumberOfStripes(); ++i) {
@@ -481,7 +486,7 @@ TEST_F(E2EWriterTest, PresentStreamIsSuppressedOnFlatMap) {
     auto& footer = dwrfRowReader->getStripeFooter();
     for (int j = 0; j < footer.streams_size(); ++j) {
       auto stream = footer.streams(j);
-      ASSERT_NE(stream.kind(), proto::Stream_Kind::Stream_Kind_PRESENT);
+      ASSERT_NE(stream.kind(), dwrf::proto::Stream_Kind::Stream_Kind_PRESENT);
     }
   }
 }
@@ -494,7 +499,7 @@ TEST_F(E2EWriterTest, TooManyFlatMapKeys) {
   const uint32_t keyLimit = 2000;
   const auto randomStart = Random::rand32(100);
 
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   b::row row;
   for (int32_t i = 0; i < (keyLimit + 1); ++i) {
     row.push_back(b::pair{randomStart + i, Random::rand64()});
@@ -510,13 +515,18 @@ TEST_F(E2EWriterTest, TooManyFlatMapKeys) {
   config->set(dwrf::Config::MAP_FLAT_MAX_KEYS, keyLimit);
 
   EXPECT_THROW(
-      E2EWriterTestUtil::testWriter(
-          *pool, type, E2EWriterTestUtil::generateBatches(batch), 1, 1, config),
+      dwrf::E2EWriterTestUtil::testWriter(
+          *pool,
+          type,
+          dwrf::E2EWriterTestUtil::generateBatches(batch),
+          1,
+          1,
+          config),
       exception::LoggedException);
 }
 
 TEST_F(E2EWriterTest, FlatMapBackfill) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
 
   using keyType = int32_t;
   using valueType = int32_t;
@@ -565,21 +575,21 @@ TEST_F(E2EWriterTest, FlatMapBackfill) {
   config->set(dwrf::Config::MAP_FLAT_COLS, {0});
   config->set(dwrf::Config::ROW_INDEX_STRIDE, strideSize);
 
-  E2EWriterTestUtil::testWriter(
+  dwrf::E2EWriterTestUtil::testWriter(
       *pool,
       type,
       batches,
       1,
       1,
       config,
-      E2EWriterTestUtil::simpleFlushPolicyFactory(false));
+      dwrf::E2EWriterTestUtil::simpleFlushPolicyFactory(false));
 }
 
 void testFlatMapWithNulls(
     bool firstRowNotNull,
     bool enableFlatmapDictionaryEncoding = false,
     bool shareDictionary = false) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
 
   using keyType = int32_t;
   using valueType = int32_t;
@@ -614,14 +624,14 @@ void testFlatMapWithNulls(
       !enableFlatmapDictionaryEncoding);
   config->set(dwrf::Config::MAP_FLAT_DICT_SHARE, shareDictionary);
 
-  E2EWriterTestUtil::testWriter(
+  dwrf::E2EWriterTestUtil::testWriter(
       *pool,
       type,
       batches,
       1,
       1,
       config,
-      E2EWriterTestUtil::simpleFlushPolicyFactory(false));
+      dwrf::E2EWriterTestUtil::simpleFlushPolicyFactory(false));
 }
 
 TEST_F(E2EWriterTest, FlatMapWithNulls) {
@@ -647,7 +657,7 @@ TEST_F(E2EWriterTest, FlatMapWithNullsSharedDict) {
 }
 
 TEST_F(E2EWriterTest, FlatMapEmpty) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
 
   using keyType = int32_t;
   using valueType = int32_t;
@@ -677,14 +687,14 @@ TEST_F(E2EWriterTest, FlatMapEmpty) {
   config->set(dwrf::Config::MAP_FLAT_COLS, {0});
   config->set(dwrf::Config::ROW_INDEX_STRIDE, strideSize);
 
-  E2EWriterTestUtil::testWriter(
+  dwrf::E2EWriterTestUtil::testWriter(
       *pool,
       type,
       batches,
       1,
       1,
       config,
-      E2EWriterTestUtil::simpleFlushPolicyFactory(false));
+      dwrf::E2EWriterTestUtil::simpleFlushPolicyFactory(false));
 }
 
 TEST_F(E2EWriterTest, FlatMapConfigSingleColumn) {
@@ -837,7 +847,7 @@ TEST_F(E2EWriterTest, PartialStride) {
   writer.write(batch);
   writer.close();
 
-  dwio::common::ReaderOptions readerOpts{defaultPool.get()};
+  dwio::common::ReaderOptions readerOpts{leafPool_.get()};
   RowReaderOptions rowReaderOpts;
   auto reader = createReader(*sinkPtr, readerOpts);
   ASSERT_EQ(size - nullCount, reader->columnStatistics(1)->getNumberOfValues())
@@ -846,7 +856,8 @@ TEST_F(E2EWriterTest, PartialStride) {
 }
 
 TEST_F(E2EWriterTest, OversizeRows) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -867,10 +878,10 @@ TEST_F(E2EWriterTest, OversizeRows) {
       dwrf::Config::RAW_DATA_SIZE_PER_BATCH, folly::to<uint64_t>(20 * 1024UL));
 
   // Retained bytes in vector: 44704
-  auto singleBatch = E2EWriterTestUtil::generateBatches(
+  auto singleBatch = dwrf::E2EWriterTestUtil::generateBatches(
       type, 1, 1, /* seed */ 1411367325, *pool);
 
-  E2EWriterTestUtil::testWriter(
+  dwrf::E2EWriterTestUtil::testWriter(
       *pool,
       type,
       singleBatch,
@@ -884,7 +895,8 @@ TEST_F(E2EWriterTest, OversizeRows) {
 }
 
 TEST_F(E2EWriterTest, OversizeBatches) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -899,10 +911,10 @@ TEST_F(E2EWriterTest, OversizeBatches) {
   config->set(dwrf::Config::STRIPE_SIZE, 10 * kSizeMB);
 
   // Test splitting a gigantic batch.
-  auto singleBatch = E2EWriterTestUtil::generateBatches(
+  auto singleBatch = dwrf::E2EWriterTestUtil::generateBatches(
       type, 1, 10000000, /* seed */ 1411367325, *pool);
   // A gigantic batch is split into 10 stripes.
-  E2EWriterTestUtil::testWriter(
+  dwrf::E2EWriterTestUtil::testWriter(
       *pool,
       type,
       singleBatch,
@@ -915,10 +927,10 @@ TEST_F(E2EWriterTest, OversizeBatches) {
       false);
 
   // Test splitting multiple huge batches.
-  auto batches = E2EWriterTestUtil::generateBatches(
+  auto batches = dwrf::E2EWriterTestUtil::generateBatches(
       type, 3, 5000000, /* seed */ 1411367325, *pool);
   // 3 gigantic batches are split into 15~16 stripes.
-  E2EWriterTestUtil::testWriter(
+  dwrf::E2EWriterTestUtil::testWriter(
       *pool,
       type,
       batches,
@@ -932,7 +944,8 @@ TEST_F(E2EWriterTest, OversizeBatches) {
 }
 
 TEST_F(E2EWriterTest, OverflowLengthIncrements) {
-  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  auto pool =
+      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -977,7 +990,7 @@ TEST_F(E2EWriterTest, OverflowLengthIncrements) {
       std::vector<VectorPtr>{rowVec},
       /* nullCount */ 0);
 
-  E2EWriterTestUtil::testWriter(
+  dwrf::E2EWriterTestUtil::testWriter(
       *pool,
       type,
       {vec},
@@ -990,13 +1003,11 @@ TEST_F(E2EWriterTest, OverflowLengthIncrements) {
       false);
 }
 
-namespace facebook::velox::dwrf {
-
 class E2EEncryptionTest : public E2EWriterTest {
  protected:
   E2EEncryptionTest() : E2EWriterTest() {}
 
-  std::unique_ptr<DwrfReader> writeAndRead(
+  std::unique_ptr<::facebook::velox::dwrf::DwrfReader> writeAndRead(
       const std::string& schema,
       const std::shared_ptr<EncryptionSpecification>& spec,
       std::shared_ptr<DecrypterFactory> decrypterFactory =
@@ -1005,20 +1016,25 @@ class E2EEncryptionTest : public E2EWriterTest {
     auto type = parser.parse(schema);
 
     // write file to memory
-    auto config = std::make_shared<Config>();
+    auto config = std::make_shared<::facebook::velox::dwrf::Config>();
     // make sure we always write dictionary to test stride index
-    config->set(Config::DICTIONARY_STRING_KEY_SIZE_THRESHOLD, 1.0f);
-    config->set(Config::ENTROPY_KEY_STRING_SIZE_THRESHOLD, 0.0f);
+    config->set(
+        ::facebook::velox::dwrf::Config::DICTIONARY_STRING_KEY_SIZE_THRESHOLD,
+        1.0f);
+    config->set(
+        ::facebook::velox::dwrf::Config::ENTROPY_KEY_STRING_SIZE_THRESHOLD,
+        0.0f);
     auto sink = std::make_unique<MemorySink>(
         16 * 1024 * 1024,
         dwio::common::FileSink::Options{.pool = leafPool_.get()});
     sink_ = sink.get();
-    dwrf::WriterOptions options;
+    ::facebook::velox::dwrf::WriterOptions options;
     options.config = config;
     options.schema = type;
     options.encryptionSpec = spec;
     options.encrypterFactory = std::make_shared<TestEncrypterFactory>();
-    writer_ = std::make_unique<Writer>(std::move(sink), options, rootPool_);
+    writer_ =
+        std::make_unique<dwrf::Writer>(std::move(sink), options, rootPool_);
 
     for (size_t i = 0; i < batchCount_; ++i) {
       auto batch =
@@ -1032,17 +1048,18 @@ class E2EEncryptionTest : public E2EWriterTest {
     writer_->close();
 
     // read it back for compare
-    dwio::common::ReaderOptions readerOpts{defaultPool.get()};
+    dwio::common::ReaderOptions readerOpts{leafPool_.get()};
     readerOpts.setDecrypterFactory(decrypterFactory);
     return createReader(*sink_, readerOpts);
   }
 
   const DecryptionHandler& getDecryptionHandler(
-      const DwrfReader& reader) const {
-    return reader.readerBase_->getDecryptionHandler();
+      const ::facebook::velox::dwrf::DwrfReader& reader) const {
+    return reader.testingReaderBase()->getDecryptionHandler();
   }
 
-  void validateFileContent(const DwrfReader& reader) const {
+  void validateFileContent(
+      const ::facebook::velox::dwrf::DwrfReader& reader) const {
     RowReaderOptions rowReaderOpts;
     auto rowReader = reader.createRowReader(rowReaderOpts);
     // make sure size estimate works
@@ -1077,8 +1094,6 @@ class E2EEncryptionTest : public E2EWriterTest {
   size_t flushInterval_{3};
   std::vector<VectorPtr> batches_;
 };
-
-} // namespace facebook::velox::dwrf
 
 TEST_F(E2EEncryptionTest, EncryptRoot) {
   auto spec =
@@ -1117,7 +1132,8 @@ TEST_F(E2EEncryptionTest, EncryptRoot) {
   auto rowReader = reader->createRowReader(rowReaderOpts);
 
   // make sure stripe footer doesn't have any stream/encoding
-  auto dwrfRowReader = dynamic_cast<DwrfRowReader*>(rowReader.get());
+  auto dwrfRowReader =
+      dynamic_cast<::facebook::velox::dwrf::DwrfRowReader*>(rowReader.get());
   bool preload = true;
   for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
     dwrfRowReader->loadStripe(0, preload);
@@ -1198,7 +1214,7 @@ TEST_F(E2EEncryptionTest, EncryptSelectedFields) {
   auto rowReader = reader->createRowReader(rowReaderOpts);
 
   // make sure stripe footer doesn't have any stream/encoding
-  auto dwrfRowReader = dynamic_cast<DwrfRowReader*>(rowReader.get());
+  auto dwrfRowReader = dynamic_cast<dwrf::DwrfRowReader*>(rowReader.get());
   bool preload = true;
   for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
     dwrfRowReader->loadStripe(0, preload);
@@ -1265,8 +1281,6 @@ TEST_F(E2EEncryptionTest, ReadWithoutKey) {
   }
 }
 
-namespace {
-
 void testWriter(
     MemoryPool& pool,
     const std::shared_ptr<const Type>& type,
@@ -1278,7 +1292,7 @@ void testWriter(
   for (auto i = 0; i < batchCount; ++i) {
     batches.push_back(generator());
   }
-  E2EWriterTestUtil::testWriter(pool, type, batches, 1, 1, config);
+  dwrf::E2EWriterTestUtil::testWriter(pool, type, batches, 1, 1, config);
 };
 
 template <TypeKind K>
@@ -1340,10 +1354,8 @@ VectorPtr createKeys(
   }
 }
 
-} // namespace
-
 TEST_F(E2EWriterTest, fuzzSimple) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   auto type = ROW({
       {"bool_val", BOOLEAN()},
       {"byte_val", TINYINT()},
@@ -1392,7 +1404,7 @@ TEST_F(E2EWriterTest, fuzzSimple) {
 }
 
 TEST_F(E2EWriterTest, fuzzComplex) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   auto type = ROW({
       {"array", ARRAY(REAL())},
       {"map", MAP(INTEGER(), DOUBLE())},
@@ -1447,7 +1459,7 @@ TEST_F(E2EWriterTest, fuzzComplex) {
 }
 
 TEST_F(E2EWriterTest, fuzzFlatmap) {
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
   auto type = ROW({
       {"flatmap1", MAP(INTEGER(), REAL())},
       {"flatmap2", MAP(VARCHAR(), ARRAY(REAL()))},
@@ -1544,7 +1556,7 @@ TEST_F(E2EWriterTest, memoryConfigError) {
   options.schema = type;
   const common::SpillConfig spillConfig = getSpillConfig(10, 20);
   options.spillConfig = &spillConfig;
-  auto writerPool = memory::defaultMemoryManager().addRootPool(
+  auto writerPool = memory::MemoryManager::getInstance()->addRootPool(
       "memoryReclaim", 1L << 30, exec::MemoryReclaimer::create());
   auto dwrfPool = writerPool->addAggregateChild("writer");
   auto sinkPool =
@@ -1589,7 +1601,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
     if (enableReclaim) {
       options.spillConfig = &spillConfig;
     }
-    auto writerPool = memory::defaultMemoryManager().addRootPool(
+    auto writerPool = memory::MemoryManager::getInstance()->addRootPool(
         "memoryReclaim", 1L << 30, exec::MemoryReclaimer::create());
     auto dwrfPool = writerPool->addAggregateChild("writer");
     auto sinkPool =
@@ -1705,7 +1717,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnFlush) {
     if (enableReclaim) {
       options.spillConfig = &spillConfig;
     }
-    auto writerPool = memory::defaultMemoryManager().addRootPool(
+    auto writerPool = memory::MemoryManager::getInstance()->addRootPool(
         "memoryReclaim", 1L << 30, exec::MemoryReclaimer::create());
     auto dwrfPool = writerPool->addAggregateChild("writer");
     auto sinkPool =
@@ -1723,7 +1735,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnFlush) {
           }
           auto& context = writer->getContext();
           auto& outputPool =
-              context.getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM);
+              context.getMemoryPool(dwrf::MemoryUsageCategory::OUTPUT_STREAM);
           const auto memoryUsage = outputPool.currentBytes();
           const auto availableMemoryUsage = outputPool.availableReservation();
           ASSERT_GE(
@@ -1809,7 +1821,7 @@ TEST_F(E2EWriterTest, memoryReclaimAfterClose) {
     if (testData.canReclaim) {
       options.spillConfig = &spillConfig;
     }
-    auto writerPool = memory::defaultMemoryManager().addRootPool(
+    auto writerPool = memory::MemoryManager::getInstance()->addRootPool(
         "memoryReclaim", 1L << 30, exec::MemoryReclaimer::create());
     auto dwrfPool = writerPool->addAggregateChild("writer");
     auto sinkPool =
@@ -1889,7 +1901,7 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimDuringInit) {
     if (reclaimable) {
       options.spillConfig = &spillConfig;
     }
-    auto writerPool = memory::defaultMemoryManager().addRootPool(
+    auto writerPool = memory::MemoryManager::getInstance()->addRootPool(
         "memoryReclaimDuringInit", 1L << 30, exec::MemoryReclaimer::create());
     auto dwrfPool = writerPool->addAggregateChild("writer");
     auto sinkPool =
@@ -1971,7 +1983,7 @@ TEST_F(E2EWriterTest, memoryReclaimThreshold) {
     options.nonReclaimableSection = &nonReclaimableSection;
     options.spillConfig = &spillConfig;
 
-    auto writerPool = memory::defaultMemoryManager().addRootPool(
+    auto writerPool = memory::MemoryManager::getInstance()->addRootPool(
         "memoryReclaimThreshold", 1L << 30, exec::MemoryReclaimer::create());
     auto dwrfPool = writerPool->addAggregateChild("writer");
     auto sinkPool =
@@ -2012,3 +2024,4 @@ TEST_F(E2EWriterTest, memoryReclaimThreshold) {
     writer->close();
   }
 }
+} // namespace

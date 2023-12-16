@@ -29,6 +29,10 @@ static void mockRelease(ArrowSchema*) {}
 
 class ArrowBridgeSchemaExportTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void testScalarType(const TypePtr& type, const char* arrowFormat) {
     ArrowSchema arrowSchema;
     exportToArrow(type, arrowSchema);
@@ -168,7 +172,8 @@ class ArrowBridgeSchemaExportTest : public testing::Test {
     };
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 
 TEST_F(ArrowBridgeSchemaExportTest, scalar) {
@@ -415,6 +420,10 @@ TEST_F(ArrowBridgeSchemaImportTest, unsupported) {
 
 class ArrowBridgeSchemaTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void roundtripTest(const TypePtr& inputType) {
     ArrowSchema arrowSchema;
     exportToArrow(inputType, arrowSchema);
@@ -427,7 +436,8 @@ class ArrowBridgeSchemaTest : public testing::Test {
     velox::exportToArrow(BaseVector::create(type, 0, pool_.get()), out);
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 
 TEST_F(ArrowBridgeSchemaTest, roundtrip) {

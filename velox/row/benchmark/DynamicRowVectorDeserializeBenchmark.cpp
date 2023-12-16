@@ -49,8 +49,8 @@ class UnsaferowBatchDeserializer : public Deserializer {
   }
 
  private:
-  std::shared_ptr<memory::MemoryPool> pool_ =
-      memory::addDefaultLeafMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 
 class BenchmarkHelper {
@@ -115,8 +115,8 @@ class BenchmarkHelper {
       MAP(VARCHAR(), ARRAY(INTEGER())),
       ROW({INTEGER()})};
 
-  std::shared_ptr<memory::MemoryPool> pool_ =
-      memory::addDefaultLeafMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_{
+      memory::MemoryManager::getInstance()->addLeafPool()};
 };
 
 int deserialize(
@@ -174,6 +174,7 @@ BENCHMARK_NAMED_PARAM_MULTI(
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
+  facebook::velox::memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;
 }
