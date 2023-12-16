@@ -64,7 +64,7 @@ TEST_F(TestValues, valuesRowVector) {
 
   testJsonRoundtrip(j, p);
 
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
   auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   auto values = std::dynamic_pointer_cast<const core::ValuesNode>(
@@ -104,7 +104,7 @@ TEST_F(TestValues, valuesPlan) {
 
   testJsonRoundtrip(j, p);
 
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
   auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   auto values = converter.toVeloxQueryPlan(

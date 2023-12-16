@@ -33,6 +33,10 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
   }
 
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   std::unique_ptr<Config> jwtSystemConfig(
       const std::unordered_map<std::string, std::string> configOverride = {})
       const {
@@ -67,7 +71,8 @@ class HttpJwtTestSuite : public ::testing::TestWithParam<bool> {
       std::unordered_map<std::string, std::string> serverSystemConfigOverride =
           {},
       const uint64_t sendDelayMs = 500) {
-    auto memoryPool = defaultMemoryManager().addLeafPool("HttpJwtTestSuite");
+    auto memoryPool =
+        memory::MemoryManager::getInstance()->addLeafPool("HttpJwtTestSuite");
     auto clientConfig = jwtSystemConfig(clientSystemConfigOverride);
     auto systemConfig = SystemConfig::instance();
     systemConfig->initialize(std::move(clientConfig));

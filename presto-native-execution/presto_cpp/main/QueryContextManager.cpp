@@ -140,7 +140,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   // though the query ctx has been evicted out of the cache. The query ctx cache
   // is still indexed by the query id.
   static std::atomic_uint64_t poolId{0};
-  auto pool = memory::defaultMemoryManager().addRootPool(
+  auto pool = memory::MemoryManager::getInstance()->addRootPool(
       fmt::format("{}_{}", queryId, poolId++),
       queryConfig.queryMaxMemoryPerNode() != 0
           ? queryConfig.queryMaxMemoryPerNode()
