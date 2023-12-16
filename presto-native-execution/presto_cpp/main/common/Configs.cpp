@@ -54,6 +54,7 @@ void ConfigBase::initialize(const std::string& filePath) {
   auto values = util::readConfig(fs::path(filePath));
   filePath_ = filePath;
   checkRegisteredProperties(values);
+  updateLoadedValues(values);
 
   bool mutableConfig{false};
   auto it = values.find(std::string(kMutableConfig));
@@ -66,6 +67,12 @@ void ConfigBase::initialize(const std::string& filePath) {
   } else {
     config_ = std::make_unique<velox::core::MemConfig>(values);
   };
+}
+
+std::string ConfigBase::capacityPropertyAsBytesString(
+    std::string_view propertyName) const {
+  return folly::to<std::string>(toCapacity(
+      optionalProperty(propertyName).value(), velox::core::CapacityUnit::BYTE));
 }
 
 bool ConfigBase::registerProperty(
@@ -204,6 +211,8 @@ SystemConfig::SystemConfig() {
           STR_PROP(kInternalCommunicationSharedSecret, ""),
           NUM_PROP(kInternalCommunicationJwtExpirationSeconds, 300),
           BOOL_PROP(kUseLegacyArrayAgg, false),
+          STR_PROP(kSinkMaxBufferSize, "32MB"),
+          STR_PROP(kDriverMaxPagePartitioningBufferSize, "32MB"),
       };
 }
 
@@ -708,8 +717,13 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
               QueryConfig::kSpillableReservationGrowthPct,
               c.spillableReservationGrowthPct()),
           BOOL_PROP(
-              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull())};
-  update(*SystemConfig::instance());
+              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull()),
+          BOOL_PROP(
+              QueryConfig::kPrestoArrayAggIgnoreNulls,
+              c.prestoArrayAggIgnoreNulls()),
+          NUM_PROP(
+              QueryConfig::kMaxArbitraryBufferSize, c.maxArbitraryBufferSize()),
+      };
 }
 
 BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
@@ -718,14 +732,34 @@ BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
   return instance.get();
 }
 
-void BaseVeloxQueryConfig::initialize(const std::string& filePath) {
-  ConfigBase::initialize(filePath);
-  update(*SystemConfig::instance());
-}
+void BaseVeloxQueryConfig::updateLoadedValues(
+    std::unordered_map<std::string, std::string>& values) const {
+  // Update velox config with values from presto system config.
+  auto systemConfig = SystemConfig::instance();
 
-void BaseVeloxQueryConfig::update(const SystemConfig& systemConfig) {
-  registeredProps_[velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls] =
-      bool2String(systemConfig.useLegacyArrayAgg());
+  using namespace velox::core;
+  const std::unordered_map<std::string, std::string> updatedValues{
+      {QueryConfig::kPrestoArrayAggIgnoreNulls,
+       bool2String(systemConfig->useLegacyArrayAgg())},
+      {QueryConfig::kMaxArbitraryBufferSize,
+       systemConfig->capacityPropertyAsBytesString(
+           SystemConfig::kSinkMaxBufferSize)},
+      {QueryConfig::kMaxPartitionedOutputBufferSize,
+       systemConfig->capacityPropertyAsBytesString(
+           SystemConfig::kDriverMaxPagePartitioningBufferSize)},
+  };
+
+  std::stringstream updated;
+  for (const auto& pair : updatedValues) {
+    updated << "  " << pair.first << "=" << pair.second << "\n";
+    values[pair.first] = pair.second;
+  }
+  auto str = updated.str();
+  if (!str.empty()) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Updated in '" << filePath_ << "' from SystemProperties:\n"
+        << str;
+  }
 }
 
 } // namespace facebook::presto
