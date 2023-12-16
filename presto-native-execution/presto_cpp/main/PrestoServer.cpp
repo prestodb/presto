@@ -346,7 +346,8 @@ void PrestoServer::run() {
   facebook::velox::exec::ExchangeSource::registerFactory(
       operators::BroadcastExchangeSource::createExchangeSource);
 
-  pool_ = velox::memory::addDefaultLeafMemoryPool();
+  pool_ =
+      velox::memory::MemoryManager::getInstance()->addLeafPool("PrestoServer");
   taskManager_ = std::make_unique<TaskManager>(
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 

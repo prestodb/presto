@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
 class HttpsBasicTest : public ::testing::Test {};
 
 TEST_F(HttpsBasicTest, ssl) {
-  auto memoryPool = defaultMemoryManager().addLeafPool("ssl");
+  auto memoryPool = memory::MemoryManager::getInstance()->addLeafPool("ssl");
 
   std::string certPath = getCertsPath("test_cert1.pem");
   std::string keyPath = getCertsPath("test_key1.pem");
@@ -67,7 +67,7 @@ class HttpTestSuite : public ::testing::TestWithParam<bool> {
 };
 
 TEST_P(HttpTestSuite, basic) {
-  auto memoryPool = defaultMemoryManager().addLeafPool("basic");
+  auto memoryPool = memory::MemoryManager::getInstance()->addLeafPool("basic");
 
   const bool useHttps = GetParam();
   auto server = getServer(useHttps);
@@ -128,7 +128,8 @@ TEST_P(HttpTestSuite, basic) {
 
 TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
   const int64_t memoryCapBytes = 1 << 10;
-  auto rootPool = defaultMemoryManager().addRootPool("", memoryCapBytes);
+  auto rootPool =
+      memory::MemoryManager::getInstance()->addRootPool("", memoryCapBytes);
   auto leafPool = rootPool->addLeafChild("httpResponseAllocationFailure");
 
   const bool useHttps = GetParam();
@@ -160,7 +161,8 @@ TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
 }
 
 TEST_P(HttpTestSuite, serverRestart) {
-  auto memoryPool = defaultMemoryManager().addLeafPool("serverRestart");
+  auto memoryPool =
+      memory::MemoryManager::getInstance()->addLeafPool("serverRestart");
 
   const bool useHttps = GetParam();
   auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
@@ -206,7 +208,8 @@ TEST_P(HttpTestSuite, serverRestart) {
 }
 
 TEST_P(HttpTestSuite, asyncRequests) {
-  auto memoryPool = defaultMemoryManager().addLeafPool("asyncRequests");
+  auto memoryPool =
+      memory::MemoryManager::getInstance()->addLeafPool("asyncRequests");
 
   const bool useHttps = GetParam();
   auto server = getServer(useHttps);
@@ -244,7 +247,8 @@ TEST_P(HttpTestSuite, asyncRequests) {
 }
 
 TEST_P(HttpTestSuite, timedOutRequests) {
-  auto memoryPool = defaultMemoryManager().addLeafPool("timedOutRequests");
+  auto memoryPool =
+      memory::MemoryManager::getInstance()->addLeafPool("timedOutRequests");
 
   const bool useHttps = GetParam();
   auto server = getServer(useHttps);
@@ -288,7 +292,8 @@ TEST_P(HttpTestSuite, httpConnectTimeout) {
     // handled in kernel.
     return;
   }
-  auto memoryPool = defaultMemoryManager().addLeafPool("httpTimeouts");
+  auto memoryPool =
+      memory::MemoryManager::getInstance()->addLeafPool("httpTimeouts");
 
   auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
       1, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
@@ -365,7 +370,8 @@ TEST_P(HttpTestSuite, httpConnectTimeout) {
 }
 
 TEST_P(HttpTestSuite, httpRequestTimeout) {
-  auto memoryPool = defaultMemoryManager().addLeafPool("httpRequestTimeout");
+  auto memoryPool =
+      memory::MemoryManager::getInstance()->addLeafPool("httpRequestTimeout");
 
   const bool useHttps = GetParam();
   auto ioPool = std::make_shared<folly::IOThreadPoolExecutor>(
@@ -410,8 +416,8 @@ TEST_P(HttpTestSuite, httpRequestTimeout) {
 // TODO: Enabled it when fixed.
 // Disabled it, while we are investigating and fixing this test failure.
 TEST_P(HttpTestSuite, DISABLED_outstandingRequests) {
-  auto memoryPool =
-      defaultMemoryManager().addLeafPool("DISABLED_outstandingRequests");
+  auto memoryPool = memory::MemoryManager::getInstance()->addLeafPool(
+      "DISABLED_outstandingRequests");
 
   const bool useHttps = GetParam();
   auto server = getServer(useHttps);
@@ -449,7 +455,8 @@ TEST_P(HttpTestSuite, DISABLED_outstandingRequests) {
 
 TEST_P(HttpTestSuite, testReportOnBodyStatsFunc) {
   std::atomic<int> reportedCount = 0;
-  auto memoryPool = defaultMemoryManager().addLeafPool("asyncRequests");
+  auto memoryPool =
+      memory::MemoryManager::getInstance()->addLeafPool("asyncRequests");
 
   const bool useHttps = GetParam();
   auto server = getServer(useHttps);

@@ -767,7 +767,8 @@ DEBUG_ONLY_TEST_P(
   for (bool persistentError : {false, true}) {
     SCOPED_TRACE(fmt::format("persistentError: {}", persistentError));
 
-    auto rootPool = defaultMemoryManager().addRootPool("", memoryCapBytes);
+    auto rootPool =
+        memory::MemoryManagger::getInstance()->addRootPool("", memoryCapBytes);
     const std::string leafPoolName("exceedingMemoryCapacityForHttpResponse");
     auto leafPool = rootPool->addLeafChild(leafPoolName);
 
@@ -830,7 +831,7 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
     SCOPED_TRACE(fmt::format("resetPeak {}", resetPeak));
 
     PrestoExchangeSource::testingClearMemoryUsage();
-    auto rootPool = defaultMemoryManager().addRootPool();
+    auto rootPool = memory::MemoryManager::getInstance()->addRootPool();
     auto leafPool = rootPool->addLeafChild("memoryAllocationAndUsageCheck");
 
     const bool useHttps = GetParam().useHttps;
