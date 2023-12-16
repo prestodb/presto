@@ -1775,9 +1775,11 @@ TEST_F(MultiFragmentTest, maxBytes) {
       makeConstant(StringView(s), 5'000),
   });
 
+  core::PlanNodeId outputNodeId;
   auto plan = PlanBuilder()
                   .values({data}, false, 100)
                   .partitionedOutput({}, 1)
+                  .capturePlanNodeId(outputNodeId)
                   .planNode();
 
   int32_t testIteration = 0;
@@ -1808,11 +1810,13 @@ TEST_F(MultiFragmentTest, maxBytes) {
 
     ASSERT_LT(stats.averagePacketBytes(), maxBytes * 1.5);
 
-    prevStats = stats;
-  };
+    auto taskStats = toPlanStats(task->taskStats());
+    const auto& outputStats = taskStats.at(outputNodeId);
 
-  auto verifyStats = [](auto prev, auto current) {
-    EXPECT_EQ(prev.numPages, current.numPages);
+    ASSERT_EQ(outputStats.outputBytes, stats.totalBytes);
+    ASSERT_EQ(outputStats.inputRows, 100 * data->size());
+    ASSERT_EQ(outputStats.outputRows, 100 * data->size());
+    prevStats = stats;
   };
 
   static const int64_t kMB = 1 << 20;

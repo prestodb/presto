@@ -25,15 +25,19 @@ namespace facebook::velox::exec {
 namespace detail {
 class Destination {
  public:
+  /// @param recordEnqueued Should be called to record each call to
+  /// OutputBufferManager::enqueue. Takes number of bytes and rows.
   Destination(
       const std::string& taskId,
       int destination,
       memory::MemoryPool* pool,
-      bool eagerFlush)
+      bool eagerFlush,
+      std::function<void(uint64_t bytes, uint64_t rows)> recordEnqueued)
       : taskId_(taskId),
         destination_(destination),
         pool_(pool),
-        eagerFlush_(eagerFlush) {
+        eagerFlush_(eagerFlush),
+        recordEnqueued_(std::move(recordEnqueued)) {
     setTargetSizePct();
   }
 
@@ -98,6 +102,7 @@ class Destination {
   const int destination_;
   memory::MemoryPool* const pool_;
   const bool eagerFlush_;
+  const std::function<void(uint64_t bytes, uint64_t rows)> recordEnqueued_;
 
   // Bytes serialized in 'current_'
   uint64_t bytesInCurrent_{0};
