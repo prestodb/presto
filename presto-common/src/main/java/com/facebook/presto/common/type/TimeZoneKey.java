@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -31,6 +32,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import static java.lang.Character.isDigit;
 import static java.lang.Math.abs;
@@ -214,19 +216,22 @@ public final class TimeZoneKey
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
-        zoneId = normalizeEtcGmtZone(zoneId);
-        zoneId = normalizeEtcZone(zoneId);
+        if (!validateZoneId(zoneId)) {
+            throw new TimeZoneNotSupportedException(originalZoneId);
+        }
+
+        if (!zoneId.startsWith("etc/")) {
+            return originalZoneId;
+        }
+
+        zoneId = normalizeEtcGmtZoneId(zoneId);
 
         if (isUtcEquivalentName(zoneId) || isFixedOffsetTimeZone(zoneId)) {
             return "utc";
         }
 
-        if (zoneId.equals(originalZoneId.toLowerCase(ENGLISH))) {
-            throw new TimeZoneNotSupportedException(originalZoneId);
-        }
-
         if (isShortOffsetTimeZone(zoneId)) {
-            return normalizeShortOffset(zoneId);
+            zoneId = normalizeShortOffset(zoneId);
         }
 
         if (isUtcTimeZone(originalZoneId)) {
@@ -246,26 +251,54 @@ public final class TimeZoneKey
         return zoneId.contains("utc");
     }
 
-    private static String normalizeEtcGmtZone(String zoneId)
+    private static boolean validateZoneId(String zoneId)
     {
-        if (zoneId.startsWith("etc/gmt")) {
-            String patternForEtcGmt = "etc/gmt[+-]\\d{1,2}(:\\d{1,2})?";
-            if (zoneId.matches(patternForEtcGmt)) {
-                return zoneId.substring(7);
-            }
+        if (zoneId.matches("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}:\\d{2}")) {
+            zoneId = normalizeLongEtcZoneId(zoneId);
         }
-        return zoneId;
+
+        // delete sign and hour digits if zoneId is not starts with "etc/(greenwich|uct|universal|utc|zulu)"
+        if (zoneId.matches("etc/(greenwich|uct|universal|utc|zulu).*")) {
+            String lastNumbers = zoneId.replaceAll("etc/(greenwich|uct|universal|utc|zulu)", "");
+            if (lastNumbers.length() == 3 && lastNumbers.charAt(1) == '0') {
+                throw new TimeZoneNotSupportedException(zoneId);
+            }
+
+            if (Integer.parseInt(lastNumbers) < -12 || Integer.parseInt(lastNumbers) > 14) {
+                throw new TimeZoneNotSupportedException(zoneId);
+            }
+
+            zoneId = zoneId.replaceAll("[+-]\\d{1,2}", "");
+        }
+
+        String finalZoneId = zoneId;
+        Set<String> availableZoneIds = ZoneId.getAvailableZoneIds().stream()
+                .map(id -> id.toLowerCase(ENGLISH))
+                .filter(id -> id.equals(finalZoneId))
+                .collect(Collectors.toSet());
+
+        return availableZoneIds.contains(zoneId);
+    }
+    private static String normalizeLongEtcZoneId(String zoneId)
+    {
+        int colonIndex = zoneId.indexOf(':');
+        if (colonIndex == -1) {
+            throw new TimeZoneNotSupportedException(zoneId);
+        }
+
+        String hour = zoneId.substring(colonIndex - 2, colonIndex);
+
+        if (hour.charAt(0) == '0') {
+            hour = hour.substring(1);
+        }
+
+        return zoneId.substring(0, colonIndex - 2) + hour;
     }
 
-    private static String normalizeEtcZone(String zoneId)
+    // remove etc/gmt prefix
+    private static String normalizeEtcGmtZoneId(String zoneId)
     {
-        if (zoneId.startsWith("etc/") && !zoneId.startsWith("etc/gmt")) {
-            String patternForEtc = "etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{1,2}(:\\d{1,2})?";
-            if (zoneId.matches(patternForEtc)) {
-                return zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "");
-            }
-        }
-        return zoneId;
+        return zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "");
     }
 
     private static boolean isFixedOffsetTimeZone(String zoneId)
@@ -311,6 +344,7 @@ public final class TimeZoneKey
                 zoneId.equals("universal") ||
                 zoneId.equals("zulu");
     }
+
 
     private static String zoneIdForOffset(long offset)
     {
