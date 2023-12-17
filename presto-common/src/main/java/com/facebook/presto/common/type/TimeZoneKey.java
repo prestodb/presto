@@ -212,7 +212,7 @@ public final class TimeZoneKey
         return normalizeZoneId(zoneId).equals("utc");
     }
 
-    private static String normalizeZoneId(String originalZoneId)
+    static String normalizeZoneId(String originalZoneId)
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
@@ -220,14 +220,14 @@ public final class TimeZoneKey
             throw new TimeZoneNotSupportedException(originalZoneId);
         }
 
-        if (!zoneId.startsWith("etc/")) {
+        if (!zoneId.startsWith("etc/") && !isUtcEquivalentName(zoneId)) {
             return originalZoneId;
         }
 
         zoneId = normalizeEtcGmtZoneId(zoneId);
 
-        if (isFixedOffsetTimeZone(zoneId)) {
-            return "utc";
+        if (isUtcEquivalentName(zoneId) || isFixedOffsetTimeZone(zoneId)) {
+            return "+00:00";
         }
 
         if (isShortOffsetTimeZone(zoneId)) {
@@ -253,7 +253,7 @@ public final class TimeZoneKey
 
     private static boolean validateZoneId(String zoneId)
     {
-        if (zoneId.isEmpty() || isUtcEquivalentName(zoneId)) {
+        if (zoneId.isEmpty()) {
             return false;
         }
 
@@ -347,7 +347,6 @@ public final class TimeZoneKey
                 zoneId.equals("ut") ||
                 zoneId.equals("uct") ||
                 zoneId.equals("gmt") ||
-                zoneId.equals("gmt0") ||
                 zoneId.equals("greenwich") ||
                 zoneId.equals("universal") ||
                 zoneId.equals("zulu");
