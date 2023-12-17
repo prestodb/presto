@@ -29,6 +29,7 @@
   "scripts": {
     "install": "webpack --env=production --config webpack.config.js",
     "package": "webpack --env=production --config webpack.config.js",
-    "watch": "webpack --config webpack.config.js --watch"
+    "watch": "webpack --config webpack.config.js --watch",
+    "serve": "webpack serve --config webpack.config.js"
   }
 }
