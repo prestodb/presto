@@ -233,7 +233,8 @@ public final class TimeZoneKey
 
         if (zoneId.startsWith("etc/") || isUtcEquivalentName(zoneId)) {
             zoneId = normalizeEtcZoneId(zoneId);
-        } else {
+        }
+        else {
             return originalZoneId;
         }
 
