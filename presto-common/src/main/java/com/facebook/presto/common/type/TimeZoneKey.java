@@ -253,6 +253,10 @@ public final class TimeZoneKey
 
     private static boolean validateZoneId(String zoneId)
     {
+        if (zoneId.isEmpty() || isUtcEquivalentName(zoneId)) {
+            return false;
+        }
+
         if (zoneId.matches("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}:\\d{2}")) {
             zoneId = normalizeLongEtcZoneId(zoneId);
         }
@@ -334,6 +338,19 @@ public final class TimeZoneKey
     private static String zoneIdForOffset(long offset)
     {
         return format("%s%02d:%02d", offset < 0 ? "-" : "+", abs(offset / 60), abs(offset % 60));
+    }
+
+    private static boolean isUtcEquivalentName(String zoneId)
+    {
+        return zoneId.equals("utc") ||
+                zoneId.equals("z") ||
+                zoneId.equals("ut") ||
+                zoneId.equals("uct") ||
+                zoneId.equals("gmt") ||
+                zoneId.equals("gmt0") ||
+                zoneId.equals("greenwich") ||
+                zoneId.equals("universal") ||
+                zoneId.equals("zulu");
     }
 
     private static void checkArgument(boolean check, String message, Object... args)
