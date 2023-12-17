@@ -213,14 +213,14 @@ public final class TimeZoneKey
         return normalizeZoneId(zoneId).equals("utc");
     }
 
-    // params for normalizeZoneId
     private static final Set<String> AVAILABLE_ZONE_IDS = ZoneId.getAvailableZoneIds().stream()
             .map(String::toLowerCase)
             .collect(Collectors.toSet());
     private static final Pattern LONG_ETC_PATTERN = Pattern.compile("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}:\\d{2}");
     private static final Pattern SHORT_ETC_PATTERN = Pattern.compile("etc/(greenwich|uct|universal|utc|zulu).*");
 
-    private static String normalizeZoneId(String originalZoneId) {
+    private static String normalizeZoneId(String originalZoneId)
+    {
         if (originalZoneId == null || originalZoneId.isEmpty()) {
             throw new IllegalArgumentException("Zone ID cannot be null or empty");
         }
@@ -262,7 +262,8 @@ public final class TimeZoneKey
         return zoneId.contains("utc");
     }
 
-    private static boolean isValidZoneId(String zoneId) {
+    private static boolean isValidZoneId(String zoneId)
+    {
         if (LONG_ETC_PATTERN.matcher(zoneId).matches()) {
             zoneId = normalizeLongEtcZoneId(zoneId);
         }
