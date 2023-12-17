@@ -227,7 +227,7 @@ public final class TimeZoneKey
 
         zoneId = normalizeEtcGmtZoneId(zoneId);
 
-        if (isUtcEquivalentName(zoneId) || isFixedOffsetTimeZone(zoneId)) {
+        if (isFixedOffsetTimeZone(zoneId)) {
             return "utc";
         }
 
@@ -339,19 +339,6 @@ public final class TimeZoneKey
         }
 
         return "" + signChar + hourTens + hourOnes + ":00";
-    }
-
-    private static boolean isUtcEquivalentName(String zoneId)
-    {
-        return zoneId.equals("utc") ||
-                zoneId.equals("z") ||
-                zoneId.equals("ut") ||
-                zoneId.equals("uct") ||
-                zoneId.equals("gmt") ||
-                zoneId.equals("gmt0") ||
-                zoneId.equals("greenwich") ||
-                zoneId.equals("universal") ||
-                zoneId.equals("zulu");
     }
 
 
