@@ -111,6 +111,12 @@ To simplify iteration, you can also run in `watch` mode, which automatically re-
 
     yarn --cwd presto-main/src/main/resources/webapp/src run watch
 
+You can launch an HTTP server to serve the web UI and proxy the server APIs to an external Presto server:
+
+    yarn --cwd presto-main/src/main/resources/webapp/src run serve --env=apiHost=<ip address> --env=apiPort=<port>
+
+Replace the `<ip address>` and `<port>` to point to your Presto server. The default values are: `localhost` and `8080`.
+
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
 
 ## Release Notes
