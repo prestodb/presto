@@ -62,14 +62,6 @@ auto ExecutorBarrier::wrapMethod(folly::Func f) {
           barrierElement = BarrierElement(count_, mutex_, cv_)]() mutable {
     try {
       f();
-    } catch (const std::exception& e) {
-      std::lock_guard lock{mutex_};
-      if (!exception_.has_exception_ptr()) {
-        exception_ = folly::exception_wrapper(
-            ::folly::exception_wrapper::from_catch_ref_t{},
-            std::current_exception(),
-            e);
-      }
     } catch (...) {
       std::lock_guard lock{mutex_};
       if (!exception_.has_exception_ptr()) {
