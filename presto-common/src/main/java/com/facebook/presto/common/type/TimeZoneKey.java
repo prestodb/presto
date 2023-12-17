@@ -212,7 +212,6 @@ public final class TimeZoneKey
         return normalizeZoneId(zoneId).equals("utc");
     }
 
-    // this method is used to normalize zoneId
     private static String normalizeZoneId(String originalZoneId)
     {
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
@@ -242,26 +241,22 @@ public final class TimeZoneKey
         return zoneId;
     }
 
-    // flip sign of zoneId
     private static String flipSign(String zoneId)
     {
         return zoneId.charAt(0) == '+' ? "-" + zoneId.substring(1) : "+" + zoneId.substring(1);
     }
 
-    // check if zoneId is etc/utc
     private static boolean isUtcTimeZone(String zoneId)
     {
         return zoneId.contains("utc");
     }
 
-    // check if zoneId is valid
     private static boolean validateZoneId(String zoneId)
     {
         if (zoneId.matches("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}:\\d{2}")) {
             zoneId = normalizeLongEtcZoneId(zoneId);
         }
 
-        // delete sign and hour digits if zoneId is not starts with "etc/(greenwich|uct|universal|utc|zulu)"
         if (zoneId.matches("etc/(greenwich|uct|universal|utc|zulu).*")) {
             String lastNumbers = zoneId.replaceAll("etc/(greenwich|uct|universal|utc|zulu)", "");
             if (lastNumbers.length() == 3 && lastNumbers.charAt(1) == '0') {
@@ -284,7 +279,6 @@ public final class TimeZoneKey
         return availableZoneIds.contains(zoneId);
     }
 
-    // normalize etc/gmt zoneId
     private static String normalizeLongEtcZoneId(String zoneId)
     {
         int colonIndex = zoneId.indexOf(':');
@@ -301,25 +295,21 @@ public final class TimeZoneKey
         return zoneId.substring(0, colonIndex - 2) + hour;
     }
 
-    // remove etc/gmt prefix
     private static String normalizeEtcGmtZoneId(String zoneId)
     {
         return zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "");
     }
 
-    // check if zoneId is fixed offset
     private static boolean isFixedOffsetTimeZone(String zoneId)
     {
         return "+00:00".equals(zoneId) || "-00:00".equals(zoneId);
     }
 
-    // check if zoneId is short offset
     private static boolean isShortOffsetTimeZone(String zoneId)
     {
         return zoneId.length() == 2 || zoneId.length() == 3;
     }
 
-    // normalize short offset zoneId
     private static String normalizeShortOffset(String zoneId)
     {
         char signChar = zoneId.charAt(0);
@@ -340,7 +330,6 @@ public final class TimeZoneKey
 
         return "" + signChar + hourTens + hourOnes + ":00";
     }
-
 
     private static String zoneIdForOffset(long offset)
     {
