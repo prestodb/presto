@@ -445,7 +445,7 @@ BENCHMARK(allFusedWithNulls) {
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
-
+  memory::MemoryManager::initialize({});
   benchmark = std::make_unique<PreprocBenchmark>();
   // Verify that benchmark calculations are correct.
   benchmark->test();

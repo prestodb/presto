@@ -19,7 +19,6 @@
 #include <gtest/gtest.h>
 #include <unordered_set>
 
-#include <boost/random/uniform_int_distribution.hpp>
 #include "velox/exec/fuzzer/AggregationFuzzerOptions.h"
 #include "velox/exec/fuzzer/AggregationFuzzerRunner.h"
 #include "velox/exec/fuzzer/DuckQueryRunner.h"

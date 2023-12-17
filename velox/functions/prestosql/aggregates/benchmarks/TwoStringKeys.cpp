@@ -135,7 +135,7 @@ BENCHMARK(two_string_keys) {
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
-
+  memory::MemoryManager::initialize({});
   benchmark = std::make_unique<TwoStringKeysBenchmark>();
   benchmark->verify();
   //   folly::runBenchmarks();

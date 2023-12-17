@@ -67,6 +67,7 @@ int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
   folly::Init init(&argc, &argv);
+  facebook::velox::memory::MemoryManager::initialize({});
 
   if (!FLAGS_aggregation_fuzzer_repro_path.empty()) {
     checkDirForExpectedFiles();

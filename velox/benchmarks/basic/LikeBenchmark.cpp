@@ -30,7 +30,7 @@ using namespace facebook::velox;
 
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
-
+  memory::MemoryManager::initialize({});
   exec::registerStatefulVectorFunction("like", likeSignatures(), makeLike);
   // Register the scalar functions.
   prestosql::registerAllScalarFunctions("");

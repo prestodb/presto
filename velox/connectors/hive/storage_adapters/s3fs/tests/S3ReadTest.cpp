@@ -17,6 +17,7 @@
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
 
+#include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
@@ -36,6 +37,7 @@ class S3ReadTest : public S3Test, public test::VectorTestBase {
   /// Minio server running.
   /// Each test must use a unique bucket to avoid concurrency issues.
   static void SetUpTestSuite() {
+    facebook::velox::memory::MemoryManager::initialize({});
     minioServer_ = std::make_shared<MinioServer>(kMinioConnectionString);
     minioServer_->start();
 

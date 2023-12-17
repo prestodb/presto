@@ -224,6 +224,7 @@ BENCHMARK_RELATIVE(sum_groupby) {
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
 
+  memory::MemoryManager::initialize({});
   benchmark = std::make_unique<ReduceAggBenchmark>();
   benchmark->verify();
   folly::runBenchmarks();

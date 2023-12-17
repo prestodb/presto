@@ -177,7 +177,7 @@ BENCHMARK(conjunctsNested) {
 int main(int argc, char* argv[]) {
   folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-
+  memory::MemoryManager::initialize({});
   benchmark = std::make_unique<ComparisonBenchmark>(1'000);
   folly::runBenchmarks();
   benchmark.reset();

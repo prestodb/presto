@@ -48,6 +48,8 @@ int main(int argc, char** argv) {
   // experience, and initialize glog and gflags.
   folly::Init init(&argc, &argv);
 
+  facebook::velox::memory::MemoryManager::initialize({});
+
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable. Constant argument of bloom_filter_agg cause
   // fuzzer test fail.
