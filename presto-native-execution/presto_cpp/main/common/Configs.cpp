@@ -158,6 +158,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kConnectorNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
+          STR_PROP(kSpillerFileCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
           NUM_PROP(kShutdownOnsetSec, 10),
           NUM_PROP(kSystemMemoryGb, 40),
@@ -341,6 +342,10 @@ double SystemConfig::driverNumCpuThreadsHwMultiplier() const {
 
 double SystemConfig::spillerNumCpuThreadsHwMultiplier() const {
   return optionalProperty<double>(kSpillerNumCpuThreadsHwMultiplier).value();
+}
+
+std::string SystemConfig::spillerFileCreateConfig() const {
+  return optionalProperty<std::string>(kSpillerFileCreateConfig).value();
 }
 
 folly::Optional<std::string> SystemConfig::spillerSpillPath() const {
