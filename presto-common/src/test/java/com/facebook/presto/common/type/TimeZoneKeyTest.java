@@ -24,7 +24,8 @@ import static org.assertj.core.api.Fail.fail;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TimeZoneKeyTest {
+public class TimeZoneKeyTest
+{
     TimeZoneKey timeZoneKey = new TimeZoneKey("1", (short) 1);
     Class<?> clazz = TimeZoneKey.class;
     Method normalizeZoneId;
