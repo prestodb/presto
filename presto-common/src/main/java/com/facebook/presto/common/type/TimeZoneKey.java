@@ -83,7 +83,7 @@ public final class TimeZoneKey
 
             short maxZoneKey = 0;
             for (Entry<Object, Object> entry : data.entrySet()) {
-                short zoneKey = Short.valueOf(((String) entry.getKey()).trim());
+                short zoneKey = Short.parseShort(((String) entry.getKey()).trim());
                 String zoneId = ((String) entry.getValue()).trim();
 
                 maxZoneKey = (short) max(maxZoneKey, zoneKey);
@@ -219,7 +219,7 @@ public final class TimeZoneKey
     private static final Pattern LONG_ETC_PATTERN = Pattern.compile("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}:\\d{2}");
     private static final Pattern SHORT_ETC_PATTERN = Pattern.compile("etc/(greenwich|uct|universal|utc|zulu).*");
 
-    private static String normalizeZoneId(String originalZoneId)
+    public static String normalizeZoneId(String originalZoneId)
     {
         if (originalZoneId == null || originalZoneId.isEmpty()) {
             throw new IllegalArgumentException("Zone ID cannot be null or empty");
