@@ -5,7 +5,7 @@ import {QueryList} from "./components/QueryList";
 import { PageTitle } from "./components/PageTitle";
 
 ReactDOM.render(
-    <PageTitle titles={['Cluster Overview', 'Resource Groups']} urls={['./index.html', 'res_groups.html']} current={0}/>,
+    <PageTitle titles={['Cluster Overview', 'Resource Groups', 'SQL Client']} urls={['./index.html', 'res_groups.html', 'sql_client.html']} current={0}/>,
     document.getElementById('title')
 );
 
