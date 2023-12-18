@@ -219,7 +219,7 @@ public final class TimeZoneKey
     private static final Pattern LONG_ETC_PATTERN = Pattern.compile("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}:\\d{2}");
     private static final Pattern SHORT_ETC_PATTERN = Pattern.compile("etc/(greenwich|uct|universal|utc|zulu).*");
 
-    public static String normalizeZoneId(String originalZoneId)
+    private static String normalizeZoneId(String originalZoneId)
     {
         if (originalZoneId == null || originalZoneId.isEmpty()) {
             throw new IllegalArgumentException("Zone ID cannot be null or empty");
