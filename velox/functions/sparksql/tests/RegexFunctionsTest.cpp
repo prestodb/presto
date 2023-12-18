@@ -31,6 +31,11 @@ namespace {
 
 class RegexFunctionsTest : public test::SparkFunctionBaseTest {
  public:
+  void SetUp() override {
+    SparkFunctionBaseTest::SetUp();
+    registerRegexReplace("");
+  }
+
   std::optional<bool> rlike(
       std::optional<std::string> str,
       std::string pattern) {
