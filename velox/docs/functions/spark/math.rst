@@ -27,6 +27,20 @@ Mathematical Functions
     Returns the result of adding x to y. The types of x and y must be the same.
     For integral types, overflow results in an error. Corresponds to sparks's operator ``+``.
 
+.. spark:function:: add(x, y) -> decimal
+
+    Returns the result of adding ``x`` to ``y``. The argument types should be DECIMAL, and can have different precisions and scales.
+    Fast path is implemented for cases that should not overflow. For the others, the whole parts and fractional parts of input decimals are added separately and combined finally.
+    The result type is calculated with the max precision of input precisions, the max scale of input scales, and one extra digit for possible carrier.
+    Overflow results in null output. Corresponds to Spark's operator ``+``.
+    
+    ::
+
+        SELECT CAST(1.1232100 as DECIMAL(38, 7)) + CAST(1 as DECIMAL(10, 0)); -- DECIMAL(38, 6) 2.123210
+        SELECT CAST(-999999999999999999999999999.999 as DECIMAL(30, 3)) + CAST(-999999999999999999999999999.999 as DECIMAL(30, 3)); -- DECIMAL(31, 3) -1999999999999999999999999999.998
+        SELECT CAST(99999999999999999999999999999999.99998 as DECIMAL(38, 6)) + CAST(-99999999999999999999999999999999.99999 as DECIMAL(38, 5)); -- DECIMAL(38, 6) -0.000010
+        SELECT CAST(-99999999999999999999999999999999990.0 as DECIMAL(38, 3)) + CAST(-0.00001 as DECIMAL(38, 7)); -- DECIMAL(38, 6) NULL
+
 .. spark:function:: bin(x) -> varchar
 
     Returns the string representation of the long value ``x`` represented in binary.
@@ -178,6 +192,18 @@ Mathematical Functions
 
     Returns the result of subtracting y from x. The types of x and y must be the same.
     For integral types, overflow results in an error. Corresponds to Spark's operator ``-``.
+
+.. spark:function:: subtract(x, y) -> decimal
+
+    Returns the result of subtracting ``y`` from ``x``. Reuses the logic of add function for decimal type.
+    Corresponds to Spark's operator ``-``.
+    
+    ::
+
+        SELECT CAST(1.1232100 as DECIMAL(38, 7)) - CAST(1 as DECIMAL(10, 0)); -- DECIMAL(38, 6) 0.123210
+        SELECT CAST(-999999999999999999999999999.999 as DECIMAL(30, 3)) - CAST(-999999999999999999999999999.999 as DECIMAL(30, 3)); -- DECIMAL(31, 3) 0.000
+        SELECT CAST(99999999999999999999999999999999.99998 as DECIMAL(38, 6)) - CAST(-0.00001 as DECIMAL(38, 5)); -- DECIMAL(38, 6) 99999999999999999999999999999999.999990
+        SELECT CAST(-99999999999999999999999999999999990.0 as DECIMAL(38, 3)) - CAST(0.00001 as DECIMAL(38, 7)); -- DECIMAL(38, 6) NULL
 
 .. spark:function:: unaryminus(x) -> [same as x]
 

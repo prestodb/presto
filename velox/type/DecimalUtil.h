@@ -98,7 +98,7 @@ class DecimalUtil {
   }
 
   /// Helper function to convert a decimal value to string.
-  static std::string toString(const int128_t value, const TypePtr& type);
+  static std::string toString(int128_t value, const TypePtr& type);
 
   template <typename T>
   inline static void fillDecimals(
@@ -147,11 +147,11 @@ class DecimalUtil {
 
   template <typename TInput, typename TOutput>
   inline static std::optional<TOutput> rescaleWithRoundUp(
-      const TInput inputValue,
-      const int fromPrecision,
-      const int fromScale,
-      const int toPrecision,
-      const int toScale) {
+      TInput inputValue,
+      int fromPrecision,
+      int fromScale,
+      int toPrecision,
+      int toScale) {
     int128_t rescaledValue = inputValue;
     auto scaleDifference = toScale - fromScale;
     bool isOverflow = false;
@@ -183,10 +183,8 @@ class DecimalUtil {
   }
 
   template <typename TInput, typename TOutput>
-  inline static std::optional<TOutput> rescaleInt(
-      const TInput inputValue,
-      const int toPrecision,
-      const int toScale) {
+  inline static std::optional<TOutput>
+  rescaleInt(TInput inputValue, int toPrecision, int toScale) {
     int128_t rescaledValue = static_cast<int128_t>(inputValue);
     bool isOverflow = __builtin_mul_overflow(
         rescaledValue, DecimalUtil::kPowersOfTen[toScale], &rescaledValue);
@@ -205,8 +203,8 @@ class DecimalUtil {
   template <typename R, typename A, typename B>
   inline static R divideWithRoundUp(
       R& r,
-      const A& a,
-      const B& b,
+      A a,
+      B b,
       bool noRoundUp,
       uint8_t aRescale,
       uint8_t /*bRescale*/) {
@@ -312,11 +310,8 @@ class DecimalUtil {
   }
 
   /// avg = (sum + overflow * kOverflowMultiplier) / count
-  static void computeAverage(
-      int128_t& avg,
-      const int128_t& sum,
-      int64_t count,
-      int64_t overflow);
+  static void
+  computeAverage(int128_t& avg, int128_t sum, int64_t count, int64_t overflow);
 
   /// Origins from java side BigInteger#bitLength.
   ///

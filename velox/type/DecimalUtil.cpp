@@ -54,7 +54,7 @@ std::string formatDecimal(uint8_t scale, int128_t unscaledValue) {
 }
 } // namespace
 
-std::string DecimalUtil::toString(const int128_t value, const TypePtr& type) {
+std::string DecimalUtil::toString(int128_t value, const TypePtr& type) {
   auto [precision, scale] = getDecimalPrecisionScale(*type);
   return formatDecimal(scale, value);
 }
@@ -91,7 +91,7 @@ int32_t DecimalUtil::toByteArray(int128_t value, char* out) {
 
 void DecimalUtil::computeAverage(
     int128_t& avg,
-    const int128_t& sum,
+    int128_t sum,
     int64_t count,
     int64_t overflow) {
   if (overflow == 0) {

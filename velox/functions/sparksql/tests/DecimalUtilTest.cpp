@@ -43,4 +43,21 @@ TEST_F(DecimalUtilTest, divideWithRoundUp) {
   testDivideWithRoundUp<int64_t, int64_t, int64_t>(
       6, velox::DecimalUtil::kPowersOfTen[17], 20, 6000, false);
 }
+
+TEST_F(DecimalUtilTest, minLeadingZeros) {
+  auto result =
+      DecimalUtil::minLeadingZeros<int64_t, int64_t>(10000, 6000000, 10, 12);
+  ASSERT_EQ(result, 1);
+
+  result = DecimalUtil::minLeadingZeros<int64_t, int128_t>(
+      10000, 6'000'000'000'000'000'000, 10, 12);
+  ASSERT_EQ(result, 16);
+
+  result = DecimalUtil::minLeadingZeros<int128_t, int128_t>(
+      velox::DecimalUtil::kLongDecimalMax,
+      velox::DecimalUtil::kLongDecimalMin,
+      10,
+      12);
+  ASSERT_EQ(result, 0);
+}
 } // namespace facebook::velox::functions::sparksql::test

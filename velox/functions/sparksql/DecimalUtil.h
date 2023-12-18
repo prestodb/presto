@@ -35,8 +35,8 @@ class DecimalUtil {
   /// This method is used only when
   /// `spark.sql.decimalOperations.allowPrecisionLoss` is set to true.
   inline static std::pair<uint8_t, uint8_t> adjustPrecisionScale(
-      const uint8_t rPrecision,
-      const uint8_t rScale) {
+      uint8_t rPrecision,
+      uint8_t rScale) {
     if (rPrecision <= LongDecimalType::kMaxPrecision) {
       return {rPrecision, rScale};
     } else {
@@ -109,6 +109,30 @@ class DecimalUtil {
     return value;
   }
 
+  /// Returns the minumum number of leading zeros after scaling up two inputs
+  /// for certain scales. Inputs are decimal values of bigint or hugeint type.
+  template <typename A, typename B>
+  inline static uint32_t
+  minLeadingZeros(A a, B b, uint8_t aRescale, uint8_t bRescale) {
+    auto minLeadingZerosAfterRescale = [](int32_t numLeadingZeros,
+                                          uint8_t scale) {
+      if (scale == 0) {
+        return numLeadingZeros;
+      }
+      /// If a value containing 'numLeadingZeros' leading zeros is scaled up by
+      /// 'scale', the new leading zeros depend on the max bits need to be
+      /// increased.
+      return std::max(
+          numLeadingZeros - kMaxBitsRequiredIncreaseAfterScaling[scale], 0);
+    };
+
+    const int32_t aLeadingZeros = minLeadingZerosAfterRescale(
+        bits::countLeadingZeros(absValue<A>(a)), aRescale);
+    const int32_t bLeadingZeros = minLeadingZerosAfterRescale(
+        bits::countLeadingZeros(absValue<B>(b)), bRescale);
+    return std::min(aLeadingZeros, bLeadingZeros);
+  }
+
   /// Derives from Arrow BasicDecimal128 Divide.
   /// https://github.com/apache/arrow/blob/release-12.0.1-rc1/cpp/src/gandiva/precompiled/decimal_ops.cc#L350
   ///
@@ -120,12 +144,8 @@ class DecimalUtil {
   /// int256_t as intermediate type, and then convert to real result type with
   /// overflow flag.
   template <typename R, typename A, typename B>
-  inline static R divideWithRoundUp(
-      R& r,
-      const A& a,
-      const B& b,
-      uint8_t aRescale,
-      bool& overflow) {
+  inline static R
+  divideWithRoundUp(R& r, A a, B b, uint8_t aRescale, bool& overflow) {
     if (b == 0) {
       overflow = true;
       return R(-1);
@@ -192,9 +212,11 @@ class DecimalUtil {
   }
 
  private:
-  /// We rely on the following formula:
-  /// bits_required(x * 10^y) <= bits_required(x) + floor(log2(10^y)) + 1
-  /// We precompute floor(log2(10^x)) + 1 for x = 0, 1, 2...75, 76
+  /// Maintains the max bits that need to be increased for rescaling a value by
+  /// certain scale. The calculation relies on the following formula:
+  /// bitsRequired(x * 10^y) <= bitsRequired(x) + floor(log2(10^y)) + 1.
+  /// This array stores the precomputed 'floor(log2(10^y)) + 1' for y = 0,
+  /// 1, 2, ..., 75, 76.
   static constexpr int32_t kMaxBitsRequiredIncreaseAfterScaling[] = {
       0,   4,   7,   10,  14,  17,  20,  24,  27,  30,  34,  37,  40,
       44,  47,  50,  54,  57,  60,  64,  67,  70,  74,  77,  80,  84,
@@ -204,9 +226,7 @@ class DecimalUtil {
       216, 220, 223, 226, 230, 233, 236, 240, 243, 246, 250, 253};
 
   template <typename A>
-  inline static int32_t maxBitsRequiredAfterScaling(
-      const A& num,
-      uint8_t aRescale) {
+  inline static int32_t maxBitsRequiredAfterScaling(A num, uint8_t aRescale) {
     auto valueAbs = absValue<A>(num);
     int32_t numOccupied = sizeof(A) * 8 - bits::countLeadingZeros(valueAbs);
     return numOccupied + kMaxBitsRequiredIncreaseAfterScaling[aRescale];
