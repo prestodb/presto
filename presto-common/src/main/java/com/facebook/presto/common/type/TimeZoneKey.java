@@ -83,7 +83,7 @@ public final class TimeZoneKey
 
             short maxZoneKey = 0;
             for (Entry<Object, Object> entry : data.entrySet()) {
-                short zoneKey = Short.parseShort(((String) entry.getKey()).trim());
+                short zoneKey = Short.valueOf(((String) entry.getKey()).trim());
                 String zoneId = ((String) entry.getValue()).trim();
 
                 maxZoneKey = (short) max(maxZoneKey, zoneKey);
