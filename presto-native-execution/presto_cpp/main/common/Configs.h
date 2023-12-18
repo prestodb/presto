@@ -214,6 +214,11 @@ class SystemConfig : public ConfigBase {
   /// 1.0 is default.
   static constexpr std::string_view kSpillerNumCpuThreadsHwMultiplier{
       "spiller.num-cpu-threads-hw-multiplier"};
+  /// Config used to create spill files. This config is provided to underlying
+  /// file system and the config is free form. The form should be defined by the
+  /// underlying file system.
+  static constexpr std::string_view kSpillerFileCreateConfig{
+      "spiller.file-create-config"};
 
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
@@ -510,6 +515,8 @@ class SystemConfig : public ConfigBase {
   double driverNumCpuThreadsHwMultiplier() const;
 
   double spillerNumCpuThreadsHwMultiplier() const;
+
+  std::string spillerFileCreateConfig() const;
 
   folly::Optional<std::string> spillerSpillPath() const;
 
