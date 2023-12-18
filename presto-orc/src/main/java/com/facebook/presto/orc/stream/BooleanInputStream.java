@@ -16,6 +16,8 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -115,9 +117,20 @@ public class BooleanInputStream
             items -= 8;
         }
 
-        // count remaining bits
-        for (int i = 0; i < items; i++) {
-            count += nextBit() ? 1 : 0;
+        try {
+            count = IntStream.range(0, items)
+                    .map(i -> {
+                        try {
+                            return nextBit() ? 1 : 0;
+                        }
+                        catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    })
+                    .sum();
+        }
+        catch (UncheckedIOException e) {
+            e.printStackTrace();
         }
 
         return count;
@@ -397,8 +410,20 @@ public class BooleanInputStream
             throws IOException
     {
         int count = 0;
-        for (int i = 0; i < batchSize; i++) {
-            count += nextBit() ? 0 : 1;
+        try {
+            count = IntStream.range(0, batchSize)
+                    .map(i -> {
+                        try {
+                            return nextBit() ? 1 : 0;
+                        }
+                        catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    })
+                    .sum();
+        }
+        catch (UncheckedIOException e) {
+            e.printStackTrace();
         }
         return count;
     }

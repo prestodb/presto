@@ -641,11 +641,7 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getDefaultValue().isPresent() && !process(node.getDefaultValue().get(), context)) {
-                return false;
-            }
-
-            return true;
+            return !node.getDefaultValue().isPresent() || process(node.getDefaultValue().get(), context);
         }
 
         @Override
