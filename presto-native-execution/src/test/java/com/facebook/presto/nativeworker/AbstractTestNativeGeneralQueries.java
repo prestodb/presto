@@ -253,7 +253,8 @@ public abstract class AbstractTestNativeGeneralQueries
             dropTableIfExists(tmpTableName);
         }
     }
-    @Test
+
+    @Test(groups = {"parquet"})
     public void testAnalyzeStatsOnDecimals()
     {
         String tmpTableName = generateRandomTableName();
@@ -1226,7 +1227,7 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
-    @Test
+    @Test(groups = {"parquet"})
     public void testDecimalApproximateAggregates()
     {
         // Actual session is for the native query runner.
