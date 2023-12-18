@@ -33,6 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestPage
@@ -44,7 +45,7 @@ public class TestPage
         Page region = page.getRegion(0, 10);
         assertEquals(page.getRegion(5, 5).getPositionCount(), 5);
         assertEquals(region.getPositionCount(), 10);
-        assertEquals(page, region);
+        assertSame(page, region);
     }
 
     @Test

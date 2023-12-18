@@ -116,9 +116,9 @@ public class BooleanInputStream
         }
 
         // count remaining bits
-        for (int i = 0; i < items; i++) {
-            count += nextBit() ? 1 : 0;
-        }
+        int count = IntStream.range(0, items)
+                .map(i -> nextBit() ? 1 : 0)
+                .sum();
 
         return count;
     }
@@ -397,9 +397,9 @@ public class BooleanInputStream
             throws IOException
     {
         int count = 0;
-        for (int i = 0; i < batchSize; i++) {
-            count += nextBit() ? 0 : 1;
-        }
+        int count = IntStream.range(0, batchSize)
+                .map(i -> nextBit() ? 0 : 1)
+                .sum();
         return count;
     }
 

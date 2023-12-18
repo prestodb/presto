@@ -542,11 +542,7 @@ public class TupleDomainParquetPredicate
         @Override
         public boolean keep(T value)
         {
-            if (value == null && !columnDomain.isNullAllowed()) {
-                return false;
-            }
-
-            return true;
+            return !(value == null && !columnDomain.isNullAllowed());
         }
 
         @Override

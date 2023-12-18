@@ -241,11 +241,7 @@ public final class TestingOrcPredicate
         protected boolean chunkMatchesStats(List<T> chunk, ColumnStatistics columnStatistics)
         {
             // verify non null count
-            if (columnStatistics.getNumberOfValues() != Iterables.size(filter(chunk, notNull()))) {
-                return false;
-            }
-
-            return true;
+            return columnStatistics.getNumberOfValues() == Iterables.size(filter(chunk, notNull()));
         }
     }
 

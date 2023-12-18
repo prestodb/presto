@@ -135,10 +135,7 @@ public class TupleDomainOrcPredicate<C>
         }
 
         // if none of the discrete predicate values are found in the bloom filter, there is no overlap and the section should be skipped
-        if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()))) {
-            return false;
-        }
-        return true;
+        return discreteValues.get().stream().allMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()));
     }
 
     @VisibleForTesting

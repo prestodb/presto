@@ -343,11 +343,7 @@ public class OptimizeMixedDistinctAggregations
                 }
             }
 
-            if (!aggregateInfo.getMask().getType().isComparable()) {
-                return false;
-            }
-
-            return true;
+            return aggregateInfo.getMask().getType().isComparable();
         }
 
         /*
