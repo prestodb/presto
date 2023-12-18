@@ -17,6 +17,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import javax.inject.Named;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -151,10 +152,12 @@ public class TimeZoneKeyTest
             try {
                 normalizeZoneId.invoke(timeZoneKey, timeZone);
                 fail("Expected TimeZoneNotSupportedException to be thrown for " + timeZone);
-            } catch (InvocationTargetException e) {
+            }
+            catch (InvocationTargetException e) {
                 Throwable cause = e.getCause();
                 assertTrue(cause instanceof TimeZoneNotSupportedException, "Expected TimeZoneNotSupportedException,  but got " + cause.getClass().getSimpleName());
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 fail("Unexpected exception type: " + e.getClass().getSimpleName());
             }
         }
