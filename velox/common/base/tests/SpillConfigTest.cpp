@@ -39,6 +39,7 @@ TEST(SpillConfig, spillLevel) {
       0,
       0,
       0,
+      0,
       "none");
   struct {
     uint8_t bitOffset;
@@ -76,7 +77,7 @@ TEST(SpillConfig, spillLevelLimit) {
     int32_t numBits;
     uint8_t bitOffset;
     int32_t maxSpillLevel;
-    int32_t expectedExceeds;
+    bool expectedExceeds;
 
     std::string debugString() const {
       return fmt::format(
@@ -124,6 +125,7 @@ TEST(SpillConfig, spillLevelLimit) {
         testData.maxSpillLevel,
         0,
         0,
+        0,
         "none");
 
     ASSERT_EQ(
@@ -168,6 +170,7 @@ TEST(SpillConfig, spillableReservationPercentages) {
           0,
           0,
           0,
+          1'000'000,
           0,
           0,
           "none");

@@ -151,6 +151,7 @@ void SortWindowBuild::setupSpiller() {
       spillConfig_->compressionKind,
       memory::spillMemoryPool(),
       spillConfig_->executor,
+      spillConfig_->maxSpillRunRows,
       spillConfig_->fileCreateConfig);
 }
 

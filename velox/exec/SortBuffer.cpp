@@ -275,6 +275,7 @@ void SortBuffer::spillInput() {
         spillConfig_->compressionKind,
         memory::spillMemoryPool(),
         spillConfig_->executor,
+        spillConfig_->maxSpillRunRows,
         spillConfig_->fileCreateConfig);
   }
   spiller_->spill();
@@ -301,6 +302,7 @@ void SortBuffer::spillOutput() {
       spillConfig_->compressionKind,
       memory::spillMemoryPool(),
       spillConfig_->executor,
+      0,
       spillConfig_->fileCreateConfig);
   auto spillRows = std::vector<char*>(
       sortedRows_.begin() + numOutputRows_, sortedRows_.end());

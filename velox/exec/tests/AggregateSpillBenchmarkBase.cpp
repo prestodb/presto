@@ -138,8 +138,10 @@ std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() const {
         FLAGS_spiller_benchmark_write_buffer_size,
         stringToCompressionKind(FLAGS_spiller_benchmark_compression_kind),
         spillerPool_.get(),
-        executor_.get());
+        executor_.get(),
+        0);
   } else {
+    // TODO: Add config flag to control the max spill rows.
     return std::make_unique<Spiller>(
         spillerType_,
         rowContainer_.get(),
@@ -149,7 +151,8 @@ std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() const {
         FLAGS_spiller_benchmark_write_buffer_size,
         stringToCompressionKind(FLAGS_spiller_benchmark_compression_kind),
         spillerPool_.get(),
-        executor_.get());
+        executor_.get(),
+        0);
   }
 }
 } // namespace facebook::velox::exec::test

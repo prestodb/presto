@@ -40,6 +40,7 @@ struct SpillConfig {
       uint8_t _startPartitionBit,
       uint8_t _joinPartitionBits,
       int32_t _maxSpillLevel,
+      uint64_t _maxSpillRunRows,
       uint64_t _writerFlushThresholdSize,
       int32_t _testSpillPct,
       const std::string& _compressionKind,
@@ -103,6 +104,11 @@ struct SpillConfig {
   /// is no limit and then some extreme large query might run out of spilling
   /// partition bits at the end.
   int32_t maxSpillLevel;
+
+  /// The max row numbers to fill and spill for each spill run. This is used to
+  /// cap the memory used for spilling. If it is zero, then there is no limit
+  /// and spilling might run out of memory.
+  uint64_t maxSpillRunRows;
 
   /// Minimum memory footprint size required to reclaim memory from a file
   /// writer by flushing its buffered data to disk.

@@ -278,6 +278,16 @@ Spilling
        spilling which might use recursive spilling when the build table is very large. -1 means unlimited.
        In this case an extremely large query might run out of spilling partition bits. The max spill level
        can be used to prevent a query from using too much io and cpu resources.
+   * - max_spill_run_rows
+     - integer
+     - 12582912
+     - The max number of rows to fill and spill for each spill run. This is used to cap the memory used for spilling.
+       If it is zero, then there is no limit and spilling might run out of memory. Based on offline test results, the
+       default value is set to 12 million rows which uses ~128MB memory when to fill a spill run.
+       Relation between spill rows and memory usage are as follows:
+         * ``12 million rows: 128 MB``
+         * ``30 million rows: 256 MB``
+         * ``60 million rows: 512 MB``
    * - max_spill_file_size
      - integer
      - 0

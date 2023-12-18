@@ -245,6 +245,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       spillConfig.compressionKind,
       memory::spillMemoryPool(),
       spillConfig.executor,
+      spillConfig.maxSpillRunRows,
       spillConfig.fileCreateConfig);
 
   const int32_t numPartitions = spiller_->hashBits().numPartitions();

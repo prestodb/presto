@@ -954,6 +954,7 @@ void GroupingSet::spill() {
         spillConfig_->compressionKind,
         memory::spillMemoryPool(),
         spillConfig_->executor,
+        spillConfig_->maxSpillRunRows,
         spillConfig_->fileCreateConfig);
   }
   spiller_->spill();
@@ -982,6 +983,7 @@ void GroupingSet::spill(const RowContainerIterator& rowIterator) {
       spillConfig_->compressionKind,
       memory::spillMemoryPool(),
       spillConfig_->executor,
+      spillConfig_->maxSpillRunRows,
       spillConfig_->fileCreateConfig);
 
   spiller_->spill(rowIterator);

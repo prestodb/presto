@@ -401,6 +401,7 @@ void RowNumber::setupHashTableSpiller() {
       spillConfig.compressionKind,
       memory::spillMemoryPool(),
       spillConfig.executor,
+      spillConfig.maxSpillRunRows,
       spillConfig.fileCreateConfig);
 }
 

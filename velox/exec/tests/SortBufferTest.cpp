@@ -57,6 +57,7 @@ class SortBufferTest : public OperatorTestBase {
         0,
         0,
         0,
+        0,
         "none");
   }
 
@@ -298,6 +299,7 @@ TEST_F(SortBufferTest, batchOutput) {
         0,
         0,
         0,
+        0,
         100, //  testSpillPct
         "none");
     auto sortBuffer = std::make_unique<SortBuffer>(
@@ -390,6 +392,7 @@ TEST_F(SortBufferTest, spill) {
         executor_.get(),
         100,
         spillableReservationGrowthPct,
+        0,
         0,
         0,
         0,

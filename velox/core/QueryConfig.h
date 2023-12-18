@@ -237,6 +237,13 @@ class QueryConfig {
   static constexpr const char* kOrderBySpillMemoryThreshold =
       "order_by_spill_memory_threshold";
 
+  /// The max row numbers to fill and spill for each spill run. This is used to
+  /// cap the memory used for spilling. If it is zero, then there is no limit
+  /// and spilling might run out of memory.
+  /// Based on offline test results, the default value is set to 12 million rows
+  /// which uses ~128MB memory when to fill a spill run.
+  static constexpr const char* kMaxSpillRunRows = "max_spill_run_rows";
+
   static constexpr const char* kTestingSpillPct = "testing.spill_pct";
 
   /// The max allowed spilling level with zero being the initial spilling level.
@@ -395,6 +402,11 @@ class QueryConfig {
   uint64_t orderBySpillMemoryThreshold() const {
     static constexpr uint64_t kDefault = 0;
     return get<uint64_t>(kOrderBySpillMemoryThreshold, kDefault);
+  }
+
+  uint64_t maxSpillRunRows() const {
+    static constexpr uint64_t kDefault = 12 * 1024 * 1024;
+    return get<uint64_t>(kMaxSpillRunRows, kDefault);
   }
 
   /// Returns the maximum size in bytes for the task's buffered output when

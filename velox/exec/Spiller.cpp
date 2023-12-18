@@ -44,6 +44,7 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Executor* executor,
+    uint64_t maxSpillRunRows,
     const std::string& fileCreateConfig)
     : Spiller(
           type,
@@ -59,6 +60,7 @@ Spiller::Spiller(
           compressionKind,
           pool,
           executor,
+          maxSpillRunRows,
           fileCreateConfig) {
   VELOX_CHECK(
       type_ == Type::kOrderByInput || type_ == Type::kAggregateInput,
@@ -78,6 +80,7 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Executor* executor,
+    uint64_t maxSpillRunRows,
     const std::string& fileCreateConfig)
     : Spiller(
           type,
@@ -93,6 +96,7 @@ Spiller::Spiller(
           compressionKind,
           pool,
           executor,
+          maxSpillRunRows,
           fileCreateConfig) {
   VELOX_CHECK(
       type_ == Type::kAggregateOutput || type_ == Type::kOrderByOutput,
@@ -128,6 +132,7 @@ Spiller::Spiller(
           compressionKind,
           pool,
           executor,
+          0,
           fileCreateConfig) {
   VELOX_CHECK_EQ(
       type_,
@@ -148,6 +153,7 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Executor* executor,
+    uint64_t maxSpillRunRows,
     const std::string& fileCreateConfig)
     : Spiller(
           type,
@@ -163,6 +169,7 @@ Spiller::Spiller(
           compressionKind,
           pool,
           executor,
+          maxSpillRunRows,
           fileCreateConfig) {
   VELOX_CHECK_EQ(
       type_,
@@ -185,6 +192,7 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     memory::MemoryPool* pool,
     folly::Executor* executor,
+    uint64_t maxSpillRunRows,
     const std::string& fileCreateConfig)
     : type_(type),
       container_(container),
@@ -192,6 +200,7 @@ Spiller::Spiller(
       pool_(pool),
       bits_(bits),
       rowType_(std::move(rowType)),
+      maxSpillRunRows_(maxSpillRunRows),
       state_(
           getSpillDirPathCb,
           fileNamePrefix,
@@ -401,8 +410,9 @@ std::unique_ptr<Spiller::SpillStatus> Spiller::writeSpill(int32_t partition) {
   }
 }
 
-void Spiller::runSpill() {
+void Spiller::runSpill(bool lastRun) {
   ++stats_.wlock()->spillRuns;
+  VELOX_CHECK(type_ != Spiller::Type::kOrderByOutput || lastRun);
 
   std::vector<std::shared_ptr<AsyncSource<SpillStatus>>> writes;
   for (auto partition = 0; partition < spillRuns_.size(); ++partition) {
@@ -445,12 +455,18 @@ void Spiller::runSpill() {
     auto& run = spillRuns_[partition];
     VELOX_CHECK_EQ(numWritten, run.rows.size());
     run.clear();
-    // When a sorted run ends, we start with a new file next time. For
-    // aggregation output / orderby output spiller, we expect only one spill
-    // call to spill all the rows starting from the specified row offset.
-    if (needSort() ||
-        (type_ == Spiller::Type::kAggregateOutput ||
-         type_ == Spiller::Type::kOrderByOutput)) {
+    // When a sorted run ends, we start with a new file next time.
+    if (needSort()) {
+      state_.finishFile(partition);
+    }
+  }
+
+  // For aggregation output / orderby output spiller, we expect only one spill
+  // call to spill all the rows starting from the specified row offset.
+  if (lastRun &&
+      (type_ == Spiller::Type::kAggregateOutput ||
+       type_ == Spiller::Type::kOrderByOutput)) {
+    for (auto partition = 0; partition < spillRuns_.size(); ++partition) {
       state_.finishFile(partition);
     }
   }
@@ -483,11 +499,21 @@ void Spiller::spill(const RowContainerIterator& startRowIter) {
 void Spiller::spill(const RowContainerIterator* startRowIter) {
   CHECK_NOT_FINALIZED();
   VELOX_CHECK_NE(type_, Type::kHashJoinProbe);
+  VELOX_CHECK_NE(type_, Type::kOrderByOutput);
 
   markAllPartitionsSpilled();
 
-  fillSpillRuns(startRowIter);
-  runSpill();
+  RowContainerIterator rowIter;
+  if (startRowIter != nullptr) {
+    rowIter = *startRowIter;
+  }
+
+  bool lastRun{false};
+  do {
+    lastRun = fillSpillRuns(&rowIter);
+    runSpill(lastRun);
+  } while (!lastRun);
+
   checkEmptySpillRuns();
 }
 
@@ -499,7 +525,7 @@ void Spiller::spill(std::vector<char*>& rows) {
   markAllPartitionsSpilled();
 
   fillSpillRun(rows);
-  runSpill();
+  runSpill(true);
   checkEmptySpillRuns();
 }
 
@@ -567,24 +593,29 @@ void Spiller::finalizeSpill() {
   finalized_ = true;
 }
 
-void Spiller::fillSpillRuns(const RowContainerIterator* startRowIter) {
+bool Spiller::fillSpillRuns(RowContainerIterator* iterator) {
   checkEmptySpillRuns();
 
+  bool lastRun{false};
   uint64_t execTimeUs{0};
   {
     MicrosecondTimer timer(&execTimeUs);
-    RowContainerIterator iterator;
-    if (startRowIter != nullptr) {
-      iterator = *startRowIter;
-    }
+
     // Number of rows to hash and divide into spill partitions at a time.
     constexpr int32_t kHashBatchSize = 4096;
     std::vector<uint64_t> hashes(kHashBatchSize);
     std::vector<char*> rows(kHashBatchSize);
     const bool isSinglePartition = bits_.numPartitions() == 1;
+
+    uint64_t totalRows{0};
     for (;;) {
-      auto numRows = container_->listRows(
-          &iterator, rows.size(), RowContainer::kUnlimited, rows.data());
+      const auto numRows = container_->listRows(
+          iterator, rows.size(), RowContainer::kUnlimited, rows.data());
+      if (numRows == 0) {
+        lastRun = true;
+        break;
+      }
+
       // Calculate hashes for this batch of spill candidates.
       auto rowSet = folly::Range<char**>(rows.data(), numRows);
 
@@ -605,12 +636,16 @@ void Spiller::fillSpillRuns(const RowContainerIterator* startRowIter) {
         spillRuns_[partition].rows.push_back(rows[i]);
         spillRuns_[partition].numBytes += container_->rowSize(rows[i]);
       }
-      if (numRows == 0) {
+
+      totalRows += numRows;
+      if (maxSpillRunRows_ > 0 && totalRows >= maxSpillRunRows_) {
         break;
       }
     }
   }
   updateSpillFillTime(execTimeUs);
+
+  return lastRun;
 }
 
 void Spiller::fillSpillRun(std::vector<char*>& rows) {
