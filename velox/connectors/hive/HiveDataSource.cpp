@@ -683,6 +683,10 @@ std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {
         RuntimeCounter(
             ioStats_->queryThreadIoLatency().sum() * 1000,
             RuntimeCounter::Unit::kNanos)},
+       {"maxSingleIoWaitNanos",
+        RuntimeCounter(
+            ioStats_->queryThreadIoLatency().max() * 1000,
+            RuntimeCounter::Unit::kNanos)},
        {"overreadBytes",
         RuntimeCounter(
             ioStats_->rawOverreadBytes(), RuntimeCounter::Unit::kBytes)},

@@ -48,19 +48,42 @@ class IoCounter {
     return sum_;
   }
 
+  uint64_t min() const {
+    return min_;
+  }
+
+  uint64_t max() const {
+    return max_;
+  }
+
   void increment(uint64_t amount) {
     ++count_;
     sum_ += amount;
+    casLoop(min_, amount, std::greater());
+    casLoop(max_, amount, std::less());
   }
 
   void merge(const IoCounter& other) {
     sum_ += other.sum_;
     count_ += other.count_;
+    casLoop(min_, other.min_, std::greater());
+    casLoop(max_, other.max_, std::less());
   }
 
  private:
+  template <typename Compare>
+  static void
+  casLoop(std::atomic<uint64_t>& value, uint64_t newValue, Compare compare) {
+    uint64_t old = value;
+    while (compare(old, newValue) &&
+           !value.compare_exchange_weak(old, newValue)) {
+    }
+  }
+
   std::atomic<uint64_t> count_{0};
   std::atomic<uint64_t> sum_{0};
+  std::atomic<uint64_t> min_{std::numeric_limits<uint64_t>::max()};
+  std::atomic<uint64_t> max_{0};
 };
 
 class IoStatistics {
