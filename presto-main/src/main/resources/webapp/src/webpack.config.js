@@ -17,6 +17,7 @@ module.exports = (env) => {
             'worker': path.join(__dirname, 'worker.jsx'),
             'timeline': path.join(__dirname, 'timeline.jsx'),
             'res_groups': path.join(__dirname, 'res_groups.jsx'),
+            'sql_client': path.join(__dirname, 'sql_client.jsx'),
         },
         externals: {
             // substitutes `require('vis-timeline/standalone')` to `global.vis`
@@ -35,9 +36,13 @@ module.exports = (env) => {
                                 ['@babel/preset-env', { targets: "defaults" }],
                                 ['@babel/preset-react', {runtime: "automatic"}],
                                 ['@babel/preset-flow']
-                            ]
-                        }
+                            ],
+                        },
                     }
+                },
+                {
+                    test: /\.css$/i,
+                    use: ["style-loader", "css-loader"],
                 },
             ]
         },
@@ -45,8 +50,8 @@ module.exports = (env) => {
             extensions: ['.*', '.js', '.jsx']
         },
         output: {
-            path: path.join(__dirname, '..', 'dist'),
-            filename: '[name].js'
+            path: path.join(__dirname, '..'),
+            filename: path.join('dist', '[name].js'),
         },
         optimization: {
             minimize: mode === 'production',
