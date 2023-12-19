@@ -86,6 +86,11 @@ void registerPrestoMetrics() {
       0,
       62l * 1024 * 1024 * 1024, // max bucket value: 62GB
       100);
+
+  /// ================== AsyncDataCache Counters ==================
+
+  DEFINE_METRIC(kCounterCacheMaxAgeSecs, facebook::velox::StatType::AVG);
+
   DEFINE_METRIC(kCounterMemoryCacheNumEntries, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterMemoryCacheNumEmptyEntries, facebook::velox::StatType::AVG);
@@ -138,6 +143,17 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterMemoryCacheNumAllocClocks, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
+      kCounterMemoryCacheNumCumulativeAgedOutEntries,
+      facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterMemoryCacheNumAgedOutEntries, facebook::velox::StatType::AVG);
+
+  /// ================== SsdCache Counters ==================
+
+  DEFINE_METRIC(kCounterSsdCacheCachedEntries, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterSsdCacheCachedRegions, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterSsdCacheCachedBytes, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
       kCounterSsdCacheCumulativeReadEntries, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterSsdCacheCumulativeReadBytes, facebook::velox::StatType::AVG);
@@ -146,9 +162,9 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterSsdCacheCumulativeWrittenBytes, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
-      kCounterSsdCacheCumulativeCachedEntries, facebook::velox::StatType::AVG);
+      kCounterSsdCacheCumulativeAgedOutEntries, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
-      kCounterSsdCacheCumulativeCachedBytes, facebook::velox::StatType::AVG);
+      kCounterSsdCacheCumulativeAgedOutRegions, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterSsdCacheCumulativeOpenSsdErrors, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
@@ -171,7 +187,9 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterSsdCacheCumulativeReadCheckpointErrors,
       facebook::velox::StatType::AVG);
-  // Disk spilling stats.
+
+  /// ================== Disk Spilling Counters =================
+
   DEFINE_METRIC(kCounterSpillRuns, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterSpilledFiles, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterSpilledRows, facebook::velox::StatType::SUM);
@@ -191,7 +209,9 @@ void registerPrestoMetrics() {
       20l * 1024 * 1024 * 1024, // max bucket value: 20GB
       100);
   DEFINE_METRIC(kCounterSpillMaxLevelExceeded, facebook::velox::StatType::SUM);
-  // Memory arbitrator stats.
+
+  /// ================== Memory Arbitrator Counters =================
+
   DEFINE_METRIC(kCounterArbitratorNumRequests, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterArbitratorNumAborted, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterArbitratorNumFailures, facebook::velox::StatType::SUM);

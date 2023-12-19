@@ -282,6 +282,18 @@ class SystemConfig : public ConfigBase {
       "async-cache-ssd-disable-file-cow"};
   static constexpr std::string_view kEnableSerializedPageChecksum{
       "enable-serialized-page-checksum"};
+
+  /// Enable TTL for AsyncDataCache and SSD cache.
+  static constexpr std::string_view kCacheVeloxTtlEnabled{
+      "cache.velox.ttl-enabled"};
+  /// TTL duration for AsyncDataCache and SSD cache entries.
+  static constexpr std::string_view kCacheVeloxTtlThreshold{
+      "cache.velox.ttl-threshold"};
+  /// The periodic duration to apply cache TTL and evict AsyncDataCache and SSD
+  /// cache entries.
+  static constexpr std::string_view kCacheVeloxTtlCheckInterval{
+      "cache.velox.ttl-check-interval"};
+
   static constexpr std::string_view kUseMmapArena{"use-mmap-arena"};
   static constexpr std::string_view kMmapArenaCapacityRatio{
       "mmap-arena-capacity-ratio"};
@@ -623,6 +635,12 @@ class SystemConfig : public ConfigBase {
   int32_t internalCommunicationJwtExpirationSeconds() const;
 
   bool useLegacyArrayAgg() const;
+
+  bool cacheVeloxTtlEnabled() const;
+
+  std::chrono::duration<double> cacheVeloxTtlThreshold() const;
+
+  std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

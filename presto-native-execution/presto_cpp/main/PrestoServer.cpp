@@ -43,6 +43,7 @@
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
+#include "velox/common/caching/CacheTTLController.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MmapAllocator.h"
@@ -97,6 +98,21 @@ std::string stringifyConnectorConfig(
     out << "  " << key << "=" << value << "\n";
   }
   return out.str();
+}
+
+bool isCacheTtlEnabled() {
+  const auto* systemConfig = SystemConfig::instance();
+  if (systemConfig->cacheVeloxTtlEnabled()) {
+    VELOX_USER_CHECK(
+        systemConfig->cacheVeloxTtlThreshold() > std::chrono::seconds::zero(),
+        "Config cache.velox.ttl-threshold must be positive.");
+    VELOX_USER_CHECK(
+        systemConfig->cacheVeloxTtlCheckInterval() >
+            std::chrono::seconds::zero(),
+        "Config cache.velox.ttl-check-interval must be positive.");
+    return true;
+  }
+  return false;
 }
 
 } // namespace
@@ -630,6 +646,18 @@ void PrestoServer::initializeVeloxMemory() {
     cache_ = cache::AsyncDataCache::create(allocator_.get(), std::move(ssd));
     cache::AsyncDataCache::setInstance(cache_.get());
     PRESTO_STARTUP_LOG(INFO) << cacheStr << " has been setup";
+
+    if (isCacheTtlEnabled()) {
+      cache::CacheTTLController::create(*cache_);
+      PRESTO_STARTUP_LOG(INFO) << fmt::format(
+          "Cache TTL is enabled, with TTL {} enforced every {}.",
+          succinctMillis(std::chrono::duration_cast<std::chrono::milliseconds>(
+                             systemConfig->cacheVeloxTtlThreshold())
+                             .count()),
+          succinctMillis(std::chrono::duration_cast<std::chrono::milliseconds>(
+                             systemConfig->cacheVeloxTtlCheckInterval())
+                             .count()));
+    }
   } else {
     VELOX_CHECK_EQ(
         systemConfig->asyncCacheSsdGb(),
@@ -709,6 +737,26 @@ void PrestoServer::addServerPeriodicTasks() {
   if (timeslice > 0) {
     periodicTaskManager_->addTask(
         [server = this]() { server->yieldTasks(); }, timeslice, "yield_tasks");
+  }
+
+  if (isCacheTtlEnabled()) {
+    const int64_t ttlThreshold =
+        std::chrono::duration_cast<std::chrono::seconds>(
+            SystemConfig::instance()->cacheVeloxTtlThreshold())
+            .count();
+    const int64_t ttlCheckInterval =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            SystemConfig::instance()->cacheVeloxTtlCheckInterval())
+            .count();
+    periodicTaskManager_->addTask(
+        [ttlThreshold]() {
+          if (auto* cacheTTLController =
+                  velox::cache::CacheTTLController::getInstance()) {
+            cacheTTLController->applyTTL(ttlThreshold);
+          }
+        },
+        ttlCheckInterval,
+        "cache_ttl");
   }
 }
 

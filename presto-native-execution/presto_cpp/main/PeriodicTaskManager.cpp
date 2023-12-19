@@ -22,6 +22,7 @@
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/AsyncDataCache.h"
+#include "velox/common/caching/CacheTTLController.h"
 #include "velox/common/caching/SsdFile.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
@@ -277,6 +278,12 @@ void PeriodicTaskManager::updateCacheStats() {
       kCounterMemoryCacheTotalPrefetchBytes, memoryCacheStats.prefetchBytes);
   RECORD_METRIC_VALUE(
       kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
+  RECORD_METRIC_VALUE(
+      kCounterSsdCacheCachedEntries, memoryCacheStats.ssdStats->entriesCached);
+  RECORD_METRIC_VALUE(
+      kCounterSsdCacheCachedRegions, memoryCacheStats.ssdStats->regionsCached);
+  RECORD_METRIC_VALUE(
+      kCounterSsdCacheCachedBytes, memoryCacheStats.ssdStats->bytesCached);
 
   // Interval cumulatives.
   RECORD_METRIC_VALUE(
@@ -307,7 +314,6 @@ void PeriodicTaskManager::updateCacheStats() {
   lastMemoryCacheEvictions_ = memoryCacheStats.numEvict;
   lastMemoryCacheEvictionChecks_ = memoryCacheStats.numEvictChecks;
   lastMemoryCacheStalls_ = memoryCacheStats.numWaitExclusive;
-  lastMemoryCacheAllocClocks_ = memoryCacheStats.allocClocks;
 
   // All time cumulatives.
   RECORD_METRIC_VALUE(
@@ -327,6 +333,7 @@ void PeriodicTaskManager::updateCacheStats() {
   RECORD_METRIC_VALUE(
       kCounterMemoryCacheNumCumulativeAllocClocks,
       memoryCacheStats.allocClocks);
+
   if (memoryCacheStats.ssdStats != nullptr) {
     RECORD_METRIC_VALUE(
         kCounterSsdCacheCumulativeReadEntries,
@@ -340,12 +347,6 @@ void PeriodicTaskManager::updateCacheStats() {
     RECORD_METRIC_VALUE(
         kCounterSsdCacheCumulativeWrittenBytes,
         memoryCacheStats.ssdStats->bytesWritten);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeCachedEntries,
-        memoryCacheStats.ssdStats->entriesCached);
-    RECORD_METRIC_VALUE(
-        kCounterSsdCacheCumulativeCachedBytes,
-        memoryCacheStats.ssdStats->bytesCached);
     RECORD_METRIC_VALUE(
         kCounterSsdCacheCumulativeOpenSsdErrors,
         memoryCacheStats.ssdStats->openFileErrors);
@@ -374,6 +375,31 @@ void PeriodicTaskManager::updateCacheStats() {
         kCounterSsdCacheCumulativeReadCheckpointErrors,
         memoryCacheStats.ssdStats->readCheckpointErrors);
   }
+
+  if (auto* cacheTTLController =
+          velox::cache::CacheTTLController::getInstance()) {
+    RECORD_METRIC_VALUE(
+        kCounterCacheMaxAgeSecs,
+        cacheTTLController->getCacheAgeStats().maxAgeSecs);
+
+    RECORD_METRIC_VALUE(
+        kCounterMemoryCacheNumAgedOutEntries,
+        memoryCacheStats.numAgedOut - lastMemoryCacheAgedOuts_);
+    lastMemoryCacheAgedOuts_ = memoryCacheStats.numAgedOut;
+    RECORD_METRIC_VALUE(
+        kCounterMemoryCacheNumCumulativeAgedOutEntries,
+        memoryCacheStats.numAgedOut);
+
+    if (memoryCacheStats.ssdStats != nullptr) {
+      RECORD_METRIC_VALUE(
+          kCounterSsdCacheCumulativeAgedOutEntries,
+          memoryCacheStats.ssdStats->entriesAgedOut)
+      RECORD_METRIC_VALUE(
+          kCounterSsdCacheCumulativeAgedOutRegions,
+          memoryCacheStats.ssdStats->regionsAgedOut);
+    }
+  }
+
   LOG(INFO) << "Cache stats:\n" << memoryCacheStats.toString();
 }
 
