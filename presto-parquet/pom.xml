@@ -238,6 +238,11 @@
                         <artifactId>fmpp</artifactId>
                         <version>0.9.15</version>
                     </dependency>
+                    <dependency>
+                        <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
+                        <version>4.13.2</version>
+                    </dependency>
                 </dependencies>
                 <configuration>
                     <cfgFile>${project.basedir}/src/main/resources/freemarker/config.fmpp</cfgFile>
