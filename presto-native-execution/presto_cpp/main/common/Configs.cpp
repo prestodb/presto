@@ -214,6 +214,9 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kUseLegacyArrayAgg, false),
           STR_PROP(kSinkMaxBufferSize, "32MB"),
           STR_PROP(kDriverMaxPagePartitioningBufferSize, "32MB"),
+          BOOL_PROP(kCacheVeloxTtlEnabled, false),
+          STR_PROP(kCacheVeloxTtlThreshold, "2d"),
+          STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
       };
 }
 
@@ -571,6 +574,20 @@ int32_t SystemConfig::internalCommunicationJwtExpirationSeconds() const {
 
 bool SystemConfig::useLegacyArrayAgg() const {
   return optionalProperty<bool>(kUseLegacyArrayAgg).value();
+}
+
+bool SystemConfig::cacheVeloxTtlEnabled() const {
+  return optionalProperty<bool>(kCacheVeloxTtlEnabled).value();
+}
+
+std::chrono::duration<double> SystemConfig::cacheVeloxTtlThreshold() const {
+  return velox::core::toDuration(
+      optionalProperty(kCacheVeloxTtlThreshold).value());
+}
+
+std::chrono::duration<double> SystemConfig::cacheVeloxTtlCheckInterval() const {
+  return velox::core::toDuration(
+      optionalProperty(kCacheVeloxTtlCheckInterval).value());
 }
 
 NodeConfig::NodeConfig() {
