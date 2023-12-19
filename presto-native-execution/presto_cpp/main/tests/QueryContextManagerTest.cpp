@@ -21,6 +21,10 @@ namespace facebook::presto {
 
 class QueryContextManagerTest : public testing::Test {
  protected:
+  static void SetUpTestCase() {
+    velox::memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     driverExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
         4, std::make_shared<folly::NamedThreadFactory>("Driver"));
