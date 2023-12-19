@@ -28,8 +28,10 @@ namespace {
 
 using namespace facebook::velox;
 
-std::shared_ptr<memory::MemoryPool> pool{
-    memory::MemoryManager::getInstance()->addLeafPool()};
+memory::MemoryPool* pool() {
+  static auto leaf = memory::MemoryManager::getInstance()->addLeafPool();
+  return leaf.get();
+}
 
 VectorFuzzer::Options getOpts(size_t n, double nullRatio = 0) {
   VectorFuzzer::Options opts;
@@ -39,25 +41,25 @@ VectorFuzzer::Options getOpts(size_t n, double nullRatio = 0) {
 }
 
 BENCHMARK_MULTI(flatInteger, n) {
-  VectorFuzzer fuzzer(getOpts(n), pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(getOpts(n), pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzFlat(BIGINT()));
   return n;
 }
 
 BENCHMARK_RELATIVE_MULTI(flatIntegerHalfNull, n) {
-  VectorFuzzer fuzzer(getOpts(n, 0.5), pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(getOpts(n, 0.5), pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzFlat(BIGINT()));
   return n;
 }
 
 BENCHMARK_RELATIVE_MULTI(flatDouble, n) {
-  VectorFuzzer fuzzer(getOpts(n), pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(getOpts(n), pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzFlat(DOUBLE()));
   return n;
 }
 
 BENCHMARK_RELATIVE_MULTI(flatBool, n) {
-  VectorFuzzer fuzzer(getOpts(n), pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(getOpts(n), pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzFlat(BOOLEAN()));
   return n;
 }
@@ -66,7 +68,7 @@ BENCHMARK_RELATIVE_MULTI(flatVarcharAscii, n) {
   auto opts = getOpts(n);
   opts.charEncodings = {UTF8CharList::ASCII};
 
-  VectorFuzzer fuzzer(opts, pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzFlat(VARCHAR()));
   return n;
 }
@@ -75,7 +77,7 @@ BENCHMARK_RELATIVE_MULTI(flatVarcharUtf8, n) {
   auto opts = getOpts(n);
   opts.charEncodings = {UTF8CharList::EXTENDED_UNICODE};
 
-  VectorFuzzer fuzzer(opts, pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzFlat(VARCHAR()));
   return n;
 }
@@ -83,13 +85,13 @@ BENCHMARK_RELATIVE_MULTI(flatVarcharUtf8, n) {
 BENCHMARK_DRAW_LINE();
 
 BENCHMARK_RELATIVE_MULTI(constantInteger, n) {
-  VectorFuzzer fuzzer(getOpts(n), pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(getOpts(n), pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzConstant(BIGINT()));
   return n;
 }
 
 BENCHMARK_RELATIVE_MULTI(dictionaryInteger, n) {
-  VectorFuzzer fuzzer(getOpts(n), pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(getOpts(n), pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzDictionary(fuzzer.fuzzFlat(BIGINT())));
   return n;
 }
@@ -97,7 +99,7 @@ BENCHMARK_RELATIVE_MULTI(dictionaryInteger, n) {
 BENCHMARK_DRAW_LINE();
 
 BENCHMARK_RELATIVE_MULTI(flatArray, n) {
-  VectorFuzzer fuzzer(getOpts(n), pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(getOpts(n), pool(), FLAGS_fuzzer_seed);
   const size_t elementsSize = n * fuzzer.getOptions().containerLength;
   folly::doNotOptimizeAway(
       fuzzer.fuzzArray(fuzzer.fuzzFlat(BIGINT(), elementsSize), n));
@@ -105,7 +107,7 @@ BENCHMARK_RELATIVE_MULTI(flatArray, n) {
 }
 
 BENCHMARK_RELATIVE_MULTI(flatMap, n) {
-  VectorFuzzer fuzzer(getOpts(n), pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(getOpts(n), pool(), FLAGS_fuzzer_seed);
   const size_t elementsSize = n * fuzzer.getOptions().containerLength;
   folly::doNotOptimizeAway(fuzzer.fuzzMap(
       fuzzer.fuzzFlat(BIGINT(), elementsSize),
@@ -115,7 +117,7 @@ BENCHMARK_RELATIVE_MULTI(flatMap, n) {
 }
 
 BENCHMARK_RELATIVE_MULTI(flatMapArrayNested, n) {
-  VectorFuzzer fuzzer(getOpts(n), pool.get(), FLAGS_fuzzer_seed);
+  VectorFuzzer fuzzer(getOpts(n), pool(), FLAGS_fuzzer_seed);
   const size_t elementsSize = n * fuzzer.getOptions().containerLength;
 
   folly::doNotOptimizeAway(fuzzer.fuzzMap(
