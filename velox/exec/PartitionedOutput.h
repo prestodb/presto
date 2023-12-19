@@ -43,18 +43,18 @@ class Destination {
 
   // Resets the destination before starting a new batch.
   void beginBatch() {
-    ranges_.clear();
-    rangesToSerialize_.clear();
-    rangeIdx_ = 0;
-    rowsInCurrentRange_ = 0;
+    rows_.clear();
+    rowIdx_ = 0;
   }
 
   void addRow(vector_size_t row) {
-    ranges_.push_back(IndexRange{row, 1});
+    rows_.push_back(row);
   }
 
   void addRows(const IndexRange& rows) {
-    ranges_.push_back(rows);
+    for (auto i = 0; i < rows.size; ++i) {
+      rows_.push_back(rows.begin + i);
+    }
   }
 
   // Serializes row from 'output' till either 'maxBytes' have been serialized or
@@ -65,7 +65,8 @@ class Destination {
       OutputBufferManager& bufferManager,
       const std::function<void()>& bufferReleaseFn,
       bool* atEnd,
-      ContinueFuture* future);
+      ContinueFuture* future,
+      Scratch& scratch);
 
   BlockingReason flush(
       OutputBufferManager& bufferManager,
@@ -108,17 +109,11 @@ class Destination {
   uint64_t bytesInCurrent_{0};
   // Number of rows serialized in 'current_'
   vector_size_t rowsInCurrent_{0};
-  std::vector<IndexRange> ranges_;
-  // List of ranges to be serialized. This is only used by
-  // Destination::advance() and defined as a member variable to reuse allocated
-  // capacity between calls.
-  std::vector<IndexRange> rangesToSerialize_;
+  raw_vector<vector_size_t> rows_;
 
-  // First range index of 'ranges_' that is not appended to 'current_'.
-  vector_size_t rangeIdx_{0};
-  // Number of rows serialized in the current range pointed to by 'rangeIdx_'.
-  // This is non-zero if the current range was partially serialized.
-  vector_size_t rowsInCurrentRange_{0};
+  // First index of 'rows_' that is not appended to 'current_'.
+  vector_size_t rowIdx_{0};
+
   // The current stream where the input is serialized to. This is cleared on
   // every flush() call.
   std::unique_ptr<VectorStreamGroup> current_;
@@ -213,10 +208,6 @@ class PartitionedOutput : public Operator {
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   ContinueFuture future_;
   bool finished_{false};
-  // top-level row numbers used as input to
-  // VectorStreamGroup::estimateSerializedSize member variable is used to avoid
-  // re-allocating memory
-  std::vector<IndexRange> topLevelRanges_;
   std::vector<vector_size_t*> sizePointers_;
   std::vector<vector_size_t> rowSize_;
   std::vector<std::unique_ptr<detail::Destination>> destinations_;
@@ -228,6 +219,7 @@ class PartitionedOutput : public Operator {
   SelectivityVector nullRows_;
   std::vector<uint32_t> partitions_;
   std::vector<DecodedVector> decodedVectors_;
+  Scratch scratch_;
 };
 
 } // namespace facebook::velox::exec
