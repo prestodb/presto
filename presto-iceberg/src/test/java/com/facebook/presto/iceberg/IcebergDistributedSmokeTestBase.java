@@ -987,4 +987,14 @@ public class IcebergDistributedSmokeTestBase
                         "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         dropTable(session, tableName);
     }
+
+    @Test
+    public void testCharTable()
+    {
+        String tableName = "test_char_table";
+        assertUpdate(format("CREATE TABLE %s (char_column CHAR(5))", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES ('abcde'), ('12345')", tableName), 2);
+        assertQuery(format("SELECT * FROM %s", tableName), "VALUES ('abcde'), ('12345')");
+        dropTable(getSession(), tableName);
+    }
 }

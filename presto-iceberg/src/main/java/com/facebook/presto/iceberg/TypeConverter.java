@@ -161,6 +161,9 @@ public final class TypeConverter
         if (type instanceof VarcharType) {
             return Types.StringType.get();
         }
+        if (type instanceof CharType) {
+            return Types.StringType.get();
+        }
         if (type instanceof VarbinaryType) {
             return Types.BinaryType.get();
         }
