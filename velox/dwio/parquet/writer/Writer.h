@@ -106,15 +106,18 @@ class Writer : public dwio::common::Writer {
   // Constructs a writer with output to 'sink'. A new row group is
   // started every 'rowsInRowGroup' top level rows. 'pool' is used for
   // temporary memory. 'properties' specifies Parquet-specific
-  // options.
+  // options. 'schema' specifies the file's overall schema, and it is always
+  // non-null.
   Writer(
       std::unique_ptr<dwio::common::FileSink> sink,
       const WriterOptions& options,
-      std::shared_ptr<memory::MemoryPool> pool);
+      std::shared_ptr<memory::MemoryPool> pool,
+      RowTypePtr schema);
 
   Writer(
       std::unique_ptr<dwio::common::FileSink> sink,
-      const WriterOptions& options);
+      const WriterOptions& options,
+      RowTypePtr schema);
 
   ~Writer() override = default;
 
@@ -146,6 +149,8 @@ class Writer : public dwio::common::Writer {
   std::shared_ptr<ArrowContext> arrowContext_;
 
   std::unique_ptr<DefaultFlushPolicy> flushPolicy_;
+
+  const RowTypePtr schema_;
 };
 
 class ParquetWriterFactory : public dwio::common::WriterFactory {

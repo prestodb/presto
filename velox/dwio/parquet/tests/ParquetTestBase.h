@@ -162,6 +162,7 @@ class ParquetTestBase : public testing::Test, public test::VectorTestBase {
       std::function<
           std::unique_ptr<facebook::velox::parquet::DefaultFlushPolicy>()>
           flushPolicy,
+      const RowTypePtr& rowType,
       facebook::velox::common::CompressionKind compressionKind =
           facebook::velox::common::CompressionKind_NONE) {
     facebook::velox::parquet::WriterOptions options;
@@ -169,7 +170,7 @@ class ParquetTestBase : public testing::Test, public test::VectorTestBase {
     options.flushPolicyFactory = flushPolicy;
     options.compression = compressionKind;
     return std::make_unique<facebook::velox::parquet::Writer>(
-        std::move(sink), options);
+        std::move(sink), options, rowType);
   }
 
   std::vector<RowVectorPtr> createBatches(

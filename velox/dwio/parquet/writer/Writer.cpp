@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-#include "velox/vector/arrow/Bridge.h"
-
+#include "velox/dwio/parquet/writer/Writer.h"
 #include <arrow/c/bridge.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/table.h>
-
-#include "velox/dwio/parquet/writer/Writer.h"
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
 #include "velox/dwio/parquet/writer/arrow/Writer.h"
+#include "velox/vector/arrow/Bridge.h"
 
 namespace facebook::velox::parquet {
 
@@ -122,6 +120,8 @@ Compression::type getArrowParquetCompression(
   }
 }
 
+namespace {
+
 std::shared_ptr<WriterProperties> getArrowParquetWriterOptions(
     const parquet::WriterOptions& options,
     const std::unique_ptr<DefaultFlushPolicy>& flushPolicy) {
@@ -139,17 +139,89 @@ std::shared_ptr<WriterProperties> getArrowParquetWriterOptions(
   return properties->build();
 }
 
+void validateSchemaRecursive(const RowTypePtr& schema) {
+  // Check the schema's field names is not empty and unique.
+  VELOX_USER_CHECK_NOT_NULL(schema, "Field schema must not be empty.");
+  const auto& fieldNames = schema->names();
+
+  folly::F14FastSet<std::string> uniqueNames;
+  for (const auto& name : fieldNames) {
+    VELOX_USER_CHECK(!name.empty(), "Field name must not be empty.")
+    auto result = uniqueNames.insert(name);
+    VELOX_USER_CHECK(
+        result.second,
+        "File schema should not have duplicate columns: {}",
+        name);
+  }
+
+  for (auto i = 0; i < schema->size(); ++i) {
+    if (auto childSchema =
+            std::dynamic_pointer_cast<const RowType>(schema->childAt(i))) {
+      validateSchemaRecursive(childSchema);
+    }
+  }
+}
+
+std::shared_ptr<::arrow::Field> updateFieldNameRecursive(
+    const std::shared_ptr<::arrow::Field>& field,
+    const Type& type,
+    const std::string& name = "") {
+  if (type.isRow()) {
+    auto rowType = type.asRow();
+    auto newField = field->WithName(name);
+    auto structType =
+        std::dynamic_pointer_cast<::arrow::StructType>(newField->type());
+    auto childrenSize = rowType.size();
+    std::vector<std::shared_ptr<::arrow::Field>> newFields;
+    newFields.reserve(childrenSize);
+    for (auto i = 0; i < childrenSize; i++) {
+      newFields.push_back(updateFieldNameRecursive(
+          structType->fields()[i], *rowType.childAt(i), rowType.nameOf(i)));
+    }
+    return newField->WithType(::arrow::struct_(newFields));
+  } else if (type.isArray()) {
+    auto newField = field->WithName(name);
+    auto listType =
+        std::dynamic_pointer_cast<::arrow::BaseListType>(newField->type());
+    auto elementType = type.asArray().elementType();
+    auto elementField = listType->value_field();
+    return newField->WithType(
+        ::arrow::list(updateFieldNameRecursive(elementField, *elementType)));
+  } else if (type.isMap()) {
+    auto mapType = type.asMap();
+    auto newField = field->WithName(name);
+    auto arrowMapType =
+        std::dynamic_pointer_cast<::arrow::MapType>(newField->type());
+    auto newKeyField =
+        updateFieldNameRecursive(arrowMapType->key_field(), *mapType.keyType());
+    auto newValueField = updateFieldNameRecursive(
+        arrowMapType->item_field(), *mapType.valueType());
+    return newField->WithType(
+        ::arrow::map(newKeyField->type(), newValueField->type()));
+  } else if (name != "") {
+    return field->WithName(name);
+  } else {
+    return field;
+  }
+}
+
+} // namespace
+
 Writer::Writer(
     std::unique_ptr<dwio::common::FileSink> sink,
     const WriterOptions& options,
-    std::shared_ptr<memory::MemoryPool> pool)
+    std::shared_ptr<memory::MemoryPool> pool,
+    RowTypePtr schema)
     : pool_(std::move(pool)),
       generalPool_{pool_->addLeafChild(".general")},
       stream_(std::make_shared<ArrowDataBufferSink>(
           std::move(sink),
           *generalPool_,
           options.bufferGrowRatio)),
-      arrowContext_(std::make_shared<ArrowContext>()) {
+      arrowContext_(std::make_shared<ArrowContext>()),
+      schema_(std::move(schema)) {
+  validateSchemaRecursive(schema_);
+
   if (options.flushPolicyFactory) {
     flushPolicy_ = options.flushPolicyFactory();
   } else {
@@ -161,13 +233,15 @@ Writer::Writer(
 
 Writer::Writer(
     std::unique_ptr<dwio::common::FileSink> sink,
-    const WriterOptions& options)
+    const WriterOptions& options,
+    RowTypePtr schema)
     : Writer{
           std::move(sink),
           options,
           options.memoryPool->addAggregateChild(fmt::format(
               "writer_node_{}",
-              folly::to<std::string>(folly::Random::rand64())))} {}
+              folly::to<std::string>(folly::Random::rand64()))),
+          std::move(schema)} {}
 
 void Writer::flush() {
   if (arrowContext_->stagingRows > 0) {
@@ -224,13 +298,29 @@ dwio::common::StripeProgress getStripeProgress(
  * This method assumes each input `ColumnarBatch` have same schema.
  */
 void Writer::write(const VectorPtr& data) {
+  VELOX_USER_CHECK(
+      data->type()->equivalent(*schema_),
+      "The file schema type should be equal with the input rowvector type.");
+
   ArrowOptions options{.flattenDictionary = true, .flattenConstant = true};
   ArrowArray array;
   ArrowSchema schema;
   exportToArrow(data, array, generalPool_.get(), options);
   exportToArrow(data, schema, options);
+
+  // Convert the arrow schema to Schema and then update the column names based
+  // on schema_.
+  auto arrowSchema = ::arrow::ImportSchema(&schema).ValueOrDie();
+  std::vector<std::shared_ptr<::arrow::Field>> newFields;
+  auto childSize = schema_->size();
+  for (auto i = 0; i < childSize; i++) {
+    newFields.push_back(updateFieldNameRecursive(
+        arrowSchema->fields()[i], *schema_->childAt(i), schema_->nameOf(i)));
+  }
+
   PARQUET_ASSIGN_OR_THROW(
-      auto recordBatch, ::arrow::ImportRecordBatch(&array, &schema));
+      auto recordBatch,
+      ::arrow::ImportRecordBatch(&array, ::arrow::schema(newFields)));
   if (!arrowContext_->schema) {
     arrowContext_->schema = recordBatch->schema();
     for (int colIdx = 0; colIdx < arrowContext_->schema->num_fields();
@@ -295,7 +385,8 @@ std::unique_ptr<dwio::common::Writer> ParquetWriterFactory::createWriter(
     std::unique_ptr<dwio::common::FileSink> sink,
     const dwio::common::WriterOptions& options) {
   auto parquetOptions = getParquetOptions(options);
-  return std::make_unique<Writer>(std::move(sink), parquetOptions);
+  return std::make_unique<Writer>(
+      std::move(sink), parquetOptions, asRowType(options.schema));
 }
 
 } // namespace facebook::velox::parquet
