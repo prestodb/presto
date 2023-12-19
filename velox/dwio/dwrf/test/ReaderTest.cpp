@@ -26,6 +26,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
+#include "velox/dwio/dwrf/test/OrcFiles.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
 #include "velox/dwio/dwrf/test/utils/E2EWriterTestUtil.h"
 #include "velox/type/Type.h"
@@ -48,33 +49,6 @@ using namespace facebook::velox::dwrf;
 using namespace facebook::velox::test;
 
 namespace {
-const std::string& getStructFile() {
-  static const std::string structFile_ = getExampleFilePath("struct.orc");
-  return structFile_;
-}
-
-const std::string& getFMSmallFile() {
-  static const std::string fmSmallFile_ = getExampleFilePath("fm_small.orc");
-  return fmSmallFile_;
-}
-
-const std::string& getFMLargeFile() {
-  static const std::string fmLargeFile_ = getExampleFilePath("fm_large.orc");
-  return fmLargeFile_;
-}
-
-// RowType for fmSmallFile and fmLargeFile
-const std::shared_ptr<const RowType>& getFlatmapSchema() {
-  static const std::shared_ptr<const RowType> schema_ =
-      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse("struct<\
-         id:int,\
-     map1:map<int, array<float>>,\
-     map2:map<string, map<smallint,bigint>>,\
-     map3:map<int,int>,\
-     map4:map<int,struct<field1:int,field2:float,field3:string>>,\
-     memo:string>"));
-  return schema_;
-}
 
 class TestReaderP
     : public testing::TestWithParam</* parallel decoding = */ bool>,
