@@ -60,6 +60,10 @@ class HttpTestSuite : public ::testing::TestWithParam<bool> {
   }
 
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   std::unique_ptr<http::HttpServer> getServer(
       bool useHttps,
       const std::shared_ptr<folly::IOThreadPoolExecutor>& ioPool = nullptr) {
