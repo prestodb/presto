@@ -66,7 +66,6 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
               .alignment = alignment_,
               .maxCapacity = kMaxMemory,
               .trackUsage = options.trackDefaultUsage,
-              .checkUsageLeak = options.checkUsageLeak,
               .debugEnabled = options.debugEnabled,
               .coreOnAllocationFailureEnabled =
                   options.coreOnAllocationFailureEnabled})} {
@@ -161,7 +160,6 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   options.alignment = alignment_;
   options.maxCapacity = capacity;
   options.trackUsage = true;
-  options.checkUsageLeak = checkUsageLeak_;
   options.debugEnabled = debugEnabled_;
   options.coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled_;
 

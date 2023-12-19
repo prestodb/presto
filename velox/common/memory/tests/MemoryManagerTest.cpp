@@ -616,17 +616,6 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
   }
 }
 
-TEST_F(MemoryManagerTest, testCheckUsageLeak) {
-  FLAGS_velox_memory_leak_check_enabled = true;
-  auto& manager = MemoryManager::testingSetInstance(
-      memory::MemoryManagerOptions{.checkUsageLeak = false});
-
-  auto rootPool = manager.addRootPool("duplicateRootPool", kMaxMemory);
-  auto leafPool = manager.addLeafPool("duplicateLeafPool", true);
-  ASSERT_FALSE(rootPool->testingCheckUsageLeak());
-  ASSERT_FALSE(leafPool->testingCheckUsageLeak());
-}
-
 } // namespace memory
 } // namespace velox
 } // namespace facebook

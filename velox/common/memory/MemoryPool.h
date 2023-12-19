@@ -148,15 +148,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// memory pools from the same root memory pool independently.
     bool threadSafe{true};
 
-    /// TODO: deprecate this flag after all the existing memory leak use cases
-    /// have been fixed.
-    ///
-    /// If true, checks the memory usage leak on destruction.
-    ///
-    /// NOTE: user can turn on/off the memory leak check of each individual
-    /// memory pools from the same root memory pool independently.
-    bool checkUsageLeak{FLAGS_velox_memory_leak_check_enabled};
-
     /// If true, tracks the allocation and free call stacks to detect the source
     /// of memory leak for testing purpose.
     bool debugEnabled{FLAGS_velox_memory_pool_debug_enabled};
@@ -210,12 +201,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// leaf memory pool with memory usage tracking enabled.
   virtual bool threadSafe() const {
     return threadSafe_;
-  }
-
-  /// Returns true if this memory pool checks memory leak on destruction.
-  /// Used only for test purposes.
-  virtual bool testingCheckUsageLeak() const {
-    return checkUsageLeak_;
   }
 
   /// Invoked to traverse the memory pool subtree rooted at this, and calls
@@ -531,7 +516,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const int64_t maxCapacity_;
   const bool trackUsage_;
   const bool threadSafe_;
-  const bool checkUsageLeak_;
   const bool debugEnabled_;
   const bool coreOnAllocationFailureEnabled_;
 

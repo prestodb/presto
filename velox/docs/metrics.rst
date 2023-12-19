@@ -138,6 +138,12 @@ Memory Management
      - Average
      - The average of total free memory capacity which is managed by the
        memory arbitrator.
+   * - memory_pool_usage_leak_bytes
+     - Sum
+     - The memory pool usage leak in bytes.
+   * - memory_pool_reservation_leak_bytes
+     - Sum
+     - The memory pool reservation leak in bytes.
 
 Spilling
 --------
