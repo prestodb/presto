@@ -205,7 +205,10 @@ bool SharedArbitrator::growMemory(
                          << " capacity to "
                          << succinctBytes(requestor->capacity() + targetBytes)
                          << " which exceeds its max capacity "
-                         << succinctBytes(requestor->maxCapacity());
+                         << succinctBytes(requestor->maxCapacity())
+                         << ", current capacity "
+                         << succinctBytes(requestor->capacity()) << ", request "
+                         << succinctBytes(targetBytes);
     return false;
   }
 

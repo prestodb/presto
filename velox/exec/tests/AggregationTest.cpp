@@ -3098,13 +3098,15 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyInput) {
         }
         auto* driver = values->testingOperatorCtx()->driver();
         auto task = values->testingOperatorCtx()->task();
+        // Shrink all the capacity before reclaim.
+        task->pool()->shrink();
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
           ASSERT_GT(stats.reclaimExecTimeUs, 0);
-          ASSERT_GT(stats.reclaimedBytes, 0);
+          ASSERT_EQ(stats.reclaimedBytes, 0);
           ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
         static_cast<memory::MemoryPoolImpl*>(task->pool())
@@ -3168,13 +3170,15 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
         }
         auto* driver = op->testingOperatorCtx()->driver();
         auto task = op->testingOperatorCtx()->task();
+        // Shrink all the capacity before reclaim.
+        task->pool()->shrink();
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
           ASSERT_GT(stats.reclaimExecTimeUs, 0);
-          ASSERT_GT(stats.reclaimedBytes, 0);
+          ASSERT_EQ(stats.reclaimedBytes, 0);
           ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
         // Sets back the memory capacity to proceed the test.

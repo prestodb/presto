@@ -2590,7 +2590,15 @@ uint64_t Task::MemoryReclaimer::reclaim(
   if (task->isCancelled()) {
     return 0;
   }
-  return memory::MemoryReclaimer::reclaim(pool, targetBytes, maxWaitMs, stats);
+  // Before reclaiming from its operators, first to check if there is any free
+  // capacity in the root after stopping this task.
+  const uint64_t shrunkBytes = pool->shrink(targetBytes);
+  if (shrunkBytes >= targetBytes) {
+    return shrunkBytes;
+  }
+  return shrunkBytes +
+      memory::MemoryReclaimer::reclaim(
+             pool, targetBytes - shrunkBytes, maxWaitMs, stats);
 }
 
 void Task::MemoryReclaimer::abort(

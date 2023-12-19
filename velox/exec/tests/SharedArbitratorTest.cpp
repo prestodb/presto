@@ -639,6 +639,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
           AssertQueryBuilder(plan)
               .spillDirectory(spillDirectory->path)
               .config(core::QueryConfig::kSpillEnabled, "true")
+              .config(core::QueryConfig::kAggregationSpillEnabled, "false")
               .config(core::QueryConfig::kWriterSpillEnabled, "true")
               // Set 0 file writer flush threshold to always trigger flush in
               // test.
@@ -648,6 +649,11 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
               .connectorSessionProperty(
                   kHiveConnectorId,
                   connector::hive::HiveConfig::kOrcWriterMaxStripeSizeSession,
+                  "1GB")
+              .connectorSessionProperty(
+                  kHiveConnectorId,
+                  connector::hive::HiveConfig::
+                      kOrcWriterMaxDictionaryMemorySession,
                   "1GB")
               .connectorSessionProperty(
                   kHiveConnectorId,
@@ -2745,6 +2751,52 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, tableWriteReclaimOnClose) {
   waitForAllTasksToBeDeleted();
 }
 
+DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenWriterCloseAndTaskReclaim) {
+  const uint64_t memoryCapacity = 512 * MB;
+  setupMemory(memoryCapacity);
+  std::vector<RowVectorPtr> vectors = newVectors(1'000, memoryCapacity / 8);
+  const auto expectedResult = runWriteTask(vectors, nullptr, 1, false).data;
+
+  std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(memoryCapacity);
+
+  std::atomic_bool writerCloseWaitFlag{true};
+  folly::EventCount writerCloseWait;
+  std::atomic_bool taskReclaimWaitFlag{true};
+  folly::EventCount taskReclaimWait;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::flushStripe",
+      std::function<void(dwrf::Writer*)>(([&](dwrf::Writer* writer) {
+        writerCloseWaitFlag = false;
+        writerCloseWait.notifyAll();
+        taskReclaimWait.await([&]() { return !taskReclaimWaitFlag.load(); });
+      })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>(([&](Task* /*unused*/) {
+        taskReclaimWaitFlag = false;
+        taskReclaimWait.notifyAll();
+      })));
+
+  std::thread queryThread([&]() {
+    const auto result =
+        runWriteTask(vectors, queryCtx, 1, true, expectedResult);
+  });
+
+  writerCloseWait.await([&]() { return !writerCloseWaitFlag.load(); });
+
+  // Creates a fake pool to trigger memory arbitration.
+  auto fakePool = queryCtx->pool()->addLeafChild(
+      "fakePool", true, FakeMemoryReclaimer::create());
+  ASSERT_TRUE(memoryManager_->growPool(
+      fakePool.get(),
+      arbitrator_->stats().freeCapacityBytes +
+          queryCtx->pool()->capacity() / 2));
+
+  queryThread.join();
+  waitForAllTasksToBeDeleted();
+}
+
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, tableFileWriteError) {
   const uint64_t memoryCapacity = 32 * MB;
   setupMemory(memoryCapacity);
@@ -3626,6 +3678,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenRaclaimAndJoinFinish) {
   // spill after hash table built.
   memory::MemoryReclaimer::Stats stats;
   const uint64_t oldCapacity = joinQueryCtx->pool()->capacity();
+  task.load()->pool()->shrink();
   task.load()->pool()->reclaim(1'000, 0, stats);
   // If the last build memory pool is first child of its parent memory pool,
   // then memory arbitration (or join node memory pool) will reclaim from the
