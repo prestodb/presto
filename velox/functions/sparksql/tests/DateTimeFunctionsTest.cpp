@@ -456,5 +456,52 @@ TEST_F(DateTimeFunctionsTest, quarterDate) {
   EXPECT_EQ(3, quarter("1954-08-08"));
 }
 
+TEST_F(DateTimeFunctionsTest, nextDay) {
+  const auto nextDay = [&](const std::string& date,
+                           const std::string& dayOfWeek) {
+    auto startDates =
+        makeNullableFlatVector<int32_t>({parseDate(date)}, DATE());
+    auto dayOfWeeks = makeNullableFlatVector<std::string>({dayOfWeek});
+
+    auto result = evaluateOnce<int32_t>(
+        fmt::format("next_day(c0, '{}')", dayOfWeek),
+        makeRowVector({startDates}));
+
+    auto anotherResult = evaluateOnce<int32_t>(
+        "next_day(c0, c1)", makeRowVector({startDates, dayOfWeeks}));
+
+    EXPECT_EQ(result, anotherResult);
+    std::optional<std::string> res;
+    if (result.has_value()) {
+      res = DATE()->toString(result.value());
+    }
+    return res;
+  };
+
+  EXPECT_EQ(nextDay("2015-07-23", "Mon"), "2015-07-27");
+  EXPECT_EQ(nextDay("2015-07-23", "mo"), "2015-07-27");
+  EXPECT_EQ(nextDay("2015-07-23", "monday"), "2015-07-27");
+  EXPECT_EQ(nextDay("2015-07-23", "Tue"), "2015-07-28");
+  EXPECT_EQ(nextDay("2015-07-23", "tu"), "2015-07-28");
+  EXPECT_EQ(nextDay("2015-07-23", "tuesday"), "2015-07-28");
+  EXPECT_EQ(nextDay("2015-07-23", "we"), "2015-07-29");
+  EXPECT_EQ(nextDay("2015-07-23", "wed"), "2015-07-29");
+  EXPECT_EQ(nextDay("2015-07-23", "wednesday"), "2015-07-29");
+  EXPECT_EQ(nextDay("2015-07-23", "Thu"), "2015-07-30");
+  EXPECT_EQ(nextDay("2015-07-23", "TH"), "2015-07-30");
+  EXPECT_EQ(nextDay("2015-07-23", "thursday"), "2015-07-30");
+  EXPECT_EQ(nextDay("2015-07-23", "Fri"), "2015-07-24");
+  EXPECT_EQ(nextDay("2015-07-23", "fr"), "2015-07-24");
+  EXPECT_EQ(nextDay("2015-07-23", "friday"), "2015-07-24");
+  EXPECT_EQ(nextDay("2015-07-31", "wed"), "2015-08-05");
+  EXPECT_EQ(nextDay("2015-07-23", "saturday"), "2015-07-25");
+  EXPECT_EQ(nextDay("2015-07-23", "sunday"), "2015-07-26");
+  EXPECT_EQ(nextDay("2015-12-31", "Fri"), "2016-01-01");
+
+  EXPECT_EQ(nextDay("2015-07-23", "xx"), std::nullopt);
+  EXPECT_EQ(nextDay("2015-07-23", "\"quote"), std::nullopt);
+  EXPECT_EQ(nextDay("2015-07-23", ""), std::nullopt);
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

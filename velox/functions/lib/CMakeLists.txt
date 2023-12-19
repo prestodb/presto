@@ -30,7 +30,8 @@ add_library(
   Re2Functions.cpp
   StringEncodingUtils.cpp
   SubscriptUtil.cpp
-  CheckNestedNulls.cpp)
+  CheckNestedNulls.cpp
+  TimeUtils.cpp)
 
 target_link_libraries(velox_functions_lib velox_functions_util velox_vector
                       re2::re2 Folly::folly)

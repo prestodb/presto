@@ -408,4 +408,62 @@ struct DayOfYearFunction {
     result = getDayOfYear(getDateTime(date));
   }
 };
+
+template <typename T>
+struct NextDayFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& /*config*/,
+      const arg_type<Date>* /*startDate*/,
+      const arg_type<Varchar>* dayOfWeek) {
+    if (dayOfWeek != nullptr) {
+      weekDay_ = getDayOfWeekFromString(*dayOfWeek);
+      if (!weekDay_.has_value()) {
+        invalidFormat_ = true;
+      }
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Date>& result,
+      const arg_type<Date>& startDate,
+      const arg_type<Varchar>& dayOfWeek) {
+    if (invalidFormat_) {
+      return false;
+    }
+    auto weekDay = weekDay_.has_value() ? weekDay_.value()
+                                        : getDayOfWeekFromString(dayOfWeek);
+    if (!weekDay.has_value()) {
+      return false;
+    }
+    auto nextDay = getNextDate(startDate, weekDay.value());
+    if (nextDay != (int32_t)nextDay) {
+      return false;
+    }
+    result = nextDay;
+    return true;
+  }
+
+ private:
+  static FOLLY_ALWAYS_INLINE std::optional<int8_t> getDayOfWeekFromString(
+      const StringView& dayOfWeek) {
+    std::string lowerDayOfWeek =
+        boost::algorithm::to_lower_copy(dayOfWeek.str());
+    auto it = kDayOfWeekNames.find(lowerDayOfWeek);
+    if (it != kDayOfWeekNames.end()) {
+      return it->second;
+    }
+    return std::nullopt;
+  }
+
+  static FOLLY_ALWAYS_INLINE int64_t
+  getNextDate(int64_t startDay, int8_t dayOfWeek) {
+    return startDay + 1 + ((dayOfWeek - 1 - startDay) % 7 + 7) % 7;
+  }
+
+  std::optional<int8_t> weekDay_;
+  bool invalidFormat_{false};
+};
+
 } // namespace facebook::velox::functions::sparksql

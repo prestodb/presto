@@ -96,7 +96,22 @@ These functions support TIMESTAMP and DATE input types.
     Returns the month of ``date``. ::
 
         SELECT month('2009-07-30'); -- 7
-       
+
+.. spark:function:: next_day(startDate, dayOfWeek) -> date
+
+    Returns the first date which is later than ``startDate`` and named as ``dayOfWeek``.
+    Returns null if ``dayOfWeek`` is invalid.
+    ``dayOfWeek`` is case insensitive and must be one of the following:
+    ``SU``, ``SUN``, ``SUNDAY``, ``MO``, ``MON``, ``MONDAY``, ``TU``, ``TUE``, ``TUESDAY``,
+    ``WE``, ``WED``, ``WEDNESDAY``, ``TH``, ``THU``, ``THURSDAY``, ``FR``, ``FRI``, ``FRIDAY``,
+    ``SA``, ``SAT``, ``SATURDAY``. ::
+
+        SELECT next_day('2015-07-23', "Mon"); -- '2015-07-27'
+        SELECT next_day('2015-07-23', "mo"); -- '2015-07-27'
+        SELECT next_day('2015-07-23', "Tue"); -- '2015-07-28'
+        SELECT next_day('2015-07-23', "tu"); -- '2015-07-28'
+        SELECT next_day('2015-07-23', "we"); -- '2015-07-29'
+
 .. spark:function:: to_unix_timestamp(string) -> integer
 
     Alias for ``unix_timestamp(string) -> integer``.

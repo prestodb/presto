@@ -285,6 +285,8 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<MonthFunction, int32_t, Date>({prefix + "month"});
 
+  registerFunction<NextDayFunction, Date, Date, Varchar>({prefix + "next_day"});
+
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});
