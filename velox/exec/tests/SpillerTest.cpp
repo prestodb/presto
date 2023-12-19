@@ -200,7 +200,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         });
     sortSpillData(ascending);
 
-    setupSpiller(2'000'000, 0, 0, makeError);
+    setupSpiller(2'000'000, 0, makeError);
 
     // We spill spillPct% of the data in 10% increments.
     runSpill(makeError);
@@ -470,7 +470,6 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   void setupSpiller(
       uint64_t targetFileSize,
       uint64_t writeBufferSize,
-      uint64_t minSpillRunSize,
       bool makeError,
       uint64_t maxSpillRunRows = 0) {
     static const std::string kBadSpillDirPath = "/bad/path";
@@ -736,7 +735,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           1,
           nullptr,
           {});
-      setupSpiller(targetFileSize, 0, 0, false, maxSpillRunRows);
+      setupSpiller(targetFileSize, 0, false, maxSpillRunRows);
       // Can't append without marking a partition as spilling.
       VELOX_ASSERT_THROW(spiller_->spill(0, rowVector_), "");
 
@@ -1053,7 +1052,7 @@ TEST_P(AllTypes, nonSortedSpillFunctions) {
     std::string debugString() const {
       return fmt::format("maxSpillRunRows {}", maxSpillRunRows);
     }
-  } testSettings[] = {{0}, {101}, {100'000}};
+  } testSettings[] = {{0}, {101}, {1'000'000}};
 
   for (const auto& testData : testSettings) {
     if (type_ == Spiller::Type::kOrderByInput ||
@@ -1062,7 +1061,7 @@ TEST_P(AllTypes, nonSortedSpillFunctions) {
         type_ == Spiller::Type::kAggregateOutput) {
       setupSpillData(rowType_, numKeys_, 5'000, 1, nullptr, {});
       sortSpillData();
-      setupSpiller(100'000, 0, 0, false, testData.maxSpillRunRows);
+      setupSpiller(100'000, 0, false, testData.maxSpillRunRows);
       {
         RowVectorPtr dummyVector;
         VELOX_ASSERT_THROW(
@@ -1079,6 +1078,7 @@ TEST_P(AllTypes, nonSortedSpillFunctions) {
       } else {
         spiller_->spill();
       }
+
       ASSERT_FALSE(spiller_->finalized());
       SpillPartitionSet spillPartitionSet;
       spiller_->finishSpill(spillPartitionSet);
@@ -1087,15 +1087,8 @@ TEST_P(AllTypes, nonSortedSpillFunctions) {
       verifySortedSpillData(spillPartitionSet.begin()->second.get());
       continue;
     }
-
-    testNonSortedSpill(1, 5'000, 1, 1, testData.maxSpillRunRows);
-    testNonSortedSpill(1, 5'000, 10, 1, testData.maxSpillRunRows);
-    testNonSortedSpill(1, 5'000, 1, 1'000'000'000, testData.maxSpillRunRows);
-    testNonSortedSpill(1, 5'000, 10, 1'000'000'000, testData.maxSpillRunRows);
-    testNonSortedSpill(4, 5'000, 1, 1, testData.maxSpillRunRows);
-    testNonSortedSpill(4, 5'000, 10, 1, testData.maxSpillRunRows);
-    testNonSortedSpill(4, 5'000, 1, 1'000'000'000, testData.maxSpillRunRows);
-    testNonSortedSpill(4, 5'000, 10, 1'000'000'000, testData.maxSpillRunRows);
+    testNonSortedSpill(2, 5'000, 3, 1, testData.maxSpillRunRows);
+    testNonSortedSpill(2, 5'000, 3, 1'000'000'000, testData.maxSpillRunRows);
     // Empty case.
     testNonSortedSpill(1, 5'000, 0, 1, testData.maxSpillRunRows);
   }
@@ -1181,7 +1174,7 @@ TEST_P(HashJoinBuildOnly, spillPartition) {
   std::vector<std::vector<RowVectorPtr>> vectorsByPartition(numPartitions_);
   HashPartitionFunction spillHashFunction(hashBits_, rowType_, keyChannels_);
   splitByPartition(rowVector_, spillHashFunction, vectorsByPartition);
-  setupSpiller(100'000, 0, 0, false);
+  setupSpiller(100'000, 0, false);
   spiller_->spill();
   rowContainer_->clear();
   spiller_->spill();
@@ -1196,7 +1189,7 @@ TEST_P(HashJoinBuildOnly, writeBufferSize) {
     SCOPED_TRACE(
         fmt::format("writeBufferSize {}", succinctBytes(writeBufferSize)));
     setupSpillData(rowType_, numKeys_, 1'000, 1, nullptr, {});
-    setupSpiller(4'000'000'000, writeBufferSize, 0, false);
+    setupSpiller(4'000'000'000, writeBufferSize, false);
     spiller_->spill();
     ASSERT_TRUE(spiller_->isAllSpilled());
     const int numDiskWrites = spiller_->stats().spillDiskWrites;
@@ -1299,7 +1292,7 @@ TEST_P(AggregationOutputOnly, basic) {
     setupSpillData(rowType_, numKeys_, numRows, 0);
     sortSpillData();
     // NOTE: target file size is ignored by aggregation output spiller type.
-    setupSpiller(0, 1'000'000, 0, false, testData.maxSpillRunRows);
+    setupSpiller(0, 1'000'000, false, testData.maxSpillRunRows);
     RowContainerIterator rowIter;
     std::vector<char*> rows(numRows);
     int numListedRows{0};
@@ -1382,7 +1375,7 @@ TEST_P(OrderByOutputOnly, basic) {
     setupSpillData(rowType_, numKeys_, numRows, 0);
     sortSpillData();
     // NOTE: target file size is ignored by aggregation output spiller type.
-    setupSpiller(0, 1'000'000, 0, false);
+    setupSpiller(0, 1'000'000, false);
     RowContainerIterator rowIter;
     std::vector<char*> rows(numRows);
     int numListedRows{0};
@@ -1467,7 +1460,6 @@ TEST_P(MaxSpillRunTest, basic) {
     sortSpillData();
     setupSpiller(
         std::numeric_limits<uint64_t>::max(),
-        0,
         0,
         false,
         testData.maxSpillRunRows);
