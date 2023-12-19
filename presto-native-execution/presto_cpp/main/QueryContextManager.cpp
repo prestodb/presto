@@ -54,6 +54,36 @@ std::string toVeloxConfig(const std::string& name) {
   return it == kPrestoToVeloxMapping.end() ? name : it->second;
 }
 
+// Update passed in query session configs with system configs. For any pairing
+// system/session configs if session config is present, it overrides system
+// config, otherwise system config is fed in queryConfigs. E.g.
+// "query.max-memory-per-node" system config and "query_max_memory_per_node"
+// session config is a pairing config. If system config is 7GB but session
+// config is not provided, then 7GB will be added to 'queryConfigs'. On the
+// other hand if system config is 7GB but session config is 4GB then 4GB will
+// be preserved in 'queryConfigs'.
+void updateFromSystemConfigs(
+    std::unordered_map<std::string, std::string>& queryConfigs) {
+  const auto& systemConfig = SystemConfig::instance();
+  static const std::unordered_map<std::string, std::string>
+      sessionSystemConfigMapping{
+          {core::QueryConfig::kQueryMaxMemoryPerNode,
+           std::string(SystemConfig::kQueryMaxMemoryPerNode)},
+          {core::QueryConfig::kSpillFileCreateConfig,
+           std::string(SystemConfig::kSpillerFileCreateConfig)}};
+
+  for (const auto& configNameEntry : sessionSystemConfigMapping) {
+    const auto& sessionName = configNameEntry.first;
+    const auto& systemConfigName = configNameEntry.second;
+    if (queryConfigs.count(sessionName) == 0) {
+      const auto propertyOpt = systemConfig->optionalProperty(systemConfigName);
+      if (propertyOpt.hasValue()) {
+        queryConfigs[sessionName] = propertyOpt.value();
+      }
+    }
+  }
+}
+
 std::unordered_map<std::string, std::string> toConfigs(
     const protocol::SessionRepresentation& session) {
   // Use base velox query config as the starting point and add Presto session
@@ -70,6 +100,7 @@ std::unordered_map<std::string, std::string> toConfigs(
         velox::core::QueryConfig::kSessionTimezone,
         velox::util::getTimeZoneName(session.timeZoneKey));
   }
+  updateFromSystemConfigs(configs);
   return configs;
 }
 
@@ -142,9 +173,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   static std::atomic_uint64_t poolId{0};
   auto pool = memory::MemoryManager::getInstance()->addRootPool(
       fmt::format("{}_{}", queryId, poolId++),
-      queryConfig.queryMaxMemoryPerNode() != 0
-          ? queryConfig.queryMaxMemoryPerNode()
-          : SystemConfig::instance()->queryMaxMemoryPerNode(),
+      queryConfig.queryMaxMemoryPerNode(),
       !SystemConfig::instance()->memoryArbitratorKind().empty()
           ? memory::MemoryReclaimer::create()
           : nullptr);
