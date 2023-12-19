@@ -15,6 +15,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "presto_cpp/main/TaskManager.h"
+#include "presto_cpp/main/common/Configs.h"
 
 namespace facebook::presto {
 
@@ -67,6 +68,37 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
   EXPECT_TRUE(queryCtx->queryConfig().joinSpillEnabled());
   EXPECT_FALSE(queryCtx->queryConfig().validateOutputFromOperators());
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1L << 20);
+}
+
+TEST_F(QueryContextManagerTest, overrdingSessionProperties) {
+  protocol::TaskId taskId = "scan.0.0.1.0";
+  const auto& systemConfig = SystemConfig::instance();
+  {
+    protocol::SessionRepresentation session{.systemProperties = {}};
+    auto queryCtx =
+        taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
+            taskId, session);
+    EXPECT_EQ(
+        queryCtx->queryConfig().queryMaxMemoryPerNode(),
+        systemConfig->queryMaxMemoryPerNode());
+    EXPECT_EQ(
+        queryCtx->queryConfig().spillFileCreateConfig(),
+        systemConfig->spillerFileCreateConfig());
+  }
+  {
+    protocol::SessionRepresentation session{
+        .systemProperties = {
+            {"query_max_memory_per_node", "1GB"},
+            {"spill_file_create_config", "encoding:replica_2"}}};
+    auto queryCtx =
+        taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
+            taskId, session);
+    EXPECT_EQ(
+        queryCtx->queryConfig().queryMaxMemoryPerNode(),
+        1UL * 1024 * 1024 * 1024);
+    EXPECT_EQ(
+        queryCtx->queryConfig().spillFileCreateConfig(), "encoding:replica_2");
+  }
 }
 
 TEST_F(QueryContextManagerTest, duplicateQueryRootPoolName) {
