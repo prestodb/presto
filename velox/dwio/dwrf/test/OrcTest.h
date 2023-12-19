@@ -17,9 +17,9 @@
 #pragma once
 
 #include "velox/dwio/common/IntCodecCommon.h"
+#include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/dwio/dwrf/common/Encryption.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
-#include "velox/dwio/dwrf/test/OrcFiles.h"
 #include "velox/dwio/dwrf/writer/IndexBuilder.h"
 #include "velox/dwio/dwrf/writer/WriterBase.h"
 
@@ -31,6 +31,11 @@ namespace facebook::velox::dwrf {
 #define VELOX_ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
 
 using MemoryPool = memory::MemoryPool;
+
+inline std::string getExampleFilePath(const std::string& fileName) {
+  return velox::test::getDataFilePath(
+      "velox/dwio/dwrf/test", "examples/" + fileName);
+}
 
 class MockStripeStreams : public StripeStreams {
  public:

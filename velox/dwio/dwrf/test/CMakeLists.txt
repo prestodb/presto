@@ -261,10 +261,6 @@ target_link_libraries(
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
 
-  add_library(
-    orc_files
-    OrcFiles.cpp)
-
 add_executable(velox_dwio_dwrf_config_test ConfigTests.cpp)
 add_test(velox_dwio_dwrf_config_test velox_dwio_dwrf_config_test)
 
@@ -336,8 +332,7 @@ target_link_libraries(
   velox_dwio_dwrf_reader_test
   velox_dwrf_test_utils
   velox_vector_test_lib
-  velox_link_libs,
-  orc_files
+  velox_link_libs
   Folly::folly
   fmt::fmt
   lz4::lz4
