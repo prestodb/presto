@@ -29,7 +29,6 @@ _______________
 * Extends HBO to track statistics of execution partial aggregation nodes.
 * Free memory on frequent full garbage collection strategy triggers task killer if worker is having frequent garbage collection and enough memory is not reclaimed during the garbage collections. Frequent garbage collection is identified via `experimental.task.high-memory-task-killer-frequent-full-gc-duration-threshold` and reclaim memory threshold is configured via `experimental.task.high-memory-task-killer-reclaim-memory-threshold`.
 * Free memory on full garbage collection strategy triggers task killer if worker is running low memory and full GC is not able to reclaim enough memory. Low memory threhold is set by  `experimental.task.high-memory-task-killer-heap-memory-threshold`  and Full GC reclaim memory threhold is set by `experimental.task.high-memory-task-killer-reclaim-memory-threshold`.
-* Iceberg connector now supports ANALYZE when configured with a Hive catalog and the table is unpartitioned.
 * Introduces a new flag use_partial_aggregation_history, which controls whether or not partial aggregation histories are used in deciding whether to split aggregates into partial and final.
 * MinbyN/maxbyN's third argument (N) is now checked to be unique.
 * Print information about cost-based optimizers and the source of stats they use (CBO/HBO) in explain plans when session property verbose_optimizer_info_enabled=true.
@@ -41,20 +40,21 @@ _______________
 * Updated docs accordingly (hive connector - schema evolution).
 * When partial aggregation statistics are used in PushPartialAggregationThroughExchange, the optimization also applies to multi-key aggregations (as opposed to single-key only when CBO is used).
 
-Hive Changes
+Hive Connector Changes
 ____________
 * Changes in ParquetPageSourceFactory so that the type-check does not fail with the new widenings supported.
 * Support for Parquet writer versions V1 and V2 is now added for Hive and Iceberg catalogs. It can be toggled using session property `parquet_writer_version` and config property `hive.parquet.writer.version`. Valid values for these properties are PARQUET_1_0 and PARQUET_2_0. Default is PARQUET_2_0. E.g., set session parquet_writer_version=PARQUET_1_0 / hive.parquet.writer.version=PARQUET_1_0.
 
-Iceberg Changes
+Iceberg Connector Changes
 _______________
-* Fix iceberg table creation using glue metastore.
+* Support ANALYZE when configured with a Hive catalog and the table is unpartitioned.
+* Support iceberg table creation using glue metastore.
 * SHOW STATS command will support timestamp column based on user session's time zone.
 * Support view creation via Iceberg connector.
-* Timestamp with time zone data type is not allowed in create table and alter table statements.
+* Disable timestamp with time zone type in create table and alter table statements.
 * Update Iceberg version from 1.3.1 to 1.4.1.
 
-Pinot Changes
+Pinot Connector Changes
 _____________
 * Fix pinot single quote literal push down issue.
 
