@@ -95,13 +95,13 @@ jobs:
           name: spark
           path: |
             velox/_build/debug/velox/expression/tests/spark_expression_fuzzer_test
-            velox/_build/debug/velox/expression/tests/spark_aggregation_fuzzer_test
+            velox/_build/debug/velox/functions/sparksql/fuzzer/spark_aggregation_fuzzer_test
 
       - name: Upload aggregation fuzzer
         uses: actions/upload-artifact@v3
         with:
           name: aggregation
-          path: velox/_build/debug/velox/exec/tests/velox_aggregation_fuzzer_test
+          path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_aggregation_fuzzer_test
 
       - name: Upload join fuzzer
         uses: actions/upload-artifact@v3

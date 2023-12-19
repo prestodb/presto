@@ -315,7 +315,7 @@ jobs:
           command: |
             mkdir -p /tmp/spark_aggregate_fuzzer_repro/
             chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
-            _build/debug/velox/exec/tests/spark_aggregation_fuzzer_test \
+            _build/debug/velox/functions/sparksql/fuzzer/spark_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec 60 \
                 --logtostderr=1 \
@@ -332,7 +332,7 @@ jobs:
             mkdir -p /tmp/aggregate_fuzzer_repro/
             rm -rfv /tmp/aggregate_fuzzer_repro/*
             chmod -R 777 /tmp/aggregate_fuzzer_repro
-            _build/debug/velox/exec/tests/velox_aggregation_fuzzer_test \
+            _build/debug/velox/functions/prestosql/fuzzer/velox_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec 1800 \
                 --logtostderr=1 \
@@ -503,7 +503,7 @@ jobs:
           fuzzer_output: "/tmp/spark_aggregate_fuzzer.log"
           fuzzer_repro: "/tmp/spark_aggregate_fuzzer_repro"
           fuzzer_name: "SparkAggregate"
-          fuzzer_exe: "_build/debug/velox/exec/tests/spark_aggregation_fuzzer_test"
+          fuzzer_exe: "_build/debug/velox/functions/sparksql/fuzzer/spark_aggregation_fuzzer_test"
           fuzzer_args: " --seed ${RANDOM} --duration_sec 600 --logtostderr=1 --minloglevel=0 \
           --repro_persist_path=/tmp/spark_aggregate_fuzzer_repro"
 
@@ -518,7 +518,7 @@ jobs:
           fuzzer_output: "/tmp/aggregate_fuzzer.log"
           fuzzer_repro: "/tmp/aggregate_fuzzer_repro"
           fuzzer_name: "Aggregate"
-          fuzzer_exe: "_build/debug/velox/exec/tests/velox_aggregation_fuzzer_test"
+          fuzzer_exe: "_build/debug/velox/functions/prestosql/fuzzer/velox_aggregation_fuzzer_test"
           fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 \
           --repro_persist_path=/tmp/aggregate_fuzzer_repro"
 
