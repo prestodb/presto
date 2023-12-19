@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/exec/ExchangeQueue.h"
 #include "velox/exec/ExchangeSource.h"
 

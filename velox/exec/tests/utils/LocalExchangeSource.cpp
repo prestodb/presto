@@ -30,6 +30,10 @@ class LocalExchangeSource : public exec::ExchangeSource {
       memory::MemoryPool* pool)
       : ExchangeSource(taskId, destination, queue, pool) {}
 
+  bool supportsMetrics() const override {
+    return true;
+  }
+
   bool shouldRequestLocked() override {
     if (atEnd_) {
       return false;
@@ -158,11 +162,13 @@ class LocalExchangeSource : public exec::ExchangeSource {
     buffers->deleteResults(taskId_, destination_);
   }
 
-  folly::F14FastMap<std::string, int64_t> stats() const override {
+  folly::F14FastMap<std::string, RuntimeMetric> metrics() const override {
     return {
-        {"localExchangeSource.numPages", numPages_},
-        {"localExchangeSource.totalBytes", totalBytes_},
-        {ExchangeClient::kBackgroundCpuTimeMs, 123},
+        {"localExchangeSource.numPages", RuntimeMetric(numPages_)},
+        {"localExchangeSource.totalBytes",
+         RuntimeMetric(totalBytes_, RuntimeCounter::Unit::kBytes)},
+        {ExchangeClient::kBackgroundCpuTimeMs,
+         RuntimeMetric(123 * 1000000, RuntimeCounter::Unit::kNanos)},
     };
   }
 
