@@ -37,21 +37,21 @@ struct OperatorStats;
 class Task;
 
 enum class StopReason {
-  // Keep running.
+  /// Keep running.
   kNone,
-  // Go off thread and do not schedule more activity.
+  /// Go off thread and do not schedule more activity.
   kPause,
-  // Stop and free all. This is returned once and the thread that gets
-  // this value is responsible for freeing the state associated with
-  // the thread. Other threads will get kAlreadyTerminated after the
-  // first thread has received kTerminate.
+  /// Stop and free all. This is returned once and the thread that gets this
+  /// value is responsible for freeing the state associated with the thread.
+  /// Other threads will get kAlreadyTerminated after the first thread has
+  /// received kTerminate.
   kTerminate,
   kAlreadyTerminated,
-  // Go off thread and then enqueue to the back of the runnable queue.
+  /// Go off thread and then enqueue to the back of the runnable queue.
   kYield,
-  // Must wait for external events.
+  /// Must wait for external events.
   kBlock,
-  // No more data to produce.
+  /// No more data to produce.
   kAtEnd,
   kAlreadyOnThread
 };
@@ -60,53 +60,56 @@ std::string stopReasonString(StopReason reason);
 
 std::ostream& operator<<(std::ostream& out, const StopReason& reason);
 
-// Represents a Driver's state. This is used for cancellation, forcing
-// release of and for waiting for memory. The fields are serialized on
-// the mutex of the Driver's Task.
-//
-// The Driver goes through the following states:
-// Not on thread. It is created and has not started. All flags are false.
-//
-// Enqueued - The Driver is added to an executor but does not yet have a thread.
-// isEnqueued is true. Next states are terminated or on thread.
-//
-// On thread - 'thread' is set to the thread that is running the Driver. Next
-// states are blocked, terminated, suspended, enqueued.
-//
-//  Blocked - The Driver is not on thread and is waiting for an external event.
-//  Next states are terminated, enqueued.
-//
-// Suspended - The Driver is on thread, 'thread' and 'isSuspended' are set. The
-// thread does not manipulate the Driver's state and is suspended as in waiting
-// for memory or out of process IO. This is different from Blocked in that here
-// we keep the stack so that when the wait is over the control stack is not
-// lost. Next states are on thread or terminated.
-//
-//  Terminated - 'isTerminated' is set. The Driver cannot run after this and
-// the state is final.
-//
-// CancelPool  allows terminating or pausing a set of Drivers. The Task API
-// allows starting or resuming Drivers. When terminate is requested the request
-// is successful when all Drivers are off thread, blocked or suspended. When
-// pause is requested, we have success when all Drivers are either enqueued,
-// suspended, off thread or blocked.
+/// Represents a Driver's state. This is used for cancellation, forcing
+/// release of and for waiting for memory. The fields are serialized on
+/// the mutex of the Driver's Task.
+///
+/// The Driver goes through the following states:
+/// Not on thread. It is created and has not started. All flags are false.
+///
+/// Enqueued - The Driver is added to an executor but does not yet have a
+/// thread. isEnqueued is true. Next states are terminated or on thread.
+///
+/// On thread - 'thread' is set to the thread that is running the Driver. Next
+/// states are blocked, terminated, suspended, enqueued.
+///
+///  Blocked - The Driver is not on thread and is waiting for an external event.
+///  Next states are terminated, enqueued.
+///
+/// Suspended - The Driver is on thread, 'thread' and 'isSuspended' are set. The
+/// thread does not manipulate the Driver's state and is suspended as in waiting
+/// for memory or out of process IO. This is different from Blocked in that here
+/// we keep the stack so that when the wait is over the control stack is not
+/// lost. Next states are on thread or terminated.
+///
+///  Terminated - 'isTerminated' is set. The Driver cannot run after this and
+/// the state is final.
+///
+/// CancelPool  allows terminating or pausing a set of Drivers. The Task API
+/// allows starting or resuming Drivers. When terminate is requested the request
+/// is successful when all Drivers are off thread, blocked or suspended. When
+/// pause is requested, we have success when all Drivers are either enqueued,
+/// suspended, off thread or blocked.
 struct ThreadState {
-  // The thread currently running this.
+  /// The thread currently running this.
   std::atomic<std::thread::id> thread{std::thread::id()};
-  // The tid of 'thread'. Allows finding the thread in a debugger.
+  /// The tid of 'thread'. Allows finding the thread in a debugger.
   std::atomic<int32_t> tid{0};
-  // True if queued on an executor but not on thread.
+  /// True if queued on an executor but not on thread.
   std::atomic<bool> isEnqueued{false};
-  // True if being terminated or already terminated.
+  /// True if being terminated or already terminated.
   std::atomic<bool> isTerminated{false};
-  // True if there is a future outstanding that will schedule this on an
-  // executor thread when some promise is realized.
+  /// True if there is a future outstanding that will schedule this on an
+  /// executor thread when some promise is realized.
   bool hasBlockingFuture{false};
-  // True if on thread but in a section waiting for RPC or memory
-  // strategy decision. The thread is not supposed to access its
-  // memory, which a third party can revoke while the thread is in
-  // this state.
+  /// True if on thread but in a section waiting for RPC or memory strategy
+  /// decision. The thread is not supposed to access its memory, which a third
+  /// party can revoke while the thread is in this state.
   bool isSuspended{false};
+  /// The start execution time on thread in milliseconds. It is reset when the
+  /// driver goes off thread. This is used to track the time that a driver has
+  /// continuously run on a thread for per-driver cpu time slice enforcement.
+  size_t startExecTimeMs{0};
 
   bool isOnThread() const {
     return thread != std::thread::id();
@@ -114,6 +117,7 @@ struct ThreadState {
 
   void setThread() {
     thread = std::this_thread::get_id();
+    startExecTimeMs = getCurrentTimeMs();
 #if !defined(__APPLE__)
     // This is a debugging feature disabled on the Mac since syscall
     // is deprecated on that platform.
@@ -123,7 +127,18 @@ struct ThreadState {
 
   void clearThread() {
     thread = std::thread::id(); // no thread.
+    startExecTimeMs = 0;
     tid = 0;
+  }
+
+  /// Returns the driver execution time on thread. Returns zero if the driver
+  /// is currently not running on thread.
+  size_t execTimeMs() const {
+    if (startExecTimeMs == 0) {
+      VELOX_CHECK(!isOnThread());
+      return 0;
+    }
+    return getCurrentTimeMs() - startExecTimeMs;
   }
 
   std::string toJsonString() const {
@@ -134,6 +149,7 @@ struct ThreadState {
     obj["isEnqueued"] = isEnqueued.load();
     obj["hasBlockingFuture"] = hasBlockingFuture;
     obj["isSuspended"] = isSuspended;
+    obj["startExecTime"] = startExecTimeMs;
     return folly::toPrettyJson(obj);
   }
 };
@@ -323,6 +339,12 @@ class Driver : public std::enable_shared_from_this<Driver> {
     return state_.isOnThread();
   }
 
+  /// Returns the time in ms since this driver started execution on thread. The
+  /// function returns zero if this driver is off-thread.
+  uint64_t execTimeMs() const {
+    return state_.execTimeMs();
+  }
+
   bool isTerminated() const {
     return state_.isTerminated;
   }
@@ -332,6 +354,10 @@ class Driver : public std::enable_shared_from_this<Driver> {
   ThreadState& state() {
     return state_;
   }
+
+  /// Returns true if this driver is running on thread and has exceeded the cpu
+  /// time slice limit if set.
+  bool shouldYield() const;
 
   void initializeOperatorStats(std::vector<OperatorStats>& stats);
 
@@ -387,6 +413,9 @@ class Driver : public std::enable_shared_from_this<Driver> {
     return blockingReason_;
   }
 
+  /// Returns the process-wide number of driver cpu yields.
+  static std::atomic_uint64_t& yieldCount();
+
   static std::shared_ptr<Driver> testingCreate(
       std::unique_ptr<DriverCtx> ctx = nullptr) {
     auto driver = new Driver();
@@ -399,6 +428,9 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
  private:
   Driver() = default;
+
+  // Invoked to record the driver cpu yield count.
+  static void recordYieldCount();
 
   void init(
       std::unique_ptr<DriverCtx> driverCtx,
@@ -439,6 +471,9 @@ class Driver : public std::enable_shared_from_this<Driver> {
   CpuWallTiming processLazyTiming(Operator& op, const CpuWallTiming& timing);
 
   std::unique_ptr<DriverCtx> ctx_;
+
+  // If not zero, specifies the driver cpu time slice.
+  size_t cpuSliceMs_{0};
 
   bool operatorsInitialized_{false};
 

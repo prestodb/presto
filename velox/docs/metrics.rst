@@ -50,6 +50,20 @@ in max bucket. It also allows to specify the value percentiles to report for
 monitoring. This allows BaseStatsReporter and the backend monitoring service to
 optimize the aggregated data storage.
 
+Task Execution
+--------------
+.. list-table::
+   :widths: 40 10 50
+   :header-rows: 1
+
+   * - Metric Name
+     - Type
+     - Description
+   * - driver_yield_count
+     - Count
+     - The number of times that a driver has yielded from the thread when it
+       hits the per-driver cpu time slice limit if enforced.
+
 Memory Management
 -----------------
 

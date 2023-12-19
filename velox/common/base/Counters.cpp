@@ -20,6 +20,13 @@
 namespace facebook::velox {
 
 void registerVeloxMetrics() {
+  /// ================== Task Execution Counters =================
+  // The number of driver yield count when exceeds the per-driver cpu time slice
+  // limit if enforced.
+  DEFINE_METRIC(kMetricDriverYieldCount, facebook::velox::StatType::COUNT);
+
+  /// ================== Cache Counters =================
+
   // Tracks hive handle generation latency in range of [0, 100s] and reports
   // P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(

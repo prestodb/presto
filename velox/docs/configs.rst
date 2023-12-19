@@ -118,6 +118,11 @@ Generic Configuration
      - true
      - Whether to enable caches in expression evaluation. If set to true, optimizations including vector pools and
        evalWithMemo are enabled.
+   * - driver_cpu_time_slice_limit_ms
+     - integer
+     - 0
+     - If it is not zero, specifies the time limit that a driver can continuously
+       run on a thread before yield. If it is zero, then it no limit.
 
 .. _expression-evaluation-conf:
 

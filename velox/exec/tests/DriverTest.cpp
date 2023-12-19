@@ -20,6 +20,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
@@ -1362,4 +1363,58 @@ DEBUG_ONLY_TEST_F(DriverTest, nonReclaimableSection) {
   }
   auto plan = PlanBuilder().values(batches).planNode();
   ASSERT_NO_THROW(AssertQueryBuilder(plan).copyResults(pool()));
+}
+
+DEBUG_ONLY_TEST_F(DriverTest, driverCpuTimeSlicingCheck) {
+  const int numBatches = 3;
+  std::vector<RowVectorPtr> batches;
+  for (int i = 0; i < numBatches; ++i) {
+    batches.push_back(
+        makeRowVector({"c0"}, {makeFlatVector<int32_t>({1, 2, 3})}));
+  }
+
+  for (const auto& hasCpuTimeSliceLimit : {false, true}) {
+    SCOPED_TRACE(fmt::format("hasCpuSliceLimit: {}", hasCpuTimeSliceLimit));
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Values::getOutput",
+        std::function<void(const exec::Values*)>([&](const exec::Values*
+                                                         values) {
+          // Verify that no matter driver cpu time slicing is enforced or not,
+          // the driver start execution time is set properly.
+          ASSERT_NE(
+              values->testingOperatorCtx()->driver()->state().startExecTimeMs,
+              0);
+          if (hasCpuTimeSliceLimit) {
+            std::this_thread::sleep_for(std::chrono::seconds(1)); // NOLINT
+            ASSERT_GT(
+                values->testingOperatorCtx()->driver()->state().execTimeMs(),
+                0);
+          }
+        }));
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto fragment =
+        PlanBuilder(planNodeIdGenerator).values(batches).planFragment();
+    std::unordered_map<std::string, std::string> queryConfig;
+    if (hasCpuTimeSliceLimit) {
+      queryConfig.emplace(core::QueryConfig::kDriverCpuTimeSliceLimitMs, "500");
+    }
+    const uint64_t oldYieldCount = Driver::yieldCount();
+    auto task = Task::create(
+        "t0",
+        fragment,
+        0,
+        std::make_shared<core::QueryCtx>(
+            driverExecutor_.get(), std::move(queryConfig)),
+        [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
+          return exec::BlockingReason::kNotBlocked;
+        });
+    task->start(1, 1);
+    ASSERT_TRUE(waitForTaskCompletion(task.get(), 600'000'000));
+    if (hasCpuTimeSliceLimit) {
+      // NOTE: there is one additional yield for the empty output.
+      ASSERT_GE(Driver::yieldCount(), oldYieldCount + numBatches + 1);
+    } else {
+      ASSERT_EQ(Driver::yieldCount(), oldYieldCount);
+    }
+  }
 }
