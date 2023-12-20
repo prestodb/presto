@@ -562,8 +562,7 @@ public class PlanOptimizers
                                 new RemoveRedundantDistinctLimit(),
                                 new RemoveRedundantAggregateDistinct(),
                                 new RemoveRedundantIdentityProjections(),
-                                new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()),
-                                new AddNotNullFiltersToJoinNode(metadata.getFunctionAndTypeManager()))),
+                                new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()))),
                 inlineProjections,
                 simplifyRowExpressionOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
@@ -571,6 +570,14 @@ public class PlanOptimizers
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()), // Run again because predicate pushdown and projection pushdown might add more projections
                 new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()))),
+                        ImmutableSet.of(
+                                new AddNotNullFiltersToJoinNode(metadata.getFunctionAndTypeManager()))), // run this optimizer after IndexJoinOptimizer as it may add filters to outer join nodes incompatible with index scan
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
