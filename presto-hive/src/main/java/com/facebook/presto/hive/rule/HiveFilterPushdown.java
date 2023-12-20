@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetPushdownFilterEnabled;
@@ -103,7 +104,7 @@ public class HiveFilterPushdown
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return rewriteWith(new SubfieldExtractionRewriter(session, idAllocator, rowExpressionService, functionResolution, functionMetadataManager, transactionManager, partitionManager), maxSubplan);
+        return rewriteWith(new SubfieldExtractionRewriter(session, idAllocator, rowExpressionService, functionResolution, functionMetadataManager, transactionManager, partitionManager, tableHandle -> getConnectorMetadata(transactionManager, tableHandle)), maxSubplan);
     }
 
     public static class SubfieldExtractionRewriter
@@ -117,9 +118,10 @@ public class HiveFilterPushdown
                 StandardFunctionResolution functionResolution,
                 FunctionMetadataManager functionMetadataManager,
                 HiveTransactionManager transactionManager,
-                HivePartitionManager partitionManager)
+                HivePartitionManager partitionManager,
+                Function<TableHandle, ConnectorMetadata> transactionToMetadata)
         {
-            super(session, idAllocator, rowExpressionService, functionResolution, functionMetadataManager, tableHandle -> getConnectorMetadata(transactionManager, tableHandle));
+            super(session, idAllocator, rowExpressionService, functionResolution, functionMetadataManager, transactionToMetadata);
 
             this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         }
@@ -210,7 +212,7 @@ public class HiveFilterPushdown
         }
     }
 
-    private static ConnectorMetadata getConnectorMetadata(HiveTransactionManager transactionManager, TableHandle tableHandle)
+    public static ConnectorMetadata getConnectorMetadata(HiveTransactionManager transactionManager, TableHandle tableHandle)
     {
         requireNonNull(transactionManager, "transactionManager is null");
         ConnectorMetadata metadata = transactionManager.get(tableHandle.getTransaction());
