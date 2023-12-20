@@ -217,6 +217,7 @@ void CacheInputStream::loadSync(Region region) {
       }
       ioStats_->read().increment(region.length);
       ioStats_->queryThreadIoLatency().increment(usec);
+      ioStats_->incTotalScanTime(usec * 1'000);
       entry->setExclusiveToShared();
     } else {
       // Hit memory cache.

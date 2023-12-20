@@ -1834,9 +1834,20 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
         "SELECT * FROM tmp WHERE " + filter);
   };
 
-  auto task = assertQuery("c0 IS NULL");
+  auto task = TableScanTest::assertQuery(
+      PlanBuilder().tableScan(rowType).planNode(),
+      filePaths,
+      "SELECT * FROM tmp");
 
   auto stats = getTableScanStats(task);
+  EXPECT_EQ(31'234, stats.rawInputRows);
+  EXPECT_EQ(31'234, stats.inputRows);
+  EXPECT_EQ(31'234, stats.outputRows);
+  EXPECT_GT(getTableScanRuntimeStats(task)["totalScanTime"].sum, 0);
+
+  task = assertQuery("c0 IS NULL");
+
+  stats = getTableScanStats(task);
   EXPECT_EQ(0, stats.rawInputRows);
   EXPECT_EQ(0, stats.inputRows);
   EXPECT_EQ(0, stats.outputRows);

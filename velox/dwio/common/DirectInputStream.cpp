@@ -154,6 +154,7 @@ void DirectInputStream::loadSync() {
   }
   ioStats_->read().increment(loadedRegion_.length);
   ioStats_->queryThreadIoLatency().increment(usecs);
+  ioStats_->incTotalScanTime(usecs * 1'000);
 }
 
 void DirectInputStream::loadPosition() {
