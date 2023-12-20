@@ -45,8 +45,8 @@ Presto Functions
 * Fix :func:`array_sort` and :func:`contains` scalar functions to reject inputs with nested nulls.
 * Fix :func:`map_agg`, :func:`set_agg`, :func:`min_by` and :func:`max_by` aggregate functions to
   reject inputs with nested nulls.
-* Fix :func:`array_sort` and :func:`array_sort_desc` to restrict inputs to order-able types. :pr:`:func:`6928`
-* Fix :func:`min`, :func:`min_by`, :func:`max`, :func:`max_by` aggregate functions to restrict inputs to order-able types. :pr:`:func:`7232`
+* Fix :func:`array_sort` and :func:`array_sort_desc` to restrict inputs to order-able types. :pr:`6928`
+* Fix :func:`min`, :func:`min_by`, :func:`max`, :func:`max_by` aggregate functions to restrict inputs to order-able types. :pr:`7232`
 * Fix CAST(VARCHAR as JSON) for Unicode characters. :pr:`7119`
 * Fix CAST(JSON as ROW) to use case-insensitive match for keys. :pr:`7016`
 
