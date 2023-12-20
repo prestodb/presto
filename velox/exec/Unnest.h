@@ -49,6 +49,34 @@ class Unnest : public Operator {
       vector_size_t size,
       vector_size_t outputSize);
 
+  // Invoked by generateOutput function above to generate the repeated output
+  // columns.
+  void generateRepeatedColumns(
+      vector_size_t start,
+      vector_size_t size,
+      vector_size_t numElements,
+      std::vector<VectorPtr>& outputs);
+
+  struct UnnestChannelEncoding {
+    BufferPtr indices;
+    BufferPtr nulls;
+    bool identityMapping;
+  };
+
+  // Invoked by generateOutput above to generate the encoding for the unnested
+  // Array or Map.
+  const UnnestChannelEncoding generateEncodingForChannel(
+      column_index_t channel,
+      vector_size_t start,
+      vector_size_t size,
+      vector_size_t numElements);
+
+  // Invoked by generateOutput for the ordinality column.
+  VectorPtr generateOrdinalityVector(
+      vector_size_t start,
+      vector_size_t size,
+      vector_size_t numElements);
+
   const bool withOrdinality_;
   std::vector<column_index_t> unnestChannels_;
 
