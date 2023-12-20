@@ -466,6 +466,19 @@ void PrestoServer::run() {
   taskManager_ = std::make_unique<TaskManager>(
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 
+  if (systemConfig->prestoNativeSidecar()) {
+    httpServer_->registerGet(
+        "/v1/properties/session",
+        [this](
+            proxygen::HTTPMessage* /*message*/,
+            const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+            proxygen::ResponseHandler* downstream) {
+          auto sessionProperties =
+              taskManager_->getQueryContextManager()->getSessionProperties();
+          http::sendOkResponse(downstream, sessionProperties.serialize());
+        });
+  }
+
   std::string taskUri;
   if (httpsPort.has_value()) {
     taskUri = fmt::format(kTaskUriFormat, kHttps, address_, httpsPort.value());
