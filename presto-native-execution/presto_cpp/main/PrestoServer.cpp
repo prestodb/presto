@@ -657,10 +657,9 @@ void PrestoServer::initializeVeloxMemory() {
         systemConfig->memoryPoolTransferCapacity();
     options.arbitrationStateCheckCb = velox::exec::memoryArbitrationStateCheck;
   }
-  memory::MemoryManager::initialize(options);
-  PRESTO_STARTUP_LOG(INFO)
-      << "Memory manager has been setup: "
-      << memory::deprecatedDefaultMemoryManager().toString();
+  memory::initializeMemoryManager(options);
+  PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
+                           << memory::memoryManager()->toString();
 }
 
 void PrestoServer::stop() {
