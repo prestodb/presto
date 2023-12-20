@@ -89,6 +89,9 @@ std::string toPrestoOperatorType(const std::string& operatorType) {
   if (operatorType == "TableScan") {
     return "TableScanOperator";
   }
+  if (operatorType == "TableWrite") {
+    return "TableWriterOperator";
+  }
   return operatorType;
 }
 
