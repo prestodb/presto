@@ -28,8 +28,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static org.apache.iceberg.expressions.Expressions.bucket;
+import static org.apache.iceberg.expressions.Expressions.day;
+import static org.apache.iceberg.expressions.Expressions.hour;
+import static org.apache.iceberg.expressions.Expressions.month;
 import static org.apache.iceberg.expressions.Expressions.ref;
 import static org.apache.iceberg.expressions.Expressions.truncate;
+import static org.apache.iceberg.expressions.Expressions.year;
 
 public final class PartitionFields
 {
@@ -126,10 +130,13 @@ public final class PartitionFields
             case "identity":
                 return ref(columnName);
             case "year":
+                return year(columnName);
             case "month":
+                return month(columnName);
             case "day":
+                return day(columnName);
             case "hour":
-                throw new UnsupportedOperationException("Currently unsupported partition transform: " + transform);
+                return hour(columnName);
         }
 
         Matcher matcher = COLUMN_BUCKET_PATTERN.matcher(transform);

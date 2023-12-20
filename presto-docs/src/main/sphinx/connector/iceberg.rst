@@ -599,9 +599,13 @@ The table is partitioned by the transformed value of the column::
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN location VARCHAR WITH (partitioning = 'bucket(8)');
 
-.. note::
+     ALTER TABLE iceberg.web.page_views ADD COLUMN dt date WITH (partitioning = 'year');
 
-    ``Day``, ``Month``, ``Year``, ``Hour`` partition column transform functions are not supported in the Presto Iceberg connector.
+     ALTER TABLE iceberg.web.page_views ADD COLUMN ts timestamp WITH (partitioning = 'month');
+
+     ALTER TABLE iceberg.web.page_views ADD COLUMN dt date WITH (partitioning = 'day');
+
+     ALTER TABLE iceberg.web.page_views ADD COLUMN ts timestamp WITH (partitioning = 'hour');
 
 TRUNCATE
 ^^^^^^^^
