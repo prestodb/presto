@@ -31,7 +31,7 @@
 
 DEFINE_bool(
     enable_sorted_aggregations,
-    false,
+    true,
     "When true, generates plans with aggregations over sorted inputs");
 
 DEFINE_bool(

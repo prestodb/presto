@@ -19,8 +19,6 @@ on:
     paths:
       - ".github/workflows/experimental.yml"
 
-  schedule:
-    - cron: '0 1 * * *'
 
   workflow_dispatch:
     inputs:
