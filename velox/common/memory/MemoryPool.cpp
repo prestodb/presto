@@ -408,11 +408,13 @@ MemoryPoolImpl::~MemoryPoolImpl() {
 
   if (isLeaf()) {
     if (usedReservationBytes_ > 0) {
+      LOG(ERROR) << "Memory leak (Used memory): " << toString();
       RECORD_METRIC_VALUE(
           kMetricMemoryPoolUsageLeakBytes, usedReservationBytes_);
     }
 
     if (minReservationBytes_ > 0) {
+      LOG(ERROR) << "Memory leak (Reserved Memory): " << toString();
       RECORD_METRIC_VALUE(
           kMetricMemoryPoolReservationLeakBytes, minReservationBytes_);
     }

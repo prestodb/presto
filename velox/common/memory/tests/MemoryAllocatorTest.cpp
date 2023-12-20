@@ -842,7 +842,9 @@ TEST_P(MemoryAllocatorTest, nonContiguousFailure) {
   std::unordered_map<MemoryAllocator::InjectedFailure, std::string>
       expectedErrorMsg = {
           {MemoryAllocator::InjectedFailure::kAllocate,
-           "Malloc failed to allocate"}};
+           "Malloc failed to allocate"},
+          {MemoryAllocator::InjectedFailure::kCap,
+           "Exceeded memory allocator limit"}};
   if (useMmap_) {
     expectedErrorMsg = {
         {MemoryAllocator::InjectedFailure::kCap,
@@ -857,10 +859,10 @@ TEST_P(MemoryAllocatorTest, nonContiguousFailure) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(
         fmt::format("{}, useMmap:{}", testData.debugString(), useMmap_));
-    if ((testData.injectedFailure !=
-         MemoryAllocator::InjectedFailure::kAllocate) &&
+    if ((testData.injectedFailure ==
+         MemoryAllocator::InjectedFailure::kMadvise) &&
         !useMmap_) {
-      // Non-Allocate failure injection only applies for MmapAllocator.
+      // Madvise failure injection only applies for MmapAllocator.
       continue;
     }
     setupAllocator();
@@ -1004,8 +1006,7 @@ TEST_P(MemoryAllocatorTest, allocContiguousFail) {
           {MemoryAllocator::InjectedFailure::kMadvise,
            "Could not advise away enough"}};
   for (const auto& testData : testSettings) {
-    if ((testData.injectedFailure !=
-         MemoryAllocator::InjectedFailure::kAllocate) &&
+    if ((testData.injectedFailure != MemoryAllocator::InjectedFailure::kCap) &&
         !useMmap_) {
       continue;
     }
@@ -1422,7 +1423,13 @@ TEST_P(MemoryAllocatorTest, allocatorCapacity) {
     EXPECT_NE(nullptr, preExistingBuf);
 
     EXPECT_EQ(nullptr, instance_->allocateBytes(allocationBytes));
+    EXPECT_THAT(
+        instance_->getAndClearFailureMessage(),
+        testing::HasSubstr("Exceeded memory allocator limit"));
     EXPECT_EQ(nullptr, instance_->allocateZeroFilled(allocationBytes));
+    EXPECT_THAT(
+        instance_->getAndClearFailureMessage(),
+        testing::HasSubstr("Exceeded memory allocator limit"));
     Allocation small;
     if (allocationBytes <= Allocation::PageRun::kMaxPagesInRun) {
       EXPECT_FALSE(instance_->allocateNonContiguous(allocationBytes, small));
