@@ -40,7 +40,7 @@ int main() {
 
   FuzzerGenerator rng;
   memory::MemoryManager::initialize({});
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
 
   GeneratorSpecPtr randomMap =
       RANDOM_MAP(RANDOM_INTEGER(uniform), RANDOM_DOUBLE(normal), lengthDist);

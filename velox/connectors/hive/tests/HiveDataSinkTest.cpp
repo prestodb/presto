@@ -107,7 +107,7 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
     opPool_.reset();
     root_.reset();
 
-    root_ = memory::MemoryManager::getInstance()->addRootPool(
+    root_ = memory::memoryManager()->addRootPool(
         "HiveDataSinkTest", 1L << 30, exec::MemoryReclaimer::create());
     opPool_ = root_->addLeafChild("operator");
     connectorPool_ =
@@ -192,7 +192,7 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
   }
 
   const std::shared_ptr<memory::MemoryPool> pool_ =
-      memory::MemoryManager::getInstance()->addLeafPool();
+      memory::memoryManager()->addLeafPool();
 
   std::shared_ptr<memory::MemoryPool> root_;
   std::shared_ptr<memory::MemoryPool> opPool_;

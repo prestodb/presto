@@ -31,7 +31,7 @@ class SpillOperatorGroupTest : public testing::Test {
  protected:
   SpillOperatorGroupTest(int32_t numOperators = 1)
       : numOperators_(numOperators),
-        pool_(memory::MemoryManager::getInstance()->addLeafPool()) {
+        pool_(memory::memoryManager()->addLeafPool()) {
     // All this is to prepare valid driver context for our mock operators.
     VectorMaker vectorMaker{pool_.get()};
     std::vector<RowVectorPtr> values = {vectorMaker.rowVector(

@@ -201,7 +201,7 @@ class SerializeBenchmark {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
 };
 
 #define SERDE_BENCHMARKS(name, rowType)      \

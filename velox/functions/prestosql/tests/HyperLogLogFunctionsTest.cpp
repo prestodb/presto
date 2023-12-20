@@ -49,7 +49,7 @@ class HyperLogLogFunctionsTest : public functions::test::FunctionBaseTest {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   HashStringAllocator allocator_{pool_.get()};
 };
 

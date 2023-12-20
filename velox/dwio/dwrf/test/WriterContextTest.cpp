@@ -34,9 +34,7 @@ class WriterContextTest : public testing::Test {
 TEST_F(WriterContextTest, GetIntDictionaryEncoder) {
   auto config = std::make_shared<Config>();
   WriterContext context{
-      config,
-      memory::MemoryManager::getInstance()->addRootPool(
-          "GetIntDictionaryEncoder")};
+      config, memory::memoryManager()->addRootPool("GetIntDictionaryEncoder")};
 
   EXPECT_EQ(0, context.dictEncoders_.size());
   auto& intEncoder_1_0 = context.getIntDictionaryEncoder<int32_t>(
@@ -71,7 +69,7 @@ TEST_F(WriterContextTest, RemoveIntDictionaryEncoderForNode) {
   config->set(Config::MAP_FLAT_DICT_SHARE, false);
   WriterContext context{
       config,
-      memory::MemoryManager::getInstance()->addRootPool(
+      memory::memoryManager()->addRootPool(
           "RemoveIntDictionaryEncoderForNode")};
 
   context.getIntDictionaryEncoder<int32_t>(
@@ -123,8 +121,7 @@ TEST_F(WriterContextTest, BuildPhysicalSizeAggregators) {
   auto config = std::make_shared<Config>();
   WriterContext context{
       config,
-      memory::MemoryManager::getInstance()->addRootPool(
-          "BuildPhysicalSizeAggregators")};
+      memory::memoryManager()->addRootPool("BuildPhysicalSizeAggregators")};
   auto type = ROW({
       {"array", ARRAY(REAL())},
       {"map", MAP(INTEGER(), DOUBLE())},
@@ -152,7 +149,7 @@ TEST_F(WriterContextTest, BuildPhysicalSizeAggregators) {
 }
 
 TEST_F(WriterContextTest, memory) {
-  auto writerRoot = memory::MemoryManager::getInstance()->addRootPool(
+  auto writerRoot = memory::memoryManager()->addRootPool(
       "memory", 1L << 30, exec::MemoryReclaimer::create());
   WriterContext context{std::make_shared<Config>(), writerRoot};
   ASSERT_EQ(context.getTotalMemoryUsage(), 0);
@@ -222,7 +219,7 @@ TEST_F(WriterContextTest, memory) {
 }
 
 TEST_F(WriterContextTest, abort) {
-  auto writerRoot = memory::MemoryManager::getInstance()->addRootPool(
+  auto writerRoot = memory::memoryManager()->addRootPool(
       "abort", 1L << 30, exec::MemoryReclaimer::create());
   WriterContext context{std::make_shared<Config>(), writerRoot};
   ASSERT_EQ(context.getTotalMemoryUsage(), 0);

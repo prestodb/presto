@@ -83,7 +83,7 @@ class VectorFuzzerTest : public testing::Test {
 
  private:
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
 };
 
 TEST_F(VectorFuzzerTest, flatPrimitive) {

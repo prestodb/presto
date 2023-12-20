@@ -89,7 +89,7 @@ void vectorBenchmark(
     bool sequences,
     VectorEncoding::Simple encoding) {
   folly::BenchmarkSuspender suspender;
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   VectorMaker vectorMaker(pool.get());
 
   for (size_t k = 0; k < iterations; ++k) {

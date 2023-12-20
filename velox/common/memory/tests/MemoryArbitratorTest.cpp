@@ -297,7 +297,7 @@ TEST_F(MemoryReclaimerTest, common) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     std::vector<std::shared_ptr<MemoryPool>> pools;
-    auto pool = memory::MemoryManager::getInstance()->addRootPool(
+    auto pool = memory::memoryManager()->addRootPool(
         "shrinkAPIs", kMaxMemory, memory::MemoryReclaimer::create());
     pools.push_back(pool);
 
@@ -425,7 +425,7 @@ TEST_F(MemoryReclaimerTest, mockReclaim) {
   const int numAllocationsPerLeaf = 10;
   const int allocBytes = 10;
   std::atomic<uint64_t> totalUsedBytes{0};
-  auto root = memory::MemoryManager::getInstance()->addRootPool(
+  auto root = memory::memoryManager()->addRootPool(
       "mockReclaim", kMaxMemory, MemoryReclaimer::create());
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int i = 0; i < numChildren; ++i) {
@@ -485,7 +485,7 @@ TEST_F(MemoryReclaimerTest, mockReclaimMoreThanAvailable) {
   const int numAllocationsPerLeaf = 10;
   const int allocBytes = 100;
   std::atomic<uint64_t> totalUsedBytes{0};
-  auto root = memory::MemoryManager::getInstance()->addRootPool(
+  auto root = memory::memoryManager()->addRootPool(
       "mockReclaimMoreThanAvailable", kMaxMemory, MemoryReclaimer::create());
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int i = 0; i < numChildren; ++i) {
@@ -525,7 +525,7 @@ TEST_F(MemoryReclaimerTest, orderedReclaim) {
   const std::vector<int> initAllocUnitsVec = {10, 11, 8, 16, 5};
   ASSERT_EQ(initAllocUnitsVec.size(), numChildren);
   std::atomic<uint64_t> totalUsedBytes{0};
-  auto root = memory::MemoryManager::getInstance()->addRootPool(
+  auto root = memory::memoryManager()->addRootPool(
       "orderedReclaim", kMaxMemory, MemoryReclaimer::create());
   int totalAllocUnits{0};
   std::vector<std::shared_ptr<MemoryPool>> childPools;
@@ -653,7 +653,7 @@ TEST_F(MemoryReclaimerTest, orderedReclaim) {
 }
 
 TEST_F(MemoryReclaimerTest, arbitrationContext) {
-  auto root = memory::MemoryManager::getInstance()->addRootPool(
+  auto root = memory::memoryManager()->addRootPool(
       "arbitrationContext", kMaxMemory, MemoryReclaimer::create());
   ASSERT_FALSE(isSpillMemoryPool(root.get()));
   ASSERT_TRUE(isSpillMemoryPool(spillMemoryPool()));
@@ -694,7 +694,7 @@ TEST_F(MemoryReclaimerTest, arbitrationContext) {
 }
 
 TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
-  auto root = memory::MemoryManager::getInstance()->addRootPool(
+  auto root = memory::memoryManager()->addRootPool(
       "concurrentRandomMockReclaims", kMaxMemory, MemoryReclaimer::create());
 
   std::atomic<uint64_t> totalUsedBytes{0};

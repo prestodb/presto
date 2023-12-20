@@ -29,7 +29,7 @@ class BiasVectorTestBase : public testing::Test {
   }
 
   std::shared_ptr<velox::memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   VectorMaker vectorMaker_{pool_.get()};
 };
 

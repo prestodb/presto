@@ -48,7 +48,7 @@ int main() {
 
   FuzzerGenerator rng;
   memory::MemoryManager::initialize({});
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   GeneratorSpecPtr encodedNormalDoubleGenerator =
       ENCODE(RANDOM_DOUBLE(normal, nullProbability), encoding, 1, 5, 0.3);
 

@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
 
   functions::prestosql::registerArrayFunctions();
   memory::MemoryManager::initialize({});
-  auto anotherPool = memory::MemoryManager::getInstance()->addLeafPool("bm");
+  auto anotherPool = memory::memoryManager()->addLeafPool("bm");
 
   ExpressionBenchmarkBuilder benchmarkBuilder;
 

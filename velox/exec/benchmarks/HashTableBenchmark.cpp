@@ -561,7 +561,7 @@ class HashTableBenchmark : public VectorTestBase {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   std::unique_ptr<VectorMaker> vectorMaker_{
       std::make_unique<VectorMaker>(pool_.get())};
   // Bitmap of positions in batches_ that end up in the table.

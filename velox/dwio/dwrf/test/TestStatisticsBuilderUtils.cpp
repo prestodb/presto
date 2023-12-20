@@ -59,7 +59,7 @@ class TestStatisticsBuilderUtils : public testing::Test {
   }
 
   const std::shared_ptr<memory::MemoryPool> pool_ =
-      memory::MemoryManager::getInstance()->addLeafPool();
+      memory::memoryManager()->addLeafPool();
 };
 
 TEST_F(TestStatisticsBuilderUtils, addIntegerValues) {

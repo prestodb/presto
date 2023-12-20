@@ -281,6 +281,14 @@ std::vector<std::shared_ptr<MemoryPool>> MemoryManager::getAlivePools() const {
   return pools;
 }
 
+void initializeMemoryManager(const MemoryManagerOptions& options) {
+  MemoryManager::initialize(options);
+}
+
+MemoryManager* memoryManager() {
+  return MemoryManager::getInstance();
+}
+
 MemoryManager& deprecatedDefaultMemoryManager() {
   return MemoryManager::deprecatedGetInstance();
 }

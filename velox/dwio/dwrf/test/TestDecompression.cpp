@@ -57,8 +57,7 @@ class DecompressionTest : public testing::Test {
         std::move(file), 0, 200, *pool_, LogType::TEST, 20);
   }
 
-  std::shared_ptr<MemoryPool> pool_ =
-      memory::MemoryManager::getInstance()->addLeafPool();
+  std::shared_ptr<MemoryPool> pool_ = memory::memoryManager()->addLeafPool();
 };
 
 TEST_F(DecompressionTest, testPrintBufferEmpty) {
@@ -925,8 +924,7 @@ class TestSeek : public ::testing::Test {
     offset2 = compress(input2, inputSize, output, offset1, codec);
   }
 
-  std::shared_ptr<MemoryPool> pool_ =
-      memory::MemoryManager::getInstance()->addLeafPool();
+  std::shared_ptr<MemoryPool> pool_ = memory::memoryManager()->addLeafPool();
 };
 
 TEST_F(TestSeek, Zlib) {

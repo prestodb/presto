@@ -80,7 +80,7 @@ class ExpressionVerifierUnitTest : public testing::Test, public VectorTestBase {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   core::QueryCtx queryCtx_{};
   core::ExecCtx execCtx_{pool_.get(), &queryCtx_};
 };

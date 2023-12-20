@@ -34,8 +34,7 @@ class DataBufferTest : public testing::Test {
     MemoryManager::testingSetInstance({});
   }
 
-  const std::shared_ptr<MemoryPool> pool_ =
-      MemoryManager::getInstance()->addLeafPool();
+  const std::shared_ptr<MemoryPool> pool_ = memoryManager()->addLeafPool();
 };
 
 TEST_F(DataBufferTest, ZeroOut) {

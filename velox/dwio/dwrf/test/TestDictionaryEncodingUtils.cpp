@@ -98,7 +98,7 @@ TEST_F(DictionaryEncodingUtilsTest, StringGetSortedIndexLookupTable) {
           {0, 1, 2, 3}}};
 
   for (const auto& testCase : testCases) {
-    auto pool = MemoryManager::getInstance()->addLeafPool();
+    auto pool = memoryManager()->addLeafPool();
     StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     for (const auto& key : testCase.addKeySequence) {
       stringDictEncoder.addKey(key, 0);
@@ -303,7 +303,7 @@ TEST_F(DictionaryEncodingUtilsTest, StringStrideDictOptimization) {
   };
 
   for (const auto& testCase : testCases) {
-    auto pool = MemoryManager::getInstance()->addLeafPool();
+    auto pool = memoryManager()->addLeafPool();
     StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     size_t rowCount = 0;
     for (const auto& key : testCase.addKeySequence) {

@@ -83,8 +83,7 @@ class E2EFilterTestBase : public testing::Test {
   }
 
   void SetUp() override {
-    rootPool_ =
-        memory::MemoryManager::getInstance()->addRootPool("E2EFilterTestBase");
+    rootPool_ = memory::memoryManager()->addRootPool("E2EFilterTestBase");
     leafPool_ = rootPool_->addLeafChild("E2EFilterTestBase");
   }
 

@@ -69,7 +69,7 @@ size_t runBenchmark(
 BENCHMARK_MULTI(copyArray) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -86,7 +86,7 @@ BENCHMARK_MULTI(copyArray) {
 BENCHMARK_MULTI(copyArrayWithNulls) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -104,7 +104,7 @@ BENCHMARK_MULTI(copyArrayWithNulls) {
 BENCHMARK_MULTI(copyArrayDictionaryEncoded) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -135,7 +135,7 @@ BENCHMARK_MULTI(copyArrayDictionaryEncoded) {
 BENCHMARK_MULTI(copyArrayOneAtATime) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -152,7 +152,7 @@ BENCHMARK_MULTI(copyArrayOneAtATime) {
 BENCHMARK_MULTI(copyArrayTwoAtATime) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -169,7 +169,7 @@ BENCHMARK_MULTI(copyArrayTwoAtATime) {
 BENCHMARK_MULTI(copyArrayOfVarchar) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 50'000;
@@ -199,7 +199,7 @@ BENCHMARK_MULTI(copyArrayOfVarchar) {
 BENCHMARK_MULTI(copyArrayOfArray) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -228,7 +228,7 @@ BENCHMARK_MULTI(copyArrayOfArray) {
 BENCHMARK_MULTI(copyMap) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -247,7 +247,7 @@ BENCHMARK_MULTI(copyMap) {
 BENCHMARK_MULTI(copyMapWithNulls) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -267,7 +267,7 @@ BENCHMARK_MULTI(copyMapWithNulls) {
 BENCHMARK_MULTI(copyMapDictionaryEncoded) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -301,7 +301,7 @@ BENCHMARK_MULTI(copyMapDictionaryEncoded) {
 BENCHMARK_MULTI(copyMapOneAtATime) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -320,7 +320,7 @@ BENCHMARK_MULTI(copyMapOneAtATime) {
 BENCHMARK_MULTI(copyMapTwoAtATime) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
 
   const vector_size_t size = 1'000;
@@ -339,7 +339,7 @@ BENCHMARK_MULTI(copyMapTwoAtATime) {
 BENCHMARK_MULTI(copyStructNonContiguous) {
   folly::BenchmarkSuspender suspender;
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   test::VectorMaker vectorMaker{pool.get()};
   constexpr vector_size_t kSize = 2'000;
   std::vector<VectorPtr> children = {

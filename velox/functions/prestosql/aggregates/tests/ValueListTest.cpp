@@ -80,7 +80,7 @@ class ValueListTest : public functions::test::FunctionBaseTest {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   std::unique_ptr<HashStringAllocator> allocator_{
       std::make_unique<HashStringAllocator>(pool_.get())};
 };

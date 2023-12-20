@@ -103,7 +103,7 @@ class SparseHllTest : public ::testing::Test {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   HashStringAllocator allocator_{pool_.get()};
 };
 
@@ -188,7 +188,7 @@ class SparseHllToDenseTest : public ::testing::TestWithParam<int8_t> {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   HashStringAllocator allocator_{pool_.get()};
 };
 

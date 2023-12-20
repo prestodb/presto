@@ -53,7 +53,7 @@ class EncryptedStatsTest : public Test {
   }
 
   void SetUp() override {
-    pool_ = MemoryManager::getInstance()->addRootPool("EncryptedStatsTest");
+    pool_ = memoryManager()->addRootPool("EncryptedStatsTest");
     sinkPool_ = pool_->addLeafChild("sink");
     ProtoWriter writer{pool_, *sinkPool_};
     auto& context = const_cast<const ProtoWriter&>(writer).getContext();
@@ -177,8 +177,7 @@ TEST_F(EncryptedStatsTest, getColumnStatisticsKeyNotLoaded) {
 std::unique_ptr<ReaderBase> createCorruptedFileReader(
     uint64_t footerLen,
     uint32_t cacheLen) {
-  auto pool =
-      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
   MemorySink sink{1024, {.pool = pool.get()}};
   DataBufferHolder holder{*pool, 1024, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
   BufferedOutputStream output{holder};

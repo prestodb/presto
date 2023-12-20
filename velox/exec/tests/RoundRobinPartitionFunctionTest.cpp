@@ -32,7 +32,7 @@ class RoundRobinPartitionFunctionTest : public test::VectorTestBase,
 TEST_F(RoundRobinPartitionFunctionTest, basic) {
   exec::RoundRobinPartitionFunction partitionFunction(10);
 
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   test::VectorMaker vm(pool.get());
 
   auto data = vm.rowVector(ROW({}, {}), 1024);

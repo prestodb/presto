@@ -55,7 +55,7 @@ class ExpressionFuzzerUnitTest : public testing::Test {
     return kSupportedTypes[index];
   }
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
 
   std::shared_ptr<VectorFuzzer> vectorfuzzer{
       std::make_shared<VectorFuzzer>(VectorFuzzer::Options{}, pool.get())};

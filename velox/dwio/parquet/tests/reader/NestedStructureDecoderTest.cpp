@@ -33,7 +33,7 @@ class NestedStructureDecoderTest : public testing::Test {
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool();
+    pool_ = memory::memoryManager()->addLeafPool();
 
     dwio::common::ensureCapacity<bool>(
         nullsBuffer_, kMaxNumValues, pool_.get());

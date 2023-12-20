@@ -36,7 +36,7 @@ class RemoteFunctionServiceHandler
 
  private:
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   const std::string functionPrefix_;
 };
 

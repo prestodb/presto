@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
 
   // Default memory allocator used throughout this example.
   memory::MemoryManager::initialize({});
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
 
   // For this example, the input dataset will be comprised of a single BIGINT
   // column ("my_col"), containing 10 rows.

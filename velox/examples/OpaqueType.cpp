@@ -190,7 +190,7 @@ int main(int argc, char** argv) {
   memory::MemoryManager::initialize({});
   // Create memory pool and other query-related structures.
   auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 
   // Next, we need to generate an input batch of data (rowVector). We create a

@@ -109,7 +109,7 @@ class E2EReaderTest : public testing::TestWithParam<ValueTypes> {
 TEST_P(E2EReaderTest, SharedDictionaryFlatmapReadAsStruct) {
   const size_t batchCount = 10;
   size_t size = 1;
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
 
   std::vector<uint32_t> flatMapCols(GetParam().size());
   std::iota(flatMapCols.begin(), flatMapCols.end(), 0);

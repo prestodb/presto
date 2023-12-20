@@ -124,8 +124,7 @@ class E2EWriterTest : public testing::Test {
 TEST_F(E2EWriterTest, FlushPolicySimpleEncoding) {
   const size_t batchCount = 200;
   const size_t size = 1000;
-  auto pool =
-      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -179,8 +178,7 @@ TEST_F(E2EWriterTest, FlushPolicySimpleEncoding) {
 TEST_F(E2EWriterTest, FlushPolicyDictionaryEncoding) {
   const size_t batchCount = 500;
   const size_t size = 1000;
-  auto pool =
-      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -322,8 +320,7 @@ TEST_F(E2EWriterTest, FlushPolicyDictionaryEncoding) {
 TEST_F(E2EWriterTest, FlushPolicyNestedTypes) {
   const size_t batchCount = 10;
   const size_t size = 1000;
-  auto pool =
-      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -384,8 +381,7 @@ TEST_F(E2EWriterTest, FlushPolicyNestedTypes) {
 TEST_F(E2EWriterTest, FlushPolicyFlatMap) {
   const size_t batchCount = 10;
   const size_t size = 500;
-  auto pool =
-      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
 
   HiveTypeParser parser;
   // A mixture of columns where dictionary sharing is not necessarily

@@ -147,7 +147,7 @@ TEST_F(QueryConfigTest, taskWriterCountConfig) {
 
 TEST_F(QueryConfigTest, enableExpressionEvaluationCacheConfig) {
   std::shared_ptr<memory::MemoryPool> rootPool{
-      memory::MemoryManager::getInstance()->addRootPool()};
+      memory::memoryManager()->addRootPool()};
   std::shared_ptr<memory::MemoryPool> pool{rootPool->addLeafChild("leaf")};
 
   auto testConfig = [&](bool enableExpressionEvaluationCache) {

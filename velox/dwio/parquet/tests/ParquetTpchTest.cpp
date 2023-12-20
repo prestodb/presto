@@ -81,7 +81,7 @@ class ParquetTpchTest : public testing::Test {
 
   void saveTpchTablesAsParquet() {
     std::shared_ptr<memory::MemoryPool> rootPool{
-        memory::MemoryManager::getInstance()->addRootPool()};
+        memory::memoryManager()->addRootPool()};
     std::shared_ptr<memory::MemoryPool> pool{rootPool->addLeafChild("leaf")};
 
     for (const auto& table : tpch::tables) {

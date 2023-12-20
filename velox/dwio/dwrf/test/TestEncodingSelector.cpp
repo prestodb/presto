@@ -29,7 +29,7 @@ class EntropyEncodingSelectorTests : public testing::Test {
 };
 
 TEST_F(EntropyEncodingSelectorTests, Ctor) {
-  auto pool = MemoryManager::getInstance()->addLeafPool();
+  auto pool = memoryManager()->addLeafPool();
   float slightlyOver = 1.0f + std::numeric_limits<float>::epsilon() * 2;
   float slightlyUnder = -std::numeric_limits<float>::epsilon();
   EXPECT_ANY_THROW(
@@ -76,7 +76,7 @@ class EntropyEncodingSelectorTest {
         decision_{decision} {}
 
   void runTest() const {
-    auto pool = MemoryManager::getInstance()->addLeafPool();
+    auto pool = memoryManager()->addLeafPool();
     StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     dwio::common::DataBuffer<uint32_t> rows{*pool};
     rows.reserve(size_);

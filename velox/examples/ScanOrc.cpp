@@ -42,8 +42,7 @@ int main(int argc, char** argv) {
   filesystems::registerLocalFileSystem();
   dwrf::registerDwrfReaderFactory();
   facebook::velox::memory::MemoryManager::initialize({});
-  auto pool =
-      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
 
   std::string filePath{argv[1]};
   dwio::common::ReaderOptions readerOpts{pool.get()};

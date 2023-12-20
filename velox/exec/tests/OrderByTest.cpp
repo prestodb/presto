@@ -551,8 +551,7 @@ TEST_F(OrderByTest, spillWithMemoryLimit) {
     auto tempDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(
-        memory::MemoryManager::getInstance()->addRootPool(
-            queryCtx->queryId(), kMaxBytes));
+        memory::memoryManager()->addRootPool(queryCtx->queryId(), kMaxBytes));
     auto results =
         AssertQueryBuilder(
             PlanBuilder()
@@ -615,9 +614,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
 
     auto tempDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->testingOverrideMemoryPool(
-        memory::MemoryManager::getInstance()->addRootPool(
-            queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
+    queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
+        queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
@@ -755,9 +753,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
 
   auto tempDirectory = exec::test::TempDirectoryPath::create();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  queryCtx->testingOverrideMemoryPool(
-      memory::MemoryManager::getInstance()->addRootPool(
-          queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
+  queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
+      queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
   auto expectedResult =
       AssertQueryBuilder(
           PlanBuilder()
@@ -870,8 +867,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringAllocation) {
     auto tempDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(
-        memory::MemoryManager::getInstance()->addRootPool(
-            queryCtx->queryId(), kMaxBytes));
+        memory::memoryManager()->addRootPool(queryCtx->queryId(), kMaxBytes));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
@@ -1000,9 +996,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
     SCOPED_TRACE(fmt::format("enableSpilling {}", enableSpilling));
     auto tempDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->testingOverrideMemoryPool(
-        memory::MemoryManager::getInstance()->addRootPool(
-            queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
+    queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
+        queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
@@ -1131,9 +1126,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, abortDuringOutputProcessing) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->testingOverrideMemoryPool(
-        memory::MemoryManager::getInstance()->addRootPool(
-            queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
+    queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
+        queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
@@ -1225,9 +1219,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, abortDuringInputgProcessing) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->testingOverrideMemoryPool(
-        memory::MemoryManager::getInstance()->addRootPool(
-            queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
+    queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
+        queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()

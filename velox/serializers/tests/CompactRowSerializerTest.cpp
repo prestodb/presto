@@ -29,7 +29,7 @@ class CompactRowSerializerTest : public ::testing::Test,
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool();
+    pool_ = memory::memoryManager()->addLeafPool();
     serde_ = std::make_unique<serializer::CompactRowVectorSerde>();
   }
 

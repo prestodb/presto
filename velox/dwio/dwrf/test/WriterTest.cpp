@@ -36,8 +36,7 @@ class WriterTest : public Test {
     MemoryManager::testingSetInstance({});
   }
 
-  WriterTest()
-      : pool_(MemoryManager::getInstance()->addLeafPool("WriterTest")) {}
+  WriterTest() : pool_(memoryManager()->addLeafPool("WriterTest")) {}
 
   WriterBase& createWriter(
       const std::shared_ptr<Config>& config,
@@ -50,8 +49,7 @@ class WriterTest : public Test {
     }
     writer_ = std::make_unique<WriterBase>(std::move(sink));
     writer_->initContext(
-        config,
-        memory::MemoryManager::getInstance()->addRootPool("WriterTest"));
+        config, memory::memoryManager()->addRootPool("WriterTest"));
     auto& context = writer_->getContext();
     context.initBuffer();
     writer_->getSink().init(
@@ -466,8 +464,7 @@ class MockFileSink : public dwio::common::FileSink {
 
 TEST_F(WriterTest, FlushWriterSinkUponClose) {
   auto config = std::make_shared<Config>();
-  auto pool = memory::MemoryManager::getInstance()->addRootPool(
-      "FlushWriterSinkUponClose");
+  auto pool = memory::memoryManager()->addRootPool("FlushWriterSinkUponClose");
   auto sink = std::make_unique<MockFileSink>();
   MockFileSink* sinkPtr = sink.get();
   EXPECT_CALL(*sinkPtr, write(_)).Times(1);

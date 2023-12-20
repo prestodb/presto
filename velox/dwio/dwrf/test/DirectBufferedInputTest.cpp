@@ -130,7 +130,7 @@ class DirectBufferedInputTest : public testing::Test {
   std::shared_ptr<IoStatistics> fileIoStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
 };
 
 TEST_F(DirectBufferedInputTest, basic) {

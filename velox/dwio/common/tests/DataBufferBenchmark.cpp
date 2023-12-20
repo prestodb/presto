@@ -24,8 +24,7 @@ using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwio::common;
 
 BENCHMARK(DataBufferOps, iters) {
-  auto pool =
-      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
   constexpr size_t size = 1024 * 1024 * 16;
   for (size_t i = 0; i < iters; ++i) {
     DataBuffer<int32_t> buf{*pool};
@@ -40,8 +39,7 @@ BENCHMARK(DataBufferOps, iters) {
 }
 
 BENCHMARK(ChainedBufferOps, iters) {
-  auto pool =
-      facebook::velox::memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
   constexpr size_t size = 1024 * 1024 * 16;
   for (size_t i = 0; i < iters; ++i) {
     ChainedBuffer<int32_t> buf{*pool, size, size * 4};

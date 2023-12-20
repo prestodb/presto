@@ -122,7 +122,7 @@ TEST_F(Substrait2VeloxPlanConversionTest, DISABLED_q6) {
            VARCHAR(),
            VARCHAR()});
   std::shared_ptr<memory::MemoryPool> pool{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   std::vector<VectorPtr> vectors;
   // TPC-H lineitem table has 16 columns.
   int colNum = 16;

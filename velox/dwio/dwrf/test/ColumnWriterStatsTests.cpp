@@ -146,8 +146,7 @@ class ColumnWriterStatsTest : public ::testing::Test {
   }
 
   void SetUp() override {
-    rootPool_ = memory::MemoryManager::getInstance()->addRootPool(
-        "ColumnWriterStatsTest");
+    rootPool_ = memory::memoryManager()->addRootPool("ColumnWriterStatsTest");
     leafPool_ = rootPool_->addLeafChild("ColumnWriterStatsTest");
   }
 

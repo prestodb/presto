@@ -142,12 +142,6 @@ class MemoryManager {
   /// memory manager has already been created by an easier call.
   static void initialize(const MemoryManagerOptions& options);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  FOLLY_EXPORT static MemoryManager& getInstance(
-      const MemoryManagerOptions& options) {
-    return deprecatedGetInstance(options);
-  }
-#endif
   /// Returns process-wide memory manager. Throws if 'initialize' hasn't been
   /// called yet.
   static MemoryManager* getInstance();
@@ -262,6 +256,19 @@ class MemoryManager {
   std::unordered_map<std::string, std::weak_ptr<MemoryPool>> pools_;
 };
 
+/// Initializes the process-wide memory manager based on the specified
+/// 'options'.
+///
+/// NOTE: user should only call this once on query system startup. Otherwise,
+/// the function throws.
+void initializeMemoryManager(const MemoryManagerOptions& options);
+
+/// Returns the process-wide memory manager.
+///
+/// NOTE: user should have already initialized memory manager by calling.
+/// Otherwise, the function throws.
+MemoryManager* memoryManager();
+
 /// Deprecated. Do not use.
 MemoryManager& deprecatedDefaultMemoryManager();
 
@@ -272,18 +279,6 @@ MemoryManager& deprecatedDefaultMemoryManager();
 std::shared_ptr<MemoryPool> deprecatedAddDefaultLeafMemoryPool(
     const std::string& name = "",
     bool threadSafe = true);
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-inline MemoryManager& defaultMemoryManager() {
-  return deprecatedDefaultMemoryManager();
-}
-
-inline std::shared_ptr<MemoryPool> addDefaultLeafMemoryPool(
-    const std::string& name = "",
-    bool threadSafe = true) {
-  return deprecatedAddDefaultLeafMemoryPool(name, threadSafe);
-}
-#endif
 
 /// Default unmanaged leaf pool with no threadsafe stats support. Libraries
 /// using this method can get a pool that is shared with other threads. The goal

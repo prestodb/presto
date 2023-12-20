@@ -125,7 +125,7 @@ class OperatorUtilsTest
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   std::shared_ptr<Task> task_;
   std::shared_ptr<Driver> driver_;
   std::unique_ptr<DriverCtx> driverCtx_;

@@ -30,7 +30,7 @@ class NestedStructureDecoderBenchmark {
       : numValues_(numValues),
         definitionLevels_(new unsigned char[numValues]()),
         repetitionLevels_(new unsigned char[numValues]()),
-        pool_(memory::MemoryManager::getInstance()->addLeafPool()) {}
+        pool_(memory::memoryManager()->addLeafPool()) {}
 
   void setUp(uint16_t maxDefinition, uint16_t maxRepetition) {
     dwio::common::ensureCapacity<uint64_t>(

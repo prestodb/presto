@@ -171,7 +171,7 @@ int main(int argc, char** argv) {
 
   // Create a new memory pool to in this example.
   memory::MemoryManager::initialize({});
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
 
   // VectorMaker is a test utility that helps you build vectors. Shouldn't be
   // used in production.

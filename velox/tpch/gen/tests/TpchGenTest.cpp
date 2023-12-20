@@ -34,8 +34,7 @@ class TpchGenTestNationTest : public testing::Test {
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool(
-        "TpchGenTestNationTest");
+    pool_ = memory::memoryManager()->addLeafPool("TpchGenTestNationTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -142,8 +141,7 @@ class TpchGenTestRegionTest : public testing::Test {
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool(
-        "TpchGenTestRegionTest");
+    pool_ = memory::memoryManager()->addLeafPool("TpchGenTestRegionTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -209,8 +207,7 @@ class TpchGenTestOrdersTest : public testing::Test {
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool(
-        "TpchGenTestOrdersTest");
+    pool_ = memory::memoryManager()->addLeafPool("TpchGenTestOrdersTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -320,8 +317,7 @@ class TpchGenTestLineItemTest : public testing::Test {
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool(
-        "TpchGenTestLineItemTest");
+    pool_ = memory::memoryManager()->addLeafPool("TpchGenTestLineItemTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -436,8 +432,7 @@ class TpchGenTestSupplierTest : public testing::Test {
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool(
-        "TpchGenTestSupplierTest");
+    pool_ = memory::memoryManager()->addLeafPool("TpchGenTestSupplierTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -533,8 +528,7 @@ class TpchGenTestPartTest : public testing::Test {
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool(
-        "TpchGenTestPartTest");
+    pool_ = memory::memoryManager()->addLeafPool("TpchGenTestPartTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -623,8 +617,7 @@ class TpchGenTestPartSuppTest : public testing::Test {
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool(
-        "TpchGenTestPartSuppTest");
+    pool_ = memory::memoryManager()->addLeafPool("TpchGenTestPartSuppTest");
   }
 
   bool partSuppCheck(
@@ -772,8 +765,7 @@ class TpchGenTestCustomerTest : public testing::Test {
   }
 
   void SetUp() override {
-    pool_ = memory::MemoryManager::getInstance()->addLeafPool(
-        "TpchGenTestCustomerTest");
+    pool_ = memory::memoryManager()->addLeafPool("TpchGenTestCustomerTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;

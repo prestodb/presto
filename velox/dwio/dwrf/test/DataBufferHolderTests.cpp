@@ -28,8 +28,7 @@ class DataBufferHolderTest : public testing::Test {
     MemoryManager::testingSetInstance({});
   }
 
-  std::shared_ptr<MemoryPool> pool_{
-      MemoryManager::getInstance()->addLeafPool()};
+  std::shared_ptr<MemoryPool> pool_{memoryManager()->addLeafPool()};
 };
 
 TEST_F(DataBufferHolderTest, InputCheck) {

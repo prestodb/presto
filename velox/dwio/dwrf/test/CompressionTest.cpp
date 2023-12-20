@@ -167,8 +167,7 @@ class CompressionTest : public TestWithParam<TestParams> {
   CompressionKind kind_;
   const Encrypter* encrypter_;
   const Decrypter* decrypter_;
-  std::shared_ptr<MemoryPool> pool_ =
-      MemoryManager::getInstance()->addLeafPool();
+  std::shared_ptr<MemoryPool> pool_ = memoryManager()->addLeafPool();
 };
 
 TEST_P(CompressionTest, compressOriginalString) {
@@ -313,8 +312,7 @@ class RecordPositionTest : public TestWithParam<TestParams2> {
  protected:
   CompressionKind kind_;
   const Encrypter* encrypter_;
-  std::shared_ptr<MemoryPool> pool_ =
-      MemoryManager::getInstance()->addLeafPool();
+  std::shared_ptr<MemoryPool> pool_ = memoryManager()->addLeafPool();
 };
 
 TEST_P(RecordPositionTest, testRecordPosition) {
@@ -409,7 +407,7 @@ TEST_P(CompressionTest, getCompressionBufferOOM) {
     config->set<uint64_t>(Config::COMPRESSION_BLOCK_SIZE, compressBlockSize);
     WriterContext context{
         config,
-        MemoryManager::getInstance()->addRootPool(
+        memoryManager()->addRootPool(
             "oomOnCompression",
             kind_ == facebook::velox::common::CompressionKind_NONE ? 3L << 20
                                                                    : 6L << 20)};

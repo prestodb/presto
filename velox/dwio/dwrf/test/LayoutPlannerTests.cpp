@@ -102,7 +102,7 @@ TEST_F(LayoutPlannerTest, Basic) {
       Config::COMPRESSION, common::CompressionKind::CompressionKind_NONE);
   WriterContext context{
       config,
-      facebook::velox::memory::MemoryManager::getInstance()->addRootPool(
+      facebook::velox::memory::memoryManager()->addRootPool(
           "LayoutPlannerTests")};
   // fake streams
   std::vector<DwrfStreamIdentifier> streams;

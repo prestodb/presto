@@ -31,7 +31,7 @@ std::vector<int64_t> decodeRLEv2(
     size_t n,
     size_t count,
     const uint64_t* nulls = nullptr) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::make_unique<dwio::common::SeekableArrayInputStream>(bytes, l),
       RleVersion_2,
@@ -181,7 +181,7 @@ TEST_F(RLEv2Test, basicDelta4) {
 };
 
 TEST_F(RLEv2Test, delta0Width) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {
       0x4e, 0x2, 0x0, 0x1, 0x2, 0xc0, 0x2, 0x42, 0x0};
   std::unique_ptr<dwio::common::IntDecoder<false>> decoder =
@@ -275,7 +275,7 @@ TEST_F(RLEv2Test, multiByteShortRepeats) {
 };
 
 TEST_F(RLEv2Test, 0to2Repeat1Direct) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {0x46, 0x02, 0x02, 0x40};
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(
@@ -373,7 +373,7 @@ TEST_F(RLEv2Test, multipleRunsDirect) {
 };
 
 TEST_F(RLEv2Test, largeNegativesDirect) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {
       0x7e, 0x04, 0xcf, 0xca, 0xcc, 0x91, 0xba, 0x38, 0x93, 0xab, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -556,7 +556,7 @@ TEST_F(RLEv2Test, mixedPatchedAndShortRepeats) {
 };
 
 TEST_F(RLEv2Test, basicDirectSeek) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   // 0,1 repeated 10 times (signed ints) followed by
   // 0,2 repeated 10 times (signed ints)
   const unsigned char bytes[] = {
@@ -608,7 +608,7 @@ TEST_F(RLEv2Test, basicDirectSeek) {
 };
 
 TEST_F(RLEv2Test, bitsLeftByPreviousStream) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   // test for #109
   // 118 DIRECT values, followed by PATHCED values
   const unsigned char bytes[] = {
@@ -681,7 +681,7 @@ class RLEv1Test : public testing::Test {
 };
 
 TEST_F(RLEv1Test, simpleTest) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {
       0x61, 0xff, 0x64, 0xfb, 0x02, 0x03, 0x5, 0x7, 0xb};
   std::unique_ptr<dwio::common::IntDecoder<false>> rle =
@@ -707,7 +707,7 @@ TEST_F(RLEv1Test, simpleTest) {
 };
 
 TEST_F(RLEv1Test, signedNullLiteralTest) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {0xf8, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7};
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(
@@ -727,7 +727,7 @@ TEST_F(RLEv1Test, signedNullLiteralTest) {
 }
 
 TEST_F(RLEv1Test, splitHeader) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {0x0, 0x00, 0xdc, 0xba, 0x98, 0x76};
   std::unique_ptr<dwio::common::IntDecoder<false>> rle =
       createRleDecoder<false>(
@@ -747,7 +747,7 @@ TEST_F(RLEv1Test, splitHeader) {
 }
 
 TEST_F(RLEv1Test, splitRuns) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {
       0x7d, 0x01, 0xff, 0x01, 0xfb, 0x01, 0x02, 0x03, 0x04, 0x05};
   dwio::common::SeekableInputStream* const stream =
@@ -781,7 +781,7 @@ TEST_F(RLEv1Test, splitRuns) {
 }
 
 TEST_F(RLEv1Test, testSigned) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {0x7f, 0xff, 0x20};
   dwio::common::SeekableInputStream* const stream =
       new dwio::common::SeekableArrayInputStream(
@@ -805,7 +805,7 @@ TEST_F(RLEv1Test, testSigned) {
 }
 
 TEST_F(RLEv1Test, testNull) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {0x75, 0x02, 0x00};
   dwio::common::SeekableInputStream* const stream =
       new dwio::common::SeekableArrayInputStream(
@@ -837,7 +837,7 @@ TEST_F(RLEv1Test, testNull) {
 }
 
 TEST_F(RLEv1Test, testAllNulls) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {0xf0, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
                                   0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
                                   0x0d, 0x0e, 0x0f, 0x3d, 0x00, 0x12};
@@ -877,7 +877,7 @@ TEST_F(RLEv1Test, testAllNulls) {
 }
 
 TEST_F(RLEv1Test, skipTest) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   // Create the RLE stream from Java's TestRunLengthIntegerEncoding.testSkips
   // for (size_t i = 0; i < 1024; ++i)
   //   out.write(i);
@@ -1119,7 +1119,7 @@ TEST_F(RLEv1Test, skipTest) {
 }
 
 TEST_F(RLEv1Test, seekTest) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   // Create the RLE stream from Java's
   // TestRunLengthIntegerEncoding.testUncompressedSeek
   // for (size_t i = 0; i < 1024; ++i)
@@ -3043,7 +3043,7 @@ TEST_F(RLEv1Test, seekTest) {
 }
 
 TEST_F(RLEv1Test, testLeadingNulls) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   const unsigned char buffer[] = {0xfb, 0x01, 0x02, 0x03, 0x04, 0x05};
   std::unique_ptr<dwio::common::IntDecoder<false>> rle =
       createRleDecoder<false>(

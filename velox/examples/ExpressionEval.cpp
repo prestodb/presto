@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
   //
   // Optionally, one can control the per-thread memory cap by passing it as an
   // argument to add() - no limit by default.
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 
   // Next, let's create an expression tree to be executed in this example. On a

@@ -30,8 +30,7 @@ class BufferedWriterTest : public testing::TestWithParam<bool> {
  protected:
   BufferedWriterTest()
       : usePool_(GetParam()),
-        pool_(memory::MemoryManager::getInstance()->addLeafPool(
-            "BufferedWriterTest")) {}
+        pool_(memory::memoryManager()->addLeafPool("BufferedWriterTest")) {}
 
   void SetUp() override {}
 

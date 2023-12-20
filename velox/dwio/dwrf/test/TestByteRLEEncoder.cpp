@@ -118,7 +118,7 @@ class ByteRleEncoderTest : public testing::Test {
 };
 
 TEST_F(ByteRleEncoderTest, random_chars) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
@@ -138,7 +138,7 @@ TEST_F(ByteRleEncoderTest, random_chars) {
 }
 
 TEST_F(ByteRleEncoderTest, random_chars_with_null) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
@@ -167,7 +167,7 @@ class BooleanRleEncoderTest : public testing::Test {
 };
 
 TEST_F(BooleanRleEncoderTest, random_bits_not_aligned) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
@@ -187,7 +187,7 @@ TEST_F(BooleanRleEncoderTest, random_bits_not_aligned) {
 }
 
 TEST_F(BooleanRleEncoderTest, random_bits_aligned) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;
@@ -207,7 +207,7 @@ TEST_F(BooleanRleEncoderTest, random_bits_aligned) {
 }
 
 TEST_F(BooleanRleEncoderTest, random_bits_aligned_with_null) {
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
   MemorySink memSink(DEFAULT_MEM_STREAM_SIZE, {.pool = pool.get()});
 
   uint64_t block = 1024;

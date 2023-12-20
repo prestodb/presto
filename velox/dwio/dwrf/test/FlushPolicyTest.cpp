@@ -146,9 +146,7 @@ TEST_F(DefaultFlushPolicyTest, InvalidCases) {
 TEST_F(DefaultFlushPolicyTest, DictionaryCriteriaTest) {
   auto config = std::make_shared<Config>();
   WriterContext context{
-      config,
-      memory::MemoryManager::getInstance()->addRootPool(
-          "DictionaryCriteriaTest")};
+      config, memory::memoryManager()->addRootPool("DictionaryCriteriaTest")};
 
   RowsPerStripeFlushPolicy policy({42});
   EXPECT_EQ(

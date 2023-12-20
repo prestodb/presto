@@ -39,8 +39,7 @@ class ParquetTestBase : public testing::Test, public test::VectorTestBase {
 
   void SetUp() override {
     dwio::common::LocalFileSink::registerFactory();
-    rootPool_ =
-        memory::MemoryManager::getInstance()->addRootPool("ParquetTests");
+    rootPool_ = memory::memoryManager()->addRootPool("ParquetTests");
     leafPool_ = rootPool_->addLeafChild("ParquetTests");
     tempPath_ = exec::test::TempDirectoryPath::create();
   }

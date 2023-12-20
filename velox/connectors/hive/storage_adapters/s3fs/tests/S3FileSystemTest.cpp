@@ -188,8 +188,7 @@ TEST_F(S3FileSystemTest, writeFileAndRead) {
 
   auto hiveConfig = minioServer_->hiveConfig();
   filesystems::S3FileSystem s3fs(hiveConfig);
-  auto pool =
-      memory::MemoryManager::getInstance()->addLeafPool("S3FileSystemTest");
+  auto pool = memory::memoryManager()->addLeafPool("S3FileSystemTest");
   auto writeFile = s3fs.openFileForWrite(s3File, {{}, pool.get()});
   auto s3WriteFile = dynamic_cast<filesystems::S3WriteFile*>(writeFile.get());
   std::string dataContent =

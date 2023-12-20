@@ -40,7 +40,7 @@ int main() {
 
   FuzzerGenerator rng;
   memory::MemoryManager::initialize({});
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
 
   GeneratorSpecPtr randomRow = RANDOM_ROW(
       {RANDOM_INTEGER(uniform),

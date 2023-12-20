@@ -765,7 +765,7 @@ class VectorTestBase {
   }
 
   std::shared_ptr<memory::MemoryPool> rootPool_{
-      memory::MemoryManager::getInstance()->addRootPool()};
+      memory::memoryManager()->addRootPool()};
   std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild("leaf")};
   velox::test::VectorMaker vectorMaker_{pool_.get()};
   std::shared_ptr<folly::Executor> executor_{

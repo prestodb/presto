@@ -47,7 +47,7 @@ int main() {
   // Array<Map<int,int>>
   auto type = TypeFactory<TypeKind::ARRAY>::create(
       TypeFactory<TypeKind::MAP>::create(BIGINT(), BIGINT()));
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
 
   // result vector
   VectorPtr result;

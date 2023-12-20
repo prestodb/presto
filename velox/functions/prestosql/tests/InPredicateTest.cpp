@@ -55,7 +55,7 @@ class InPredicateTest : public FunctionBaseTest {
       this->options_.parseDecimalAsDouble = false;
     }
     std::shared_ptr<memory::MemoryPool> pool{
-        memory::MemoryManager::getInstance()->addLeafPool()};
+        memory::memoryManager()->addLeafPool()};
 
     const vector_size_t size = 1'000;
     auto inList = getInList<T>({1, 3, 5}, type);

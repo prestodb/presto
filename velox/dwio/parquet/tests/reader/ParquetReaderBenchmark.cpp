@@ -43,8 +43,7 @@ class ParquetReaderBenchmark {
       bool disableDictionary,
       const RowTypePtr& rowType)
       : disableDictionary_(disableDictionary) {
-    rootPool_ = memory::MemoryManager::getInstance()->addRootPool(
-        "ParquetReaderBenchmark");
+    rootPool_ = memory::memoryManager()->addRootPool("ParquetReaderBenchmark");
     leafPool_ = rootPool_->addLeafChild("ParquetReaderBenchmark");
     dataSetBuilder_ = std::make_unique<DataSetBuilder>(*leafPool_, 0);
     auto path = fileFolder_->path + "/" + fileName_;

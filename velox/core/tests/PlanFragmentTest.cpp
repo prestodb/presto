@@ -79,7 +79,7 @@ class PlanFragmentTest : public testing::Test {
   std::vector<RowVectorPtr> emptyProbeVectors_;
   std::shared_ptr<PlanNode> probeValueNode_;
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
 };
 }; // namespace
 

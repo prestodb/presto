@@ -39,7 +39,7 @@ int main() {
 
   FuzzerGenerator rng;
   memory::MemoryManager::initialize({});
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
 
   GeneratorSpecPtr randomArray =
       RANDOM_ARRAY(RANDOM_DOUBLE(normal, nullProbability), uniform);

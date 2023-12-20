@@ -81,7 +81,7 @@ class IdMapTest : public testing::Test {
   }
 
   void SetUp() override {
-    root_ = memory::MemoryManager::getInstance()->addRootPool("IdMapRoot");
+    root_ = memory::memoryManager()->addRootPool("IdMapRoot");
     pool_ = root_->addLeafChild("IdMapLeakLeaf");
   }
 

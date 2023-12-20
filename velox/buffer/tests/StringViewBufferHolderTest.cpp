@@ -44,7 +44,7 @@ class StringViewBufferHolderTest : public testing::Test {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
 };
 
 TEST_F(StringViewBufferHolderTest, inlinedStringViewDoesNotCopyToBuffer) {

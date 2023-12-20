@@ -110,8 +110,7 @@ class StripeStreamTest : public testing::Test {
     MemoryManager::testingSetInstance({});
   }
 
-  std::shared_ptr<MemoryPool> pool_{
-      MemoryManager::getInstance()->addLeafPool()};
+  std::shared_ptr<MemoryPool> pool_{memoryManager()->addLeafPool()};
 };
 } // namespace
 
@@ -388,7 +387,7 @@ void addNode(T& t, uint32_t node, uint32_t offset = 0) {
 }
 
 TEST_F(StripeStreamTest, readEncryptedStreams) {
-  auto pool = MemoryManager::getInstance()->addRootPool("readEncryptedStreams");
+  auto pool = memoryManager()->addRootPool("readEncryptedStreams");
   google::protobuf::Arena arena;
   proto::PostScript ps;
   ps.set_compression(proto::CompressionKind::ZSTD);
@@ -474,7 +473,7 @@ TEST_F(StripeStreamTest, readEncryptedStreams) {
 }
 
 TEST_F(StripeStreamTest, schemaMismatch) {
-  auto pool = MemoryManager::getInstance()->addRootPool("schemaMismatch");
+  auto pool = memoryManager()->addRootPool("schemaMismatch");
   google::protobuf::Arena arena;
   proto::PostScript ps;
   ps.set_compression(proto::CompressionKind::ZSTD);

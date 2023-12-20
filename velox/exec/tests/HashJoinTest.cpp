@@ -4947,7 +4947,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
     SCOPED_TRACE(testData.debugString());
 
     auto tempDirectory = exec::test::TempDirectoryPath::create();
-    auto queryPool = memory::MemoryManager::getInstance()->addRootPool(
+    auto queryPool = memory::memoryManager()->addRootPool(
         "", kMaxBytes, memory::MemoryReclaimer::create());
 
     core::PlanNodeId probeScanId;
@@ -5094,7 +5094,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
   createDuckDbTable("u", buildVectors);
 
   auto tempDirectory = exec::test::TempDirectoryPath::create();
-  auto queryPool = memory::MemoryManager::getInstance()->addRootPool(
+  auto queryPool = memory::memoryManager()->addRootPool(
       "", kMaxBytes, memory::MemoryReclaimer::create());
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
@@ -5224,8 +5224,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringAllocation) {
     SCOPED_TRACE(fmt::format("enableSpilling {}", enableSpilling));
 
     auto tempDirectory = exec::test::TempDirectoryPath::create();
-    auto queryPool =
-        memory::MemoryManager::getInstance()->addRootPool("", kMaxBytes);
+    auto queryPool = memory::memoryManager()->addRootPool("", kMaxBytes);
 
     core::PlanNodeId probeScanId;
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
@@ -5356,7 +5355,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
   for (const auto enableSpilling : enableSpillings) {
     SCOPED_TRACE(fmt::format("enableSpilling {}", enableSpilling));
     auto tempDirectory = exec::test::TempDirectoryPath::create();
-    auto queryPool = memory::MemoryManager::getInstance()->addRootPool(
+    auto queryPool = memory::memoryManager()->addRootPool(
         "", kMaxBytes, memory::MemoryReclaimer::create());
 
     core::PlanNodeId probeScanId;
@@ -5482,7 +5481,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
   createDuckDbTable("u", buildVectors);
 
   auto tempDirectory = exec::test::TempDirectoryPath::create();
-  auto queryPool = memory::MemoryManager::getInstance()->addRootPool(
+  auto queryPool = memory::memoryManager()->addRootPool(
       "", kMaxBytes, memory::MemoryReclaimer::create());
 
   core::PlanNodeId probeScanId;
@@ -5631,7 +5630,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringOutputProcessing) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    auto queryPool = memory::MemoryManager::getInstance()->addRootPool(
+    auto queryPool = memory::memoryManager()->addRootPool(
         "", kMaxBytes, memory::MemoryReclaimer::create());
 
     core::PlanNodeId probeScanId;
@@ -5736,7 +5735,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringInputgProcessing) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    auto queryPool = memory::MemoryManager::getInstance()->addRootPool(
+    auto queryPool = memory::memoryManager()->addRootPool(
         "", kMaxBytes, memory::MemoryReclaimer::create());
 
     core::PlanNodeId probeScanId;
@@ -5842,7 +5841,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeAbortDuringInputProcessing) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    auto queryPool = memory::MemoryManager::getInstance()->addRootPool(
+    auto queryPool = memory::memoryManager()->addRootPool(
         "", kMaxBytes, memory::MemoryReclaimer::create());
 
     core::PlanNodeId probeScanId;

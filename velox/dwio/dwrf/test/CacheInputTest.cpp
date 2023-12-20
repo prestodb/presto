@@ -381,7 +381,7 @@ class CacheTest : public testing::Test {
   std::shared_ptr<IoStatistics> ioStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
 
   // Id of simulated streams. Corresponds 1:1 to 'streamStarts_'.
   std::vector<std::unique_ptr<dwrf::DwrfStreamIdentifier>> streamIds_;

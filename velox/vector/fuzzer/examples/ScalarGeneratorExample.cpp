@@ -50,7 +50,7 @@ int main() {
 
   FuzzerGenerator rng;
   memory::MemoryManager::initialize({});
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  auto pool = memory::memoryManager()->addLeafPool();
 
   GeneratorSpecPtr uniformIntGenerator =
       RANDOM_INTEGER(uniform, nullProbability);

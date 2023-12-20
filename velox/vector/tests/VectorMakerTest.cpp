@@ -31,7 +31,7 @@ class VectorMakerTest : public ::testing::Test {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::MemoryManager::getInstance()->addLeafPool()};
+      memory::memoryManager()->addLeafPool()};
   VectorMaker maker_{pool_.get()};
 };
 

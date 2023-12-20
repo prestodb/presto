@@ -46,9 +46,7 @@ namespace facebook::velox::dwrf {
   options.layoutPlannerFactory = layoutPlannerFactory;
 
   return std::make_unique<dwrf::Writer>(
-      std::move(sink),
-      options,
-      velox::memory::MemoryManager::getInstance()->addRootPool());
+      std::move(sink), options, velox::memory::memoryManager()->addRootPool());
 }
 
 /* static */ std::unique_ptr<Writer> E2EWriterTestUtil::writeData(
