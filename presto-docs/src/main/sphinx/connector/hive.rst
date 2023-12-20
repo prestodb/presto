@@ -730,6 +730,21 @@ The following operations are not supported when ``avro_schema_url`` is set:
 * Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
+Parquet Writer Version
+----------------------
+
+Presto now supports Parquet writer versions V1 and V2 for Hive catalog.
+It can be toggled using session property ``parquet_writer_version`` and config property ``hive.parquet.writer.version``.
+Valid values for these properties are PARQUET_1_0 and PARQUET_2_0. Default is PARQUET_2_0.
+
+E.g., To set for a session, use below command by replacing <catalog-name> with actual catalog name:
+
+* ``set session <catalog-name>.parquet_writer_version=PARQUET_1_0``
+
+or in Hive connector properties file, add line as so:
+
+* ``hive.parquet.writer.version=PARQUET_1_0``
+
 Procedures
 ----------
 

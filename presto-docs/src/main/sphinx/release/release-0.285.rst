@@ -43,7 +43,7 @@ _______________
 Hive Connector Changes
 ____________
 * Changes in ParquetPageSourceFactory so that the type-check does not fail with the new widenings supported.
-* Support for Parquet writer versions V1 and V2 is now added for Hive and Iceberg catalogs. It can be toggled using session property `parquet_writer_version` and config property `hive.parquet.writer.version`. Valid values for these properties are PARQUET_1_0 and PARQUET_2_0. Default is PARQUET_2_0. E.g., set session parquet_writer_version=PARQUET_1_0 / hive.parquet.writer.version=PARQUET_1_0.
+* Support for Parquet writer versions V1 and V2 is now added for Hive and Iceberg catalogs. For usage, see `Parquet Writer Version <../connector/hive.html#parquet-writer-version>`_.
 
 Iceberg Connector Changes
 _______________
