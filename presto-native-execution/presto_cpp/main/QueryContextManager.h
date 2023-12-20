@@ -19,6 +19,7 @@
 #include <memory>
 #include <unordered_map>
 
+#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/core/QueryCtx.h"
 
@@ -124,6 +125,8 @@ class QueryContextManager {
           std::string,
           std::unordered_map<std::string, std::string>>&&
           connectorConfigStrings);
+
+  const std::shared_ptr<SessionProperties> sessionProperties_;
 
   folly::Executor* const driverExecutor_{nullptr};
   folly::Executor* const spillerExecutor_{nullptr};
