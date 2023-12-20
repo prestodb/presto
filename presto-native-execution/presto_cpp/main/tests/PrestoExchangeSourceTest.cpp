@@ -767,8 +767,7 @@ DEBUG_ONLY_TEST_P(
   for (bool persistentError : {false, true}) {
     SCOPED_TRACE(fmt::format("persistentError: {}", persistentError));
 
-    auto rootPool =
-        deprecatedDefaultMemoryManager().addRootPool("", memoryCapBytes);
+    auto rootPool = memoryManager()->addRootPool("", memoryCapBytes);
     const std::string leafPoolName("exceedingMemoryCapacityForHttpResponse");
     auto leafPool = rootPool->addLeafChild(leafPoolName);
 

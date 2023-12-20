@@ -179,8 +179,7 @@ class TaskManagerTest : public testing::Test {
                 kHiveConnectorId, std::make_shared<core::MemConfig>());
     connector::registerConnector(hiveConnector);
 
-    rootPool_ = memory::deprecatedDefaultMemoryManager().addRootPool(
-        "TaskManagerTest.root");
+    rootPool_ = memory::memoryManager()->addRootPool("TaskManagerTest.root");
     leafPool_ =
         memory::deprecatedAddDefaultLeafMemoryPool("TaskManagerTest.leaf");
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
