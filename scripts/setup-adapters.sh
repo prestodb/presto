@@ -25,7 +25,7 @@ DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 
 function install_aws-sdk-cpp {
   local AWS_REPO_NAME="aws/aws-sdk-cpp"
-  local AWS_SDK_VERSION="1.10.57"
+  local AWS_SDK_VERSION="1.11.169"
 
   github_checkout $AWS_REPO_NAME $AWS_SDK_VERSION --depth 1 --recurse-submodules
   cmake_install -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS:BOOL=OFF -DMINIMIZE_SIZE:BOOL=ON -DENABLE_TESTING:BOOL=OFF -DBUILD_ONLY:STRING="s3;identity-management"
