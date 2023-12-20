@@ -17,8 +17,9 @@ add_test(simple_lru_cache_test simple_lru_cache_test)
 target_link_libraries(simple_lru_cache_test PRIVATE Folly::folly glog::glog
                                                     gtest gtest_main)
 
-add_executable(velox_cache_test StringIdMapTest.cpp AsyncDataCacheTest.cpp
-                                SsdFileTest.cpp SsdFileTrackerTest.cpp)
+add_executable(
+  velox_cache_test AsyncDataCacheTest.cpp CacheTTLControllerTest.cpp
+                   SsdFileTest.cpp SsdFileTrackerTest.cpp StringIdMapTest.cpp)
 add_test(velox_cache_test velox_cache_test)
 target_link_libraries(
   velox_cache_test

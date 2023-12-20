@@ -36,6 +36,10 @@ ScopedTestTime::~ScopedTestTime() {
   enabled_ = false;
 }
 
+void ScopedTestTime::setCurrentTestTimeSec(size_t currentTimeSec) {
+  setCurrentTestTimeMicro(currentTimeSec * 1000000);
+}
+
 void ScopedTestTime::setCurrentTestTimeMs(size_t currentTimeMs) {
   setCurrentTestTimeMicro(currentTimeMs * 1000);
 }
@@ -44,12 +48,21 @@ void ScopedTestTime::setCurrentTestTimeMicro(size_t currentTimeUs) {
   testTimeUs_ = currentTimeUs;
 }
 
+std::optional<size_t> ScopedTestTime::getCurrentTestTimeSec() {
+  return testTimeUs_.has_value() ? std::make_optional(*testTimeUs_ / 1000000L)
+                                 : testTimeUs_;
+}
 std::optional<size_t> ScopedTestTime::getCurrentTestTimeMs() {
   return testTimeUs_.has_value() ? std::make_optional(*testTimeUs_ / 1000L)
                                  : testTimeUs_;
 }
 std::optional<size_t> ScopedTestTime::getCurrentTestTimeMicro() {
   return testTimeUs_;
+}
+
+size_t getCurrentTimeSec() {
+  return ScopedTestTime::getCurrentTestTimeSec().value_or(
+      duration_cast<seconds>(system_clock::now().time_since_epoch()).count());
 }
 
 size_t getCurrentTimeMs() {
@@ -64,6 +77,11 @@ size_t getCurrentTimeMicro() {
           .count());
 }
 #else
+
+size_t getCurrentTimeSec() {
+  return duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+}
+
 size_t getCurrentTimeMs() {
   return duration_cast<milliseconds>(system_clock::now().time_since_epoch())
       .count();

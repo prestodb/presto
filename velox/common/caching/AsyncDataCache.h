@@ -701,6 +701,8 @@ class AsyncDataCache : public memory::Cache {
   /// Returns true if there is an entry for 'key'. Updates access time.
   bool exists(RawFileCacheKey key) const;
 
+  /// Returns snapshot of the aggregated stats from all shards and the stats of
+  /// SSD cache if used.
   CacheStats refreshStats() const;
 
   /// If 'details' is true, returns the stats of the backing memory allocator
