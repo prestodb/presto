@@ -40,6 +40,9 @@ void DictionaryVector<T>::setInternalState() {
     // Do not load Lazy vector
     return;
   }
+  // Ensure any internal state in dictionaryValues_ is initialized, and it
+  // points to the loaded vector underneath any lazy layers.
+  dictionaryValues_ = BaseVector::loadedVectorShared(dictionaryValues_);
 
   if (dictionaryValues_->isScalar()) {
     scalarDictionaryValues_ =

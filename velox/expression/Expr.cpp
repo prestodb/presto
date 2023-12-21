@@ -1282,7 +1282,7 @@ void computeIsAsciiForInputs(
       auto* vector =
           inputValues[index]->template as<SimpleVector<StringView>>();
 
-      VELOX_CHECK(vector);
+      VELOX_CHECK(vector, inputValues[index]->toString());
       vector->computeAndSetIsAscii(rows);
     }
   }

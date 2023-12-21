@@ -372,6 +372,9 @@ class ConstantVector final : public SimpleVector<T> {
       // Do not load Lazy vector
       return;
     }
+    // Ensure any internal state in valueVector_ is initialized, and it points
+    // to the loaded vector underneath any lazy layers.
+    valueVector_ = BaseVector::loadedVectorShared(valueVector_);
 
     isNull_ = valueVector_->isNullAt(index_);
     BaseVector::distinctValueCount_ = isNull_ ? 0 : 1;
