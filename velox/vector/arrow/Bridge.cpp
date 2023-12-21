@@ -800,19 +800,6 @@ void exportFlattenedVector(
       flattenAndExport, vec.typeKind(), vec, rows, out, pool, holder);
 }
 
-// Set the array as using "Null Layout" - no buffers are allocated.
-void setNullArray(ArrowArray& array, size_t length) {
-  array.length = length;
-  array.null_count = length;
-  array.offset = 0;
-  array.n_buffers = 0;
-  array.n_children = 0;
-  array.buffers = nullptr;
-  array.children = nullptr;
-  array.dictionary = nullptr;
-  array.release = releaseArrowArray;
-}
-
 void exportConstantValue(
     const BaseVector& vec,
     ArrowArray& out,
