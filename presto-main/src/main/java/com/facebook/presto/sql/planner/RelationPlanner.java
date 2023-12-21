@@ -184,15 +184,13 @@ class RelationPlanner
             if (namedQuery.isFromView()) {
                 cteName = createQualifiedObjectName(session, node, node.getName()).toString();
             }
-            context.getNestedCteStack().push(cteName, namedQuery.getQuery());
             RelationPlan subPlan = process(namedQuery.getQuery(), context);
-            context.getNestedCteStack().pop(namedQuery.getQuery());
             boolean shouldBeMaterialized = getCteMaterializationStrategy(session).equals(ALL) && isCteMaterializable(subPlan.getRoot().getOutputVariables());
             session.getCteInformationCollector().addCTEReference(cteName, namedQuery.isFromView(), shouldBeMaterialized);
             if (shouldBeMaterialized) {
                 subPlan = new RelationPlan(
                         new CteReferenceNode(getSourceLocation(node.getLocation()),
-                                idAllocator.getNextId(), subPlan.getRoot(), context.getNestedCteStack().getRawPath(cteName)),
+                                idAllocator.getNextId(), subPlan.getRoot(), context.getCteInfo().normalize(analysis, namedQuery.getQuery(), cteName)),
                         subPlan.getScope(),
                         subPlan.getFieldMappings());
             }

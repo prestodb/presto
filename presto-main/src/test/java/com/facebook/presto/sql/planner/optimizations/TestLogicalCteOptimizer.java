@@ -23,11 +23,12 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
-import static com.facebook.presto.sql.planner.SqlPlannerContext.NestedCteStack.delimiter;
+import static com.facebook.presto.sql.planner.SqlPlannerContext.CteInfo.delimiter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.cteConsumer;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.cteProducer;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.lateral;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sequence;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -39,10 +40,37 @@ public class TestLogicalCteOptimizer
     public void testConvertSimpleCte()
     {
         assertUnitPlan("WITH  temp as (SELECT orderkey FROM ORDERS) " +
-                        "SELECT * FROM temp t1 ",
+                        "SELECT * FROM temp t JOIN temp t2 ON true ",
                 anyTree(
-                        sequence(cteProducer("temp", anyTree(tableScan("orders"))),
-                                anyTree(cteConsumer("temp")))));
+                        sequence(cteProducer(addQueryScopeDelimiter("temp", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("temp", 0))))));
+    }
+
+    @Test
+    public void testSimpleRedefinedCteWithSameNameDefinedAgain()
+    {
+        assertUnitPlan("WITH \n" +
+                        "test_base AS (SELECT colB FROM (VALUES (1), (2)) AS TempTable(colB)),\n" +
+                        "test AS (\n" +
+                        "    \n" +
+                        "    WITH test_base as (SELECT colA FROM (VALUES (1), (2)) AS TempTable(colA)),\n" +
+                        "    test1 AS (\n" +
+                        "        WITH test2 AS(\n" +
+                        "          SELECT * FROM test_base\n" +
+                        "        )\n" +
+                        "        SELECT * FROM test2\n" +
+                        "    )\n" +
+                        "    SELECT * FROM test1\n" +
+                        ")\n" +
+                        "\n" +
+                        "SELECT * FROM test",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("test", 3), anyTree(cteConsumer(addQueryScopeDelimiter("test1", 2)))),
+                                cteProducer(addQueryScopeDelimiter("test1", 2), anyTree(cteConsumer(addQueryScopeDelimiter("test2", 1)))),
+                                cteProducer(addQueryScopeDelimiter("test2", 1), anyTree(cteConsumer(addQueryScopeDelimiter("test_base", 0)))),
+                                cteProducer(addQueryScopeDelimiter("test_base", 0), anyTree(values("colA"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("test", 3))))));
     }
 
     @Test
@@ -53,9 +81,9 @@ public class TestLogicalCteOptimizer
                         "SELECT * FROM temp",
                 anyTree(
                         sequence(
-                                cteProducer("temp", anyTree(cteConsumer("temp" + delimiter + "temp"))),
-                                cteProducer("temp" + delimiter + "temp", anyTree(tableScan("orders"))),
-                                anyTree(cteConsumer("temp")))));
+                                cteProducer(addQueryScopeDelimiter("temp", 1), anyTree(cteConsumer(addQueryScopeDelimiter("temp", 0)))),
+                                cteProducer(addQueryScopeDelimiter("temp", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("temp", 1))))));
     }
 
     @Test
@@ -76,15 +104,74 @@ public class TestLogicalCteOptimizer
                         "SELECT cte3.*, cte2.orderkey FROM cte3 JOIN cte2 ON cte3.custkey = cte2.orderkey",
                 anyTree(
                         sequence(
-                                cteProducer("cte3", anyTree(tableScan("customer"))),
-                                cteProducer("cte2", anyTree(cteConsumer("cte2" + delimiter + "cte3"))),
-                                cteProducer("cte2" + delimiter + "cte3", anyTree(cteConsumer("cte2" + delimiter + "cte3" + delimiter + "cte4"))),
-                                cteProducer("cte2" + delimiter + "cte3" + delimiter + "cte4", anyTree(cteConsumer("cte1"))),
-                                cteProducer("cte1", anyTree(tableScan("orders"))),
+                                cteProducer(addQueryScopeDelimiter("cte3", 0), anyTree(tableScan("customer"))),
+                                cteProducer(addQueryScopeDelimiter("cte2", 4), anyTree(cteConsumer(addQueryScopeDelimiter("cte3", 3)))),
+                                cteProducer(addQueryScopeDelimiter("cte3", 3), anyTree(cteConsumer(addQueryScopeDelimiter("cte4", 2)))),
+                                cteProducer(addQueryScopeDelimiter("cte4", 2), anyTree(cteConsumer(addQueryScopeDelimiter("cte1", 1)))),
+                                cteProducer(addQueryScopeDelimiter("cte1", 1), anyTree(tableScan("orders"))),
                                 anyTree(
                                         join(
-                                                anyTree(cteConsumer("cte3")),
-                                                anyTree(cteConsumer("cte2")))))));
+                                                anyTree(cteConsumer(addQueryScopeDelimiter("cte3", 0))),
+                                                anyTree(cteConsumer(addQueryScopeDelimiter("cte2", 4))))))));
+    }
+
+    @Test
+    public void testRedefinedCteConflictingNamesInDifferentScope()
+    {
+        assertUnitPlan("WITH test AS (SELECT colA FROM (VALUES (1), (2)) AS TempTable(colA)),\n" +
+                        " _query AS (\n" +
+                        "    with test AS (\n" +
+                        "     SELECT * FROM test\n" +
+                        "     )\n" +
+                        "     SELECT * FROM test\n" +
+                        "  )\n" +
+                        "  SELECT * FROM _query",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("_query", 2), anyTree(cteConsumer(addQueryScopeDelimiter("test", 1)))),
+                                cteProducer(addQueryScopeDelimiter("test", 1), anyTree(cteConsumer(addQueryScopeDelimiter("test", 0)))),
+                                cteProducer(addQueryScopeDelimiter("test", 0), anyTree(values("colA"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("_query", 2))))));
+    }
+
+    @Test
+    public void testCtesDefinedInEntirelyDifferentScope()
+    {
+        // From clause is visited first
+        assertUnitPlan("SELECT \n" +
+                        "   *, (WITH T as (SELECT colA FROM (VALUES (1), (2)) AS TempTable(colA)) SELECT * FROM T)\n" +
+                        "FROM (\n" +
+                        "    WITH T AS ( \n" +
+                        "      SELECT ColumnA, ColumnB FROM (\n" +
+                        "            VALUES \n" +
+                        "            (1, 'A'),\n" +
+                        "            (2, 'B'),\n" +
+                        "            (3, 'C'),\n" +
+                        "            (4, 'D')\n" +
+                        "        ) AS TempTable(ColumnA, ColumnB)\n" +
+                        "    )\n" +
+                        "    SELECT * FROM T JOIN T ON TRUE" +
+                        ")",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("T", 0), anyTree(values("ColumnA", "ColumnB"))),
+                                cteProducer(addQueryScopeDelimiter("T", 1), anyTree(values("colA"))),
+                                anyTree(lateral(ImmutableList.of(),
+                                        anyTree(join(anyTree(cteConsumer(addQueryScopeDelimiter("T", 0))), anyTree(cteConsumer(addQueryScopeDelimiter("T", 0))))),
+                                        anyTree(cteConsumer(addQueryScopeDelimiter("T", 1))))))));
+    }
+
+    @Test
+    public void testNestedCtesReused()
+    {
+        assertUnitPlan("WITH  cte1 AS ( WITH cte2 as (SELECT orderkey FROM ORDERS WHERE orderkey < 100)" +
+                        "SELECT * FROM cte2)" +
+                        "SELECT * FROM  cte1  JOIN cte1 ON true",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("cte1", 1), anyTree(cteConsumer(addQueryScopeDelimiter("cte2", 0)))),
+                                cteProducer(addQueryScopeDelimiter("cte2", 0), anyTree(tableScan("orders"))),
+                                anyTree(join(anyTree(cteConsumer(addQueryScopeDelimiter("cte1", 1))), anyTree(cteConsumer(addQueryScopeDelimiter("cte1", 1))))))));
     }
 
     @Test
@@ -96,10 +183,10 @@ public class TestLogicalCteOptimizer
                         "SELECT * FROM cte2  JOIN cte1 ON true",
                 anyTree(
                         sequence(
-                                cteProducer("cte2", anyTree(tableScan("customer"))),
-                                cteProducer("cte1", anyTree(cteConsumer("cte1" + delimiter + "cte2"))),
-                                cteProducer("cte1" + delimiter + "cte2", anyTree(tableScan("orders"))),
-                                anyTree(join(anyTree(cteConsumer("cte2")), anyTree(cteConsumer("cte1")))))));
+                                cteProducer(addQueryScopeDelimiter("cte2", 0), anyTree(tableScan("customer"))),
+                                cteProducer(addQueryScopeDelimiter("cte1", 2), anyTree(cteConsumer(addQueryScopeDelimiter("cte2", 1)))),
+                                cteProducer(addQueryScopeDelimiter("cte2", 1), anyTree(tableScan("orders"))),
+                                anyTree(join(anyTree(cteConsumer(addQueryScopeDelimiter("cte2", 0))), anyTree(cteConsumer(addQueryScopeDelimiter("cte1", 2))))))));
     }
 
     @Test
@@ -109,9 +196,9 @@ public class TestLogicalCteOptimizer
                         " temp2 as (SELECT * FROM temp1) " +
                         "SELECT * FROM temp2",
                 anyTree(
-                        sequence(cteProducer("temp2", anyTree(cteConsumer("temp1"))),
-                                cteProducer("temp1", anyTree(tableScan("orders"))),
-                                anyTree(cteConsumer("temp2")))));
+                        sequence(cteProducer(addQueryScopeDelimiter("temp2", 1), anyTree(cteConsumer(addQueryScopeDelimiter("temp1", 0)))),
+                                cteProducer(addQueryScopeDelimiter("temp1", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("temp2", 1))))));
     }
 
     @Test
@@ -121,9 +208,9 @@ public class TestLogicalCteOptimizer
                         " temp2 as (SELECT custkey FROM CUSTOMER) " +
                         "SELECT * FROM temp1, temp2",
                 anyTree(
-                        sequence(cteProducer("temp1", anyTree(tableScan("orders"))),
-                                cteProducer("temp2", anyTree(tableScan("customer"))),
-                                anyTree(join(anyTree(cteConsumer("temp1")), anyTree(cteConsumer("temp2")))))));
+                        sequence(cteProducer(addQueryScopeDelimiter("temp1", 0), anyTree(tableScan("orders"))),
+                                cteProducer(addQueryScopeDelimiter("temp2", 1), anyTree(tableScan("customer"))),
+                                anyTree(join(anyTree(cteConsumer(addQueryScopeDelimiter("temp1", 0))), anyTree(cteConsumer(addQueryScopeDelimiter("temp2", 1))))))));
     }
 
     @Test
@@ -133,9 +220,9 @@ public class TestLogicalCteOptimizer
                         " temp2 as (SELECT orderkey FROM temp1) " +
                         "SELECT * FROM temp2 , temp1",
                 anyTree(
-                        sequence(cteProducer("temp2", anyTree(cteConsumer("temp1"))),
-                                cteProducer("temp1", anyTree(tableScan("orders"))),
-                                anyTree(join(anyTree(cteConsumer("temp2")), anyTree(cteConsumer("temp1")))))));
+                        sequence(cteProducer(addQueryScopeDelimiter("temp2", 1), anyTree(cteConsumer(addQueryScopeDelimiter("temp1", 0)))),
+                                cteProducer(addQueryScopeDelimiter("temp1", 0), anyTree(tableScan("orders"))),
+                                anyTree(join(anyTree(cteConsumer(addQueryScopeDelimiter("temp2", 1))), anyTree(cteConsumer(addQueryScopeDelimiter("temp1", 0))))))));
     }
 
     @Test
@@ -147,15 +234,15 @@ public class TestLogicalCteOptimizer
                         "SELECT li.orderkey, s.suppkey, s.name FROM cte_line_item li JOIN SUPPLIER s ON li.suppkey = s.suppkey",
                 anyTree(
                         sequence(
-                                cteProducer("cte_line_item",
+                                cteProducer(addQueryScopeDelimiter("cte_line_item", 1),
                                         anyTree(
                                                 join(
                                                         anyTree(tableScan("lineitem")),
-                                                        anyTree(cteConsumer("cte_orders"))))),
-                                cteProducer("cte_orders", anyTree(tableScan("orders"))),
+                                                        anyTree(cteConsumer(addQueryScopeDelimiter("cte_orders", 0)))))),
+                                cteProducer(addQueryScopeDelimiter("cte_orders", 0), anyTree(tableScan("orders"))),
                                 anyTree(
                                         join(
-                                                anyTree(cteConsumer("cte_line_item")),
+                                                anyTree(cteConsumer(addQueryScopeDelimiter("cte_line_item", 1))),
                                                 anyTree(tableScan("supplier")))))));
     }
 
@@ -180,8 +267,8 @@ public class TestLogicalCteOptimizer
                         ") SELECT * FROM temp",
                 anyTree(
                         sequence(
-                                cteProducer("temp", anyTree(values("status", "amount"))),
-                                anyTree(cteConsumer("temp")))));
+                                cteProducer(addQueryScopeDelimiter("temp", 0), anyTree(values("status", "amount"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("temp", 0))))));
     }
 
     @Test
@@ -193,6 +280,11 @@ public class TestLogicalCteOptimizer
                         "  ) AS t (text_column, number_column)" +
                         ") SELECT * FROM temp",
                 anyTree(values("text_column", "number_column")));
+    }
+
+    private String addQueryScopeDelimiter(String cteName, int scope)
+    {
+        return String.valueOf(scope) + delimiter + cteName;
     }
 
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
