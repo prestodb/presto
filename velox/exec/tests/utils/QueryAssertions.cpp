@@ -997,6 +997,19 @@ bool assertEqualResults(
   return assertEqualResults(expectedRows, expectedType, actual);
 }
 
+bool assertEqualResults(
+    const core::PlanNodePtr& plan1,
+    const core::PlanNodePtr& plan2) {
+  CursorParameters params1;
+  params1.planNode = plan1;
+  auto [cursor1, results1] = readCursor(params1, [](Task*) {});
+
+  CursorParameters params2;
+  params2.planNode = plan2;
+  auto [cursor2, results2] = readCursor(params2, [](Task*) {});
+  return assertEqualResults(results1, results2);
+}
+
 void assertEqualTypeAndNumRows(
     const TypePtr& expectedType,
     vector_size_t expectedNumRows,

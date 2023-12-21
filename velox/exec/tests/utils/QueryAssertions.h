@@ -206,6 +206,11 @@ bool assertEqualResults(
     const TypePtr& expectedRowType,
     const std::vector<RowVectorPtr>& actual);
 
+/// Ensure both plans have the same results.
+bool assertEqualResults(
+    const core::PlanNodePtr& plan1,
+    const core::PlanNodePtr& plan2);
+
 /// Ensure both datasets have the same type and number of rows.
 void assertEqualTypeAndNumRows(
     const TypePtr& expectedType,
