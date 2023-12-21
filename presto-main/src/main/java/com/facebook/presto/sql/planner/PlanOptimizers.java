@@ -106,7 +106,9 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinctLim
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantLimit;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSort;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSortColumns;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopN;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
@@ -557,7 +559,9 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new RemoveRedundantDistinct(),
                                 new RemoveRedundantTopN(),
+                                new RemoveRedundantTopNColumns(),
                                 new RemoveRedundantSort(),
+                                new RemoveRedundantSortColumns(),
                                 new RemoveRedundantLimit(),
                                 new RemoveRedundantDistinctLimit(),
                                 new RemoveRedundantAggregateDistinct(),
