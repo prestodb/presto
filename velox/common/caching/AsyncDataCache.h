@@ -20,6 +20,7 @@
 
 #include <fmt/format.h>
 #include <folly/chrono/Hardware.h>
+#include <folly/container/F14Set.h>
 #include <folly/futures/SharedPromise.h>
 #include "folly/GLog.h"
 #include "velox/common/base/BitUtil.h"
@@ -508,6 +509,8 @@ struct CacheStats {
   // Number of times a user waited for an entry to transit from exclusive to
   // shared mode.
   int64_t numWaitExclusive{0};
+  // Total number of entries that are aged out and beyond TTL.
+  int64_t numAgedOut{};
   // Cumulative clocks spent in allocating or freeing memory for backing cache
   // entries.
   uint64_t allocClocks{0};
@@ -582,6 +585,14 @@ class CacheShard {
   // calling this a second time.
   void appendSsdSaveable(std::vector<CachePin>& pins);
 
+  /// Remove cache entries from this shard for files in the fileNum set
+  /// 'filesToRemove'. If successful, return true, and 'filesRetained' contains
+  /// entries that should not be removed, ex., in exclusive mode or in shared
+  /// mode. Otherwise, return false and 'filesRetained' could be ignored.
+  bool removeFileEntries(
+      const folly::F14FastSet<uint64_t>& filesToRemove,
+      folly::F14FastSet<uint64_t>& filesRetained);
+
   auto& allocClocks() {
     return allocClocks_;
   }
@@ -637,6 +648,8 @@ class CacheShard {
   // Count of entries considered for eviction. This divided by
   // 'numEvict_' measured efficiency of eviction.
   uint64_t numEvictChecks_{0};
+  // Count of entries aged out due to TTL.
+  uint64_t numAgedOut_{};
   // Sum of evict scores. This divided by 'numEvict_' correlates to
   // time data stays in cache.
   uint64_t sumEvictScore_{0};
@@ -772,6 +785,14 @@ class AsyncDataCache : public memory::Cache {
   tsan_atomic<int32_t>& numSkippedSaves() {
     return numSkippedSaves_;
   }
+
+  /// Remove cache entries from all shards for files in the fileNum set
+  /// 'filesToRemove'. If successful, return true, and 'filesRetained' contains
+  /// entries that should not be removed, ex., in exclusive mode or in shared
+  /// mode. Otherwise, return false and 'filesRetained' could be ignored.
+  bool removeFileEntries(
+      const folly::F14FastSet<uint64_t>& filesToRemove,
+      folly::F14FastSet<uint64_t>& filesRetained);
 
  private:
   static constexpr int32_t kNumShards = 4; // Must be power of 2.

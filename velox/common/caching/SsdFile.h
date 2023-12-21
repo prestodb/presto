@@ -132,7 +132,10 @@ struct SsdCacheStats {
     entriesRead = tsanAtomicValue(other.entriesRead);
     bytesRead = tsanAtomicValue(other.bytesRead);
     entriesCached = tsanAtomicValue(other.entriesCached);
+    regionsCached = tsanAtomicValue(other.regionsCached);
     bytesCached = tsanAtomicValue(other.bytesCached);
+    entriesAgedOut = tsanAtomicValue(other.entriesAgedOut);
+    regionsAgedOut = tsanAtomicValue(other.regionsAgedOut);
     numPins = tsanAtomicValue(other.numPins);
 
     openFileErrors = tsanAtomicValue(other.openFileErrors);
@@ -151,7 +154,10 @@ struct SsdCacheStats {
   tsan_atomic<uint64_t> entriesRead{0};
   tsan_atomic<uint64_t> bytesRead{0};
   tsan_atomic<uint64_t> entriesCached{0};
+  tsan_atomic<uint64_t> regionsCached{0};
   tsan_atomic<uint64_t> bytesCached{0};
+  tsan_atomic<uint64_t> entriesAgedOut{0};
+  tsan_atomic<uint64_t> regionsAgedOut{0};
   tsan_atomic<int32_t> numPins{0};
 
   tsan_atomic<uint32_t> openFileErrors{0};
@@ -245,6 +251,14 @@ class SsdFile {
   // Deletes the backing file. Used in testing.
   void deleteFile();
 
+  /// Remove cached entries of files in the fileNum set 'filesToRemove'. If
+  /// successful, return true, and 'filesRetained' contains entries that should
+  /// not be removed, ex., from pinned regions. Otherwise, return false and
+  /// 'filesRetained' could be ignored.
+  bool removeFileEntries(
+      const folly::F14FastSet<uint64_t>& filesToRemove,
+      folly::F14FastSet<uint64_t>& filesRetained);
+
   // Writes a checkpoint state that can be recovered from. The
   // checkpoint is serialized on 'mutex_'. If 'force' is false,
   // rechecks that at least 'checkpointIntervalBytes_' have been
@@ -263,6 +277,8 @@ class SsdFile {
   static constexpr int64_t kCheckpointMapMarker = 0xfffffffffffffffe;
   // Magic number at end of completed checkpoint file.
   static constexpr int64_t kCheckpointEndMarker = 0xcbedf11e;
+
+  static constexpr int kMaxErasedSizePct = 50;
 
   // Increments the pin count of the region of 'offset'. Caller must hold
   // 'mutex_'.
@@ -343,6 +359,8 @@ class SsdFile {
   // offset and the end of the region. This is subscripted with the region
   // index. The regionIndex times kRegionSize is an offset into the file.
   std::vector<uint32_t> regionSizes_;
+
+  std::vector<uint32_t> erasedRegionSizes_;
 
   // Indices of regions available for writing new entries.
   std::vector<int32_t> writableRegions_;

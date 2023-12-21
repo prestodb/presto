@@ -163,6 +163,7 @@ SsdFile::SsdFile(
   std::iota(writableRegions_.begin(), writableRegions_.end(), 0);
   tracker_.resize(maxRegions_);
   regionSizes_.resize(maxRegions_);
+  erasedRegionSizes_.resize(maxRegions_);
   regionPins_.resize(maxRegions_);
   if (checkpointIntervalBytes_) {
     initializeCheckpoint();
@@ -313,6 +314,7 @@ bool SsdFile::growOrEvictLocked() {
       fileSize_ = newSize;
       writableRegions_.push_back(numRegions_);
       regionSizes_[numRegions_] = 0;
+      erasedRegionSizes_[numRegions_] = 0;
       ++numRegions_;
       return true;
     }
@@ -353,6 +355,7 @@ void SsdFile::clearRegionEntriesLocked(const std::vector<int32_t>& regions) {
     // full, it will get a score boost to be a little ahead of the best.
     tracker_.regionCleared(region);
     regionSizes_[region] = 0;
+    erasedRegionSizes_[region] = 0;
   }
 }
 
@@ -480,9 +483,12 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
   stats.entriesRead += stats_.entriesRead;
   stats.bytesRead += stats_.bytesRead;
   stats.entriesCached += entries_.size();
-  for (auto& regionSize : regionSizes_) {
-    stats.bytesCached += regionSize;
+  stats.regionsCached += numRegions_;
+  for (auto i = 0; i < numRegions_; i++) {
+    stats.bytesCached += (regionSizes_[i] - erasedRegionSizes_[i]);
   }
+  stats.entriesAgedOut += stats_.entriesAgedOut;
+  stats.regionsAgedOut += stats_.regionsAgedOut;
   for (auto pins : regionPins_) {
     stats.numPins += pins;
   }
@@ -502,6 +508,7 @@ void SsdFile::clear() {
   std::lock_guard<std::shared_mutex> l(mutex_);
   entries_.clear();
   std::fill(regionSizes_.begin(), regionSizes_.end(), 0);
+  std::fill(erasedRegionSizes_.begin(), erasedRegionSizes_.end(), 0);
   writableRegions_.resize(numRegions_);
   std::iota(writableRegions_.begin(), writableRegions_.end(), 0);
 }
@@ -516,6 +523,72 @@ void SsdFile::deleteFile() {
     VELOX_SSD_CACHE_LOG(ERROR)
         << "Error deleting cache file " << fileName_ << " rc: " << rc;
   }
+}
+
+bool SsdFile::removeFileEntries(
+    const folly::F14FastSet<uint64_t>& filesToRemove,
+    folly::F14FastSet<uint64_t>& filesRetained) {
+  if (filesToRemove.empty()) {
+    VELOX_SSD_CACHE_LOG(INFO)
+        << "Removed 0 entry from " << fileName_ << ". And erased 0 region with "
+        << kMaxErasedSizePct << "% entries removed.";
+    return true;
+  }
+
+  std::lock_guard<std::shared_mutex> l(mutex_);
+
+  int64_t entriesAgedOut = 0;
+  auto it = entries_.begin();
+  while (it != entries_.end()) {
+    const FileCacheKey& cacheKey = it->first;
+    const SsdRun& ssdRun = it->second;
+
+    if (!cacheKey.fileNum.hasValue()) {
+      ++it;
+      continue;
+    }
+    if (filesToRemove.count(cacheKey.fileNum.id()) == 0) {
+      ++it;
+      continue;
+    }
+
+    auto region = regionIndex(ssdRun.offset());
+    if (regionPins_[region] > 0) {
+      filesRetained.insert(cacheKey.fileNum.id());
+      ++it;
+      continue;
+    }
+
+    entriesAgedOut++;
+    erasedRegionSizes_[region] += ssdRun.size();
+
+    it = entries_.erase(it);
+  }
+
+  std::vector<int32_t> toFree;
+  toFree.reserve(numRegions_);
+  for (auto region = 0; region < numRegions_; region++) {
+    if (erasedRegionSizes_[region] >
+        regionSizes_[region] * kMaxErasedSizePct / 100) {
+      toFree.push_back(region);
+    }
+  }
+  if (toFree.size() > 0) {
+    clearRegionEntriesLocked(toFree);
+    writableRegions_.reserve(writableRegions_.size() + toFree.size());
+    for (int32_t region : toFree) {
+      writableRegions_.push_back(region);
+    }
+  }
+
+  stats_.entriesAgedOut += entriesAgedOut;
+  stats_.regionsAgedOut += toFree.size();
+  VELOX_SSD_CACHE_LOG(INFO)
+      << "Removed " << entriesAgedOut << " entries from " << fileName_
+      << ". And erased " << toFree.size() << " regions with "
+      << kMaxErasedSizePct << "% entries removed.";
+
+  return true;
 }
 
 void SsdFile::logEviction(const std::vector<int32_t>& regions) {

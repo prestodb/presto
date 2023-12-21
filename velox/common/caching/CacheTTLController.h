@@ -72,6 +72,8 @@ class CacheTTLController {
   /// Compute age related stats of the cached files.
   CacheAgeStats getCacheAgeStats() const;
 
+  void applyTTL(int64_t ttlSecs);
+
  private:
   /// A process-wide singleton instance of CacheTTLController.
   static std::unique_ptr<CacheTTLController> instance_;
@@ -79,6 +81,8 @@ class CacheTTLController {
  private:
   // Prevent creating a random instance of CacheTTLController.
   explicit CacheTTLController(AsyncDataCache& cache) : cache_(cache) {}
+
+  folly::F14FastSet<uint64_t> getAndMarkAgedOutFiles(int64_t maxOpenTimeSecs);
 
   /// Clean up file entries with removeInProgress true but keep entries for
   /// fileNums in filesToRetain.
