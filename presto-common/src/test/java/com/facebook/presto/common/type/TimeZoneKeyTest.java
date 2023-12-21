@@ -25,15 +25,18 @@ import static org.assertj.core.api.Fail.fail;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TimeZoneKeyTest
-{
+public class TimeZoneKeyTest {
     TimeZoneKey timeZoneKey = new TimeZoneKey("1", (short) 1);
     Class<?> clazz = TimeZoneKey.class;
     Method normalizeZoneId;
 
-    public TimeZoneKeyTest() throws NoSuchMethodException
+    public TimeZoneKeyTest()
     {
-        normalizeZoneId = clazz.getDeclaredMethod("normalizeZoneId", String.class);
+        try {
+            normalizeZoneId = clazz.getDeclaredMethod("normalizeZoneId", String.class);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @BeforeTest
@@ -44,100 +47,123 @@ public class TimeZoneKeyTest
 
     @Test
     @Named("GMT TEST")
-    public void gmtZoneIdTest() throws InvocationTargetException, IllegalAccessException
+    public void gmtZoneIdTest()
     {
-        String zoneId = "etc/gmt+8";
-        String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+08:00");
-
-        zoneId = "etc/gmt-08:20";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "-08:20");
+        try {
+            String zoneId = "etc/gmt+8";
+            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+08:00");
+            zoneId = "etc/gmt-08:20";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "-08:20");
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
     @Named("UTC TEST")
-    public void utcZoneIdTest() throws InvocationTargetException, IllegalAccessException
+    public void utcZoneIdTest()
     {
-        String zoneId = "etc/utc+1";
-        String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "-01:00");
+        try {
+            String zoneId = "etc/utc+1";
+            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "-01:00");
 
-        zoneId = "etc/utc-1";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+01:00");
+            zoneId = "etc/utc-1";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+01:00");
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
     @Named("GREENWICH TEST")
-    public void greenwichZoneIdTest() throws InvocationTargetException, IllegalAccessException
+    public void greenwichZoneIdTest()
     {
-        String zoneId = "etc/greenwich+01:00";
-        String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+01:00");
+        try {
+            String zoneId = "etc/greenwich+01:00";
+            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+01:00");
 
-        zoneId = "etc/greenwich+6";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+06:00");
+            zoneId = "etc/greenwich+6";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+06:00");
 
-        zoneId = "etc/greenwich-6";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "-06:00");
+            zoneId = "etc/greenwich-6";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "-06:00");
 
-        zoneId = "etc/greenwich+11:23";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+11:23");
+            zoneId = "etc/greenwich+11:23";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+11:23");
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
     @Named("UNIVERSAL TEST")
-    public void universalZoneIdTest() throws InvocationTargetException, IllegalAccessException
+    public void universalZoneIdTest()
     {
-        String zoneId = "etc/universal+08:00";
-        String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+08:00");
+        try {
+            String zoneId = "etc/universal+08:00";
+            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+08:00");
 
-        zoneId = "etc/universal-08:00";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "-08:00");
+            zoneId = "etc/universal-08:00";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "-08:00");
 
-        zoneId = "etc/universal+11:23";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+11:23");
+            zoneId = "etc/universal+11:23";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+11:23");
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
     @Named("UCT TEST")
-    public void uctZoneIdTest() throws InvocationTargetException, IllegalAccessException
+    public void uctZoneIdTest()
     {
-        String zoneId = "etc/uct+06:00";
-        String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+06:00");
+        try {
+            String zoneId = "etc/uct+06:00";
+            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+06:00");
 
-        zoneId = "etc/uct-10:10";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "-10:10");
+            zoneId = "etc/uct-10:10";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "-10:10");
 
-        zoneId = "etc/uct+1";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+01:00");
+            zoneId = "etc/uct+1";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+01:00");
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
     @Named("ZULU TEST")
-    public void zuluZoneIdTest() throws InvocationTargetException, IllegalAccessException
+    public void zuluZoneIdTest()
     {
-        String zoneId = "etc/zulu+06:00";
-        String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+06:00");
+        try {
+            String zoneId = "etc/zulu+06:00";
+            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+06:00");
 
-        zoneId = "etc/zulu-10:10";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "-10:10");
+            zoneId = "etc/zulu-10:10";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "-10:10");
 
-        zoneId = "etc/zulu+1";
-        normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-        assertEquals(normalizedZoneId, "+01:00");
+            zoneId = "etc/zulu+1";
+            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
+            assertEquals(normalizedZoneId, "+01:00");
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
@@ -152,12 +178,10 @@ public class TimeZoneKeyTest
             try {
                 normalizeZoneId.invoke(timeZoneKey, timeZone);
                 fail("Expected TimeZoneNotSupportedException to be thrown for " + timeZone);
-            }
-            catch (InvocationTargetException e) {
+            } catch (InvocationTargetException e) {
                 Throwable cause = e.getCause();
                 assertTrue(cause instanceof TimeZoneNotSupportedException, "Expected TimeZoneNotSupportedException,  but got " + cause.getClass().getSimpleName());
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 fail("Unexpected exception type: " + e.getClass().getSimpleName());
             }
         }
