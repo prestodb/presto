@@ -36,7 +36,6 @@ Z   [Z|z]
 WORD              ([[:alpha:][:alnum:]_]*)
 QUOTED_ID         (['"'][[:alnum:][:space:]_]*['"'])
 NUMBER            ([[:digit:]]+)
-ROW               (ROW|STRUCT)
 VARIABLE          (VARCHAR|VARBINARY)
 
 %%
@@ -48,7 +47,7 @@ VARIABLE          (VARCHAR|VARBINARY)
 (MAP)              return Parser::token::MAP;
 (FUNCTION)         return Parser::token::FUNCTION;
 (DECIMAL)          return Parser::token::DECIMAL;
-{ROW}              return Parser::token::ROW;
+(ROW)              return Parser::token::ROW;
 {VARIABLE}         yylval->build<std::string>(YYText()); return Parser::token::VARIABLE;
 {NUMBER}           yylval->build<long long>(folly::to<int>(YYText())); return Parser::token::NUMBER;
 {WORD}             yylval->build<std::string>(YYText()); return Parser::token::WORD;
