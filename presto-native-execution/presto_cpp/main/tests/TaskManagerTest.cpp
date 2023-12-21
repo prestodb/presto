@@ -144,6 +144,11 @@ void setAggregationSpillConfig(
 static const uint64_t kGB = 1024 * 1024 * 1024ULL;
 
 class TaskManagerTest : public testing::Test {
+ public:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
  protected:
   void SetUp() override {
     FLAGS_velox_memory_leak_check_enabled = true;
