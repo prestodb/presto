@@ -168,6 +168,28 @@ public class TestCteExecution
     }
 
     @Test
+    public void testRedefinedCteWithSameDefinitionDifferentBase()
+    {
+        String testQuery = "SELECT (with test_base AS (SELECT colB FROM (VALUES (1)) AS TempTable(colB)), \n" +
+                "test_cte as (  SELECT colB FROM test_base)\n" +
+                "SELECT * FROM test_cte\n" +
+                "),\n" +
+                "(WITH test_base AS (\n" +
+                "    SELECT text_column\n" +
+                "    FROM (VALUES ('Some Text', 9)) AS t (text_column, number_column)\n" +
+                "), \n" +
+                "test_cte AS (\n" +
+                "    SELECT * FROM test_base\n" +
+                ")\n" +
+                "SELECT  CONCAT(text_column , 'XYZ') FROM test_cte\n" +
+                ")\n";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(
+                queryRunner.execute(getMaterializedSession(), testQuery),
+                queryRunner.execute(getSession(), testQuery));
+    }
+
+    @Test
     public void testComplexRefinedCtesOutsideScope()
     {
         String testQuery = "WITH " +
