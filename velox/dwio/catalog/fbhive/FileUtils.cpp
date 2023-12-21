@@ -94,7 +94,7 @@ std::vector<std::pair<std::string, std::string>> extractPartitionKeyValues(
     parserFunc(part, entries);
   }
   return entries;
-};
+}
 
 // Strong assumption that all expressions in the form of a=b means a partition
 // key value pair in '/' separated tokens. We could have stricter validation

@@ -2029,7 +2029,7 @@ class AssignUniqueIdNode : public PlanNode {
 
   const std::shared_ptr<std::atomic_int64_t>& uniqueIdCounter() const {
     return uniqueIdCounter_;
-  };
+  }
 
   folly::dynamic serialize() const override;
 

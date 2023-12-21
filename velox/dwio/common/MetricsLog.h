@@ -72,7 +72,7 @@ class MetricsLog {
   };
 
   // read path logging methods
-  virtual void logRead(const ReadMetrics& metrics) const {};
+  virtual void logRead(const ReadMetrics& metrics) const {}
 
   virtual void logColumnFilter(
       const ColumnFilter& filter,

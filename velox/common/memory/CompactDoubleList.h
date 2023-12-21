@@ -108,6 +108,4 @@ class CompactDoubleList {
   uint16_t previousHigh_;
 };
 
-;
-
 } // namespace facebook::velox
