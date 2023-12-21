@@ -33,11 +33,6 @@ const auto kFragment = 9;
 const auto kHost = 3; // From the authority and path regex.
 const auto kPort = 4; // From the authority and path regex.
 
-// Returns true if the given character is valid in a domain name.
-bool isDomainChar(char ch) {
-  return std::isalnum(ch) || ch == '-' || ch == '.';
-}
-
 FOLLY_ALWAYS_INLINE StringView submatch(const boost::cmatch& match, int idx) {
   const auto& sub = match[idx];
   return StringView(sub.first, sub.length());
