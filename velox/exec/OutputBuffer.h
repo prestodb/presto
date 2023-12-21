@@ -76,6 +76,31 @@ class ArbitraryBuffer {
 
 class DestinationBuffer {
  public:
+  /// The data transferred by the destination buffer has two phases:
+  /// 1. Buffered: the data resides in the buffer after enqueued and before
+  ///              acked / deleted.
+  /// 2. Sent: the data is removed from the buffer after it is acked or
+  ///          deleted.
+  struct Stats {
+    void recordEnqueue(const SerializedPage& data);
+
+    void recordAcknowledge(const SerializedPage& data);
+
+    void recordDelete(const SerializedPage& data);
+
+    bool finished{false};
+
+    /// Number of buffered bytes / rows / pages.
+    int64_t bytesBuffered{0};
+    int64_t rowsBuffered{0};
+    int64_t pagesBuffered{0};
+
+    /// Number of sent bytes / rows / pages.
+    int64_t bytesSent{0};
+    int64_t rowsSent{0};
+    int64_t pagesSent{0};
+  };
+
   void enqueue(std::shared_ptr<SerializedPage> data);
 
   /// Invoked to load data with up to 'notifyMaxBytes_' bytes from arbitrary
@@ -114,6 +139,12 @@ class DestinationBuffer {
   // the callback.
   DataAvailable getAndClearNotify();
 
+  // Finishes this destination buffer, set finished stats.
+  void finish();
+
+  // Returns the stats of this buffer.
+  Stats stats() const;
+
   std::string toString();
 
  private:
@@ -124,12 +155,37 @@ class DestinationBuffer {
   // The sequence number of the first item to pass to 'notify'.
   int64_t notifySequence_{0};
   uint64_t notifyMaxBytes_{0};
+  Stats stats_;
 };
 
 class Task;
 
 class OutputBuffer {
  public:
+  struct Stats {
+    Stats(
+        core::PartitionedOutputNode::Kind _kind,
+        bool _noMoreBuffers,
+        bool _noMoreData,
+        bool _finished,
+        const std::vector<DestinationBuffer::Stats>& _buffersStats)
+        : kind(_kind),
+          noMoreBuffers(_noMoreBuffers),
+          noMoreData(_noMoreData),
+          finished(_finished),
+          buffersStats(_buffersStats) {}
+
+    const core::PartitionedOutputNode::Kind kind;
+
+    /// States of the OutputBuffer.
+    const bool noMoreBuffers;
+    const bool noMoreData;
+    const bool finished;
+
+    /// Stats of the OutputBuffer's destinations.
+    const std::vector<DestinationBuffer::Stats> buffersStats;
+  };
+
   OutputBuffer(
       std::shared_ptr<Task> task,
       core::PartitionedOutputNode::Kind kind,
@@ -191,6 +247,9 @@ class OutputBuffer {
   // and will start blocking producers soon. This is used to dynamically scale
   // the number of consumers, for example, increase number of TableWriter tasks.
   bool isOverutilized() const;
+
+  // Gets the Stats of this output buffer.
+  Stats stats();
 
  private:
   // Percentage of maxSize below which a blocked producer should
@@ -272,6 +331,10 @@ class OutputBuffer {
   int32_t nextArbitraryLoadBufferIndex_{0};
   // One buffer per destination.
   std::vector<std::unique_ptr<DestinationBuffer>> buffers_;
+  // The sizes of buffers_ and finishedBufferStats_ are the same, but
+  // finishedBufferStats_[i] is set if and only if buffers_[i] is null as
+  // the buffer is finished and deleted.
+  std::vector<DestinationBuffer::Stats> finishedBufferStats_;
   uint32_t numFinished_{0};
   // When this reaches buffers_.size(), 'this' can be freed.
   int numFinalAcknowledges_ = 0;

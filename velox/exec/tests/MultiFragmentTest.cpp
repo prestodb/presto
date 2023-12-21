@@ -156,7 +156,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     auto listener = bufferManager_->newListener();
     IOBufOutputStream stream(*pool(), listener.get(), data->size());
     data->flush(&stream);
-    return std::make_unique<SerializedPage>(stream.getIOBuf());
+    return std::make_unique<SerializedPage>(stream.getIOBuf(), nullptr, size);
   }
 
   int32_t enqueue(

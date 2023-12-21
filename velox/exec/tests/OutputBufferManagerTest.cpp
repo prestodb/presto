@@ -128,6 +128,12 @@ class OutputBufferManagerTest : public testing::Test {
     }
   }
 
+  OutputBuffer::Stats getStats(const std::string& taskId) {
+    const auto stats = bufferManager_->stats(taskId);
+    EXPECT_TRUE(stats.has_value());
+    return stats.value();
+  }
+
   void noMoreData(const std::string& taskId) {
     bufferManager_->noMoreData(taskId);
   }
@@ -968,6 +974,60 @@ TEST_P(AllOutputBufferManagerTest, outputBufferUtilization) {
   deleteResults(taskId, destination);
   bufferManager_->removeTask(taskId);
   verifyOutputBuffer(task, OutputBufferStatus::kFinished);
+}
+
+TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
+  const vector_size_t size = 100;
+  const std::string taskId = std::to_string(folly::Random::rand32());
+  initializeTask(taskId, rowType_, kind_, 1, 1);
+  // Check the stats kind.
+  ASSERT_EQ(getStats(taskId).kind, kind_);
+
+  const int pageNum = 3;
+  int totalSize = 0;
+  for (int pageId = 0; pageId < pageNum; pageId++) {
+    // Enqueue pages and check stats of buffered data.
+    enqueue(taskId, 0, rowType_, size);
+    totalSize += size;
+    // Force ArbitraryBuffer to load data, otherwise the data would
+    // not be buffered in DestinationBuffer.
+    if (kind_ == PartitionedOutputNode::Kind::kArbitrary) {
+      fetchOne(taskId, 0, pageId);
+    }
+    auto statsEnqueue = getStats(taskId);
+    ASSERT_EQ(statsEnqueue.buffersStats[0].pagesBuffered, 1);
+    ASSERT_EQ(statsEnqueue.buffersStats[0].rowsBuffered, size);
+
+    // Ack pages and check stats of sent data.
+    fetchOneAndAck(taskId, 0, pageId);
+    auto statsAck = getStats(taskId);
+    ASSERT_EQ(statsAck.buffersStats[0].pagesSent, pageId + 1);
+    ASSERT_EQ(statsAck.buffersStats[0].rowsSent, totalSize);
+    ASSERT_EQ(statsAck.buffersStats[0].pagesBuffered, 0);
+    ASSERT_EQ(statsAck.buffersStats[0].rowsBuffered, 0);
+  }
+
+  // Set outputBuffer to NoMoreBuffers and check stats.
+  bufferManager_->updateOutputBuffers(taskId, 1, true);
+  auto statsNoMoreBuffers = getStats(taskId);
+  ASSERT_TRUE(statsNoMoreBuffers.noMoreBuffers);
+  ASSERT_FALSE(statsNoMoreBuffers.noMoreData);
+
+  // Set outputBuffer to noMoreData and check stats.
+  noMoreData(taskId);
+  auto statsNoMoreData = getStats(taskId);
+  ASSERT_TRUE(statsNoMoreData.noMoreData);
+
+  // DeleteResults and check stats.
+  fetchEndMarker(taskId, 0, pageNum);
+  deleteResults(taskId, 0);
+  auto statsDeleteResults = getStats(taskId);
+  ASSERT_TRUE(statsDeleteResults.buffersStats[0].finished);
+  ASSERT_TRUE(statsDeleteResults.finished);
+
+  // Remove task and check stats.
+  bufferManager_->removeTask(taskId);
+  ASSERT_FALSE(bufferManager_->stats(taskId).has_value());
 }
 
 TEST_F(OutputBufferManagerTest, outOfOrderAcks) {

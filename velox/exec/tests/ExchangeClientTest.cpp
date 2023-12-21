@@ -53,7 +53,7 @@ class ExchangeClientTest : public testing::Test,
     auto listener = bufferManager_->newListener();
     IOBufOutputStream stream(*pool(), listener.get(), data->size());
     data->flush(&stream);
-    return std::make_unique<SerializedPage>(stream.getIOBuf());
+    return std::make_unique<SerializedPage>(stream.getIOBuf(), nullptr, size);
   }
 
   std::shared_ptr<Task> makeTask(

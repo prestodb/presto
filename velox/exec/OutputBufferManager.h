@@ -108,6 +108,9 @@ class OutputBufferManager {
   // producers. When the task of this taskId is not found, return false.
   bool isOverutilized(const std::string& taskId);
 
+  // Returns nullopt when the specified output buffer doesn't exist.
+  std::optional<OutputBuffer::Stats> stats(const std::string& taskId);
+
   // Retrieves the set of buffers for a query if exists.
   // Returns NULL if task not found.
   std::shared_ptr<OutputBuffer> getBufferIfExists(const std::string& taskId);
