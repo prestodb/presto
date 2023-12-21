@@ -716,6 +716,13 @@ schema evolution, such as adding, dropping, and renaming columns. With schema
 evolution, users can evolve a table schema with SQL after enabling the Presto
 Iceberg connector.
 
+Parquet Writer Version
+----------------------
+
+Presto now supports Parquet writer versions V1 and V2 for the Iceberg catalog.
+It can be toggled using the session property ``parquet_writer_version`` and the config property ``hive.parquet.writer.version``.
+Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_2_0``.
+
 Example Queries
 ^^^^^^^^^^^^^^^
 
