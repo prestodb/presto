@@ -25,7 +25,8 @@ import static org.assertj.core.api.Fail.fail;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TimeZoneKeyTest {
+public class TimeZoneKeyTest
+{
     TimeZoneKey timeZoneKey = new TimeZoneKey("1", (short) 1);
     Class<?> clazz = TimeZoneKey.class;
     Method normalizeZoneId;
@@ -34,7 +35,8 @@ public class TimeZoneKeyTest {
     {
         try {
             normalizeZoneId = clazz.getDeclaredMethod("normalizeZoneId", String.class);
-        } catch (NoSuchMethodException e) {
+        }
+        catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
     }
@@ -56,7 +58,8 @@ public class TimeZoneKeyTest {
             zoneId = "etc/gmt-08:20";
             normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
             assertEquals(normalizedZoneId, "-08:20");
-        } catch (IllegalAccessException | InvocationTargetException e) {
+        }
+        catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }
     }
@@ -73,7 +76,8 @@ public class TimeZoneKeyTest {
             zoneId = "etc/utc-1";
             normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
             assertEquals(normalizedZoneId, "+01:00");
-        } catch (IllegalAccessException | InvocationTargetException e) {
+        }
+        catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }
     }
@@ -98,7 +102,8 @@ public class TimeZoneKeyTest {
             zoneId = "etc/greenwich+11:23";
             normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
             assertEquals(normalizedZoneId, "+11:23");
-        } catch (IllegalAccessException | InvocationTargetException e) {
+        }
+        catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }
     }
@@ -119,7 +124,8 @@ public class TimeZoneKeyTest {
             zoneId = "etc/universal+11:23";
             normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
             assertEquals(normalizedZoneId, "+11:23");
-        } catch (IllegalAccessException | InvocationTargetException e) {
+        }
+        catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }
     }
@@ -140,7 +146,8 @@ public class TimeZoneKeyTest {
             zoneId = "etc/uct+1";
             normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
             assertEquals(normalizedZoneId, "+01:00");
-        } catch (IllegalAccessException | InvocationTargetException e) {
+        }
+        catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }
     }
@@ -161,7 +168,8 @@ public class TimeZoneKeyTest {
             zoneId = "etc/zulu+1";
             normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
             assertEquals(normalizedZoneId, "+01:00");
-        } catch (IllegalAccessException | InvocationTargetException e) {
+        }
+        catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }
     }
@@ -178,10 +186,12 @@ public class TimeZoneKeyTest {
             try {
                 normalizeZoneId.invoke(timeZoneKey, timeZone);
                 fail("Expected TimeZoneNotSupportedException to be thrown for " + timeZone);
-            } catch (InvocationTargetException e) {
+            }
+            catch (InvocationTargetException e) {
                 Throwable cause = e.getCause();
                 assertTrue(cause instanceof TimeZoneNotSupportedException, "Expected TimeZoneNotSupportedException,  but got " + cause.getClass().getSimpleName());
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 fail("Unexpected exception type: " + e.getClass().getSimpleName());
             }
         }
