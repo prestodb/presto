@@ -105,7 +105,7 @@ public class OptimizerAssert
     {
         checkState(plan == null, "plan has already been set");
 
-        //get an initial plan and apply a minimal set of optimizers in preparation foor applying the specific rules to be tested
+        //get an initial plan and apply a minimal set of optimizers in preparation for applying the specific rules to be tested
         Plan result = queryRunner.inTransaction(session -> queryRunner.createPlan(session, sql, getMinimalOptimizers(), Optimizer.PlanStage.OPTIMIZED, WarningCollector.NOOP));
         plan = result.getRoot();
         types = result.getTypes();
