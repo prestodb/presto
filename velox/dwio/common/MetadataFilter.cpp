@@ -149,13 +149,6 @@ struct MetadataFilter::OrNode : Node {
 
 namespace {
 
-const core::FieldAccessTypedExpr* asField(
-    const core::ITypedExpr* expr,
-    int index) {
-  return dynamic_cast<const core::FieldAccessTypedExpr*>(
-      expr->inputs()[index].get());
-}
-
 const core::CallTypedExpr* asCall(const core::ITypedExpr* expr) {
   return dynamic_cast<const core::CallTypedExpr*>(expr);
 }
