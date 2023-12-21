@@ -18,6 +18,14 @@ Mathematical Functions
 
     Returns inverse hyperbolic sine of ``x``.
 
+.. spark:function:: atan2(y, x) -> double
+
+    Returns the arc tangent of ``y / x``. For compatibility with Spark, returns 0 for the following corner cases:
+    * atan2(0.0, 0.0)
+    * atan2(-0.0, -0.0)
+    * atan2(-0.0, 0.0)
+    * atan2(0.0, -0.0)
+
 .. spark:function:: atanh(x) -> double
 
     Returns inverse hyperbolic tangent of ``x``.

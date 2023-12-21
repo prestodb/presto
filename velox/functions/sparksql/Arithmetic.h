@@ -271,6 +271,27 @@ struct CotFunction {
 };
 
 template <typename T>
+struct Atan2Function {
+  FOLLY_ALWAYS_INLINE void call(double& result, double y, double x) {
+    // Spark (as of Spark 3.5)'s atan2 SQL function is internally calculated by
+    // Math.atan2(y + 0.0, x + 0.0). We do the same here for compatibility.
+    //
+    // The sign (+/-) for 0.0 matters because it could make atan2 output
+    // different results. For example:
+
+    // * std::atan2(0.0, 0.0) = 0
+    // * std::atan2(0.0, -0.0) = 3.1415926535897931
+    // * std::atan2(-0.0, -0.0) = -3.1415926535897931
+    // * std::atan2(-0.0, 0.0) = 0
+
+    // By doing x + 0.0 or y + 0.0, we make sure all the -0s have been
+    // replaced by 0s before sending to atan2 function. So the function
+    // will always return atan2(0.0, 0.0) = 0 for atan2(+0.0/-0.0, +0.0/-0.0).
+    result = std::atan2(y + 0.0, x + 0.0);
+  }
+};
+
+template <typename T>
 struct Log10Function {
   FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
     if (a <= 0.0) {
