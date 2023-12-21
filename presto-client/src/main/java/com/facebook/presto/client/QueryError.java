@@ -40,7 +40,7 @@ public class QueryError
             @JsonProperty("errorCode") int errorCode,
             @JsonProperty("errorName") String errorName,
             @JsonProperty("errorType") String errorType,
-            @JsonProperty("boolean") boolean retriable,
+            @JsonProperty("retriable") boolean retriable,
             @JsonProperty("errorLocation") ErrorLocation errorLocation,
             @JsonProperty("failureInfo") FailureInfo failureInfo)
     {
