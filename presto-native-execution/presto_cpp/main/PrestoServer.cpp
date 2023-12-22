@@ -45,6 +45,7 @@
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/connectors/Connector.h"
 #include "velox/core/Config.h"
@@ -599,7 +600,7 @@ void PrestoServer::initializeVeloxMemory() {
     options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
     allocator_ = std::make_shared<memory::MmapAllocator>(options);
   } else {
-    allocator_ = memory::MemoryAllocator::createDefaultInstance();
+    allocator_ = std::make_shared<memory::MallocAllocator>(memoryBytes);
   }
   if (systemConfig->asyncDataCacheEnabled()) {
     std::unique_ptr<cache::SsdCache> ssd;
