@@ -1086,6 +1086,11 @@ public abstract class AbstractTestHiveClient
                 .setCreateEmptyBucketFilesForTemporaryTable(false);
     }
 
+    protected HiveCommonClientConfig getHiveCommonClientConfig()
+    {
+        return new HiveCommonClientConfig();
+    }
+
     protected CacheConfig getCacheConfig()
     {
         return new CacheConfig().setCacheQuotaScope(CACHE_SCOPE).setDefaultCacheQuota(DEFAULT_QUOTA_SIZE);
@@ -1098,12 +1103,7 @@ public abstract class AbstractTestHiveClient
 
     protected ConnectorSession newSession()
     {
-        return newSession(getHiveClientConfig(), new HiveCommonClientConfig());
-    }
-
-    protected ConnectorSession newSession(HiveSessionProperties hiveSessionProperties)
-    {
-        return new TestingConnectorSession(hiveSessionProperties.getSessionProperties());
+        return newSession(getHiveClientConfig(), getHiveCommonClientConfig());
     }
 
     protected ConnectorSession newSession(HiveClientConfig hiveClientConfig, HiveCommonClientConfig hiveCommonClientConfig)
@@ -3930,7 +3930,7 @@ public abstract class AbstractTestHiveClient
 
     private ConnectorSession sampleSize(int sampleSize)
     {
-        return newSession(getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize), new HiveCommonClientConfig());
+        return newSession(getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize), getHiveCommonClientConfig());
     }
 
     private void verifyViewCreation(SchemaTableName temporaryCreateView)
