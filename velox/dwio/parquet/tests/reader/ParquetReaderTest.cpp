@@ -16,6 +16,7 @@
 
 #include "velox/dwio/parquet/tests/ParquetTestBase.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::common;
@@ -508,6 +509,58 @@ TEST_F(ParquetReaderTest, parseIntDecimal) {
     EXPECT_EQ(b[index], expectValues[i]);
     EXPECT_EQ(b[index + 1], expectValues[i]);
   }
+}
+
+TEST_F(ParquetReaderTest, parseMapKeyValueAsMap) {
+  // map_key_value.parquet holds a single map column (key: VARCHAR, b: BIGINT)
+  // and 1 row that contains 8 map entries. It is with older version of Parquet
+  // and uses MAP_KEY_VALUE instead of MAP as the map SchemaElement
+  // converted_type. It has 5 SchemaElements in the schema, in the format of
+  // schemaIdx: <repetition> <type> name (<converted type>):
+  //
+  // 0: REQUIRED BOOLEAN hive_schema (UTF8)
+  // 1:   OPTIONAL BOOLEAN test (MAP_KEY_VALUE)
+  // 2:     REPEATED BOOLEAN map (UTF8)
+  // 3:       REQUIRED BYTE_ARRAY key (UTF8)
+  // 4:       OPTIONAL INT64 value (UTF8)
+
+  const std::string sample(getExampleFilePath("map_key_value.parquet"));
+
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->numberOfRows(), 1ULL);
+
+  auto rowType = reader->typeWithId();
+  EXPECT_EQ(rowType->type()->kind(), TypeKind::ROW);
+  EXPECT_EQ(rowType->size(), 1ULL);
+
+  auto mapColumnType = rowType->childAt(0);
+  EXPECT_EQ(mapColumnType->type()->kind(), TypeKind::MAP);
+
+  auto mapKeyType = mapColumnType->childAt(0);
+  EXPECT_EQ(mapKeyType->type()->kind(), TypeKind::VARCHAR);
+
+  auto mapValueType = mapColumnType->childAt(1);
+  EXPECT_EQ(mapValueType->type()->kind(), TypeKind::BIGINT);
+
+  auto fileSchema =
+      ROW({"test"}, {createType<TypeKind::MAP>({VARCHAR(), BIGINT()})});
+  auto rowReaderOpts = getReaderOpts(fileSchema);
+  auto scanSpec = makeScanSpec(fileSchema);
+  rowReaderOpts.setScanSpec(scanSpec);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  auto expected = makeRowVector({vectorMaker_.mapVector<std::string, int64_t>(
+      {{{"0", 0},
+        {"1", 1},
+        {"2", 2},
+        {"3", 3},
+        {"4", 4},
+        {"5", 5},
+        {"6", 6},
+        {"7", 7}}})});
+
+  assertReadWithReaderAndExpected(fileSchema, *rowReader, expected, *leafPool_);
 }
 
 TEST_F(ParquetReaderTest, readSampleBigintRangeFilter) {
