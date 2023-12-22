@@ -56,6 +56,12 @@ public final class TimeZoneKey
     private static final short OFFSET_TIME_ZONE_MAX = 14 * 60;
     private static final TimeZoneKey[] OFFSET_TIME_ZONE_KEYS = new TimeZoneKey[OFFSET_TIME_ZONE_MAX - OFFSET_TIME_ZONE_MIN + 1];
 
+    private static final Set<String> AVAILABLE_ZONE_IDS = ZoneId.getAvailableZoneIds().stream()
+            .map(String::toLowerCase)
+            .collect(Collectors.toSet());
+    private static final Pattern LONG_ETC_PATTERN = Pattern.compile("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}:\\d{2}");
+    private static final Pattern SHORT_ETC_PATTERN = Pattern.compile("etc/(greenwich|uct|universal|utc|zulu).*");
+
     static {
         try (InputStream in = TimeZoneKey.class.getResourceAsStream("zone-index.properties")) {
             // load zone file
@@ -212,12 +218,6 @@ public final class TimeZoneKey
     {
         return normalizeZoneId(zoneId).equals("utc");
     }
-
-    private static final Set<String> AVAILABLE_ZONE_IDS = ZoneId.getAvailableZoneIds().stream()
-            .map(String::toLowerCase)
-            .collect(Collectors.toSet());
-    private static final Pattern LONG_ETC_PATTERN = Pattern.compile("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}:\\d{2}");
-    private static final Pattern SHORT_ETC_PATTERN = Pattern.compile("etc/(greenwich|uct|universal|utc|zulu).*");
 
     private static String normalizeZoneId(String originalZoneId)
     {
