@@ -22,6 +22,7 @@
 #include "velox/dwio/common/SelectiveColumnReader.h"
 #include "velox/dwio/common/compression/Compression.h"
 #include "velox/dwio/parquet/reader/BooleanDecoder.h"
+#include "velox/dwio/parquet/reader/DeltaBpDecoder.h"
 #include "velox/dwio/parquet/reader/ParquetTypeWithId.h"
 #include "velox/dwio/parquet/reader/RleBpDataDecoder.h"
 #include "velox/dwio/parquet/reader/StringDecoder.h"
@@ -120,6 +121,10 @@ class PageReader {
   void clearDictionary() {
     dictionary_.clear();
     dictionaryValues_.reset();
+  }
+
+  bool isDeltaBinaryPacked() const {
+    return encoding_ == thrift::Encoding::DELTA_BINARY_PACKED;
   }
 
   /// Returns the range of repdefs for the top level rows covered by the last
@@ -264,6 +269,9 @@ class PageReader {
       if (isDictionary()) {
         auto dictVisitor = visitor.toDictionaryColumnVisitor();
         dictionaryIdDecoder_->readWithVisitor<true>(nulls, dictVisitor);
+      } else if (encoding_ == thrift::Encoding::DELTA_BINARY_PACKED) {
+        nullsFromFastPath = false;
+        deltaBpDecoder_->readWithVisitor<true>(nulls, visitor);
       } else {
         directDecoder_->readWithVisitor<true>(
             nulls, visitor, nullsFromFastPath);
@@ -272,6 +280,8 @@ class PageReader {
       if (isDictionary()) {
         auto dictVisitor = visitor.toDictionaryColumnVisitor();
         dictionaryIdDecoder_->readWithVisitor<false>(nullptr, dictVisitor);
+      } else if (encoding_ == thrift::Encoding::DELTA_BINARY_PACKED) {
+        deltaBpDecoder_->readWithVisitor<false>(nulls, visitor);
       } else {
         directDecoder_->readWithVisitor<false>(
             nulls, visitor, !this->type_->type()->isShortDecimal());
@@ -476,6 +486,7 @@ class PageReader {
   std::unique_ptr<RleBpDataDecoder> dictionaryIdDecoder_;
   std::unique_ptr<StringDecoder> stringDecoder_;
   std::unique_ptr<BooleanDecoder> booleanDecoder_;
+  std::unique_ptr<DeltaBpDecoder> deltaBpDecoder_;
   // Add decoders for other encodings here.
 };
 

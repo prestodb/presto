@@ -666,6 +666,16 @@ void PageReader::makeDecoder() {
       }
       break;
     case Encoding::DELTA_BINARY_PACKED:
+      switch (parquetType) {
+        case thrift::Type::INT32:
+        case thrift::Type::INT64:
+          deltaBpDecoder_ = std::make_unique<DeltaBpDecoder>(pageData_);
+          break;
+        default:
+          VELOX_UNSUPPORTED(
+              "DELTA_BINARY_PACKED decoder only supports INT32 and INT64");
+      }
+      break;
     default:
       VELOX_UNSUPPORTED("Encoding not supported yet: {}", encoding_);
   }
@@ -698,6 +708,8 @@ void PageReader::skip(int64_t numRows) {
     stringDecoder_->skip(toSkip);
   } else if (booleanDecoder_) {
     booleanDecoder_->skip(toSkip);
+  } else if (deltaBpDecoder_) {
+    deltaBpDecoder_->skip(toSkip);
   } else {
     VELOX_FAIL("No decoder to skip");
   }

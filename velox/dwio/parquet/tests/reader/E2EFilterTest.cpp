@@ -129,6 +129,22 @@ TEST_F(E2EFilterTest, integerDirect) {
       20);
 }
 
+TEST_F(E2EFilterTest, integerDeltaBinaryPack) {
+  options_.enableDictionary = false;
+  options_.encoding =
+      facebook::velox::parquet::arrow::Encoding::DELTA_BINARY_PACKED;
+
+  testWithTypes(
+      "short_val:smallint,"
+      "int_val:int,"
+      "long_val:bigint,"
+      "long_null:bigint",
+      [&]() { makeAllNulls("long_null"); },
+      true,
+      {"short_val", "int_val", "long_val"},
+      20);
+}
+
 TEST_F(E2EFilterTest, compression) {
   for (const auto compression :
        {common::CompressionKind_SNAPPY,

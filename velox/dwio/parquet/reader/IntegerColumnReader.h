@@ -34,7 +34,8 @@ class IntegerColumnReader : public dwio::common::SelectiveIntegerColumnReader {
             std::move(fileType)) {}
 
   bool hasBulkPath() const override {
-    return !this->fileType().type()->isLongDecimal() &&
+    return !formatData_->as<ParquetData>().isDeltaBinaryPacked() &&
+        !this->fileType().type()->isLongDecimal() &&
         ((this->fileType().type()->isShortDecimal())
              ? formatData_->as<ParquetData>().hasDictionary()
              : true);

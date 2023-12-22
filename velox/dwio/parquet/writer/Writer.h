@@ -23,6 +23,7 @@
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Writer.h"
 #include "velox/dwio/common/WriterFactory.h"
+#include "velox/dwio/parquet/writer/arrow/Types.h"
 #include "velox/dwio/parquet/writer/arrow/util/Compression.h"
 #include "velox/vector/ComplexVector.h"
 
@@ -93,6 +94,7 @@ struct WriterOptions {
   // folly/FBVector(https://github.com/facebook/folly/blob/main/folly/docs/FBVector.md#memory-handling).
   double bufferGrowRatio = 1.5;
   common::CompressionKind compression = common::CompressionKind_NONE;
+  arrow::Encoding::type encoding = arrow::Encoding::PLAIN;
   velox::memory::MemoryPool* memoryPool;
   // The default factory allows the writer to construct the default flush
   // policy with the configs in its ctor.
