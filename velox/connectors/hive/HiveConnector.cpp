@@ -31,6 +31,9 @@
 #ifdef VELOX_ENABLE_S3
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h" // @manual
 #endif
+#ifdef VELOX_ENABLE_ABFS
+#include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h" // @manual
+#endif
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 // Meta's buck build system needs this check.
@@ -156,6 +159,9 @@ void HiveConnectorFactory::initialize() {
 #endif
 #ifdef VELOX_ENABLE_GCS
     filesystems::registerGCSFileSystem();
+#endif
+#ifdef VELOX_ENABLE_ABFS
+    filesystems::abfs::registerAbfsFileSystem();
 #endif
     return true;
   }();

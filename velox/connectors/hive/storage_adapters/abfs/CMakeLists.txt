@@ -22,7 +22,7 @@ if(VELOX_ENABLE_ABFS)
     velox_abfs
     PUBLIC velox_file
            velox_core
-           velox_hive_connector
+           velox_hive_config
            velox_dwio_common_exception
            Azure::azure-storage-blobs
            Folly::folly
