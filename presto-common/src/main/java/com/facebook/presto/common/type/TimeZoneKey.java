@@ -222,10 +222,14 @@ public final class TimeZoneKey
     private static String normalizeZoneId(String originalZoneId)
     {
         if (originalZoneId == null || originalZoneId.isEmpty()) {
-            throw new IllegalArgumentException("Zone ID cannot be null or empty");
+            throw new TimeZoneNotSupportedException("Zone ID cannot be null or empty");
         }
 
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
+
+        if (isFixedOffsetTimeZone(zoneId) || isUtcEquivalentName(zoneId)) {
+            return "+00:00";
+        }
 
         if (!isValidZoneId(zoneId)) {
             throw new TimeZoneNotSupportedException(originalZoneId);
@@ -236,10 +240,6 @@ public final class TimeZoneKey
         }
         else {
             return originalZoneId;
-        }
-
-        if (isFixedOffsetTimeZone(zoneId) || isUtcEquivalentName(zoneId)) {
-            return "+00:00";
         }
 
         if (isShortOffsetTimeZone(zoneId)) {
@@ -352,7 +352,8 @@ public final class TimeZoneKey
                 zoneId.equals("gmt") ||
                 zoneId.equals("greenwich") ||
                 zoneId.equals("universal") ||
-                zoneId.equals("zulu");
+                zoneId.equals("zulu") ||
+                zoneId.equals("gmt0");
     }
 
     private static void checkArgument(boolean check, String message, Object... args)
