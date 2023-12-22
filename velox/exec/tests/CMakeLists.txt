@@ -92,7 +92,6 @@ add_executable(
   GroupedExecutionTest.cpp
   Main.cpp
   OperatorUtilsTest.cpp
-  ParseTypeSignatureTest.cpp
   PlanBuilderTest.cpp
   QueryAssertionsTest.cpp
   TaskTest.cpp

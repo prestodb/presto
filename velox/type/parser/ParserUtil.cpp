@@ -41,18 +41,15 @@ std::pair<std::string, std::shared_ptr<const Type>> inferTypeWithSpaces(
     std::vector<std::string>& words,
     bool cannotHaveFieldName = false) {
   VELOX_CHECK_GE(words.size(), 2);
-  std::string fieldName = words[0];
-  std::string typeName = words[1];
-  for (int i = 2; i < words.size(); ++i) {
-    typeName = fmt::format("{} {}", typeName, words[i]);
-  }
-  auto allWords = fmt::format("{} {}", fieldName, typeName);
+  const auto& fieldName = words[0];
+  const auto allWords = folly::join(" ", words);
   // Fail if cannotHaveFieldName = true.
   auto type = typeFromString(allWords, cannotHaveFieldName);
   if (type) {
     return std::make_pair("", type);
   }
-  return std::make_pair(fieldName, typeFromString(typeName));
+  return std::make_pair(
+      fieldName, typeFromString(allWords.substr(fieldName.size() + 1)));
 }
 
 } // namespace facebook::velox
