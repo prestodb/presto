@@ -27,11 +27,7 @@ int main(int argc, char* argv[]) {
   google::InstallFailureSignalHandler();
   PRESTO_STARTUP_LOG(INFO) << "Entering main()";
   facebook::presto::PrestoServer presto(FLAGS_etc_dir);
+  facebook::velox::BaseStatsReporter::registered = true;
   presto.run();
   PRESTO_SHUTDOWN_LOG(INFO) << "Exiting main()";
 }
-
-// Initialize singleton for the reporter.
-folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
-  return new facebook::velox::DummyStatsReporter();
-});

@@ -24,6 +24,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/PrometheusStatsReporter.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -318,6 +319,14 @@ void PrestoServer::run() {
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
         server->reportServerInfo(downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/info/health/metrics",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportHealthMetrics(downstream);
       });
   httpServer_->registerGet(
       "/v1/info/state",
@@ -1093,6 +1102,11 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(serverInfo));
 }
 
+void PrestoServer::reportHealthMetrics(proxygen::ResponseHandler* downstream) {
+  auto reporter = std::dynamic_pointer_cast<PrometheusStatsReporter>(
+      folly::Singleton<facebook::velox::BaseStatsReporter>::try_get());
+  http::sendOkResponse(downstream, reporter->getMetricsForPrometheus());
+}
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
 }
