@@ -37,8 +37,12 @@ using ParameterBinder = TempWrapper<T<exec::VectorExec, TArgs...>>;
 template <typename Func, typename TReturn, typename... TArgs>
 void registerFunction(const std::vector<std::string>& aliases = {}) {
   using funcClass = typename Func::template udf<exec::VectorExec>;
-  using holderClass =
-      core::UDFHolder<funcClass, exec::VectorExec, TReturn, TArgs...>;
+  using holderClass = core::UDFHolder<
+      funcClass,
+      exec::VectorExec,
+      TReturn,
+      ConstantChecker<TArgs...>,
+      typename UnwrapConstantType<TArgs>::type...>;
   exec::registerSimpleFunction<holderClass>(aliases);
 }
 
@@ -49,8 +53,12 @@ void registerFunction(const std::vector<std::string>& aliases = {}) {
 template <template <class> typename Func, typename TReturn, typename... TArgs>
 void registerFunction(const std::vector<std::string>& aliases = {}) {
   using funcClass = Func<exec::VectorExec>;
-  using holderClass =
-      core::UDFHolder<funcClass, exec::VectorExec, TReturn, TArgs...>;
+  using holderClass = core::UDFHolder<
+      funcClass,
+      exec::VectorExec,
+      TReturn,
+      ConstantChecker<TArgs...>,
+      typename UnwrapConstantType<TArgs>::type...>;
   exec::registerSimpleFunction<holderClass>(aliases);
 }
 

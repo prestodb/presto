@@ -324,7 +324,11 @@ struct udf_has_name : std::false_type {};
 template <typename T>
 struct udf_has_name<T, decltype(&T::name, 0)> : std::true_type {};
 
-template <typename Fun, typename TReturn, typename... Args>
+template <
+    typename Fun,
+    typename TReturn,
+    typename ConstantChecker,
+    typename... Args>
 class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
  public:
   using return_type = TReturn;
@@ -453,9 +457,13 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
     auto builder = exec::FunctionSignatureBuilder();
 
     builder.returnType(analysis.outputType);
-
+    int32_t position = 0;
     for (const auto& arg : analysis.argsTypes) {
-      builder.argumentType(arg);
+      if (ConstantChecker::isConstant[position++]) {
+        builder.constantArgumentType(arg);
+      } else {
+        builder.argumentType(arg);
+      }
     }
 
     for (const auto& [_, variable] : analysis.variables) {
@@ -474,14 +482,21 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
 
 // wraps a UDF object to provide the inheritance
 // this is basically just boilerplate-avoidance
-template <typename Fun, typename Exec, typename TReturn, typename... TArgs>
+template <
+    typename Fun,
+    typename Exec,
+    typename TReturn,
+    typename ConstantChecker,
+    typename... TArgs>
 class UDFHolder final
-    : public core::SimpleFunctionMetadata<Fun, TReturn, TArgs...> {
+    : public core::
+          SimpleFunctionMetadata<Fun, TReturn, ConstantChecker, TArgs...> {
   Fun instance_;
 
  public:
   using udf_struct_t = Fun;
-  using Metadata = core::SimpleFunctionMetadata<Fun, TReturn, TArgs...>;
+  using Metadata =
+      core::SimpleFunctionMetadata<Fun, TReturn, ConstantChecker, TArgs...>;
 
   template <typename T>
   using exec_resolver = typename Exec::template resolver<T>;

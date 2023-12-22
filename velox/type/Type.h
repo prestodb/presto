@@ -1873,6 +1873,35 @@ struct Varchar {
 };
 
 template <typename T>
+struct Constant {};
+
+template <typename T>
+struct UnwrapConstantType {
+  using type = T;
+};
+
+template <typename T>
+struct UnwrapConstantType<Constant<T>> {
+  using type = T;
+};
+
+template <typename T>
+struct isConstantType {
+  static constexpr bool value = false;
+};
+
+template <typename T>
+struct isConstantType<Constant<T>> {
+  static constexpr bool value = true;
+};
+
+template <typename... TArgs>
+struct ConstantChecker {
+  static constexpr bool isConstant[sizeof...(TArgs)] = {
+      isConstantType<TArgs>::value...};
+};
+
+template <typename T>
 struct SimpleTypeTrait {};
 
 template <>
