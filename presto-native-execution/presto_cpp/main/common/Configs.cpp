@@ -214,6 +214,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kUseLegacyArrayAgg, false),
           STR_PROP(kSinkMaxBufferSize, "32MB"),
           STR_PROP(kDriverMaxPagePartitioningBufferSize, "32MB"),
+          NUM_PROP(kDriverCpuTimeSliceLimitMs, 0),
       };
 }
 
@@ -728,6 +729,9 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
               c.prestoArrayAggIgnoreNulls()),
           NUM_PROP(
               QueryConfig::kMaxArbitraryBufferSize, c.maxArbitraryBufferSize()),
+          NUM_PROP(
+              QueryConfig::kDriverCpuTimeSliceLimitMs,
+              c.driverCpuTimeSliceLimitMs()),
       };
 }
 
@@ -751,8 +755,7 @@ void BaseVeloxQueryConfig::updateLoadedValues(
            SystemConfig::kSinkMaxBufferSize)},
       {QueryConfig::kMaxPartitionedOutputBufferSize,
        systemConfig->capacityPropertyAsBytesString(
-           SystemConfig::kDriverMaxPagePartitioningBufferSize)},
-  };
+           SystemConfig::kDriverMaxPagePartitioningBufferSize)}};
 
   std::stringstream updated;
   for (const auto& pair : updatedValues) {
