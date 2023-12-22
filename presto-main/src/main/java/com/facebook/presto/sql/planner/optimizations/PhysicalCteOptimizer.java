@@ -98,15 +98,15 @@ public class PhysicalCteOptimizer
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
         PhysicalCteTransformerContext context = new PhysicalCteTransformerContext();
-        CteProducerRewiter cteProducerRewiter = new CteProducerRewiter(session, idAllocator, variableAllocator);
-        CteConsumerRewrite cteConsumerRewrite = new CteConsumerRewrite(session, idAllocator, variableAllocator);
-        PlanNode producerReplaced = SimplePlanRewriter.rewriteWith(cteProducerRewiter, plan, context);
-        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(cteConsumerRewrite, producerReplaced, context);
+        CteProducerRewriter cteProducerRewriter = new CteProducerRewriter(session, idAllocator, variableAllocator);
+        CteConsumerRewriter cteConsumerRewriter = new CteConsumerRewriter(session, idAllocator, variableAllocator);
+        PlanNode producerReplaced = SimplePlanRewriter.rewriteWith(cteProducerRewriter, plan, context);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(cteConsumerRewriter, producerReplaced, context);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan,
-                cteConsumerRewrite.isPlanRewritten() || cteProducerRewiter.isPlanRewritten());
+                cteConsumerRewriter.isPlanRewritten() || cteProducerRewriter.isPlanRewritten());
     }
 
-    public class CteProducerRewiter
+    public class CteProducerRewriter
             extends SimplePlanRewriter<PhysicalCteTransformerContext>
     {
         private final PlanNodeIdAllocator idAllocator;
@@ -117,7 +117,7 @@ public class PhysicalCteOptimizer
 
         private boolean isPlanRewritten;
 
-        public CteProducerRewiter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
+        public CteProducerRewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator must not be null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator must not be null");
@@ -198,7 +198,7 @@ public class PhysicalCteOptimizer
         }
     }
 
-    public class CteConsumerRewrite
+    public class CteConsumerRewriter
             extends SimplePlanRewriter<PhysicalCteTransformerContext>
     {
         private final PlanNodeIdAllocator idAllocator;
@@ -209,7 +209,7 @@ public class PhysicalCteOptimizer
 
         private boolean isPlanRewritten;
 
-        public CteConsumerRewrite(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
+        public CteConsumerRewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator must not be null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator must not be null");
