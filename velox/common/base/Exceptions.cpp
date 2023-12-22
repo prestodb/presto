@@ -16,13 +16,9 @@
 
 #include "velox/common/base/Exceptions.h"
 
-namespace facebook {
-namespace velox {
-namespace detail {
+namespace facebook::velox::detail {
 
 DEFINE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
 DEFINE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxUserError);
 
-} // namespace detail
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::detail
