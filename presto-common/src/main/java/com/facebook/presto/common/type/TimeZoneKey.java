@@ -60,7 +60,7 @@ public final class TimeZoneKey
             .map(String::toLowerCase)
             .collect(Collectors.toSet());
     private static final Pattern LONG_ETC_PATTERN = Pattern.compile("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}:\\d{2}");
-    private static final Pattern SHORT_ETC_PATTERN = Pattern.compile("etc/(greenwich|uct|universal|utc|zulu).*");
+    private static final Pattern SHORT_ETC_PATTERN = Pattern.compile("etc/(gmt|greenwich|uct|universal|utc|zulu)[+-]\\d{2}");
 
     static {
         try (InputStream in = TimeZoneKey.class.getResourceAsStream("zone-index.properties")) {
@@ -228,7 +228,7 @@ public final class TimeZoneKey
         String zoneId = originalZoneId.toLowerCase(ENGLISH);
 
         if (isFixedOffsetTimeZone(zoneId) || isUtcEquivalentName(zoneId)) {
-            return "+00:00";
+            throw new TimeZoneNotSupportedException(originalZoneId);
         }
 
         if (!isValidZoneId(zoneId)) {
@@ -242,8 +242,16 @@ public final class TimeZoneKey
             return originalZoneId;
         }
 
+        if (zoneId.isEmpty()) {
+            throw new TimeZoneNotSupportedException(originalZoneId);
+        }
+
         if (isShortOffsetTimeZone(zoneId)) {
             zoneId = normalizeShortOffset(zoneId);
+        }
+
+        if (isFixedOffsetTimeZone(zoneId)) {
+            return "utc";
         }
 
         if (isUtcTimeZone(originalZoneId)) {
@@ -272,6 +280,10 @@ public final class TimeZoneKey
         if (SHORT_ETC_PATTERN.matcher(zoneId).matches()) {
             String lastNumbers = zoneId.replaceAll("etc/(greenwich|uct|universal|utc|zulu)", "");
 
+            if (lastNumbers.isEmpty()) {
+                throw new TimeZoneNotSupportedException(zoneId);
+            }
+
             if (lastNumbers.length() == 3 && lastNumbers.charAt(1) == '0') {
                 throw new TimeZoneNotSupportedException(zoneId);
             }
@@ -283,7 +295,13 @@ public final class TimeZoneKey
             zoneId = zoneId.replaceAll("[+-]\\d{1,2}", "");
         }
 
-        return AVAILABLE_ZONE_IDS.contains(zoneId);
+        for (String availableZoneId : AVAILABLE_ZONE_IDS) {
+            if (zoneId.startsWith(availableZoneId)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static String normalizeLongEtcZoneId(String zoneId)
