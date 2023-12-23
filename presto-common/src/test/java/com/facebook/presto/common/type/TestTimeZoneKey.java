@@ -13,187 +13,220 @@
  */
 package com.facebook.presto.common.type;
 
-import org.testng.annotations.BeforeTest;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import org.testng.annotations.Test;
 
-import javax.inject.Named;
+import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
+import java.util.SortedSet;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
-import static org.assertj.core.api.Fail.fail;
+import static com.facebook.presto.common.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestTimeZoneKey
 {
-    TimeZoneKey timeZoneKey = new TimeZoneKey("1", (short) 1);
-    Class<?> clazz = TimeZoneKey.class;
-    Method normalizeZoneId;
+    private static final TimeZoneKey PLUS_7_KEY = TimeZoneKey.getTimeZoneKeyForOffset(7 * 60);
+    private static final TimeZoneKey MINUS_7_KEY = TimeZoneKey.getTimeZoneKeyForOffset(-7 * 60);
 
-    public TestTimeZoneKey()
+    @Test
+    public void testUTC()
     {
-        try {
-            normalizeZoneId = clazz.getDeclaredMethod("normalizeZoneId", String.class);
-        }
-        catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
-    }
+        assertEquals(UTC_KEY.getKey(), 0);
+        assertEquals(UTC_KEY.getId(), "UTC");
 
-    @BeforeTest
-    public void setUp()
-    {
-        normalizeZoneId.setAccessible(true);
+        assertSame(TimeZoneKey.getTimeZoneKey((short) 0), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UTC"), UTC_KEY);
+
+        // verify UTC equivalent zones map to UTC
+        assertSame(TimeZoneKey.getTimeZoneKey("Z"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Zulu"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("zulu"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("ZULU"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UT"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UCT"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Universal"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT-0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT+00:00"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT-00:00"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("+00:00"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("-00:00"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("etc/utc"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("etc/gmt"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("etc/gmt+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("etc/gmt+00:00"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("etc/gmt-00:00"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("etc/ut"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("etc/UT"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("etc/UCT"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("etc/Universal"), UTC_KEY);
     }
 
     @Test
-    @Named("GMT TEST")
-    public void gmtZoneIdTest()
+    public void testHourOffsetZone()
     {
-        try {
-            String zoneId = "etc/gmt+8";
-            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+08:00");
-            zoneId = "etc/gmt-08:20";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "-08:20");
-        }
-        catch (IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT-0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT-0"), UTC_KEY);
+        assertTimeZoneNotSupported("GMT7");
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT-7"), MINUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT-7"), MINUS_7_KEY);
+
+        assertTimeZoneNotSupported("UT0");
+        assertSame(TimeZoneKey.getTimeZoneKey("UT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UT-0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UT-0"), UTC_KEY);
+        assertTimeZoneNotSupported("UT7");
+        assertSame(TimeZoneKey.getTimeZoneKey("UT+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UT-7"), MINUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UT+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UT-7"), MINUS_7_KEY);
+
+        assertTimeZoneNotSupported("UTC0");
+        assertSame(TimeZoneKey.getTimeZoneKey("UTC+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UTC-0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UTC+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UTC-0"), UTC_KEY);
+        assertTimeZoneNotSupported("UTC7");
+        assertSame(TimeZoneKey.getTimeZoneKey("UTC+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UTC-7"), MINUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UTC+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UTC-7"), MINUS_7_KEY);
+
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/GMT0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/GMT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/GMT-0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/GMT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/GMT-0"), UTC_KEY);
+        assertTimeZoneNotSupported("Etc/GMT7");
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/GMT+7"), MINUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/GMT-7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/GMT+7"), MINUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/GMT-7"), PLUS_7_KEY);
+
+        assertTimeZoneNotSupported("Etc/UT0");
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UT-0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UT-0"), UTC_KEY);
+        assertTimeZoneNotSupported("Etc/UT7");
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UT+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UT-7"), MINUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UT+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UT-7"), MINUS_7_KEY);
+
+        assertTimeZoneNotSupported("Etc/UTC0");
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-0"), UTC_KEY);
+        assertTimeZoneNotSupported("Etc/UTC7");
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-7"), MINUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC+7"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-7"), MINUS_7_KEY);
     }
 
     @Test
-    @Named("UTC TEST")
-    public void utcZoneIdTest()
+    public void testZoneKeyLookup()
     {
-        try {
-            String zoneId = "etc/utc+1";
-            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "-01:00");
-
-            zoneId = "etc/utc-1";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+01:00");
-        }
-        catch (IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    @Named("GREENWICH TEST")
-    public void greenwichZoneIdTest()
-    {
-        try {
-            String zoneId = "etc/greenwich+01:00";
-            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+01:00");
-
-            zoneId = "etc/greenwich+6";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+06:00");
-
-            zoneId = "etc/greenwich-6";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "-06:00");
-
-            zoneId = "etc/greenwich+11:23";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+11:23");
-        }
-        catch (IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    @Named("UNIVERSAL TEST")
-    public void universalZoneIdTest()
-    {
-        try {
-            String zoneId = "etc/universal+08:00";
-            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+08:00");
-
-            zoneId = "etc/universal-08:00";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "-08:00");
-
-            zoneId = "etc/universal+11:23";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+11:23");
-        }
-        catch (IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    @Named("UCT TEST")
-    public void uctZoneIdTest()
-    {
-        try {
-            String zoneId = "etc/uct+06:00";
-            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+06:00");
-
-            zoneId = "etc/uct-10:10";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "-10:10");
-
-            zoneId = "etc/uct+1";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+01:00");
-        }
-        catch (IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
+        for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
+            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getKey()), timeZoneKey);
+            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getId()), timeZoneKey);
+            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getId().toUpperCase(ENGLISH)), timeZoneKey);
+            assertSame(TimeZoneKey.getTimeZoneKey(timeZoneKey.getId().toLowerCase(ENGLISH)), timeZoneKey);
         }
     }
 
     @Test
-    @Named("ZULU TEST")
-    public void zuluZoneIdTest()
+    public void testMaxTimeZoneKey()
     {
-        try {
-            String zoneId = "etc/zulu+06:00";
-            String normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+06:00");
-
-            zoneId = "etc/zulu-10:10";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "-10:10");
-
-            zoneId = "etc/zulu+1";
-            normalizedZoneId = (String) normalizeZoneId.invoke(timeZoneKey, zoneId);
-            assertEquals(normalizedZoneId, "+01:00");
+        boolean foundMax = false;
+        for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
+            assertTrue(timeZoneKey.getKey() <= MAX_TIME_ZONE_KEY, timeZoneKey + " key is larger than max key " + MAX_TIME_ZONE_KEY);
+            foundMax = foundMax || (timeZoneKey.getKey() == MAX_TIME_ZONE_KEY);
         }
-        catch (IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
+        assertTrue(foundMax, "Did not find a time zone with the MAX_TIME_ZONE_KEY");
+    }
+
+    @Test
+    public void testZoneKeyIdRange()
+    {
+        boolean[] hasValue = new boolean[MAX_TIME_ZONE_KEY + 1];
+
+        for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
+            short key = timeZoneKey.getKey();
+            assertTrue(key >= 0, timeZoneKey + " has a negative time zone key");
+            assertFalse(hasValue[key], "Another time zone has the same zone key as " + timeZoneKey);
+            hasValue[key] = true;
+        }
+
+        // previous spot for Canada/East-Saskatchewan
+        assertFalse(hasValue[2040]);
+        hasValue[2040] = true;
+        // previous spot for EST
+        assertFalse(hasValue[2180]);
+        hasValue[2180] = true;
+        // previous spot for HST
+        assertFalse(hasValue[2186]);
+        hasValue[2186] = true;
+        // previous spot for MST
+        assertFalse(hasValue[2196]);
+        hasValue[2196] = true;
+        // US/Pacific-New removed http://mm.icann.org/pipermail/tz-announce/2020-October/000059.html
+        assertFalse(hasValue[2174]);
+        hasValue[2174] = true;
+
+        for (int i = 0; i < hasValue.length; i++) {
+            assertTrue(hasValue[i], "There is no time zone with key " + i);
         }
     }
 
     @Test
-    @Named("EXCEPTION TEST")
-    public void exceptionZoneIdTest()
+    public void testZoneKeyData()
     {
-        String[] invalidTimeZones = {"GMT-13:00", "etc/6", "etc/*", "etc/", "etc/gmt+24:00", "etc/gmt+01",
-                "etc/gmt+01:000", "etc/utc+27", "etc/utc-13", "etc/gmt-16", "etc/greenwich+01",
-                "etc/universal+01", "fsdkjflksdflsdlfj", "ETC/+06:00", "ETC/06:00", "ETC/+6"};
+        Hasher hasher = Hashing.murmur3_128().newHasher();
 
-        for (String timeZone : invalidTimeZones) {
-            try {
-                normalizeZoneId.invoke(timeZoneKey, timeZone);
-                fail("Expected TimeZoneNotSupportedException to be thrown for " + timeZone);
+        SortedSet<TimeZoneKey> timeZoneKeysSortedByKey = ImmutableSortedSet.copyOf(new Comparator<TimeZoneKey>()
+        {
+            @Override
+            public int compare(TimeZoneKey left, TimeZoneKey right)
+            {
+                return Short.compare(left.getKey(), right.getKey());
             }
-            catch (InvocationTargetException e) {
-                Throwable cause = e.getCause();
-                assertTrue(cause instanceof TimeZoneNotSupportedException, "Expected TimeZoneNotSupportedException,  but got " + cause.getClass().getSimpleName());
-            }
-            catch (Exception e) {
-                fail("Unexpected exception type: " + e.getClass().getSimpleName());
-            }
+        }, TimeZoneKey.getTimeZoneKeys());
+
+        for (TimeZoneKey timeZoneKey : timeZoneKeysSortedByKey) {
+            hasher.putShort(timeZoneKey.getKey());
+            hasher.putString(timeZoneKey.getId(), StandardCharsets.UTF_8);
+        }
+        // Zone file should not (normally) be changed, so let's make this more difficult
+        assertEquals(hasher.hash().asLong(), 4825838578917475630L, "zone-index.properties file contents changed!");
+    }
+
+    public void assertTimeZoneNotSupported(String zoneId)
+    {
+        try {
+            TimeZoneKey.getTimeZoneKey(zoneId);
+            fail("expect TimeZoneNotSupportedException");
+        }
+        catch (TimeZoneNotSupportedException e) {
+            // expected
         }
     }
 }
