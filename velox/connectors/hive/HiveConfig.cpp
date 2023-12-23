@@ -164,7 +164,7 @@ bool HiveConfig::isFileHandleCacheEnabled() const {
   return config_->get<bool>(kEnableFileHandleCache, true);
 }
 
-uint64_t HiveConfig::getOrcWriterMaxStripeSize(const Config* session) const {
+uint64_t HiveConfig::orcWriterMaxStripeSize(const Config* session) const {
   if (session->isValueExists(kOrcWriterMaxStripeSizeSession)) {
     return toCapacity(
         session->get<std::string>(kOrcWriterMaxStripeSizeSession).value(),
@@ -178,8 +178,7 @@ uint64_t HiveConfig::getOrcWriterMaxStripeSize(const Config* session) const {
   return 64L * 1024L * 1024L;
 }
 
-uint64_t HiveConfig::getOrcWriterMaxDictionaryMemory(
-    const Config* session) const {
+uint64_t HiveConfig::orcWriterMaxDictionaryMemory(const Config* session) const {
   if (session->isValueExists(kOrcWriterMaxDictionaryMemorySession)) {
     return toCapacity(
         session->get<std::string>(kOrcWriterMaxDictionaryMemorySession).value(),
@@ -191,6 +190,10 @@ uint64_t HiveConfig::getOrcWriterMaxDictionaryMemory(
         core::CapacityUnit::BYTE);
   }
   return 16L * 1024L * 1024L;
+}
+
+std::string HiveConfig::writeFileCreateConfig() const {
+  return config_->get<std::string>(kWriteFileCreateConfig, "");
 }
 
 uint32_t HiveConfig::sortWriterMaxOutputRows(const Config* session) const {

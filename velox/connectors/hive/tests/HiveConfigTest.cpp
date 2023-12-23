@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-#include "velox/connectors/hive/FileHandle.h"
-
-#include "gtest/gtest.h"
-#include "velox/common/file/File.h"
 #include "velox/connectors/hive/HiveConfig.h"
+#include "gtest/gtest.h"
 #include "velox/core/Config.h"
 
 using namespace facebook::velox::connector::hive;
@@ -55,10 +52,10 @@ TEST(HiveConfigTest, defaultConfig) {
   ASSERT_EQ(hiveConfig->numCacheFileHandles(), 20'000);
   ASSERT_EQ(hiveConfig->isFileHandleCacheEnabled(), true);
   ASSERT_EQ(
-      hiveConfig->getOrcWriterMaxStripeSize(emptySession.get()),
+      hiveConfig->orcWriterMaxStripeSize(emptySession.get()),
       64L * 1024L * 1024L);
   ASSERT_EQ(
-      hiveConfig->getOrcWriterMaxDictionaryMemory(emptySession.get()),
+      hiveConfig->orcWriterMaxDictionaryMemory(emptySession.get()),
       16L * 1024L * 1024L);
   ASSERT_EQ(hiveConfig->sortWriterMaxOutputRows(emptySession.get()), 1024);
   ASSERT_EQ(
@@ -121,10 +118,10 @@ TEST(HiveConfigTest, overrideConfig) {
   ASSERT_EQ(hiveConfig->numCacheFileHandles(), 100);
   ASSERT_EQ(hiveConfig->isFileHandleCacheEnabled(), false);
   ASSERT_EQ(
-      hiveConfig->getOrcWriterMaxStripeSize(emptySession.get()),
+      hiveConfig->orcWriterMaxStripeSize(emptySession.get()),
       100L * 1024L * 1024L);
   ASSERT_EQ(
-      hiveConfig->getOrcWriterMaxDictionaryMemory(emptySession.get()),
+      hiveConfig->orcWriterMaxDictionaryMemory(emptySession.get()),
       100L * 1024L * 1024L);
   ASSERT_EQ(hiveConfig->sortWriterMaxOutputRows(emptySession.get()), 100);
   ASSERT_EQ(
@@ -168,10 +165,9 @@ TEST(HiveConfigTest, overrideSession) {
   ASSERT_EQ(hiveConfig->numCacheFileHandles(), 20'000);
   ASSERT_EQ(hiveConfig->isFileHandleCacheEnabled(), true);
   ASSERT_EQ(
-      hiveConfig->getOrcWriterMaxStripeSize(session.get()),
-      22L * 1024L * 1024L);
+      hiveConfig->orcWriterMaxStripeSize(session.get()), 22L * 1024L * 1024L);
   ASSERT_EQ(
-      hiveConfig->getOrcWriterMaxDictionaryMemory(session.get()),
+      hiveConfig->orcWriterMaxDictionaryMemory(session.get()),
       22L * 1024L * 1024L);
   ASSERT_EQ(hiveConfig->sortWriterMaxOutputRows(session.get()), 20);
   ASSERT_EQ(hiveConfig->sortWriterMaxOutputBytes(session.get()), 20UL << 20);
