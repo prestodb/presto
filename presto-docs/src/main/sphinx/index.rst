@@ -19,6 +19,8 @@ Presto Documentation
     migration
     rest
     router
+    orm
+    ecosystem
     develop
     release
 
