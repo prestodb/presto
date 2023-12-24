@@ -119,7 +119,7 @@ public class NativeExecutionProcess
     public synchronized void start()
             throws ExecutionException, InterruptedException, IOException
     {
-        if (process != null && process.isAlive()) {
+        if (process != null) {
             return;
         }
 
@@ -208,7 +208,12 @@ public class NativeExecutionProcess
     @Override
     public void close()
     {
-        if (process != null && process.isAlive()) {
+        Process process = this.process;
+        if (process == null) {
+            return;
+        }
+
+        if (process.isAlive()) {
             long pid = getPid(process);
             log.info("Destroying process: %s", pid);
             process.destroy();
@@ -230,9 +235,8 @@ public class NativeExecutionProcess
                 }
             }
         }
-        else if (process != null) {
+        else {
             log.info("Process is dead: %s", getPid(process));
-            process = null;
         }
     }
 
