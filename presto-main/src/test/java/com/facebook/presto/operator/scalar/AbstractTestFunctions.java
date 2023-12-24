@@ -96,8 +96,12 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
-    protected void assertFunctionWithError(String projection, Type expectedType, double expected)
+    protected void assertFunctionWithError(String projection, Type expectedType, Double expected)
     {
+        if (expected == null) {
+            assertFunction(projection, expectedType, null);
+            return;
+        }
         assertFunctionWithError(projection, expectedType, expected, DELTA);
     }
 

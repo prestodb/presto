@@ -45,20 +45,17 @@ public class MetadataHandle
 
     public void addViewDefinition(QualifiedObjectName viewName, Future<Optional<ViewDefinition>> viewDefinition)
     {
-        checkState(!viewDefinitions.containsKey(viewName), "View " + viewName + " already exists");
-        this.viewDefinitions.put(viewName, viewDefinition);
+        this.viewDefinitions.putIfAbsent(viewName, viewDefinition);
     }
 
     public void addMaterializedViewDefinition(QualifiedObjectName viewName, Future<Optional<MaterializedViewDefinition>> viewDefinition)
     {
-        checkState(!materializedViewDefinitions.containsKey(viewName), "View " + viewName + " already exists");
-        this.materializedViewDefinitions.put(viewName, viewDefinition);
+        this.materializedViewDefinitions.putIfAbsent(viewName, viewDefinition);
     }
 
     public void addTableColumnMetadata(QualifiedObjectName tableName, Future<TableColumnMetadata> tableColumnMetadata)
     {
-        checkState(!tableColumnsMetadata.containsKey(tableName), "Table " + tableName + " already present");
-        this.tableColumnsMetadata.put(tableName, tableColumnMetadata);
+        this.tableColumnsMetadata.putIfAbsent(tableName, tableColumnMetadata);
     }
 
     public Optional<ViewDefinition> getViewDefinition(QualifiedObjectName viewName)

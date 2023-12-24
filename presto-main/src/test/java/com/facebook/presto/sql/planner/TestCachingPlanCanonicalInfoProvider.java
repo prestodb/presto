@@ -27,11 +27,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.graph.Traverser.forTree;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestCachingPlanCanonicalInfoProvider
@@ -53,9 +55,6 @@ public class TestCachingPlanCanonicalInfoProvider
                 return ImmutableList.of(new InMemoryHistoryBasedPlanStatisticsProvider());
             }
         });
-        if (queryRunner.getStatsCalculator() instanceof HistoryBasedPlanStatisticsCalculator) {
-            ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).setPrefetchForAllPlanNodes(true);
-        }
         return queryRunner;
     }
 
@@ -74,12 +73,24 @@ public class TestCachingPlanCanonicalInfoProvider
                 return;
             }
             for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
-                planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy).get();
+                planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy, false).get();
             }
         });
         // Assert that size of cache remains same, meaning all needed hashes were already cached.
         assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList().size());
         planCanonicalInfoProvider.getHistoryBasedStatisticsCacheManager().invalidate(session.getQueryId());
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 0);
+
+        forTree(PlanNode::getSources).depthFirstPreOrder(root).forEach(child -> {
+            if (!child.getStatsEquivalentPlanNode().isPresent()) {
+                return;
+            }
+            for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+                // Only read from cache, hence will return Optional.empty() as the cache is already invalidated
+                assertFalse(planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy, true).isPresent());
+            }
+        });
+        // Assert that cache is not populated as we only read from cache without populating with cache miss
         assertEquals(planCanonicalInfoProvider.getCacheSize(), 0);
     }
 
@@ -90,6 +101,7 @@ public class TestCachingPlanCanonicalInfoProvider
                 .setSchema("tiny")
                 .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty("task_concurrency", "1")
+                .setSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, "false")
                 .build();
     }
 }

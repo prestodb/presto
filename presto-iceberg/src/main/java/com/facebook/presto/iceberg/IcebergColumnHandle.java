@@ -16,8 +16,10 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.types.Types;
@@ -35,9 +37,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 
 public class IcebergColumnHandle
-        implements ColumnHandle
+        implements BaseHiveColumnHandle
 {
     private final ColumnIdentity columnIdentity;
     private final Type type;
@@ -60,9 +63,9 @@ public class IcebergColumnHandle
         this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
     }
 
-    public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment)
+    public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType)
     {
-        this(columnIdentity, type, comment, REGULAR, ImmutableList.of());
+        this(columnIdentity, type, comment, columnType, ImmutableList.of());
     }
 
     @JsonProperty
@@ -105,6 +108,12 @@ public class IcebergColumnHandle
     public List<Subfield> getRequiredSubfields()
     {
         return requiredSubfields;
+    }
+
+    @JsonIgnore
+    public boolean isRowPositionColumn()
+    {
+        return columnIdentity.getId() == ROW_POSITION.fieldId();
     }
 
     @Override
@@ -153,19 +162,21 @@ public class IcebergColumnHandle
 
     public static IcebergColumnHandle primitiveIcebergColumnHandle(int id, String name, Type type, Optional<String> comment)
     {
-        return new IcebergColumnHandle(primitiveColumnIdentity(id, name), type, comment);
+        return new IcebergColumnHandle(primitiveColumnIdentity(id, name), type, comment, REGULAR);
     }
 
-    public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager)
+    public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager, ColumnType columnType)
     {
         return new IcebergColumnHandle(
                 createColumnIdentity(column),
                 toPrestoType(column.type(), typeManager),
-                Optional.ofNullable(column.doc()));
+                Optional.ofNullable(column.doc()),
+                columnType);
     }
 
     public enum ColumnType
     {
+        PARTITION_KEY,
         REGULAR,
         SYNTHESIZED
     }

@@ -602,7 +602,7 @@ public class MultiChannelGroupByHash
             int positionCount = page.getPositionCount();
             checkState(lastPosition <= positionCount, "position count out of bound");
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // needRehash() == true indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
             if (needRehash() && !tryRehash()) {
                 return false;
@@ -649,7 +649,7 @@ public class MultiChannelGroupByHash
             int positionCount = page.getPositionCount();
             checkState(lastPosition <= positionCount, "position count out of bound");
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // needRehash() == true indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
             if (needRehash() && !tryRehash()) {
                 return false;
@@ -693,7 +693,7 @@ public class MultiChannelGroupByHash
                 return true;
             }
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // needRehash() == true indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
             if (needRehash() && !tryRehash()) {
                 return false;
@@ -736,7 +736,7 @@ public class MultiChannelGroupByHash
             checkState(lastPosition <= positionCount, "position count out of bound");
             checkState(!finished);
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // needRehash() == true indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
             if (needRehash() && !tryRehash()) {
                 return false;
@@ -793,7 +793,7 @@ public class MultiChannelGroupByHash
             checkState(lastPosition <= positionCount, "position count out of bound");
             checkState(!finished);
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // needRehash() == true indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
             if (needRehash() && !tryRehash()) {
                 return false;
@@ -843,7 +843,7 @@ public class MultiChannelGroupByHash
                 return true;
             }
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // needRehash() == true indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
             if (needRehash() && !tryRehash()) {
                 return false;

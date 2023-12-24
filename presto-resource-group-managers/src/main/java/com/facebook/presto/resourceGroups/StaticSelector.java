@@ -52,6 +52,7 @@ public class StaticSelector
     private final Optional<Pattern> clientInfoRegex;
 
     private final Optional<String> schema;
+    private final Optional<Pattern> principalRegex;
     private final ResourceGroupIdTemplate group;
     private final Set<String> variableNames;
 
@@ -63,6 +64,7 @@ public class StaticSelector
             Optional<String> queryType,
             Optional<Pattern> clientInfoRegex,
             Optional<String> schema,
+            Optional<Pattern> principalRegex,
             ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
@@ -73,6 +75,7 @@ public class StaticSelector
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientInfoRegex = requireNonNull(clientInfoRegex, "clientInfoRegex is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.principalRegex = requireNonNull(principalRegex, "principalRegex is null");
         this.group = requireNonNull(group, "group is null");
 
         HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE, SCHEMA_VARIABLE));
@@ -106,6 +109,16 @@ public class StaticSelector
 
             addVariableValues(sourceRegex.get(), source, variables);
         }
+
+        if (principalRegex.isPresent()) {
+            String principal = criteria.getPrincipal().orElse("");
+            if (!principalRegex.get().matcher(principal).matches()) {
+                return Optional.empty();
+            }
+
+            addVariableValues(principalRegex.get(), principal, variables);
+        }
+
         if (!clientTags.isEmpty() && !criteria.getTags().containsAll(clientTags)) {
             return Optional.empty();
         }

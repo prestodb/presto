@@ -30,6 +30,7 @@ public class DdlMatchResult
         MISMATCH,
         CONTROL_NOT_PARSABLE,
         TEST_NOT_PARSABLE,
+        SNAPSHOT_DOES_NOT_EXIST,
     }
 
     private final MatchType matchType;

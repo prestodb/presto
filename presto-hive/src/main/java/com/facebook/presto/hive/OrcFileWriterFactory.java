@@ -262,7 +262,7 @@ public class OrcFileWriterFactory
             Optional<DwrfWriterEncryption> dwrfWriterEncryption = createDwrfEncryption(encryptionInformation, fileColumnNames, fileColumnTypes);
 
             ImmutableMap.Builder<String, String> metadata = ImmutableMap.<String, String>builder()
-                    .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
+                    .put(MetastoreUtil.PRESTO_VERSION_NAME, nodeVersion.toString())
                     .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId());
 
             // add the writer's hostname to the file footer, it is useful for troubleshooting file corruption issues

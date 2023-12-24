@@ -122,8 +122,11 @@ public class BooleanColumnWriter
                 statisticsBuilder.addValue(value);
             }
         }
+
         // For boolean columns, null and values has the same size (1 byte)
-        return block.getPositionCount() * NULL_SIZE;
+        long rawSize = block.getPositionCount() * NULL_SIZE;
+        statisticsBuilder.incrementRawSize(rawSize);
+        return rawSize;
     }
 
     @Override

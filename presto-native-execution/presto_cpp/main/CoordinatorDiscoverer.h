@@ -18,6 +18,8 @@
 
 namespace facebook::presto {
 
+// TODO: Rename to ServiceDiscoverer as this may talk to either
+// Coordinator or Resource Manager.
 class CoordinatorDiscoverer {
  public:
   virtual ~CoordinatorDiscoverer() = default;

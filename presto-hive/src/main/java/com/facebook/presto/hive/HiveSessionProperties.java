@@ -22,6 +22,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.parquet.column.ParquetProperties;
 
 import javax.inject.Inject;
 
@@ -85,6 +86,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
+    private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
@@ -110,7 +112,6 @@ public final class HiveSessionProperties
     private static final String USE_PAGEFILE_FOR_HIVE_UNSUPPORTED_TYPE = "use_pagefile_for_hive_unsupported_type";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String PARQUET_PUSHDOWN_FILTER_ENABLED = "parquet_pushdown_filter_enabled";
-    public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
     public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
@@ -145,6 +146,7 @@ public final class HiveSessionProperties
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
     private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
+    public static final String PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED = "parallel_parsing_of_partition_values_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -295,7 +297,7 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED,
                         "ORC: Enable flat map writer",
                         orcFileWriterConfig.isFlatMapWriterEnabled(),
-                        false),
+                        true),
                 integerProperty(
                         ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL,
                         "Experimental: ORC: Compression level, works only for ZSTD and ZLIB compression kinds",
@@ -489,11 +491,6 @@ public final class HiveSessionProperties
                         hiveClientConfig.isParquetPushdownFilterEnabled(),
                         false),
                 booleanProperty(
-                        RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED,
-                        "Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers",
-                        hiveClientConfig.isRangeFiltersOnSubscriptsEnabled(),
-                        false),
-                booleanProperty(
                         ADAPTIVE_FILTER_REORDERING_ENABLED,
                         "Experimental: enable adaptive filter reordering",
                         hiveClientConfig.isAdaptiveFilterReorderingEnabled(),
@@ -538,6 +535,15 @@ public final class HiveSessionProperties
                         "Experimental: Enable optimized writer",
                         parquetFileWriterConfig.isParquetOptimizedWriterEnabled(),
                         false),
+                new PropertyMetadata<>(
+                        PARQUET_WRITER_VERSION,
+                        "Parquet: Writer version",
+                        VARCHAR,
+                        ParquetProperties.WriterVersion.class,
+                        parquetFileWriterConfig.getWriterVersion(),
+                        false,
+                        value -> ParquetProperties.WriterVersion.valueOf(((String) value).toUpperCase()),
+                        ParquetProperties.WriterVersion::name),
                 booleanProperty(
                         PARQUET_BATCH_READ_OPTIMIZATION_ENABLED,
                         "Is Parquet batch read optimization enabled",
@@ -700,6 +706,11 @@ public final class HiveSessionProperties
                         READ_MASKED_VALUE_ENABLED,
                         "Return null when access is denied for an encrypted parquet column",
                         hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
+                        false),
+                booleanProperty(
+                        PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED,
+                        "Enables parallel parsing of partition values from partition names using thread pool",
+                        hiveClientConfig.isParallelParsingOfPartitionValuesEnabled(),
                         false));
     }
 
@@ -1034,11 +1045,6 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_PUSHDOWN_FILTER_ENABLED, Boolean.class);
     }
 
-    public static boolean isRangeFiltersOnSubscriptsEnabled(ConnectorSession session)
-    {
-        return session.getProperty(RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED, Boolean.class);
-    }
-
     public static boolean isAdaptiveFilterReorderingEnabled(ConnectorSession session)
     {
         return session.getProperty(ADAPTIVE_FILTER_REORDERING_ENABLED, Boolean.class);
@@ -1104,6 +1110,11 @@ public final class HiveSessionProperties
     public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static ParquetProperties.WriterVersion getParquetWriterVersion(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_VERSION, ParquetProperties.WriterVersion.class);
     }
 
     public static BucketFunctionType getBucketFunctionTypeForExchange(ConnectorSession session)
@@ -1229,5 +1240,10 @@ public final class HiveSessionProperties
     public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
     {
         return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParallelParsingOfPartitionValuesEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED, Boolean.class);
     }
 }

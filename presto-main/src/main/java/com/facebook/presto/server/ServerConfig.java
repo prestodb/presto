@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import javax.validation.constraints.NotNull;
 
 import static com.facebook.presto.spi.NodePoolType.DEFAULT;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ServerConfig
@@ -37,6 +38,8 @@ public class ServerConfig
     private boolean enhancedErrorReporting = true;
     private boolean queryResultsCompressionEnabled = true;
     private NodePoolType poolType = DEFAULT;
+    private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
+    private boolean nestedDataSerializationEnabled = true;
 
     public boolean isResourceManager()
     {
@@ -185,6 +188,30 @@ public class ServerConfig
     public ServerConfig setPoolType(NodePoolType poolType)
     {
         this.poolType = poolType;
+        return this;
+    }
+
+    public Duration getClusterStatsExpirationDuration()
+    {
+        return clusterStatsExpirationDuration;
+    }
+
+    @Config("cluster-stats-expiration-duration")
+    public ServerConfig setClusterStatsExpirationDuration(Duration clusterStatsExpirationDuration)
+    {
+        this.clusterStatsExpirationDuration = clusterStatsExpirationDuration;
+        return this;
+    }
+
+    public boolean isNestedDataSerializationEnabled()
+    {
+        return nestedDataSerializationEnabled;
+    }
+
+    @Config("nested-data-serialization-enabled")
+    public ServerConfig setNestedDataSerializationEnabled(boolean nestedDataSerializationEnabled)
+    {
+        this.nestedDataSerializationEnabled = nestedDataSerializationEnabled;
         return this;
     }
 }

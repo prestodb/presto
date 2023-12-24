@@ -16,7 +16,6 @@
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
-#include "presto_cpp/main/operators/BroadcastFactory.h"
 
 namespace facebook::presto::operators {
 
@@ -31,29 +30,38 @@ std::optional<std::string> getBroadcastInfo(folly::Uri& uri) {
 }
 } // namespace
 
-void BroadcastExchangeSource::request() {
+folly::SemiFuture<BroadcastExchangeSource::Response>
+BroadcastExchangeSource::request(
+    uint32_t /*maxBytes*/,
+    uint32_t /*maxWaitSeconds*/) {
+  if (atEnd_) {
+    return folly::makeFuture(Response{0, true});
+  }
+
+  atEnd_ = !reader_->hasNext();
+  int64_t totalBytes = 0;
+  std::unique_ptr<velox::exec::SerializedPage> page;
+  if (!atEnd_) {
+    // Read outside the lock to avoid a potential deadlock
+    // ExchangeClient guarantees not to call ExchangeSource#request concurrently
+    auto buffer = reader_->next();
+    totalBytes = buffer->size();
+    auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
+    page = std::make_unique<velox::exec::SerializedPage>(
+        std::move(ioBuf), [buffer](auto& /*unused*/) {});
+  }
+
   std::vector<velox::ContinuePromise> promises;
   {
+    // Limit locking scope to queue manipulation
     std::lock_guard<std::mutex> l(queue_->mutex());
-    if (atEnd_) {
-      return;
-    }
-
-    if (!reader_->hasNext()) {
-      atEnd_ = true;
-      queue_->enqueueLocked(nullptr, promises);
-    } else {
-      auto buffer = reader_->next();
-      auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-      queue_->enqueueLocked(
-          std::make_unique<velox::exec::SerializedPage>(
-              std::move(ioBuf), [buffer](auto& /*unused*/) {}),
-          promises);
-    }
+    queue_->enqueueLocked(std::move(page), promises);
   }
   for (auto& promise : promises) {
     promise.setValue();
   }
+
+  return folly::makeFuture(Response{totalBytes, atEnd_});
 }
 
 folly::F14FastMap<std::string, int64_t> BroadcastExchangeSource::stats() const {
@@ -61,11 +69,11 @@ folly::F14FastMap<std::string, int64_t> BroadcastExchangeSource::stats() const {
 }
 
 // static
-std::unique_ptr<exec::ExchangeSource>
+std::shared_ptr<exec::ExchangeSource>
 BroadcastExchangeSource::createExchangeSource(
     const std::string& url,
     int destination,
-    std::shared_ptr<exec::ExchangeQueue> queue,
+    const std::shared_ptr<exec::ExchangeQueue>& queue,
     memory::MemoryPool* pool) {
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
@@ -88,10 +96,10 @@ BroadcastExchangeSource::createExchangeSource(
   }
 
   auto fileSystemBroadcast = BroadcastFactory(broadcastFileInfo->filePath_);
-  return std::make_unique<BroadcastExchangeSource>(
+  return std::make_shared<BroadcastExchangeSource>(
       uri.host(),
       destination,
-      std::move(queue),
+      queue,
       fileSystemBroadcast.createReader(std::move(broadcastFileInfo), pool),
       pool);
 }

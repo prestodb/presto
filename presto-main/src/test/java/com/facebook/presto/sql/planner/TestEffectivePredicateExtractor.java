@@ -167,6 +167,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
@@ -191,6 +192,7 @@ public class TestEffectivePredicateExtractor
                 globalAggregation(),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

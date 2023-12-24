@@ -432,6 +432,11 @@ public class ServerMainModule
                     public void configure(Binder moduleBinder)
                     {
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
+                        // HTTP endpoint for some of ResourceManagerServer methods.
+                        ResourceManagerConfig resourceManagerConfig = buildConfigObject(ResourceManagerConfig.class);
+                        if (resourceManagerConfig.getHeartbeatHttpEnabled()) {
+                            jaxrsBinder(moduleBinder).bind(ResourceManagerHeartbeatResource.class);
+                        }
                         moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
                         if (serverConfig.isCoordinator()) {
                             moduleBinder.bind(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
@@ -769,6 +774,7 @@ public class ServerMainModule
 
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);
+        binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides

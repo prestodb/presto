@@ -33,7 +33,7 @@ workflows:
     jobs:
       - format-check
       - header-check
-      - linux-parquet-S3-build
+      - linux-build-all
 
 commands:
   maven_install:
@@ -80,6 +80,14 @@ jobs:
             cd presto-native-execution
             make velox-submodule
       - run:
+          name: "Install JWT adapter dependency"
+          command: |
+            mkdir -p ${HOME}/adapter-deps/install
+            source /opt/rh/gcc-toolset-9/enable
+            set -xu
+            cd presto-native-execution
+            DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
+      - run:
           name: "Calculate merge-base date for CCache"
           command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/master HEAD) | tee merge-base-date
       - restore_cache:
@@ -94,7 +102,18 @@ jobs:
             ccache -sz -M 8Gi
             source /opt/rh/gcc-toolset-9/enable
             cd presto-native-execution
-            cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DPRESTO_ENABLE_PARQUET=ON -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake \
+              -B _build/debug \
+              -GNinja \
+              -DTREAT_WARNINGS_AS_ERRORS=1 \
+              -DENABLE_ALL_WARNINGS=1 \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DPRESTO_ENABLE_PARQUET=ON \
+              -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+              -DPRESTO_ENABLE_JWT=ON \
+              -DCMAKE_PREFIX_PATH=/usr/local \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+              -DMAX_LINK_JOBS=2
             ninja -C _build/debug -j 8
             ccache -s
       - save_cache:
@@ -106,11 +125,12 @@ jobs:
           name: 'Run Unit Tests'
           command: |
             cd presto-native-execution/_build/debug
-            ctest -j 8 -VV --output-on-failure --exclude-regex velox.*
+            ctest -j 10 -VV --output-on-failure --no-tests=error
       - persist_to_workspace:
           root: presto-native-execution
           paths:
             - _build/debug/presto_cpp/main/presto_server
+            - _build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main
 
   linux-presto-e2e-tests:
     executor: build
@@ -138,8 +158,20 @@ jobs:
               export TESTCLASSES="${TESTCLASSES},$test_class"
             done
             export TESTCLASSES=${TESTCLASSES#,}
+
+            # TODO: neeed to enable remote function tests with
+            # "-Ppresto-native-execution-remote-functions" once
+            # > https://github.com/facebookincubator/velox/discussions/6163
+            # is fixed.
             if [ ! -z $TESTCLASSES ]; then
-              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${TESTCLASSES}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
+              mvn test \
+                ${MAVEN_TEST} \
+                -pl 'presto-native-execution' \
+                -Dtest="${TESTCLASSES}" \
+                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+                -DDATA_DIR=${TEMP_PATH} \
+                -Duser.timezone=America/Bahia_Banderas \
+                -T1C
             fi
 
   linux-spark-e2e-tests:
@@ -168,10 +200,17 @@ jobs:
             done
             export TESTCLASSES=${TESTCLASSES#,}
             if [ ! -z $TESTCLASSES ]; then
-              mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -Dtest="${TESTCLASSES}" -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
+              mvn test \
+                ${MAVEN_TEST} \
+                -pl 'presto-native-execution' \
+                -Dtest="${TESTCLASSES}" \
+                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+                -DDATA_DIR=${TEMP_PATH} \
+                -Duser.timezone=America/Bahia_Banderas \
+                -T1C
             fi
 
-  linux-parquet-S3-build:
+  linux-build-all:
     executor: build
     steps:
       - checkout
@@ -181,19 +220,33 @@ jobs:
             cd presto-native-execution
             make velox-submodule
       - run:
-          name: "Install S3 adapter dependencies"
+          name: "Install all adapter dependencies"
           command: |
             mkdir -p ${HOME}/adapter-deps/install
             source /opt/rh/gcc-toolset-9/enable
             set -xu
             cd presto-native-execution
             DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./velox/scripts/setup-adapters.sh
+            DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
       - run:
-          name: Build
+          name: "Build All"
           command: |
             source /opt/rh/gcc-toolset-9/enable
             cd presto-native-execution
-            cmake -B _build/release -GNinja -DAWSSDK_ROOT_DIR=${HOME}/adapter-deps/install -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Release -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake \
+              -B _build/release \
+              -GNinja \
+              -DAWSSDK_ROOT_DIR=${HOME}/adapter-deps/install \
+              -DTREAT_WARNINGS_AS_ERRORS=1 \
+              -DENABLE_ALL_WARNINGS=1 \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DPRESTO_ENABLE_PARQUET=ON \
+              -DPRESTO_ENABLE_S3=ON \
+              -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+              -DPRESTO_ENABLE_JWT=ON \
+              -DCMAKE_PREFIX_PATH=/usr/local \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+              -DMAX_LINK_JOBS=2
             ninja -C _build/release -j 8
 
   format-check:

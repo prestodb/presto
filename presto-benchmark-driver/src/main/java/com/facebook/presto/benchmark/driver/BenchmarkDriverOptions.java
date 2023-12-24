@@ -110,7 +110,8 @@ public class BenchmarkDriverOptions
                 clientRequestTimeout,
                 disableCompression,
                 ImmutableMap.of(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
     }
 
     private static URI parseServer(String server)

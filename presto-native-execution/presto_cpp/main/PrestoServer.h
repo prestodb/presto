@@ -21,6 +21,8 @@
 #include <velox/expression/Expr.h>
 #include "presto_cpp/main/CPUMon.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include "presto_cpp/main/PeriodicHeartbeatManager.h"
+#include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
@@ -62,6 +64,7 @@ class SignalHandler;
 class TaskManager;
 class TaskResource;
 class PeriodicTaskManager;
+class SystemConfig;
 
 class PrestoServer {
  public:
@@ -82,9 +85,11 @@ class PrestoServer {
   }
 
  protected:
-  /// Hook for derived PrestoServer implementations to add additional periodic
-  /// tasks.
+  /// Hook for derived PrestoServer implementations to add/stop additional
+  /// periodic tasks.
   virtual void addAdditionalPeriodicTasks(){};
+
+  virtual void stopAdditionalPeriodicTasks(){};
 
   virtual void initializeCoordinatorDiscoverer();
 
@@ -118,6 +123,8 @@ class PrestoServer {
 
   virtual void registerFileSystems();
 
+  virtual void registerMemoryArbitrators();
+
   virtual void registerStatsCounters();
 
   /// Invoked after creating global (singleton) config objects (SystemConfig and
@@ -132,11 +139,16 @@ class PrestoServer {
   /// ip address.
   virtual std::string getLocalIp() const;
 
+  /// Invoked to get the spill directory.
+  virtual std::string getBaseSpillDirectory() const;
+
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getHttpServerFilters();
 
   void initializeVeloxMemory();
+
+  void initializeThreadPools();
 
  protected:
   void addServerPeriodicTasks();
@@ -146,6 +158,8 @@ class PrestoServer {
   void reportServerInfo(proxygen::ResponseHandler* downstream);
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
+
+  protocol::NodeStatus fetchNodeStatus();
 
   void populateMemAndCPUInfo();
 
@@ -163,7 +177,21 @@ class PrestoServer {
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
   // Executor for exchange data over http.
-  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpExecutor_;
+
+  // Executor for HTTP request dispatching
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIOExecutor_;
+
+  // Executor for HTTP request processing after dispatching
+  std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
+
+  // Executor for query engine driver executions.
+  std::shared_ptr<folly::CPUThreadPoolExecutor> driverExecutor_;
+
+  // Executor for spilling.
+  std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
+
+  std::unique_ptr<ConnectionPools> exchangeSourceConnectionPools_;
 
   // Instance of MemoryAllocator used for all query memory allocations.
   std::shared_ptr<velox::memory::MemoryAllocator> allocator_;
@@ -174,6 +202,7 @@ class PrestoServer {
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
   std::unique_ptr<Announcer> announcer_;
+  std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
   std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;

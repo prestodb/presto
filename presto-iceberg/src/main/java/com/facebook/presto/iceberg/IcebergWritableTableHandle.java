@@ -29,7 +29,7 @@ public class IcebergWritableTableHandle
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
     private final String schemaName;
-    private final String tableName;
+    private final IcebergTableName tableName;
     private final String schemaAsJson;
     private final String partitionSpecAsJson;
     private final List<IcebergColumnHandle> inputColumns;
@@ -40,7 +40,7 @@ public class IcebergWritableTableHandle
     @JsonCreator
     public IcebergWritableTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("tableName") IcebergTableName tableName,
             @JsonProperty("schemaAsJson") String schemaAsJson,
             @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
@@ -65,7 +65,7 @@ public class IcebergWritableTableHandle
     }
 
     @JsonProperty
-    public String getTableName()
+    public IcebergTableName getTableName()
     {
         return tableName;
     }

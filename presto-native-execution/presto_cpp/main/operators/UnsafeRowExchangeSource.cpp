@@ -28,12 +28,16 @@ namespace facebook::presto::operators {
     VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
   }
 
-void UnsafeRowExchangeSource::request() {
+folly::SemiFuture<UnsafeRowExchangeSource::Response>
+UnsafeRowExchangeSource::request(
+    uint32_t /*maxBytes*/,
+    uint32_t /*maxWaitSeconds*/) {
   std::vector<velox::ContinuePromise> promises;
+  int64_t totalBytes = 0;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     if (atEnd_) {
-      return;
+      return folly::makeFuture(Response{0, true});
     }
 
     bool hasNext;
@@ -45,6 +49,7 @@ void UnsafeRowExchangeSource::request() {
     } else {
       velox::BufferPtr buffer;
       CALL_SHUFFLE(buffer = shuffle_->next(), "next");
+      totalBytes = buffer->size();
 
       ++numBatches_;
 
@@ -63,6 +68,8 @@ void UnsafeRowExchangeSource::request() {
   for (auto& promise : promises) {
     promise.setValue();
   }
+
+  return folly::makeFuture(Response{totalBytes, atEnd_});
 }
 
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
@@ -83,11 +90,11 @@ std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
 } // namespace
 
 // static
-std::unique_ptr<velox::exec::ExchangeSource>
+std::shared_ptr<velox::exec::ExchangeSource>
 UnsafeRowExchangeSource::createExchangeSource(
     const std::string& url,
     int32_t destination,
-    std::shared_ptr<velox::exec::ExchangeQueue> queue,
+    const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
     velox::memory::MemoryPool* FOLLY_NONNULL pool) {
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
@@ -106,10 +113,10 @@ UnsafeRowExchangeSource::createExchangeSource(
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");
   auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-  return std::make_unique<UnsafeRowExchangeSource>(
+  return std::make_shared<UnsafeRowExchangeSource>(
       uri.host(),
       destination,
-      std::move(queue),
+      queue,
       shuffleFactory->createReader(
           serializedShuffleInfo.value(), destination, pool),
       pool);

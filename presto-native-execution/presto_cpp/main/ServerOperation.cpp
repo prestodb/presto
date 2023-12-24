@@ -22,9 +22,9 @@ const folly::F14FastMap<std::string, ServerOperation::Action>
         {"getCacheStats", ServerOperation::Action::kGetCacheStats},
         {"setProperty", ServerOperation::Action::kSetProperty},
         {"getProperty", ServerOperation::Action::kGetProperty},
-        {"task", ServerOperation::Action::kTask},
-        {"trace", ServerOperation::Action::kTrace},
-    };
+        {"getDetail", ServerOperation::Action::kGetDetail},
+        {"listAll", ServerOperation::Action::kListAll},
+        {"trace", ServerOperation::Action::kTrace}};
 
 const folly::F14FastMap<ServerOperation::Action, std::string>
     ServerOperation::kReverseActionLookup{
@@ -32,25 +32,25 @@ const folly::F14FastMap<ServerOperation::Action, std::string>
         {ServerOperation::Action::kGetCacheStats, "getCacheStats"},
         {ServerOperation::Action::kSetProperty, "setProperty"},
         {ServerOperation::Action::kGetProperty, "getProperty"},
-        {ServerOperation::Action::kTask, "task"},
-        {ServerOperation::Action::kTrace, "trace"},
-    };
+        {ServerOperation::Action::kGetDetail, "getDetail"},
+        {ServerOperation::Action::kListAll, "listAll"},
+        {ServerOperation::Action::kTrace, "trace"}};
 
 const folly::F14FastMap<std::string, ServerOperation::Target>
     ServerOperation::kTargetLookup{
         {"connector", ServerOperation::Target::kConnector},
         {"systemConfig", ServerOperation::Target::kSystemConfig},
         {"veloxQueryConfig", ServerOperation::Target::kVeloxQueryConfig},
-        {"debug", ServerOperation::Target::kDebug},
-    };
+        {"task", ServerOperation::Target::kTask},
+        {"server", ServerOperation::Target::kServer}};
 
 const folly::F14FastMap<ServerOperation::Target, std::string>
     ServerOperation::kReverseTargetLookup{
         {ServerOperation::Target::kConnector, "connector"},
         {ServerOperation::Target::kSystemConfig, "systemConfig"},
         {ServerOperation::Target::kVeloxQueryConfig, "veloxQueryConfig"},
-        {ServerOperation::Target::kDebug, "debug"},
-    };
+        {ServerOperation::Target::kTask, "task"},
+        {ServerOperation::Target::kServer, "server"}};
 
 ServerOperation::Target ServerOperation::targetFromString(
     const std::string& str) {

@@ -22,20 +22,18 @@
 #include "velox/type/Variant.h"
 
 #include "presto_cpp/main/types/PrestoTaskId.h"
-// TypeSignatureTypeConverter.h must be included after presto_protocol.h
-// because it changes the macro EOF in some way (maybe deleting it?) which
-// is used in third_party/json/json.hpp
-//
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/main/types/TypeParser.h"
+#include "presto_cpp/presto_protocol/presto_protocol.h"
 
 namespace facebook::presto {
 
 class VeloxQueryPlanConverterBase {
  public:
-  explicit VeloxQueryPlanConverterBase(
+  VeloxQueryPlanConverterBase(
       velox::core::QueryCtx* queryCtx,
       velox::memory::MemoryPool* pool)
-      : pool_(pool), queryCtx_{queryCtx}, exprConverter_(pool) {}
+      : pool_(pool), queryCtx_{queryCtx}, exprConverter_(pool, &typeParser_) {}
 
   virtual ~VeloxQueryPlanConverterBase() = default;
 
@@ -192,6 +190,21 @@ class VeloxQueryPlanConverterBase {
   velox::VectorPtr evaluateConstantExpression(
       const velox::core::TypedExprPtr& expression);
 
+  std::shared_ptr<velox::core::AggregationNode> generateAggregationNode(
+      const std::shared_ptr<protocol::StatisticAggregations>&
+          statisticsAggregation,
+      velox::core::AggregationNode::Step step,
+      const protocol::PlanNodeId& id,
+      const velox::core::PlanNodePtr& sourceVeloxPlan,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  std::vector<protocol::VariableReferenceExpression> generateOutputVariables(
+      const std::vector<protocol::VariableReferenceExpression>&
+          nonStatisticsOutputVariables,
+      const std::shared_ptr<protocol::StatisticAggregations>&
+          statisticsAggregation);
+
   void toAggregations(
       const std::vector<protocol::VariableReferenceExpression>& outputVariables,
       const std::map<
@@ -200,9 +213,10 @@ class VeloxQueryPlanConverterBase {
       std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
       std::vector<std::string>& aggregateNames);
 
-  velox::memory::MemoryPool* pool_;
-  velox::core::QueryCtx* queryCtx_;
+  velox::memory::MemoryPool* const pool_;
+  velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
+  TypeParser typeParser_;
 };
 
 class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {

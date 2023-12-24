@@ -353,7 +353,7 @@ public class DriverContext
         long outputPositions;
         if (inputOperator != null) {
             rawInputDataSize = inputOperator.getRawInputDataSize();
-            rawInputPositions = inputOperator.getInputPositions();
+            rawInputPositions = inputOperator.getRawInputPositions();
             rawInputReadTime = inputOperator.getAddInputWall();
 
             processedInputDataSize = inputOperator.getInputDataSize();

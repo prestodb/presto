@@ -40,6 +40,8 @@ import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
+import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
+import com.facebook.presto.verifier.source.SnapshotQuerySupplier;
 import com.facebook.presto.verifier.source.SourceQuerySupplier;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +54,7 @@ import javax.inject.Inject;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
@@ -77,6 +80,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QU
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
 import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
+import static com.facebook.presto.verifier.framework.VerifierConfig.QUERY_BANK_MODE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Thread.currentThread;
@@ -88,6 +92,8 @@ public class VerificationManager
     private static final Logger log = Logger.get(VerificationManager.class);
 
     private final SourceQuerySupplier sourceQuerySupplier;
+    private final SnapshotQueryConsumer snapshotQueryConsumer;
+    private final Map<String, SnapshotQuery> snapshotQueries;
     private final VerificationFactory verificationFactory;
     private final SqlParser sqlParser;
     private final Set<EventClient> eventClients;
@@ -106,6 +112,7 @@ public class VerificationManager
     private final int verificationResubmissionLimit;
     private final boolean explain;
     private final boolean skipControl;
+    private final String runningMode;
 
     private final ExecutorService executor;
     private final CompletionService<VerificationResult> completionService;
@@ -114,6 +121,8 @@ public class VerificationManager
     @Inject
     public VerificationManager(
             SourceQuerySupplier sourceQuerySupplier,
+            SnapshotQueryConsumer snapshotQueryConsumer,
+            SnapshotQuerySupplier snapshotQuerySupplier,
             VerificationFactory verificationFactory,
             SqlParser sqlParser,
             Set<EventClient> eventClients,
@@ -123,6 +132,8 @@ public class VerificationManager
             VerifierConfig config)
     {
         this.sourceQuerySupplier = requireNonNull(sourceQuerySupplier, "sourceQuerySupplier is null");
+        this.snapshotQueryConsumer = requireNonNull(snapshotQueryConsumer, "snapshotQueryConsumer is null");
+        requireNonNull(snapshotQuerySupplier, "snapshotQuerySupplier is null");
         this.verificationFactory = requireNonNull(verificationFactory, "verificationFactory is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.eventClients = ImmutableSet.copyOf(eventClients);
@@ -144,6 +155,13 @@ public class VerificationManager
 
         this.executor = newFixedThreadPool(maxConcurrency);
         this.completionService = new ExecutorCompletionService<>(executor);
+        this.runningMode = config.getRunningMode();
+        if (runningMode.equals(QUERY_BANK_MODE)) {
+            snapshotQueries = snapshotQuerySupplier.get();
+        }
+        else {
+            snapshotQueries = Collections.emptyMap();
+        }
     }
 
     @PostConstruct
@@ -181,7 +199,7 @@ public class VerificationManager
     {
         SourceQuery sourceQuery = verification.getSourceQuery();
         VerificationContext newContext = verification.getVerificationContext();
-        Verification newVerification = verificationFactory.get(sourceQuery, Optional.of(newContext));
+        Verification newVerification = verificationFactory.get(sourceQuery, Optional.of(newContext), snapshotQueryConsumer, snapshotQueries);
         completionService.submit(newVerification::run);
         queriesSubmitted.addAndGet(1);
         log.info("Verification %s failed, resubmitted for verification (%s/%s)", sourceQuery.getName(), newContext.getResubmissionCount(), verificationResubmissionLimit);
@@ -313,7 +331,7 @@ public class VerificationManager
         for (int i = 0; i < suiteRepetitions; i++) {
             for (SourceQuery sourceQuery : sourceQueries) {
                 for (int j = 0; j < queryRepetitions; j++) {
-                    Verification verification = verificationFactory.get(sourceQuery, Optional.empty());
+                    Verification verification = verificationFactory.get(sourceQuery, Optional.empty(), snapshotQueryConsumer, snapshotQueries);
                     completionService.submit(verification::run);
                 }
             }

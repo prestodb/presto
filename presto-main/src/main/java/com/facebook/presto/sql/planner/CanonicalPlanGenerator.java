@@ -195,6 +195,7 @@ public class CanonicalPlanGenerator
                 ImmutableSet.of(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
         context.addPlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
@@ -793,7 +794,9 @@ public class CanonicalPlanGenerator
                         .collect(toImmutableList()),
                 node.getStep(),
                 node.getHashVariable().map(ignored -> variableAllocator.newHashVariable()),
-                node.getGroupIdVariable().map(variable -> context.getExpressions().get(variable)));
+                node.getGroupIdVariable().map(variable -> context.getExpressions().get(variable)),
+                // ignore aggregationId when creating the canonical plan
+                Optional.empty());
 
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);

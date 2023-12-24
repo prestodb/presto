@@ -45,7 +45,8 @@ std::vector<velox::exec::TypeSignature> parseTypeSignatures(
 }
 
 // Parses a single signature.
-velox::exec::FunctionSignaturePtr parseSignature(const folly::dynamic& input) {
+JsonSignatureParser::FunctionSignatureItem parseSignature(
+    const folly::dynamic& input) {
   VELOX_USER_CHECK(
       input.isObject(),
       "Function signature should be an object. Got: {}",
@@ -57,25 +58,29 @@ velox::exec::FunctionSignaturePtr parseSignature(const folly::dynamic& input) {
       (outputType != nullptr) && (paramTypes != nullptr),
       "`outputType` and `paramTypes` are mandatory in a signature.");
 
+  auto* schema = input.get_ptr("schema");
+
   auto paramTypeSignatures = parseTypeSignatures(*paramTypes);
   std::vector<bool> constantArguments(paramTypeSignatures.size(), false);
 
-  return std::make_shared<velox::exec::FunctionSignature>(
-      std::unordered_map<std::string, velox::exec::SignatureVariable>{},
-      parseTypeSignature(*outputType),
-      std::move(paramTypeSignatures),
-      std::move(constantArguments),
-      /*variableArity=*/false);
+  return JsonSignatureParser::FunctionSignatureItem{
+      std::make_shared<velox::exec::FunctionSignature>(
+          std::unordered_map<std::string, velox::exec::SignatureVariable>{},
+          parseTypeSignature(*outputType),
+          std::move(paramTypeSignatures),
+          std::move(constantArguments),
+          /*variableArity=*/false),
+      (schema != nullptr) ? schema->asString() : ""};
 }
 
 // Parses a list of signatures for a function.
-std::vector<velox::exec::FunctionSignaturePtr> parseSignatures(
+std::vector<JsonSignatureParser::FunctionSignatureItem> parseSignatures(
     const folly::dynamic& input) {
   VELOX_USER_CHECK(
       input.isArray(),
       "The value for a function item should be an array of signatures. Got: {}",
       input.typeName());
-  std::vector<velox::exec::FunctionSignaturePtr> signatures;
+  std::vector<JsonSignatureParser::FunctionSignatureItem> signatures;
   signatures.reserve(input.size());
 
   for (const auto& signature : input) {

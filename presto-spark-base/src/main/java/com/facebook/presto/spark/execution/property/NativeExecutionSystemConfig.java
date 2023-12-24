@@ -57,21 +57,45 @@ public class NativeExecutionSystemConfig
     private static final String HTTPS_KEY_PATH = "https-key-path";
 
     // TODO: others use "-" separator and this property use _ separator. Fix them.
-    private static final String HTTP_EXEC_THREADS = "http_exec_threads";
-    private static final String NUM_IO_THREADS = "num-io-threads";
+    private static final String HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER = "http-server.num-io-threads-hw-multiplier";
+    private static final String EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER = "exchange.http-client.num-io-threads-hw-multiplier";
+    private static final String ASYNC_DATA_CACHE_ENABLED = "async-data-cache-enabled";
+    private static final String ASYNC_CACHE_SSD_GB = "async-cache-ssd-gb";
+    private static final String CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER = "connector.num-io-threads-hw-multiplier";
     private static final String PRESTO_VERSION = "presto.version";
     private static final String SHUTDOWN_ONSET_SEC = "shutdown-onset-sec";
     // Memory related configurations.
     private static final String SYSTEM_MEMORY_GB = "system-memory-gb";
     private static final String QUERY_MEMORY_GB = "query.max-memory-per-node";
     private static final String USE_MMAP_ALLOCATOR = "use-mmap-allocator";
-    private static final String ENABLE_MEMORY_ARBITRATION = "enable-memory-arbitration";
+    // Memory arbitration related configurations.
+    // Set the memory arbitrator kind. If it is empty, then there is no memory
+    // arbitration, when a query runs out of its capacity, the query will fail.
+    // If it set to "SHARED" (default), the shared memory arbitrator will be
+    // used to conduct arbitration and try to trigger disk spilling to reclaim
+    // memory so the query can run through completion.
+    private static final String MEMORY_ARBITRATOR_KIND = "memory-arbitrator-kind";
+    // Set memory arbitrator capacity to the same as per-query memory capacity
+    // as there is only one query running at Presto-on-Spark at a time.
+    private static final String MEMORY_ARBITRATOR_CAPACITY_GB = "query-memory-gb";
+    // Set the initial memory capacity when we create a query memory pool. For
+    // Presto-on-Spark, we set it to 'query-memory-gb' to allocate all the
+    // memory arbitrator capacity to the query memory pool on its creation as
+    // there is only one query running at a time.
     private static final String MEMORY_POOL_INIT_CAPACITY = "memory-pool-init-capacity";
+    // Set the minimal memory capacity transfer between memory pools under
+    // memory arbitration. For Presto-on-Spark, there is only one query running
+    // so this specified how much memory to reclaim from a query when it runs
+    // out of memory.
     private static final String MEMORY_POOL_TRANSFER_CAPACITY = "memory-pool-transfer-capacity";
-    private static final String RESERVED_MEMORY_POOL_CAPACITY_PCT = "reserved-memory-pool-capacity-pct";
     // Spilling related configs.
     private static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
     private static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
+    // Tasks are considered old, when they are in not-running state and it ended more than
+    // OLD_TASK_CLEANUP_MS ago or last heartbeat was more than OLD_TASK_CLEANUP_MS ago.
+    // For Presto-On-Spark, this is not relevant as it runs tasks serially, and spark's speculative
+    // execution takes care of zombie tasks.
+    private static final String ENABLE_OLD_TASK_CLEANUP = "enable-old-task-cleanup";
     // Name of exchange client to use
     private static final String SHUFFLE_NAME = "shuffle.name";
     // Feature flag for access log on presto-native http server
@@ -81,24 +105,30 @@ public class NativeExecutionSystemConfig
     private boolean enableVeloxTaskLogging = true;
     private boolean httpServerReusePort = true;
     private int httpServerPort = 7777;
-    private int httpExecThreads = 32;
+    private double httpServerNumIoThreadsHwMultiplier = 1.0;
     private int httpsServerPort = 7778;
     private boolean enableHttpsCommunication;
     private String httpsCiphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
     private String httpsCertPath = "";
     private String httpsKeyPath = "";
-    private int numIoThreads = 30;
+    private double exchangeHttpClientNumIoThreadsHwMultiplier = 1.0;
+    private boolean asyncDataCacheEnabled; // false
+    private int asyncCacheSsdGb; // 0
+    private double connectorNumIoThreadsHwMultiplier; // 0.0
     private int shutdownOnsetSec = 10;
     private int systemMemoryGb = 10;
-    private DataSize queryMemoryGb = new DataSize(systemMemoryGb, DataSize.Unit.GIGABYTE);
+    // Reserve 2GB from system memory for system operations such as disk
+    // spilling and cache prefetch.
+    private DataSize queryMemoryGb = new DataSize(8, DataSize.Unit.GIGABYTE);
     private boolean useMmapAllocator = true;
-    private boolean enableMemoryArbitration = true;
-    private long memoryPoolInitCapacity = 512 << 20;
-    private long memoryPoolTransferCapacity = 256 << 20;
-    private int reservedMemoryPoolCapacityPct = 10;
+    private String memoryArbitratorKind = "SHARED";
+    private int memoryArbitratorCapacityGb = 8;
+    private long memoryPoolInitCapacity = 8L << 30;
+    private long memoryPoolTransferCapacity = 2L << 30;
     private String spillerSpillPath = "";
     private int concurrentLifespansPerTask = 5;
     private int maxDriversPerTask = 15;
+    private boolean enableOldTaskCleanUp; // false;
     private String prestoVersion = "dummy.presto.version";
     private String shuffleName = "local";
     private boolean registerTestFunctions;
@@ -119,19 +149,23 @@ public class NativeExecutionSystemConfig
                 .put(HTTPS_CIPHERS, String.valueOf(getHttpsCiphers()))
                 .put(HTTPS_CERT_PATH, String.valueOf(getHttpsCertPath()))
                 .put(HTTPS_KEY_PATH, String.valueOf(getHttpsKeyPath()))
-                .put(HTTP_EXEC_THREADS, String.valueOf(getHttpExecThreads()))
-                .put(NUM_IO_THREADS, String.valueOf(getNumIoThreads()))
+                .put(HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER, String.valueOf(getHttpServerNumIoThreadsHwMultiplier()))
+                .put(EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER, String.valueOf(getExchangeHttpClientNumIoThreadsHwMultiplier()))
+                .put(ASYNC_DATA_CACHE_ENABLED, String.valueOf(getAsyncDataCacheEnabled()))
+                .put(ASYNC_CACHE_SSD_GB, String.valueOf(getAsyncCacheSsdGb()))
+                .put(CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER, String.valueOf(getConnectorNumIoThreadsHwMultiplier()))
                 .put(PRESTO_VERSION, getPrestoVersion())
                 .put(SHUTDOWN_ONSET_SEC, String.valueOf(getShutdownOnsetSec()))
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
                 .put(QUERY_MEMORY_GB, String.valueOf(getQueryMemoryGb()))
                 .put(USE_MMAP_ALLOCATOR, String.valueOf(getUseMmapAllocator()))
-                .put(ENABLE_MEMORY_ARBITRATION, String.valueOf(getEnableMemoryArbitration()))
+                .put(MEMORY_ARBITRATOR_KIND, String.valueOf(getMemoryArbitratorKind()))
+                .put(MEMORY_ARBITRATOR_CAPACITY_GB, String.valueOf(getMemoryArbitratorCapacityGb()))
                 .put(MEMORY_POOL_INIT_CAPACITY, String.valueOf(getMemoryPoolInitCapacity()))
                 .put(MEMORY_POOL_TRANSFER_CAPACITY, String.valueOf(getMemoryPoolTransferCapacity()))
-                .put(RESERVED_MEMORY_POOL_CAPACITY_PCT, String.valueOf(getReservedMemoryPoolCapacityPct()))
                 .put(SPILLER_SPILL_PATH, String.valueOf(getSpillerSpillPath()))
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
+                .put(ENABLE_OLD_TASK_CLEANUP, String.valueOf(getOldTaskCleanupMs()))
                 .put(SHUFFLE_NAME, getShuffleName())
                 .put(HTTP_SERVER_ACCESS_LOGS, String.valueOf(isEnableHttpServerAccessLog()))
                 .build();
@@ -221,16 +255,16 @@ public class NativeExecutionSystemConfig
         return registerTestFunctions;
     }
 
-    @Config(HTTP_EXEC_THREADS)
-    public NativeExecutionSystemConfig setHttpExecThreads(int httpExecThreads)
+    @Config(HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER)
+    public NativeExecutionSystemConfig setHttpServerNumIoThreadsHwMultiplier(double httpServerNumIoThreadsHwMultiplier)
     {
-        this.httpExecThreads = httpExecThreads;
+        this.httpServerNumIoThreadsHwMultiplier = httpServerNumIoThreadsHwMultiplier;
         return this;
     }
 
-    public int getHttpExecThreads()
+    public double getHttpServerNumIoThreadsHwMultiplier()
     {
-        return httpExecThreads;
+        return httpServerNumIoThreadsHwMultiplier;
     }
 
     public int getHttpsServerPort()
@@ -293,16 +327,52 @@ public class NativeExecutionSystemConfig
         return this;
     }
 
-    @Config(NUM_IO_THREADS)
-    public NativeExecutionSystemConfig setNumIoThreads(int numIoThreads)
+    @Config(EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER)
+    public NativeExecutionSystemConfig setExchangeHttpClientNumIoThreadsHwMultiplier(double exchangeHttpClientNumIoThreadsHwMultiplier)
     {
-        this.numIoThreads = numIoThreads;
+        this.exchangeHttpClientNumIoThreadsHwMultiplier = exchangeHttpClientNumIoThreadsHwMultiplier;
         return this;
     }
 
-    public int getNumIoThreads()
+    public double getExchangeHttpClientNumIoThreadsHwMultiplier()
     {
-        return numIoThreads;
+        return exchangeHttpClientNumIoThreadsHwMultiplier;
+    }
+
+    @Config(ASYNC_DATA_CACHE_ENABLED)
+    public NativeExecutionSystemConfig setAsyncDataCacheEnabled(boolean asyncDataCacheEnabled)
+    {
+        this.asyncDataCacheEnabled = asyncDataCacheEnabled;
+        return this;
+    }
+
+    public boolean getAsyncDataCacheEnabled()
+    {
+        return asyncDataCacheEnabled;
+    }
+
+    @Config(ASYNC_CACHE_SSD_GB)
+    public NativeExecutionSystemConfig setAsyncCacheSsdGb(int asyncCacheSsdGb)
+    {
+        this.asyncCacheSsdGb = asyncCacheSsdGb;
+        return this;
+    }
+
+    public int getAsyncCacheSsdGb()
+    {
+        return asyncCacheSsdGb;
+    }
+
+    @Config(CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER)
+    public NativeExecutionSystemConfig setConnectorNumIoThreadsHwMultiplier(double connectorNumIoThreadsHwMultiplier)
+    {
+        this.connectorNumIoThreadsHwMultiplier = connectorNumIoThreadsHwMultiplier;
+        return this;
+    }
+
+    public double getConnectorNumIoThreadsHwMultiplier()
+    {
+        return connectorNumIoThreadsHwMultiplier;
     }
 
     @Config(SHUTDOWN_ONSET_SEC)
@@ -353,16 +423,28 @@ public class NativeExecutionSystemConfig
         return useMmapAllocator;
     }
 
-    @Config(ENABLE_MEMORY_ARBITRATION)
-    public NativeExecutionSystemConfig setEnableMemoryArbitration(boolean enableMemoryArbitration)
+    @Config(MEMORY_ARBITRATOR_KIND)
+    public NativeExecutionSystemConfig setMemoryArbitratorKind(String memoryArbitratorKind)
     {
-        this.enableMemoryArbitration = enableMemoryArbitration;
+        this.memoryArbitratorKind = memoryArbitratorKind;
         return this;
     }
 
-    public boolean getEnableMemoryArbitration()
+    public String getMemoryArbitratorKind()
     {
-        return enableMemoryArbitration;
+        return memoryArbitratorKind;
+    }
+
+    @Config(MEMORY_ARBITRATOR_CAPACITY_GB)
+    public NativeExecutionSystemConfig setMemoryArbitratorCapacityGb(int memoryArbitratorCapacityGb)
+    {
+        this.memoryArbitratorCapacityGb = memoryArbitratorCapacityGb;
+        return this;
+    }
+
+    public int getMemoryArbitratorCapacityGb()
+    {
+        return memoryArbitratorCapacityGb;
     }
 
     @Config(MEMORY_POOL_INIT_CAPACITY)
@@ -387,18 +469,6 @@ public class NativeExecutionSystemConfig
     public long getMemoryPoolTransferCapacity()
     {
         return memoryPoolTransferCapacity;
-    }
-
-    @Config(RESERVED_MEMORY_POOL_CAPACITY_PCT)
-    public NativeExecutionSystemConfig setReservedMemoryPoolCapacityPct(int reservedMemoryPoolCapacityPct)
-    {
-        this.reservedMemoryPoolCapacityPct = reservedMemoryPoolCapacityPct;
-        return this;
-    }
-
-    public long getReservedMemoryPoolCapacityPct()
-    {
-        return reservedMemoryPoolCapacityPct;
     }
 
     @Config(SPILLER_SPILL_PATH)
@@ -435,6 +505,18 @@ public class NativeExecutionSystemConfig
     public int getMaxDriversPerTask()
     {
         return maxDriversPerTask;
+    }
+
+    public boolean getOldTaskCleanupMs()
+    {
+        return enableOldTaskCleanUp;
+    }
+
+    @Config(ENABLE_OLD_TASK_CLEANUP)
+    public NativeExecutionSystemConfig setOldTaskCleanupMs(boolean enableOldTaskCleanUp)
+    {
+        this.enableOldTaskCleanUp = enableOldTaskCleanUp;
+        return this;
     }
 
     @Config(PRESTO_VERSION)

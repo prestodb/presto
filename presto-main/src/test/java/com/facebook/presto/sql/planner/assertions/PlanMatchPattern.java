@@ -21,6 +21,8 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -29,6 +31,7 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -389,6 +392,11 @@ public final class PlanMatchPattern
         return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType));
     }
 
+    public static PlanMatchPattern join(PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(JoinNode.class, left, right);
+    }
+
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
     {
         return join(joinType, expectedEquiCriteria, Optional.empty(), left, right);
@@ -432,6 +440,23 @@ public final class PlanMatchPattern
 
         return node(JoinNode.class, anyTree(node(FilterNode.class, leftSource).with(dynamicFilterMatcher)), right)
                 .with(joinMatcher);
+    }
+
+    public static PlanMatchPattern cteConsumer(String cteName)
+    {
+        CteConsumerMatcher cteConsumerMatcher = new CteConsumerMatcher(cteName);
+        return node(CteConsumerNode.class).with(cteConsumerMatcher);
+    }
+
+    public static PlanMatchPattern cteProducer(String cteName, PlanMatchPattern source)
+    {
+        CteProducerMatcher cteProducerMatcher = new CteProducerMatcher(cteName);
+        return node(CteProducerNode.class, source).with(cteProducerMatcher);
+    }
+
+    public static PlanMatchPattern sequence(PlanMatchPattern... sources)
+    {
+        return node(SequenceNode.class, sources);
     }
 
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
@@ -753,6 +778,12 @@ public final class PlanMatchPattern
     public PlanMatchPattern withOutputSize(double expectedOutputSize)
     {
         matchers.add(new StatsOutputSizeMatcher(expectedOutputSize));
+        return this;
+    }
+
+    public PlanMatchPattern withJoinStatistics(double expectedJoinBuildKeyCount, double expectedNullJoinBuildKeyCount, double expectedJoinProbeKeyCount, double expectedNullJoinProbeKeyCount)
+    {
+        matchers.add(new StatsJoinKeyCountMatcher(expectedJoinBuildKeyCount, expectedNullJoinBuildKeyCount, expectedJoinProbeKeyCount, expectedNullJoinProbeKeyCount));
         return this;
     }
 

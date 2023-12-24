@@ -25,6 +25,7 @@ import com.facebook.presto.parquet.cache.CachingParquetMetadataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.cache.ParquetFileMetadata;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
+import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.AbstractIterator;
@@ -1628,7 +1629,8 @@ public abstract class AbstractTestParquetReader
                     columnNames,
                     new Iterable<?>[] {values},
                     10,
-                    CompressionCodecName.GZIP);
+                    CompressionCodecName.GZIP,
+                    ParquetWriterOptions.DEFAULT_WRITER_VERSION);
             long tempFileCreationTime = System.currentTimeMillis();
 
             testSingleRead(new Iterable<?>[] {values},

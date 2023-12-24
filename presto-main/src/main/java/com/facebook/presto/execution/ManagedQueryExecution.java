@@ -48,6 +48,11 @@ public interface ManagedQueryExecution
 
     BasicQueryInfo getBasicQueryInfo();
 
+    default int getRunningTaskCount()
+    {
+        return 0;
+    }
+
     void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits);
 
     boolean isDone();

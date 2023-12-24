@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
 import com.facebook.presto.common.type.TypeSignature;
@@ -27,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BING_TILE;
@@ -61,6 +64,9 @@ import static java.util.stream.Collectors.toList;
 
 final class FixJsonDataUtils
 {
+    private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
+    private static final JsonCodec<Map<String, String>> MAP_JSON_CODEC = mapJsonCodec(String.class, String.class);
+
     private FixJsonDataUtils() {}
 
     public static Iterable<List<Object>> fixData(List<Column> columns, Iterable<List<Object>> data)
@@ -95,37 +101,63 @@ final class FixJsonDataUtils
         if (signature.isDistinctType()) {
             return fixValue(signature.getDistinctTypeInfo().getBaseType(), value);
         }
+        if (signature.getTypeSignatureBase().hasTypeName() && signature.getTypeSignatureBase().hasStandardType()) {
+            return fixValue(signature.getStandardTypeSignature(), value);
+        }
         if (signature.getBase().equals(ARRAY)) {
-            List<Object> fixedValue = new ArrayList<>();
-            for (Object object : List.class.cast(value)) {
-                fixedValue.add(fixValue(signature.getTypeParametersAsTypeSignatures().get(0), object));
+            if (List.class.isAssignableFrom(value.getClass())) {
+                List<Object> fixedValue = new ArrayList<>();
+                for (Object object : List.class.cast(value)) {
+                    fixedValue.add(fixValue(signature.getTypeParametersAsTypeSignatures().get(0), object));
+                }
+                return fixedValue;
             }
-            return fixedValue;
+            // JSON keys may be serialized and deserialized as simple strings
+            else if (value.getClass() == String.class) {
+                List<String> newValue = LIST_JSON_CODEC.fromJson(value.toString());
+                return fixValue(signature, newValue);
+            }
+            throw new IllegalArgumentException(String.format("Unexpected type found: %s", value.getClass()));
         }
         if (signature.getBase().equals(MAP)) {
-            TypeSignature keySignature = signature.getTypeParametersAsTypeSignatures().get(0);
-            TypeSignature valueSignature = signature.getTypeParametersAsTypeSignatures().get(1);
-            Map<Object, Object> fixedValue = new HashMap<>();
-            for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
-                fixedValue.put(fixValue(keySignature, entry.getKey()), fixValue(valueSignature, entry.getValue()));
+            if (Map.class.isAssignableFrom(value.getClass())) {
+                TypeSignature keySignature = signature.getTypeParametersAsTypeSignatures().get(0);
+                TypeSignature valueSignature = signature.getTypeParametersAsTypeSignatures().get(1);
+                Map<Object, Object> fixedValue = new HashMap<>();
+                for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
+                    fixedValue.put(fixValue(keySignature, entry.getKey()), fixValue(valueSignature, entry.getValue()));
+                }
+                return fixedValue;
             }
-            return fixedValue;
+            // JSON keys may be serialized and deserialized as simple strings
+            else if (value.getClass() == String.class) {
+                Map<String, String> newValue = MAP_JSON_CODEC.fromJson(value.toString());
+                return fixValue(signature, newValue);
+            }
+            throw new IllegalArgumentException(String.format("Unexpected type found: %s", value.getClass()));
         }
         if (signature.getBase().equals(ROW)) {
-            Map<String, Object> fixedValue = new LinkedHashMap<>();
-            List<Object> listValue = List.class.cast(value);
-            checkArgument(listValue.size() == signature.getParameters().size(), "Mismatched data values and row type");
-            for (int i = 0; i < listValue.size(); i++) {
-                TypeSignatureParameter parameter = signature.getParameters().get(i);
-                checkArgument(
-                        parameter.getKind() == ParameterKind.NAMED_TYPE,
-                        "Unexpected parameter [%s] for row type",
-                        parameter);
-                NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                String key = namedTypeSignature.getName().orElse("field" + i);
-                fixedValue.put(key, fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i)));
+            if (List.class.isAssignableFrom(value.getClass())) {
+                Map<String, Object> fixedValue = new LinkedHashMap<>();
+                List<Object> listValue = List.class.cast(value);
+                checkArgument(listValue.size() == signature.getParameters().size(), "Mismatched data values and row type");
+                for (int i = 0; i < listValue.size(); i++) {
+                    TypeSignatureParameter parameter = signature.getParameters().get(i);
+                    checkArgument(
+                            parameter.getKind() == ParameterKind.NAMED_TYPE,
+                            "Unexpected parameter [%s] for row type",
+                            parameter);
+                    NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
+                    String key = namedTypeSignature.getName().orElse("field" + i);
+                    fixedValue.put(key, fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i)));
+                }
+                return fixedValue;
             }
-            return fixedValue;
+            else if (value.getClass() == String.class) {
+                List<String> newValue = LIST_JSON_CODEC.fromJson(value.toString());
+                return fixValue(signature, newValue);
+            }
+            throw new IllegalArgumentException(String.format("Unexpected type found: %s", value.getClass()));
         }
         if (signature.isVarcharEnum()) {
             return String.class.cast(value);

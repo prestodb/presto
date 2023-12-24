@@ -18,6 +18,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
@@ -119,6 +120,42 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))");
         assertQuery("SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY CUBE (orderstatus, orderpriority)");
         assertQuery("SELECT orderstatus, orderpriority, grouping(orderstatus), grouping(orderpriority), grouping(orderstatus, orderpriority), count(1), min(orderkey) FROM orders GROUP BY ROLLUP (orderstatus, orderpriority)");
+
+        // With aliased columns.
+        assertQuery("SELECT lna, lnb, SUM(quantity) FROM (SELECT linenumber lna, linenumber lnb, CAST(quantity AS BIGINT) quantity FROM lineitem) GROUP BY GROUPING SETS ((lna, lnb), (lna), (lnb), ())");
+    }
+
+    @Test
+    public void testMixedDistinctAggregations()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .build();
+        assertQuery(session, "SELECT count(orderkey), count(DISTINCT orderkey) FROM orders");
+        assertQuery(session, "SELECT max(orderstatus), COUNT(orderkey), sum(DISTINCT orderkey) FROM orders");
+    }
+
+    @Test
+    public void testEmptyGroupingSets()
+    {
+        // Returns  a single row with the global aggregation.
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS (())");
+
+        // Returns 2 rows with global aggregation for the global grouping sets.
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS ((), ())");
+
+        // Returns a single row with the global aggregation. There are no rows for the orderkey group.
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS ((orderkey), ())");
+
+        // This is a shorthand for the above query. Returns a single row with the global aggregation.
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
+
+        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
+
+        // Returns a single row with NULL orderkey.
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY CUBE (orderkey)");
+
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey < 0 GROUP BY ROLLUP (orderkey)");
     }
 
     @Test
@@ -288,17 +325,23 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT checksum(quantity_by_linenumber) FROM orders_ex");
         assertQuery("SELECT shipmode, checksum(extendedprice) FROM lineitem GROUP BY shipmode");
         assertQuery("SELECT checksum(from_unixtime(orderkey, '+01:00')) FROM lineitem WHERE orderkey < 20");
+
+        // test DECIMAL data
+        assertQuery("SELECT checksum(a), checksum(b) FROM (VALUES (DECIMAL '1.234', DECIMAL '611180549424.4633133')) AS t(a, b)");
+        assertQuery("SELECT checksum(a), checksum(b) FROM (VALUES (DECIMAL '1.234', DECIMAL '611180549424.4633133'), (NULL, NULL)) AS t(a, b)");
+        assertQuery("SELECT checksum(a), checksum(b) FROM (VALUES (DECIMAL '1.234', CAST('2343331593029422743' AS DECIMAL(38, 0))), (CAST('999999999999999999' AS DECIMAL(18, 0)), CAST('99999999999999999999999999999999999999' AS DECIMAL(38, 0)))) AS t(a, b)");
+        assertQuery("SELECT checksum(a), checksum(b) FROM (VALUES (CAST('999999999999999999' AS DECIMAL(18, 0)), CAST('99999999999999999999999999999999999999' AS DECIMAL(38, 0))), (CAST('-999999999999999999' as DECIMAL(18, 0)), CAST('-99999999999999999999999999999999999999' AS DECIMAL(38, 0)))) AS t(a, b)");
     }
 
     @Test
     public void testArbitrary()
     {
         // Non-deterministic queries
-        assertQuerySucceeds("SELECT orderkey, arbitrary(comment) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, any_value(comment) FROM lineitem GROUP BY 1");
         assertQuerySucceeds("SELECT orderkey, arbitrary(discount) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, any_value(linenumber) FROM lineitem GROUP BY 1");
         assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber_as_smallint) FROM lineitem GROUP BY 1");
-        assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber_as_tinyint) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, any_value(linenumber_as_tinyint) FROM lineitem GROUP BY 1");
         assertQuerySucceeds("SELECT orderkey, arbitrary(tax_as_real) FROM lineitem GROUP BY 1");
     }
 
@@ -325,6 +368,14 @@ public abstract class AbstractTestNativeAggregations
         assertQuery(session, "SELECT count(distinct orderkey), sum(distinct linenumber), array_sort(array_agg(distinct linenumber)) FROM lineitem");
         assertQueryFails(session, "SELECT count(distinct orderkey), array_agg(distinct linenumber ORDER BY linenumber) FROM lineitem",
                 ".*Aggregations over sorted unique values are not supported yet");
+    }
+
+    @Test
+    public void testReduceAgg()
+    {
+        assertQuery("SELECT reduce_agg(orderkey, 0, (x, y) -> x + y, (x, y) -> x + y) FROM orders");
+        assertQuery("SELECT orderkey, reduce_agg(linenumber, 0, (x, y) -> x + y, (x, y) -> x + y) FROM lineitem GROUP BY orderkey");
+        assertQuery("SELECT orderkey, array_sort(reduce_agg(linenumber, array[], (s, x) -> s || x, (s, s2) -> s || s2)) FROM lineitem GROUP BY orderkey");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedStatisticsCacheManager;
 import com.facebook.presto.metadata.Metadata;
@@ -22,8 +23,11 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.statistics.JoinNodeStatistics;
+import com.facebook.presto.spi.statistics.PartialAggregationStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -33,11 +37,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class CachingPlanCanonicalInfoProvider
         implements PlanCanonicalInfoProvider
@@ -54,41 +60,88 @@ public class CachingPlanCanonicalInfoProvider
     }
 
     @Override
-    public Optional<String> hash(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy)
+    public Optional<String> hash(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean cacheOnly)
     {
         CacheKey key = new CacheKey(planNode, strategy);
-        return loadValue(session, key).map(PlanNodeCanonicalInfo::getHash);
+        return loadValue(session, key, cacheOnly).map(PlanNodeCanonicalInfo::getHash);
     }
 
     @Override
-    public Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode)
+    public Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, boolean cacheOnly)
     {
         CacheKey key = new CacheKey(planNode, historyBasedPlanCanonicalizationStrategyList().get(0));
-        return loadValue(session, key).map(PlanNodeCanonicalInfo::getInputTableStatistics);
+        return loadValue(session, key, cacheOnly).map(PlanNodeCanonicalInfo::getInputTableStatistics);
     }
 
-    private Optional<PlanNodeCanonicalInfo> loadValue(Session session, CacheKey key)
+    private Optional<PlanNodeCanonicalInfo> loadValue(Session session, CacheKey key, boolean cacheOnly)
     {
+        long startTimeInNano = System.nanoTime();
+        long profileStartTime = 0;
+        long timeoutInMilliseconds = getHistoryBasedOptimizerTimeoutLimit(session).toMillis();
+        boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         Map<CacheKey, PlanNodeCanonicalInfo> cache = historyBasedStatisticsCacheManager.getCanonicalInfoCache(session.getQueryId());
         PlanNodeCanonicalInfo result = cache.get(key);
-        if (result != null) {
-            return Optional.of(result);
+        if (result != null || cacheOnly) {
+            return Optional.ofNullable(result);
         }
         CanonicalPlanGenerator.Context context = new CanonicalPlanGenerator.Context();
+        if (enableVerboseRuntimeStats) {
+            profileStartTime = System.nanoTime();
+        }
         key.getNode().accept(new CanonicalPlanGenerator(key.getStrategy(), objectMapper, session), context);
-        context.getCanonicalPlans().forEach((plan, canonicalPlan) -> {
+        if (enableVerboseRuntimeStats) {
+            profileTime("CanonicalPlanGenerator", profileStartTime, session);
+        }
+        if (loadValueTimeout(startTimeInNano, timeoutInMilliseconds)) {
+            return Optional.empty();
+        }
+        for (Map.Entry<PlanNode, CanonicalPlan> entry : context.getCanonicalPlans().entrySet()) {
+            CanonicalPlan canonicalPlan = entry.getValue();
+            PlanNode plan = entry.getKey();
+            if (enableVerboseRuntimeStats) {
+                profileStartTime = System.nanoTime();
+            }
             String hashValue = hashCanonicalPlan(canonicalPlan, objectMapper);
+            if (enableVerboseRuntimeStats) {
+                profileTime("HashCanonicalPlan", profileStartTime, session);
+            }
+            if (loadValueTimeout(startTimeInNano, timeoutInMilliseconds)) {
+                return Optional.empty();
+            }
             // Compute input table statistics for the plan node. This is useful in history based optimizations,
             // where historical plan statistics are reused if input tables are similar in size across runs.
-            List<PlanStatistics> inputTableStatistics = context.getInputTables().get(plan).stream()
-                    .map(table -> getPlanStatisticsForTable(session, table))
-                    .collect(toImmutableList());
-            cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue, inputTableStatistics));
-        });
+            ImmutableList.Builder<PlanStatistics> inputTableStatisticsBuilder = ImmutableList.builder();
+            if (enableVerboseRuntimeStats) {
+                profileStartTime = System.nanoTime();
+            }
+            for (TableScanNode scanNode : context.getInputTables().get(plan)) {
+                if (loadValueTimeout(startTimeInNano, timeoutInMilliseconds)) {
+                    return Optional.empty();
+                }
+                inputTableStatisticsBuilder.add(getPlanStatisticsForTable(session, scanNode, enableVerboseRuntimeStats));
+            }
+            if (enableVerboseRuntimeStats) {
+                profileTime("GetPlanStatisticsForTable", profileStartTime, session);
+            }
+            cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue, inputTableStatisticsBuilder.build()));
+        }
         return Optional.ofNullable(cache.get(key));
     }
 
-    private PlanStatistics getPlanStatisticsForTable(Session session, TableScanNode table)
+    private boolean loadValueTimeout(long startTimeInNano, long timeoutInMilliseconds)
+    {
+        if (timeoutInMilliseconds == 0) {
+            return false;
+        }
+        return NANOSECONDS.toMillis(System.nanoTime() - startTimeInNano) > timeoutInMilliseconds;
+    }
+
+    private void profileTime(String name, long startProfileTime, Session session)
+    {
+        session.getRuntimeStats().addMetricValue(String.format("CachingPlanCanonicalInfoProvider:%s", name), NANO, System.nanoTime() - startProfileTime);
+    }
+
+    private PlanStatistics getPlanStatisticsForTable(Session session, TableScanNode table, boolean profileRuntime)
     {
         InputTableCacheKey key = new InputTableCacheKey(new TableHandle(
                 table.getTable().getConnectorId(),
@@ -100,8 +153,15 @@ public class CachingPlanCanonicalInfoProvider
         if (planStatistics != null) {
             return planStatistics;
         }
+        long startProfileTime = 0;
+        if (profileRuntime) {
+            startProfileTime = System.nanoTime();
+        }
         TableStatistics tableStatistics = metadata.getTableStatistics(session, key.getTableHandle(), key.getColumnHandles(), key.getConstraint());
-        planStatistics = new PlanStatistics(tableStatistics.getRowCount(), tableStatistics.getTotalSize(), 1);
+        if (profileRuntime) {
+            profileTime("ReadFromMetaData", startProfileTime, session);
+        }
+        planStatistics = new PlanStatistics(tableStatistics.getRowCount(), tableStatistics.getTotalSize(), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty());
         cache.put(key, planStatistics);
         return planStatistics;
     }

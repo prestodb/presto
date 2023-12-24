@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNod
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
 import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayContainsToInnerJoin;
+import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayNotContainsToAntiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithOrFilterToInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType;
@@ -45,6 +46,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
+import com.facebook.presto.sql.planner.iterative.rule.LeftJoinWithArrayContainsToEquiJoinCondition;
 import com.facebook.presto.sql.planner.iterative.rule.MergeDuplicateAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
@@ -75,6 +77,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
+import com.facebook.presto.sql.planner.iterative.rule.PullUpExpressionInLambdaRules;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownDereferences;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownFilterExpressionEvaluationThroughCrossJoin;
@@ -97,6 +100,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveIdentityProjectionsBelowProjection;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantAggregateDistinct;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantCastToVarcharInJoinClause;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
@@ -111,9 +115,11 @@ import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilter;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseExpressionPredicate;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteConstantArrayContainsToInExpression;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
+import com.facebook.presto.sql.planner.iterative.rule.ScaledWriterRule;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMap;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
@@ -139,12 +145,14 @@ import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExcept
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.KeyBasedSampler;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
+import com.facebook.presto.sql.planner.optimizations.LogicalCteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MergeJoinForSortedInputOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MergePartialAggregationsWithFilter;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
 import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import com.facebook.presto.sql.planner.optimizations.PayloadJoinOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PhysicalCteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PrefilterForLimitingAggregation;
@@ -155,6 +163,7 @@ import com.facebook.presto.sql.planner.optimizations.RemoveRedundantDistinctAggr
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
+import com.facebook.presto.sql.planner.optimizations.ShardJoins;
 import com.facebook.presto.sql.planner.optimizations.SimplifyPlanWithEmptyInput;
 import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
@@ -269,6 +278,8 @@ public class PlanOptimizers
                 new PruneLimitColumns(),
                 new PruneTableScanColumns());
 
+        builder.add(new LogicalCteOptimizer(metadata));
+
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,
                 ruleStats,
@@ -312,6 +323,13 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 new RewriteCaseToMap(metadata.getFunctionAndTypeManager()).rules());
 
+        IterativeOptimizer containsToInRewriter = new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                new RewriteConstantArrayContainsToInExpression(metadata.getFunctionAndTypeManager()).rules());
+
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser));
         PlanOptimizer prefilterForLimitingAggregation = new StatsRecordingPlanOptimizer(optimizerStats, new PrefilterForLimitingAggregation(metadata, statsCalculator));
 
@@ -323,6 +341,21 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
+                                .build()),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new PullUpExpressionInLambdaRules(metadata.getFunctionAndTypeManager()).rules()) // Run before DesugarLambdaExpression
+                                .build()),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.<Rule<?>>builder()
                                 .addAll(new DesugarLambdaExpression().rules())
                                 .addAll(new SimplifyCardinalityMap(metadata.getFunctionAndTypeManager()).rules())
                                 .build()),
@@ -374,6 +407,12 @@ public class PlanOptimizers
                                 new ImplementBernoulliSampleAsFilter(metadata.getFunctionAndTypeManager()),
                                 new ImplementOffset(metadata.getFunctionAndTypeManager()))),
                 simplifyRowExpressionOptimizer,
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RemoveTrivialFilters())),
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
                         metadata,
@@ -437,6 +476,12 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RemoveRedundantCastToVarcharInJoinClause(metadata.getFunctionAndTypeManager()))),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new PullConstantsAboveGroupBy())));
 
@@ -464,6 +509,7 @@ public class PlanOptimizers
         builder.add(
                 caseToMapRewriter,
                 caseExpressionPredicateRewriter,
+                containsToInRewriter,
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
@@ -479,7 +525,15 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new PushDownFilterExpressionEvaluationThroughCrossJoin(metadata.getFunctionAndTypeManager()),
                                 new CrossJoinWithOrFilterToInnerJoin(metadata.getFunctionAndTypeManager()),
-                                new CrossJoinWithArrayContainsToInnerJoin(metadata.getFunctionAndTypeManager()))),
+                                new CrossJoinWithArrayContainsToInnerJoin(metadata.getFunctionAndTypeManager()),
+                                new CrossJoinWithArrayNotContainsToAntiJoin(metadata, metadata.getFunctionAndTypeManager()))),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new LeftJoinWithArrayContainsToEquiJoinCondition(metadata.getFunctionAndTypeManager()))),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
@@ -678,6 +732,14 @@ public class PlanOptimizers
 
         builder.add(new RemoveRedundantDistinctAggregation());
 
+        builder.add(
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(new ScaledWriterRule())));
+
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
             builder.add(new IterativeOptimizer(
@@ -690,7 +752,7 @@ public class PlanOptimizers
                             // Must run before AddExchanges and after ReplicateSemiJoinInDelete
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
-            builder.add(new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager()),
+            builder.add(new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager(), statsCalculator),
                     new PruneUnreferencedOutputs(),
                     new IterativeOptimizer(
                             metadata,
@@ -701,6 +763,8 @@ public class PlanOptimizers
                                     new PruneRedundantProjectionAssignments(),
                                     new InlineProjections(metadata.getFunctionAndTypeManager()),
                                     new RemoveRedundantIdentityProjections())));
+            builder.add(new ShardJoins(metadata, metadata.getFunctionAndTypeManager(), statsCalculator),
+                    new PruneUnreferencedOutputs());
             builder.add(
                     new IterativeOptimizer(
                             metadata,
@@ -708,6 +772,7 @@ public class PlanOptimizers
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
+            builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser, partitioningProviderManager)));
         }
 

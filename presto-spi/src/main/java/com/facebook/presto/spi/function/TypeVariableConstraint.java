@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,6 +27,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 
+@ThriftStruct
 public class TypeVariableConstraint
 {
     private final String name;
@@ -32,6 +36,7 @@ public class TypeVariableConstraint
     private final String variadicBound;
     private final boolean nonDecimalNumericRequired;
 
+    @ThriftConstructor
     @JsonCreator
     public TypeVariableConstraint(
             @JsonProperty("name") String name,
@@ -47,30 +52,35 @@ public class TypeVariableConstraint
         this.nonDecimalNumericRequired = nonDecimalNumericRequired;
     }
 
+    @ThriftField(1)
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public boolean isComparableRequired()
     {
         return comparableRequired;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public boolean isOrderableRequired()
     {
         return orderableRequired;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public String getVariadicBound()
     {
         return variadicBound;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public boolean isNonDecimalNumericRequired()
     {

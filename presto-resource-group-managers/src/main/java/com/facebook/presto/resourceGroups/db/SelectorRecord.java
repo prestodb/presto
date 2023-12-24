@@ -39,8 +39,8 @@ public class SelectorRecord
     private final Optional<List<String>> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final Optional<Pattern> clientInfoRegex;
-
     private final Optional<String> schema;
+    private final Optional<Pattern> principalRegex;
 
     public SelectorRecord(
             long resourceGroupId,
@@ -51,7 +51,8 @@ public class SelectorRecord
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
             Optional<Pattern> clientInfoRegex,
-            Optional<String> schema)
+            Optional<String> schema,
+            Optional<Pattern> principalRegex)
     {
         this.resourceGroupId = resourceGroupId;
         this.priority = priority;
@@ -62,6 +63,7 @@ public class SelectorRecord
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.clientInfoRegex = requireNonNull(clientInfoRegex, "clientInfoRegex is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.principalRegex = requireNonNull(principalRegex, "principalRegex is null");
     }
 
     public long getResourceGroupId()
@@ -109,6 +111,11 @@ public class SelectorRecord
         return schema;
     }
 
+    public Optional<Pattern> getPrincipalRegex()
+    {
+        return principalRegex;
+    }
+
     public static class Mapper
             implements RowMapper<SelectorRecord>
     {
@@ -128,7 +135,8 @@ public class SelectorRecord
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
                     Optional.ofNullable(resultSet.getString("selector_resource_estimate")).map(SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC::fromJson),
                     Optional.ofNullable(resultSet.getString("client_info_regex")).map(Pattern::compile),
-                    Optional.ofNullable(resultSet.getString("schema")));
+                    Optional.ofNullable(resultSet.getString("schema")),
+                    Optional.ofNullable(resultSet.getString("principal_regex")).map(Pattern::compile));
         }
     }
 }

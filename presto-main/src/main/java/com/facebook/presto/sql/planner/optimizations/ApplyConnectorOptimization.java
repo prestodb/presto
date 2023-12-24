@@ -19,6 +19,9 @@ import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -55,6 +58,9 @@ public class ApplyConnectorOptimization
         implements PlanOptimizer
 {
     static final Set<Class<? extends PlanNode>> CONNECTOR_ACCESSIBLE_PLAN_NODES = ImmutableSet.of(
+            CteProducerNode.class,
+            CteConsumerNode.class,
+            CteReferenceNode.class,
             DistinctLimitNode.class,
             FilterNode.class,
             TableScanNode.class,
@@ -79,7 +85,7 @@ public class ApplyConnectorOptimization
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -89,7 +95,7 @@ public class ApplyConnectorOptimization
 
         Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers = connectorOptimizersSupplier.get();
         if (connectorOptimizers.isEmpty()) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
         // retrieve all the connectors
@@ -173,7 +179,7 @@ public class ApplyConnectorOptimization
             }
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, true);
     }
 
     private static void getAllConnectorIds(PlanNode node, ImmutableSet.Builder<ConnectorId> builder)

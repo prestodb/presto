@@ -358,6 +358,7 @@ public class PlanBuilder
     {
         private final TypeProvider types;
         private PlanNode source;
+        private PlanNodeId planNodeId;
         // Preserve order when creating assignments, so it's consistent when printed/iterated. Some
         // optimizations create variable names by iterating over it, and this will make plan more consistent
         // in future runs.
@@ -377,6 +378,12 @@ public class PlanBuilder
         public AggregationBuilder source(PlanNode source)
         {
             this.source = source;
+            return this;
+        }
+
+        public AggregationBuilder setPlanNodeId(PlanNodeId planNodeId)
+        {
+            this.planNodeId = planNodeId;
             return this;
         }
 
@@ -463,14 +470,15 @@ public class PlanBuilder
             checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
             return new AggregationNode(
                     source.getSourceLocation(),
-                    idAllocator.getNextId(),
+                    planNodeId == null ? idAllocator.getNextId() : planNodeId,
                     source,
                     assignments,
                     groupingSets,
                     preGroupedVariables,
                     step,
                     hashVariable,
-                    groupIdVariable);
+                    groupIdVariable,
+                    Optional.empty());
         }
     }
 
@@ -867,6 +875,7 @@ public class PlanBuilder
                 columns,
                 columnNames,
                 ImmutableSet.of(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

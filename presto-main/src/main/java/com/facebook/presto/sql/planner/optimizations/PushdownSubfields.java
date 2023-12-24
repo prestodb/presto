@@ -17,17 +17,24 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Subfield.NestedField;
+import com.facebook.presto.common.Subfield.PathElement;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
+import com.facebook.presto.spi.function.LambdaArgumentDescriptor;
+import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -42,6 +49,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -64,30 +72,42 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
+import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsFromArrayLambdasEnabled;
 import static com.facebook.presto.common.Subfield.allSubscripts;
+import static com.facebook.presto.common.Subfield.noSubfield;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class PushdownSubfields
         implements PlanOptimizer
 {
+    public static final QualifiedObjectName CARDINALITY = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "cardinality");
+    public static final QualifiedObjectName ELEMENT_AT = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "element_at");
+    public static final QualifiedObjectName CAST = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "$operator$cast");
     private final Metadata metadata;
     private boolean isEnabledForTesting;
 
@@ -109,17 +129,19 @@ public class PushdownSubfields
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
 
         if (!isEnabled(session)) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata), plan, new Rewriter.Context());
+        Rewriter rewriter = new Rewriter(session, metadata);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new Rewriter.Context());
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class Rewriter
@@ -131,6 +153,7 @@ public class PushdownSubfields
         private final ExpressionOptimizer expressionOptimizer;
         private final SubfieldExtractor subfieldExtractor;
         private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "arbitrary");
+        private boolean planChanged;
 
         public Rewriter(Session session, Metadata metadata)
         {
@@ -138,7 +161,17 @@ public class PushdownSubfields
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
             this.expressionOptimizer = new RowExpressionOptimizer(metadata);
-            this.subfieldExtractor = new SubfieldExtractor(functionResolution, expressionOptimizer, session.toConnectorSession());
+            this.subfieldExtractor = new SubfieldExtractor(
+                    functionResolution,
+                    expressionOptimizer,
+                    session.toConnectorSession(),
+                    metadata.getFunctionAndTypeManager(),
+                    isPushdownSubfieldsFromArrayLambdasEnabled(session));
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -253,6 +286,13 @@ public class PushdownSubfields
         }
 
         @Override
+        public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.addAll(node.getSource().getOutputVariables());
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Context> context)
         {
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
@@ -264,7 +304,7 @@ public class PushdownSubfields
                     continue;
                 }
 
-                Optional<Subfield> subfield = toSubfield(expression, functionResolution, expressionOptimizer, session.toConnectorSession());
+                Optional<Subfield> subfield = toSubfield(expression, functionResolution, expressionOptimizer, session.toConnectorSession(), metadata.getFunctionAndTypeManager());
                 if (subfield.isPresent()) {
                     context.get().addAssignment(variable, subfield.get());
                     continue;
@@ -328,15 +368,25 @@ public class PushdownSubfields
 
                 String columnName = getColumnName(session, metadata, node.getTable(), entry.getValue());
 
+                List<Subfield> subfieldsWithoutNoSubfield = subfields.stream().filter(subfield -> !containsNoSubfieldPathElement(subfield)).collect(toList());
+                List<Subfield> subfieldsWithNoSubfield = subfields.stream().filter(subfield -> containsNoSubfieldPathElement(subfield)).collect(toList());
+
                 // Prune subfields: if one subfield is a prefix of another subfield, keep the shortest one.
                 // Example: {a.b.c, a.b} -> {a.b}
-                List<Subfield> columnSubfields = subfields.stream()
-                        .filter(subfield -> !prefixExists(subfield, subfields))
+                List<Subfield> columnSubfields = subfieldsWithoutNoSubfield.stream()
+                        .filter(subfield -> !prefixExists(subfield, subfieldsWithoutNoSubfield))
                         .map(Subfield::getPath)
                         .map(path -> new Subfield(columnName, path))
-                        .collect(toImmutableList());
+                        .collect(toList());
 
-                newAssignments.put(variable, entry.getValue().withRequiredSubfields(columnSubfields));
+                columnSubfields.addAll(subfieldsWithNoSubfield.stream()
+                        .filter(subfield -> !isPrefixOf(dropNoSubfield(subfield), subfieldsWithoutNoSubfield))
+                        .map(Subfield::getPath)
+                        .map(path -> new Subfield(columnName, path))
+                        .collect(toList()));
+
+                planChanged = true;
+                newAssignments.put(variable, entry.getValue().withRequiredSubfields(ImmutableList.copyOf(columnSubfields)));
             }
 
             return new TableScanNode(
@@ -426,7 +476,7 @@ public class PushdownSubfields
                                 found = true;
                                 matchingSubfields.stream()
                                         .map(Subfield::getPath)
-                                        .map(path -> new Subfield(container.getName(), ImmutableList.<Subfield.PathElement>builder()
+                                        .map(path -> new Subfield(container.getName(), ImmutableList.<PathElement>builder()
                                                 .add(allSubscripts())
                                                 .addAll(path)
                                                 .build()))
@@ -481,9 +531,25 @@ public class PushdownSubfields
             return variable.getType() instanceof ArrayType && ((ArrayType) variable.getType()).getElementType() instanceof RowType;
         }
 
+        private static Subfield dropNoSubfield(Subfield subfield)
+        {
+            return new Subfield(subfield.getRootName(),
+                    subfield.getPath().stream().filter(pathElement -> !(pathElement instanceof Subfield.NoSubfield)).collect(toImmutableList()));
+        }
+
+        private static boolean containsNoSubfieldPathElement(Subfield subfield)
+        {
+            return subfield.getPath().stream().anyMatch(pathElement -> pathElement instanceof Subfield.NoSubfield);
+        }
+
         private static boolean prefixExists(Subfield subfieldPath, Collection<Subfield> subfieldPaths)
         {
             return subfieldPaths.stream().anyMatch(path -> path.isPrefix(subfieldPath));
+        }
+
+        private static boolean isPrefixOf(Subfield subfieldPath, Collection<Subfield> subfieldPaths)
+        {
+            return subfieldPaths.stream().anyMatch(subfieldPath::isPrefix);
         }
 
         private static String getColumnName(Session session, Metadata metadata, TableHandle tableHandle, ColumnHandle columnHandle)
@@ -495,7 +561,8 @@ public class PushdownSubfields
                 RowExpression expression,
                 StandardFunctionResolution functionResolution,
                 ExpressionOptimizer expressionOptimizer,
-                ConnectorSession connectorSession)
+                ConnectorSession connectorSession,
+                FunctionAndTypeManager functionAndTypeManager)
         {
             ImmutableList.Builder<Subfield.PathElement> elements = ImmutableList.builder();
             while (true) {
@@ -527,7 +594,8 @@ public class PushdownSubfields
                     }
                     return Optional.empty();
                 }
-                if (expression instanceof CallExpression && functionResolution.isSubscriptFunction(((CallExpression) expression).getFunctionHandle())) {
+                if (expression instanceof CallExpression &&
+                        isSubscriptOrElementAtFunction((CallExpression) expression, functionResolution, functionAndTypeManager)) {
                     List<RowExpression> arguments = ((CallExpression) expression).getArguments();
                     RowExpression indexExpression = expressionOptimizer.optimize(
                             arguments.get(1),
@@ -569,44 +637,196 @@ public class PushdownSubfields
             private final StandardFunctionResolution functionResolution;
             private final ExpressionOptimizer expressionOptimizer;
             private final ConnectorSession connectorSession;
+            private final FunctionAndTypeManager functionAndTypeManager;
+            private final boolean isPushDownSubfieldsFromLambdasEnabled;
 
-            private SubfieldExtractor(StandardFunctionResolution functionResolution, ExpressionOptimizer expressionOptimizer, ConnectorSession connectorSession)
+            private SubfieldExtractor(
+                    StandardFunctionResolution functionResolution,
+                    ExpressionOptimizer expressionOptimizer,
+                    ConnectorSession connectorSession,
+                    FunctionAndTypeManager functionAndTypeManager,
+                    boolean isPushDownSubfieldsFromLambdasEnabled)
             {
                 this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
                 this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
-                this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
+                this.connectorSession = connectorSession;
+                this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+                this.isPushDownSubfieldsFromLambdasEnabled = isPushDownSubfieldsFromLambdasEnabled;
             }
 
             @Override
             public Void visitCall(CallExpression call, Context context)
             {
-                if (!functionResolution.isSubscriptFunction(call.getFunctionHandle())) {
+                ComplexTypeFunctionDescriptor functionDescriptor = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle()).getDescriptor();
+                if (isSubscriptOrElementAtFunction(call, functionResolution, functionAndTypeManager)) {
+                    Optional<Subfield> subfield = toSubfield(call, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager);
+                    if (subfield.isPresent()) {
+                        if (context.isPruningLambdaSubfieldsPossible()) {
+                            addRequiredLambdaSubfields(context, subfield.get());
+                        }
+                        else {
+                            context.subfields.add(subfield.get());
+                        }
+                    }
+                    else {
+                        call.getArguments().forEach(argument -> argument.accept(this, context));
+                    }
+                    return null;
+                }
+                if (!isPushDownSubfieldsFromLambdasEnabled) {
+                    context.setLambdaSubfields(Context.ALL_SUBFIELDS_OF_ARRAY_ELEMENT_OR_MAP_VALUE);
                     call.getArguments().forEach(argument -> argument.accept(this, context));
                     return null;
                 }
+                Set<Subfield> lambdaSubfieldsOriginal = context.getLambdaSubfields();
+                if ((functionDescriptor.isAccessingInputValues() && functionDescriptor.getLambdaDescriptors().isEmpty())) {
+                    // If function internally accesses the input values we cannot prune any unaccessed lambda subfields since we do not know what subfields function accessed.
+                    context.giveUpOnCollectingLambdaSubfields();
+                }
 
-                // visit subscript expressions only
-                Optional<Subfield> subfield = toSubfield(call, functionResolution, expressionOptimizer, connectorSession);
-                if (subfield.isPresent()) {
-                    context.subfields.add(subfield.get());
+                // We need to apply output to input transformation function in order to make sense of all lambda subfields accessed in outer functions w.r.t. the
+                // input of the current function.
+                if (functionDescriptor.getOutputToInputTransformationFunction().isPresent()) {
+                    Set<Subfield> transformedLambdaSubfields =
+                            functionDescriptor.getOutputToInputTransformationFunction().get().apply(context.getLambdaSubfields());
+                    context.setLambdaSubfields(ImmutableSet.copyOf(transformedLambdaSubfields));
                 }
-                else {
-                    call.getArguments().forEach(argument -> argument.accept(this, context));
+
+                Set<Integer> argumentIndicesContainingMapOrArray = functionDescriptor.getArgumentIndicesContainingMapOrArray()
+                        .orElse(IntStream.range(0, call.getArguments().size())
+                                .filter(argIndex -> isMapOrArrayOfRowType(call.getArguments().get(argIndex)))
+                                .boxed()
+                                .collect(toImmutableSet()));
+
+                // All the lambda subfields collected in outer functions relate only to the arguments of the function specified in
+                // functionDescriptor.argumentIndicesContainingMapOrArray.
+                Map<Integer, Set<Subfield>> lambdaSubfieldsFromOuterFunctions = argumentIndicesContainingMapOrArray.stream()
+                        .collect(toImmutableMap(callArgumentIndex -> callArgumentIndex, unused -> ImmutableSet.copyOf(context.getLambdaSubfields())));
+
+                // If the function accepts lambdas, add all the lambda subfields from each lambda.
+                Map<Integer, Set<Subfield>> lambdaSubfieldsFromCurrentFunction = ImmutableMap.of();
+                for (LambdaDescriptor lambdaDescriptor : functionDescriptor.getLambdaDescriptors()) {
+                    Optional<Map<Integer, Set<Subfield>>> lambdaSubfields = collectLambdaSubfields(call, lambdaDescriptor);
+                    if (!lambdaSubfields.isPresent()) {
+                        context.giveUpOnCollectingLambdaSubfields();
+                        call.getArguments().forEach(argument -> argument.accept(this, context));
+                        return null;
+                    }
+                    lambdaSubfieldsFromCurrentFunction = merge(lambdaSubfieldsFromCurrentFunction, lambdaSubfields.get());
                 }
+
+                Map<Integer, Set<Subfield>> lambdaSubfields = merge(lambdaSubfieldsFromOuterFunctions, lambdaSubfieldsFromCurrentFunction);
+
+                lambdaSubfields = addNoSubfieldIfNoAccessedSubfieldsFound(call, lambdaSubfields);
+
+                // We need to continue visiting the function arguments and collect all lambda subfields in inner function calls as well as non-lambda subfields in all
+                // function arguments. Once reached the leaf node, we will try to prune the subfields of the input field, subscript, or subfield.
+                for (int callArgumentIndex = 0; callArgumentIndex < call.getArguments().size(); callArgumentIndex++) {
+                    // Since context is global during the traversal of all the nodes in expression tree, we need to pass lambda subfields only to those  function
+                    // arguments that they relate to.
+                    if (lambdaSubfields.containsKey(callArgumentIndex)) {
+                        context.setLambdaSubfields(lambdaSubfields.get(callArgumentIndex));
+                    }
+                    else {
+                        context.setLambdaSubfields(Context.ALL_SUBFIELDS_OF_ARRAY_ELEMENT_OR_MAP_VALUE);
+                    }
+                    call.getArguments().get(callArgumentIndex).accept(this, context);
+                }
+
+                // When we are done with inner calls (child nodes) we need to restore lambda subfields we received from parent expression to handle such situations like
+                // in example below
+                // SELECT * FROM my_table WHERE ANY_MATCH(column1, x -> x.ds > '2023-01-01') AND ALL_MATCH(column2, x -> STRPOS(x.comment,  'Presto') > 0)
+                // After we are done with ANY_MATCH, we need to restore the lambda subfields to what we received from parent node 'AND' so that it does not collide with
+                // lambda subfields of ALL_MATCH function.
+                context.setLambdaSubfields(lambdaSubfieldsOriginal);
                 return null;
+            }
+
+            private static Map<Integer, Set<Subfield>> merge(Map<Integer, Set<Subfield>> s1, Map<Integer, Set<Subfield>> s2)
+            {
+                Map<Integer, Set<Subfield>> result = new HashMap<>(s1);
+                s2.forEach((callArgumentIndex, subfields) -> result.merge(
+                        callArgumentIndex,
+                        subfields,
+                        (lambdaSubfields1, lambdaSubfields2) -> ImmutableSet.<Subfield>builder().addAll(lambdaSubfields1).addAll(lambdaSubfields2).build()));
+                return ImmutableMap.copyOf(result);
+            }
+
+            private static Map<Integer, Set<Subfield>> addNoSubfieldIfNoAccessedSubfieldsFound(CallExpression call, Map<Integer, Set<Subfield>> argumentIndexToLambdaSubfieldsMap)
+            {
+                ImmutableMap.Builder<Integer, Set<Subfield>> argumentIndexToLambdaSubfieldsMapBuilder = ImmutableMap.builder();
+                for (Integer callArgumentIndex : argumentIndexToLambdaSubfieldsMap.keySet()) {
+                    if (!argumentIndexToLambdaSubfieldsMap.get(callArgumentIndex).isEmpty()) {
+                        argumentIndexToLambdaSubfieldsMapBuilder.put(callArgumentIndex, argumentIndexToLambdaSubfieldsMap.get(callArgumentIndex));
+                    }
+                    else {
+                        RowExpression argument = call.getArguments().get(callArgumentIndex);
+                        if (isMapOrArrayOfRowType(argument)) {
+                            argumentIndexToLambdaSubfieldsMapBuilder.put(callArgumentIndex, ImmutableSet.of(new Subfield("", ImmutableList.of(allSubscripts(), noSubfield()))));
+                        }
+                    }
+                }
+                return argumentIndexToLambdaSubfieldsMapBuilder.build();
+            }
+
+            private static boolean isMapOrArrayOfRowType(RowExpression argument)
+            {
+                return (argument.getType() instanceof ArrayType && ((ArrayType) argument.getType()).getElementType() instanceof RowType) ||
+                        (argument.getType() instanceof MapType && ((MapType) argument.getType()).getValueType() instanceof RowType);
+            }
+
+            private Optional<Map<Integer, Set<Subfield>>> collectLambdaSubfields(CallExpression call, LambdaDescriptor lambdaDescriptor)
+            {
+                Map<Integer, Set<Subfield>> argumentIndexToLambdaSubfieldsMap = new HashMap<>();
+                if (!(call.getArguments().get(lambdaDescriptor.getCallArgumentIndex()) instanceof LambdaDefinitionExpression)) {
+                    // In this case, we cannot prune the subfields because the function can potentially access all subfields
+                    return Optional.empty();
+                }
+                LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) call.getArguments().get(lambdaDescriptor.getCallArgumentIndex());
+
+                Context subContext = new Context();
+                lambda.getBody().accept(this, subContext);
+                for (int lambdaArgumentIndex : lambdaDescriptor.getLambdaArgumentDescriptors().keySet()) {
+                    final LambdaArgumentDescriptor lambdaArgumentDescriptor = lambdaDescriptor.getLambdaArgumentDescriptors().get(lambdaArgumentIndex);
+                    int callArgumentIndex = lambdaArgumentDescriptor.getCallArgumentIndex();
+                    argumentIndexToLambdaSubfieldsMap.putIfAbsent(callArgumentIndex, new HashSet<>());
+                    String root = lambda.getArguments().get(lambdaArgumentIndex);
+                    if (subContext.variables.stream().anyMatch(variable -> variable.getName().equals(root))) {
+                        // The entire struct was accessed.
+                        return Optional.empty();
+                    }
+                    Set<Subfield> transformedLambdaSubfields = lambdaArgumentDescriptor.getLambdaArgumentToInputTransformationFunction().apply(
+                            subContext.subfields.stream()
+                                    .filter(x -> x.getRootName().equals(root))
+                                    .collect(toImmutableSet()));
+                    argumentIndexToLambdaSubfieldsMap.get(callArgumentIndex).addAll(transformedLambdaSubfields);
+                }
+                return Optional.of(ImmutableMap.copyOf(argumentIndexToLambdaSubfieldsMap));
             }
 
             @Override
             public Void visitSpecialForm(SpecialFormExpression specialForm, Context context)
             {
-                if (specialForm.getForm() != DEREFERENCE) {
+                if (specialForm.getForm() == IS_NULL) {
+                    if (specialForm.getArguments().get(0) instanceof VariableReferenceExpression && specialForm.getArguments().get(0).getType() instanceof RowType) {
+                        context.subfields.add(new Subfield(((VariableReferenceExpression) specialForm.getArguments().get(0)).getName(), ImmutableList.of(noSubfield())));
+                        return null;
+                    }
+                }
+                else if (specialForm.getForm() != DEREFERENCE) {
                     specialForm.getArguments().forEach(argument -> argument.accept(this, context));
                     return null;
                 }
 
-                Optional<Subfield> subfield = toSubfield(specialForm, functionResolution, expressionOptimizer, connectorSession);
+                Optional<Subfield> subfield = toSubfield(specialForm, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager);
+
                 if (subfield.isPresent()) {
-                    context.subfields.add(subfield.get());
+                    if (context.isPruningLambdaSubfieldsPossible()) {
+                        addRequiredLambdaSubfields(context, subfield.get());
+                    }
+                    else {
+                        context.subfields.add(subfield.get());
+                    }
                 }
                 else {
                     specialForm.getArguments().forEach(argument -> argument.accept(this, context));
@@ -614,9 +834,33 @@ public class PushdownSubfields
                 return null;
             }
 
+            /**
+             * Adds lambda subfields from the context to the list of the required subfields of the field/subscript/subfield provided in parameter 'input'. This function should be
+             * invoked
+             * once we reached leaf node while visiting the expression tree. Effectively, it prunes all unaccessed subfields of the 'input'.
+             *
+             * @param context - SubfieldExtractor context
+             * @param input - input field, subscript, or subfield, for which lambda subfields were collected.
+             */
+            private void addRequiredLambdaSubfields(Context context, Subfield input)
+            {
+                Set<Subfield> lambdaSubfields = context.getLambdaSubfields();
+                for (Subfield lambdaSubfield : lambdaSubfields) {
+                    List<PathElement> newPath = ImmutableList.<PathElement>builder()
+                            .addAll(input.getPath())
+                            .addAll(lambdaSubfield.getPath())
+                            .build();
+                    context.subfields.add(new Subfield(input.getRootName(), newPath));
+                }
+            }
+
             @Override
             public Void visitVariableReference(VariableReferenceExpression reference, Context context)
             {
+                if (context.isPruningLambdaSubfieldsPossible()) {
+                    addRequiredLambdaSubfields(context, toSubfield(reference, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager).get());
+                    return null;
+                }
                 context.variables.add(reference);
                 return null;
             }
@@ -624,9 +868,11 @@ public class PushdownSubfields
 
         private static final class Context
         {
+            public static final Set<Subfield> ALL_SUBFIELDS_OF_ARRAY_ELEMENT_OR_MAP_VALUE = ImmutableSet.of(new Subfield("", ImmutableList.of(allSubscripts())));
             // Variables whose subfields cannot be pruned
             private final Set<VariableReferenceExpression> variables = new HashSet<>();
             private final Set<Subfield> subfields = new HashSet<>();
+            private Set<Subfield> lambdaSubfields = ALL_SUBFIELDS_OF_ARRAY_ELEMENT_OR_MAP_VALUE;
 
             private void addAssignment(VariableReferenceExpression variable, VariableReferenceExpression otherVariable)
             {
@@ -656,7 +902,7 @@ public class PushdownSubfields
 
                 matchingSubfields.stream()
                         .map(Subfield::getPath)
-                        .map(path -> new Subfield(subfield.getRootName(), ImmutableList.<Subfield.PathElement>builder()
+                        .map(path -> new Subfield(subfield.getRootName(), ImmutableList.<PathElement>builder()
                                 .addAll(subfield.getPath())
                                 .addAll(path)
                                 .build()))
@@ -669,6 +915,37 @@ public class PushdownSubfields
                         .filter(subfield -> rootName.equals(subfield.getRootName()))
                         .collect(toImmutableList());
             }
+
+            public void setLambdaSubfields(Set<Subfield> lambdaSubfields)
+            {
+                this.lambdaSubfields = lambdaSubfields;
+            }
+
+            public Set<Subfield> getLambdaSubfields()
+            {
+                return lambdaSubfields;
+            }
+
+            private void giveUpOnCollectingLambdaSubfields()
+            {
+                setLambdaSubfields(ALL_SUBFIELDS_OF_ARRAY_ELEMENT_OR_MAP_VALUE);
+            }
+
+            private boolean isPruningLambdaSubfieldsPossible()
+            {
+                return !getLambdaSubfields().isEmpty() &&
+                        getLambdaSubfields().stream()
+                                .noneMatch(
+                                        subfield -> subfield.getPath().stream()
+                                                .skip(subfield.getPath().size() - 1)
+                                                .anyMatch(pathElement -> pathElement.equals(allSubscripts())));
+            }
         }
+    }
+
+    private static boolean isSubscriptOrElementAtFunction(CallExpression expression, StandardFunctionResolution functionResolution, FunctionAndTypeManager functionAndTypeManager)
+    {
+        return functionResolution.isSubscriptFunction(expression.getFunctionHandle()) ||
+                functionAndTypeManager.getFunctionMetadata(expression.getFunctionHandle()).getName().equals(ELEMENT_AT);
     }
 }

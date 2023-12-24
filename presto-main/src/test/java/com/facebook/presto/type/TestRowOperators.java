@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_ROW_FIELD_ORDINAL_ACCESS;
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
@@ -71,9 +72,8 @@ import static org.testng.Assert.assertEquals;
 public class TestRowOperators
         extends AbstractTestFunctions
 {
-    public TestRowOperators() {}
-
     private static FunctionAssertions legacyRowFieldOrdinalAccess;
+    private static FunctionAssertions fieldNameInJsonCastEnabled;
 
     @BeforeClass
     public void setUp()
@@ -84,6 +84,11 @@ public class TestRowOperators
                         .setSystemProperty(LEGACY_ROW_FIELD_ORDINAL_ACCESS, "true")
                         .build(),
                 new FeaturesConfig());
+        fieldNameInJsonCastEnabled = new FunctionAssertions(
+                Session.builder(session)
+                        .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "true")
+                        .build(),
+                new FeaturesConfig());
     }
 
     @AfterClass(alwaysRun = true)
@@ -91,6 +96,8 @@ public class TestRowOperators
     {
         legacyRowFieldOrdinalAccess.close();
         legacyRowFieldOrdinalAccess = null;
+        fieldNameInJsonCastEnabled.close();
+        fieldNameInJsonCastEnabled = null;
     }
 
     @ScalarFunction
@@ -112,6 +119,63 @@ public class TestRowOperators
 
     @Test
     public void testRowToJson()
+    {
+        fieldNameInJsonCastEnabled.assertFunction("cast(cast (null as ROW(BIGINT, VARCHAR)) AS JSON)", JSON, null);
+        fieldNameInJsonCastEnabled.assertFunction("cast(ROW(null, null) as json)", JSON, "{\"\":null,\"\":null}");
+
+        fieldNameInJsonCastEnabled.assertFunction("cast(ROW(true, false, null) AS JSON)", JSON, "{\"\":true,\"\":false,\"\":null}");
+        fieldNameInJsonCastEnabled.assertFunction(
+                "cast(cast(ROW(12, 12345, 123456789, 1234567890123456789, null, null, null, null) AS ROW(TINYINT, SMALLINT, INTEGER, BIGINT, TINYINT, SMALLINT, INTEGER, BIGINT)) AS JSON)",
+                JSON,
+                "{\"\":12,\"\":12345,\"\":123456789,\"\":1234567890123456789,\"\":null,\"\":null,\"\":null,\"\":null}");
+
+        fieldNameInJsonCastEnabled.assertFunction(
+                "CAST(ROW(CAST(3.14E0 AS REAL), 3.1415E0, 1e308, DECIMAL '3.14', DECIMAL '12345678901234567890.123456789012345678', CAST(null AS REAL), CAST(null AS DOUBLE), CAST(null AS DECIMAL)) AS JSON)",
+                JSON,
+                "{\"\":3.14,\"\":3.1415,\"\":1.0E308,\"\":3.14,\"\":12345678901234567890.123456789012345678,\"\":null,\"\":null,\"\":null}");
+
+        fieldNameInJsonCastEnabled.assertFunction(
+                "CAST(ROW('a', 'bb', CAST(null as VARCHAR), JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', CAST(null AS JSON)) AS JSON)",
+                JSON,
+                "{\"\":\"a\",\"\":\"bb\",\"\":null,\"\":123,\"\":3.14,\"\":false,\"\":\"abc\",\"\":[1,\"a\",null],\"\":{\"a\":1,\"b\":\"str\",\"c\":null},\"\":null,\"\":null}");
+        fieldNameInJsonCastEnabled.assertFunction(
+                "CAST(ROW(DATE '2001-08-22', DATE '2001-08-23', null) AS JSON)",
+                JSON,
+                "{\"\":\"2001-08-22\",\"\":\"2001-08-23\",\"\":null}");
+
+        fieldNameInJsonCastEnabled.assertFunction(
+                "CAST(ROW(TIMESTAMP '1970-01-01 00:00:01', cast(null as TIMESTAMP)) AS JSON)",
+                JSON,
+                format("{\"\":\"%s\",\"\":null}", sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+
+        fieldNameInJsonCastEnabled.assertFunction(
+                "cast(ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null AS ARRAY<BIGINT>)) AS JSON)",
+                JSON,
+                "{\"\":[1,2],\"\":[3,null],\"\":[],\"\":[null,null],\"\":null}");
+        fieldNameInJsonCastEnabled.assertFunction(
+                "cast(ROW(MAP(ARRAY['b', 'a'], ARRAY[2, 1]), MAP(ARRAY['three', 'none'], ARRAY[3, null]), MAP(), MAP(ARRAY['h2', 'h1'], ARRAY[null, null]), CAST(NULL as MAP<VARCHAR, BIGINT>)) AS JSON)",
+                JSON,
+                "{\"\":{\"a\":1,\"b\":2},\"\":{\"none\":null,\"three\":3},\"\":{},\"\":{\"h1\":null,\"h2\":null},\"\":null}");
+        fieldNameInJsonCastEnabled.assertFunction(
+                "cast(ROW(ROW(1, 2), ROW(3, CAST(null as INTEGER)), CAST(ROW(null, null) AS ROW(INTEGER, INTEGER)), null) AS JSON)",
+                JSON,
+                "{\"\":{\"\":1,\"\":2},\"\":{\"\":3,\"\":null},\"\":{\"\":null,\"\":null},\"\":null}");
+
+        // other miscellaneous tests
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ROW(1, 2) AS JSON)", JSON, "{\"\":1,\"\":2}");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(CAST(ROW(1, 2) AS ROW(a BIGINT, b BIGINT)) AS JSON)", JSON, "{\"a\":1,\"b\":2}");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ROW(1, NULL) AS JSON)", JSON, "{\"\":1,\"\":null}");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ROW(1, CAST(NULL AS INTEGER)) AS JSON)", JSON, "{\"\":1,\"\":null}");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ROW(1, 2.0E0) AS JSON)", JSON, "{\"\":1,\"\":2.0}");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ROW(1.0E0, 2.5E0) AS JSON)", JSON, "{\"\":1.0,\"\":2.5}");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ROW(1.0E0, 'kittens') AS JSON)", JSON, "{\"\":1.0,\"\":\"kittens\"}");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ROW(TRUE, FALSE) AS JSON)", JSON, "{\"\":true,\"\":false}");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(ROW(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) AS JSON)", JSON, "{\"\":false,\"\":[1,2],\"\":{\"1\":2.0,\"3\":4.0}}");
+        fieldNameInJsonCastEnabled.assertFunction("CAST(row(1.0, 123123123456.6549876543) AS JSON)", JSON, "{\"\":1.0,\"\":123123123456.6549876543}");
+    }
+
+    @Test
+    public void testRowToJsonNoFieldNames()
     {
         assertFunction("cast(cast (null as ROW(BIGINT, VARCHAR)) AS JSON)", JSON, null);
         assertFunction("cast(ROW(null, null) as json)", JSON, "[null,null]");
@@ -537,6 +601,15 @@ public class TestRowOperators
     {
         assertRowHashOperator("ROW(1, 2)", ImmutableList.of(INTEGER, INTEGER), ImmutableList.of(1, 2));
         assertRowHashOperator("ROW(true, 2)", ImmutableList.of(BOOLEAN, INTEGER), ImmutableList.of(true, 2));
+    }
+
+    @Test
+    public void testRowNestedNullVarchar()
+    {
+        assertFunction(
+                "CAST(ROW(JSON_EXTRACT('{\"decision_data\":{\"result\":null}}', '$.decision_data.result')) AS ROW(decision_string VARCHAR))",
+                RowType.from(ImmutableList.of(RowType.field("decision_string", VARCHAR))),
+                asList((String) null));
     }
 
     @Test

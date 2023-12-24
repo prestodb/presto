@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -36,6 +37,7 @@ class PlanRepresentation
 
     private final Map<PlanNodeId, NodeRepresentation> nodeInfo = new HashMap<>();
     private final List<PlanOptimizerInformation> planOptimizerInfo;
+    private final List<CTEInformation> cteInformationList;
     private final List<OptimizerResult> planOptimizerResults;
 
     public PlanRepresentation(
@@ -44,6 +46,7 @@ class PlanRepresentation
             Optional<Duration> totalCpuTime,
             Optional<Duration> totalScheduledTime,
             List<PlanOptimizerInformation> planOptimizerInfo,
+            List<CTEInformation> cteInformationList,
             List<OptimizerResult> planOptimizerResults)
     {
         this.root = requireNonNull(root, "root is null");
@@ -51,6 +54,7 @@ class PlanRepresentation
         this.types = requireNonNull(types, "types is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.planOptimizerInfo = requireNonNull(planOptimizerInfo, "planOptimizerInfo is null");
+        this.cteInformationList = requireNonNull(cteInformationList, "cteInformationList is null");
         this.planOptimizerResults = requireNonNull(planOptimizerResults, "planOptimizerResults is null");
     }
 
@@ -97,6 +101,10 @@ class PlanRepresentation
         return planOptimizerInfo;
     }
 
+    public List<CTEInformation> getCteInformationList()
+    {
+        return cteInformationList;
+    }
     public List<OptimizerResult> getPlanOptimizerResults()
     {
         return planOptimizerResults;

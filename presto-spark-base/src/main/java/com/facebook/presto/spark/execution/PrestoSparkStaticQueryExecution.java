@@ -68,7 +68,6 @@ import java.util.concurrent.TimeoutException;
 import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.createQueryInfo;
 import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.createStageInfo;
-import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
@@ -161,14 +160,6 @@ public class PrestoSparkStaticQueryExecution
             throws SparkException, TimeoutException
     {
         SubPlan rootFragmentedPlan = createFragmentedPlan();
-
-        // executor allocation is currently only supported at root level of the plan
-        // in future this could be extended to fragment level configuration
-        if (planAndMore.getPhysicalResourceSettings().getMaxExecutorCount().isPresent()) {
-            sparkContext.sc().conf().set(SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG,
-                    Integer.toString(planAndMore.getPhysicalResourceSettings().getMaxExecutorCount().getAsInt()));
-        }
-
         setFinalFragmentedPlan(rootFragmentedPlan);
         TableWriteInfo tableWriteInfo = getTableWriteInfo(session, rootFragmentedPlan);
         PlanFragment rootFragment = rootFragmentedPlan.getFragment();

@@ -18,7 +18,7 @@
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <re2/re2.h>
 #include <wangle/ssl/SSLContextConfig.h>
-#include "presto_cpp/external/json/json.hpp"
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/http/HttpConstants.h"
 
 namespace facebook::presto::http {
@@ -177,6 +177,35 @@ using EndpointRequestHandlerFactory = std::function<proxygen::RequestHandler*(
     proxygen::HTTPMessage* message,
     const std::vector<std::string>& args)>;
 
+class EndPoint {
+ public:
+  EndPoint(
+      const std::string& pattern,
+      const EndpointRequestHandlerFactory& factory)
+      : re_(pattern), factory_(factory) {}
+
+  bool check(
+      const std::string& path,
+      std::vector<std::string>& matches,
+      std::vector<RE2::Arg>& args,
+      std::vector<RE2::Arg*>& argPtrs) const;
+
+  proxygen::RequestHandler* checkAndApply(
+      const std::string& path,
+      proxygen::HTTPMessage* message,
+      std::vector<std::string>& matches,
+      std::vector<RE2::Arg>& args,
+      std::vector<RE2::Arg*>& argPtrs) const;
+
+  const std::string& pattern() const {
+    return re_.pattern();
+  }
+
+ private:
+  const RE2 re_;
+  EndpointRequestHandlerFactory factory_;
+};
+
 class DispatchingRequestHandlerFactory
     : public proxygen::RequestHandlerFactory {
  public:
@@ -193,26 +222,12 @@ class DispatchingRequestHandlerFactory
       const std::string& pattern,
       const EndpointRequestHandlerFactory& endpoint);
 
+  const std::unordered_map<
+      proxygen::HTTPMethod,
+      std::vector<std::unique_ptr<EndPoint>>>&
+  endpoints() const;
+
  private:
-  class EndPoint {
-   public:
-    EndPoint(
-        const std::string& pattern,
-        const EndpointRequestHandlerFactory& factory)
-        : re_(pattern), factory_(factory) {}
-
-    proxygen::RequestHandler* checkAndApply(
-        const std::string& path,
-        proxygen::HTTPMessage* message,
-        std::vector<std::string>& matches,
-        std::vector<RE2::Arg>& args,
-        std::vector<RE2::Arg*>& argPtrs) const;
-
-   private:
-    RE2 re_;
-    EndpointRequestHandlerFactory factory_;
-  };
-
   std::unordered_map<
       proxygen::HTTPMethod,
       std::vector<std::unique_ptr<EndPoint>>>
@@ -254,9 +269,9 @@ class HttpsConfig {
 class HttpServer {
  public:
   explicit HttpServer(
+      const std::shared_ptr<folly::IOThreadPoolExecutor>& httpIOExecutor,
       std::unique_ptr<HttpConfig> httpConfig,
-      std::unique_ptr<HttpsConfig> httpsConfig = nullptr,
-      int httpExecThreads = 8);
+      std::unique_ptr<HttpsConfig> httpsConfig = nullptr);
 
   void start(
       std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters =
@@ -265,7 +280,7 @@ class HttpServer {
       std::function<void(std::exception_ptr)> onError = nullptr);
 
   folly::IOThreadPoolExecutor* getExecutor() {
-    return httpExecutor_.get();
+    return httpIOExecutor_.get();
   }
 
   void stop() {
@@ -337,13 +352,17 @@ class HttpServer {
     registerDelete(pattern, endPointWrapper(callback));
   }
 
+  std::unordered_map<
+      proxygen::HTTPMethod,
+      std::vector<std::unique_ptr<EndPoint>>>
+  endpoints() const;
+
  private:
   const std::unique_ptr<HttpConfig> httpConfig_;
   const std::unique_ptr<HttpsConfig> httpsConfig_;
-  int httpExecThreads_;
   std::unique_ptr<DispatchingRequestHandlerFactory> handlerFactory_;
   std::unique_ptr<proxygen::HTTPServer> server_;
-  std::shared_ptr<folly::IOThreadPoolExecutor> httpExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpIOExecutor_;
 
   static EndpointRequestHandlerFactory endPointWrapper(
       const RequestHandlerCallback& callback) {

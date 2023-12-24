@@ -42,6 +42,7 @@ ENV PATH=${DEPENDENCY_DIR}/install/bin:${DEPENDENCY_DIR}/install/bin/hadoop-2.10
 ENV PRESTO_ENABLE_PARQUET=ON
 ENV PRESTO_ENABLE_S3=ON
 ENV PRESTO_ENABLE_HDFS=ON
+ENV PRESTO_ENABLE_REMOTE_FUNCTIONS=ON
 ENV PRESTO_ENABLE_TESTING=ON
 ENV CLEANUP_BUILD_ARTIFACTS=1
 
@@ -76,12 +77,6 @@ RUN --mount=type=ssh \
     set +exu && \
     source /opt/rh/gcc-toolset-9/enable && \
     set -exu && \
-#-----------------------------------------------------------
-#---( START wget valid antlr java runtime
-#-----------------------------------------------------------
-    wget -q 'https://www.antlr.org/download/antlr-4.9.3-complete.jar' -O '/usr/local/lib/antlr-4.9.3-complete.jar' && \
-    printf '#!/usr/bin/bash\n\njava -jar /usr/local/lib/antlr-4.9.3-complete.jar "$@"' > '/usr/local/bin/antlr' && \
-    chmod +x "/usr/local/bin/antlr" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-adapters.sh" && \
     dnf clean all
 
@@ -96,6 +91,7 @@ RUN --mount=type=ssh \
         PRESTO_ENABLE_PARQUET=${PRESTO_ENABLE_PARQUET} \
         PRESTO_ENABLE_S3=${PRESTO_ENABLE_S3} \
         PRESTO_ENABLE_HDFS=${PRESTO_ENABLE_HDFS} \
+        PRESTO_ENABLE_REMOTE_FUNCTIONS=${PRESTO_ENABLE_REMOTE_FUNCTIONS} \
         PRESTO_ENABLE_TESTING=${PRESTO_ENABLE_TESTING} \
         TREAT_WARNINGS_AS_ERRORS=OFF
 

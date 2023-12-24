@@ -14,23 +14,16 @@
 package com.facebook.presto.spark;
 
 import com.facebook.airlift.log.Logging;
-import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
-import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Resources;
 import com.google.inject.Module;
-import org.apache.spark.SparkEnv;
-import org.apache.spark.shuffle.ShuffleHandle;
-import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -39,16 +32,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.airlift.log.Level.WARN;
+import static com.facebook.presto.hive.HiveTestUtils.getProperty;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static java.nio.file.Files.createTempDirectory;
-import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 /**
  * Following JVM argument is needed to run Spark native tests.
@@ -90,17 +81,13 @@ public class PrestoSparkNativeQueryRunnerUtils
                 // Do not use default Prestissimo config files. Presto-Spark will generate the configs on-the-fly.
                 .put("catalog.config-dir", "/")
                 .put("task.info-update-interval", "100ms")
-                .put("native-execution-enabled", "true")
                 .put("spark.initial-partition-count", "1")
                 .put("register-test-functions", "true")
                 .put("native-execution-program-arguments", "--logtostderr=1 --minloglevel=3")
                 .put("spark.partition-count-auto-tune-enabled", "false");
 
         if (System.getProperty("NATIVE_PORT") == null) {
-            String path = requireNonNull(System.getProperty("PRESTO_SERVER"),
-                    "Native worker binary path is missing. " +
-                            "Add -DPRESTO_SERVER=/path/to/native/process/bin to your JVM arguments.");
-            builder.put("native-execution-executable-path", path);
+            builder.put("native-execution-executable-path", getNativeQueryRunnerParameters().serverBinary.toString());
         }
 
         try {
@@ -117,7 +104,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static PrestoSparkQueryRunner createHiveRunner()
     {
         PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule());
-        setupJsonFunctionNamespaceManager(queryRunner);
+        PrestoNativeQueryRunnerUtils.setupJsonFunctionNamespaceManager(queryRunner, "external_functions.json", "json");
 
         return queryRunner;
     }
@@ -167,21 +154,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy", DEFAULT_STORAGE_FORMAT);
-    }
-
-    public static void assertShuffleMetadata()
-    {
-        assertNotNull(SparkEnv.get());
-        assertTrue(SparkEnv.get().shuffleManager() instanceof PrestoSparkNativeExecutionShuffleManager);
-        PrestoSparkNativeExecutionShuffleManager shuffleManager = (PrestoSparkNativeExecutionShuffleManager) SparkEnv.get().shuffleManager();
-        Set<Integer> partitions = shuffleManager.getAllPartitions();
-
-        for (Integer partition : partitions) {
-            Optional<ShuffleHandle> shuffleHandle = shuffleManager.getShuffleHandle(partition);
-            assertTrue(shuffleHandle.isPresent());
-            assertTrue(shuffleHandle.get() instanceof BypassMergeSortShuffleHandle);
-        }
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy", DEFAULT_STORAGE_FORMAT, true);
     }
 
     public static void customizeLogging()
@@ -208,26 +181,14 @@ public class PrestoSparkNativeQueryRunnerUtils
         return sparkConfigs.build();
     }
 
-    public static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
-    {
-        String jsonDefinitionPath = Resources.getResource("external_functions.json").getFile();
-        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
-        queryRunner.loadFunctionNamespaceManager(
-                JsonFileBasedFunctionNamespaceManagerFactory.NAME,
-                "json",
-                ImmutableMap.of(
-                        "supported-function-languages", "CPP",
-                        "function-implementation-type", "CPP",
-                        "json-based-function-manager.path-to-function-definition", jsonDefinitionPath));
-    }
-
     public static synchronized Path getBaseDataPath()
     {
         if (dataDirectory.isPresent()) {
             return dataDirectory.get();
         }
-        String dataDirectoryStr = System.getProperty("DATA_DIR");
-        if (dataDirectoryStr.isEmpty()) {
+
+        Optional<String> dataDirectoryStr = getProperty("DATA_DIR");
+        if (!dataDirectoryStr.isPresent()) {
             try {
                 dataDirectory = Optional.of(createTempDirectory("PrestoTest").toAbsolutePath());
             }
@@ -236,7 +197,7 @@ public class PrestoSparkNativeQueryRunnerUtils
             }
         }
         else {
-            dataDirectory = Optional.of(Paths.get(dataDirectoryStr));
+            dataDirectory = Optional.of(getNativeQueryRunnerParameters().dataDirectory);
         }
         return dataDirectory.get();
     }

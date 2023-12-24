@@ -102,7 +102,20 @@ String
 
     Variable length character data with an optional maximum length.
 
-    Example type definitions: ``varchar``, ``varchar(20)``
+    Example type definitions: ``varchar``, ``varchar(20)``.
+
+    SQL supports simple and Unicode string literals:
+     - Literal string : ``'Hello winter !'``
+     - Unicode string with default escape character: ``U&'Hello winter \2603 !'``
+     - Unicode string with custom escape character: ``U&'Hello winter #2603 !' UESCAPE '#'``
+
+    A Unicode string is prefixed with ``U&`` and requires an escape character
+    before any Unicode character usage with 4 digits. In these examples
+    ``\2603`` and ``#2603`` represent a snowman character. Long Unicode codes
+    with 6 digits require a plus symbol ``+`` before the code. For example,
+    use ``\+01F600`` for a grinning face emoji.
+
+    Single quotes in string literals can be escaped by using another single quote: ``'It''s a beautiful day!'``
 
 ``CHAR``
 ^^^^^^^^
@@ -302,6 +315,31 @@ KHyperLogLog
 
     A KHyperLogLog is a data sketch that can be used to compactly represents the association of two
     columns. See :doc:`/functions/khyperloglog`.
+
+SetDigest
+---------
+
+.. _setdigest_type:
+
+``SetDigest``
+^^^^^^^^^^^^^
+
+A SetDigest (setdigest) is a data sketch structure used
+in calculating `Jaccard similarity coefficient <https://wikipedia.org/wiki/Jaccard_index>`_
+between two sets.
+
+SetDigest encapsulates the following components:
+
+- `HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_
+- `MinHash with a single hash function <http://wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
+
+The HyperLogLog structure is used for the approximation of the distinct elements
+in the original set.
+
+The MinHash structure is used to store a low memory footprint signature of the original set.
+The similarity of any two sets is estimated by comparing their signatures.
+
+SetDigests are additive, meaning they can be merged together.
 
 Quantile Digest
 ---------------

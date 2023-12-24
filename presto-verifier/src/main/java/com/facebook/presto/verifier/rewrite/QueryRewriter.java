@@ -95,6 +95,7 @@ public class QueryRewriter
     private final PrestoAction prestoAction;
     private final Map<ClusterType, QualifiedName> prefixes;
     private final Map<ClusterType, List<Property>> tableProperties;
+    private final Optional<FunctionCallRewriter> functionCallRewriter;
 
     public QueryRewriter(
             SqlParser sqlParser,
@@ -103,11 +104,24 @@ public class QueryRewriter
             Map<ClusterType, QualifiedName> tablePrefixes,
             Map<ClusterType, List<Property>> tableProperties)
     {
+        this(sqlParser, typeManager, prestoAction, tablePrefixes, tableProperties, Optional.empty());
+    }
+
+    public QueryRewriter(
+            SqlParser sqlParser,
+            TypeManager typeManager,
+            PrestoAction prestoAction,
+            Map<ClusterType, QualifiedName> tablePrefixes,
+            Map<ClusterType, List<Property>> tableProperties,
+            Optional<String> nonDeterministicFunctionSubstitutes)
+    {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.prefixes = ImmutableMap.copyOf(tablePrefixes);
         this.tableProperties = ImmutableMap.copyOf(tableProperties);
+        this.functionCallRewriter =
+                requireNonNull(nonDeterministicFunctionSubstitutes, "nonDeterministicFunctionSubstitutes is null").map(functionSubstitutes -> FunctionCallRewriter.getInstance(functionSubstitutes));
     }
 
     public QueryObjectBundle rewriteQuery(@Language("SQL") String query, ClusterType clusterType)
@@ -120,12 +134,16 @@ public class QueryRewriter
         if (statement instanceof CreateTableAsSelect) {
             CreateTableAsSelect createTableAsSelect = (CreateTableAsSelect) statement;
             QualifiedName temporaryTableName = generateTemporaryName(Optional.of(createTableAsSelect.getName()), prefix);
+            Query createQuery = createTableAsSelect.getQuery();
+            if (functionCallRewriter.isPresent()) {
+                createQuery = (Query) functionCallRewriter.get().rewrite(createQuery);
+            }
             return new QueryObjectBundle(
                     temporaryTableName,
                     ImmutableList.of(),
                     new CreateTableAsSelect(
                             temporaryTableName,
-                            createTableAsSelect.getQuery(),
+                            createQuery,
                             createTableAsSelect.isNotExists(),
                             applyPropertyOverride(createTableAsSelect.getProperties(), properties),
                             createTableAsSelect.isWithData(),
@@ -138,6 +156,10 @@ public class QueryRewriter
             Insert insert = (Insert) statement;
             QualifiedName originalTableName = insert.getTarget();
             QualifiedName temporaryTableName = generateTemporaryName(Optional.of(originalTableName), prefix);
+            Query insertQuery = insert.getQuery();
+            if (functionCallRewriter.isPresent()) {
+                insertQuery = (Query) functionCallRewriter.get().rewrite(insertQuery);
+            }
             return new QueryObjectBundle(
                     temporaryTableName,
                     ImmutableList.of(
@@ -150,21 +172,26 @@ public class QueryRewriter
                     new Insert(
                             temporaryTableName,
                             insert.getColumns(),
-                            insert.getQuery()),
+                            insertQuery),
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
                     clusterType);
         }
         if (statement instanceof Query) {
             QualifiedName temporaryTableName = generateTemporaryName(Optional.empty(), prefix);
-            ResultSetMetaData metadata = getResultMetadata((Query) statement);
+            Query queryBody = (Query) statement;
+            if (functionCallRewriter.isPresent()) {
+                queryBody = (Query) functionCallRewriter.get().rewrite(queryBody);
+            }
+            ResultSetMetaData metadata = getResultMetadata(queryBody);
             List<Identifier> columnAliases = generateStorageColumnAliases(metadata);
-            Query rewrite = rewriteNonStorableColumns((Query) statement, metadata);
+            queryBody = rewriteNonStorableColumns(queryBody, metadata);
+
             return new QueryObjectBundle(
                     temporaryTableName,
                     ImmutableList.of(),
                     new CreateTableAsSelect(
                             temporaryTableName,
-                            rewrite,
+                            queryBody,
                             false,
                             properties,
                             true,

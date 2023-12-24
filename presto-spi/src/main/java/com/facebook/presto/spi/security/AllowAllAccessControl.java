@@ -130,6 +130,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName)
     {
     }

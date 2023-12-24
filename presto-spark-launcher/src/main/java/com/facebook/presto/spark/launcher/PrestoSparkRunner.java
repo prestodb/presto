@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.launcher;
 
+import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
@@ -24,7 +25,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Splitter;
 import org.apache.spark.TaskContext;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Option;
@@ -41,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkDirectory;
 import static com.google.common.base.Preconditions.checkState;
@@ -56,6 +58,7 @@ public class PrestoSparkRunner
     private final PrestoSparkDistribution distribution;
     private final IPrestoSparkService driverPrestoSparkService;
     private static final CollectionAccumulator<Map<String, Long>> bootstrapMetricsCollector = new CollectionAccumulator<>();
+    public static final String SPARK_EXECUTION_STRATEGIES = "spark_execution_strategies";
 
     public PrestoSparkRunner(PrestoSparkDistribution distribution)
     {
@@ -117,14 +120,14 @@ public class PrestoSparkRunner
                 sparkQueueName,
                 queryStatusInfoOutputLocation,
                 queryDataOutputLocation,
-                ImmutableList.of());
+                getExecutionStrategies(sessionProperties));
         try {
             execute(queryExecutionFactory, prestoSparkRunnerContext);
         }
         catch (PrestoSparkFailure failure) {
             if (!failure.getRetryExecutionStrategies().isEmpty()) {
                 PrestoSparkRunnerContext retryRunnerContext = new PrestoSparkRunnerContext.Builder(prestoSparkRunnerContext)
-                        .setRetryExecutionStrategies(failure.getRetryExecutionStrategies())
+                        .setExecutionStrategies(failure.getRetryExecutionStrategies())
                         .build();
                 execute(queryExecutionFactory, retryRunnerContext);
                 return;
@@ -132,6 +135,15 @@ public class PrestoSparkRunner
 
             throw failure;
         }
+    }
+
+    private List<ExecutionStrategy> getExecutionStrategies(Map<String, String> sessionProperties)
+    {
+        String executionStrategies = sessionProperties.getOrDefault(SPARK_EXECUTION_STRATEGIES, "");
+        return Splitter.on(',').trimResults().omitEmptyStrings().splitToList(executionStrategies)
+                .stream()
+                .map(t -> ExecutionStrategy.valueOf(t))
+                .collect(Collectors.toList());
     }
 
     private void execute(IPrestoSparkQueryExecutionFactory queryExecutionFactory, PrestoSparkRunnerContext prestoSparkRunnerContext)
@@ -163,7 +175,7 @@ public class PrestoSparkRunner
                 new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution, bootstrapMetricsCollector),
                 prestoSparkRunnerContext.getQueryStatusInfoOutputLocation(),
                 prestoSparkRunnerContext.getQueryDataOutputLocation(),
-                prestoSparkRunnerContext.getRetryExecutionStrategies(),
+                prestoSparkRunnerContext.getExecutionStrategies(),
                 Optional.of(bootstrapMetricsCollector));
 
         List<List<Object>> results = queryExecution.execute();

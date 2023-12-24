@@ -222,6 +222,8 @@ public class MapBlockEncodingBuffer
             bufferAllocator.returnArray(offsets);
             offsets = null;
         }
+
+        columnarMap = null;
     }
 
     @Override

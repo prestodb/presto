@@ -26,9 +26,18 @@ namespace facebook::presto {
 /// `location` specifies where the remote function should forward connections
 /// to.
 ///
+/// `prefix`, if not empty, it is added to the names of functions registered
+/// using '.' as a separator, e.g., 'prefix.functionName'.
+///
+/// `serde` controls the serialization/deserialization format to be used when
+/// communicating with the remote server. "presto_page" and "spark_unsafe_row"
+/// are supported formats.
+///
 /// Returns the number of signatures registered.
-size_t registerRemoteFuctions(
+size_t registerRemoteFunctions(
     const std::string& inputPath,
-    const folly::SocketAddress& location);
+    const folly::SocketAddress& location,
+    const std::string_view& prefix = "",
+    const std::string_view& serde = "presto_page");
 
 } // namespace facebook::presto

@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.284-SNAPSHOT</version>
+        <version>0.286-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-benchto-benchmarks</artifactId>
@@ -26,6 +26,14 @@
             <groupId>com.teradata.benchto</groupId>
             <artifactId>benchto-driver</artifactId>
             <version>0.4</version>
+            <!-- Excluding the spring-core vulnerable dependency from this
+                        latest version of benchto driver -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework</groupId>
+                    <artifactId>spring-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -82,6 +90,15 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
+
+        <!-- Adding the latest spring-core version compatible with java 8 because
+                    vulnerable version is excluded above in benchto driver-->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-core</artifactId>
+            <version>5.3.31</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -106,7 +123,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>1.2.5.RELEASE</version>
+                <version>2.7.18</version>
                 <configuration>
                     <classifier>executable</classifier>
                     <mainClass>com.teradata.benchto.driver.DriverApp</mainClass>

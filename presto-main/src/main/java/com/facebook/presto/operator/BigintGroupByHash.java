@@ -363,7 +363,7 @@ public class BigintGroupByHash
             int positionCount = block.getPositionCount();
             checkState(lastPosition <= positionCount, "position count out of bound");
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // needRehash() == true indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
             if (needRehash() && !tryRehash()) {
                 return false;
@@ -409,7 +409,7 @@ public class BigintGroupByHash
             checkState(lastPosition <= positionCount, "position count out of bound");
             checkState(!finished);
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // needRehash() == true indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
             if (needRehash() && !tryRehash()) {
                 return false;

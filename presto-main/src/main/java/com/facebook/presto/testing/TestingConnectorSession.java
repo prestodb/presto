@@ -50,6 +50,7 @@ public class TestingConnectorSession
     private final String queryId;
     private final ConnectorIdentity identity;
     private final Optional<String> source;
+    private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final Optional<String> traceToken;
     private final long startTime;
@@ -95,6 +96,7 @@ public class TestingConnectorSession
         this.identity = new ConnectorIdentity(requireNonNull(user, "user is null"), Optional.empty(), Optional.empty());
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
+        this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
         this.properties = Maps.uniqueIndex(propertyMetadatas, PropertyMetadata::getName);
@@ -128,6 +130,12 @@ public class TestingConnectorSession
     public ConnectorIdentity getIdentity()
     {
         return identity;
+    }
+
+    @Override
+    public TimeZoneKey getTimeZoneKey()
+    {
+        return timeZoneKey;
     }
 
     @Override
@@ -205,6 +213,7 @@ public class TestingConnectorSession
                 .add("user", getUser())
                 .add("source", source.orElse(null))
                 .add("traceToken", traceToken.orElse(null))
+                .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("startTime", startTime)
                 .add("sqlFunctionProperties", sqlFunctionProperties)

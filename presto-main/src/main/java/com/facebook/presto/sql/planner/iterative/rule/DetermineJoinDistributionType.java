@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.LocalCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
@@ -21,6 +22,7 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -63,10 +65,25 @@ public class DetermineJoinDistributionType
     private final CostComparator costComparator;
     private final TaskCountEstimator taskCountEstimator;
 
+    // records whether distribution decision was cost-based
+    private String statsSource;
+
     public DetermineJoinDistributionType(CostComparator costComparator, TaskCountEstimator taskCountEstimator)
     {
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
         this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+    }
+
+    @Override
+    public boolean isCostBased(Session session)
+    {
+        return getJoinDistributionType(session) == AUTOMATIC;
+    }
+
+    @Override
+    public String getStatsSource()
+    {
+        return statsSource;
     }
 
     @Override
@@ -80,7 +97,9 @@ public class DetermineJoinDistributionType
     {
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
         if (joinDistributionType == AUTOMATIC) {
-            return Result.ofPlanNode(getCostBasedJoin(joinNode, context));
+            PlanNode resultNode = getCostBasedJoin(joinNode, context);
+            statsSource = context.getStatsProvider().getStats(joinNode).getSourceInfo().getSourceInfoName();
+            return Result.ofPlanNode(resultNode);
         }
         return Result.ofPlanNode(getSyntacticOrderJoin(joinNode, context, joinDistributionType));
     }
@@ -180,7 +199,7 @@ public class DetermineJoinDistributionType
         }
 
         List<PlanNode> sourceNodes = PlanNodeSearcher.searchFrom(node, lookup)
-                .whereIsInstanceOfAny(ImmutableList.of(TableScanNode.class, ValuesNode.class, RemoteSourceNode.class))
+                .whereIsInstanceOfAny(ImmutableList.of(TableScanNode.class, ValuesNode.class, RemoteSourceNode.class, CteConsumerNode.class))
                 .findAll();
 
         return sourceNodes.stream()

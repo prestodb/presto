@@ -26,8 +26,10 @@ import java.util.PriorityQueue;
 import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.expectThrows;
 
 public class TestDoubleMinNAggregation
         extends AbstractTestAggregationFunction
@@ -68,6 +70,15 @@ public class TestDoubleMinNAggregation
         testCustomAggregation(new Double[] {1.0, 2.0, null, 3.0}, 5);
         testInvalidAggregation(new Double[] {1.0, 2.0, 3.0}, 0);
         testInvalidAggregation(new Double[] {1.0, 2.0, 3.0}, -1);
+
+        // Test min(val, n), to make sure n is consistent.
+        Block valueBlock = createDoublesBlock(new Double[] {1.0, 2.0, 3.0});
+        // There is an inconsistent N: 3 there.
+        Block nBlock = createLongsBlock(new Long[] {2L, 2L, 3L});
+        PrestoException exception = expectThrows(PrestoException.class, () -> {
+            testAggregation(getExpectedValue(1, 2), valueBlock, nBlock);
+        });
+        assertEquals(exception.getMessage(), "Count argument is not constant: found multiple values [3, 2]");
     }
 
     private void testInvalidAggregation(Double[] x, int n)

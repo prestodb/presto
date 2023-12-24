@@ -277,8 +277,9 @@ public final class DiscoveryNodeManager
     {
         // This is currently a blacklist.
         // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
+        Set<ServiceDescriptor> failed = failureDetector.getFailed();
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
-                .filter(service -> !failureDetector.getFailed().contains(service))
+                .filter(service -> !failed.contains(service))
                 .filter(filterRelevantNodes())
                 .collect(toImmutableSet());
 

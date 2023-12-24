@@ -70,7 +70,7 @@ public class SpillableHashAggregationBuilder
 
     private long hashCollisions;
     private double expectedHashCollisions;
-    private boolean producingOutput;
+    private Boolean producingOutput = Boolean.FALSE;
 
     public SpillableHashAggregationBuilder(
             List<AccumulatorFactory> accumulatorFactories,
@@ -192,7 +192,7 @@ public class SpillableHashAggregationBuilder
     public WorkProcessor<Page> buildResult()
     {
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
-        producingOutput = true;
+        producingOutput = Boolean.TRUE;
 
         // Convert revocable memory to user memory as returned WorkProcessor holds on to memory so we no longer can revoke.
         if (localRevocableMemoryContext.getBytes() > 0) {
@@ -231,8 +231,13 @@ public class SpillableHashAggregationBuilder
             }
             merger.ifPresent(closer::register);
             spiller.ifPresent(closer::register);
-            closer.register(() -> localUserMemoryContext.setBytes(0));
-            closer.register(() -> localRevocableMemoryContext.setBytes(0));
+
+            closer.register(() -> {
+                localUserMemoryContext.setBytes(0);
+            });
+            closer.register(() -> {
+                localRevocableMemoryContext.setBytes(0);
+            });
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -256,7 +261,6 @@ public class SpillableHashAggregationBuilder
         // ... and immediately create new hashAggregationBuilder so effectively memory ownership
         // over hashAggregationBuilder is transferred from this thread to a spilling thread
         rebuildHashAggregationBuilder();
-
         return spillInProgress;
     }
 
@@ -335,7 +339,16 @@ public class SpillableHashAggregationBuilder
                 Optional.of(DataSize.succinctBytes(0)),
                 joinCompiler,
                 false,
-                false);
+                Optional.of((memorySize) -> {
+                    // The userMemory lambda is invoked in spillable accumulator like: DedupBasedSpillableDistinctGroupedAccumulator
+                    // The memory is revocable only when the operator is not producing output.
+                    if (producingOutput) {
+                        localUserMemoryContext.setBytes(memorySize);
+                    }
+                    else {
+                        localRevocableMemoryContext.setBytes(memorySize);
+                    }
+                }));
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }
 }

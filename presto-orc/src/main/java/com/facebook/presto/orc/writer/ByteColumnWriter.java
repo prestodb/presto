@@ -64,6 +64,7 @@ public class ByteColumnWriter
     private long columnStatisticsRetainedSizeInBytes;
 
     private int nonNullValueCount;
+    private long rawSize;
 
     private boolean closed;
 
@@ -115,7 +116,9 @@ public class ByteColumnWriter
             }
         }
         // For byte columns, null and values has the same size (1 byte)
-        return block.getPositionCount() * NULL_SIZE;
+        long rawSize = block.getPositionCount() * NULL_SIZE;
+        this.rawSize += rawSize;
+        return rawSize;
     }
 
     @Override
@@ -126,6 +129,7 @@ public class ByteColumnWriter
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;
+        rawSize = 0;
         return ImmutableMap.of(column, statistics);
     }
 
@@ -188,5 +192,6 @@ public class ByteColumnWriter
         rowGroupColumnStatistics.clear();
         columnStatisticsRetainedSizeInBytes = 0;
         nonNullValueCount = 0;
+        rawSize = 0;
     }
 }

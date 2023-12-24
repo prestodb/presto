@@ -17,11 +17,9 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.prestospark.PhysicalResourceSettings;
 import io.airlift.units.DataSize;
 
-import java.util.OptionalInt;
-
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getAverageInputDataSizePerExecutor;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getAverageInputDataSizePerPartition;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxExecutorCount;
@@ -37,6 +35,15 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 public class PrestoSparkPhysicalResourceCalculator
 {
     private static final Logger log = Logger.get(PrestoSparkPhysicalResourceCalculator.class);
+
+    private final int defaultHashPartitionCount;
+    private final int defaultMaxExecutorCount;
+
+    public PrestoSparkPhysicalResourceCalculator(int defaultHashPartitionCount, int defaultMaxExecutorCount)
+    {
+        this.defaultHashPartitionCount = defaultHashPartitionCount;
+        this.defaultMaxExecutorCount = defaultMaxExecutorCount;
+    }
 
     /**
      * Calculates the final resource settings for the query. This takes into account all override values
@@ -57,13 +64,10 @@ public class PrestoSparkPhysicalResourceCalculator
      *         or {@link PrestoSparkSettingsRequirements#SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG}
      *     </li>
      * </ul>
-     *
      */
     public PhysicalResourceSettings calculate(PlanNode plan, PrestoSparkSourceStatsCollector prestoSparkSourceStatsCollector, Session session)
     {
-        int hashPartitionCount = getHashPartitionCount(session);
-        OptionalInt maxExecutorCount = OptionalInt.empty();
-        PhysicalResourceSettings defaultResourceSettings = new PhysicalResourceSettings(hashPartitionCount, maxExecutorCount);
+        PhysicalResourceSettings defaultResourceSettings = new PhysicalResourceSettings(defaultHashPartitionCount, defaultMaxExecutorCount, false, false);
 
         if (!anyAllocationStrategyEnabled(session)) {
             log.info(String.format("ResourceAllocationStrategy disabled. Executing query %s with %s", session.getQueryId(), defaultResourceSettings));
@@ -71,7 +75,6 @@ public class PrestoSparkPhysicalResourceCalculator
         }
 
         double inputDataInBytes = prestoSparkSourceStatsCollector.collectSourceStats(plan);
-        DataSize inputSize = new DataSize(inputDataInBytes, BYTE);
         if (inputDataInBytes < 0) {
             log.warn(String.format("Input data statistics missing, inputDataInBytes=%.2f skipping automatic resource tuning. Executing query %s with %s",
                     inputDataInBytes, session.getQueryId(), defaultResourceSettings));
@@ -82,16 +85,25 @@ public class PrestoSparkPhysicalResourceCalculator
                     inputDataInBytes, session.getQueryId(), defaultResourceSettings));
             return defaultResourceSettings;
         }
+        DataSize inputSize = new DataSize(inputDataInBytes, BYTE);
+
+        int hashPartitionCount = defaultHashPartitionCount;
+        int maxExecutorCount = defaultMaxExecutorCount;
+        boolean isHashPartitionCountAutoTuned = false;
+        boolean isMaxExecutorCountAutoTuned = false;
         // update hashPartitionCount only if resource allocation or hash partition allocation is enabled
         if (isSparkResourceAllocationStrategyEnabled(session) || isSparkHashPartitionCountAllocationStrategyEnabled(session)) {
             hashPartitionCount = calculateHashPartitionCount(session, inputSize);
+            isHashPartitionCountAutoTuned = true;
         }
 
         // update maxExecutorCount only if resource allocation or executor allocation is enabled
         if (isSparkResourceAllocationStrategyEnabled(session) || isSparkExecutorAllocationStrategyEnabled(session)) {
-            maxExecutorCount = OptionalInt.of(calculateExecutorCount(session, inputSize));
+            maxExecutorCount = calculateExecutorCount(session, inputSize);
+            isMaxExecutorCountAutoTuned = true;
         }
-        PhysicalResourceSettings finalResourceSettings = new PhysicalResourceSettings(hashPartitionCount, maxExecutorCount);
+
+        PhysicalResourceSettings finalResourceSettings = new PhysicalResourceSettings(hashPartitionCount, maxExecutorCount, isHashPartitionCountAutoTuned, isMaxExecutorCountAutoTuned);
 
         log.info(String.format("Executing query %s with %s based on resource allocation strategy", session.getQueryId(), finalResourceSettings));
         return finalResourceSettings;

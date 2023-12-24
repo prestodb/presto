@@ -15,6 +15,7 @@
 
 #include <folly/experimental/FunctionScheduler.h>
 #include "velox/common/memory/Memory.h"
+#include "velox/exec/Spill.h"
 
 namespace folly {
 class CPUThreadPoolExecutor;
@@ -56,7 +57,7 @@ class PeriodicTaskManager {
   /// the background.
   ///
   /// NOTE: start() shall be called after everything in PrestoServer is
-  /// initialized because PeriodicTaskManager replies on proper initializations
+  /// initialized because PeriodicTaskManager relies on proper initializations
   /// of various entities in the system to work as expected.
   void start();
 
@@ -65,6 +66,16 @@ class PeriodicTaskManager {
   void addTask(TFunc&& func, size_t periodMicros, const std::string& taskName) {
     scheduler_.addFunction(
         func, std::chrono::microseconds{periodMicros}, taskName);
+  }
+
+  /// Add a task to run once. Before adding, cancels the any task that has same
+  /// name.
+  template <typename TFunc>
+  void
+  addTaskOnce(TFunc&& func, size_t periodMicros, const std::string& taskName) {
+    scheduler_.cancelFunction(taskName);
+    scheduler_.addFunctionOnce(
+        func, taskName, std::chrono::microseconds{periodMicros});
   }
 
   /// Stops all periodic tasks. Returns only when everything is stopped.
@@ -94,15 +105,35 @@ class PeriodicTaskManager {
   void addOperatingSystemStatsUpdateTask();
   void updateOperatingSystemStats();
 
+  void addSpillStatsUpdateTask();
+  void updateSpillStatsTask();
+
+  // Adds task that periodically prints http endpoint latency metrics.
+  void addHttpEndpointLatencyStatsTask();
+  void printHttpEndpointLatencyStats();
+
+  void addArbitratorStatsTask();
+  void updateArbitratorStatsTask();
+
   folly::FunctionScheduler scheduler_;
   folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
   folly::IOThreadPoolExecutor* const httpExecutor_;
   TaskManager* const taskManager_;
   const velox::memory::MemoryAllocator* const memoryAllocator_;
   const velox::cache::AsyncDataCache* const asyncDataCache_;
+  const velox::memory::MemoryArbitrator* const arbitrator_;
   const std::unordered_map<
       std::string,
       std::shared_ptr<velox::connector::Connector>>& connectors_;
+
+  // Cache related stats
+  int64_t lastMemoryCacheHits_{0};
+  int64_t lastMemoryCacheHitsBytes_{0};
+  int64_t lastMemoryCacheInserts_{0};
+  int64_t lastMemoryCacheEvictions_{0};
+  int64_t lastMemoryCacheEvictionChecks_{0};
+  int64_t lastMemoryCacheStalls_{0};
+  int64_t lastMemoryCacheAllocClocks_{0};
 
   // Operating system related stats.
   int64_t lastUserCpuTimeUs_{0};
@@ -111,6 +142,9 @@ class PeriodicTaskManager {
   int64_t lastHardPageFaults_{0};
   int64_t lastVoluntaryContextSwitches_{0};
   int64_t lastForcedContextSwitches_{0};
+  // Renabled this after update velox.
+  velox::common::SpillStats lastSpillStats_;
+  velox::memory::MemoryArbitrator::Stats lastArbitratorStats_;
 };
 
 } // namespace facebook::presto

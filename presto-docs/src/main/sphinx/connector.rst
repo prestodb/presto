@@ -16,6 +16,8 @@ from different data sources.
     connector/deltalake
     connector/druid
     connector/elasticsearch
+    connector/googlesheets
+    connector/hana
     connector/hive
     connector/hive-security
     connector/hudi
@@ -36,6 +38,7 @@ from different data sources.
     connector/redis
     connector/redshift
     connector/scylladb
+    connector/singlestore
     connector/sqlserver
     connector/system
     connector/thrift

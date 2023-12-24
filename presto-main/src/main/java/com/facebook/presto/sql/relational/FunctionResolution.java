@@ -338,4 +338,9 @@ public final class FunctionResolution
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getOperatorType().map(EQUAL::equals).orElse(false);
     }
+
+    public boolean isArrayContainsFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "contains"));
+    }
 }

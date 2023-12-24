@@ -36,6 +36,7 @@ import com.facebook.presto.hive.HiveMetadataFactory;
 import com.facebook.presto.hive.HivePageSourceProvider;
 import com.facebook.presto.hive.HivePartitionManager;
 import com.facebook.presto.hive.HivePartitionObjectBuilder;
+import com.facebook.presto.hive.HivePartitionSkippabilityChecker;
 import com.facebook.presto.hive.HivePartitionStats;
 import com.facebook.presto.hive.HiveSplitManager;
 import com.facebook.presto.hive.HiveStagingFileCommitter;
@@ -187,7 +188,8 @@ public class S3SelectTestHelper
                 config.getSplitLoaderConcurrency(),
                 config.getRecursiveDirWalkerEnabled(),
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
-                new HiveEncryptionInformationProvider(ImmutableSet.of()));
+                new HiveEncryptionInformationProvider(ImmutableSet.of()),
+                new HivePartitionSkippabilityChecker());
         pageSourceProvider = new HivePageSourceProvider(
                 config,
                 hdfsEnvironment,
@@ -276,6 +278,7 @@ public class S3SelectTestHelper
 
         return null;
     }
+
     public static MaterializedResult expectedResult(ConnectorSession session, int start, int end)
     {
         MaterializedResult.Builder builder = MaterializedResult.resultBuilder(session, BIGINT);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.memory.HighMemoryTaskKillerStrategy;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -70,7 +71,13 @@ public class TestTaskManagerConfig
                 .setStatisticsCpuTimerEnabled(true)
                 .setLegacyLifespanCompletionCondition(false)
                 .setTaskPriorityTracking(TASK_FAIR)
-                .setInterruptRunawaySplitsTimeout(new Duration(600, SECONDS)));
+                .setInterruptRunawaySplitsTimeout(new Duration(600, SECONDS))
+                .setMemoryBasedSlowDownThreshold(1.0)
+                .setHighMemoryTaskKillerEnabled(false)
+                .setHighMemoryTaskKillerStrategy(HighMemoryTaskKillerStrategy.FREE_MEMORY_ON_FULL_GC)
+                .setHighMemoryTaskKillerGCReclaimMemoryThreshold(0.01)
+                .setHighMemoryTaskKillerFrequentFullGCDurationThreshold(new Duration(1, SECONDS))
+                .setHighMemoryTaskKillerHeapMemoryThreshold(0.9));
     }
 
     @Test
@@ -112,6 +119,12 @@ public class TestTaskManagerConfig
                 .put("task.legacy-lifespan-completion-condition", "true")
                 .put("task.task-priority-tracking", "QUERY_FAIR")
                 .put("task.interrupt-runaway-splits-timeout", "599s")
+                .put("experimental.task.memory-based-slowdown-threshold", "0.9")
+                .put("experimental.task.high-memory-task-killer-enabled", "true")
+                .put("experimental.task.high-memory-task-killer-strategy", "FREE_MEMORY_ON_FREQUENT_FULL_GC")
+                .put("experimental.task.high-memory-task-killer-reclaim-memory-threshold", "0.8")
+                .put("experimental.task.high-memory-task-killer-frequent-full-gc-duration-threshold", "2s")
+                .put("experimental.task.high-memory-task-killer-heap-memory-threshold", "0.8")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -149,7 +162,13 @@ public class TestTaskManagerConfig
                 .setStatisticsCpuTimerEnabled(false)
                 .setLegacyLifespanCompletionCondition(true)
                 .setTaskPriorityTracking(QUERY_FAIR)
-                .setInterruptRunawaySplitsTimeout(new Duration(599, SECONDS));
+                .setInterruptRunawaySplitsTimeout(new Duration(599, SECONDS))
+                .setMemoryBasedSlowDownThreshold(0.9)
+                .setHighMemoryTaskKillerEnabled(true)
+                .setHighMemoryTaskKillerStrategy(HighMemoryTaskKillerStrategy.FREE_MEMORY_ON_FREQUENT_FULL_GC)
+                .setHighMemoryTaskKillerGCReclaimMemoryThreshold(0.8)
+                .setHighMemoryTaskKillerFrequentFullGCDurationThreshold(new Duration(2, SECONDS))
+                .setHighMemoryTaskKillerHeapMemoryThreshold(0.8);
 
         assertFullMapping(properties, expected);
     }

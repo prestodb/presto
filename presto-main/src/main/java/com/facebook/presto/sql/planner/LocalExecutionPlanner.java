@@ -38,6 +38,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandl
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.UpdateHandle;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
 import com.facebook.presto.expressions.DynamicFilters;
@@ -105,11 +106,13 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.operator.TopNRowNumberOperator;
+import com.facebook.presto.operator.UpdateOperator.UpdateOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
+import com.facebook.presto.operator.aggregation.partial.PartialAggregationController;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -202,6 +205,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -246,6 +250,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static com.facebook.presto.SystemSessionProperties.getAdaptivePartialAggregationRowsReductionRatioThreshold;
 import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
@@ -257,6 +262,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTopNOperatorUnspillMemoryLimit;
+import static com.facebook.presto.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistinctAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
@@ -1356,7 +1362,6 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(node, source, context);
             }
 
-            boolean spillEnabled = isSpillEnabled(context.getSession());
             DataSize unspillMemoryLimit = getAggregationOperatorUnspillMemoryLimit(context.getSession());
 
             return planGroupByAggregation(
@@ -2140,7 +2145,7 @@ public class LocalExecutionPlanner
 
             checkState(
                     buildSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION,
-                    "Build source of a nested loop join is expected to be GROUPED_EXECUTION.");
+                    "Build source of a nested loop join is expected to be UNGROUPED_EXECUTION.");
             checkArgument(node.getType() == INNER, "NestedLoopJoin is only used for inner join");
 
             JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
@@ -2937,6 +2942,38 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitUpdate(UpdateNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+            List<Integer> channelNumbers = createColumnValueAndRowIdChannels(node.getSource().getOutputVariables(), node.getColumnValueAndRowIdSymbols());
+            OperatorFactory operatorFactory = new UpdateOperatorFactory(context.getNextOperatorId(), node.getId(), channelNumbers, tableCommitContextCodec);
+
+            Map<VariableReferenceExpression, Integer> layout = ImmutableMap.<VariableReferenceExpression, Integer>builder()
+                    .put(node.getOutputVariables().get(0), 0)
+                    .put(node.getOutputVariables().get(1), 1)
+                    .build();
+
+            return new PhysicalOperation(operatorFactory, layout, context, source);
+        }
+
+        private List<Integer> createColumnValueAndRowIdChannels(List<VariableReferenceExpression> variableReferenceExpressions, List<VariableReferenceExpression> columnValueAndRowIdSymbols)
+        {
+            Integer[] columnValueAndRowIdChannels = new Integer[columnValueAndRowIdSymbols.size()];
+            int symbolCounter = 0;
+            // This depends on the outputSymbols being ordered as the blocks of the
+            // resulting page are ordered.
+            for (VariableReferenceExpression variableReferenceExpression : variableReferenceExpressions) {
+                int index = columnValueAndRowIdSymbols.indexOf(variableReferenceExpression);
+                if (index >= 0) {
+                    columnValueAndRowIdChannels[index] = symbolCounter;
+                }
+                symbolCounter++;
+            }
+            checkArgument(symbolCounter == columnValueAndRowIdSymbols.size(), "symbolCounter %s should be columnValueAndRowIdChannels.size() %s", symbolCounter);
+            return Arrays.asList(columnValueAndRowIdChannels);
+        }
+
+        @Override
         public PhysicalOperation visitUnion(UnionNode node, LocalExecutionPlanContext context)
         {
             throw new UnsupportedOperationException("Union node should not be present in a local execution plan");
@@ -3365,6 +3402,7 @@ public class LocalExecutionPlanner
                         expectedGroups,
                         maxPartialAggregationMemorySize,
                         useSpill,
+                        createPartialAggregationController(maxPartialAggregationMemorySize, step, session),
                         unspillMemoryLimit,
                         spillerFactory,
                         joinCompiler,
@@ -3383,6 +3421,17 @@ public class LocalExecutionPlanner
         }
     }
 
+    private static Optional<PartialAggregationController> createPartialAggregationController(
+            Optional<DataSize> maxPartialAggregationMemorySize,
+            AggregationNode.Step step,
+            Session session)
+    {
+        if (maxPartialAggregationMemorySize.isPresent() && step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session)) {
+            return Optional.of(new PartialAggregationController(maxPartialAggregationMemorySize.get(), getAdaptivePartialAggregationRowsReductionRatioThreshold(session)));
+        }
+        return Optional.empty();
+    }
+
     private static TableFinisher createTableFinisher(Session session, Metadata metadata, ExecutionWriterTarget target)
     {
         return (fragments, statistics) -> {
@@ -3398,6 +3447,10 @@ public class LocalExecutionPlanner
             }
             else if (target instanceof RefreshMaterializedViewHandle) {
                 return metadata.finishRefreshMaterializedView(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments, statistics);
+            }
+            else if (target instanceof UpdateHandle) {
+                metadata.finishUpdate(session, ((UpdateHandle) target).getHandle(), fragments);
+                return Optional.empty();
             }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());

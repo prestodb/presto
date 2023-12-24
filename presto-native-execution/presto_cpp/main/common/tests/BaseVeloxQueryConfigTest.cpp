@@ -25,7 +25,7 @@ using namespace velox::core;
 
 class BaseVeloxQueryConfigTest : public testing::Test {
  protected:
-  void setUpConfigFile(bool isMutable) {
+  void setUpConfigFile(bool isMutable, bool setupSystemConfig = false) {
     velox::filesystems::registerLocalFileSystem();
 
     char path[] = "/tmp/base_velox_query_config_test_XXXXXX";
@@ -35,6 +35,23 @@ class BaseVeloxQueryConfigTest : public testing::Test {
     }
     configFilePath = tempDirectoryPath;
     configFilePath += "/velox.properties";
+    systemConfigFilePath = tempDirectoryPath;
+    systemConfigFilePath += "/config.properties";
+
+    if (setupSystemConfig) {
+      auto fileSystem =
+          filesystems::getFileSystem(systemConfigFilePath, nullptr);
+      auto systemConfigFile =
+          fileSystem->openFileForWrite(systemConfigFilePath);
+      systemConfigFile->append(
+          fmt::format("{}=true\n", SystemConfig::kUseLegacyArrayAgg));
+      systemConfigFile->append(
+          fmt::format("{}=17MB\n", SystemConfig::kSinkMaxBufferSize));
+      systemConfigFile->append(fmt::format(
+          "{}=6MB\n", SystemConfig::kDriverMaxPagePartitioningBufferSize));
+      systemConfigFile->close();
+      SystemConfig::instance()->initialize(systemConfigFilePath);
+    }
 
     auto fileSystem = filesystems::getFileSystem(configFilePath, nullptr);
     auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
@@ -50,6 +67,7 @@ class BaseVeloxQueryConfigTest : public testing::Test {
   }
 
   std::string configFilePath;
+  std::string systemConfigFilePath;
   const std::string tzPropName{QueryConfig::kSessionTimezone};
 };
 
@@ -91,6 +109,22 @@ TEST_F(BaseVeloxQueryConfigTest, mutableConfig) {
   ASSERT_EQ(
       folly::Optional<std::string>{"TZ1"},
       ret = cfg->optionalProperty(tzPropName));
+}
+
+TEST_F(BaseVeloxQueryConfigTest, fromSystemConfig) {
+#define GET_VAL(_name_) cfg->optionalProperty(std::string(_name_))
+
+  auto cfg = BaseVeloxQueryConfig::instance();
+  ASSERT_EQ("false", GET_VAL(QueryConfig::kPrestoArrayAggIgnoreNulls));
+
+  setUpConfigFile(true, true);
+  cfg->initialize(configFilePath);
+
+  ASSERT_EQ("true", GET_VAL(QueryConfig::kPrestoArrayAggIgnoreNulls));
+  ASSERT_EQ("17825792", GET_VAL(QueryConfig::kMaxArbitraryBufferSize));
+  ASSERT_EQ("6291456", GET_VAL(QueryConfig::kMaxPartitionedOutputBufferSize));
+
+#undef GET_VAL
 }
 
 } // namespace facebook::presto::test

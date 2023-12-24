@@ -177,7 +177,6 @@ public class HiveClientConfig
 
     private boolean pushdownFilterEnabled;
     private boolean parquetPushdownFilterEnabled;
-    private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
     private boolean zstdJniDecompressionEnabled;
 
@@ -225,6 +224,9 @@ public class HiveClientConfig
     private boolean copyOnFirstWriteConfigurationEnabled = true;
 
     private boolean partitionFilteringFromMetastoreEnabled = true;
+
+    private boolean parallelParsingOfPartitionValuesEnabled;
+    private int maxParallelParsingConcurrency = 100;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1523,19 +1525,6 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isRangeFiltersOnSubscriptsEnabled()
-    {
-        return rangeFiltersOnSubscriptsEnabled;
-    }
-
-    @Config("hive.range-filters-on-subscripts-enabled")
-    @ConfigDescription("Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers")
-    public HiveClientConfig setRangeFiltersOnSubscriptsEnabled(boolean rangeFiltersOnSubscriptsEnabled)
-    {
-        this.rangeFiltersOnSubscriptsEnabled = rangeFiltersOnSubscriptsEnabled;
-        return this;
-    }
-
     public boolean isAdaptiveFilterReorderingEnabled()
     {
         return adaptiveFilterReorderingEnabled;
@@ -1898,5 +1887,31 @@ public class HiveClientConfig
     public boolean getReadNullMaskedParquetEncryptedValue()
     {
         return this.isReadNullMaskedParquetEncryptedValueEnabled;
+    }
+
+    @Config("hive.parallel-parsing-of-partition-values-enabled")
+    @ConfigDescription("Enables parallel parsing of partition values using a thread pool")
+    public HiveClientConfig setParallelParsingOfPartitionValuesEnabled(boolean parallelParsingOfPartitionValuesEnabled)
+    {
+        this.parallelParsingOfPartitionValuesEnabled = parallelParsingOfPartitionValuesEnabled;
+        return this;
+    }
+
+    public boolean isParallelParsingOfPartitionValuesEnabled()
+    {
+        return this.parallelParsingOfPartitionValuesEnabled;
+    }
+
+    @Config("hive.max-parallel-parsing-concurrency")
+    @ConfigDescription("Maximum size of the thread pool used for parallel parsing of partition values")
+    public HiveClientConfig setMaxParallelParsingConcurrency(int maxParallelParsingConcurrency)
+    {
+        this.maxParallelParsingConcurrency = maxParallelParsingConcurrency;
+        return this;
+    }
+
+    public int getMaxParallelParsingConcurrency()
+    {
+        return this.maxParallelParsingConcurrency;
     }
 }

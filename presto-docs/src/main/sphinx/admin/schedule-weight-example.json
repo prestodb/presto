@@ -1,0 +1,28 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "100%",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "schedulingPolicy": "weighted",
+      "jmxExport": true,
+      "subGroups": [
+        {
+          "name": "engineering",
+          "softMemoryLimit": "75%",
+          "hardConcurrencyLimit": 75,
+          "maxQueued": 750,
+          "schedulingWeight": 3
+        },
+        {
+          "name": "marketing",
+          "softMemoryLimit": "25%",
+          "hardConcurrencyLimit": 25,
+          "maxQueued": 250,
+          "schedulingWeight": 1
+        }
+      ]
+    }
+  ]
+}

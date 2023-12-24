@@ -41,9 +41,14 @@ public class HashCollisionPlanNodeStats
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             Map<String, OperatorInputStats> operatorInputStats,
+            long planNodeNullJoinBuildKeyCount,
+            long planNodeJoinBuildKeyCount,
+            long planNodeNullJoinProbeKeyCount,
+            long planNodeJoinProbeKeyCount,
             Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats)
     {
-        super(planNodeId, planNodeScheduledTime, planNodeCpuTime, planNodeInputPositions, planNodeInputDataSize, planNodeRawInputPositions, planNodeRawInputDataSize, planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats);
+        super(planNodeId, planNodeScheduledTime, planNodeCpuTime, planNodeInputPositions, planNodeInputDataSize, planNodeRawInputPositions, planNodeRawInputDataSize,
+                planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats, planNodeNullJoinBuildKeyCount, planNodeJoinBuildKeyCount, planNodeNullJoinProbeKeyCount, planNodeJoinProbeKeyCount);
         this.operatorHashCollisionsStats = requireNonNull(operatorHashCollisionsStats, "operatorHashCollisionsStats is null");
     }
 
@@ -99,6 +104,10 @@ public class HashCollisionPlanNodeStats
                 merged.getPlanNodeOutputPositions(),
                 merged.getPlanNodeOutputDataSize(),
                 merged.operatorInputStats,
+                merged.getPlanNodeNullJoinBuildKeyCount(),
+                merged.getPlanNodeJoinBuildKeyCount(),
+                merged.getPlanNodeNullJoinProbeKeyCount(),
+                merged.getPlanNodeJoinProbeKeyCount(),
                 operatorHashCollisionsStats);
     }
 }

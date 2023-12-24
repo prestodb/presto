@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -39,7 +38,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -110,13 +108,15 @@ public class MergePartialAggregationsWithFilter
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new Rewriter(session, variableAllocator, idAllocator, functionAndTypeManager), plan, new Context());
+            Rewriter rewriter = new Rewriter(session, variableAllocator, idAllocator, functionAndTypeManager);
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new Context());
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Context
@@ -159,6 +159,7 @@ public class MergePartialAggregationsWithFilter
         private final VariableAllocator variableAllocator;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final FunctionAndTypeManager functionAndTypeManager;
+        private boolean planChanged;
 
         public Rewriter(Session session, VariableAllocator variableAllocator, PlanNodeIdAllocator planNodeIdAllocator, FunctionAndTypeManager functionAndTypeManager)
         {
@@ -171,6 +172,11 @@ public class MergePartialAggregationsWithFilter
         public static RowExpression ifThenElse(RowExpression... arguments)
         {
             return specialForm(SpecialFormExpression.Form.IF, arguments[1].getType(), arguments);
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -198,9 +204,11 @@ public class MergePartialAggregationsWithFilter
             if (canOptimize) {
                 checkState(node.getAggregations().values().stream().noneMatch(x -> x.getFilter().isPresent()), "All aggregation filters should already be rewritten to mask before this optimization");
                 if (node.getStep().equals(PARTIAL)) {
+                    planChanged = true;
                     return createPartialAggregationNode(node, rewrittenSource, context);
                 }
                 else if (node.getStep().equals(FINAL)) {
+                    planChanged = true;
                     return createFinalAggregationNode(node, rewrittenSource, context);
                 }
             }
@@ -238,8 +246,6 @@ public class MergePartialAggregationsWithFilter
             Map<VariableReferenceExpression, AggregationNode.Aggregation> newAggregations = node.getAggregations().entrySet().stream()
                     .filter(x -> !partialResultToMerge.contains(x.getKey())).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(MergePartialAggregationsWithFilter.class.getSimpleName(), true, Optional.empty(), Optional.empty()));
-
             return new AggregationNode(
                     node.getSourceLocation(),
                     node.getId(),
@@ -249,7 +255,8 @@ public class MergePartialAggregationsWithFilter
                     node.getPreGroupedVariables(),
                     PARTIAL,
                     node.getHashVariable(),
-                    node.getGroupIdVariable());
+                    node.getGroupIdVariable(),
+                    node.getAggregationId());
         }
 
         private AggregationNode createFinalAggregationNode(AggregationNode node, PlanNode rewrittenSource, RewriteContext<Context> context)
@@ -309,7 +316,8 @@ public class MergePartialAggregationsWithFilter
                     node.getPreGroupedVariables(),
                     node.getStep(),
                     node.getHashVariable(),
-                    node.getGroupIdVariable());
+                    node.getGroupIdVariable(),
+                    node.getAggregationId());
         }
 
         @Override

@@ -19,6 +19,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
@@ -34,6 +35,8 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED;
 
 public class TestPrestoSparkNativeSimpleQueries
         extends AbstractTestQueryFramework
@@ -73,13 +76,6 @@ public class TestPrestoSparkNativeSimpleQueries
         return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
     }
 
-    @Override
-    protected void assertQuery(String sql)
-    {
-        super.assertQuery(sql);
-        PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
-    }
-
     @Test
     public void testMapOnlyQueries()
     {
@@ -105,9 +101,6 @@ public class TestPrestoSparkNativeSimpleQueries
     public void testFailures()
     {
         assertQueryFails("SELECT orderkey / 0 FROM orders", ".*division by zero.*");
-
-        assertQueryFails("SELECT transform(array[row(orderkey, comment)], x -> x[2]) FROM orders", ".*Cannot map field index to name in dereference expression: 1.*");
-        assertQueryFails("SELECT transform(array[row(orderkey, orderkey * 10)], x -> x[2]) FROM orders", ".*Cannot map field index to name in dereference expression: 1.*");
     }
 
     /**
@@ -138,7 +131,6 @@ public class TestPrestoSparkNativeSimpleQueries
         Session session = Session.builder(getSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
-                .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
                 .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();
         try {
@@ -168,5 +160,35 @@ public class TestPrestoSparkNativeSimpleQueries
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS avg_partial_states");
         }
+    }
+
+    @Test
+    public void testRetryOnOutOfMemoryBroadcastJoin()
+    {
+        String query = "select l.orderkey from lineitem l join orders o on l.orderkey = o.orderkey ";
+
+        Session session = getSessionWithBroadcastJoinDistribution("10B", false);
+        // Query should fail with broadcast join OOM & retry disabled.
+        assertQueryFails(
+                session,
+                query,
+                "Query exceeded per-node broadcast memory limit of 10B \\[Max serialized broadcast size: .*kB\\]");
+
+        Session expectedSession = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .build();
+        Session actualSession = getSessionWithBroadcastJoinDistribution("10B", true);
+
+        // Query should succeed with broadcast join OOM & retry enabled.
+        assertQuery(actualSession, query, expectedSession, query);
+    }
+
+    private Session getSessionWithBroadcastJoinDistribution(String broadcastJoinMaxMemory, Boolean retryOnBroadcastOutOfMemory)
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .setSystemProperty(SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE, broadcastJoinMaxMemory)
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED, Boolean.toString(retryOnBroadcastOutOfMemory))
+                .build();
     }
 }

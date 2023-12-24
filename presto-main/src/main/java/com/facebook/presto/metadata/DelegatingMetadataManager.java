@@ -34,6 +34,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -96,6 +97,12 @@ public abstract class DelegatingMetadataManager
     public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName)
     {
         return delegate.getSystemTable(session, tableName);
+    }
+
+    @Override
+    public Optional<TableHandle> getHandleVersion(Session session, QualifiedObjectName tableName, Optional<ConnectorTableVersion> tableVersion)
+    {
+        return delegate.getHandleVersion(session, tableName, tableVersion);
     }
 
     @Override
@@ -353,9 +360,15 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle)
+    public ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle)
     {
-        return delegate.getUpdateRowIdColumnHandle(session, tableHandle);
+        return delegate.getDeleteRowIdColumnHandle(session, tableHandle);
+    }
+
+    @Override
+    public ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        return delegate.getUpdateRowIdColumnHandle(session, tableHandle, updatedColumns);
     }
 
     @Override
@@ -380,6 +393,18 @@ public abstract class DelegatingMetadataManager
     public void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments)
     {
         delegate.finishDelete(session, tableHandle, fragments);
+    }
+
+    @Override
+    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        return delegate.beginUpdate(session, tableHandle, updatedColumns);
+    }
+
+    @Override
+    public void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments)
+    {
+        delegate.finishUpdate(session, tableHandle, fragments);
     }
 
     @Override

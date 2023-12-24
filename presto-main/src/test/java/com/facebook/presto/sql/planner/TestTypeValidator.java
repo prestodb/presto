@@ -212,6 +212,7 @@ public class TestTypeValidator
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -239,6 +240,7 @@ public class TestTypeValidator
                 ImmutableList.of(),
                 INTERMEDIATE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -265,6 +267,7 @@ public class TestTypeValidator
                 singleGroupingSet(ImmutableList.of()),
                 ImmutableList.of(),
                 PARTIAL,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
@@ -323,6 +326,7 @@ public class TestTypeValidator
                 ImmutableList.of(),
                 INTERMEDIATE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -349,6 +353,7 @@ public class TestTypeValidator
                 singleGroupingSet(ImmutableList.of()),
                 ImmutableList.of(),
                 PARTIAL,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
@@ -378,6 +383,7 @@ public class TestTypeValidator
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -405,6 +411,7 @@ public class TestTypeValidator
                 singleGroupingSet(ImmutableList.of(variableA, variableB)),
                 ImmutableList.of(),
                 SINGLE,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

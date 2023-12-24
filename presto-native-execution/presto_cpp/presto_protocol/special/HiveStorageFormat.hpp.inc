@@ -17,6 +17,7 @@ namespace facebook::presto::protocol {
 enum class HiveStorageFormat {
   ORC,
   DWRF,
+  ALPHA,
   PARQUET,
   AVRO,
   RCBINARY,

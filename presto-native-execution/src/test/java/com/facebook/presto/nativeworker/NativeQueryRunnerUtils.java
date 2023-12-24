@@ -26,12 +26,14 @@ public class NativeQueryRunnerUtils
     {
         return ImmutableMap.of("hive.storage-format", storageFormat,
                 "hive.pushdown-filter-enabled", "true",
-                "hive.parquet.pushdown-filter-enabled", "true");
+                "hive.parquet.pushdown-filter-enabled", "true",
+                "hive.orc-compression-codec", "ZSTD");
     }
 
     public static Map<String, String> getNativeWorkerSystemProperties()
     {
         return ImmutableMap.<String, String>builder()
+                .put("native-execution-enabled", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("parse-decimal-literals-as-double", "true")
                 .put("regex-library", "RE2J")

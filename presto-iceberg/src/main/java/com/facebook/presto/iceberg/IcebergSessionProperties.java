@@ -19,18 +19,20 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
+import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.facebook.presto.orc.OrcWriteValidation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import org.apache.parquet.column.ParquetProperties;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -40,7 +42,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -50,6 +51,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
     private static final String PARQUET_USE_COLUMN_NAMES = "parquet_use_column_names";
     private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
@@ -78,6 +80,11 @@ public final class IcebergSessionProperties
     private static final String NESSIE_REFERENCE_HASH = "nessie_reference_hash";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
+    public static final String MERGE_ON_READ_MODE_ENABLED = "merge_on_read_enabled";
+    public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
+    public static final String HIVE_METASTORE_STATISTICS_MERGE_STRATEGY = "hive_statistics_merge_strategy";
+    public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -95,7 +102,7 @@ public final class IcebergSessionProperties
                         "The compression codec to use when writing files",
                         VARCHAR,
                         HiveCompressionCodec.class,
-                        hiveClientConfig.getCompressionCodec(),
+                        icebergConfig.getCompressionCodec(),
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
                         HiveCompressionCodec::name),
@@ -129,6 +136,15 @@ public final class IcebergSessionProperties
                         "Parquet: Writer page size",
                         parquetFileWriterConfig.getPageSize(),
                         false),
+                new PropertyMetadata<>(
+                        PARQUET_WRITER_VERSION,
+                        "Parquet: Writer version",
+                        VARCHAR,
+                        ParquetProperties.WriterVersion.class,
+                        parquetFileWriterConfig.getWriterVersion(),
+                        false,
+                        value -> ParquetProperties.WriterVersion.valueOf(((String) value).toUpperCase()),
+                        ParquetProperties.WriterVersion::name),
                 booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
                         "ORC: Enable bloom filters for predicate pushdown",
@@ -273,6 +289,34 @@ public final class IcebergSessionProperties
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
                         icebergConfig.isParquetDereferencePushdownEnabled(),
+                        false),
+                booleanProperty(
+                        MERGE_ON_READ_MODE_ENABLED,
+                        "Reads enabled for merge-on-read Iceberg tables",
+                        icebergConfig.isMergeOnReadModeEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        HIVE_METASTORE_STATISTICS_MERGE_STRATEGY,
+                        "choose how to include statistics from the Hive Metastore when calculating table stats. Valid values are: "
+                                + Joiner.on(", ").join(HiveStatisticsMergeStrategy.values()),
+                        VARCHAR,
+                        HiveStatisticsMergeStrategy.class,
+                        icebergConfig.getHiveStatisticsMergeStrategy(),
+                        false,
+                        val -> HiveStatisticsMergeStrategy.valueOf((String) val),
+                        HiveStatisticsMergeStrategy::name),
+                booleanProperty(
+                        PUSHDOWN_FILTER_ENABLED,
+                        "Experimental: Enable Filter Pushdown for Iceberg. This is only supported with Native Worker.",
+                        icebergConfig.isPushdownFilterEnabled(),
+                        false),
+                doubleProperty(
+                        STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT,
+                        "the amount that the difference in total record count matters" +
+                                "when calculating the closest snapshot when picking statistics. A " +
+                                "value of 1 means a single record is equivalent to 1 millisecond of " +
+                                "time difference.",
+                        icebergConfig.getStatisticSnapshotRecordDifferenceWeight(),
                         false));
     }
 
@@ -299,6 +343,11 @@ public final class IcebergSessionProperties
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
+    public static ParquetProperties.WriterVersion getParquetWriterVersion(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_VERSION, ParquetProperties.WriterVersion.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
@@ -364,23 +413,6 @@ public final class IcebergSessionProperties
         return session.getProperty(ORC_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 
-    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session)
-    {
-        boolean validate = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
-        double percentage = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, Double.class);
-
-        checkArgument(percentage >= 0.0 && percentage <= 100.0);
-
-        // session property can disabled validation
-        if (!validate) {
-            return false;
-        }
-
-        // session property can not force validation when sampling is enabled
-        // todo change this if session properties support null
-        return ThreadLocalRandom.current().nextDouble(100) < percentage;
-    }
-
     public static OrcWriteValidation.OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
     {
         return OrcWriteValidation.OrcWriteValidationMode.valueOf(session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_MODE, String.class).toUpperCase(ENGLISH));
@@ -444,5 +476,25 @@ public final class IcebergSessionProperties
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isMergeOnReadModeEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MERGE_ON_READ_MODE_ENABLED, Boolean.class);
+    }
+
+    public static HiveStatisticsMergeStrategy getHiveStatisticsMergeStrategy(ConnectorSession session)
+    {
+        return session.getProperty(HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, HiveStatisticsMergeStrategy.class);
+    }
+
+    public static boolean isPushdownFilterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
+    }
+
+    public static double getStatisticSnapshotRecordDifferenceWeight(ConnectorSession session)
+    {
+        return session.getProperty(STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT, Double.class);
     }
 }

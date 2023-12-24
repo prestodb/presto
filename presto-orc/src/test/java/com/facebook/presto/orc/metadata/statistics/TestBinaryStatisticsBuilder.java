@@ -28,6 +28,7 @@ import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.merge
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 
 public class TestBinaryStatisticsBuilder
@@ -121,7 +122,7 @@ public class TestBinaryStatisticsBuilder
 
         addValue(statisticsBuilder, SECOND_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
-        assertMergedBinaryStatistics(statisticsList, 6, FIRST_VALUE.length() * 2 + SECOND_VALUE.length());
+        assertMergedBinaryStatistics(statisticsList, 6, FIRST_VALUE.length() * 2L + SECOND_VALUE.length());
     }
 
     @Test
@@ -131,6 +132,22 @@ public class TestBinaryStatisticsBuilder
         assertTotalValueBytes(BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(EMPTY_SLICE));
         assertTotalValueBytes(FIRST_VALUE.length() + BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE));
         assertTotalValueBytes((FIRST_VALUE.length() + SECOND_VALUE.length()) + 2 * BINARY_VALUE_BYTES_OVERHEAD, ImmutableList.of(FIRST_VALUE, SECOND_VALUE));
+    }
+
+    @Test
+    public void testEqualsAndHashCode()
+    {
+        BinaryStatisticsBuilder statisticsBuilder = new BinaryStatisticsBuilder();
+        addValue(statisticsBuilder, FIRST_VALUE);
+        ColumnStatistics statA1 = statisticsBuilder.buildColumnStatistics();
+        ColumnStatistics statA2 = statisticsBuilder.buildColumnStatistics();
+        assertEquals(statA1, statA2);
+        assertEquals(statA1.hashCode(), statA2.hashCode());
+
+        addValue(statisticsBuilder, SECOND_VALUE);
+        ColumnStatistics statB1 = statisticsBuilder.buildColumnStatistics();
+        assertNotEquals(statA1, statB1);
+        assertNotEquals(statA1.hashCode(), statB1.hashCode());
     }
 
     private void assertMergedBinaryStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, long expectedSum)

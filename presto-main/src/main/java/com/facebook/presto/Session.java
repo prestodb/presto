@@ -32,6 +32,7 @@ import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.sql.analyzer.CTEInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
 import com.facebook.presto.transaction.TransactionManager;
@@ -51,6 +52,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isFieldNameInJsonCastEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
@@ -95,6 +97,7 @@ public final class Session
     private final RuntimeStats runtimeStats = new RuntimeStats();
     private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
     private final OptimizerResultCollector optimizerResultCollector = new OptimizerResultCollector();
+    private final CTEInformationCollector cteInformationCollector = new CTEInformationCollector();
 
     public Session(
             QueryId queryId,
@@ -326,6 +329,11 @@ public final class Session
         return optimizerResultCollector;
     }
 
+    public CTEInformationCollector getCteInformationCollector()
+    {
+        return cteInformationCollector;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -493,6 +501,7 @@ public final class Session
                 .setSessionStartTime(getStartTime())
                 .setSessionLocale(getLocale())
                 .setSessionUser(getUser())
+                .setFieldNamesInJsonCastEnabled(isFieldNameInJsonCastEnabled(this))
                 .setExtraCredentials(identity.getExtraCredentials())
                 .build();
     }

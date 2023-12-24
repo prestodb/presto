@@ -18,14 +18,16 @@
 
 namespace facebook::presto {
 
-/// Defines a server operation.
+/// Defines a server operation. A server operation is accessed through http
+/// endpoint /v1/operation/<target>/<action>?param1=value1&param2=value2...
 struct ServerOperation {
   /// The target this operation is operating upon
   enum class Target {
     kConnector,
     kSystemConfig,
     kVeloxQueryConfig,
-    kDebug,
+    kTask,
+    kServer,
   };
 
   /// The action this operation is trying to take
@@ -34,7 +36,8 @@ struct ServerOperation {
     kGetCacheStats,
     kSetProperty,
     kGetProperty,
-    kTask,
+    kGetDetail,
+    kListAll,
     kTrace,
   };
 

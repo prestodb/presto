@@ -19,6 +19,7 @@ import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.FileParquetDataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.reader.ParquetReader;
+import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
@@ -87,7 +88,8 @@ public class TestParquetReaderMemoryTracking
                 ImmutableList.of("c1"),
                 new Iterable<?>[] {generateValues()},
                 ROWS,
-                compressionCodecName);
+                compressionCodecName,
+                ParquetWriterOptions.DEFAULT_WRITER_VERSION);
     }
 
     private List<Integer> generateValues()

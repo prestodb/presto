@@ -13,66 +13,101 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.datasketches.memory.Memory;
+import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.GenericBlobMetadata;
+import org.apache.iceberg.GenericStatisticsFile;
+import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.puffin.Blob;
+import org.apache.iceberg.puffin.Puffin;
+import org.apache.iceberg.puffin.PuffinWriter;
 import org.apache.iceberg.types.Comparators;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TypeUtils.isNumericType;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
-import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticSnapshotRecordDifferenceWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Long.parseLong;
+import static java.lang.Math.abs;
+import static java.lang.String.format;
+import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
 
 public class TableStatisticsMaker
 {
-    private final TypeManager typeManager;
+    private static final Logger log = Logger.get(TableStatisticsMaker.class);
+    private static final String ICEBERG_THETA_SKETCH_BLOB_TYPE_ID = "apache-datasketches-theta-v1";
+    private static final String ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY = "ndv";
     private final Table icebergTable;
+    private final ConnectorSession session;
 
-    private TableStatisticsMaker(TypeManager typeManager, Table icebergTable)
+    private TableStatisticsMaker(Table icebergTable, ConnectorSession session)
     {
-        this.typeManager = typeManager;
         this.icebergTable = icebergTable;
+        this.session = session;
     }
 
-    public static TableStatistics getTableStatistics(TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable)
+    public static TableStatistics getTableStatistics(ConnectorSession session, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
     {
-        return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(tableHandle, constraint);
+        return new TableStatisticsMaker(icebergTable, session).makeTableStatistics(tableHandle, constraint, columns);
     }
 
-    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint)
+    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
     {
-        if (!tableHandle.getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
+        if (!tableHandle.getTableName().getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
@@ -103,41 +138,16 @@ public class TableStatisticsMaker
                 .filter(column -> !identityPartitionIds.contains(column.fieldId()) && column.type().isPrimitiveType())
                 .collect(toImmutableList());
 
-        List<Type> icebergPartitionTypes = partitionTypes(partitionFields, idToTypeMapping);
-        List<IcebergColumnHandle> columnHandles = getColumns(icebergTable.schema(), typeManager);
-        Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
-                .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
-
-        ImmutableMap.Builder<Integer, ColumnFieldDetails> idToDetailsBuilder = ImmutableMap.builder();
-        for (int index = 0; index < partitionFields.size(); index++) {
-            PartitionField field = partitionFields.get(index);
-            Type type = icebergPartitionTypes.get(index);
-            idToDetailsBuilder.put(field.sourceId(), new ColumnFieldDetails(
-                    field,
-                    idToColumnHandle.get(field.sourceId()),
-                    type,
-                    toPrestoType(type, typeManager),
-                    type.typeId().javaClass()));
-        }
-        Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.build();
-
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(intersection))
-                .useSnapshot(tableHandle.getSnapshotId().get())
+                .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
+                .useSnapshot(tableHandle.getTableName().getSnapshotId().get())
                 .includeColumnStats();
 
         Partition summary = null;
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             for (FileScanTask fileScanTask : fileScanTasks) {
                 DataFile dataFile = fileScanTask.file();
-                if (!dataFileMatches(
-                        dataFile,
-                        constraint,
-                        idToTypeMapping,
-                        partitionFields,
-                        idToDetails)) {
-                    continue;
-                }
 
                 if (summary == null) {
                     summary = new Partition(
@@ -176,9 +186,11 @@ public class TableStatisticsMaker
         TableStatistics.Builder result = TableStatistics.builder();
         result.setRowCount(Estimate.of(recordCount));
         result.setTotalSize(Estimate.of(summary.getSize()));
-        for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
+        Map<Integer, ColumnStatistics.Builder> tableStats = getClosestStatisticsFileForSnapshot(tableHandle)
+                .map(TableStatisticsMaker::loadStatisticsFile).orElseGet(Collections::emptyMap);
+        for (IcebergColumnHandle columnHandle : selectedColumns) {
             int fieldId = columnHandle.getId();
-            ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
+            ColumnStatistics.Builder columnBuilder = tableStats.getOrDefault(fieldId, ColumnStatistics.builder());
             Long nullCount = summary.getNullCounts().get(fieldId);
             if (nullCount != null) {
                 columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
@@ -199,72 +211,66 @@ public class TableStatisticsMaker
         return result.build();
     }
 
-    private boolean dataFileMatches(
-            DataFile dataFile,
-            Constraint constraint,
-            Map<Integer, Type.PrimitiveType> idToTypeMapping,
-            List<PartitionField> partitionFields,
-            Map<Integer, ColumnFieldDetails> fieldDetails)
+    public static void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
     {
-        return true;
+        new TableStatisticsMaker(icebergTable, session).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
     }
 
-    private NullableValue makeNullableValue(com.facebook.presto.common.type.Type type, Object value)
+    private void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
-        return value == null ? NullableValue.asNull(type) : NullableValue.of(type, value);
-    }
-
-    public List<Type> partitionTypes(List<PartitionField> partitionFields, Map<Integer, Type.PrimitiveType> idToTypeMapping)
-    {
-        ImmutableList.Builder<Type> partitionTypeBuilder = ImmutableList.builder();
-        for (PartitionField partitionField : partitionFields) {
-            Type.PrimitiveType sourceType = idToTypeMapping.get(partitionField.sourceId());
-            Type type = partitionField.transform().getResultType(sourceType);
-            partitionTypeBuilder.add(type);
+        Snapshot snapshot = tableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
+        if (snapshot == null) {
+            // this may occur if the table has not been written to.
+            return;
         }
-        return partitionTypeBuilder.build();
-    }
-
-    private static class ColumnFieldDetails
-    {
-        private final PartitionField field;
-        private final IcebergColumnHandle columnHandle;
-        private final Type icebergType;
-        private final com.facebook.presto.common.type.Type prestoType;
-        private final Class<?> javaClass;
-
-        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, com.facebook.presto.common.type.Type prestoType, Class<?> javaClass)
-        {
-            this.field = requireNonNull(field, "field is null");
-            this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
-            this.icebergType = requireNonNull(icebergType, "icebergType is null");
-            this.prestoType = requireNonNull(prestoType, "prestoType is null");
-            this.javaClass = requireNonNull(javaClass, "javaClass is null");
-        }
-
-        public PartitionField getField()
-        {
-            return field;
-        }
-
-        public IcebergColumnHandle getColumnHandle()
-        {
-            return columnHandle;
-        }
-
-        public Type getIcebergType()
-        {
-            return icebergType;
-        }
-
-        public com.facebook.presto.common.type.Type getPrestoType()
-        {
-            return prestoType;
-        }
-
-        public Class<?> getJavaClass()
-        {
-            return javaClass;
+        try (FileIO io = icebergTable.io()) {
+            String path = ((HasTableOperations) icebergTable).operations().metadataFileLocation(format("%s-%s.stats", session.getQueryId(), randomUUID()));
+            OutputFile outputFile = io.newOutputFile(path);
+            try (PuffinWriter writer = Puffin.write(outputFile)
+                    .createdBy("presto-" + nodeVersion)
+                    .build()) {
+                computedStatistics.stream()
+                        .map(ComputedStatistics::getColumnStatistics)
+                        .filter(Objects::nonNull)
+                        .flatMap(map -> map.entrySet().stream())
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+                        .forEach((key, value) -> {
+                            if (!key.getStatisticType().equals(NUMBER_OF_DISTINCT_VALUES)) {
+                                return;
+                            }
+                            Optional<Integer> id = Optional.ofNullable(icebergTable.schema().findField(key.getColumnName())).map(Types.NestedField::fieldId);
+                            if (!id.isPresent()) {
+                                log.warn("failed to find column name %s in schema of table %s when writing distinct value statistics", key.getColumnName(), icebergTable.name());
+                                throw new PrestoException(ICEBERG_INVALID_METADATA, format("failed to find column name %s in schema of table %s when writing distinct value statistics", key.getColumnName(), icebergTable.name()));
+                            }
+                            ByteBuffer raw = VARBINARY.getSlice(value, 0).toByteBuffer();
+                            CompactSketch sketch = CompactSketch.wrap(Memory.wrap(raw, ByteOrder.nativeOrder()));
+                            writer.add(new Blob(
+                                    ICEBERG_THETA_SKETCH_BLOB_TYPE_ID,
+                                    ImmutableList.of(id.get()),
+                                    snapshot.snapshotId(),
+                                    snapshot.sequenceNumber(),
+                                    raw,
+                                    null,
+                                    ImmutableMap.of(ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY, Long.toString((long) sketch.getEstimate()))));
+                        });
+                writer.finish();
+                icebergTable.updateStatistics().setStatistics(
+                                snapshot.snapshotId(),
+                                new GenericStatisticsFile(
+                                        snapshot.snapshotId(),
+                                        path,
+                                        writer.fileSize(),
+                                        writer.footerSize(),
+                                        writer.writtenBlobsMetadata().stream()
+                                                .map(GenericBlobMetadata::from)
+                                                .collect(toImmutableList())))
+                        .commit();
+            }
+            catch (IOException e) {
+                log.warn(e, "failed to write table statistics file");
+                throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "failed to write statistics file", e);
+            }
         }
     }
 
@@ -322,5 +328,83 @@ public class TableStatisticsMaker
                 }
             }
         }
+    }
+
+    private Optional<StatisticsFile> getClosestStatisticsFileForSnapshot(IcebergTableHandle handle)
+    {
+        Snapshot target = handle.getTableName().getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
+        return icebergTable.statisticsFiles()
+                .stream()
+                .min((first, second) -> {
+                    if (first == second) {
+                        return 0;
+                    }
+                    if (icebergTable.snapshot(first.snapshotId()) == null) {
+                        return 1;
+                    }
+                    if (icebergTable.snapshot(second.snapshotId()) == null) {
+                        return -1;
+                    }
+                    Snapshot firstSnap = icebergTable.snapshot(first.snapshotId());
+                    Snapshot secondSnap = icebergTable.snapshot(second.snapshotId());
+                    long firstDiff = abs(target.timestampMillis() - firstSnap.timestampMillis());
+                    long secondDiff = abs(target.timestampMillis() - secondSnap.timestampMillis());
+
+                    // check if total-record exists
+                    Optional<Long> targetTotalRecords = Optional.ofNullable(target.summary().get(TOTAL_RECORDS_PROP)).map(Long::parseLong);
+                    Optional<Long> firstTotalRecords = Optional.ofNullable(firstSnap.summary().get(TOTAL_RECORDS_PROP))
+                            .map(Long::parseLong);
+                    Optional<Long> secondTotalRecords = Optional.ofNullable(secondSnap.summary().get(TOTAL_RECORDS_PROP))
+                            .map(Long::parseLong);
+
+                    if (targetTotalRecords.isPresent() && firstTotalRecords.isPresent() && secondTotalRecords.isPresent()) {
+                        long targetTotal = targetTotalRecords.get();
+                        double weight = getStatisticSnapshotRecordDifferenceWeight(session);
+                        firstDiff += (long) (weight * abs(firstTotalRecords.get() - targetTotal));
+                        secondDiff += (long) (weight * abs(secondTotalRecords.get() - targetTotal));
+                    }
+
+                    return Long.compare(firstDiff, secondDiff);
+                });
+    }
+
+    /**
+     * Builds a map of field ID to ColumnStatistics for a particular {@link StatisticsFile}.
+     *
+     * @return
+     */
+    private static Map<Integer, ColumnStatistics.Builder> loadStatisticsFile(StatisticsFile file)
+    {
+        ImmutableMap.Builder<Integer, ColumnStatistics.Builder> result = ImmutableMap.builder();
+        file.blobMetadata().forEach(blob -> {
+            Integer field = getOnlyElement(blob.fields());
+            ColumnStatistics.Builder colStats = ColumnStatistics.builder();
+            Optional.ofNullable(blob.properties().get(ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY))
+                    .ifPresent(ndvProp -> {
+                        try {
+                            long ndv = parseLong(ndvProp);
+                            colStats.setDistinctValuesCount(Estimate.of(ndv));
+                        }
+                        catch (NumberFormatException e) {
+                            colStats.setDistinctValuesCount(Estimate.unknown());
+                            log.warn("bad long value when parsing statistics file %s, bad value: %d", file.path(), ndvProp);
+                        }
+                    });
+            result.put(field, colStats);
+        });
+        return result.build();
+    }
+
+    public static List<ColumnStatisticMetadata> getSupportedColumnStatistics(String columnName, com.facebook.presto.common.type.Type type)
+    {
+        ImmutableList.Builder<ColumnStatisticMetadata> supportedStatistics = ImmutableList.builder();
+        // all types which support being passed to the sketch_theta function
+        if (isNumericType(type) || type.equals(DATE) || isVarcharType(type) ||
+                type.equals(TIMESTAMP) ||
+                type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            supportedStatistics.add(NUMBER_OF_DISTINCT_VALUES.getColumnStatisticMetadataWithCustomFunction(columnName, "sketch_theta"));
+        }
+
+        return supportedStatistics.build();
     }
 }

@@ -55,6 +55,15 @@ This dependency can be installed by running the script below from the
 
 `./velox/scripts/setup-adapters.sh aws`
 
+To enable JWT authentication support, set `PRESTO_ENABLE_JWT = "ON"` in
+the environment.
+
+JWT authentication support needs the [JWT CPP](https://github.com/Thalhammer/jwt-cpp) library.
+This dependency can be installed by running the script below from the
+`presto/presto-native-execution` directory.
+
+`./scripts/setup-adapters.sh jwt`
+
 * After installing the above dependencies, from the
 `presto/presto-native-execution` directory, run `make`
 * For development, use
@@ -110,6 +119,8 @@ Run IntelliJ IDEA:
   * Class: `com.facebook.presto.nativeworker.TestPrestoNativeGeneralQueriesJSON`
   * VM Options: `-ea -DPRESTO_SERVER=/Users/<user>/git/presto_cpp/cmake-build-debug/presto_cpp/main/presto_server -DDATA_DIR=/Users/<user>/Desktop/data`
   * Working directory: `$MODULE_WORKING_DIR$`
+  * On Apple Silicon
+    * Environment Variables: `DYLD_LIBRARY_PATH=/usr/local/lib`
 * Edit/Create `Presto Client` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.cli.Presto`
   * Program arguments: `--catalog hive --schema tpch`

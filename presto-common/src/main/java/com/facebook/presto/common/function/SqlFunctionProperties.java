@@ -33,6 +33,7 @@ public class SqlFunctionProperties
     private final long sessionStartTime;
     private final Locale sessionLocale;
     private final String sessionUser;
+    private final boolean fieldNamesInJsonCastEnabled;
     private final Map<String, String> extraCredentials;
 
     private SqlFunctionProperties(
@@ -44,6 +45,7 @@ public class SqlFunctionProperties
             long sessionStartTime,
             Locale sessionLocale,
             String sessionUser,
+            boolean fieldNamesInJsonCastEnabled,
             Map<String, String> extraCredentials)
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
@@ -54,6 +56,7 @@ public class SqlFunctionProperties
         this.sessionStartTime = sessionStartTime;
         this.sessionLocale = requireNonNull(sessionLocale, "sessionLocale is null");
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
+        this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
         this.extraCredentials = requireNonNull(extraCredentials, "extraCredentials is null");
     }
 
@@ -103,6 +106,11 @@ public class SqlFunctionProperties
         return extraCredentials;
     }
 
+    public boolean isFieldNamesInJsonCastEnabled()
+    {
+        return fieldNamesInJsonCastEnabled;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -145,6 +153,7 @@ public class SqlFunctionProperties
         private long sessionStartTime;
         private Locale sessionLocale;
         private String sessionUser;
+        private boolean fieldNamesInJsonCastEnabled;
         private Map<String, String> extraCredentials = emptyMap();
 
         private Builder() {}
@@ -203,9 +212,15 @@ public class SqlFunctionProperties
             return this;
         }
 
+        public Builder setFieldNamesInJsonCastEnabled(boolean fieldNamesInJsonCastEnabled)
+        {
+            this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
+            return this;
+        }
+
         public SqlFunctionProperties build()
         {
-            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, extraCredentials);
+            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, fieldNamesInJsonCastEnabled, extraCredentials);
         }
     }
 }

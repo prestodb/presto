@@ -137,7 +137,6 @@ public class TestHiveClientConfig
                 .setPushdownFilterEnabled(false)
                 .setParquetPushdownFilterEnabled(false)
                 .setZstdJniDecompressionEnabled(false)
-                .setRangeFiltersOnSubscriptsEnabled(false)
                 .setAdaptiveFilterReorderingEnabled(true)
                 .setFileStatusCacheExpireAfterWrite(new Duration(0, TimeUnit.SECONDS))
                 .setFileStatusCacheMaxSize(0)
@@ -171,7 +170,9 @@ public class TestHiveClientConfig
                 .setThriftBufferSize(new DataSize(128, BYTE))
                 .setReadNullMaskedParquetEncryptedValue(false)
                 .setCopyOnFirstWriteConfigurationEnabled(true)
-                .setPartitionFilteringFromMetastoreEnabled(true));
+                .setPartitionFilteringFromMetastoreEnabled(true)
+                .setParallelParsingOfPartitionValuesEnabled(false)
+                .setMaxParallelParsingConcurrency(100));
     }
 
     @Test
@@ -266,7 +267,6 @@ public class TestHiveClientConfig
                 .put("hive.use-pagefile-for-hive-unsupported-type", "false")
                 .put("hive.pushdown-filter-enabled", "true")
                 .put("hive.parquet.pushdown-filter-enabled", "true")
-                .put("hive.range-filters-on-subscripts-enabled", "true")
                 .put("hive.adaptive-filter-reordering-enabled", "false")
                 .put("hive.zstd-jni-decompression-enabled", "true")
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
@@ -302,6 +302,8 @@ public class TestHiveClientConfig
                 .put("hive.read-null-masked-parquet-encrypted-value-enabled", "true")
                 .put("hive.copy-on-first-write-configuration-enabled", "false")
                 .put("hive.partition-filtering-from-metastore-enabled", "false")
+                .put("hive.parallel-parsing-of-partition-values-enabled", "true")
+                .put("hive.max-parallel-parsing-concurrency", "200")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -393,7 +395,6 @@ public class TestHiveClientConfig
                 .setPushdownFilterEnabled(true)
                 .setParquetPushdownFilterEnabled(true)
                 .setZstdJniDecompressionEnabled(true)
-                .setRangeFiltersOnSubscriptsEnabled(true)
                 .setAdaptiveFilterReorderingEnabled(false)
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
@@ -427,7 +428,9 @@ public class TestHiveClientConfig
                 .setThriftBufferSize(new DataSize(256, BYTE))
                 .setReadNullMaskedParquetEncryptedValue(true)
                 .setCopyOnFirstWriteConfigurationEnabled(false)
-                .setPartitionFilteringFromMetastoreEnabled(false);
+                .setPartitionFilteringFromMetastoreEnabled(false)
+                .setParallelParsingOfPartitionValuesEnabled(true)
+                .setMaxParallelParsingConcurrency(200);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

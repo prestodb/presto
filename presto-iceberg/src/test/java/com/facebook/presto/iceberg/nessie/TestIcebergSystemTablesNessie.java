@@ -74,8 +74,6 @@ public class TestIcebergSystemTablesNessie
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .putAll(nessieConnectorProperties(nessieContainer.getRestApiUri()))
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
                 .put("iceberg.catalog.warehouse", catalogDirectory.getParent().toFile().toURI().toString())
                 .build();
 
@@ -90,16 +88,20 @@ public class TestIcebergSystemTablesNessie
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$properties\"",
                 "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 3");
+        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 5");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 "SELECT * FROM test_schema.\"test_table$properties\"").getMaterializedRows();
 
         // nessie writes a "nessie.commit.id" + "gc.enabled=false" to the table properties
-        assertThat(materializedRows).hasSize(3);
+        assertThat(materializedRows).hasSize(5);
         assertThat(materializedRows)
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "PARQUET")))
                 .anySatisfy(row -> assertThat(row.getField(0)).isEqualTo("nessie.commit.id"))
-                .anySatisfy(row -> assertThat(row).isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "gc.enabled", "false")));
+                .anySatisfy(row -> assertThat(row).isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "gc.enabled", "false")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.parquet.compression-codec", "zstd")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.delete-after-commit.enabled", "false")));
     }
 }

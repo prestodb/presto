@@ -665,7 +665,6 @@ public class TestHiveFileFormats
                         "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L))));
 
         HiveErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH;
-        String expectedMessageFloatDouble = "The column column_name of table schema.table is declared as type double, but the Parquet file ((.*?)) declares the column as type FLOAT";
 
         // Make sure INT64 is still readable as Timestamp see https://github.com/prestodb/presto/issues/13855
         assertThatFileFormat(PARQUET)
@@ -685,7 +684,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(floatColumn))
                 .withReadColumns(ImmutableList.of(doubleColumn))
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER), expectedErrorCode, expectedMessageFloatDouble);
+                .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
 
         String expectedMessageDoubleLong = "The column column_name of table schema.table is declared as type bigint, but the Parquet file ((.*?)) declares the column as type DOUBLE";
 

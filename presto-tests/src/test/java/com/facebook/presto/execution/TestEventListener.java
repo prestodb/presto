@@ -122,7 +122,8 @@ public class TestEventListener
 
         List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
         assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertEquals(splitCompletedEvents.get(0).getStatistics().getCompletedPositions(), 1);
+        // No input scanned for a constant query
+        assertEquals(splitCompletedEvents.get(0).getStatistics().getCompletedPositions(), 0L);
     }
 
     @Test

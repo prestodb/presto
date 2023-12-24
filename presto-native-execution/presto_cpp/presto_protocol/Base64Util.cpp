@@ -137,8 +137,7 @@ velox::VectorPtr readScalarBlock(
           velox::AlignedBuffer::allocate<velox::Timestamp>(positionCount, pool);
       auto* rawTimestamps = timestamps->asMutable<velox::Timestamp>();
       for (auto i = 0; i < positionCount; i++) {
-        rawTimestamps[i] = velox::Timestamp(
-            rawBuffer[i] / 1000, (rawBuffer[i] % 1000) * 1000000);
+        rawTimestamps[i] = velox::Timestamp::fromMillis(rawBuffer[i]);
       }
       return std::make_shared<velox::FlatVector<velox::Timestamp>>(
           pool,

@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Paths;
@@ -70,6 +71,7 @@ public class NativeExecutionProcess
     private static final String WORKER_NODE_CONFIG_FILE = "/node.properties";
     private static final String WORKER_VELOX_CONFIG_FILE = "/velox.properties";
     private static final String WORKER_CONNECTOR_CONFIG_FILE = "/catalog/";
+    private static final int SIGSYS = 31;
 
     private final Session session;
     private final PrestoSparkHttpServerClient serverClient;
@@ -81,7 +83,7 @@ public class NativeExecutionProcess
     private final HttpClient httpClient;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
-    private Process process;
+    private volatile Process process;
 
     public NativeExecutionProcess(
             Session session,
@@ -158,10 +160,61 @@ public class NativeExecutionProcess
         return future;
     }
 
+    /**
+     * Triggers coredump (also terminates the process)
+     */
+    public void sendCoreSignal()
+    {
+        // chosen as the least likely core signal to occur naturally (invalid sys call)
+        // https://man7.org/linux/man-pages/man7/signal.7.html
+        sendSignal(SIGSYS);
+    }
+
+    public void sendSignal(int signal)
+    {
+        Process process = this.process;
+        if (process == null) {
+            log.warn("Failure sending signal, process does not exist");
+            return;
+        }
+        long pid = getPid(process);
+        if (!process.isAlive()) {
+            log.warn("Failure sending signal, process is dead: %s", pid);
+            return;
+        }
+        try {
+            log.info("Sending signal to process %s: %s", pid, signal);
+            Runtime.getRuntime().exec(format("kill -%s %s", signal, pid));
+        }
+        catch (IOException e) {
+            log.warn(e, "Failure sending signal to process %s", pid);
+        }
+    }
+
+    private static long getPid(Process p)
+    {
+        try {
+            if (p.getClass().getName().equals("java.lang.UNIXProcess")) {
+                Field f = p.getClass().getDeclaredField("pid");
+                f.setAccessible(true);
+                long pid = f.getLong(p);
+                f.setAccessible(false);
+                return pid;
+            }
+            return -1;
+        }
+        catch (NoSuchFieldException | IllegalAccessException e) {
+            // should not happen
+            throw new AssertionError(e);
+        }
+    }
+
     @Override
     public void close()
     {
         if (process != null && process.isAlive()) {
+            long pid = getPid(process);
+            log.info("Destroying process: %s", pid);
             process.destroy();
             try {
                 // This 1 sec is arbitrary. Ideally, we do not need to be give any heads up
@@ -172,16 +225,19 @@ public class NativeExecutionProcess
                 process.waitFor(1, TimeUnit.SECONDS);
             }
             catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt();
             }
             finally {
                 if (process.isAlive()) {
-                    log.warn("Graceful shutdown of native execution process failed. Force killing it.");
+                    log.warn("Graceful shutdown of native execution process failed. Force killing it: %s", pid);
                     process.destroyForcibly();
                 }
             }
         }
-        process = null;
+        else if (process != null) {
+            log.info("Process is dead: %s", getPid(process));
+            process = null;
+        }
     }
 
     public boolean isAlive()
@@ -198,6 +254,7 @@ public class NativeExecutionProcess
     {
         return location;
     }
+
     private static URI getBaseUriWithPort(URI baseUri, int port)
     {
         return uriBuilderFrom(baseUri)
@@ -206,12 +263,18 @@ public class NativeExecutionProcess
     }
 
     private static int getAvailableTcpPort()
-            throws IOException
     {
-        ServerSocket socket = new ServerSocket(0);
-        int port = socket.getLocalPort();
-        socket.close();
-        return port;
+        try {
+            ServerSocket socket = new ServerSocket(0);
+            int port = socket.getLocalPort();
+            socket.close();
+            return port;
+        }
+        catch (Exception ex) {
+            // Something is wrong with the executor
+            // Fail the executor
+            throw new PrestoSparkFatalException("Failed to acquire port on host", ex);
+        }
     }
 
     private String getNativeExecutionCatalogName(Session session)

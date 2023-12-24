@@ -17,3 +17,17 @@ add_test(
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(presto_http_test presto_http gtest gtest_main)
+
+set_property(TARGET presto_http_test PROPERTY JOB_POOL_LINK
+                                              presto_link_job_pool)
+
+if(PRESTO_ENABLE_JWT)
+  add_executable(presto_http_jwt_test HttpJwtTest.cpp)
+
+  add_test(
+    NAME presto_http_jwt_test
+    COMMAND presto_http_jwt_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+  target_link_libraries(presto_http_jwt_test presto_http gtest gtest_main)
+endif()

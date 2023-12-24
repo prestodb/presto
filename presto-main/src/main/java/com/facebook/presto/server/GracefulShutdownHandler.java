@@ -20,6 +20,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import io.airlift.units.Duration;
 
+import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
@@ -32,6 +33,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.lang.Thread.currentThread;
@@ -55,6 +57,8 @@ public class GracefulShutdownHandler
     private final boolean isResourceManager;
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
+    private final NodeStatusNotificationManager nodeStatusNotificationManager;
+    private boolean isLoadNodeStatusNotification;
 
     @GuardedBy("this")
     private boolean shutdownRequested;
@@ -65,7 +69,8 @@ public class GracefulShutdownHandler
             ServerConfig serverConfig,
             ShutdownAction shutdownAction,
             LifeCycleManager lifeCycleManager,
-            QueryManager queryManager)
+            QueryManager queryManager,
+            NodeStatusNotificationManager nodeStatusNotificationManager)
     {
         this.sqlTaskManager = requireNonNull(sqlTaskManager, "sqlTaskManager is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
@@ -74,6 +79,21 @@ public class GracefulShutdownHandler
         this.isResourceManager = serverConfig.isResourceManager();
         this.gracePeriod = serverConfig.getGracePeriod();
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.nodeStatusNotificationManager = requireNonNull(nodeStatusNotificationManager, "nodeStatusNotificationManager is null");
+    }
+
+    public void loadNodeStatusNotification()
+    {
+        log.debug("Loading node status notification");
+        checkState(!isLoadNodeStatusNotification, "Node status notification can be registered only once");
+        this.nodeStatusNotificationManager.getNotificationProvider().registerGracefulShutdownEventListener(this::initiateShutdown);
+        isLoadNodeStatusNotification = true;
+    }
+
+    private void initiateShutdown()
+    {
+        log.info("Trigger shutdown from status notification");
+        requestShutdown();
     }
 
     public synchronized void requestShutdown()
@@ -85,6 +105,7 @@ public class GracefulShutdownHandler
         }
 
         if (isShutdownRequested()) {
+            log.info("Shutdown already requested");
             return;
         }
 
@@ -201,5 +222,11 @@ public class GracefulShutdownHandler
     public synchronized boolean isShutdownRequested()
     {
         return shutdownRequested;
+    }
+
+    @PreDestroy
+    public synchronized void destroy()
+    {
+        this.nodeStatusNotificationManager.getNotificationProvider().removeGracefulShutdownEventListener(this::initiateShutdown);
     }
 }

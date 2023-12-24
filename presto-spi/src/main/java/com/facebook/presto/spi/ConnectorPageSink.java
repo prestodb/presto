@@ -32,6 +32,11 @@ public interface ConnectorPageSink
         return 0;
     }
 
+    default long getWrittenFilesCount()
+    {
+        return 0;
+    }
+
     /**
      * Get the total memory that needs to be reserved in the general memory pool.
      * This memory should include any buffers, etc. that are used for reading data.

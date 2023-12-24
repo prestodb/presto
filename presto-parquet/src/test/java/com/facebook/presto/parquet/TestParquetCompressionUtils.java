@@ -41,18 +41,6 @@ public class TestParquetCompressionUtils
         performTest(ZSTD, 1024);
     }
 
-    @Test
-    public void testDecompressLZ4()
-            throws IOException
-    {
-        performTest(LZ4, 0);
-        performTest(LZ4, 1);
-        performTest(LZ4, 100);
-        performTest(LZ4, 256);
-        performTest(LZ4, 512);
-        performTest(LZ4, 1024);
-    }
-
     private void performTest(CompressionCodecName codec, int inputLength)
             throws IOException
     {

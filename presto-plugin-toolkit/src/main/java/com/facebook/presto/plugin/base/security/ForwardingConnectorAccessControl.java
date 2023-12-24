@@ -149,6 +149,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+        delegate().checkCanUpdateTableColumns(transactionHandle, identity, context, tableName, updatedColumns);
+    }
+
+    @Override
     public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
         delegate().checkCanCreateView(transactionHandle, identity, context, viewName);

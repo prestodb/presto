@@ -165,7 +165,7 @@ public class TestArbitraryAggregation
                 createIntsBlock(3, 3, null));
     }
 
-    private static JavaAggregationFunctionImplementation getAggregation(Type... arguments)
+    protected JavaAggregationFunctionImplementation getAggregation(Type... arguments)
     {
         return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("arbitrary", fromTypes(arguments)));
     }

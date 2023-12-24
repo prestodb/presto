@@ -112,7 +112,7 @@ public class ImplementIntersectAndExceptAsUnion
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -120,7 +120,9 @@ public class ImplementIntersectAndExceptAsUnion
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator), plan);
+        Rewriter rewriter = new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class Rewriter
@@ -132,6 +134,7 @@ public class ImplementIntersectAndExceptAsUnion
         private final StandardFunctionResolution functionResolution;
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
+        private boolean planChanged;
 
         private Rewriter(Session session, FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
         {
@@ -164,6 +167,7 @@ public class ImplementIntersectAndExceptAsUnion
             AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForIntersect(aggregation);
 
+            planChanged = true;
             return project(filterNode, outputs);
         }
 
@@ -189,6 +193,7 @@ public class ImplementIntersectAndExceptAsUnion
             AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForExcept(aggregation, aggregationOutputs.get(0), aggregationOutputs.subList(1, aggregationOutputs.size()));
 
+            planChanged = true;
             return project(filterNode, outputs);
         }
 
@@ -269,6 +274,7 @@ public class ImplementIntersectAndExceptAsUnion
                     ImmutableList.of(),
                     Step.SINGLE,
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
 
@@ -297,6 +303,11 @@ public class ImplementIntersectAndExceptAsUnion
                     idAllocator.getNextId(),
                     node,
                     identityAssignments(columns));
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
     }
 }

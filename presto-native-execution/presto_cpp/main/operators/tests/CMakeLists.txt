@@ -36,5 +36,7 @@ target_link_libraries(
   velox_exec
   gmock
   gtest
-  ${ANTLR4_RUNTIME}
   gtest_main)
+
+set_property(TARGET presto_operators_test PROPERTY JOB_POOL_LINK
+                                                   presto_link_job_pool)

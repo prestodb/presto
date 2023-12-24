@@ -661,6 +661,11 @@ connector supports this by allowing the same conversions as Hive:
 * ``real`` to ``double``
 * Widening conversions for integers, such as ``tinyint`` to ``smallint``
 
+In adition to the conversions above, the Hive connector does also support the following conversions when working with Parquet file format:
+
+* ``integer`` to ``bigint``, ``real`` and ``double``
+* ``bigint`` to ``real`` and ``double``
+
 Any conversion failure will result in null, which is the same behavior
 as Hive. For example, converting the string ``'foo'`` to a number,
 or converting the string ``'1234'`` to a ``tinyint`` (which has a
@@ -724,6 +729,13 @@ The following operations are not supported when ``avro_schema_url`` is set:
 * ``CREATE TABLE AS`` is not supported.
 * Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
+
+Parquet Writer Version
+----------------------
+
+Presto now supports Parquet writer versions V1 and V2 for the Hive catalog.
+It can be toggled using the session property ``parquet_writer_version`` and the config property ``hive.parquet.writer.version``.
+Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_2_0``.
 
 Procedures
 ----------

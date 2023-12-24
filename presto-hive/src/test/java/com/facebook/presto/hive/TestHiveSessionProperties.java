@@ -20,9 +20,12 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterVersion;
 import static com.facebook.presto.hive.HiveSessionProperties.isCacheEnabled;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -74,5 +77,25 @@ public class TestHiveSessionProperties
                         new ParquetFileWriterConfig(),
                         new CacheConfig().setCachingEnabled(true)).getSessionProperties());
         assertTrue(isCacheEnabled(connectorSession));
+    }
+
+    @Test
+    public void testParquetWriterVersionConfig()
+    {
+        ConnectorSession connectorSession = new TestingConnectorSession(
+                new HiveSessionProperties(
+                        new HiveClientConfig(),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig().setCachingEnabled(true)).getSessionProperties());
+        assertEquals(getParquetWriterVersion(connectorSession), PARQUET_2_0);
+
+        connectorSession = new TestingConnectorSession(
+                new HiveSessionProperties(
+                        new HiveClientConfig(),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig().setWriterVersion(PARQUET_1_0),
+                        new CacheConfig().setCachingEnabled(true)).getSessionProperties());
+        assertEquals(getParquetWriterVersion(connectorSession), PARQUET_1_0);
     }
 }

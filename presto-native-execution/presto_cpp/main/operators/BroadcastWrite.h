@@ -21,14 +21,19 @@ namespace facebook::presto::operators {
 /// BroadcastWriteNode represents node which broadcasts using file system.
 class BroadcastWriteNode : public velox::core::PlanNode {
  public:
+  /// @param serdeRowType Type of the serialized data. This can be different
+  /// from the input type. Input columns may appear in different order, some
+  /// columns may be missing, some columns may appear multiple types. May
+  /// contain no columns at all if only row count needs to be broadcasted.
   BroadcastWriteNode(
       const velox::core::PlanNodeId& id,
       const std::string& basePath,
+      velox::RowTypePtr serdeRowType,
       velox::core::PlanNodePtr source)
       : velox::core::PlanNode(id),
         basePath_{basePath},
-        sources_{std::move(source)},
-        outputType_{velox::ROW({velox::VARCHAR()})} {}
+        serdeRowType_{serdeRowType},
+        sources_{std::move(source)} {}
 
   folly::dynamic serialize() const override;
 
@@ -37,15 +42,27 @@ class BroadcastWriteNode : public velox::core::PlanNode {
       void* context);
 
   const velox::RowTypePtr& outputType() const override {
-    return outputType_;
+    static const auto outputType = velox::ROW({velox::VARCHAR()});
+    return outputType;
   }
 
   const std::vector<velox::core::PlanNodePtr>& sources() const override {
     return sources_;
   }
 
+  const velox::RowTypePtr& inputType() const {
+    return sources_[0]->outputType();
+  }
+
   const std::string& basePath() const {
     return basePath_;
+  }
+
+  /// The desired schema of the serialized data. May include a subset of input
+  /// columns, some columns may be duplicated, some columns may be missing,
+  /// columns may appear in different order.
+  const velox::RowTypePtr& serdeRowType() const {
+    return serdeRowType_;
   }
 
   std::string_view name() const override {
@@ -56,8 +73,8 @@ class BroadcastWriteNode : public velox::core::PlanNode {
   void addDetails(std::stringstream& stream) const override {}
 
   const std::string basePath_;
+  const velox::RowTypePtr serdeRowType_;
   const std::vector<velox::core::PlanNodePtr> sources_;
-  const velox::RowTypePtr outputType_;
 };
 
 class BroadcastWriteTranslator

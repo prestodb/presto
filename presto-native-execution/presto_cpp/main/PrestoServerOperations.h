@@ -47,7 +47,11 @@ class PrestoServerOperations {
       const ServerOperation& op,
       proxygen::HTTPMessage* message);
 
-  std::string debugOperation(
+  std::string taskOperation(
+      const ServerOperation& op,
+      proxygen::HTTPMessage* message);
+
+  std::string serverOperation(
       const ServerOperation& op,
       proxygen::HTTPMessage* message);
 

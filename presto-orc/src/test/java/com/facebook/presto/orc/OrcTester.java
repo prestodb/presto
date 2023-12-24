@@ -50,8 +50,6 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
-import com.facebook.presto.orc.stream.OrcInputStream;
-import com.facebook.presto.orc.stream.SharedBuffer;
 import com.google.common.base.Functions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -105,7 +103,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -157,8 +154,6 @@ import static com.facebook.presto.orc.AbstractTestOrcReader.intsBetween;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
-import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
-import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
@@ -1718,24 +1713,10 @@ public class OrcTester
                 runtimeStats);
 
         Footer footer = reader.getFooter();
-        Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), reader.getCompressionKind(), reader.getBufferSize(), zstdJniDecompressionEnabled);
-
         ImmutableList.Builder<StripeFooter> stripes = new ImmutableList.Builder<>();
         for (StripeInformation stripe : footer.getStripes()) {
-            // read the footer
-            byte[] tailBuffer = new byte[toIntExact(stripe.getFooterLength())];
-            orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), tailBuffer);
-            try (InputStream inputStream = new OrcInputStream(
-                    orcDataSource.getId(),
-                    new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
-                    Slices.wrappedBuffer(tailBuffer).getInput(),
-                    decompressor,
-                    Optional.empty(),
-                    new TestingHiveOrcAggregatedMemoryContext(),
-                    tailBuffer.length)) {
-                StripeFooter stripeFooter = encoding.createMetadataReader(runtimeStats, orcReaderOptions).readStripeFooter(orcDataSource.getId(), footer.getTypes(), inputStream);
-                stripes.add(stripeFooter);
-            }
+            StripeFooter stripeFooter = reader.readStripeFooter(stripe);
+            stripes.add(stripeFooter);
         }
         return new FileMetadata(footer, stripes.build());
     }

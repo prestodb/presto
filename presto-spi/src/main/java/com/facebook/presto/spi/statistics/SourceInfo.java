@@ -29,4 +29,6 @@ public abstract class SourceInfo
     {
         return false;
     }
+
+    public abstract String getSourceInfoName();
 }

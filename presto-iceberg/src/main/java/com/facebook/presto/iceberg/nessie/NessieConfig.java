@@ -75,12 +75,14 @@ public class NessieConfig
 
     @Config("iceberg.nessie.auth.basic.username")
     @ConfigDescription("The username to use with BASIC authentication")
+    @Deprecated
     public NessieConfig setUsername(String username)
     {
         this.username = username;
         return this;
     }
 
+    @Deprecated
     public Optional<String> getUsername()
     {
         return Optional.ofNullable(username);
@@ -88,12 +90,14 @@ public class NessieConfig
 
     @Config("iceberg.nessie.auth.basic.password")
     @ConfigDescription("The password to use with BASIC authentication")
+    @Deprecated
     public NessieConfig setPassword(String password)
     {
         this.password = password;
         return this;
     }
 
+    @Deprecated
     public Optional<String> getPassword()
     {
         return Optional.ofNullable(password);
@@ -149,11 +153,6 @@ public class NessieConfig
     public boolean isCompressionEnabled()
     {
         return compressionEnabled;
-    }
-
-    public boolean isCompressionDisabled()
-    {
-        return !compressionEnabled;
     }
 
     @Config("iceberg.nessie.client-builder-impl")

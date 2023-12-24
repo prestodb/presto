@@ -51,6 +51,7 @@ import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.PartitioningHandle;
@@ -86,6 +87,7 @@ import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNa
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_CANONICAL_INFO_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
@@ -543,7 +545,11 @@ public class SqlQueryExecution
 
             queryPlan.set(plan);
             stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
-            stateMachine.setPlanCanonicalInfo(getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
+            stateMachine.setPlanIdNodeMap(plan.getPlanIdNodeMap());
+            List<CanonicalPlanWithInfo> canonicalPlanWithInfos = getSession().getRuntimeStats().profileNanos(
+                    GET_CANONICAL_INFO_TIME_NANOS,
+                    () -> getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
+            stateMachine.setPlanCanonicalInfo(canonicalPlanWithInfos);
 
             // extract inputs
             List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());

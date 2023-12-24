@@ -86,6 +86,14 @@ public interface ConnectorMetadata
     ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
 
     /**
+     * Returns an error for connectors which do not support table version AS OF expression.
+     */
+    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> tableVersion)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support table version AS OF expression");
+    }
+
+    /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      * The returned table handle can contain information in analyzeProperties.
      */
@@ -509,9 +517,14 @@ public interface ConnectorMetadata
      * These IDs will be passed to the {@code deleteRows()} method of the
      * {@link com.facebook.presto.spi.UpdatablePageSource} that created them.
      */
-    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support updates or deletes");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support updates");
     }
 
     /**
@@ -530,6 +543,16 @@ public interface ConnectorMetadata
     default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support update");
+    }
+
+    default void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support update");
     }
 
     /**

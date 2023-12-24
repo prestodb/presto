@@ -16,10 +16,11 @@
 #include <folly/io/async/EventBaseThread.h>
 #include <presto_cpp/main/http/HttpClient.h>
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include "presto_cpp/main/PeriodicServiceInventoryManager.h"
 
 namespace facebook::presto {
 
-class Announcer {
+class Announcer : public PeriodicServiceInventoryManager {
  public:
   Announcer(
       const std::string& address,
@@ -31,40 +32,18 @@ class Announcer {
       const std::string& nodeId,
       const std::string& nodeLocation,
       const std::vector<std::string>& connectorIds,
-      const uint64_t minFrequencyMs,
       const uint64_t maxFrequencyMs_,
       const std::string& clientCertAndKeyPath = "",
       const std::string& ciphers = "");
 
   ~Announcer() = default;
 
-  void start();
-
-  void stop();
+ protected:
+  std::tuple<proxygen::HTTPMessage, std::string> httpRequest() override;
 
  private:
-  void makeAnnouncement();
-
-  uint64_t getAnnouncementDelay() const;
-
-  void scheduleNext();
-
-  const std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
-  const uint64_t minFrequencyMs_;
-  const uint64_t maxFrequencyMs_;
   const std::string announcementBody_;
   const proxygen::HTTPMessage announcementRequest_;
-  const std::shared_ptr<velox::memory::MemoryPool> pool_;
-  folly::EventBaseThread eventBaseThread_;
-  const std::string clientCertAndKeyPath_;
-  const std::string ciphers_;
-  /// jitter value for backoff delay time in case of announcment failure
-  const double backOffjitterParam_{0.1};
-
-  folly::SocketAddress address_;
-  std::shared_ptr<http::HttpClient> client_;
-  std::atomic_bool stopped_{true};
-  uint64_t failedAttempts_{0};
 };
 
 } // namespace facebook::presto

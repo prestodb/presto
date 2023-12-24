@@ -87,8 +87,9 @@ public final class InternalResourceGroupManager<C>
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
     private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
     private static final String CONFIGURATION_MANAGER_PROPERTY_NAME = "resource-groups.configuration-manager";
+    private static final int REFRESH_EXECUTOR_POOL_SIZE = 2;
 
-    private final ScheduledExecutorService refreshExecutor = newScheduledThreadPool(2, daemonThreadsNamed("ResourceGroupManager"));
+    private final ScheduledExecutorService refreshExecutor = newScheduledThreadPool(REFRESH_EXECUTOR_POOL_SIZE, daemonThreadsNamed("resource-group-manager-refresher-%d-" + REFRESH_EXECUTOR_POOL_SIZE));
     private final PeriodicTaskExecutor resourceGroupRuntimeExecutor;
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
@@ -149,6 +150,14 @@ public final class InternalResourceGroupManager<C>
     {
         checkArgument(groups.containsKey(id), "Group %s does not exist", id);
         return groups.get(id).getPathToRoot();
+    }
+
+    @Override
+    public List<ResourceGroupInfo> getRootResourceGroups()
+    {
+        ImmutableList.Builder<ResourceGroupInfo> builder = ImmutableList.builder();
+        rootGroups.forEach(group -> builder.add(group.getInfo()));
+        return builder.build();
     }
 
     @Override

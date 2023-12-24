@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.tdigest.Centroid;
 import com.facebook.presto.tdigest.TDigest;
@@ -180,5 +181,30 @@ public final class TDigestFunctions
                 toIntExact(count));
 
         return tDigest.serialize();
+    }
+
+    @ScalarFunction(value = "merge_tdigest", visibility = EXPERIMENTAL)
+    @Description("Merge an array of TDigests into a single TDigest")
+    @SqlType("tdigest(double)")
+    @SqlNullable
+    public static Slice merge_tdigest(@SqlType("array(tdigest(double))") Block input)
+    {
+        if (input.getPositionCount() == 0) {
+            return null;
+        }
+        TDigest output = null;
+        for (int i = 0; i < input.getPositionCount(); i++) {
+            if (input.isNull(i)) {
+                continue;
+            }
+            TDigest tdigest = createTDigest(input.getSlice(i, 0, input.getSliceLength(i)));
+            if (output == null) {
+                output = tdigest;
+            }
+            else {
+                output.merge(tdigest);
+            }
+        }
+        return output == null ? null : output.serialize();
     }
 }

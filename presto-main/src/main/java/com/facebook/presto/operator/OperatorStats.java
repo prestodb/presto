@@ -95,6 +95,11 @@ public class OperatorStats
 
     private final RuntimeStats runtimeStats;
 
+    private final long nullJoinBuildKeyCount;
+    private final long joinBuildKeyCount;
+    private final long nullJoinProbeKeyCount;
+    private final long joinProbeKeyCount;
+
     @JsonCreator
     public OperatorStats(
             @JsonProperty("stageId") int stageId,
@@ -146,7 +151,11 @@ public class OperatorStats
 
             @Nullable
             @JsonProperty("info") OperatorInfo info,
-            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
+            @JsonProperty("runtimeStats") RuntimeStats runtimeStats,
+            @JsonProperty("nullJoinBuildKeyCount") long nullJoinBuildKeyCount,
+            @JsonProperty("joinBuildKeyCount") long joinBuildKeyCount,
+            @JsonProperty("nullJoinProbeKeyCount") long nullJoinProbeKeyCount,
+            @JsonProperty("joinProbeKeyCount") long joinProbeKeyCount)
     {
         this.stageId = stageId;
         this.stageExecutionId = stageExecutionId;
@@ -204,6 +213,10 @@ public class OperatorStats
 
         this.info = info;
         this.infoUnion = null;
+        this.nullJoinBuildKeyCount = nullJoinBuildKeyCount;
+        this.joinBuildKeyCount = joinBuildKeyCount;
+        this.nullJoinProbeKeyCount = nullJoinProbeKeyCount;
+        this.joinProbeKeyCount = joinProbeKeyCount;
     }
 
     @ThriftConstructor
@@ -257,7 +270,11 @@ public class OperatorStats
 
             RuntimeStats runtimeStats,
             @Nullable
-            OperatorInfoUnion infoUnion)
+            OperatorInfoUnion infoUnion,
+            long nullJoinBuildKeyCount,
+            long joinBuildKeyCount,
+            long nullJoinProbeKeyCount,
+            long joinProbeKeyCount)
     {
         this.stageId = stageId;
         this.stageExecutionId = stageExecutionId;
@@ -315,6 +332,10 @@ public class OperatorStats
 
         this.infoUnion = infoUnion;
         this.info = null;
+        this.nullJoinBuildKeyCount = nullJoinBuildKeyCount;
+        this.joinBuildKeyCount = joinBuildKeyCount;
+        this.nullJoinProbeKeyCount = nullJoinProbeKeyCount;
+        this.joinProbeKeyCount = joinProbeKeyCount;
     }
 
     @JsonProperty
@@ -598,6 +619,34 @@ public class OperatorStats
         return infoUnion;
     }
 
+    @JsonProperty
+    @ThriftField(40)
+    public long getNullJoinBuildKeyCount()
+    {
+        return nullJoinBuildKeyCount;
+    }
+
+    @JsonProperty
+    @ThriftField(41)
+    public long getJoinBuildKeyCount()
+    {
+        return joinBuildKeyCount;
+    }
+
+    @JsonProperty
+    @ThriftField(42)
+    public long getNullJoinProbeKeyCount()
+    {
+        return nullJoinProbeKeyCount;
+    }
+
+    @JsonProperty
+    @ThriftField(43)
+    public long getJoinProbeKeyCount()
+    {
+        return joinProbeKeyCount;
+    }
+
     public OperatorStats add(OperatorStats operatorStats)
     {
         return add(ImmutableList.of(operatorStats));
@@ -646,6 +695,11 @@ public class OperatorStats
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
         RuntimeStats runtimeStats = RuntimeStats.copyOf(this.runtimeStats);
+
+        long nullJoinBuildKeyCount = this.nullJoinBuildKeyCount;
+        long joinBuildKeyCount = this.joinBuildKeyCount;
+        long nullJoinProbeKeyCount = this.nullJoinProbeKeyCount;
+        long joinProbeKeyCount = this.joinProbeKeyCount;
 
         Mergeable<OperatorInfo> base = getMergeableInfoOrNull(info);
         for (OperatorStats operator : operators) {
@@ -700,6 +754,11 @@ public class OperatorStats
             }
 
             runtimeStats.mergeWith(operator.getRuntimeStats());
+
+            nullJoinBuildKeyCount += operator.getNullJoinBuildKeyCount();
+            joinBuildKeyCount += operator.getJoinBuildKeyCount();
+            nullJoinProbeKeyCount += operator.getNullJoinProbeKeyCount();
+            joinProbeKeyCount += operator.getJoinProbeKeyCount();
         }
 
         return new OperatorStats(
@@ -751,7 +810,11 @@ public class OperatorStats
                 blockedReason,
 
                 (OperatorInfo) base,
-                runtimeStats);
+                runtimeStats,
+                nullJoinBuildKeyCount,
+                joinBuildKeyCount,
+                nullJoinProbeKeyCount,
+                joinProbeKeyCount);
     }
 
     @SuppressWarnings("unchecked")
@@ -815,6 +878,10 @@ public class OperatorStats
                 spilledDataSize,
                 blockedReason,
                 info,
-                runtimeStats);
+                runtimeStats,
+                nullJoinBuildKeyCount,
+                joinBuildKeyCount,
+                nullJoinProbeKeyCount,
+                joinProbeKeyCount);
     }
 }

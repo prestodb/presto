@@ -269,6 +269,8 @@ public class OrcMetadataReader
     {
         return createColumnStatistics(
                 statistics.getNumberOfValues(),
+                null,
+                null,
                 statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
                 statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics()) : null,
                 statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,

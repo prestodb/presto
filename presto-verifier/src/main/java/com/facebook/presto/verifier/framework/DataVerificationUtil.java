@@ -40,6 +40,7 @@ import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryStage.forTeardown;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class DataVerificationUtil
 {
@@ -77,6 +78,7 @@ public class DataVerificationUtil
             ChecksumResult controlChecksum,
             ChecksumResult testChecksum)
     {
+        requireNonNull(controlColumns, "controlColumns is null.");
         if (!controlColumns.equals(testColumns)) {
             return new DataMatchResult(
                     SCHEMA_MISMATCH,

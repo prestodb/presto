@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -707,6 +708,73 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedJoinWithLimit()
+    {
+        // rewrite Limit to RowNumberNode
+        assertPlan(
+                "SELECT regionkey, n.name FROM region CROSS JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey LIMIT 2) n",
+                any(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("nation_regionkey", "region_regionkey")),
+                                any(rowNumber(
+                                        pattern -> pattern
+                                                .partitionBy(ImmutableList.of("nation_regionkey"))
+                                                .maxRowCountPerPartition(Optional.of(2)),
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))),
+                                any(project(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")))))));
+
+        // rewrite Limit to decorrelated Limit
+        assertPlan("SELECT regionkey, n.nationkey FROM region CROSS JOIN LATERAL (SELECT nationkey FROM nation WHERE region.regionkey = 3 LIMIT 2) n",
+                any(
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                //Optional.of("region_regionkey = BIGINT '3'"),
+                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
+                                limit(
+                                        2,
+                                        any(tableScan("nation", ImmutableMap.of("nation_nationkey", "nationkey")))))));
+    }
+
+    @Test
+    public void testCorrelatedJoinWithTopN()
+    {
+        // rewrite TopN to TopNRowNumberNode
+        assertPlan(
+                "SELECT regionkey, n.name FROM region CROSS JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY name LIMIT 2) n",
+                any(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
+                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
+                                any(topNRowNumber(
+                                        pattern -> pattern
+                                                .specification(
+                                                        ImmutableList.of("nation_regionkey"),
+                                                        ImmutableList.of("nation_name"),
+                                                        ImmutableMap.of("nation_name", SortOrder.ASC_NULLS_LAST))
+                                                .maxRowCountPerPartition(2)
+                                                .partial(false),
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+
+        // rewrite TopN to RowNumberNode
+        assertPlan(
+                "SELECT regionkey, n.name FROM region CROSS JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY regionkey LIMIT 2) n",
+                any(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("nation_regionkey", "region_regionkey")),
+                                any(rowNumber(
+                                        pattern -> pattern
+                                                .partitionBy(ImmutableList.of("nation_regionkey"))
+                                                .maxRowCountPerPartition(Optional.of(2)),
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))),
+                                any(project(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")))))));
+    }
+
+    @Test
     public void testCorrelatedScalarSubqueryInSelect()
     {
         assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
@@ -1255,7 +1323,7 @@ public class TestLogicalPlanner
         assertPlanWithSession(
                 "SELECT C, orderkey FROM (select orderkey as C from orders where 1=0) join orders on 1=1",
                 disableEmptyJoinOptimization, true,
-                output(node(JoinNode.class, values("orderkey_0"), values("orderkey_3"))));
+                output(node(JoinNode.class, values("orders"), anyTree(tableScan("orders")))));
     }
 
     @Test

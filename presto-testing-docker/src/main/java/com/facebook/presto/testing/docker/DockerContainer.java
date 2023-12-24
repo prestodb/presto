@@ -80,7 +80,7 @@ public final class DockerContainer
             throws Exception
     {
         dockerClient = DefaultDockerClient.fromEnv().build();
-        if (dockerClient.listImages(DockerClient.ListImagesParam.byName(image)).isEmpty()) {
+        if (dockerClient.listImages().stream().noneMatch(i -> i.repoTags().contains(image))) {
             checkState(!image.endsWith("-SNAPSHOT"), "Unavailable snapshot image %s, please build before running tests", image);
             LOG.info("Pulling image %s...", image);
             dockerClient.pull(image);

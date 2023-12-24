@@ -91,7 +91,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.getLeaseDuration;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartitionStatisticsBasedOptimizationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
-import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreUnreadablePartition;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveStorageFormat.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveType.getPrimitiveType;
@@ -143,6 +142,7 @@ public class HiveSplitManager
     private final CounterStat highMemorySplitSourceCounter;
     private final CacheQuotaRequirementProvider cacheQuotaRequirementProvider;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
+    private final PartitionSkippabilityChecker partitionSkippabilityChecker;
 
     @Inject
     public HiveSplitManager(
@@ -154,7 +154,8 @@ public class HiveSplitManager
             DirectoryLister directoryLister,
             @ForHiveClient ExecutorService executorService,
             CoercionPolicy coercionPolicy,
-            HiveEncryptionInformationProvider encryptionInformationProvider)
+            HiveEncryptionInformationProvider encryptionInformationProvider,
+            PartitionSkippabilityChecker partitionSkippabilityChecker)
     {
         this(
                 hiveTransactionManager,
@@ -171,7 +172,8 @@ public class HiveSplitManager
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled(),
                 cacheQuotaRequirementProvider,
-                encryptionInformationProvider);
+                encryptionInformationProvider,
+                partitionSkippabilityChecker);
     }
 
     public HiveSplitManager(
@@ -189,7 +191,8 @@ public class HiveSplitManager
             int splitLoaderConcurrency,
             boolean recursiveDfsWalkerEnabled,
             CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
-            HiveEncryptionInformationProvider encryptionInformationProvider)
+            HiveEncryptionInformationProvider encryptionInformationProvider,
+            PartitionSkippabilityChecker partitionSkippabilityChecker)
     {
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
@@ -207,6 +210,7 @@ public class HiveSplitManager
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.cacheQuotaRequirementProvider = requireNonNull(cacheQuotaRequirementProvider, "cacheQuotaRequirementProvider is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
+        this.partitionSkippabilityChecker = requireNonNull(partitionSkippabilityChecker, "partitionSkippabilityChecker is null");
     }
 
     @Override
@@ -465,7 +469,7 @@ public class HiveSplitManager
                     // verify partition is not marked as non-readable
                     String reason = partition.getParameters().get(OBJECT_NOT_READABLE);
                     if (!isNullOrEmpty(reason)) {
-                        if (!shouldIgnoreUnreadablePartition(session) || !partition.isEligibleToIgnore()) {
+                        if (!partitionSkippabilityChecker.isPartitionSkippable(partition, session)) {
                             throw new HiveNotReadableException(tableName, Optional.of(partitionName), reason);
                         }
                         unreadablePartitionsSkipped++;
@@ -689,7 +693,7 @@ public class HiveSplitManager
         for (Map.Entry<String, Optional<Partition>> entry : partitions.entrySet()) {
             ImmutableSet.Builder<ColumnHandle> redundantColumnDomainsBuilder = ImmutableSet.builder();
             if (!entry.getValue().isPresent()) {
-                throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
+                throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, format("Partition no longer exists: %s.%s/%s", tableName.getSchemaName(), tableName.getTableName(), entry.getKey()));
             }
             boolean pruned = false;
             if (partitionStatistics.containsKey(entry.getKey())) {

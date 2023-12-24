@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -20,11 +23,13 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class RowFieldName
 {
     private final String name;
     private final boolean delimited;
 
+    @ThriftConstructor
     @JsonCreator
     public RowFieldName(
             @JsonProperty("name") String name,
@@ -34,12 +39,14 @@ public class RowFieldName
         this.delimited = delimited;
     }
 
+    @ThriftField(1)
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public boolean isDelimited()
     {

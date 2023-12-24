@@ -53,10 +53,14 @@ import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcTester.createOrcWriter;
 import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestColumnStatistics
 {
@@ -71,6 +75,72 @@ public class TestColumnStatistics
                 {BIGINT},
                 {VARCHAR}
         };
+    }
+
+    @Test
+    public void testRawSize()
+    {
+        ColumnStatistics nullStats = withRawSize(null);
+        assertFalse(nullStats.hasRawSize());
+        assertEquals(nullStats.getRawSize(), 0);
+
+        ColumnStatistics nonNullStats = withRawSize(15L);
+        assertTrue(nonNullStats.hasRawSize());
+        assertEquals(nonNullStats.getRawSize(), 15L);
+
+        assertEquals(withRawSize(15L), withRawSize(15L));
+        assertNotEquals(withRawSize(15L), withRawSize(27L));
+
+        assertEquals(withRawSize(15L).hashCode(), withRawSize(15L).hashCode());
+        assertNotEquals(withRawSize(15L).hashCode(), withRawSize(27L).hashCode());
+
+        // all non-nulls
+        ColumnStatistics mergedStats1 = mergeColumnStatistics(ImmutableList.of(withRawSize(3L), withRawSize(5L)));
+        assertTrue(mergedStats1.hasRawSize());
+        assertEquals(mergedStats1.getRawSize(), 8L);
+
+        // all nulls
+        ColumnStatistics mergedStats2 = mergeColumnStatistics(ImmutableList.of(withRawSize(null), withRawSize(null)));
+        assertFalse(mergedStats2.hasRawSize());
+        assertEquals(mergedStats2.getRawSize(), 0L);
+
+        // some nulls
+        ColumnStatistics mergedStats3 = mergeColumnStatistics(ImmutableList.of(withRawSize(null), withRawSize(5L)));
+        assertTrue(mergedStats3.hasRawSize());
+        assertEquals(mergedStats3.getRawSize(), 5L);
+    }
+
+    @Test
+    public void testStorageSize()
+    {
+        ColumnStatistics nullStats = withStorageSize(null);
+        assertFalse(nullStats.hasStorageSize());
+        assertEquals(nullStats.getStorageSize(), 0);
+
+        ColumnStatistics nonNullStats = withStorageSize(15L);
+        assertTrue(nonNullStats.hasStorageSize());
+        assertEquals(nonNullStats.getStorageSize(), 15L);
+
+        assertEquals(withStorageSize(15L), withStorageSize(15L));
+        assertNotEquals(withStorageSize(15L), withStorageSize(27L));
+
+        assertEquals(withStorageSize(15L).hashCode(), withStorageSize(15L).hashCode());
+        assertNotEquals(withStorageSize(15L).hashCode(), withStorageSize(27L).hashCode());
+
+        // all non-nulls
+        ColumnStatistics mergedStats1 = mergeColumnStatistics(ImmutableList.of(withStorageSize(3L), withStorageSize(5L)));
+        assertTrue(mergedStats1.hasStorageSize());
+        assertEquals(mergedStats1.getStorageSize(), 8L);
+
+        // all nulls
+        ColumnStatistics mergedStats2 = mergeColumnStatistics(ImmutableList.of(withStorageSize(null), withStorageSize(null)));
+        assertFalse(mergedStats2.hasStorageSize());
+        assertEquals(mergedStats2.getStorageSize(), 0L);
+
+        // some nulls
+        ColumnStatistics mergedStats3 = mergeColumnStatistics(ImmutableList.of(withStorageSize(null), withStorageSize(5L)));
+        assertTrue(mergedStats3.hasStorageSize());
+        assertEquals(mergedStats3.getStorageSize(), 5L);
     }
 
     @Test(dataProvider = "mapKeyTypeProvider")
@@ -104,22 +174,22 @@ public class TestColumnStatistics
                 null));
 
         doTestFlatMapStatistics(mapType, emptyMaps,
-                new ColumnStatistics(6L),
-                new ColumnStatistics(2L),
-                new ColumnStatistics(2L),
-                new ColumnStatistics(2L));
+                new ColumnStatistics(6L, null, null, null),
+                new ColumnStatistics(2L, null, null, null),
+                new ColumnStatistics(2L, null, null, null),
+                new ColumnStatistics(2L, null, null, null));
 
         doTestFlatMapStatistics(mapType, emptyMapsWithNulls,
-                new ColumnStatistics(2L),
-                new ColumnStatistics(1L),
-                new ColumnStatistics(0L),
-                new ColumnStatistics(1L));
+                new ColumnStatistics(2L, null, null, null),
+                new ColumnStatistics(1L, null, null, null),
+                new ColumnStatistics(0L, null, null, null),
+                new ColumnStatistics(1L, null, null, null));
 
         doTestFlatMapStatistics(mapType, emptyMapsWithAllNulls,
-                new ColumnStatistics(0L),
-                new ColumnStatistics(0L),
-                new ColumnStatistics(0L),
-                new ColumnStatistics(0L));
+                new ColumnStatistics(0L, null, null, null),
+                new ColumnStatistics(0L, null, null, null),
+                new ColumnStatistics(0L, null, null, null),
+                new ColumnStatistics(0L, null, null, null));
     }
 
     @Test(dataProvider = "mapKeyTypeProvider")
@@ -167,7 +237,7 @@ public class TestColumnStatistics
         MapColumnStatisticsBuilder rowGroupStats2 = new MapColumnStatisticsBuilder(true);
         rowGroupStats2.increaseValueCount(2);
         addIntStats(rowGroupStats2, everyRowKey, 2L, 3L, 4L, 7L);
-        rowGroupStats2.addMapStatistics(keyInfo(firstRowGroupKey), new ColumnStatistics(0L));
+        rowGroupStats2.addMapStatistics(keyInfo(firstRowGroupKey), new ColumnStatistics(0L, null, null, null));
         addIntStats(rowGroupStats2, firstStripeKey, 1L, 100L, 100L, 100L);
         addIntStats(rowGroupStats2, secondRowGroupKey, 1L, 22L, 22L, 22L);
 
@@ -214,7 +284,7 @@ public class TestColumnStatistics
 
         MapColumnStatisticsBuilder rowGroupStats2 = new MapColumnStatisticsBuilder(true);
         rowGroupStats2.increaseValueCount(1);
-        rowGroupStats2.addMapStatistics(keyInfo(key), new ColumnStatistics(0L));
+        rowGroupStats2.addMapStatistics(keyInfo(key), new ColumnStatistics(0L, null, null, null));
 
         MapColumnStatisticsBuilder rowGroupStats3 = new MapColumnStatisticsBuilder(true);
         rowGroupStats3.increaseValueCount(2);
@@ -261,7 +331,7 @@ public class TestColumnStatistics
 
         MapColumnStatisticsBuilder rowGroupStats2 = new MapColumnStatisticsBuilder(true);
         rowGroupStats2.increaseValueCount(0);
-        rowGroupStats2.addMapStatistics(keyInfo(key), new ColumnStatistics(0L));
+        rowGroupStats2.addMapStatistics(keyInfo(key), new ColumnStatistics(0L, null, null, null));
 
         MapColumnStatisticsBuilder rowGroupStats3 = new MapColumnStatisticsBuilder(true);
         rowGroupStats3.increaseValueCount(2);
@@ -482,5 +552,15 @@ public class TestColumnStatistics
             map.put(values[i], values[i + 1]);
         }
         return map;
+    }
+
+    private static ColumnStatistics withRawSize(Long rawSize)
+    {
+        return new ColumnStatistics(null, null, rawSize, null);
+    }
+
+    private static ColumnStatistics withStorageSize(Long storageSize)
+    {
+        return new ColumnStatistics(null, null, null, storageSize);
     }
 }

@@ -92,7 +92,8 @@ public class MergeDuplicateAggregation
                                 node.getPreGroupedVariables(),
                                 node.getStep(),
                                 node.getHashVariable(),
-                                node.getGroupIdVariable()),
+                                node.getGroupIdVariable(),
+                                node.getAggregationId()),
                         assignments.build(),
                         LOCAL));
     }

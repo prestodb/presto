@@ -88,7 +88,8 @@ TEST_F(JsonSignatureParserTest, simpleTypes) {
             "double",
             "timestamp",
             "date"
-          ]
+          ],
+          "schema": "test_schema"
         }
       ]
     }
@@ -100,11 +101,12 @@ TEST_F(JsonSignatureParserTest, simpleTypes) {
   const auto& it = parser.begin();
   EXPECT_EQ(it->first, "my_func");
   EXPECT_EQ(it->second.size(), 1);
+  EXPECT_EQ(it->second.front().schema, "test_schema");
 
   // We can just verify the counts here. If the type doesn't not exist or can't
   // be parsed, the parsing constructor will throw.
-  const auto& signature = it->second.front();
-  EXPECT_EQ(signature->argumentTypes().size(), 11);
+  const auto& item = it->second.front();
+  EXPECT_EQ(item.signature->argumentTypes().size(), 11);
 }
 
 TEST_F(JsonSignatureParserTest, complexTypes) {
@@ -135,8 +137,8 @@ TEST_F(JsonSignatureParserTest, complexTypes) {
 
   // We can just verify the counts here. If the type doesn't exist or can't
   // be parsed, the parsing constructor will throw.
-  const auto& signature = it->second.front();
-  EXPECT_EQ(signature->argumentTypes().size(), 5);
+  const auto& item = it->second.front();
+  EXPECT_EQ(item.signature->argumentTypes().size(), 5);
 }
 
 TEST_F(JsonSignatureParserTest, multiple) {
@@ -183,14 +185,16 @@ TEST_F(JsonSignatureParserTest, multiple) {
   EXPECT_EQ(it->first, "fb_lower");
   EXPECT_EQ(it->second.size(), 2);
 
-  EXPECT_EQ(it->second[0]->returnType().baseName(), "varchar");
-  EXPECT_EQ(it->second[0]->argumentTypes().size(), 1);
-  EXPECT_EQ(it->second[0]->argumentTypes()[0].baseName(), "varchar");
+  const auto& signature0 = it->second[0].signature;
+  EXPECT_EQ(signature0->returnType().baseName(), "varchar");
+  EXPECT_EQ(signature0->argumentTypes().size(), 1);
+  EXPECT_EQ(signature0->argumentTypes()[0].baseName(), "varchar");
 
-  EXPECT_EQ(it->second[1]->returnType().baseName(), "varchar");
-  EXPECT_EQ(it->second[1]->argumentTypes().size(), 2);
-  EXPECT_EQ(it->second[1]->argumentTypes()[0].baseName(), "varchar");
-  EXPECT_EQ(it->second[1]->argumentTypes()[1].baseName(), "varchar");
+  const auto& signature1 = it->second[1].signature;
+  EXPECT_EQ(signature1->returnType().baseName(), "varchar");
+  EXPECT_EQ(signature1->argumentTypes().size(), 2);
+  EXPECT_EQ(signature1->argumentTypes()[0].baseName(), "varchar");
+  EXPECT_EQ(signature1->argumentTypes()[1].baseName(), "varchar");
 }
 
 } // namespace

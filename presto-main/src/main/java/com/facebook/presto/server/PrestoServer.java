@@ -175,7 +175,8 @@ public class PrestoServer
             injector.getInstance(NodeTtlFetcherManager.class).loadNodeTtlFetcher();
             injector.getInstance(ClusterTtlProviderManager.class).loadClusterTtlProvider();
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
-
+            injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
+            injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

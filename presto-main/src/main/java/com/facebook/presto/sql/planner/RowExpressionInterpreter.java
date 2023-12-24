@@ -255,7 +255,11 @@ public class RowExpressionInterpreter
             }
 
             if (functionMetadata.getFunctionKind() != SCALAR) {
-                return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
+                if (optimizationLevel.ordinal() < EVALUATED.ordinal()) {
+                    return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
+                }
+
+                throw new RuntimeException("Cannot evaluate non-scalar function: " + node.getDisplayName());
             }
 
             // do not optimize non-deterministic functions

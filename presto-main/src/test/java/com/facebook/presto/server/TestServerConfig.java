@@ -24,7 +24,9 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.presto.spi.NodePoolType.DEFAULT;
 import static com.facebook.presto.spi.NodePoolType.LEAF;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestServerConfig
 {
@@ -43,7 +45,9 @@ public class TestServerConfig
                 .setResourceManager(false)
                 .setCatalogServer(false)
                 .setCatalogServerEnabled(false)
-                .setPoolType(DEFAULT));
+                .setPoolType(DEFAULT)
+                .setClusterStatsExpirationDuration(new Duration(0, MILLISECONDS))
+                .setNestedDataSerializationEnabled(true));
     }
 
     @Test
@@ -62,6 +66,8 @@ public class TestServerConfig
                 .put("catalog-server-enabled", "true")
                 .put("catalog-server", "true")
                 .put("pool-type", "LEAF")
+                .put("cluster-stats-expiration-duration", "10s")
+                .put("nested-data-serialization-enabled", "false")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -76,7 +82,9 @@ public class TestServerConfig
                 .setResourceManager(true)
                 .setCatalogServer(true)
                 .setCatalogServerEnabled(true)
-                .setPoolType(LEAF);
+                .setPoolType(LEAF)
+                .setClusterStatsExpirationDuration(new Duration(10, SECONDS))
+                .setNestedDataSerializationEnabled(false);
 
         assertFullMapping(properties, expected);
     }

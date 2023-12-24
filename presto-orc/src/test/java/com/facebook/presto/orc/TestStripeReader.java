@@ -62,7 +62,7 @@ public class TestStripeReader
         long numRowsInGroup = MILLION;
         IntegerStatistics integerStatistics = new IntegerStatistics(0L, 0L, 0L);
         ColumnStatistics intColumnStatistics = new IntegerColumnStatistics(numRowsInGroup, null, integerStatistics);
-        ColumnStatistics mapColumnStatistics = new ColumnStatistics(numRowsInGroup, null);
+        ColumnStatistics mapColumnStatistics = new ColumnStatistics(numRowsInGroup, null, null, null);
         ColumnStatistics mapKeyColumnStatistics = new IntegerColumnStatistics(numRowsInGroup * numberOfEntries, null, integerStatistics);
         ColumnStatistics mapValueColumnStatistics = new IntegerColumnStatistics(numRowsInGroup * numberOfEntries, null, integerStatistics);
 

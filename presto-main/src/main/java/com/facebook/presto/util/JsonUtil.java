@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.type.BigintOperators;
@@ -651,11 +652,22 @@ public final class JsonUtil
             }
             else {
                 Block rowBlock = type.getObject(block, position);
-                jsonGenerator.writeStartArray();
-                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, rowBlock, i, properties);
+                if (!properties.isFieldNamesInJsonCastEnabled()) {
+                    jsonGenerator.writeStartArray();
+                    for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                        fieldWriters.get(i).writeJsonValue(jsonGenerator, rowBlock, i, properties);
+                    }
+                    jsonGenerator.writeEndArray();
                 }
-                jsonGenerator.writeEndArray();
+                else {
+                    List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
+                    jsonGenerator.writeStartObject();
+                    for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                        jsonGenerator.writeFieldName(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
+                        fieldWriters.get(i).writeJsonValue(jsonGenerator, rowBlock, i, properties);
+                    }
+                    jsonGenerator.writeEndObject();
+                }
             }
         }
     }

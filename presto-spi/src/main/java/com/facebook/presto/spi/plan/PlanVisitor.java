@@ -84,4 +84,24 @@ public abstract class PlanVisitor<R, C>
     {
         return visitPlan(node, context);
     }
+
+    public R visitCteReference(CteReferenceNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitCteProducer(CteProducerNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitCteConsumer(CteConsumerNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitSequence(SequenceNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }

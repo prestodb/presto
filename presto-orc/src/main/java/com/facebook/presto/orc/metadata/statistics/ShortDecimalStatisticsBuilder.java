@@ -25,6 +25,8 @@ public class ShortDecimalStatisticsBuilder
     private final int scale;
 
     private long nonNullValueCount;
+    private long size;
+    private long rawSize;
     private long minimum = Long.MAX_VALUE;
     private long maximum = Long.MIN_VALUE;
 
@@ -61,5 +63,17 @@ public class ShortDecimalStatisticsBuilder
             return new DecimalColumnStatistics(nonNullValueCount, null, decimalStatistics.get());
         }
         return new ColumnStatistics(nonNullValueCount, null);
+    }
+
+    @Override
+    public void incrementRawSize(long rawSize)
+    {
+        this.rawSize += rawSize;
+    }
+
+    @Override
+    public void incrementSize(long size)
+    {
+        this.size += size;
     }
 }

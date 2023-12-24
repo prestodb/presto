@@ -352,6 +352,13 @@ public class TestDwrfMetadataReader
     @DataProvider
     public Object[][] columnStatisticsSupplier()
     {
+        ColumnStatistics columnStatistics1 = new ColumnStatistics(7L, null, null, null);
+        ColumnStatistics columnStatistics2 = new ColumnStatistics(7L, null, 3L, 5L);
+        ColumnStatistics columnStatistics3 = new ColumnStatistics(7L, null, 3L, null);
+        ColumnStatistics columnStatistics4 = new ColumnStatistics(7L, null, null, 5L);
+        // DWRF metadata writer does not support writing rawSize and storageSize yet
+        ColumnStatistics columnStatisticsWithoutSize = new ColumnStatistics(7L, null, null, null);
+
         ColumnStatistics integerColumnStatistics1 = new IntegerColumnStatistics(7L, null, new IntegerStatistics(25L, 95L, 100L));
         ColumnStatistics integerColumnStatistics2 = new IntegerColumnStatistics(9L, null, new IntegerStatistics(12L, 22L, 32L));
 
@@ -367,7 +374,7 @@ public class TestDwrfMetadataReader
         mapStatsStringKeyBuilder.increaseValueCount(23L);
         ColumnStatistics mapColumnStatisticsStringKey = mapStatsStringKeyBuilder.buildColumnStatistics();
 
-        ColumnStatistics expectedDisabledMapStats = new ColumnStatistics(23L, null);
+        ColumnStatistics expectedDisabledMapStats = new ColumnStatistics(23L, null, null, null);
 
         OrcReaderOptions orcReaderOptionsDisabledMapStats = OrcReaderOptions.builder()
                 .withMaxMergeDistance(new DataSize(1, MEGABYTE))
@@ -378,6 +385,10 @@ public class TestDwrfMetadataReader
         DwrfMetadataReader dwrfMetadataReaderDisabledMapStats = new DwrfMetadataReader(new RuntimeStats(), orcReaderOptionsDisabledMapStats);
 
         return new Object[][] {
+                {columnStatistics1, columnStatisticsWithoutSize, dwrfMetadataReader},
+                {columnStatistics2, columnStatisticsWithoutSize, dwrfMetadataReader},
+                {columnStatistics3, columnStatisticsWithoutSize, dwrfMetadataReader},
+                {columnStatistics4, columnStatisticsWithoutSize, dwrfMetadataReader},
                 {integerColumnStatistics1, integerColumnStatistics1, dwrfMetadataReader},
                 {integerColumnStatistics1, integerColumnStatistics1, dwrfMetadataReaderDisabledMapStats},
                 {mapColumnStatisticsIntKey, mapColumnStatisticsIntKey, dwrfMetadataReader},

@@ -21,19 +21,27 @@ import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
+import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.verifier.framework.DdlMatchResult.MatchType.CONTROL_NOT_PARSABLE;
 import static com.facebook.presto.verifier.framework.DdlMatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.DdlMatchResult.MatchType.MISMATCH;
+import static com.facebook.presto.verifier.framework.DdlMatchResult.MatchType.SNAPSHOT_DOES_NOT_EXIST;
 import static com.facebook.presto.verifier.framework.DdlMatchResult.MatchType.TEST_NOT_PARSABLE;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_CHECKSUM;
+import static com.facebook.presto.verifier.framework.VerifierConfig.QUERY_BANK_MODE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
+import static com.facebook.presto.verifier.source.AbstractJdbiSnapshotQuerySupplier.VERIFIER_SNAPSHOT_KEY_PATTERN;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class DdlVerification<S extends Statement>
@@ -50,9 +58,11 @@ public abstract class DdlVerification<S extends Statement>
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
             ResultSetConverter<String> checksumConverter,
-            ListeningExecutorService executor)
+            ListeningExecutorService executor,
+            SnapshotQueryConsumer snapshotQueryConsumer,
+            Map<String, SnapshotQuery> snapshotQueries)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, executor);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, executor, snapshotQueryConsumer, snapshotQueries);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser");
         this.checksumConverter = requireNonNull(checksumConverter, "checksumConverter is null");
     }
@@ -71,15 +81,48 @@ public abstract class DdlVerification<S extends Statement>
             ChecksumQueryContext controlChecksumQueryContext,
             ChecksumQueryContext testChecksumQueryContext)
     {
-        Statement controlChecksumQuery = getChecksumQuery(control);
+        String controlChecksum = null;
+
+        if (isControlEnabled()) {
+            Statement controlChecksumQuery = getChecksumQuery(control);
+            controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
+
+            controlChecksum = getOnlyElement(callAndConsume(
+                    () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, checksumConverter),
+                    stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId)).getResults());
+
+            if (saveSnapshot) {
+                try {
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    String snapshot = objectMapper.writeValueAsString(controlChecksum);
+                    snapshotQueryConsumer.accept(new SnapshotQuery(getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain, snapshot));
+                    return new DdlMatchResult(MATCH, Optional.empty(), "", "");
+                }
+                catch (JsonProcessingException exception) {
+                    throw new RuntimeException("Unable to save snapshot \"" + controlChecksum + "\".");
+                }
+            }
+        }
+        else if (QUERY_BANK_MODE.equals(runningMode)) {
+            String key = format(VERIFIER_SNAPSHOT_KEY_PATTERN, getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain);
+            SnapshotQuery snapshotQuery = snapshotQueries.get(key);
+            if (snapshotQuery != null) {
+                ObjectMapper objectMapper = new ObjectMapper();
+                String snapshotJson = snapshotQuery.getSnapshot();
+                try {
+                    controlChecksum = objectMapper.readValue(snapshotJson, String.class);
+                }
+                catch (JsonProcessingException exception) {
+                    throw new RuntimeException("Unable to restore snapshot \"" + snapshotJson + "\".");
+                }
+            }
+            else {
+                return new DdlMatchResult(SNAPSHOT_DOES_NOT_EXIST, Optional.empty(), "", "");
+            }
+        }
+
         Statement testChecksumQuery = getChecksumQuery(test);
-
-        controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
         testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
-
-        String controlChecksum = getOnlyElement(callAndConsume(
-                () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, checksumConverter),
-                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId)).getResults());
         String testChecksum = getOnlyElement(callAndConsume(
                 () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, checksumConverter),
                 stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId)).getResults());

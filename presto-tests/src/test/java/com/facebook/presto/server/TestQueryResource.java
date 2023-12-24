@@ -351,4 +351,32 @@ public class TestQueryResource
         assertEquals(running, expectedRunning);
         assertEquals(queued, expectedQueued);
     }
+
+    @Test
+    public void testShouldReturnLegacyDataOnNestDataSerializationDisabled()
+            throws Exception
+    {
+        runner = createQueryRunner(ImmutableMap.of("nested-data-serialization-enabled", "false"));
+        server = runner.getCoordinator();
+
+        String sql = "SELECT MAP(ARRAY['a'], ARRAY[1])";
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
+
+        Request request = preparePost()
+                .setHeader(PRESTO_USER, "user")
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
+                .build();
+
+        String body = client.execute(request, createStringResponseHandler()).getBody();
+        QueryResults queryResults = jsonCodec(QueryResults.class).fromJson(body);
+        while (queryResults.getData() == null) {
+            URI nextUri = queryResults.getNextUri();
+            Request.Builder requestBuilder = prepareGet().setHeader(PRESTO_USER, "user");
+            request = requestBuilder.setUri(nextUri).build();
+            body = client.execute(request, createStringResponseHandler()).getBody();
+            queryResults = jsonCodec(QueryResults.class).fromJson(body);
+        }
+        assertTrue(body.contains("\"data\":[[{\"a\":1}]]"));
+    }
 }

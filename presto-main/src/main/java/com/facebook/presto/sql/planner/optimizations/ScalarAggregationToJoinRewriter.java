@@ -210,6 +210,7 @@ public class ScalarAggregationToJoinRewriter
                 ImmutableList.of(),
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashVariable(),
+                Optional.empty(),
                 Optional.empty()));
     }
 }

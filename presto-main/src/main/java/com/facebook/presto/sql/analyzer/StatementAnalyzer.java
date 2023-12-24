@@ -22,10 +22,12 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -42,6 +44,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -150,6 +153,8 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Update;
+import com.facebook.presto.sql.tree.UpdateAssignment;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
@@ -192,6 +197,7 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
@@ -199,6 +205,7 @@ import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_DELETE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_INSERT;
+import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
@@ -268,6 +275,9 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.TIMESTAMP;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.VERSION;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.util.MetadataUtils.getMaterializedViewDefinition;
 import static com.facebook.presto.util.MetadataUtils.getTableColumnsMetadata;
@@ -276,6 +286,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static java.lang.Math.toIntExact;
@@ -792,7 +803,7 @@ class StatementAnalyzer
             SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName()));
             if (tablePredicates.containsKey(baseTableName)) {
                 Query tableSubquery = buildQueryWithPredicate(baseTable, tablePredicates.get(baseTableName));
-                analysis.registerNamedQuery(baseTable, tableSubquery);
+                analysis.registerNamedQuery(baseTable, tableSubquery, true);
 
                 Scope subqueryScope = process(tableSubquery, scope);
 
@@ -1196,7 +1207,7 @@ class StatementAnalyzer
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(name);
                 if (withQuery.isPresent()) {
                     Query query = withQuery.get().getQuery();
-                    analysis.registerNamedQuery(table, query);
+                    analysis.registerNamedQuery(table, query, false);
 
                     // re-alias the fields with the name assigned to the query in the WITH declaration
                     RelationType queryDescriptor = analysis.getOutputDescriptor(query);
@@ -1280,7 +1291,7 @@ class StatementAnalyzer
             }
 
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), name);
-            Optional<TableHandle> tableHandle = tableColumnsMetadata.getTableHandle();
+            Optional<TableHandle> tableHandle = getTableHandle(tableColumnsMetadata, table, name, scope);
 
             Map<String, ColumnHandle> columnHandles = tableColumnsMetadata.getColumnHandles();
 
@@ -1319,6 +1330,57 @@ class StatementAnalyzer
             }
 
             return createAndAssignScope(table, scope, fields.build());
+        }
+
+        private Optional<TableHandle> getTableHandle(TableColumnMetadata tableColumnsMetadata, Table table, QualifiedObjectName name, Optional<Scope> scope)
+        {
+            // Process table version AS OF expression
+            if (table.getTableVersionExpression().isPresent()) {
+                return processTableVersion(table, name, scope);
+            }
+            else {
+                return tableColumnsMetadata.getTableHandle();
+            }
+        }
+
+        private VersionType toVersionType(TableVersionType type)
+        {
+            switch (type) {
+                case TIMESTAMP:
+                    return VersionType.TIMESTAMP;
+                case VERSION:
+                    return VersionType.VERSION;
+            }
+            throw new SemanticException(NOT_SUPPORTED, type.toString(), "Table version type not supported.");
+        }
+        private Optional<TableHandle> processTableVersion(Table table, QualifiedObjectName name, Optional<Scope> scope)
+        {
+            Expression asOfExpr = table.getTableVersionExpression().get().getAsOfExpression();
+            TableVersionType tableVersionType = table.getTableVersionExpression().get().getTableVersionType();
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(asOfExpr, scope.get());
+            analysis.recordSubqueries(table, expressionAnalysis);
+            Type asOfExprType = expressionAnalysis.getType(asOfExpr);
+            if (asOfExprType == UNKNOWN) {
+                throw new PrestoException(INVALID_ARGUMENTS, format("Table version AS OF expression cannot be NULL for %s", name.toString()));
+            }
+            Object evalAsOfExpr = evaluateConstantExpression(asOfExpr, asOfExprType, metadata, session, analysis.getParameters());
+            if (tableVersionType == TIMESTAMP) {
+                if (!(asOfExprType instanceof TimestampWithTimeZoneType)) {
+                    throw new SemanticException(TYPE_MISMATCH, asOfExpr,
+                            "Type %s is invalid. Supported table version AS OF expression type is Timestamp with Time Zone.",
+                            asOfExprType.getDisplayName());
+                }
+            }
+            if (tableVersionType == VERSION) {
+                if (!(asOfExprType instanceof BigintType)) {
+                    throw new SemanticException(TYPE_MISMATCH, asOfExpr,
+                            "Type %s is invalid. Supported table version AS OF expression type is BIGINT",
+                            asOfExprType.getDisplayName());
+                }
+            }
+
+            ConnectorTableVersion tableVersion = new ConnectorTableVersion(toVersionType(tableVersionType), asOfExprType, evalAsOfExpr);
+            return metadata.getHandleVersion(session, name, Optional.of(tableVersion));
         }
 
         private Scope getScopeFromTable(Table table, Optional<Scope> scope)
@@ -1364,11 +1426,10 @@ class StatementAnalyzer
 
             Query query = parseView(view.getOriginalSql(), name, table);
 
-            analysis.registerNamedQuery(table, query);
+            analysis.registerNamedQuery(table, query, true);
             analysis.registerTableForView(table);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
             analysis.unregisterTableForView();
-
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
             }
@@ -1405,7 +1466,7 @@ class StatementAnalyzer
             String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition, scope);
 
             Query query = (Query) sqlParser.createStatement(newSql, createParsingOptions(session, warningCollector));
-            analysis.registerNamedQuery(materializedView, query);
+            analysis.registerNamedQuery(materializedView, query, true);
 
             Scope queryScope = process(query, scope);
             RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
@@ -1914,6 +1975,87 @@ class StatementAnalyzer
         {
             NodeLocation nodeLocation = node.getLocation().get();
             return format("line %s:%s: %s", nodeLocation.getLineNumber(), nodeLocation.getColumnNumber(), description);
+        }
+
+        @Override
+        protected Scope visitUpdate(Update update, Optional<Scope> scope)
+        {
+            Table table = update.getTable();
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            MetadataHandle metadataHandle = analysis.getMetadataHandle();
+
+            if (getViewDefinition(session, metadataResolver, metadataHandle, tableName).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, update, "Updating into views is not supported");
+            }
+
+            if (getMaterializedViewDefinition(session, metadataResolver, metadataHandle, tableName).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, update, "Updating into materialized views is not supported");
+            }
+
+            TableColumnMetadata tableMetadata = getTableColumnsMetadata(session, metadataResolver, metadataHandle, tableName);
+
+            List<ColumnMetadata> allColumns = tableMetadata.getColumnsMetadata();
+
+            Map<String, ColumnMetadata> columns = allColumns.stream()
+                    .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
+
+            for (UpdateAssignment assignment : update.getAssignments()) {
+                String columnName = assignment.getName().getValue();
+                if (!columns.containsKey(columnName)) {
+                    throw new SemanticException(MISSING_COLUMN, assignment.getName(), "The UPDATE SET target column %s doesn't exist", columnName);
+                }
+            }
+
+            Set<String> assignmentTargets = update.getAssignments().stream()
+                    .map(assignment -> assignment.getName().getValue())
+                    .collect(toImmutableSet());
+            accessControl.checkCanUpdateTableColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, assignmentTargets);
+
+            List<ColumnMetadata> updatedColumns = allColumns.stream()
+                    .filter(column -> assignmentTargets.contains(column.getName()))
+                    .collect(toImmutableList());
+            analysis.setUpdateType("UPDATE");
+            analysis.setUpdatedColumns(updatedColumns);
+
+            // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks
+            StatementAnalyzer analyzer = new StatementAnalyzer(
+                    analysis,
+                    metadata,
+                    sqlParser,
+                    new AllowAllAccessControl(),
+                    session,
+                    warningCollector);
+
+            Scope tableScope = analyzer.analyze(table, scope);
+            update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
+
+            ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
+            for (UpdateAssignment assignment : update.getAssignments()) {
+                Expression expression = assignment.getValue();
+                ExpressionAnalysis analysis = analyzeExpression(expression, tableScope);
+                analysesBuilder.add(analysis);
+                expressionTypesBuilder.add(analysis.getType(expression));
+            }
+            List<ExpressionAnalysis> analyses = analysesBuilder.build();
+            List<Type> expressionTypes = expressionTypesBuilder.build();
+
+            List<Type> tableTypes = update.getAssignments().stream()
+                    .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
+                    .map(ColumnMetadata::getType)
+                    .collect(toImmutableList());
+
+            for (int index = 0; index < expressionTypes.size(); index++) {
+                Expression expression = update.getAssignments().get(index).getValue();
+                Type expressionType = expressionTypes.get(index);
+                Type targetType = tableTypes.get(index);
+                if (!targetType.equals(expressionType)) {
+                    analysis.addCoercion(expression, targetType, functionAndTypeResolver.isTypeOnlyCoercion(expressionType, targetType));
+                }
+                analysis.recordSubqueries(update, analyses.get(index));
+            }
+
+            return createAndAssignScope(update, scope, Field.newUnqualified(update.getLocation(), "rows", BIGINT));
         }
 
         private Scope analyzeJoinUsing(Join node, List<Identifier> columns, Optional<Scope> scope, Scope left, Scope right)
@@ -2690,7 +2832,7 @@ class StatementAnalyzer
             }
             catch (RuntimeException e) {
                 throwIfInstanceOf(e, PrestoException.class);
-                throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Failed analyzing stored view '%s': %s", name, e.getMessage());
+                throw new SemanticException(VIEW_ANALYSIS_ERROR, e, node.getLocation(), "Failed analyzing stored view '%s': %s", name, e.getMessage());
             }
         }
 

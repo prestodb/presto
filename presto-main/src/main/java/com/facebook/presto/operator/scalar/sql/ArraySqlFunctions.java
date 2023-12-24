@@ -91,6 +91,26 @@ public class ArraySqlFunctions
         return "RETURN cardinality(array_duplicates(input)) > 0";
     }
 
+    @SqlInvokedScalarFunction(value = "array_least_frequent", deterministic = true, calledOnNullInput = true)
+    @Description("Determines the least frequent element in the array. If there are multiple elements, the function returns the smallest element")
+    @TypeParameter("T")
+    @SqlParameter(name = "input", type = "array(T)")
+    @SqlType("array<T>")
+    public static String array_least_frequent()
+    {
+        return "RETURN IF(COALESCE(CARDINALITY(REMOVE_NULLS(input)), 0) = 0, NULL, TRANSFORM(SLICE(ARRAY_SORT(TRANSFORM(MAP_ENTRIES(ARRAY_FREQUENCY(REMOVE_NULLS(input))), x -> ROW(x[2], x[1]))), 1, 1), x -> x[2]))";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_least_frequent", deterministic = true, calledOnNullInput = true)
+    @Description("Determines the n least frequent element in the array in the ascending order of the elements.")
+    @TypeParameter("T")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "bigint")})
+    @SqlType("array<T>")
+    public static String array_n_least_frequent()
+    {
+        return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), IF(COALESCE(CARDINALITY(REMOVE_NULLS(input)), 0) = 0, NULL, TRANSFORM(SLICE(ARRAY_SORT(TRANSFORM(MAP_ENTRIES(ARRAY_FREQUENCY(REMOVE_NULLS(input))), x -> ROW(x[2], x[1]))), 1, n), x -> x[2])))";
+    }
+
     @SqlInvokedScalarFunction(value = "array_max_by", deterministic = true, calledOnNullInput = true)
     @Description("Get the maximum value of array, by using a specific transformation function")
     @TypeParameter("T")
@@ -135,5 +155,23 @@ public class ArraySqlFunctions
     public static String removeNulls()
     {
         return "RETURN IF(none_match(input, x -> x is null), input, filter(input, x -> x is not null))";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_top_n", deterministic = true, calledOnNullInput = true)
+    @Description("Returns top N elements of a given array, using natural descending order.")
+    @TypeParameter("T")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "int")})
+    @SqlType("array<T>")
+    public static String arrayTopN()
+    { return "RETURN IF(n < 0, fail('Parameter n: ' || cast(n as varchar) || ' to ARRAY_TOP_N is negative'), SLICE(ARRAY_SORT_DESC(input), 1, n))"; }
+
+    @SqlInvokedScalarFunction(value = "array_top_n", deterministic = true, calledOnNullInput = true)
+    @Description("Returns the top N values of the given map sorted using the provided lambda comparator.")
+    @TypeParameter("T")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "int"), @SqlParameter(name = "f", type = "function(T, T, int)")})
+    @SqlType("array<T>")
+    public static String arrayTopNComparator()
+    {
+        return "RETURN IF(n < 0, fail('Parameter n: ' || cast(n as varchar) || ' to ARRAY_TOP_N is negative'), SLICE(REVERSE(ARRAY_SORT(input, f)), 1, n))";
     }
 }

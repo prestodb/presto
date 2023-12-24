@@ -32,9 +32,9 @@ public class NativeExecutionVeloxConfig
 
     private boolean codegenEnabled;
     private boolean spillEnabled = true;
-    private boolean aggregationSpillEnabled;
-    private boolean joinSpillEnabled;
-    private boolean orderBySpillEnabled;
+    private boolean aggregationSpillEnabled = true;
+    private boolean joinSpillEnabled = true;
+    private boolean orderBySpillEnabled = true;
 
     public Map<String, String> getAllProperties()
     {

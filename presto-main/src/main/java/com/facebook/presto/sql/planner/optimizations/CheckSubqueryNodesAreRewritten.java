@@ -36,7 +36,7 @@ public class CheckSubqueryNodesAreRewritten
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         searchFrom(plan).where(ApplyNode.class::isInstance)
                 .findFirst()
@@ -52,7 +52,7 @@ public class CheckSubqueryNodesAreRewritten
                     error(lateralJoinNode.getCorrelation(), lateralJoinNode.getOriginSubqueryError());
                 });
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private void error(List<VariableReferenceExpression> correlation, String originSubqueryError)

@@ -23,6 +23,7 @@ public class ExplainMatchResult
         MATCH,
         STRUCTURE_MISMATCH,
         DETAILS_MISMATCH,
+        SNAPSHOT_DOES_NOT_EXIST,
     }
 
     private final MatchType matchType;

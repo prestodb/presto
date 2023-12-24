@@ -35,6 +35,7 @@ import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -66,7 +67,9 @@ import com.facebook.presto.hive.orc.OrcSelectivePageSource;
 import com.facebook.presto.hive.pagefile.PageFilePageSource;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
+import com.facebook.presto.hive.rule.BaseSubfieldExtractionRewriter.ConnectorPushdownFilterResult;
 import com.facebook.presto.hive.rule.HiveFilterPushdown;
+import com.facebook.presto.hive.rule.HiveFilterPushdown.SubfieldExtractionRewriter;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -110,6 +113,7 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -220,7 +224,6 @@ import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN
 import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
-import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveSessionProperties.OFFLINE_DATA_DEBUG_MODE_ENABLED;
@@ -277,6 +280,7 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoub
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
@@ -1046,7 +1050,8 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
-                encryptionInformationProvider);
+                encryptionInformationProvider,
+                new HivePartitionSkippabilityChecker());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveClientConfig, metastoreClientConfig),
                 hdfsEnvironment,
@@ -1121,6 +1126,12 @@ public abstract class AbstractTestHiveClient
             public ConnectorIdentity getIdentity()
             {
                 return session.getIdentity();
+            }
+
+            @Override
+            public TimeZoneKey getTimeZoneKey()
+            {
+                return session.getTimeZoneKey();
             }
 
             @Override
@@ -2281,7 +2292,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static HiveFilterPushdown.ConnectorPushdownFilterResult pushdownFilter(
+    private static ConnectorPushdownFilterResult pushdownFilter(
             ConnectorSession session,
             ConnectorMetadata metadata,
             SemiTransactionalHiveMetastore metastore,
@@ -2289,12 +2300,22 @@ public abstract class AbstractTestHiveClient
             StandardFunctionResolution functionResolution,
             HivePartitionManager partitionManager,
             FunctionMetadataManager functionMetadataManager,
-            ConnectorTableHandle tableHandle,
+            ConnectorTableHandle connectorTableHandle,
             RowExpression filter,
             Optional<ConnectorTableLayoutHandle> currentLayoutHandle)
     {
-        HiveFilterPushdown filterPushdown = new HiveFilterPushdown(new HiveTransactionManager(), rowExpressionService, functionResolution, partitionManager, functionMetadataManager);
-        return filterPushdown.pushdownFilter(session, metadata, metastore, tableHandle, filter, currentLayoutHandle);
+        HiveTransactionManager hiveTransactionManager = new HiveTransactionManager();
+        SubfieldExtractionRewriter filterPushdown = new SubfieldExtractionRewriter(
+                session,
+                new PlanNodeIdAllocator(),
+                rowExpressionService,
+                functionResolution,
+                functionMetadataManager,
+                hiveTransactionManager,
+                partitionManager,
+                tableHandle -> HiveFilterPushdown.getConnectorMetadata(hiveTransactionManager, tableHandle));
+
+        return filterPushdown.pushdownFilter(session, metadata, connectorTableHandle, filter, currentLayoutHandle);
     }
 
     private static void assertBucketTableEvolutionResult(MaterializedResult result, List<ColumnHandle> columnHandles, Set<Integer> bucketIds, int rowCount)

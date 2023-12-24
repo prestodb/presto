@@ -158,7 +158,10 @@ public class LongColumnWriter
                 nonNullValueCount++;
             }
         }
-        return nonNullValueCount * typeSize + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+
+        long rawSize = nonNullValueCount * typeSize + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+        statisticsBuilder.incrementRawSize(rawSize);
+        return rawSize;
     }
 
     void writeValue(long value)

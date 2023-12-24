@@ -1,7 +1,6 @@
 ---
 name: Feature Request
 about: Create a feature request
-title: '[Feature Request]'
 labels: 'feature request'
 assignees: ''
 

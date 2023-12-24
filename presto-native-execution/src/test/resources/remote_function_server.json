@@ -1,0 +1,51 @@
+{
+  "udfSignatureMap": {
+    "ceil":[
+      {
+        "docString": "",
+        "functionKind": "SCALAR",
+        "outputType": "INTEGER",
+        "paramTypes": [
+          "INTEGER"
+        ],
+        "schema": "schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      },
+      {
+        "docString": "",
+        "functionKind": "SCALAR",
+        "outputType": "DOUBLE",
+        "paramTypes": [
+          "DOUBLE"
+        ],
+        "schema": "schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "concat":[
+      {
+        "docString": "",
+        "functionKind": "SCALAR",
+        "outputType": "VARCHAR",
+        "paramTypes": [
+          "VARCHAR",
+          "VARCHAR"
+        ],
+        "schema": "schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ]
+  }
+}

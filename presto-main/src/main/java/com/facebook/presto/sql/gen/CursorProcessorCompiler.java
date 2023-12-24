@@ -255,7 +255,7 @@ public class CursorProcessorCompiler
                 .getVariable(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
-        // this.project_43(session, cursor, pageBuilder.getBlockBuilder(42)));
+        // this.project_43(properties, cursor, pageBuilder.getBlockBuilder(42)));
         for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
             ifStatement.ifTrue()
                     .append(method.getThis())

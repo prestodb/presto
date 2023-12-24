@@ -15,10 +15,13 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.JoinNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -38,22 +41,25 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
+import static com.facebook.presto.SystemSessionProperties.getRandomizeOuterJoinNullKeyNullRatioThreshold;
 import static com.facebook.presto.SystemSessionProperties.getRandomizeOuterJoinNullKeyStrategy;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.ALWAYS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.COST_BASED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.DISABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.KEY_FROM_OUTER_JOIN;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -63,6 +69,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -74,7 +81,7 @@ import static java.util.function.Function.identity;
  * Randomize the join key of outer joins if the join key has many NULL values so as to mitigate skew.
  * The optimization has three strategies, `DISABLED` to skip the optimization, `ALWAYS` to always enabled for all outer joins, and `KEY_FROM_OUTER_JOIN` to enable only when the
  * join key is from the outer side of a outer join which is likely to have many NULLs.
- *
+ * <p>
  * When Strategy is `KEY_FROM_OUTER_JOIN`:
  * <pre>
  * - LeftJoin
@@ -103,7 +110,7 @@ import static java.util.function.Function.identity;
  *          r.key = COALESCE(T3.k, Randomize(T3.k))
  *          - Scan T3(k)
  * </pre>
- *
+ * <p>
  * When Strategy is `ALWAYS`:
  * <pre>
  * - LeftJoin
@@ -142,11 +149,13 @@ public class RandomizeNullKeyInOuterJoin
         implements PlanOptimizer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final StatsCalculator statsCalculator;
     private boolean isEnabledForTesting;
 
-    public RandomizeNullKeyInOuterJoin(FunctionAndTypeManager functionAndTypeManager)
+    public RandomizeNullKeyInOuterJoin(FunctionAndTypeManager functionAndTypeManager, StatsCalculator statsCalculator)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
 
     @Override
@@ -162,34 +171,48 @@ public class RandomizeNullKeyInOuterJoin
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public boolean isCostBased(Session session)
+    {
+        return getRandomizeOuterJoinNullKeyStrategy(session).equals(COST_BASED);
+    }
+
+    @Override
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator), plan, new HashSet<>());
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            Rewriter rewriter = new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator, statsProvider);
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new HashSet<>());
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Set<VariableReferenceExpression>>
     {
+        private static final double NULL_BUILD_KEY_COUNT_THRESHOLD = 100_000;
+        private static final double NULL_PROBE_KEY_COUNT_THRESHOLD = 100_000;
         private static final String LEFT_PREFIX = "l";
         private static final String RIGHT_PREFIX = "r";
         private final Session session;
         private final FunctionAndTypeManager functionAndTypeManager;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final VariableAllocator planVariableAllocator;
+        private final StatsProvider statsProvider;
         private final Map<String, Map<VariableReferenceExpression, VariableReferenceExpression>> keyToRandomKeyMap;
         private final RandomizeOuterJoinNullKeyStrategy strategy;
+        private boolean planChanged;
 
         private Rewriter(Session session,
-                FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator planVariableAllocator)
+                FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator planVariableAllocator, StatsProvider statsProvider)
         {
             this.session = requireNonNull(session, "session is null");
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
             this.planVariableAllocator = requireNonNull(planVariableAllocator, "planVariableAllocator is null");
+            this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
             this.keyToRandomKeyMap = new HashMap<>();
             this.strategy = getRandomizeOuterJoinNullKeyStrategy(session);
         }
@@ -202,6 +225,11 @@ public class RandomizeNullKeyInOuterJoin
         private static boolean isPartitionedJoin(JoinNode joinNode)
         {
             return joinNode.getDistributionType().isPresent() && joinNode.getDistributionType().get() == PARTITIONED;
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -259,9 +287,10 @@ public class RandomizeNullKeyInOuterJoin
             PlanNode rewrittenLeft = context.rewrite(joinNode.getLeft(), context.get());
             PlanNode rewrittenRight = context.rewrite(joinNode.getRight(), context.get());
 
+            boolean enabledByCostModel = strategy.equals(COST_BASED) && hasNullSkew(statsProvider.getStats(joinNode).getJoinNodeStatsEstimate());
             List<JoinNode.EquiJoinClause> candidateEquiJoinClauses = joinNode.getCriteria().stream()
                     .filter(x -> isSupportedType(x.getLeft()) && isSupportedType(x.getRight()))
-                    .filter(x -> strategy.equals(ALWAYS) || (strategy.equals(KEY_FROM_OUTER_JOIN) && (context.get().contains(x.getLeft()) || context.get().contains(x.getRight()))))
+                    .filter(x -> enabledByCostModel || strategy.equals(ALWAYS) || enabledForJoinKeyFromOuterJoin(context.get(), x))
                     .collect(toImmutableList());
             if (candidateEquiJoinClauses.isEmpty()) {
                 PlanNode result = replaceChildren(joinNode, ImmutableList.of(rewrittenLeft, rewrittenRight));
@@ -296,13 +325,29 @@ public class RandomizeNullKeyInOuterJoin
                     .collect(toImmutableList());
             joinClauseBuilder.addAll(unchangedJoinClauses);
 
+            // If the join key is varchar, add additional null check
+            Map<VariableReferenceExpression, RowExpression> leftIsNullCheckExpression = candidateEquiJoinClauses.stream()
+                    .filter(x -> x.getLeft().getType() instanceof VarcharType).map(x -> x.getLeft()).distinct().collect(toImmutableMap(identity(), x -> specialForm(IS_NULL, BOOLEAN, x)));
+            Map<RowExpression, VariableReferenceExpression> leftIsNullCheckAssignment = leftIsNullCheckExpression.values().stream().collect(toImmutableMap(identity(), x -> planVariableAllocator.newVariable(x)));
+            Map<VariableReferenceExpression, RowExpression> rightIsNullCheckExpression = candidateEquiJoinClauses.stream()
+                    .filter(x -> x.getRight().getType() instanceof VarcharType).map(x -> x.getRight()).distinct().collect(toImmutableMap(identity(), x -> specialForm(IS_NULL, BOOLEAN, x)));
+            Map<RowExpression, VariableReferenceExpression> rightIsNullCheckAssignment = rightIsNullCheckExpression.values().stream().collect(toImmutableMap(identity(), x -> planVariableAllocator.newVariable(x)));
+
+            List<JoinNode.EquiJoinClause> isNullCheck = candidateEquiJoinClauses.stream()
+                    .filter(x -> x.getLeft().getType() instanceof VarcharType && x.getRight().getType() instanceof VarcharType)
+                    .map(x -> new JoinNode.EquiJoinClause(leftIsNullCheckAssignment.get(leftIsNullCheckExpression.get(x.getLeft())), rightIsNullCheckAssignment.get(rightIsNullCheckExpression.get(x.getRight()))))
+                    .collect(toImmutableList());
+            joinClauseBuilder.addAll(isNullCheck);
+
             Assignments.Builder leftAssignments = Assignments.builder();
             leftAssignments.putAll(leftKeyRandomVariableMap);
             leftAssignments.putAll(rewrittenLeft.getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
+            leftAssignments.putAll(leftIsNullCheckAssignment.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
 
             Assignments.Builder rightAssignments = Assignments.builder();
             rightAssignments.putAll(rightKeyRandomVariableMap);
             rightAssignments.putAll(rewrittenRight.getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
+            rightAssignments.putAll(rightIsNullCheckAssignment.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
 
             ProjectNode newLeft = new ProjectNode(rewrittenLeft.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenLeft, leftAssignments.build(), LOCAL);
             ProjectNode newRight = new ProjectNode(rewrittenRight.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenRight, rightAssignments.build(), LOCAL);
@@ -313,8 +358,7 @@ public class RandomizeNullKeyInOuterJoin
             joinOutputBuilder.addAll(rightKeyRandomVariableMap.keySet());
             joinOutputBuilder.addAll(joinNode.getOutputVariables().stream().filter(x -> newRight.getOutputVariables().contains(x)).collect(toImmutableList()));
 
-            session.getOptimizerInformationCollector().addInformation(
-                    new PlanOptimizerInformation(RandomizeNullKeyInOuterJoin.class.getSimpleName(), true, Optional.empty(), Optional.empty()));
+            planChanged = true;
             JoinNode newJoinNode = new JoinNode(
                     joinNode.getSourceLocation(),
                     joinNode.getId(),
@@ -333,6 +377,16 @@ public class RandomizeNullKeyInOuterJoin
                 updateCandidates(newJoinNode, context);
             }
             return newJoinNode;
+        }
+
+        private boolean hasNullSkew(JoinNodeStatsEstimate joinEstimate)
+        {
+            boolean isValidEstimate = !Double.isNaN(joinEstimate.getJoinBuildKeyCount()) && !Double.isNaN(joinEstimate.getNullJoinBuildKeyCount())
+                    && !Double.isNaN(joinEstimate.getJoinProbeKeyCount()) && !Double.isNaN(joinEstimate.getNullJoinProbeKeyCount());
+            return isValidEstimate && ((joinEstimate.getNullJoinBuildKeyCount() > NULL_BUILD_KEY_COUNT_THRESHOLD
+                    && joinEstimate.getNullJoinBuildKeyCount() / joinEstimate.getJoinBuildKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session))
+                    || (joinEstimate.getNullJoinProbeKeyCount() > NULL_PROBE_KEY_COUNT_THRESHOLD
+                    && joinEstimate.getNullJoinProbeKeyCount() / joinEstimate.getJoinProbeKeyCount() > getRandomizeOuterJoinNullKeyNullRatioThreshold(session)));
         }
 
         private RowExpression randomizeJoinKey(RowExpression keyExpression, String prefix)
@@ -361,6 +415,11 @@ public class RandomizeNullKeyInOuterJoin
         private boolean isAlreadyRandomized(PlanNode source, VariableReferenceExpression joinKey, String prefix)
         {
             return keyToRandomKeyMap.containsKey(prefix) && keyToRandomKeyMap.get(prefix).containsKey(joinKey) && source.getOutputVariables().contains(keyToRandomKeyMap.get(prefix).get(joinKey));
+        }
+
+        private boolean enabledForJoinKeyFromOuterJoin(Set<VariableReferenceExpression> variablesFromOuterJoin, JoinNode.EquiJoinClause joinClause)
+        {
+            return strategy.equals(KEY_FROM_OUTER_JOIN) && (variablesFromOuterJoin.contains(joinClause.getLeft()) || variablesFromOuterJoin.contains(joinClause.getRight()));
         }
 
         private Map<VariableReferenceExpression, RowExpression> generateRandomKeyMap(List<VariableReferenceExpression> joinKeys, String prefix)

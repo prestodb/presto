@@ -84,7 +84,8 @@ public abstract class AbstractCliTest
                 new Duration(2, MINUTES),
                 true,
                 ImmutableMap.of(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
     }
 
     protected QueryResults createMockQueryResults()
@@ -96,6 +97,7 @@ public abstract class AbstractCliTest
                 null,
                 ImmutableList.of(new Column("_col0", BigintType.BIGINT)),
                 ImmutableList.of(ImmutableList.of(123)),
+                null,
                 StatementStats.builder().setState("FINISHED").build(),
                 null,
                 ImmutableList.of(),

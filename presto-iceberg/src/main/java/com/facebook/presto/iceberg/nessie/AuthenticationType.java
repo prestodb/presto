@@ -15,6 +15,11 @@ package com.facebook.presto.iceberg.nessie;
 
 public enum AuthenticationType
 {
+    /**
+     * Nessie BASIC authentication type is deprecated, this auth type will be removed in upcoming release.
+     * https://github.com/projectnessie/nessie/blob/nessie-0.59.0/api/client/src/main/java/org/projectnessie/client/NessieConfigConstants.java#L34
+     */
+    @Deprecated
     BASIC,
     BEARER
 }

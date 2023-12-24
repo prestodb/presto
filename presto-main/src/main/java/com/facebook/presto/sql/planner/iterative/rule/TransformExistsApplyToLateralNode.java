@@ -188,6 +188,7 @@ public class TransformExistsApplyToLateralNode
                                 ImmutableList.of(),
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),
+                                Optional.empty(),
                                 Optional.empty()),
                         Assignments.of(exists, comparisonExpression(functionResolution, GREATER_THAN, count, new ConstantExpression(0L, BIGINT)))),
                 parent.getCorrelation(),

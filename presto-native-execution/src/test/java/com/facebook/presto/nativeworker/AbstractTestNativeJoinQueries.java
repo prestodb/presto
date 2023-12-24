@@ -82,6 +82,17 @@ public abstract class AbstractTestNativeJoinQueries
         assertQuery(joinTypeSession, "SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
         assertQuery(joinTypeSession, "SELECT * FROM lineitem " +
                 "WHERE linenumber = 3 OR orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+
+        assertQuery("WITH mapping AS (\n" +
+                "  SELECT orderkey, custkey FROM orders GROUP BY 1, 2\n" +
+                ")\n" +
+                "SELECT \n" +
+                "  custkey\n" +
+                "FROM \n" +
+                "  mapping m \n" +
+                "WHERE \n" +
+                "  m.custkey = 38 \n" +
+                "  AND m.orderkey NOT IN (SELECT orderkey FROM lineitem)");
     }
 
     @Test(dataProvider = "joinTypeProvider")
@@ -118,6 +129,19 @@ public abstract class AbstractTestNativeJoinQueries
     {
         String sql = "SELECT COUNT(*) FROM lineitem_bucketed a, orders_bucketed b WHERE a.orderkey = b.orderkey AND a.ds = '2021-12-20' AND b.ds = '2021-12-20'";
         assertQuery(mergeJoin(), sql, getSession(), sql);
+    }
+
+    @Test
+    public void testJoinsWithoutEquiClause()
+    {
+        // Test double filtered left, right, full and inner joins with right constant equality.
+        String query = "SELECT count(*) FROM (SELECT * FROM lineitem WHERE orderkey %% 1024 = 0) "
+                + "lineitem %s JOIN (SELECT * FROM orders WHERE orderkey %% 1024 = 0) "
+                + "orders ON orders.orderkey = 1024";
+        assertQuery(String.format(query, "LEFT"));
+        assertQuery(String.format(query, "RIGHT"));
+        assertQuery(String.format(query, "FULL"));
+        assertQuery(String.format(query, "INNER"));
     }
 
     @DataProvider(name = "joinTypeProvider")

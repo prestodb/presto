@@ -14,6 +14,10 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -21,9 +25,18 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
@@ -37,14 +50,20 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestNativeGeneralQueries
         extends AbstractTestQueryFramework
 {
-    private static final String[] TABLE_FORMATS = {"DWRF"};
-
     @Override
     protected void createTables()
     {
@@ -132,6 +151,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT * FROM lineitem");
         assertQuery("SELECT ceil(discount), ceiling(discount), floor(discount), abs(discount) FROM lineitem");
         assertQuery("SELECT linenumber IN (2, 4, 6) FROM lineitem");
+        assertQuery("SELECT orderdate FROM orders WHERE cast(orderdate as DATE) IN (cast('1997-07-29' as DATE), cast('1993-03-13' as DATE)) ORDER BY orderdate LIMIT 10");
 
         assertQuery("SELECT * FROM orders");
 
@@ -208,10 +228,9 @@ public abstract class AbstractTestNativeGeneralQueries
         // Create a partitioned table and run analyze on it.
         String tmpTableName = generateRandomTableName();
         try {
-            Session writeSession = buildSessionForTableWrite();
-            getQueryRunner().execute(writeSession, String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT," +
+            getQueryRunner().execute(String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT," +
                     "nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
-            getQueryRunner().execute(writeSession,
+            getQueryRunner().execute(
                     String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
             assertQuery(String.format("SELECT * FROM %s", tmpTableName),
                     "SELECT name, regionkey, nationkey FROM nation");
@@ -222,13 +241,40 @@ public abstract class AbstractTestNativeGeneralQueries
                             "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
                             "('nationkey', NULL, 25.0, 0.0, NULL, '0', '24')," +
                             "(NULL, NULL, NULL, NULL, 25.0, NULL, NULL))");
-            // @TODO Add test for Analyze on table partitions. Refer: https://github.com/prestodb/presto/issues/20232
+            assertUpdate(String.format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['0','0'],ARRAY['4', '11']])", tmpTableName), 2);
+            assertQuery(String.format("SHOW STATS for (SELECT * FROM %s where regionkey=4 and nationkey=11)", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('name', 8.0, 1.0, 0.0, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 1.0, 0.0, NULL, '4', '4')," +
+                            "('nationkey', NULL, 1.0, 0.0, NULL, '11', '11')," +
+                            "(NULL, NULL, NULL, NULL, 1.0, NULL, NULL))");
         }
         finally {
             dropTableIfExists(tmpTableName);
         }
     }
 
+    @Test(groups = {"parquet"})
+    public void testAnalyzeStatsOnDecimals()
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), "
+                    + "(DECIMAL '1000000.12', DECIMAL '28239823232323.57'), " +
+                    "(DECIMAL '-542392.89', DECIMAL '-6723982392109.29'), (NULL, NULL), "
+                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName));
+            assertUpdate(String.format("ANALYZE %s", tmpTableName), 7);
+            assertQuery(String.format("SHOW STATS for %s", tmpTableName),
+                    "SELECT * FROM (VALUES" +
+                            "('c0', NULL,4.0 , 0.2857142857142857, NULL, '-542392.89', '1000000.12')," +
+                            "('c1', NULL,4.0 , 0.2857142857142857, NULL,  '-6.72398239210929E12', '2.823982323232357E13')," +
+                            "(NULL, NULL, NULL, NULL, 7.0, NULL, NULL))");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
     @Test
     public void testTableSample()
     {
@@ -386,10 +432,62 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Cast from date to timestamp
         assertQuery("SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
-        Session session = Session.builder(getSession())
+        Session legacyTimestampDisabled = Session.builder(getSession())
                 .setSystemProperty("legacy_timestamp", "false")
                 .build();
-        assertQuery(session, "SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
+        assertQuery(legacyTimestampDisabled, "SELECT CAST(date(shipdate) AS timestamp) FROM lineitem");
+
+        // Cast all integer types to short decimal
+        assertQuery("SELECT CAST(linenumber_as_tinyint as DECIMAL(2, 0)) FROM lineitem");
+        assertQuery("SELECT CAST(linenumber_as_smallint as DECIMAL(8, 4)) FROM lineitem");
+        assertQuery("SELECT CAST(CAST(linenumber as INTEGER) as DECIMAL(15, 6)) FROM lineitem");
+        assertQuery("SELECT CAST(nationkey as DECIMAL(18, 6)) FROM nation_partitioned");
+
+        // Cast all integer types to long decimal
+        assertQuery("SELECT CAST(linenumber_as_tinyint as DECIMAL(25, 0)) FROM lineitem");
+        assertQuery("SELECT CAST(linenumber_as_smallint as DECIMAL(19, 4)) FROM lineitem");
+        assertQuery("SELECT CAST(CAST(linenumber as INTEGER) as DECIMAL(20, 6)) FROM lineitem");
+        assertQuery("SELECT CAST(nationkey as DECIMAL(22, 6)) FROM nation_partitioned");
+
+        // Cast short decimal to integer types
+        assertQuery("SELECT CAST(c0 as TINYINT) FROM (VALUES (DECIMAL'1.23'), " +
+                "(NULL), (DECIMAL'1.'), (DECIMAL'0.0')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as SMALLINT) FROM (VALUES (DECIMAL'123.04'), " +
+                "(NULL), (DECIMAL'32.760'), (DECIMAL'0.0')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as INTEGER) FROM (VALUES (DECIMAL'12345.678'), " +
+                "(NULL), (DECIMAL'123456.7890'), (DECIMAL'1234567.0'), (DECIMAL'0.0')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as BIGINT) FROM (VALUES (DECIMAL'1234567.89012134'), " +
+                "(NULL), (DECIMAL'12345678.901'), (DECIMAL'123456789.01214234')) as l (c0)");
+
+        // Cast long decimal to integer types
+        assertQuery("SELECT CAST(c0 as INTEGER) FROM (VALUES (DECIMAL'12345.67890121416182022234'), " +
+                "(NULL), (DECIMAL'123456.78901214161822234'), (DECIMAL'1234567.890121416234')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as BIGINT) FROM (VALUES (DECIMAL'1234567.890121416182022234'), " +
+                "(NULL), (DECIMAL'12345678.901214161822234'), (DECIMAL'123456789.0121416234')) as l (c0)");
+
+        // Cast short decimal to double/float.
+        assertQuery("SELECT CAST(c0 as DOUBLE) FROM (VALUES (DECIMAL'1.234'), (NULL), (DECIMAL'12.12345'), " +
+                "(DECIMAL'12345.1234'), (DECIMAL'123456789.1234567'), (DECIMAL'1234567890121418.0')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as REAL) FROM (VALUES (DECIMAL'1.234'), (NULL), (DECIMAL'12.12345'), " +
+                "(DECIMAL'12345.1234'), (DECIMAL'123456789.1234567'), (DECIMAL'1234567890121418.0')) as l (c0)");
+
+        // Cast long decimal to double/float.
+        assertQuery("SELECT CAST(c0 as DOUBLE) FROM (VALUES (DECIMAL'1234567890121416182022.234'), (NULL), " +
+                "(DECIMAL'12345678920222426.1234'), (DECIMAL'12345678901214161830.1234567')) as l (c0)");
+        assertQuery("SELECT CAST(c0 as REAL) FROM (VALUES (DECIMAL'1234567890121416182022.234'), (NULL), " +
+                "(DECIMAL'12345678920222426.1234'), (DECIMAL'12345678901214162830.1234567')) as l (c0)");
+
+        // Cast to ROW.
+        assertQuery("SELECT cast(row(orderkey, comment) as row(\"123\" varchar, \"456\" varchar)) FROM orders");
+
+        // Cast timestamp with time zone
+        assertQuery("SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders");
+        assertQuery(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey) as timestamp with time zone) from orders");
+        // Cast timestamp with time zone to timestamp
+        assertQuery("SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
+                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
+        assertQuery(legacyTimestampDisabled, "SELECT cast(from_unixtime(orderkey, '+01:00') as timestamp), " +
+                "cast(from_unixtime(orderkey, 'America/Los_Angeles') as timestamp) from orders");
     }
 
     @Test
@@ -412,6 +510,12 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT case linenumber % 10 when orderkey % 3 then orderkey + 1 when 2 then orderkey + 2 else 0 end FROM lineitem");
         assertQuery("SELECT case linenumber when 1 then 'one' when 2 then 'two' else '...' end FROM lineitem");
         assertQuery("SELECT case when linenumber = 1 then 'one' when linenumber = 2 then 'two' else '...' end FROM lineitem");
+    }
+
+    @Test
+    public void testIn()
+    {
+        assertQuery("SELECT linenumber IN (orderkey % 7, partkey % 5, suppkey % 3) FROM lineitem");
     }
 
     @Test
@@ -456,6 +560,8 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT array[NULL, NULL, NULL, NULL]");
 
         assertQuery("SELECT array[1, 2, 3], array[0.1, NULL, 0.23, 0.00004], array['x', 'y', 'zetta']");
+
+        assertQuery("SELECT * FROM (VALUES (CAST('velox_binary_test' as VARBINARY)))");
 
         assertQuery("SELECT * FROM (VALUES (array[1, 23, 456])) as t(a)");
         assertQuery("SELECT * FROM (VALUES (array[1, NULL, 23, 456])) as t(a)");
@@ -667,6 +773,8 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT substr(comment, 1, 10), length(comment), ltrim(comment) FROM orders");
         assertQuery("SELECT substr(comment, 1, 10), length(comment), rtrim(comment) FROM orders");
 
+        assertQuery("SELECT trim(comment, ' ns'), ltrim(comment, 'a b c'), rtrim(comment, 'l y') FROM orders");
+
         // Split
         assertQueryOrdered("SELECT shipmode, comment, split(comment, 'ly') FROM lineitem order by 1,2");
         assertQueryOrdered("SELECT shipmode, comment, split(comment, 'i', 3) FROM lineitem order by 1,2");
@@ -752,6 +860,14 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // from_base64url, to_base64url
         assertQuery("SELECT from_base64url(to_base64url(cast(comment as varbinary))) FROM orders");
+
+        //to_ieee754_64
+        assertQuery("SELECT to_ieee754_64(null)");
+        assertQuery("SELECT to_ieee754_64(0.0)");
+        assertQuery("SELECT to_ieee754_64(3.14158999999999988261834005243E0)");
+        assertQuery("SELECT to_ieee754_64(-3.14158999999999988261834005243E0)");
+        assertQuery("SELECT to_ieee754_64(totalprice) FROM orders");
+        assertQuery("SELECT to_ieee754_64(acctbal) FROM customer");
     }
 
     @Test
@@ -918,191 +1034,23 @@ public abstract class AbstractTestNativeGeneralQueries
         return tableName;
     }
 
-    @Test
-    public void testCreateTableWithUnsupportedFormats()
-    {
-        Session session = buildSessionForTableWrite();
-        // Generate temporary table name.
-        String tmpTableName = generateRandomTableName();
-        String[] unsupportedTableFormats = {"ORC", "JSON"};
-        for (String unsupportedTableFormat : unsupportedTableFormats) {
-            assertQueryFails(String.format("CREATE TABLE %s WITH (format = '" + unsupportedTableFormat + "') AS SELECT * FROM nation", tmpTableName), " Unsupported file format in TableWrite: \"" + unsupportedTableFormat + "\".");
-        }
-    }
-
-    @Test
-    public void testReadTableWithUnsupportedFormats()
+    @Test(groups = {"no_json_reader"})
+    public void testReadTableWithUnsupportedJsonFormat()
     {
         assertQueryFails("SELECT * FROM nation_json", ".*ReaderFactory is not registered for format json.*");
+    }
+
+    @Test(groups = {"no_textfile_reader"})
+    public void testReadTableWithUnsupportedTextfileFormat()
+    {
         assertQueryFails("SELECT * FROM nation_text", ".*ReaderFactory is not registered for format text.*");
     }
 
-    @Test
-    public void testCreateUnpartitionedTableAsSelect()
+    @Test(groups = {"textfile_reader"})
+    public void testReadTableWithTextfileFormat()
     {
-        Session session = buildSessionForTableWrite();
-        // Generate temporary table name.
-        String tmpTableName = generateRandomTableName();
-        for (String tableFormat : TABLE_FORMATS) {
-            try {
-                getQueryRunner().execute(session, String.format("CREATE TABLE %s WITH (format = '" + tableFormat + "') AS SELECT * FROM nation", tmpTableName));
-                assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT * FROM nation");
-            }
-            finally {
-                dropTableIfExists(tmpTableName);
-            }
-        }
-
-        try {
-            getQueryRunner().execute(session, String.format("CREATE TABLE %s AS SELECT linenumber, count(*) as cnt FROM lineitem GROUP BY 1", tmpTableName));
-            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT linenumber, count(*) FROM lineitem GROUP BY 1");
-        }
-        finally {
-            dropTableIfExists(tmpTableName);
-        }
-
-        try {
-            getQueryRunner().execute(session, String.format("CREATE TABLE %s AS SELECT orderkey, count(*) as cnt FROM lineitem GROUP BY 1", tmpTableName));
-            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT orderkey, count(*) FROM lineitem GROUP BY 1");
-        }
-        finally {
-            dropTableIfExists(tmpTableName);
-        }
+        assertQuery("SELECT * FROM nation_text");
     }
-
-    @Test
-    public void testCreatePartitionedTableAsSelect()
-    {
-        {
-            Session session = buildSessionForTableWrite();
-            // Generate temporary table name for created partitioned table.
-            String partitionedOrdersTableName = generateRandomTableName();
-
-            for (String tableFormat : TABLE_FORMATS) {
-                try {
-                    getQueryRunner().execute(session, String.format(
-                            "CREATE TABLE %s WITH (format = '" + tableFormat + "', " +
-                                    "partitioned_by = ARRAY[ 'orderstatus' ]) " +
-                                    "AS SELECT custkey, comment, orderstatus FROM orders", partitionedOrdersTableName));
-                    assertQuery(String.format("SELECT * FROM %s", partitionedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders");
-                }
-                finally {
-                    dropTableIfExists(partitionedOrdersTableName);
-                }
-            }
-        }
-    }
-
-    @Test
-    public void testInsertIntoPartitionedTable()
-    {
-        // Generate temporary table name.
-        String tmpTableName = generateRandomTableName();
-        Session writeSession = buildSessionForTableWrite();
-
-        try {
-            getQueryRunner().execute(writeSession, String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT, nationkey BIGINT) WITH (partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName));
-            // Test insert into an empty table.
-            getQueryRunner().execute(writeSession, String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
-            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT name, regionkey, nationkey FROM nation");
-
-            // Test failure on insert into existing partitions.
-            assertQueryFails(writeSession, String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName),
-                    ".*Cannot insert into an existing partition of Hive table: regionkey=.*/nationkey=.*");
-
-            // Test insert into existing partitions if insert_existing_partitions_behavior is set to OVERWRITE.
-            Session overwriteSession = Session.builder(writeSession)
-                    .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "OVERWRITE")
-                    .build();
-            getQueryRunner().execute(overwriteSession, String.format("INSERT INTO %s SELECT CONCAT(name, '.test'), regionkey, nationkey FROM nation", tmpTableName));
-            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT CONCAT(name, '.test'), regionkey, nationkey FROM nation");
-        }
-        finally {
-            dropTableIfExists(tmpTableName);
-        }
-    }
-
-    @Test
-    public void testInsertIntoSpecialPartitionName()
-    {
-        Session writeSession = buildSessionForTableWrite();
-        // Generate temporary table name.
-        String tmpTableName = generateRandomTableName();
-        try {
-            getQueryRunner().execute(writeSession, String.format("CREATE TABLE %s (name VARCHAR, nationkey VARCHAR) WITH (partitioned_by = ARRAY['nationkey'])", tmpTableName));
-
-            // For special character in partition name, without correct handling, it would throw errors like 'Invalid partition spec: nationkey=A/B'
-            // In this test, verify those partition names can be successfully created
-            String[] specialCharacters = new String[] {"\"", "#", "%", "''", "*", "/", ":", "=", "?", "\\", "\\x7F", "{", "[", "]", "^"}; // escape single quote for sql
-            for (String specialCharacter : specialCharacters) {
-                getQueryRunner().execute(writeSession, String.format("INSERT INTO %s VALUES ('name', 'A%sB')", tmpTableName, specialCharacter));
-                assertQuery(String.format("SELECT nationkey FROM %s", tmpTableName), String.format("VALUES('A%sB')", specialCharacter));
-                getQueryRunner().execute(writeSession, String.format("DELETE FROM %s", tmpTableName));
-            }
-        }
-        finally {
-            dropTableIfExists(tmpTableName);
-        }
-    }
-
-    @Test
-    public void testCreateBucketTableAsSelect()
-    {
-        Session session = buildSessionForTableWrite();
-        // Generate temporary table name for bucketed table.
-        String bucketedOrdersTableName = generateRandomTableName();
-
-        for (String tableFormat : TABLE_FORMATS) {
-            try {
-                getQueryRunner().execute(session, String.format(
-                        "CREATE TABLE %s WITH (format = '" + tableFormat + "', " +
-                                "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                                "bucketed_by = ARRAY[ 'custkey' ], " +
-                                "bucket_count = 1) " +
-                                "AS SELECT custkey, comment, orderstatus FROM orders", bucketedOrdersTableName));
-                assertQuery(String.format("SELECT * FROM %s", bucketedOrdersTableName), "SELECT custkey, comment, orderstatus FROM orders");
-            }
-            finally {
-                dropTableIfExists(bucketedOrdersTableName);
-            }
-        }
-    }
-
-    @Test
-    public void testCreateBucketSortedTableAsSelect()
-    {
-        Session session = buildSessionForTableWrite();
-        // Generate temporary table name.
-        String badBucketTableName = generateRandomTableName();
-
-        // TODO: update this test condition after bucket sort write is supported by native worker.
-        try {
-            this.assertQueryFails(session, String.format(
-                    "CREATE TABLE %s WITH (" +
-                            "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                            "bucketed_by=array['orderkey'], " +
-                            "bucket_count=11, " +
-                            "sorted_by=array['orderkey']) " +
-                            "AS SELECT orderkey, orderstatus FROM orders", badBucketTableName), ".*Bucketed sorted table is not supported.*");
-        }
-        finally {
-            dropTableIfExists(badBucketTableName);
-        }
-    }
-
-    private Session buildSessionForTableWrite()
-    {
-        // TODO: enable this after column stats collection is enabled.
-        return Session.builder(getSession())
-                .setSystemProperty("table_writer_merge_operator_enabled", "true")
-                .setSystemProperty("task_writer_count", "4")
-                .setSystemProperty("task_partitioned_writer_count", "2")
-                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
-                .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
-                .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
-                .build();
-    }
-
     private void dropTableIfExists(String tableName)
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
@@ -1140,7 +1088,6 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT ln(totalprice) FROM orders");
         assertQuery("SELECT sqrt(totalprice) FROM orders");
         assertQuery("SELECT radians(totalprice) FROM orders");
-        assertQuery("SELECT beta_cdf(nationkey, 0.2, 0.2) from nation where nationkey > 0");
     }
 
     @Test
@@ -1159,6 +1106,9 @@ public abstract class AbstractTestNativeGeneralQueries
 
         assertQuery("SELECT orderkey, year(from_unixtime(orderkey, '+01:00')), quarter(from_unixtime(orderkey, '-07:00')), month(from_unixtime(orderkey, '+00:00')), day(from_unixtime(orderkey, '-13:00')), day_of_week(from_unixtime(orderkey, '+03:00')), day_of_year(from_unixtime(orderkey, '-13:00')), year_of_week(from_unixtime(orderkey, '+14:00')), hour(from_unixtime(orderkey, '+01:00')), minute(from_unixtime(orderkey, '+01:00')), second(from_unixtime(orderkey, '-07:00')), millisecond(from_unixtime(orderkey, '+03:00')) FROM orders");
         assertQuery("SELECT orderkey, date_trunc('year', from_unixtime(orderkey, '-03:00')), date_trunc('quarter', from_unixtime(orderkey, '+14:00')), date_trunc('month', from_unixtime(orderkey, '+03:00')), date_trunc('day', from_unixtime(orderkey, '-07:00')), date_trunc('hour', from_unixtime(orderkey, '-09:30')), date_trunc('minute', from_unixtime(orderkey, '+05:30')), date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders");
+
+        assertQuery("SELECT timezone_hour(from_unixtime(orderkey, 'Asia/Oral')) FROM orders");
+        assertQuery("SELECT timezone_minute(from_unixtime(orderkey, 'Asia/Kolkata')) FROM orders");
     }
 
     @Test
@@ -1277,6 +1227,44 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
+    @Test(groups = {"parquet"})
+    public void testDecimalApproximateAggregates()
+    {
+        // Actual session is for the native query runner.
+        // It is required to have "parquet_pushdown_filter_enabled" enabled, that is the only supported mode.
+        Session currentSession = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "true")
+                .build();
+
+        // Expected session is for the Java query runner.
+        // The Java runner does not support Parquet filter pushdown yet, so we have to explicitly disable it.
+        Session expectedSession = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "parquet_pushdown_filter_enabled", "false")
+                .build();
+        // Generate temporary table name.
+        String tmpTableName = generateRandomTableName();
+        try {
+            // Create a Parquet table with decimal types and test data.
+            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), "
+                    + "(DECIMAL '1000000.12', DECIMAL '28239823232323.57'), "
+                    + "(DECIMAL '-542392.89', DECIMAL '-6723982392109.29'), (NULL, NULL), "
+                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName), ImmutableList.of());
+            String[] queries = {
+                    String.format("Select approx_distinct(c0) from %s", tmpTableName),
+                    String.format("Select approx_distinct(c1) from %s", tmpTableName),
+                    String.format("Select c0, approx_distinct(c1, 0.01) from %s group by c0", tmpTableName),
+                    String.format("Select c1, approx_distinct(c0, 0.01) from %s group by c1", tmpTableName)
+            };
+            for (String query : queries) {
+                assertQuery(currentSession, query, expectedSession, query);
+            }
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
     @Test
     public void testLambda()
     {
@@ -1285,6 +1273,129 @@ public abstract class AbstractTestNativeGeneralQueries
         // test nested lambda
         assertQuery("select transform(transform(x, i->i*z), i->i*y) from (select x, y*y as y, z*z as z from (values row(array[1], 2, 3)) t(x, y, z))");
         assertQuery("select transform(x, i->transform(i, j->j*y)) from (select x, y*y as y from (values row(array[array[1]], 2)) t(x, y))");
+    }
+
+    @Test
+    public void testMergeEmptyHll()
+    {
+        assertQuery("select cardinality(merge(empty_approx_set())) from orders");
+        assertQuery("select cardinality(merge(empty_approx_set(0.1))) from orders");
+    }
+
+    @Test
+    public void testDereference()
+    {
+        assertQuery("SELECT transform(array[row(orderkey, comment)], x -> x[2]) FROM orders");
+        assertQuery("SELECT transform(array[row(orderkey, orderkey * 10)], x -> x[2]) FROM orders");
+        assertQuery("SELECT r[2] FROM (VALUES (ROW (ROW (1, 'a', true)))) AS v(r)");
+    }
+
+    @Test
+    public void testSystemTables()
+    {
+        String tableName = generateRandomTableName();
+        String partitionsTableName = format("%s$partitions", tableName);
+
+        try {
+            getQueryRunner().execute(format("CREATE TABLE %s " +
+                    "WITH (partitioned_by = ARRAY['regionkey']) " +
+                    "AS " +
+                    "SELECT nationkey, name, comment, regionkey FROM nation", tableName));
+
+            String join = format("SELECT * " +
+                    "FROM " +
+                    "   (SELECT DISTINCT regionkey FROM %s) t " +
+                    "INNER JOIN " +
+                    "   (SELECT regionkey FROM \"%s\") p " +
+                    "ON t.regionkey = p.regionkey", tableName, partitionsTableName);
+
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                    .build();
+            assertPlan(
+                    session,
+                    join,
+                    anyTree(
+                            join(
+                                    anyTree(tableScan(tableName)),
+                                    anyTree(
+                                            exchange(REMOTE_STREAMING, REPARTITION,
+                                                    exchange(REMOTE_STREAMING, GATHER,
+                                                            anyTree(
+                                                                    tableScan(partitionsTableName))))))));
+            assertQuery(session, join);
+        }
+        finally {
+            dropTableIfExists(tableName);
+        }
+    }
+
+    @Test
+    public void testUnionAllInsert()
+    {
+        String tableName = generateRandomTableName();
+        try {
+            String union = "SELECT orderkey * 2 orderkey " +
+                    "FROM ( " +
+                    "  SELECT orderkey " +
+                    "  FROM orders " +
+                    "  UNION ALL " +
+                    "  SELECT orderkey " +
+                    "  FROM orders " +
+                    ") " +
+                    "UNION ALL " +
+                    "SELECT orderkey " +
+                    "FROM orders";
+            getQueryRunner().execute(format("CREATE TABLE %s AS %s", tableName, union));
+            assertQuery(format("SELECT * FROM %s", tableName), union);
+        }
+        finally {
+            dropTableIfExists(tableName);
+        }
+    }
+
+    @Test
+    public void testSelectFieldsWithCapitalLetters()
+    {
+        Session session = Session.builder(getSession())
+                // This is needed for Spark.
+                .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
+                .build();
+        String tmpTableName = generateRandomTableName();
+        try {
+            QueryRunner queryRunner = getQueryRunner();
+            // We have to create the table through metadata, rather than
+            // through Presto SQL since, if we use the latter, Presto will
+            // convert the field names to lower case.
+            SchemaTableName table = new SchemaTableName(session.getSchema().get(), tmpTableName);
+            Map<String, Object> tableProperties = ImmutableMap.<String, Object>builder()
+                    .put(STORAGE_FORMAT_PROPERTY, DWRF)
+                    .put(PARTITIONED_BY_PROPERTY, ImmutableList.of())
+                    .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
+                    .put(BUCKET_COUNT_PROPERTY, 0)
+                    .put(SORTED_BY_PROPERTY, ImmutableList.of())
+                    .build();
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(table, ImmutableList.of(
+                    new ColumnMetadata("col", RowType.from(ImmutableList.of(
+                        new RowType.Field(Optional.of("NationKey"), BIGINT),
+                        new RowType.Field(Optional.of("NAME"), VARCHAR),
+                        new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
+                        new RowType.Field(Optional.of("commenT"), VARCHAR))))),
+                    tableProperties);
+            transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                    .singleStatement()
+                    .execute(session, s -> {
+                        queryRunner.getMetadata().createTable(s, s.getCatalog().get(), tableMetadata, false);
+                    });
+
+            // Write some data so we can read it back.
+            queryRunner.execute(session, String.format("INSERT INTO %s SELECT cast(row(nationkey, name, regionkey, comment) as row(nationkey bigint, name varchar, regionkey bigint, comment varchar)) FROM nation", tmpTableName));
+            // This should work since Presto is case insensitive.
+            assertQuery(String.format("SELECT col.nationkey, col.name, col.regionkey, col.comment FROM %s", tmpTableName), "SELECT nationkey, name, regionkey, comment FROM nation");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)

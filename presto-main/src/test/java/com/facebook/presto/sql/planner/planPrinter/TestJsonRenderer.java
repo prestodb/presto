@@ -89,6 +89,7 @@ public class TestJsonRenderer
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 
@@ -105,6 +106,7 @@ public class TestJsonRenderer
                 ImmutableList.of(),
                 ImmutableList.of(),
                 planNodeIds,
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 

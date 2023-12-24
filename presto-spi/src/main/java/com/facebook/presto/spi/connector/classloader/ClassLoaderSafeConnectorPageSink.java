@@ -44,6 +44,14 @@ public class ClassLoaderSafeConnectorPageSink
     }
 
     @Override
+    public long getWrittenFilesCount()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getWrittenFilesCount();
+        }
+    }
+
+    @Override
     public long getSystemMemoryUsage()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
