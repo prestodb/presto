@@ -18,7 +18,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import io.airlift.units.Duration;
 
@@ -46,7 +45,6 @@ public class DetachedNativeExecutionProcess
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            TaskManagerConfig taskManagerConfig,
             WorkerProperty<?, ?, ?, ?> workerProperty) throws IOException
     {
         super(session,
@@ -55,7 +53,6 @@ public class DetachedNativeExecutionProcess
                 errorRetryScheduledExecutor,
                 serverInfoCodec,
                 maxErrorDuration,
-                taskManagerConfig,
                 workerProperty);
     }
 
