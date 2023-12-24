@@ -57,6 +57,7 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleWriteInfo;
 import com.facebook.presto.spark.util.PrestoSparkStatsCollectionUtils;
 import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -96,7 +97,6 @@ import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionBroadcastBasePath;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeTriggerCoredumpWhenUnresponsiveEnabled;
 import static com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory.DEFAULT_URI;
-import static com.facebook.presto.spark.execution.task.NativeExecutionTask.isNativeExecutionTaskError;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
@@ -328,10 +328,7 @@ public class PrestoSparkNativeTaskExecutorFactory
                     triggerCoredumpWhenUnresponsive);
         }
         catch (RuntimeException e) {
-            if (triggerCoredumpWhenUnresponsive && isNativeExecutionTaskError(e)) {
-                nativeExecutionProcess.sendCoreSignal();
-            }
-            throw e;
+            throw processFailure(e, nativeExecutionProcess, triggerCoredumpWhenUnresponsive);
         }
     }
 
@@ -356,7 +353,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         OptionalLong processCpuTime = cpuTracker.get();
 
         // collect statistics (if available)
-        Optional<TaskInfo> taskInfoOptional = task.getTaskInfo();
+        Optional<TaskInfo> taskInfoOptional = tryGetTaskInfo(task);
         if (!taskInfoOptional.isPresent()) {
             log.error("Missing taskInfo. Statistics might be inaccurate");
             return;
@@ -372,6 +369,17 @@ public class PrestoSparkNativeTaskExecutorFactory
 
         // Update Spark Accumulators for spark internal metrics
         PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.get());
+    }
+
+    private static Optional<TaskInfo> tryGetTaskInfo(NativeExecutionTask task)
+    {
+        try {
+            return task.getTaskInfo();
+        }
+        catch (RuntimeException e) {
+            log.debug(e, "TaskInfo is not available");
+            return Optional.empty();
+        }
     }
 
     private static void processTaskInfoForErrorsOrCompletion(TaskInfo taskInfo)
@@ -614,12 +622,9 @@ public class PrestoSparkNativeTaskExecutorFactory
                 processTaskInfoForErrorsOrCompletion(taskInfo.get());
             }
             catch (RuntimeException ex) {
-                if (triggerCoredumpWhenUnresponsive && isNativeExecutionTaskError(ex)) {
-                    nativeExecutionProcess.sendCoreSignal();
-                }
                 // For a failed task, if taskInfo is present we still want to log the metrics
                 completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
-                throw executionExceptionFactory.toPrestoSparkExecutionException(ex);
+                throw executionExceptionFactory.toPrestoSparkExecutionException(processFailure(ex, nativeExecutionProcess, triggerCoredumpWhenUnresponsive));
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -644,5 +649,34 @@ public class PrestoSparkNativeTaskExecutorFactory
             mutablePartitionId.setPartition(partitionId);
             return new Tuple2<>(mutablePartitionId, (T) toPrestoSparkSerializedPage(next.get()));
         }
+    }
+
+    private static RuntimeException processFailure(
+            RuntimeException failure,
+            NativeExecutionProcess process,
+            boolean triggerCoredumpWhenUnresponsive)
+    {
+        if (failure instanceof PrestoTransportException) {
+            PrestoTransportException transportException = (PrestoTransportException) failure;
+            String message;
+            // lost communication with the native execution process
+            if (process.isAlive()) {
+                // process is unresponsive
+                if (triggerCoredumpWhenUnresponsive) {
+                    process.sendCoreSignal();
+                }
+                message = "Native execution process is alive but unresponsive";
+            }
+            else {
+                message = "Native execution process is dead";
+            }
+
+            return new PrestoTransportException(
+                    transportException::getErrorCode,
+                    transportException.getRemoteHost(),
+                    message,
+                    failure);
+        }
+        return failure;
     }
 }
