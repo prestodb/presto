@@ -17,7 +17,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException;
 import com.facebook.presto.spark.execution.http.TestPrestoSparkHttpClient;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcess;
@@ -106,7 +105,6 @@ public class TestNativeExecutionProcess
                 newSingleThreadExecutor(),
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
-                new TaskManagerConfig(),
                 workerProperty);
         return factory;
     }
