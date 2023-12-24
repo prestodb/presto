@@ -27,7 +27,6 @@ import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskInfoFetcher;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
-import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -245,10 +244,5 @@ public class NativeExecutionTask
                 broadcastBasePath,
                 session,
                 outputBuffers);
-    }
-
-    public static boolean isNativeExecutionTaskError(RuntimeException ex)
-    {
-        return ex instanceof PrestoTransportException;
     }
 }
