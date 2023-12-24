@@ -18,7 +18,7 @@
 
 #include "gtest/gtest.h"
 
-using namespace facebook::velox;
+namespace facebook::velox {
 
 // TODO: Each prefix should be implemented as its own filesystem.
 TEST(S3UtilTest, isS3File) {
@@ -108,3 +108,4 @@ TEST(S3UtilTest, bucketAndKeyFromS3Path) {
   EXPECT_EQ(bucket, "bucket");
   EXPECT_EQ(key, "file.txt");
 }
+} // namespace facebook::velox

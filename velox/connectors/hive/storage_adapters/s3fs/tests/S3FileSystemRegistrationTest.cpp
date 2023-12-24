@@ -17,28 +17,21 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
 
-using namespace facebook::velox;
-
-static constexpr std::string_view kMinioConnectionString = "127.0.0.1:8000";
+namespace facebook::velox {
+namespace {
 
 class S3FileSystemRegistrationTest : public S3Test {
  protected:
-  static void SetUpTestSuite() {
-    if (minioServer_ == nullptr) {
-      minioServer_ = std::make_shared<MinioServer>(kMinioConnectionString);
-      minioServer_->start();
-    }
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
     filesystems::registerS3FileSystem();
   }
 
-  static void TearDownTestSuite() {
+  static void TearDownTestCase() {
     filesystems::finalizeS3FileSystem();
-    if (minioServer_ != nullptr) {
-      minioServer_->stop();
-      minioServer_ = nullptr;
-    }
   }
 };
+} // namespace
 
 TEST_F(S3FileSystemRegistrationTest, readViaRegistry) {
   const char* bucketName = "data2";
@@ -85,3 +78,4 @@ TEST_F(S3FileSystemRegistrationTest, finalize) {
       filesystems::finalizeS3FileSystem(),
       "Cannot finalize S3FileSystem while in use");
 }
+} // namespace facebook::velox

@@ -19,58 +19,42 @@
 
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
-#include "velox/connectors/hive/storage_adapters/s3fs/tests/MinioServer.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::core;
-using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
-using namespace facebook::velox::connector;
-using namespace facebook::velox::connector::hive;
-using namespace facebook::velox::dwio::common;
-using namespace facebook::velox::test;
-using namespace facebook::velox::filesystems;
 
-class S3InsertTest : public testing::Test, public VectorTestBase {
- public:
-  static constexpr char const* kMinioConnectionString{"127.0.0.1:7000"};
-  /// We use static initialization because we want a single version of the
-  /// Minio server running.
-  /// Each test must use a unique bucket to avoid concurrency issues.
-  static void SetUpTestSuite() {
-    facebook::velox::memory::MemoryManager::initialize({});
-    minioServer_ = std::make_shared<MinioServer>(kMinioConnectionString);
-    minioServer_->start();
+namespace facebook::velox {
+namespace {
 
-    ioExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
+class S3InsertTest : public S3Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
+  void SetUp() override {
+    S3Test::SetUp();
     filesystems::registerS3FileSystem();
     auto hiveConnector =
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
             ->newConnector(
-                kHiveConnectorId,
+                ::exec::test::kHiveConnectorId,
                 minioServer_->hiveConfig(),
                 ioExecutor_.get());
     connector::registerConnector(hiveConnector);
   }
 
-  static void TearDownTestSuite() {
+  void TearDown() override {
+    connector::unregisterConnector(::exec::test::kHiveConnectorId);
+    S3Test::TearDown();
     filesystems::finalizeS3FileSystem();
-    unregisterConnector(kHiveConnectorId);
-    minioServer_->stop();
-    minioServer_ = nullptr;
   }
-
-  static std::shared_ptr<MinioServer> minioServer_;
-  static std::unique_ptr<folly::IOThreadPoolExecutor> ioExecutor_;
 };
-std::shared_ptr<MinioServer> S3InsertTest::minioServer_ = nullptr;
-std::unique_ptr<folly::IOThreadPoolExecutor> S3InsertTest::ioExecutor_ =
-    nullptr;
+} // namespace
 
 TEST_F(S3InsertTest, s3InsertTest) {
   const int64_t kExpectedRows = 1'000;
@@ -100,14 +84,14 @@ TEST_F(S3InsertTest, s3InsertTest) {
 
   // First column has number of rows written in the first row and nulls in other
   // rows.
-  auto rowCount = results->childAt(TableWriteTraits::kRowCountChannel)
+  auto rowCount = results->childAt(exec::TableWriteTraits::kRowCountChannel)
                       ->as<FlatVector<int64_t>>();
   ASSERT_FALSE(rowCount->isNullAt(0));
   ASSERT_EQ(kExpectedRows, rowCount->valueAt(0));
   ASSERT_TRUE(rowCount->isNullAt(1));
 
   // Second column contains details about written files.
-  auto details = results->childAt(TableWriteTraits::kFragmentChannel)
+  auto details = results->childAt(exec::TableWriteTraits::kFragmentChannel)
                      ->as<FlatVector<StringView>>();
   ASSERT_TRUE(details->isNullAt(0));
   ASSERT_FALSE(details->isNullAt(1));
@@ -122,13 +106,16 @@ TEST_F(S3InsertTest, s3InsertTest) {
   // Read from 'writeFileName' and verify the data matches the original.
   plan = PlanBuilder().tableScan(rowType).planNode();
 
-  auto splits = HiveConnectorTestBase::makeHiveConnectorSplits(
-      fmt::format("{}/{}", kOutputDirectory, writeFileName),
-      1,
-      dwio::common::FileFormat::PARQUET);
-  auto copy = AssertQueryBuilder(plan).split(splits[0]).copyResults(pool());
+  auto filePath = fmt::format("{}{}", kOutputDirectory, writeFileName);
+  const int64_t fileSize = fileWriteInfos[0]["fileSize"].asInt();
+  auto split = HiveConnectorSplitBuilder(filePath)
+                   .fileFormat(dwio::common::FileFormat::PARQUET)
+                   .length(fileSize)
+                   .build();
+  auto copy = AssertQueryBuilder(plan).split(split).copyResults(pool());
   assertEqualResults({input}, {copy});
 }
+} // namespace facebook::velox
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

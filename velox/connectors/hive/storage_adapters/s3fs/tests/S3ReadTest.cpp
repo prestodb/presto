@@ -22,25 +22,21 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/tests/S3Test.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
 using namespace facebook::velox::exec::test;
 
 namespace facebook::velox {
 namespace {
-class S3ReadTest : public S3Test, public test::VectorTestBase {
- public:
-  static constexpr char const* kMinioConnectionString{"127.0.0.1:6000"};
 
-  /// We use static initialization because we want a single version of the
-  /// Minio server running.
-  /// Each test must use a unique bucket to avoid concurrency issues.
-  static void SetUpTestSuite() {
-    facebook::velox::memory::MemoryManager::initialize({});
-    minioServer_ = std::make_shared<MinioServer>(kMinioConnectionString);
-    minioServer_->start();
+class S3ReadTest : public S3Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
 
+  void SetUp() override {
+    S3Test::SetUp();
     filesystems::registerS3FileSystem();
     auto hiveConnector =
         connector::getConnectorFactory(
@@ -49,11 +45,10 @@ class S3ReadTest : public S3Test, public test::VectorTestBase {
     connector::registerConnector(hiveConnector);
   }
 
-  static void TearDownTestSuite() {
+  void TearDown() override {
     filesystems::finalizeS3FileSystem();
     connector::unregisterConnector(kHiveConnectorId);
-    minioServer_->stop();
-    minioServer_ = nullptr;
+    S3Test::TearDown();
   }
 };
 } // namespace

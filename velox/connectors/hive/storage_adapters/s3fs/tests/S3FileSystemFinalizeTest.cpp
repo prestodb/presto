@@ -20,7 +20,8 @@
 
 #include "gtest/gtest.h"
 
-using namespace facebook::velox;
+namespace facebook::velox {
+namespace {
 
 TEST(S3FileSystemFinalizeTest, finalize) {
   auto s3Config = std::make_shared<core::MemConfig>();
@@ -36,3 +37,6 @@ TEST(S3FileSystemFinalizeTest, finalize) {
       filesystems::initializeS3(s3Config.get()),
       "Attempt to initialize S3 after it has been finalized.");
 }
+
+} // namespace
+} // namespace facebook::velox

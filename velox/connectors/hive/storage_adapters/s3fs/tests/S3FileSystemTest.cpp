@@ -20,30 +20,26 @@
 
 #include <gtest/gtest.h>
 
-using namespace facebook::velox;
-
-static constexpr std::string_view kMinioConnectionString = "127.0.0.1:9000";
+namespace facebook::velox {
+namespace {
 
 class S3FileSystemTest : public S3Test {
  protected:
-  static void SetUpTestSuite() {
+  static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
-    if (minioServer_ == nullptr) {
-      minioServer_ = std::make_shared<MinioServer>(kMinioConnectionString);
-      minioServer_->start();
-    }
+  }
+
+  void SetUp() override {
+    S3Test::SetUp();
     auto hiveConfig = minioServer_->hiveConfig({{"hive.s3.log-level", "Info"}});
     filesystems::initializeS3(hiveConfig.get());
   }
 
   static void TearDownTestSuite() {
-    if (minioServer_ != nullptr) {
-      minioServer_->stop();
-      minioServer_ = nullptr;
-    }
     filesystems::finalizeS3();
   }
 };
+} // namespace
 
 TEST_F(S3FileSystemTest, writeAndRead) {
   const char* bucketName = "data";
@@ -251,3 +247,4 @@ TEST_F(S3FileSystemTest, writeFileAndRead) {
   // Verify the last chunk.
   ASSERT_EQ(readFile->pread(contentSize * 250'000, contentSize), dataContent);
 }
+} // namespace facebook::velox

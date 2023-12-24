@@ -431,7 +431,8 @@ class PlanBuilder {
       const std::vector<std::string>& sortBy,
       const dwio::common::FileFormat fileFormat =
           dwio::common::FileFormat::DWRF,
-      const std::vector<std::string>& aggregates = {});
+      const std::vector<std::string>& aggregates = {},
+      const std::string& connectorId = "test-hive");
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(
