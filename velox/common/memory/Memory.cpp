@@ -38,13 +38,13 @@ std::unique_ptr<MemoryManager>& instance() {
 MemoryManager::MemoryManager(const MemoryManagerOptions& options)
     : capacity_{options.capacity},
       allocator_{options.allocator->shared_from_this()},
+      poolInitCapacity_(options.memoryPoolInitCapacity),
       // TODO: consider to reserve a small amount of memory to compensate for
       //  the unreclaimable cache memory which are pinned by query accesses if
       //  enabled.
       arbitrator_(MemoryArbitrator::create(
           {.kind = options.arbitratorKind,
            .capacity = std::min(options.queryMemoryCapacity, options.capacity),
-           .memoryPoolInitCapacity = options.memoryPoolInitCapacity,
            .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
            .memoryReclaimWaitMs = options.memoryReclaimWaitMs,
            .arbitrationStateCheckCb = options.arbitrationStateCheckCb})),
@@ -53,10 +53,14 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       debugEnabled_(options.debugEnabled),
       coreOnAllocationFailureEnabled_(options.coreOnAllocationFailureEnabled),
       poolDestructionCb_([&](MemoryPool* pool) { dropPool(pool); }),
+      poolGrowCb_([&](MemoryPool* pool, uint64_t targetBytes) {
+        return growPool(pool, targetBytes);
+      }),
       defaultRoot_{std::make_shared<MemoryPoolImpl>(
           this,
           std::string(kDefaultRootName),
           MemoryPool::Kind::kAggregate,
+          nullptr,
           nullptr,
           nullptr,
           nullptr,
@@ -173,11 +177,13 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
       MemoryPool::Kind::kAggregate,
       nullptr,
       std::move(reclaimer),
+      poolGrowCb_,
       poolDestructionCb_,
       options);
   pools_.emplace(poolName, pool);
   VELOX_CHECK_EQ(pool->capacity(), 0);
-  arbitrator_->reserveMemory(pool.get(), capacity);
+  arbitrator_->growCapacity(
+      pool.get(), std::min<uint64_t>(poolInitCapacity_, capacity));
   return pool;
 }
 
@@ -195,11 +201,11 @@ std::shared_ptr<MemoryPool> MemoryManager::addLeafPool(
 bool MemoryManager::growPool(MemoryPool* pool, uint64_t incrementBytes) {
   VELOX_CHECK_NOT_NULL(pool);
   VELOX_CHECK_NE(pool->capacity(), kMaxMemory);
-  return arbitrator_->growMemory(pool, getAlivePools(), incrementBytes);
+  return arbitrator_->growCapacity(pool, getAlivePools(), incrementBytes);
 }
 
 uint64_t MemoryManager::shrinkPools(uint64_t targetBytes) {
-  return arbitrator_->shrinkMemory(getAlivePools(), targetBytes);
+  return arbitrator_->shrinkCapacity(getAlivePools(), targetBytes);
 }
 
 void MemoryManager::dropPool(MemoryPool* pool) {
@@ -210,7 +216,8 @@ void MemoryManager::dropPool(MemoryPool* pool) {
     VELOX_FAIL("The dropped memory pool {} not found", pool->name());
   }
   pools_.erase(it);
-  arbitrator_->releaseMemory(pool);
+  VELOX_DCHECK_EQ(pool->currentBytes(), 0);
+  arbitrator_->shrinkCapacity(pool, 0);
 }
 
 MemoryPool& MemoryManager::deprecatedSharedLeafPool() {

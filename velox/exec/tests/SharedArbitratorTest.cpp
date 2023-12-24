@@ -1940,7 +1940,8 @@ DEBUG_ONLY_TEST_F(
       [&]() { return !nonReclaimableSectionWaitFlag.load(); });
 
   // We expect capacity grow fails as we can't reclaim from hash join operators.
-  ASSERT_FALSE(memoryManager_->growPool(fakePool.get(), kMemoryCapacity));
+  ASSERT_FALSE(
+      memoryManager_->testingGrowPool(fakePool.get(), kMemoryCapacity));
 
   // Notify the hash build operator that memory arbitration has been done.
   memoryArbitrationWaitFlag = false;
@@ -2741,7 +2742,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenWriterCloseAndTaskReclaim) {
   // Creates a fake pool to trigger memory arbitration.
   auto fakePool = queryCtx->pool()->addLeafChild(
       "fakePool", true, FakeMemoryReclaimer::create());
-  ASSERT_TRUE(memoryManager_->growPool(
+  ASSERT_TRUE(memoryManager_->testingGrowPool(
       fakePool.get(),
       arbitrator_->stats().freeCapacityBytes +
           queryCtx->pool()->capacity() / 2));

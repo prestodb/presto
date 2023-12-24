@@ -180,10 +180,6 @@ class MemoryManager {
       const std::string& name = "",
       bool threadSafe = true);
 
-  /// Invoked to grows a memory pool's free capacity with at least
-  /// 'incrementBytes'. The function returns true on success, otherwise false.
-  bool growPool(MemoryPool* pool, uint64_t incrementBytes);
-
   /// Invoked to shrink alive pools to free 'targetBytes' capacity. The function
   /// returns the actual freed memory capacity in bytes.
   uint64_t shrinkPools(uint64_t targetBytes);
@@ -225,8 +221,16 @@ class MemoryManager {
     return sharedLeafPools_;
   }
 
+  bool testingGrowPool(MemoryPool* pool, uint64_t incrementBytes) {
+    return growPool(pool, incrementBytes);
+  }
+
  private:
   void dropPool(MemoryPool* pool);
+
+  // Invoked to grow a memory pool's free capacity with at least
+  // 'incrementBytes'. The function returns true on success, otherwise false.
+  bool growPool(MemoryPool* pool, uint64_t incrementBytes);
 
   //  Returns the shared references to all the alive memory pools in 'pools_'.
   std::vector<std::shared_ptr<MemoryPool>> getAlivePools() const;
@@ -238,6 +242,9 @@ class MemoryManager {
   // memory pool capacity is within the limit.
   const int64_t capacity_;
   const std::shared_ptr<MemoryAllocator> allocator_;
+  // Specifies the capacity to allocate from 'arbitrator_' for a newly created
+  // root memory pool.
+  const uint64_t poolInitCapacity_;
   // If not null, used to arbitrate the memory capacity among 'pools_'.
   const std::unique_ptr<MemoryArbitrator> arbitrator_;
   const uint16_t alignment_;
@@ -248,6 +255,8 @@ class MemoryManager {
   // tracked by 'pools_'. It is invoked on the root pool destruction and removes
   // the pool from 'pools_'.
   const MemoryPoolImpl::DestructionCallback poolDestructionCb_;
+  // Callback invoked by the root memory pool to request memory capacity growth.
+  const MemoryPoolImpl::GrowCapacityCallback poolGrowCb_;
 
   const std::shared_ptr<MemoryPool> defaultRoot_;
   std::vector<std::shared_ptr<MemoryPool>> sharedLeafPools_;

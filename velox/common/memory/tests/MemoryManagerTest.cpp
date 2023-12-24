@@ -127,28 +127,28 @@ class FakeTestArbitrator : public MemoryArbitrator {
       : MemoryArbitrator(
             {.kind = config.kind,
              .capacity = config.capacity,
-             .memoryPoolInitCapacity = config.memoryPoolInitCapacity,
              .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity}) {
   }
 
-  void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
+  uint64_t growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
     VELOX_NYI();
   }
 
-  void releaseMemory(MemoryPool* pool) override {
+  bool growCapacity(
+      MemoryPool* /*unused*/,
+      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
+      uint64_t /*unused*/) override {
     VELOX_NYI();
   }
 
-  bool growMemory(
-      MemoryPool* pool,
-      const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
-      uint64_t targetBytes) override {
+  uint64_t shrinkCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/)
+      override {
     VELOX_NYI();
   }
 
-  uint64_t shrinkMemory(
-      const std::vector<std::shared_ptr<MemoryPool>>& pools,
-      uint64_t targetBytes) override {
+  uint64_t shrinkCapacity(
+      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
+      uint64_t /*unused*/) override {
     VELOX_NYI();
   }
 

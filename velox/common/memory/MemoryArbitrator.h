@@ -56,9 +56,6 @@ class MemoryArbitrator {
     /// manager.
     int64_t capacity;
 
-    /// The initial memory capacity to reserve for a newly created memory pool.
-    uint64_t memoryPoolInitCapacity{256 << 20};
-
     /// The minimal memory capacity to transfer out of or into a memory pool
     /// during the memory arbitration.
     uint64_t memoryPoolTransferCapacity{32 << 20};
@@ -114,19 +111,12 @@ class MemoryArbitrator {
 
   virtual ~MemoryArbitrator() = default;
 
-  /// Invoked by the memory manager to reserve up to 'bytes' memory capacity
-  /// without actually freeing memory for a newly created memory pool. The
-  /// function will set the memory pool's capacity based on the actually
-  /// reserved memory.
-  ///
-  /// NOTE: the memory arbitrator can decides how much memory capacity is
-  /// actually reserved for a newly created memory pool. The latter can trigger
-  /// the memory arbitration on demand when actual memory allocation happens.
-  virtual void reserveMemory(MemoryPool* pool, uint64_t bytes) = 0;
-
-  /// Invoked by the memory manager to return back all the reserved memory
-  /// capacity of a destroying memory pool.
-  virtual void releaseMemory(MemoryPool* pool) = 0;
+  /// Invoked by the memory manager to allocate up to 'targetBytes' of free
+  /// memory capacity without triggering memory arbitration. The function will
+  /// grow the memory pool's capacity based on the free available memory
+  /// capacity in the arbitrator, and returns the actual growed capacity in
+  /// bytes.
+  virtual uint64_t growCapacity(MemoryPool* pool, uint64_t bytes) = 0;
 
   /// Invoked by the memory manager to grow a memory pool's capacity.
   /// 'pool' is the memory pool to request to grow. 'candidates' is a list
@@ -140,15 +130,22 @@ class MemoryArbitrator {
   ///
   /// NOTE: the memory manager keeps 'candidates' valid during the arbitration
   /// processing.
-  virtual bool growMemory(
+  virtual bool growCapacity(
       MemoryPool* pool,
       const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
       uint64_t targetBytes) = 0;
 
-  /// Invoked by the memory manager to shrink memory from a given list of memory
-  /// pools. The freed memory capacity is given back to the arbitrator. The
-  /// function returns the actual freed memory capacity in bytes.
-  virtual uint64_t shrinkMemory(
+  /// Invoked by the memory manager to shrink up to 'targetBytes' free capacity
+  /// from a memory 'pool', and returns them back to the arbitrator. If
+  /// 'targetBytes' is zero, we shrink all the free capacity from the memory
+  /// pool. The function returns the actual freed capacity from 'pool'.
+  virtual uint64_t shrinkCapacity(MemoryPool* pool, uint64_t targetBytes) = 0;
+
+  /// Invoked by the memory manager to shrink memory capacity from a given list
+  /// of memory pools by reclaiming used memory. The freed memory capacity is
+  /// given back to the arbitrator. The function returns the actual freed memory
+  /// capacity in bytes.
+  virtual uint64_t shrinkCapacity(
       const std::vector<std::shared_ptr<MemoryPool>>& pools,
       uint64_t targetBytes) = 0;
 
@@ -228,13 +225,11 @@ class MemoryArbitrator {
  protected:
   explicit MemoryArbitrator(const Config& config)
       : capacity_(config.capacity),
-        memoryPoolInitCapacity_(config.memoryPoolInitCapacity),
         memoryPoolTransferCapacity_(config.memoryPoolTransferCapacity),
         memoryReclaimWaitMs_(config.memoryReclaimWaitMs),
         arbitrationStateCheckCb_(config.arbitrationStateCheckCb) {}
 
   const uint64_t capacity_;
-  const uint64_t memoryPoolInitCapacity_;
   const uint64_t memoryPoolTransferCapacity_;
   const uint64_t memoryReclaimWaitMs_;
   const MemoryArbitrationStateCheckCB arbitrationStateCheckCb_;

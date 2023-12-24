@@ -575,7 +575,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailsTask) {
   auto growTask = addTask(192 * MB);
   auto growOp = growTask->addMemoryOp(false);
   auto bufGrow = growOp->allocate(128 * MB);
-  EXPECT_NO_THROW(manager_->growPool(growOp->pool(), 64 * MB));
+  EXPECT_NO_THROW(manager_->testingGrowPool(growOp->pool(), 64 * MB));
   ASSERT_NE(nonReclaimTask->error(), nullptr);
   try {
     std::rethrow_exception(nonReclaimTask->error());
@@ -594,7 +594,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailsTask) {
 
 TEST_F(MockSharedArbitrationTest, shrinkMemory) {
   std::vector<std::shared_ptr<MemoryPool>> pools;
-  ASSERT_THROW(arbitrator_->shrinkMemory(pools, 128), VeloxException);
+  ASSERT_THROW(arbitrator_->shrinkCapacity(pools, 128), VeloxException);
 }
 
 TEST_F(MockSharedArbitrationTest, singlePoolGrowWithoutArbitration) {

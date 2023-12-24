@@ -43,19 +43,19 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   static void unregisterFactory();
 
-  void reserveMemory(MemoryPool* pool, uint64_t /*unused*/) final;
+  uint64_t growCapacity(MemoryPool* pool, uint64_t targetBytes) final;
 
-  void releaseMemory(MemoryPool* pool) final;
-
-  bool growMemory(
+  bool growCapacity(
       MemoryPool* pool,
       const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
       uint64_t targetBytes) final;
 
-  uint64_t shrinkMemory(
+  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t freedBytes) final;
+
+  uint64_t shrinkCapacity(
       const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
       uint64_t /*unused*/) override final {
-    VELOX_NYI("shrinkMemory is not supported by SharedArbitrator");
+    VELOX_NYI("shrinkCapacity is not supported by SharedArbitrator");
   }
 
   Stats stats() const final;

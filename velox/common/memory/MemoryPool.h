@@ -544,15 +544,23 @@ std::ostream& operator<<(std::ostream& os, const MemoryPool::Stats& stats);
 
 class MemoryPoolImpl : public MemoryPool {
  public:
+  /// The callback invoked on the root memory pool destruction. It is set by
+  /// memory manager to return back the allocated memory capacity.
   using DestructionCallback = std::function<void(MemoryPool*)>;
+  /// The callback invoked when the used memory reservation of the root memory
+  /// pool exceed its capacity. It is set by memory manager to grow the memory
+  /// pool capacity. The callback returns true if the capacity growth succeeds,
+  /// otherwise false.
+  using GrowCapacityCallback = std::function<bool(MemoryPool*, uint64_t)>;
 
   MemoryPoolImpl(
       MemoryManager* manager,
       const std::string& name,
       Kind kind,
       std::shared_ptr<MemoryPool> parent,
-      std::unique_ptr<MemoryReclaimer> reclaimer = nullptr,
-      DestructionCallback destructionCb = nullptr,
+      std::unique_ptr<MemoryReclaimer> reclaimer,
+      GrowCapacityCallback growCapacityCb,
+      DestructionCallback destructionCb,
       const Options& options = Options{});
 
   ~MemoryPoolImpl() override;
@@ -962,6 +970,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   MemoryManager* const manager_;
   MemoryAllocator* const allocator_;
+  const GrowCapacityCallback growCapacityCb_;
   const DestructionCallback destructionCb_;
 
   // Regex for filtering on 'name_' when debug mode is enabled. This allows us

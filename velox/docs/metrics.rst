@@ -140,10 +140,13 @@ Memory Management
        memory arbitrator.
    * - memory_pool_usage_leak_bytes
      - Sum
-     - The memory pool usage leak in bytes.
+     - The leaf memory pool usage leak in bytes.
    * - memory_pool_reservation_leak_bytes
      - Sum
-     - The memory pool reservation leak in bytes.
+     - The leaf memory pool reservation leak in bytes.
+   * - memory_pool_capacity_leak_bytes
+     - Sum
+     - The root memory pool reservation leak in bytes.
 
 Spilling
 --------

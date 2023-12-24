@@ -92,19 +92,14 @@ class NoopArbitrator : public MemoryArbitrator {
 
   // Noop arbitrator has no memory capacity limit so no operation needed for
   // memory pool capacity reserve.
-  void reserveMemory(MemoryPool* pool, uint64_t /*unused*/) override {
+  uint64_t growCapacity(MemoryPool* pool, uint64_t /*unused*/) override {
     pool->grow(pool->maxCapacity());
-  }
-
-  // Noop arbitrator has no memory capacity limit so no operation needed for
-  // memory pool capacity release.
-  void releaseMemory(MemoryPool* /*unused*/) override {
-    // No-op
+    return pool->maxCapacity();
   }
 
   // Noop arbitrator has no memory capacity limit so no operation needed for
   // memory pool capacity grow.
-  bool growMemory(
+  bool growCapacity(
       MemoryPool* /*unused*/,
       const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
       uint64_t /*unused*/) override {
@@ -112,8 +107,15 @@ class NoopArbitrator : public MemoryArbitrator {
   }
 
   // Noop arbitrator has no memory capacity limit so no operation needed for
+  // memory pool capacity release.
+  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t targetBytes) override {
+    // No-op
+    return 0;
+  }
+
+  // Noop arbitrator has no memory capacity limit so no operation needed for
   // memory pool capacity shrink.
-  uint64_t shrinkMemory(
+  uint64_t shrinkCapacity(
       const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
       uint64_t /*unused*/) override {
     return 0;

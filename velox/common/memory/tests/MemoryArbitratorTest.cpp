@@ -113,16 +113,35 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
         {.capacity = (int64_t)allocator->capacity(),
          .queryMemoryCapacity = 4L << 20,
          .allocator = allocator.get(),
-         .arbitratorKind = "SHARED"}};
+         .arbitratorKind = "SHARED",
+         .memoryPoolInitCapacity = 1 << 20}};
     auto rootPool =
         manager.addRootPool("root-1", 8L << 20, MemoryReclaimer::create());
+    ASSERT_EQ(rootPool->capacity(), 1 << 20);
+    ASSERT_EQ(
+        manager.arbitrator()->growCapacity(rootPool.get(), 1 << 20), 1 << 20);
+    ASSERT_EQ(
+        manager.arbitrator()->growCapacity(rootPool.get(), 6 << 20), 2 << 20);
     auto leafPool = rootPool->addLeafChild("leaf-1.0");
     void* buffer;
     VELOX_ASSERT_THROW(
         buffer = leafPool->allocate(7L << 20),
         "Exceeded memory pool cap of 4.00MB");
     ASSERT_NO_THROW(buffer = leafPool->allocate(4L << 20));
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 0), 0);
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 0);
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 1), 0);
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 1), 0);
     leafPool->free(buffer, 4L << 20);
+    ASSERT_EQ(
+        manager.arbitrator()->shrinkCapacity(leafPool.get(), 1 << 20), 1 << 20);
+    ASSERT_EQ(
+        manager.arbitrator()->shrinkCapacity(rootPool.get(), 1 << 20), 1 << 20);
+    ASSERT_EQ(rootPool->capacity(), 2 << 20);
+    ASSERT_EQ(leafPool->capacity(), 2 << 20);
+    ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 2 << 20);
+    ASSERT_EQ(rootPool->capacity(), 0);
+    ASSERT_EQ(leafPool->capacity(), 0);
     exec::SharedArbitrator::unregisterFactory();
   }
 }
@@ -172,32 +191,33 @@ class FakeTestArbitrator : public MemoryArbitrator {
       : MemoryArbitrator(
             {.kind = config.kind,
              .capacity = config.capacity,
-             .memoryPoolInitCapacity = config.memoryPoolInitCapacity,
              .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity}) {
-  }
-
-  void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
-    VELOX_NYI();
-  }
-
-  void releaseMemory(MemoryPool* pool) override {
-    VELOX_NYI();
   }
 
   std::string kind() const override {
     return "USER";
   }
 
-  bool growMemory(
-      MemoryPool* pool,
-      const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
-      uint64_t targetBytes) override {
+  uint64_t growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
+    VELOX_NYI();
+    return 0;
+  }
+
+  bool growCapacity(
+      MemoryPool* /*unused*/,
+      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
+      uint64_t /*unused*/) override {
     VELOX_NYI();
   }
 
-  uint64_t shrinkMemory(
-      const std::vector<std::shared_ptr<MemoryPool>>& pools,
-      uint64_t targetBytes) override {
+  uint64_t shrinkCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/)
+      override {
+    VELOX_NYI();
+  }
+
+  uint64_t shrinkCapacity(
+      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
+      uint64_t /*unused*/) override {
     VELOX_NYI();
   }
 
