@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.limit;
@@ -114,6 +115,7 @@ public class IcebergSplitSource
                 getNodeSelectionStrategy(session),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
                 task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
-                Optional.empty());
+                Optional.empty(),
+                getDataSequenceNumber(task.file()));
     }
 }

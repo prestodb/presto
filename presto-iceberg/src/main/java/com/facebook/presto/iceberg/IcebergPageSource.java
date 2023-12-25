@@ -49,6 +49,7 @@ public class IcebergPageSource
 
     public IcebergPageSource(
             List<IcebergColumnHandle> columns,
+            Map<Integer, Object> metadataValues,
             Map<Integer, HivePartitionKey> partitionKeys,
             ConnectorPageSource delegate,
             Supplier<Optional<RowPredicate>> deletePredicate)
@@ -70,6 +71,10 @@ public class IcebergPageSource
                 Type type = column.getType();
                 Object prefilledValue = deserializePartitionValue(type, icebergPartition.getValue().orElse(null), column.getName());
                 prefilledBlocks[outputIndex] = nativeValueToBlock(type, prefilledValue);
+                delegateIndexes[outputIndex] = -1;
+            }
+            else if (IcebergMetadataColumn.isMetadataColumnId(column.getId())) {
+                prefilledBlocks[outputIndex] = nativeValueToBlock(column.getType(), metadataValues.get(column.getColumnIdentity().getId()));
                 delegateIndexes[outputIndex] = -1;
             }
             else {
