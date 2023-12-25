@@ -26,7 +26,10 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -96,6 +99,12 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.FULL;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
@@ -103,12 +112,6 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
@@ -515,7 +518,7 @@ public class PredicatePushDown
             Locality leftLocality = LOCAL;
             Locality rightLocality = LOCAL;
             // Create new projections for the new join clauses
-            List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
+            List<EquiJoinClause> equiJoinClauses = new ArrayList<>();
             ImmutableList.Builder<RowExpression> joinFilterBuilder = ImmutableList.builder();
             for (RowExpression conjunct : extractConjuncts(newJoinPredicate)) {
                 if (joinEqualityExpression(node.getLeft().getOutputVariables()).test(conjunct)) {
@@ -539,7 +542,7 @@ public class PredicatePushDown
                         }
                     }
 
-                    equiJoinClauses.add(new JoinNode.EquiJoinClause(leftVariable, rightVariable));
+                    equiJoinClauses.add(new EquiJoinClause(leftVariable, rightVariable));
                 }
                 else {
                     joinFilterBuilder.add(conjunct);
@@ -604,7 +607,7 @@ public class PredicatePushDown
 
                 // if the distribution type is already set, make sure that changes from PredicatePushDown
                 // don't make the join node invalid.
-                Optional<JoinNode.DistributionType> distributionType = node.getDistributionType();
+                Optional<JoinDistributionType> distributionType = node.getDistributionType();
                 if (node.getDistributionType().isPresent()) {
                     if (node.getType().mustPartition()) {
                         distributionType = Optional.of(PARTITIONED);
@@ -676,7 +679,7 @@ public class PredicatePushDown
 
         private static DynamicFiltersResult createDynamicFilters(
                 JoinNode node,
-                List<JoinNode.EquiJoinClause> equiJoinClauses,
+                List<EquiJoinClause> equiJoinClauses,
                 List<RowExpression> joinFilter,
                 PlanNodeIdAllocator idAllocator,
                 FunctionAndTypeManager functionAndTypeManager)
@@ -710,7 +713,7 @@ public class PredicatePushDown
 
         private static List<CallExpression> getDynamicFilterClauses(
                 JoinNode node,
-                List<JoinNode.EquiJoinClause> equiJoinClauses,
+                List<EquiJoinClause> equiJoinClauses,
                 List<RowExpression> joinFilter,
                 FunctionAndTypeManager functionAndTypeManager)
         {
@@ -719,7 +722,7 @@ public class PredicatePushDown
             // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
             // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
             ImmutableList.Builder<CallExpression> clausesBuilder = ImmutableList.builder();
-            for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
+            for (EquiJoinClause clause : equiJoinClauses) {
                 VariableReferenceExpression probeSymbol = clause.getLeft();
                 VariableReferenceExpression buildSymbol = clause.getRight();
                 clausesBuilder.add(call(
@@ -1319,14 +1322,14 @@ public class PredicatePushDown
         private RowExpression extractJoinPredicate(JoinNode joinNode)
         {
             ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
-            for (JoinNode.EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
+            for (EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
                 builder.add(toRowExpression(equiJoinClause));
             }
             joinNode.getFilter().ifPresent(builder::add);
             return logicalRowExpressions.combineConjuncts(builder.build());
         }
 
-        private RowExpression toRowExpression(JoinNode.EquiJoinClause equiJoinClause)
+        private RowExpression toRowExpression(EquiJoinClause equiJoinClause)
         {
             return buildEqualsExpression(functionAndTypeManager, equiJoinClause.getLeft(), equiJoinClause.getRight());
         }
@@ -1335,11 +1338,11 @@ public class PredicatePushDown
         {
             checkArgument(EnumSet.of(INNER, RIGHT, LEFT, FULL).contains(node.getType()), "Unsupported join type: %s", node.getType());
 
-            if (node.getType() == JoinNode.Type.INNER) {
+            if (node.getType() == JoinType.INNER) {
                 return node;
             }
 
-            if (node.getType() == JoinNode.Type.FULL) {
+            if (node.getType() == JoinType.FULL) {
                 boolean canConvertToLeftJoin = canConvertOuterToInner(node.getLeft().getOutputVariables(), inheritedPredicate);
                 boolean canConvertToRightJoin = canConvertOuterToInner(node.getRight().getOutputVariables(), inheritedPredicate);
                 if (!canConvertToLeftJoin && !canConvertToRightJoin) {
@@ -1377,14 +1380,14 @@ public class PredicatePushDown
                 }
             }
 
-            if (node.getType() == JoinNode.Type.LEFT && !canConvertOuterToInner(node.getRight().getOutputVariables(), inheritedPredicate) ||
-                    node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputVariables(), inheritedPredicate)) {
+            if (node.getType() == JoinType.LEFT && !canConvertOuterToInner(node.getRight().getOutputVariables(), inheritedPredicate) ||
+                    node.getType() == JoinType.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputVariables(), inheritedPredicate)) {
                 return node;
             }
             return new JoinNode(
                     node.getSourceLocation(),
                     node.getId(),
-                    JoinNode.Type.INNER,
+                    JoinType.INNER,
                     node.getLeft(),
                     node.getRight(),
                     node.getCriteria(),

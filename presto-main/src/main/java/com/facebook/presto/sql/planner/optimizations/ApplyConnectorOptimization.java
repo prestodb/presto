@@ -14,11 +14,13 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.ConnectorJoinNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
@@ -35,7 +37,10 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -146,6 +151,9 @@ public class ApplyConnectorOptimization
                             containsAll(ImmutableSet.copyOf(newNode.getOutputVariables()), node.getOutputVariables()),
                             "the connector optimizer from %s returns a node that does not cover all output before optimization",
                             connectorId);
+
+                    newNode = SimplePlanRewriter.rewriteWith(new ConnectorToInternalJoinRewriter(), newNode);
+
                     updates.put(node, newNode);
                 }
             }
@@ -291,5 +299,27 @@ public class ApplyConnectorOptimization
             }
         }
         return true;
+    }
+
+    private static class ConnectorToInternalJoinRewriter
+            extends SimplePlanRewriter<Void>
+    {
+        @Override
+        public PlanNode visitConnectorJoinNode(ConnectorJoinNode node, RewriteContext<Void> context)
+        {
+            return new JoinNode(node.getSourceLocation(),
+                    node.getId(),
+                    node.getStatsEquivalentPlanNode(),
+                    node.getType(),
+                    context.rewrite(node.getSources().get(0)),
+                    context.rewrite(node.getSources().get(1)),
+                    ImmutableList.copyOf(node.getCriteria()),
+                    node.getOutputVariables(),
+                    node.getFilters().stream().reduce((a, b) -> new SpecialFormExpression(SpecialFormExpression.Form.AND, BooleanType.BOOLEAN, a, b)),
+                    Optional.empty(),
+                    Optional.empty(),
+                    node.getDistributionType(),
+                    ImmutableMap.of());
+        }
     }
 }

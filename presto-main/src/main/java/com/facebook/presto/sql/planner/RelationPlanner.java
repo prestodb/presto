@@ -29,6 +29,7 @@ import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteReferenceNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -301,7 +302,7 @@ class RelationPlanner
                 .addAll(rightPlan.getFieldMappings())
                 .build();
 
-        ImmutableList.Builder<JoinNode.EquiJoinClause> equiClauses = ImmutableList.builder();
+        ImmutableList.Builder<EquiJoinClause> equiClauses = ImmutableList.builder();
         List<Expression> complexJoinExpressions = new ArrayList<>();
         List<Expression> postInnerJoinConditions = new ArrayList<>();
 
@@ -369,7 +370,7 @@ class RelationPlanner
                     VariableReferenceExpression leftVariable = leftPlanBuilder.translateToVariable(leftComparisonExpressions.get(i));
                     VariableReferenceExpression rightVariable = rightPlanBuilder.translateToVariable(rightComparisonExpressions.get(i));
 
-                    equiClauses.add(new JoinNode.EquiJoinClause(leftVariable, rightVariable));
+                    equiClauses.add(new EquiJoinClause(leftVariable, rightVariable));
                 }
                 else {
                     Expression leftExpression = leftPlanBuilder.rewrite(leftComparisonExpressions.get(i));
@@ -517,7 +518,7 @@ class RelationPlanner
 
         Analysis.JoinUsingAnalysis joinAnalysis = analysis.getJoinUsing(node);
 
-        ImmutableList.Builder<JoinNode.EquiJoinClause> clauses = ImmutableList.builder();
+        ImmutableList.Builder<EquiJoinClause> clauses = ImmutableList.builder();
 
         Map<Identifier, VariableReferenceExpression> leftJoinColumns = new HashMap<>();
         Map<Identifier, VariableReferenceExpression> rightJoinColumns = new HashMap<>();
@@ -557,7 +558,7 @@ class RelationPlanner
                     context));
             rightJoinColumns.put(identifier, rightOutput);
 
-            clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));
+            clauses.add(new EquiJoinClause(leftOutput, rightOutput));
         }
 
         ProjectNode leftCoercion = new ProjectNode(idAllocator.getNextId(), left.getRoot(), leftCoercions.build());

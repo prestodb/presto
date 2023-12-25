@@ -29,7 +29,9 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
@@ -813,15 +815,15 @@ public class AddExchanges
         public PlanWithProperties visitJoin(JoinNode node, PreferredProperties preferredProperties)
         {
             List<VariableReferenceExpression> leftVariables = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getLeft)
+                    .map(EquiJoinClause::getLeft)
                     .collect(toImmutableList());
             List<VariableReferenceExpression> rightVariables = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getRight)
+                    .map(EquiJoinClause::getRight)
                     .collect(toImmutableList());
 
-            JoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
+            JoinDistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
 
-            if (distributionType == JoinNode.DistributionType.REPLICATED) {
+            if (distributionType == JoinDistributionType.REPLICATED) {
                 PlanWithProperties left = accept(node.getLeft(), PreferredProperties.any());
 
                 // use partitioned join if probe side is naturally partitioned on join symbols (e.g: because of aggregation)
@@ -914,7 +916,7 @@ public class AddExchanges
                         right.getProperties());
             }
 
-            return buildJoin(node, left, right, JoinNode.DistributionType.PARTITIONED);
+            return buildJoin(node, left, right, JoinDistributionType.PARTITIONED);
         }
 
         private PlanWithProperties planReplicatedJoin(JoinNode node, PlanWithProperties left)
@@ -936,10 +938,10 @@ public class AddExchanges
                         right.getProperties());
             }
 
-            return buildJoin(node, left, right, JoinNode.DistributionType.REPLICATED);
+            return buildJoin(node, left, right, JoinDistributionType.REPLICATED);
         }
 
-        private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
+        private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinDistributionType newDistributionType)
         {
             JoinNode result = new JoinNode(
                     node.getSourceLocation(),

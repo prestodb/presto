@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -395,7 +396,7 @@ public final class ValidateDependenciesChecker
                     .addAll(rightInputs)
                     .build();
 
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+            for (EquiJoinClause clause : node.getCriteria()) {
                 checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputVariables());
                 checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputVariables());
             }
@@ -473,7 +474,7 @@ public final class ValidateDependenciesChecker
                     .addAll(rightInputs)
                     .build();
 
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+            for (EquiJoinClause clause : node.getCriteria()) {
                 checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputVariables());
                 checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputVariables());
             }

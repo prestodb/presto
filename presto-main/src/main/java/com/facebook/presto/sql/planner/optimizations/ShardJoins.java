@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -41,12 +42,12 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.getJoinShardCount;
 import static com.facebook.presto.SystemSessionProperties.getShardedJoinStrategy;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.JoinType.FULL;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy.ALWAYS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy.COST_BASED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy.DISABLED;
 import static com.facebook.presto.sql.planner.PlannerUtils.isBroadcastJoin;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkState;
@@ -155,8 +156,8 @@ public class ShardJoins
                 PlanNode newLeftChild = PlannerUtils.addProjections(joinNode.getLeft(), planNodeIdAllocator, planVariableAllocator, ImmutableList.of(randomNumber), ImmutableList.of(leftShardVariable));
 
                 PlanNode newRightChild = shardInput(numShards, joinNode.getRight(), rightShardVariable);
-                JoinNode.EquiJoinClause shardEquality = new JoinNode.EquiJoinClause(leftShardVariable, rightShardVariable);
-                List<JoinNode.EquiJoinClause> joinCriteria = new ArrayList<>();
+                EquiJoinClause shardEquality = new EquiJoinClause(leftShardVariable, rightShardVariable);
+                List<EquiJoinClause> joinCriteria = new ArrayList<>();
                 joinCriteria.addAll(joinNode.getCriteria());
                 joinCriteria.add(shardEquality);
                 PlanNode result = new JoinNode(
