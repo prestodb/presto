@@ -29,8 +29,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.theta.CompactSketch;
-import org.apache.iceberg.DataFile;
-import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.ContentScanTask;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.GenericBlobMetadata;
 import org.apache.iceberg.GenericStatisticsFile;
 import org.apache.iceberg.HasTableOperations;
@@ -138,42 +139,12 @@ public class TableStatisticsMaker
                 .filter(column -> !identityPartitionIds.contains(column.fieldId()) && column.type().isPrimitiveType())
                 .collect(toImmutableList());
 
-        TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(intersection))
-                .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
-                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
-                .includeColumnStats();
-
-        Partition summary = null;
-        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-            for (FileScanTask fileScanTask : fileScanTasks) {
-                DataFile dataFile = fileScanTask.file();
-
-                if (summary == null) {
-                    summary = new Partition(
-                            idToTypeMapping,
-                            nonPartitionPrimitiveColumns,
-                            dataFile.partition(),
-                            dataFile.recordCount(),
-                            dataFile.fileSizeInBytes(),
-                            toMap(idToTypeMapping, dataFile.lowerBounds()),
-                            toMap(idToTypeMapping, dataFile.upperBounds()),
-                            dataFile.nullValueCounts(),
-                            dataFile.columnSizes());
-                }
-                else {
-                    summary.incrementFileCount();
-                    summary.incrementRecordCount(dataFile.recordCount());
-                    summary.incrementSize(dataFile.fileSizeInBytes());
-                    updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                    updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                    summary.updateNullCount(dataFile.nullValueCounts());
-                    updateColumnSizes(summary, dataFile.columnSizes());
-                }
-            }
+        Partition summary;
+        if (tableHandle.getIcebergTableName().getTableType() == IcebergTableType.EQUALITY_DELETES) {
+            summary = getEqualityDeleteTableSummary(tableHandle, intersection, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+        else {
+            summary = getDataTableSummary(tableHandle, selectedColumns, intersection, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
         }
 
         if (summary == null) {
@@ -209,6 +180,75 @@ public class TableStatisticsMaker
             result.setColumnStatistics(columnHandle, columnBuilder.build());
         }
         return result.build();
+    }
+
+    private Partition getDataTableSummary(IcebergTableHandle tableHandle,
+            List<IcebergColumnHandle> selectedColumns,
+            TupleDomain<IcebergColumnHandle> intersection,
+            Map<Integer, Type.PrimitiveType> idToTypeMapping,
+            List<Types.NestedField> nonPartitionPrimitiveColumns,
+            List<PartitionField> partitionFields)
+    {
+        TableScan tableScan = icebergTable.newScan()
+                .filter(toIcebergExpression(intersection))
+                .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
+                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
+                .includeColumnStats();
+
+        CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(tableScan.planFiles(), ContentScanTask::file);
+        return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
+    }
+
+    private Partition getEqualityDeleteTableSummary(IcebergTableHandle tableHandle,
+            TupleDomain<IcebergColumnHandle> intersection,
+            Map<Integer, Type.PrimitiveType> idToTypeMapping,
+            List<Types.NestedField> nonPartitionPrimitiveColumns,
+            List<PartitionField> partitionFields)
+    {
+        CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
+                tableHandle.getIcebergTableName().getSnapshotId().get(),
+                intersection,
+                tableHandle.getPartitionSpecId(),
+                tableHandle.getEqualityFieldIds());
+        CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(deleteFiles, deleteFile -> deleteFile);
+        return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
+    }
+
+    private Partition getSummaryFromFiles(CloseableIterable<ContentFile<?>> files,
+            Map<Integer, Type.PrimitiveType> idToTypeMapping,
+            List<Types.NestedField> nonPartitionPrimitiveColumns,
+            List<PartitionField> partitionFields)
+    {
+        Partition summary = null;
+        try (CloseableIterable<ContentFile<?>> filesHolder = files) {
+            for (ContentFile<?> contentFile : filesHolder) {
+                if (summary == null) {
+                    summary = new Partition(
+                            idToTypeMapping,
+                            nonPartitionPrimitiveColumns,
+                            contentFile.partition(),
+                            contentFile.recordCount(),
+                            contentFile.fileSizeInBytes(),
+                            toMap(idToTypeMapping, contentFile.lowerBounds()),
+                            toMap(idToTypeMapping, contentFile.upperBounds()),
+                            contentFile.nullValueCounts(),
+                            contentFile.columnSizes());
+                }
+                else {
+                    summary.incrementFileCount();
+                    summary.incrementRecordCount(contentFile.recordCount());
+                    summary.incrementSize(contentFile.fileSizeInBytes());
+                    updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, contentFile.lowerBounds()), contentFile.nullValueCounts(), contentFile.recordCount());
+                    updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, contentFile.upperBounds()), contentFile.nullValueCounts(), contentFile.recordCount());
+                    summary.updateNullCount(contentFile.nullValueCounts());
+                    updateColumnSizes(summary, contentFile.columnSizes());
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return summary;
     }
 
     public static void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)

@@ -216,6 +216,9 @@ Property Name                                      Description                  
 
 ``iceberg.enable-merge-on-read-mode``              Enable reading base tables that use merge-on-read for          ``true``
                                                    updates.
+
+``iceberg.delete-as-join-rewrite-enabled``         When enabled, equality delete row filtering is applied        ``true``
+                                                   as a join with the data of the equality delete files.
 ================================================== ============================================================= ============
 
 Table Properties
@@ -268,6 +271,18 @@ and a file system location of ``s3://test_bucket/test_schema/test_table``:
         partitioning = ARRAY['c1', 'c2'],
         location = 's3://test_bucket/test_schema/test_table')
     )
+
+Session Properties
+-------------------
+
+Session properties set behavior changes for queries executed within the given session.
+
+============================================= ======================================================================
+Property Name                                 Description
+============================================= ======================================================================
+``iceberg.delete_as_join_rewrite_enabled``    Overrides the behavior of the connector property
+                                              ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
+============================================= ======================================================================
 
 Caching Support
 ----------------
