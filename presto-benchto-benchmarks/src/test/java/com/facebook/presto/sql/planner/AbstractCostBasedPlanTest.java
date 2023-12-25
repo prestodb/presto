@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -36,9 +37,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.testing.TestngUtils.toDataProvider;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -157,7 +158,7 @@ public abstract class AbstractCostBasedPlanTest
         @Override
         public Void visitJoin(JoinNode node, Integer indent)
         {
-            JoinNode.DistributionType distributionType = node.getDistributionType()
+            JoinDistributionType distributionType = node.getDistributionType()
                     .orElseThrow(() -> new VerifyException("Expected distribution type to be set"));
             if (node.isCrossJoin()) {
                 checkState(node.getType() == INNER && distributionType == REPLICATED, "Expected CROSS JOIN to be INNER REPLICATED");

@@ -19,7 +19,9 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -76,7 +78,7 @@ public class CrossJoinWithArrayContainsToInnerJoin
 {
     private static final Capture<JoinNode> CHILD = newCapture();
     private static final Pattern<FilterNode> PATTERN = filter()
-            .with(source().matching(join().matching(x -> x.getType().equals(JoinNode.Type.INNER) && x.getCriteria().isEmpty()).capturedAs(CHILD)));
+            .with(source().matching(join().matching(x -> x.getType().equals(JoinType.INNER) && x.getCriteria().isEmpty()).capturedAs(CHILD)));
 
     private final FunctionAndTypeManager functionAndTypeManager;
 
@@ -112,7 +114,7 @@ public class CrossJoinWithArrayContainsToInnerJoin
     public Result apply(FilterNode node, Captures captures, Context context)
     {
         JoinNode joinNode = captures.get(CHILD);
-        if (!(joinNode.getType().equals(JoinNode.Type.INNER) && joinNode.getCriteria().isEmpty())) {
+        if (!(joinNode.getType().equals(JoinType.INNER) && joinNode.getCriteria().isEmpty())) {
             return Result.empty();
         }
         List<VariableReferenceExpression> leftInput = joinNode.getLeft().getOutputVariables();
@@ -148,7 +150,7 @@ public class CrossJoinWithArrayContainsToInnerJoin
                 ImmutableMap.of(arrayDistinctVariable, ImmutableList.of(unnestVariable)),
                 Optional.empty());
 
-        JoinNode.EquiJoinClause equiJoinClause = arrayAtLeftInput ? new JoinNode.EquiJoinClause(unnestVariable, elementVar) : new JoinNode.EquiJoinClause(elementVar, unnestVariable);
+        EquiJoinClause equiJoinClause = arrayAtLeftInput ? new EquiJoinClause(unnestVariable, elementVar) : new EquiJoinClause(elementVar, unnestVariable);
 
         JoinNode newJoinNode = new JoinNode(joinNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),

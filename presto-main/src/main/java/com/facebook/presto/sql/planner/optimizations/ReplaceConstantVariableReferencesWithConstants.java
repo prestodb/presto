@@ -22,6 +22,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -252,11 +253,11 @@ public class ReplaceConstantVariableReferencesWithConstants
             ImmutableMap.Builder<VariableReferenceExpression, ConstantExpression> outputConstantMap = ImmutableMap.builder();
 
             // Output from inner side of outer joins can be NULL when no match, hence will not keep the constant constraint
-            if (node.getType().equals(JoinNode.Type.LEFT) || node.getType().equals(JoinNode.Type.INNER)) {
+            if (node.getType().equals(JoinType.LEFT) || node.getType().equals(JoinType.INNER)) {
                 outputConstantMap.putAll(rewrittenLeft.getConstantExpressionMap());
             }
 
-            if (node.getType().equals(JoinNode.Type.RIGHT) || node.getType().equals(JoinNode.Type.INNER)) {
+            if (node.getType().equals(JoinType.RIGHT) || node.getType().equals(JoinType.INNER)) {
                 outputConstantMap.putAll(rewrittenRight.getConstantExpressionMap());
             }
 
