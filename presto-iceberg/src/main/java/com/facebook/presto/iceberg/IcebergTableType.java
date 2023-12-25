@@ -15,12 +15,26 @@ package com.facebook.presto.iceberg;
 
 public enum IcebergTableType
 {
-    DATA,
-    HISTORY,
-    SNAPSHOTS,
-    MANIFESTS,
-    PARTITIONS,
-    FILES,
-    PROPERTIES,
-    CHANGELOG
+    DATA(true),
+    HISTORY(true),
+    SNAPSHOTS(true),
+    MANIFESTS(true),
+    PARTITIONS(true),
+    FILES(true),
+    PROPERTIES(true),
+    CHANGELOG(true),
+    EQUALITY_DELETES(true),
+    DATA_WITHOUT_EQUALITY_DELETES(false);
+
+    private final boolean isPublic;
+
+    IcebergTableType(boolean isPublic)
+    {
+        this.isPublic = isPublic;
+    }
+
+    public boolean isPublic()
+    {
+        return isPublic;
+    }
 }

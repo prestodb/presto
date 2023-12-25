@@ -127,6 +127,10 @@ public class IcebergTableName
             }
         }
 
+        if (!type.isPublic()) {
+            throw new PrestoException(NOT_SUPPORTED, format("Internal Iceberg table name (type '%s'): %s", typeString, name));
+        }
+
         Optional<Long> version = Optional.empty();
         Optional<Long> changelogEndVersion = Optional.empty();
         if (type == DATA || type == PARTITIONS || type == MANIFESTS || type == FILES) {

@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.VariableAllocator;
@@ -37,7 +37,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -315,7 +314,7 @@ public class ApplyConnectorOptimization
                     context.rewrite(node.getSources().get(1)),
                     ImmutableList.copyOf(node.getCriteria()),
                     node.getOutputVariables(),
-                    node.getFilters().stream().reduce((a, b) -> new SpecialFormExpression(SpecialFormExpression.Form.AND, BooleanType.BOOLEAN, a, b)),
+                    node.getFilters().isEmpty() ? Optional.empty() : Optional.of(LogicalRowExpressions.and(node.getFilters())),
                     Optional.empty(),
                     Optional.empty(),
                     node.getDistributionType(),

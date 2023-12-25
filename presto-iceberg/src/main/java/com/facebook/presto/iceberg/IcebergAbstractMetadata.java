@@ -118,6 +118,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPER
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
+import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
@@ -672,7 +673,7 @@ public abstract class IcebergAbstractMetadata
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> tableVersion)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        verify(name.getTableType() == DATA || name.getTableType() == CHANGELOG, "Wrong table type: " + name.getTableType());
+        verify(name.getTableType() == DATA || name.getTableType() == CHANGELOG || name.getTableType() == EQUALITY_DELETES, "Wrong table type: " + name.getTableType());
 
         if (!tableExists(session, tableName)) {
             return null;
@@ -698,7 +699,9 @@ public abstract class IcebergAbstractMetadata
                 new IcebergTableName(name.getTableName(), name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
                 name.getSnapshotId().isPresent(),
                 TupleDomain.all(),
-                tableSchemaJson);
+                tableSchemaJson,
+                Optional.empty(),
+                Optional.empty());
     }
 
     @Override
