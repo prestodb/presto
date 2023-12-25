@@ -43,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
+import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.Iterators.limit;
@@ -128,6 +129,7 @@ public class ChangelogSplitSource
                 Optional.of(new ChangelogSplitInfo(changeTask.operation(),
                         changeTask.changeOrdinal(),
                         changeTask.commitSnapshotId(),
-                        columnHandles)));
+                        columnHandles)),
+                getDataSequenceNumber(task.file()));
     }
 }

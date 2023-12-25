@@ -107,6 +107,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -724,7 +725,7 @@ public class IcebergPageSourceProvider
 
         List<IcebergColumnHandle> regularColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
-                .filter(column -> !partitionKeys.containsKey(column.getId()))
+                .filter(column -> !partitionKeys.containsKey(column.getId()) && !IcebergMetadataColumn.isMetadataColumnId(column.getId()))
                 .collect(Collectors.toList());
 
         Optional<String> tableSchemaJson = table.getTableSchemaJson();
@@ -763,7 +764,17 @@ public class IcebergPageSourceProvider
                     .reduce(RowPredicate::and);
         });
 
-        ConnectorPageSource dataSource = new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, deletePredicate);
+        HashMap<Integer, Object> metadataValues = new HashMap<>();
+        for (IcebergColumnHandle icebergColumn : icebergColumns) {
+            if (icebergColumn.isPathColumn()) {
+                metadataValues.put(icebergColumn.getColumnIdentity().getId(), utf8Slice(split.getPath()));
+            }
+            else if (icebergColumn.isDataSequenceNumberColumn()) {
+                metadataValues.put(icebergColumn.getColumnIdentity().getId(), split.getDataSequenceNumber());
+            }
+        }
+
+        ConnectorPageSource dataSource = new IcebergPageSource(icebergColumns, metadataValues, partitionKeys, dataPageSource, deletePredicate);
         if (split.getChangelogSplitInfo().isPresent()) {
             dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
         }
