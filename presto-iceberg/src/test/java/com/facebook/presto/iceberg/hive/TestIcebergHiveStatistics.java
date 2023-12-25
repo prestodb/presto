@@ -21,6 +21,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergMetadataColumn;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
@@ -319,7 +320,9 @@ public class TestIcebergHiveStatistics
 
     private Map<String, ColumnHandle> getColumnHandles(String tableName, Session session)
     {
-        return getQueryRunner().getMetadata().getColumnHandles(session, getTableHandle(tableName, session));
+        return getQueryRunner().getMetadata().getColumnHandles(session, getTableHandle(tableName, session)).entrySet().stream()
+                .filter(entry -> !IcebergMetadataColumn.isMetadataColumnId(((IcebergColumnHandle) (entry.getValue())).getId()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     static void assertStatValuePresent(StatsSchema column, MaterializedResult result, Set<String> columnNames)
