@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,6 +31,8 @@ public class IcebergTableHandle
     private final TupleDomain<IcebergColumnHandle> predicate;
     private final boolean snapshotSpecified;
     private final Optional<String> tableSchemaJson;
+    private final Optional<Set<Integer>> partitionFieldIds;
+    private final Optional<Set<Integer>> equalityFieldIds;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -37,7 +40,9 @@ public class IcebergTableHandle
             @JsonProperty("icebergTableName") IcebergTableName icebergTableName,
             @JsonProperty("snapshotSpecified") boolean snapshotSpecified,
             @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate,
-            @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson)
+            @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson,
+            @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
+            @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds)
     {
         super(schemaName, icebergTableName.getTableName());
 
@@ -45,6 +50,8 @@ public class IcebergTableHandle
         this.snapshotSpecified = snapshotSpecified;
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
+        this.partitionFieldIds = requireNonNull(partitionFieldIds, "partitionFieldIds is null");
+        this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
     }
 
     @JsonProperty
@@ -71,6 +78,18 @@ public class IcebergTableHandle
         return tableSchemaJson;
     }
 
+    @JsonProperty
+    public Optional<Set<Integer>> getPartitionSpecId()
+    {
+        return partitionFieldIds;
+    }
+
+    @JsonProperty
+    public Optional<Set<Integer>> getEqualityFieldIds()
+    {
+        return equalityFieldIds;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -86,13 +105,14 @@ public class IcebergTableHandle
                 Objects.equals(icebergTableName, that.icebergTableName) &&
                 snapshotSpecified == that.snapshotSpecified &&
                 Objects.equals(predicate, that.predicate) &&
-                Objects.equals(tableSchemaJson, that.tableSchemaJson);
+                Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
+                Objects.equals(equalityFieldIds, that.equalityFieldIds);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSchemaName(), icebergTableName, predicate, snapshotSpecified, tableSchemaJson);
+        return Objects.hash(getSchemaName(), icebergTableName, predicate, snapshotSpecified, tableSchemaJson, equalityFieldIds);
     }
 
     @Override

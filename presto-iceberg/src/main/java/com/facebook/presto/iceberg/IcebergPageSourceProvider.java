@@ -119,6 +119,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
@@ -725,13 +726,17 @@ public class IcebergPageSourceProvider
 
         List<IcebergColumnHandle> regularColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
-                .filter(column -> !partitionKeys.containsKey(column.getId()) && !IcebergMetadataColumn.isMetadataColumnId(column.getId()))
+                .filter(column -> column.getColumnType() != PARTITION_KEY &&
+                        !partitionKeys.containsKey(column.getId()) &&
+                        !IcebergMetadataColumn.isMetadataColumnId(column.getId()))
                 .collect(Collectors.toList());
 
         Optional<String> tableSchemaJson = table.getTableSchemaJson();
         verify(tableSchemaJson.isPresent(), "tableSchemaJson is null");
         Schema tableSchema = SchemaParser.fromJson(tableSchemaJson.get());
-        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, split.getDeletes());
+
+        boolean equalityDeletesRequired = table.getIcebergTableName().getTableType() == IcebergTableType.DATA;
+        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, split.getDeletes(), equalityDeletesRequired);
 
         deleteFilterRequiredColumns.stream()
                 .filter(not(icebergColumns::contains))
@@ -752,11 +757,17 @@ public class IcebergPageSourceProvider
         ConnectorPageSource dataPageSource = connectorPageSourceWithRowPositions.getConnectorPageSource();
 
         Supplier<Optional<RowPredicate>> deletePredicate = Suppliers.memoize(() -> {
+            // If equality deletes are optimized into a join they don't need to be applied here
+            List<DeleteFile> deletesToApply = split
+                    .getDeletes()
+                    .stream()
+                    .filter(deleteFile -> deleteFile.content() == POSITION_DELETES || equalityDeletesRequired)
+                    .collect(toImmutableList());
             List<DeleteFilter> deleteFilters = readDeletes(
                     session,
                     tableSchema,
                     split.getPath(),
-                    split.getDeletes(),
+                    deletesToApply,
                     connectorPageSourceWithRowPositions.getStartRowPosition(),
                     connectorPageSourceWithRowPositions.getEndRowPosition());
             return deleteFilters.stream()
@@ -781,14 +792,14 @@ public class IcebergPageSourceProvider
         return dataSource;
     }
 
-    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
+    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes, boolean equalityDeletesRequired)
     {
         ImmutableSet.Builder<IcebergColumnHandle> requiredColumns = ImmutableSet.builder();
         for (DeleteFile deleteFile : deletes) {
             if (deleteFile.content() == POSITION_DELETES) {
                 requiredColumns.add(IcebergColumnHandle.create(ROW_POSITION, typeManager, IcebergColumnHandle.ColumnType.REGULAR));
             }
-            else if (deleteFile.content() == EQUALITY_DELETES) {
+            else if (deleteFile.content() == EQUALITY_DELETES && equalityDeletesRequired) {
                 deleteFile.equalityFieldIds().stream()
                         .map(id -> IcebergColumnHandle.create(schema.findField(id), typeManager, IcebergColumnHandle.ColumnType.REGULAR))
                         .forEach(requiredColumns::add);
