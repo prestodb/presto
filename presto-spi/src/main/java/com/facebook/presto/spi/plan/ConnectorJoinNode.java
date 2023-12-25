@@ -11,97 +11,89 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.plan.EquiJoinClause;
-import com.facebook.presto.spi.plan.JoinType;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class CanonicalJoinNode
+public class ConnectorJoinNode
         extends PlanNode
 {
     private final List<PlanNode> sources;
     private final JoinType type;
     private final Set<EquiJoinClause> criteria;
     private final Set<RowExpression> filters;
+    private final Optional<JoinDistributionType> distributionType;
     private final List<VariableReferenceExpression> outputVariables;
 
-    @JsonCreator
-    public CanonicalJoinNode(
-            @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("sources") List<PlanNode> sources,
-            @JsonProperty("type") JoinType type,
-            @JsonProperty("criteria") Set<EquiJoinClause> criteria,
-            @JsonProperty("filter") Set<RowExpression> filters,
-            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
+    public ConnectorJoinNode(
+            PlanNodeId id,
+            List<PlanNode> sources,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            JoinType type,
+            Set<EquiJoinClause> criteria,
+            Set<RowExpression> filters,
+            Optional<JoinDistributionType> distributionType,
+            List<VariableReferenceExpression> outputVariables)
     {
-        super(Optional.empty(), id, Optional.empty());
+        super(Optional.empty(), id, statsEquivalentPlanNode);
         this.sources = requireNonNull(sources, "sources is null");
         this.type = requireNonNull(type, "type is null");
         this.criteria = requireNonNull(criteria, "criteria is null");
         this.filters = requireNonNull(filters, "filters is null");
+        this.distributionType = requireNonNull(distributionType, "distributionType is null");
         this.outputVariables = requireNonNull(outputVariables, "outputVariables is null");
     }
 
     @Override
-    @JsonProperty
     public List<PlanNode> getSources()
     {
         return sources;
     }
 
-    @JsonProperty
     public JoinType getType()
     {
         return type;
     }
 
-    @JsonProperty
     public Set<EquiJoinClause> getCriteria()
     {
         return criteria;
     }
 
-    @JsonProperty
     public Set<RowExpression> getFilters()
     {
         return filters;
     }
 
+    public Optional<JoinDistributionType> getDistributionType()
+    {
+        return distributionType;
+    }
+
     @Override
-    @JsonProperty
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return outputVariables;
     }
 
     @Override
-    @JsonProperty
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new CanonicalJoinNode(getId(), newChildren, type, criteria, filters, outputVariables);
+        return new ConnectorJoinNode(getId(), newChildren, getStatsEquivalentPlanNode(), type, criteria, filters, distributionType, outputVariables);
     }
 
     @Override
-    @JsonProperty
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Cannot assign canonical plan id to Canonical join node: %s", this));
+        return new ConnectorJoinNode(getId(), getSources(), getStatsEquivalentPlanNode(), getType(), getCriteria(), getFilters(), getDistributionType(), outputVariables);
     }
 
     @Override
@@ -113,7 +105,7 @@ public class CanonicalJoinNode
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        CanonicalJoinNode that = (CanonicalJoinNode) o;
+        ConnectorJoinNode that = (ConnectorJoinNode) o;
         return Objects.equals(sources, that.sources) &&
                 Objects.equals(type, that.type) &&
                 Objects.equals(criteria, that.criteria) &&
@@ -130,12 +122,18 @@ public class CanonicalJoinNode
     @Override
     public String toString()
     {
-        return "CanonicalJoinNode{" +
+        return "ConnectorJoinNode{" +
                 "sources=" + sources +
                 ", type=" + type +
                 ", criteria=" + criteria +
                 ", filters=" + filters +
                 ", outputVariables=" + outputVariables +
                 '}';
+    }
+
+    @Override
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitConnectorJoinNode(this, context);
     }
 }

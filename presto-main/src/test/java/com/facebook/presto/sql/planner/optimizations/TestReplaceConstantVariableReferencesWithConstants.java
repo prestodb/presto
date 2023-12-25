@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -104,7 +104,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                         project(
                                 ImmutableMap.of("expr_14", expression("'3-MEDIUM'")),
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("orderkey", "orderkey_0")),
                                         anyTree(
                                                 tableScan("lineitem", ImmutableMap.of("orderkey", "orderkey", "tax", "tax"))),
@@ -122,7 +122,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                 output(
                         ImmutableList.of("orderkey_0", "expr_9", "tax"),
                         join(
-                                JoinNode.Type.LEFT,
+                                JoinType.LEFT,
                                 ImmutableList.of(equiJoinClause("orderkey", "orderkey_0")),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("orderkey", "orderkey", "tax", "tax"))),
@@ -144,7 +144,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                         project(
                                 ImmutableMap.of("expr_26", expression("'O'")),
                                 join(
-                                        JoinNode.Type.LEFT,
+                                        JoinType.LEFT,
                                         ImmutableList.of(equiJoinClause("orderkey", "orderkey_0")),
                                         anyTree(
                                                 filter(
@@ -216,7 +216,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                         project(
                                                 semiJoin("partkey", "suppkey_17", "expr_37",
                                                         project(
-                                                                join(JoinNode.Type.INNER,
+                                                                join(JoinType.INNER,
                                                                         ImmutableList.of(),
                                                                         anyTree(
                                                                                 filter("orderkey = 10",
@@ -444,7 +444,7 @@ public class TestReplaceConstantVariableReferencesWithConstants
                     VariableReferenceExpression key2 = planBuilder.variable("key2", INTEGER);
                     VariableReferenceExpression count = planBuilder.variable("cnt");
                     return planBuilder.join(
-                            JoinNode.Type.INNER,
+                            JoinType.INNER,
                             planBuilder.filter(
                                     planBuilder.rowExpression("key1= 3"),
                                     planBuilder.values(key1)),

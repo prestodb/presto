@@ -41,6 +41,7 @@ import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -502,7 +503,7 @@ public class PlanPrinter
         public Void visitJoin(JoinNode node, Void context)
         {
             List<String> joinExpressions = new ArrayList<>();
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+            for (EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(JoinNodeUtils.toExpression(clause).toString());
             }
             node.getFilter().map(formatter::apply).ifPresent(joinExpressions::add);
@@ -602,7 +603,7 @@ public class PlanPrinter
         public Void visitMergeJoin(MergeJoinNode node, Void context)
         {
             List<String> joinExpressions = new ArrayList<>();
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+            for (EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(JoinNodeUtils.toExpression(clause).toString());
             }
             node.getFilter().map(formatter::apply).ifPresent(joinExpressions::add);
