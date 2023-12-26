@@ -136,6 +136,7 @@ public class NativeExecutionProcess
 
         ProcessBuilder processBuilder = new ProcessBuilder(getLaunchCommand());
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        processBuilder.environment().put("INIT_PRESTO_QUERY_ID", session.getQueryId().toString());
         try {
             process = processBuilder.start();
             processOutputPipe = new ProcessOutputPipe(
