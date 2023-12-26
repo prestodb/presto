@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -75,7 +76,7 @@ public abstract class MapUnionSumResult
     static void appendValue(Type valueType, Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
-            if (isExactNumericType(valueType)) {
+            if (isExactNumericType(valueType) || valueType instanceof RealType) {
                 valueType.writeLong(blockBuilder, 0L);
             }
             else {
