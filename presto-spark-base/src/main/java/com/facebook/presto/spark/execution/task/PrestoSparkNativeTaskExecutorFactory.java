@@ -669,6 +669,10 @@ public class PrestoSparkNativeTaskExecutorFactory
             }
             else {
                 message = "Native execution process is dead";
+                String crashReport = process.getCrashReport();
+                if (!crashReport.isEmpty()) {
+                    message += ":\n" + crashReport;
+                }
             }
 
             return new PrestoTransportException(

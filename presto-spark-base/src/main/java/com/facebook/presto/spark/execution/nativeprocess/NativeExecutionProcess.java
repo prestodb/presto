@@ -36,8 +36,16 @@ import org.apache.spark.SparkFiles;
 
 import javax.annotation.Nullable;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.net.URI;
@@ -48,6 +56,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.http.client.HttpStatus.OK;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -59,6 +68,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class NativeExecutionProcess
@@ -82,6 +92,7 @@ public class NativeExecutionProcess
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
     private volatile Process process;
+    private volatile ProcessOutputPipe processOutputPipe;
 
     public NativeExecutionProcess(
             Session session,
@@ -125,9 +136,13 @@ public class NativeExecutionProcess
 
         ProcessBuilder processBuilder = new ProcessBuilder(getLaunchCommand());
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
         try {
             process = processBuilder.start();
+            processOutputPipe = new ProcessOutputPipe(
+                    getPid(process),
+                    process.getErrorStream(),
+                    new FileOutputStream(FileDescriptor.err));
+            processOutputPipe.start();
         }
         catch (IOException e) {
             log.error(format("Cannot start %s, error message: %s", processBuilder.command(), e.getMessage()));
@@ -243,6 +258,15 @@ public class NativeExecutionProcess
     public boolean isAlive()
     {
         return process != null && process.isAlive();
+    }
+
+    public String getCrashReport()
+    {
+        ProcessOutputPipe pipe = processOutputPipe;
+        if (pipe == null) {
+            return "";
+        }
+        return pipe.getAbortMessage();
     }
 
     public int getPort()
@@ -382,5 +406,65 @@ public class NativeExecutionProcess
         ImmutableList<String> commandList = command.build();
         log.info("Launching native process using command: %s", String.join(" ", commandList));
         return commandList;
+    }
+
+    private static class ProcessOutputPipe
+            implements Runnable
+    {
+        private final long pid;
+        private final InputStream inputStream;
+        private final OutputStream outputStream;
+        private final StringBuilder abortMessage = new StringBuilder();
+        private final AtomicBoolean started = new AtomicBoolean();
+
+        public ProcessOutputPipe(long pid, InputStream inputStream, OutputStream outputStream)
+        {
+            this.pid = pid;
+            this.inputStream = requireNonNull(inputStream, "inputStream is null");
+            this.outputStream = requireNonNull(outputStream, "outputStream is null");
+        }
+
+        public void start()
+        {
+            if (!started.compareAndSet(false, true)) {
+                return;
+            }
+            Thread t = new Thread(this, format("NativeExecutionProcess#ProcessOutputPipe[%s]", pid));
+            t.setDaemon(true);
+            t.start();
+        }
+
+        @Override
+        public void run()
+        {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, UTF_8));
+                    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, UTF_8))) {
+                String line;
+                boolean aborted = false;
+                while ((line = reader.readLine()) != null) {
+                    if (!aborted && line.startsWith("*** Aborted")) {
+                        aborted = true;
+                    }
+                    if (aborted) {
+                        synchronized (abortMessage) {
+                            abortMessage.append(line).append("\n");
+                        }
+                    }
+                    writer.write(line);
+                    writer.newLine();
+                    writer.flush();
+                }
+            }
+            catch (IOException e) {
+                log.warn(e, "failure occurred when copying streams");
+            }
+        }
+
+        public String getAbortMessage()
+        {
+            synchronized (abortMessage) {
+                return abortMessage.toString();
+            }
+        }
     }
 }
