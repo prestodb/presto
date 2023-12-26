@@ -380,7 +380,7 @@ public class NativeExecutionProcess
             populateConfigurationFiles(configPath);
         }
         ImmutableList<String> commandList = command.build();
-        log.info("Launching native process using command: %s %s", executablePath, String.join(" ", commandList));
+        log.info("Launching native process using command: %s", String.join(" ", commandList));
         return commandList;
     }
 }
