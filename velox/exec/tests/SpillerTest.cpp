@@ -479,20 +479,20 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         [&]() -> const std::string& { return tempDirPath_->path; };
     stats_.clear();
 
+    common::SpillConfig spillConfig;
+    spillConfig.getSpillDirPathCb = makeError ? badSpillDirCb : tempSpillDirCb;
+    spillConfig.updateAndCheckSpillLimitCb = [&](uint64_t) {};
+    spillConfig.fileNamePrefix = "prefix";
+    spillConfig.writeBufferSize = writeBufferSize;
+    spillConfig.executor = executor();
+    spillConfig.compressionKind = compressionKind_;
+    spillConfig.maxSpillRunRows = maxSpillRunRows;
+    spillConfig.fileCreateConfig = {};
+
     if (type_ == Spiller::Type::kHashJoinProbe) {
       // kHashJoinProbe doesn't have associated row container.
       spiller_ = std::make_unique<Spiller>(
-          type_,
-          rowType_,
-          hashBits_,
-          makeError ? badSpillDirCb : tempSpillDirCb,
-          [&](uint64_t) {},
-          "prefix",
-          targetFileSize,
-          writeBufferSize,
-          compressionKind_,
-          pool_.get(),
-          executor());
+          type_, rowType_, hashBits_, &spillConfig, targetFileSize);
     } else if (
         type_ == Spiller::Type::kOrderByInput ||
         type_ == Spiller::Type::kAggregateInput) {
@@ -504,29 +504,12 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           rowType_,
           rowContainer_->keyTypes().size(),
           compareFlags_,
-          makeError ? badSpillDirCb : tempSpillDirCb,
-          [&](uint64_t) {},
-          "prefix",
-          writeBufferSize,
-          compressionKind_,
-          pool_.get(),
-          executor(),
-          maxSpillRunRows);
+          &spillConfig);
     } else if (
         type_ == Spiller::Type::kAggregateOutput ||
         type_ == Spiller::Type::kOrderByOutput) {
       spiller_ = std::make_unique<Spiller>(
-          type_,
-          rowContainer_.get(),
-          rowType_,
-          makeError ? badSpillDirCb : tempSpillDirCb,
-          [&](uint64_t) {},
-          "prefix",
-          writeBufferSize,
-          compressionKind_,
-          pool_.get(),
-          executor(),
-          maxSpillRunRows);
+          type_, rowContainer_.get(), rowType_, &spillConfig);
     } else {
       VELOX_CHECK_EQ(type_, Spiller::Type::kHashJoinBuild);
       spiller_ = std::make_unique<Spiller>(
@@ -534,15 +517,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           rowContainer_.get(),
           rowType_,
           hashBits_,
-          makeError ? badSpillDirCb : tempSpillDirCb,
-          [&](uint64_t) {},
-          "prefix",
-          targetFileSize,
-          writeBufferSize,
-          compressionKind_,
-          pool_.get(),
-          executor(),
-          maxSpillRunRows);
+          &spillConfig,
+          targetFileSize);
     }
     ASSERT_EQ(spiller_->state().maxPartitions(), numPartitions_);
     ASSERT_FALSE(spiller_->isAllSpilled());

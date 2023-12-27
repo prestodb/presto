@@ -734,6 +734,7 @@ void TopNRowNumber::spill() {
 
 void TopNRowNumber::setupSpiller() {
   VELOX_CHECK_NULL(spiller_);
+  VELOX_CHECK(spillConfig_.has_value());
 
   spiller_ = std::make_unique<Spiller>(
       // TODO Replace Spiller::Type::kOrderBy.
@@ -742,14 +743,6 @@ void TopNRowNumber::setupSpiller() {
       inputType_,
       spillCompareFlags_.size(),
       spillCompareFlags_,
-      spillConfig_->getSpillDirPathCb,
-      spillConfig_->updateAndCheckSpillLimitCb,
-      spillConfig_->fileNamePrefix,
-      spillConfig_->writeBufferSize,
-      spillConfig_->compressionKind,
-      memory::spillMemoryPool(),
-      spillConfig_->executor,
-      spillConfig_->maxSpillRunRows,
-      spillConfig_->fileCreateConfig);
+      &spillConfig_.value());
 }
 } // namespace facebook::velox::exec

@@ -44,6 +44,7 @@ using UpdateAndCheckSpillLimitCB = std::function<void(uint64_t)>;
 
 /// Specifies the config for spilling.
 struct SpillConfig {
+  SpillConfig() = default;
   SpillConfig(
       GetSpillDirectoryPathCB _getSpillDirPathCb,
       UpdateAndCheckSpillLimitCB _updateAndCheckSpillLimitCb,

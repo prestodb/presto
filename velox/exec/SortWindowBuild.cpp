@@ -145,15 +145,7 @@ void SortWindowBuild::setupSpiller() {
       inputType_,
       spillCompareFlags_.size(),
       spillCompareFlags_,
-      spillConfig_->getSpillDirPathCb,
-      spillConfig_->updateAndCheckSpillLimitCb,
-      spillConfig_->fileNamePrefix,
-      spillConfig_->writeBufferSize,
-      spillConfig_->compressionKind,
-      memory::spillMemoryPool(),
-      spillConfig_->executor,
-      spillConfig_->maxSpillRunRows,
-      spillConfig_->fileCreateConfig);
+      spillConfig_);
 }
 
 void SortWindowBuild::spill() {

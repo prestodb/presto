@@ -394,16 +394,8 @@ void RowNumber::setupHashTableSpiller() {
       table_->rows(),
       tableType,
       std::move(hashBits),
-      spillConfig.getSpillDirPathCb,
-      spillConfig.updateAndCheckSpillLimitCb,
-      spillConfig.fileNamePrefix,
-      spillConfig.maxFileSize,
-      spillConfig.writeBufferSize,
-      spillConfig.compressionKind,
-      memory::spillMemoryPool(),
-      spillConfig.executor,
-      spillConfig.maxSpillRunRows,
-      spillConfig.fileCreateConfig);
+      &spillConfig,
+      spillConfig.maxFileSize);
 }
 
 void RowNumber::setupInputSpiller() {
@@ -415,15 +407,8 @@ void RowNumber::setupInputSpiller() {
       Spiller::Type::kHashJoinProbe,
       inputType_,
       hashBits,
-      spillConfig.getSpillDirPathCb,
-      spillConfig.updateAndCheckSpillLimitCb,
-      spillConfig.fileNamePrefix,
-      spillConfig.maxFileSize,
-      spillConfig.writeBufferSize,
-      spillConfig.compressionKind,
-      memory::spillMemoryPool(),
-      spillConfig.executor,
-      spillConfig.fileCreateConfig);
+      &spillConfig,
+      spillConfig.maxFileSize);
 
   const auto& hashers = table_->hashers();
 
