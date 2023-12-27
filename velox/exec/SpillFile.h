@@ -183,8 +183,8 @@ class SpillWriter {
   const uint64_t writeBufferSize_;
   const std::string fileCreateConfig_;
 
-  // A callback function that updates the spilled bytes query level, which
-  // would throw if exceeds the maxSpillBytes limitation.
+  // Updates the aggregated spill bytes of this query, and throws if exceeds
+  // the max spill bytes limit.
   common::UpdateAndCheckSpillLimitCB updateAndCheckSpillLimitCb_;
   memory::MemoryPool* const pool_;
   folly::Synchronized<common::SpillStats>* const stats_;

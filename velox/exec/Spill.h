@@ -407,8 +407,8 @@ class SpillState {
   // can use it to ensure the path exists before returning.
   common::GetSpillDirectoryPathCB getSpillDirPathCb_;
 
-  // A callback function that updates the spilled bytes query level, which
-  // would throw if exceeds the maxSpillBytes limitation.
+  // Updates the aggregated spill bytes of this query, and throws if exceeds
+  // the max spill bytes limit.
   common::UpdateAndCheckSpillLimitCB updateAndCheckSpillLimitCb_;
 
   /// Prefix for spill files.

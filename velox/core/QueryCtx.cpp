@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/core/QueryCtx.h"
+#include "velox/common/base/SpillConfig.h"
 
 namespace facebook::velox::core {
 
