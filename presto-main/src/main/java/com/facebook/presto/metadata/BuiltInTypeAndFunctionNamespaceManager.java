@@ -87,6 +87,7 @@ import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
 import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.ReduceAggregationFunction;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
+import com.facebook.presto.operator.aggregation.SumIfAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.aggregation.approxmostfrequent.ApproximateMostFrequent;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
@@ -686,6 +687,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(CountIfAggregation.class)
+                .aggregates(SumIfAggregation.class)
                 .aggregates(BooleanAndAggregation.class)
                 .aggregates(BooleanOrAggregation.class)
                 .aggregates(DoubleSumAggregation.class)
