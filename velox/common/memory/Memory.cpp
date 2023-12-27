@@ -268,6 +268,7 @@ std::string MemoryManager::toString(bool detail) const {
     } else {
       out << "\t" << pool->name() << "\n";
     }
+    out << "\trefcount " << pool.use_count() << "\n";
   }
   out << allocator_->toString() << "\n";
   out << arbitrator_->toString();
