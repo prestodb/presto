@@ -251,6 +251,10 @@ Property Name                             Description
 ``format_version``                         Optionally specifies the format version of the Iceberg
                                            specification to use for new tables, either ``1`` or ``2``.
                                            Defaults to ``1``.
+
+``commit_retries``                         Determines the number of attempts for committing the metadata
+                                           in case of concurrent upsert requests, before failing. The
+                                           default value is 4.
 ========================================= ===============================================================
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
@@ -497,7 +501,7 @@ that is stored using the ORC file format, partitioned by ``ds`` and
       partitioning = ARRAY['ds', 'country']
     )
 
-Create an Iceberg table with Iceberg format version 2::
+Create an Iceberg table with Iceberg format version 2 and with commit_retries set to 5::
 
     CREATE TABLE iceberg.web.page_views_v2 (
       view_time timestamp,
@@ -509,7 +513,8 @@ Create an Iceberg table with Iceberg format version 2::
     WITH (
       format = 'ORC',
       partitioning = ARRAY['ds', 'country'],
-      format_version = '2'
+      format_version = '2',
+      commit_retries = 5
     )
 
 Partition Column Transform
@@ -643,6 +648,11 @@ The table is partitioned by the transformed value of the column::
      ALTER TABLE iceberg.web.page_views ADD COLUMN dt date WITH (partitioning = 'day');
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN ts timestamp WITH (partitioning = 'hour');
+
+Table properties can be modified for an iceberg table using ALTER TABLE SET PROPERTIES statement. Only `commit_retries` can be modified at present.
+For example, to set commit_retries to 6 for table `iceberg.web.page_views_v2`, use the below statement::
+
+    ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES (commit_retries = 6);
 
 TRUNCATE
 ^^^^^^^^
