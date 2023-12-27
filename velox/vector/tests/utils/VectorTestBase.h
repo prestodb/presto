@@ -23,6 +23,7 @@
 
 #include <gtest/gtest.h>
 #include <optional>
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::test {
 
@@ -126,6 +127,18 @@ class VectorTestBase {
       const std::shared_ptr<const RowType>& rowType,
       vector_size_t size) {
     return vectorMaker_.rowVector(rowType, size);
+  }
+
+  std::vector<RowVectorPtr>
+  createVectors(const RowTypePtr& type, size_t vectorSize, uint64_t byteSize) {
+    VectorFuzzer fuzzer({.vectorSize = vectorSize}, pool());
+    uint64_t totalSize{0};
+    std::vector<RowVectorPtr> vectors;
+    while (totalSize < byteSize) {
+      vectors.push_back(fuzzer.fuzzInputRow(type));
+      totalSize += vectors.back()->estimateFlatSize();
+    }
+    return vectors;
   }
 
   /// Splits input vector into 'n' vectors evenly. Input vector must have at

@@ -13,12 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/common/base/SpillConfig.h"
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::common {
 SpillConfig::SpillConfig(
     GetSpillDirectoryPathCB _getSpillDirPathCb,
+    UpdateAndCheckSpillLimitCB _updateAndCheckSpillLimitCb,
     std::string _fileNamePrefix,
     uint64_t _maxFileSize,
     uint64_t _writeBufferSize,
@@ -35,6 +37,7 @@ SpillConfig::SpillConfig(
     const std::string& _compressionKind,
     const std::string& _fileCreateConfig)
     : getSpillDirPathCb(std::move(_getSpillDirPathCb)),
+      updateAndCheckSpillLimitCb(std::move(_updateAndCheckSpillLimitCb)),
       fileNamePrefix(std::move(_fileNamePrefix)),
       maxFileSize(
           _maxFileSize == 0 ? std::numeric_limits<int64_t>::max()

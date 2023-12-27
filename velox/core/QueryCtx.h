@@ -24,6 +24,14 @@
 #include "velox/vector/VectorPool.h"
 
 namespace facebook::velox::core {
+#define VELOX_SPILL_LIMIT_EXCEEDED(errorMessage)                    \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kSpillLimitExceeded.c_str(),   \
+      /* isRetriable */ true,                                       \
+      "{}",                                                         \
+      errorMessage);
 
 class QueryCtx {
  public:
@@ -125,6 +133,10 @@ class QueryCtx {
     pool_ = std::move(pool);
   }
 
+  /// Updates the spilled bytes in query level, and throws if exceeds the
+  /// maxSpillBytes limitation.
+  void updateSpilledBytesAndCheckLimit(uint64_t bytes);
+
  private:
   static Config* getEmptyConfig() {
     static const std::unique_ptr<Config> kEmptyConfig =
@@ -149,6 +161,7 @@ class QueryCtx {
   std::shared_ptr<memory::MemoryPool> pool_;
   folly::Executor::KeepAlive<> executorKeepalive_;
   QueryConfig queryConfig_;
+  std::atomic<uint64_t> numSpilledBytes_{0};
 };
 
 // Represents the state of one thread of query execution.

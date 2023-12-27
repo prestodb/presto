@@ -37,6 +37,7 @@ void JoinSpillInputBenchmarkBase::setUp() {
       rowType_,
       HashBitRange{29, 29},
       [&]() -> const std::string& { return spillDir_; },
+      [&](uint64_t) {},
       FLAGS_spiller_benchmark_name,
       FLAGS_spiller_benchmark_max_spill_file_size,
       FLAGS_spiller_benchmark_write_buffer_size,

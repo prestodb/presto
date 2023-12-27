@@ -254,6 +254,7 @@ void HashProbe::maybeSetupSpillInput(
           spillInputPartitionIds_.begin()->partitionBitOffset() +
               spillConfig.joinPartitionBits),
       spillConfig.getSpillDirPathCb,
+      spillConfig.updateAndCheckSpillLimitCb,
       spillConfig.fileNamePrefix,
       spillConfig.maxFileSize,
       spillConfig.writeBufferSize,

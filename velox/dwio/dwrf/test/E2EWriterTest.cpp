@@ -245,6 +245,7 @@ class E2EWriterTest : public testing::Test {
     static const std::string emptySpillFolder = "";
     return common::SpillConfig(
         [&]() -> const std::string& { return emptySpillFolder; },
+        [&](uint64_t) {},
         "fakeSpillConfig",
         0,
         0,

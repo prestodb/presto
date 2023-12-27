@@ -92,6 +92,7 @@ SpillWriter::SpillWriter(
     uint64_t targetFileSize,
     uint64_t writeBufferSize,
     const std::string& fileCreateConfig,
+    common::UpdateAndCheckSpillLimitCB& updateAndCheckSpillLimitCb,
     memory::MemoryPool* pool,
     folly::Synchronized<common::SpillStats>* stats)
     : type_(type),
@@ -102,6 +103,7 @@ SpillWriter::SpillWriter(
       targetFileSize_(targetFileSize),
       writeBufferSize_(writeBufferSize),
       fileCreateConfig_(fileCreateConfig),
+      updateAndCheckSpillLimitCb_(updateAndCheckSpillLimitCb),
       pool_(pool),
       stats_(stats) {
   // NOTE: if the associated spilling operator has specified the sort
@@ -165,6 +167,7 @@ uint64_t SpillWriter::flush() {
     writtenBytes = file->write(std::move(iobuf));
   }
   updateWriteStats(writtenBytes, flushTimeUs, writeTimeUs);
+  updateAndCheckSpillLimitCb_(writtenBytes);
   return writtenBytes;
 }
 

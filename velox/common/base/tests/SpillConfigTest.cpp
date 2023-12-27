@@ -27,6 +27,7 @@ TEST(SpillConfig, spillLevel) {
   const uint8_t kNumPartitionsBits = 3;
   const SpillConfig config(
       []() { return ""; },
+      [&](uint64_t) {},
       "fakeSpillPath",
       0,
       0,
@@ -113,6 +114,7 @@ TEST(SpillConfig, spillLevelLimit) {
         testData.startBitOffset, testData.startBitOffset + testData.numBits);
     const SpillConfig config(
         []() { return ""; },
+        [&](uint64_t) {},
         "fakeSpillPath",
         0,
         0,
@@ -160,6 +162,7 @@ TEST(SpillConfig, spillableReservationPercentages) {
     auto createConfigFn = [&]() {
       const SpillConfig config(
           [&]() -> const std::string& { return emptySpillFolder; },
+          [&](uint64_t) {},
           "spillableReservationPercentages",
           0,
           0,
