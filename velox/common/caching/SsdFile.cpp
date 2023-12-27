@@ -658,6 +658,12 @@ void SsdFile::checkpoint(bool force) {
     return;
   }
 
+  VELOX_SSD_CACHE_LOG(INFO)
+      << "Checkpointing shard " << shardId_ << ", force: " << force
+      << " bytesAfterCheckpoint: " << succinctBytes(bytesAfterCheckpoint_)
+      << " checkpointIntervalBytes: "
+      << succinctBytes(checkpointIntervalBytes_);
+
   checkpointDeleted_ = false;
   bytesAfterCheckpoint_ = 0;
   try {
