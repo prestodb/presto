@@ -38,29 +38,35 @@ public class TestConsistentHashingNodeProvider
     @Test
     public void testDistribution()
     {
-        List<InternalNode> nodes = IntStream.range(0, 10).mapToObj(i -> new InternalNode(format("other%d", i), URI.create(format("http://127.0.0.%d:100", i)), NodeVersion.UNKNOWN, false)).collect(toImmutableList());
+        List<InternalNode> nodes = createTestNodes();
         ConsistentHashingNodeProvider nodeProvider = ConsistentHashingNodeProvider.create(nodes, 100);
         Random random = new Random();
         Map<HostAddress, Integer> result = new HashMap<>();
         for (int i = 0; i < 1_000_000; i++) {
             List<HostAddress> candidates = nodeProvider.get(format("split%d", random.nextInt()), 2);
-            assertNotEquals(candidates.get(1), candidates.get(0));
-            HostAddress hostAddress = candidates.get(0);
-            int count = result.getOrDefault(hostAddress, 0);
-            result.put(hostAddress, count + 1);
+            assertNotEquals(candidates.get(0), candidates.get(1));
+            result.merge(candidates.get(0), 1, Integer::sum);
         }
+        assertEquals(result.size(), nodes.size());
         assertTrue(result.values().stream().allMatch(count -> count >= 80000 && count <= 120000));
     }
 
     @Test
     public void testMultipleCandidates()
     {
-        List<InternalNode> nodes = IntStream.range(0, 10).mapToObj(i -> new InternalNode(format("other%d", i), URI.create(format("http://127.0.0.%d:100", i)), NodeVersion.UNKNOWN, false)).collect(toImmutableList());
+        List<InternalNode> nodes = createTestNodes();
         ConsistentHashingNodeProvider nodeProvider = ConsistentHashingNodeProvider.create(nodes, 1);
         assertEquals(ImmutableSet.copyOf(nodeProvider.get("split1", 10)), nodes.stream().map(InternalNode::getHostAndPort).collect(toImmutableSet()));
         assertEquals(ImmutableSet.copyOf(nodeProvider.get("split1", 11)), nodes.stream().map(InternalNode::getHostAndPort).collect(toImmutableSet()));
 
         ConsistentHashingNodeProvider nodeProviderWithWeight = ConsistentHashingNodeProvider.create(nodes, 100);
         assertEquals(ImmutableSet.copyOf(nodeProvider.get("split1", 10)), nodes.stream().map(InternalNode::getHostAndPort).collect(toImmutableSet()));
+    }
+
+    private List<InternalNode> createTestNodes()
+    {
+        return IntStream.range(0, 10)
+                .mapToObj(i -> new InternalNode(format("node%d", i), URI.create(format("http://127.0.0.%d:100", i)), NodeVersion.UNKNOWN, false))
+                .collect(toImmutableList());
     }
 }
