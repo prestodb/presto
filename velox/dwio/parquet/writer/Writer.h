@@ -141,6 +141,9 @@ class Writer : public dwio::common::Writer {
   void abort() override;
 
  private:
+  // Sets the memory reclaimers for all the memory pools used by this writer.
+  void setMemoryReclaimers();
+
   // Pool for 'stream_'.
   std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<memory::MemoryPool> generalPool_;
