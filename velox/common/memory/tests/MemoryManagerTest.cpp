@@ -52,7 +52,7 @@ TEST_F(MemoryManagerTest, Ctor) {
   const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
   {
     MemoryManager manager{};
-    ASSERT_EQ(manager.numPools(), 0);
+    ASSERT_EQ(manager.numPools(), 1);
     ASSERT_EQ(manager.capacity(), MemoryAllocator::kDefaultCapacityBytes);
     ASSERT_EQ(0, manager.getTotalBytes());
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMaxAlignment);
@@ -67,7 +67,7 @@ TEST_F(MemoryManagerTest, Ctor) {
     MemoryManager manager{
         {.capacity = kCapacity, .allocator = allocator.get()}};
     ASSERT_EQ(kCapacity, manager.capacity());
-    ASSERT_EQ(manager.numPools(), 0);
+    ASSERT_EQ(manager.numPools(), 1);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
   }
   {
@@ -79,7 +79,8 @@ TEST_F(MemoryManagerTest, Ctor) {
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
     // TODO: replace with root pool memory tracker quota check.
-    ASSERT_EQ(kSharedPoolCount, manager.testingDefaultRoot().getChildCount());
+    ASSERT_EQ(
+        kSharedPoolCount + 1, manager.testingDefaultRoot().getChildCount());
     ASSERT_EQ(kCapacity, manager.capacity());
     ASSERT_EQ(0, manager.getTotalBytes());
   }
@@ -98,7 +99,7 @@ TEST_F(MemoryManagerTest, Ctor) {
     ASSERT_EQ(
         manager.toString(),
         "Memory Manager[capacity 4.00GB alignment 64B usedBytes 0B number of "
-        "pools 0\nList of root pools:\n\t__default_root__\n"
+        "pools 1\nList of root pools:\n\t__default_root__\n"
         "Memory Allocator[MALLOC capacity 4.00GB allocated bytes 0 "
         "allocated pages 0 mapped pages 0]\n"
         "ARBITRATOR[SHARED CAPACITY[4.00GB] STATS[numRequests 0 numSucceeded 0 "
@@ -261,10 +262,10 @@ TEST_F(MemoryManagerTest, addPoolWithArbitrator) {
 TEST_F(MemoryManagerTest, defaultMemoryManager) {
   auto& managerA = toMemoryManager(deprecatedDefaultMemoryManager());
   auto& managerB = toMemoryManager(deprecatedDefaultMemoryManager());
-  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
-  ASSERT_EQ(managerA.numPools(), 0);
+  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools + 1;
+  ASSERT_EQ(managerA.numPools(), 1);
   ASSERT_EQ(managerA.testingDefaultRoot().getChildCount(), kSharedPoolCount);
-  ASSERT_EQ(managerB.numPools(), 0);
+  ASSERT_EQ(managerB.numPools(), 1);
   ASSERT_EQ(managerB.testingDefaultRoot().getChildCount(), kSharedPoolCount);
 
   auto child1 = managerA.addLeafPool("child_1");
@@ -275,39 +276,39 @@ TEST_F(MemoryManagerTest, defaultMemoryManager) {
       kSharedPoolCount + 2, managerA.testingDefaultRoot().getChildCount());
   EXPECT_EQ(
       kSharedPoolCount + 2, managerB.testingDefaultRoot().getChildCount());
-  ASSERT_EQ(managerA.numPools(), 2);
-  ASSERT_EQ(managerB.numPools(), 2);
-  auto pool = managerB.addRootPool();
   ASSERT_EQ(managerA.numPools(), 3);
   ASSERT_EQ(managerB.numPools(), 3);
+  auto pool = managerB.addRootPool();
+  ASSERT_EQ(managerA.numPools(), 4);
+  ASSERT_EQ(managerB.numPools(), 4);
   ASSERT_EQ(
       managerA.toString(),
-      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n\trefcount 2\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 4\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n\trefcount 2\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
   ASSERT_EQ(
       managerB.toString(),
-      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n\trefcount 2\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 4\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n\trefcount 2\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
   child1.reset();
   EXPECT_EQ(
       kSharedPoolCount + 1, managerA.testingDefaultRoot().getChildCount());
   child2.reset();
   EXPECT_EQ(kSharedPoolCount, managerB.testingDefaultRoot().getChildCount());
+  ASSERT_EQ(managerA.numPools(), 2);
+  ASSERT_EQ(managerB.numPools(), 2);
+  pool.reset();
   ASSERT_EQ(managerA.numPools(), 1);
   ASSERT_EQ(managerB.numPools(), 1);
-  pool.reset();
-  ASSERT_EQ(managerA.numPools(), 0);
-  ASSERT_EQ(managerB.numPools(), 0);
   ASSERT_EQ(
       managerA.toString(),
-      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 1\nList of root pools:\n\t__default_root__\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
   ASSERT_EQ(
       managerB.toString(),
-      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 1\nList of root pools:\n\t__default_root__\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
 }
 
 // TODO: remove this test when remove deprecatedAddDefaultLeafMemoryPool.
 TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {
   auto& manager = toMemoryManager(deprecatedDefaultMemoryManager());
-  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
+  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools + 1;
   ASSERT_EQ(manager.testingDefaultRoot().getChildCount(), kSharedPoolCount);
   {
     auto poolA = deprecatedAddDefaultLeafMemoryPool();
@@ -362,7 +363,7 @@ TEST_F(MemoryManagerTest, memoryPoolManagement) {
   MemoryManagerOptions options;
   options.alignment = alignment;
   MemoryManager manager{options};
-  ASSERT_EQ(manager.numPools(), 0);
+  ASSERT_EQ(manager.numPools(), 1);
   const int numPools = 100;
   std::vector<std::shared_ptr<MemoryPool>> userRootPools;
   std::vector<std::shared_ptr<MemoryPool>> userLeafPools;
@@ -387,14 +388,14 @@ TEST_F(MemoryManagerTest, memoryPoolManagement) {
   ASSERT_FALSE(rootUnamedPool->name().empty());
   ASSERT_EQ(rootUnamedPool->kind(), MemoryPool::Kind::kAggregate);
   ASSERT_EQ(rootUnamedPool->parent(), nullptr);
-  ASSERT_EQ(manager.numPools(), numPools + 2);
+  ASSERT_EQ(manager.numPools(), 1 + numPools + 2);
   userLeafPools.clear();
   leafUnamedPool.reset();
-  ASSERT_EQ(manager.numPools(), numPools / 2 + 1);
+  ASSERT_EQ(manager.numPools(), 1 + numPools / 2 + 1);
   userRootPools.clear();
-  ASSERT_EQ(manager.numPools(), 1);
+  ASSERT_EQ(manager.numPools(), 1 + 1);
   rootUnamedPool.reset();
-  ASSERT_EQ(manager.numPools(), 0);
+  ASSERT_EQ(manager.numPools(), 1);
 }
 
 // TODO: when run sequentially, e.g. `buck run dwio/memory/...`, this has side
@@ -411,7 +412,7 @@ TEST_F(MemoryManagerTest, globalMemoryManager) {
   ASSERT_NE(manager, globalManager);
   ASSERT_EQ(manager, memoryManager());
   auto* managerII = memoryManager();
-  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
+  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools + 1;
   {
     auto& rootI = manager->testingDefaultRoot();
     const std::string childIName("some_child");
@@ -445,9 +446,9 @@ TEST_F(MemoryManagerTest, globalMemoryManager) {
     ASSERT_EQ(userRootChild->kind(), MemoryPool::Kind::kAggregate);
     ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 1);
     ASSERT_EQ(rootII.getChildCount(), kSharedPoolCount + 1);
-    ASSERT_EQ(manager->numPools(), 2);
+    ASSERT_EQ(manager->numPools(), 2 + 1);
   }
-  ASSERT_EQ(manager->numPools(), 0);
+  ASSERT_EQ(manager->numPools(), 1);
 }
 
 TEST_F(MemoryManagerTest, alignmentOptionCheck) {
@@ -545,9 +546,9 @@ TEST_F(MemoryManagerTest, concurrentPoolAccess) {
   }
   stopCheck = true;
   checkThread.join();
-  ASSERT_EQ(manager.numPools(), pools.size());
+  ASSERT_EQ(manager.numPools(), pools.size() + 1);
   pools.clear();
-  ASSERT_EQ(manager.numPools(), 0);
+  ASSERT_EQ(manager.numPools(), 1);
 }
 
 TEST_F(MemoryManagerTest, quotaEnforcement) {

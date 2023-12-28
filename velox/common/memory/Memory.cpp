@@ -72,7 +72,8 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
               .trackUsage = options.trackDefaultUsage,
               .debugEnabled = options.debugEnabled,
               .coreOnAllocationFailureEnabled =
-                  options.coreOnAllocationFailureEnabled})} {
+                  options.coreOnAllocationFailureEnabled})},
+      spillPool_{addLeafPool("_sys.spilling")} {
   VELOX_CHECK_NOT_NULL(allocator_);
   VELOX_CHECK_NOT_NULL(arbitrator_);
   VELOX_CHECK_EQ(
@@ -313,9 +314,7 @@ MemoryPool& deprecatedSharedLeafPool() {
 }
 
 memory::MemoryPool* spillMemoryPool() {
-  static auto pool =
-      memory::MemoryManager::getInstance()->addLeafPool("_sys.spilling");
-  return pool.get();
+  return memory::MemoryManager::getInstance()->spillPool();
 }
 
 bool isSpillMemoryPool(memory::MemoryPool* pool) {

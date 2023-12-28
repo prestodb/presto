@@ -217,6 +217,11 @@ class MemoryManager {
     return *defaultRoot_;
   }
 
+  /// Returns the process wide leaf memory pool used for disk spilling.
+  MemoryPool* spillPool() {
+    return spillPool_.get();
+  }
+
   const std::vector<std::shared_ptr<MemoryPool>>& testingSharedLeafPools() {
     return sharedLeafPools_;
   }
@@ -259,6 +264,8 @@ class MemoryManager {
   const MemoryPoolImpl::GrowCapacityCallback poolGrowCb_;
 
   const std::shared_ptr<MemoryPool> defaultRoot_;
+  const std::shared_ptr<MemoryPool> spillPool_;
+
   std::vector<std::shared_ptr<MemoryPool>> sharedLeafPools_;
 
   mutable folly::SharedMutex mutex_;
