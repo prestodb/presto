@@ -41,8 +41,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_MIN_PAYLOAD_SIZE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
+import static com.facebook.presto.SystemSessionProperties.PAYLOAD_JOIN_OPTIMIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
@@ -1258,11 +1260,7 @@ public abstract class AbstractTestDistributedQueries
         final List<String> queries = getPayloadQueries("lineitem_map");
 
         for (String query : queries) {
-            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
-            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
-            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
-            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
-            assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
+            assertPlanChanged(sessionNoOpt, session, query);
 
             MaterializedResult materializedRows = computeActual(session, query);
             assertEquals(materializedRows.getRowCount(), 60175);
@@ -1288,11 +1286,7 @@ public abstract class AbstractTestDistributedQueries
         };
 
         for (String query : nonOptimizableQueries) {
-            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
-            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
-            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
-            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
-            assertEquals(explainWithOpt, explainNoOpt, "Query was optimized: " + query);
+            assertPlanSame(sessionNoOpt, session, query);
         }
 
         MaterializedResult countStarQuery = computeActual(session, "select count(t.m1) from (SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)) t");
@@ -1317,13 +1311,48 @@ public abstract class AbstractTestDistributedQueries
         final List<String> queries = getPayloadQueries("lineitem_small");
 
         for (String query : queries) {
-            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
-            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
-            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
-            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
-            assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
+            assertPlanChanged(sessionNoOpt, session, query);
             assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
         }
+    }
+
+    @Test
+    public void testPayloadJoinCostBasedApplicability()
+    {
+        Session sessionNoOpt = Session.builder(getSession())
+                .setSystemProperty(PAYLOAD_JOIN_OPTIMIZATION_STRATEGY, "disabled")
+                .build();
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(PAYLOAD_JOIN_OPTIMIZATION_STRATEGY, "cost_based")
+                .setSystemProperty(JOIN_MIN_PAYLOAD_SIZE, "1MB")
+                .build();
+
+        assertUpdate("create table lineitem_map2 as select *, map(ARRAY[1,3], ARRAY[2,4]) as m1, map(ARRAY[1,3], ARRAY[2,4]) as m2 from lineitem", 60175);
+
+        String query = "SELECT l.* FROM lineitem_map2 l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)";
+        assertPlanChanged(sessionNoOpt, session, query);
+
+        String queryWithSmallPayload = "SELECT l.orderkey, l.partkey, l.returnFlag FROM lineitem_map2 l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)";
+        assertPlanSame(sessionNoOpt, session, queryWithSmallPayload);
+    }
+
+    private void assertPlanChanged(Session sessionNoOpt, Session session, String query)
+    {
+        MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+        MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
+        String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
+        String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+        assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
+    }
+
+    private void assertPlanSame(Session sessionNoOpt, Session session, String query)
+    {
+        MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+        MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
+        String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
+        String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+        assertEquals(explainWithOpt, explainNoOpt, "Query was optimized: " + query);
     }
 
     private static List<String> getPayloadQueries(String tableName)

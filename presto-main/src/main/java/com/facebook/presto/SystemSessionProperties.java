@@ -37,6 +37,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.LeftJoinArrayContainsToIn
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PayloadJoinOptimizationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
@@ -267,6 +268,8 @@ public final class SystemSessionProperties
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY = "randomize_outer_join_null_key";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY = "randomize_outer_join_null_key_strategy";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD = "randomize_outer_join_null_key_null_ratio_threshold";
+    public static final String PAYLOAD_JOIN_OPTIMIZATION_STRATEGY = "payload_join_optimization_strategy";
+    public static final String JOIN_MIN_PAYLOAD_SIZE = "join_min_payload_size";
     public static final String SHARDED_JOINS_STRATEGY = "sharded_joins_strategy";
     public static final String JOIN_SHARD_COUNT = "join_shard_count";
     public static final String IN_PREDICATES_AS_INNER_JOINS_ENABLED = "in_predicates_as_inner_joins_enabled";
@@ -1657,6 +1660,27 @@ public final class SystemSessionProperties
                         0.02,
                         false),
                 new PropertyMetadata<>(
+                        PAYLOAD_JOIN_OPTIMIZATION_STRATEGY,
+                        format("When to apply payload join optimization",
+                                Stream.of(FeaturesConfig.PayloadJoinOptimizationStrategy.values())
+                                        .map(PayloadJoinOptimizationStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        PayloadJoinOptimizationStrategy.class,
+                        featuresConfig.getPayloadJoinOptimizationStrategy(),
+                        false,
+                        value -> PayloadJoinOptimizationStrategy.valueOf(((String) value).toUpperCase()),
+                        PayloadJoinOptimizationStrategy::name),
+                new PropertyMetadata<>(
+                        JOIN_MIN_PAYLOAD_SIZE,
+                        "Minimum estimated size of payload columns in a join to trigger payload join optimization.",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getJoinMinPayloadSize(),
+                        true,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                new PropertyMetadata<>(
                         SHARDED_JOINS_STRATEGY,
                         format("When to shard joins to mitigate skew",
                                 Stream.of(ShardedJoinStrategy.values())
@@ -2351,6 +2375,16 @@ public final class SystemSessionProperties
         return session.getSystemProperty(CTE_MATERIALIZATION_STRATEGY, CteMaterializationStrategy.class);
     }
 
+    public static PayloadJoinOptimizationStrategy getPayloadJoinOptimizationStrategy(Session session)
+    {
+        return session.getSystemProperty(PAYLOAD_JOIN_OPTIMIZATION_STRATEGY, PayloadJoinOptimizationStrategy.class);
+    }
+
+    public static DataSize getJoinMinPayloadSize(Session session)
+    {
+        return session.getSystemProperty(JOIN_MIN_PAYLOAD_SIZE, DataSize.class);
+    }
+
     public static int getFilterAndProjectMinOutputPageRowCount(Session session)
     {
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
@@ -2607,7 +2641,8 @@ public final class SystemSessionProperties
 
     public static boolean isOptimizePayloadJoins(Session session)
     {
-        return session.getSystemProperty(OPTIMIZE_PAYLOAD_JOINS, Boolean.class);
+        return session.getSystemProperty(OPTIMIZE_PAYLOAD_JOINS, Boolean.class)
+                || session.getSystemProperty(PAYLOAD_JOIN_OPTIMIZATION_STRATEGY, PayloadJoinOptimizationStrategy.class) != PayloadJoinOptimizationStrategy.DISABLED;
     }
 
     public static JoinNotNullInferenceStrategy getNotNullInferenceStrategy(Session session)

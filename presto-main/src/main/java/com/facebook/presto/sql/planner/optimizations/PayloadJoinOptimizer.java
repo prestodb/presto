@@ -16,9 +16,14 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -40,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,13 +56,17 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.getJoinMinPayloadSize;
+import static com.facebook.presto.SystemSessionProperties.getPayloadJoinOptimizationStrategy;
 import static com.facebook.presto.SystemSessionProperties.isOptimizePayloadJoins;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PayloadJoinOptimizationStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
 import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
 import static com.facebook.presto.sql.planner.PlannerUtils.coalesce;
@@ -123,13 +133,16 @@ public class PayloadJoinOptimizer
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final StatsCalculator statsCalculator;
     private boolean isEnabledForTesting;
 
-    public PayloadJoinOptimizer(Metadata metadata)
-    {
-        requireNonNull(metadata, "metadata is null");
+    // records whether optimization decision was cost-based
+    private String statsSource;
 
-        this.metadata = metadata;
+    public PayloadJoinOptimizer(Metadata metadata, StatsCalculator statsCalculator)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
 
     @Override
@@ -137,8 +150,10 @@ public class PayloadJoinOptimizer
     {
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         if (isEnabled(session)) {
-            Rewriter rewriter = new PayloadJoinOptimizer.Rewriter(session, this.metadata, types, functionAndTypeManager, idAllocator, variableAllocator);
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            Rewriter rewriter = new PayloadJoinOptimizer.Rewriter(session, this.metadata, types, functionAndTypeManager, idAllocator, variableAllocator, statsProvider);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new JoinContext());
+            statsSource = rewriter.getStatsSource();
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
         return PlanOptimizerResult.optimizerResult(plan, false);
@@ -156,6 +171,18 @@ public class PayloadJoinOptimizer
         return isEnabledForTesting || isOptimizePayloadJoins(session);
     }
 
+    @Override
+    public boolean isCostBased(Session session)
+    {
+        return getPayloadJoinOptimizationStrategy(session) == COST_BASED;
+    }
+
+    @Override
+    public String getStatsSource()
+    {
+        return statsSource;
+    }
+
     private static class Rewriter
             extends SimplePlanRewriter<JoinContext>
     {
@@ -165,9 +192,11 @@ public class PayloadJoinOptimizer
         private final FunctionAndTypeManager functionAndTypeManager;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final VariableAllocator variableAllocator;
+        private final StatsProvider statsProvider;
         private boolean planChanged;
+        private String statsSource;
 
-        private Rewriter(Session session, Metadata metadata, TypeProvider types, FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator)
+        private Rewriter(Session session, Metadata metadata, TypeProvider types, FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, StatsProvider statsProvider)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -175,11 +204,17 @@ public class PayloadJoinOptimizer
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+            this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
         }
 
         public boolean isPlanChanged()
         {
             return planChanged;
+        }
+
+        public String getStatsSource()
+        {
+            return statsSource;
         }
 
         @Override
@@ -242,13 +277,20 @@ public class PayloadJoinOptimizer
                     joinNode.getDynamicFilters());
 
             if (isTopJoin && context.get().needsPayloadRejoin()) {
-                PlanNode payloadJoin = transformJoin(newJoinNode, joinContext);
+                if (!payloadJoinUseful(session, joinNode, context.get())) {
+                    planChanged = false;
+                    context.get().setPayloadNode(null);
+                    return joinNode;
+                }
+
+                PlanNode payloadJoin = transformJoin(joinNode.getSourceLocation(), newJoinNode, joinContext);
                 // reset payload node as it has been reattached to the plan node
                 context.get().setPayloadNode(null);
 
                 // do a final check that the rewrite didn't lose any columns (can happen if there are intermediate projections on non-join keys that get hidden because of the DISTINCT keys computation)
                 List<VariableReferenceExpression> outputVariables = joinNode.getOutputVariables();
                 if (!payloadJoin.getOutputVariables().containsAll(outputVariables)) {
+                    planChanged = false;
                     return joinNode;
                 }
                 return restrictOutput(payloadJoin, planNodeIdAllocator, outputVariables);
@@ -324,7 +366,7 @@ public class PayloadJoinOptimizer
             Set<VariableReferenceExpression> newChildOutputVarSet = newChild.getOutputVariables().stream().collect(toImmutableSet());
             Assignments newProjectAssighments = removeHiddenColumns(newAssignments, newChildOutputVarSet, context.get().getJoinKeys());
 
-            ProjectNode newProjectNode = new ProjectNode(projectNode.getId(), newChild, newProjectAssighments);
+            ProjectNode newProjectNode = new ProjectNode(projectNode.getSourceLocation(), projectNode.getId(), newChild, newProjectAssighments, LOCAL);
 
             // cancel rewrite when some columns needed for the project were hidden by the rewrite
             return validateProjectAssignments(newProjectNode) ? newProjectNode : projectNode;
@@ -393,12 +435,14 @@ public class PayloadJoinOptimizer
 
             context.get().setJoinKeyMap(new HashMap<>(varMap));
             PlanNode planNodeCopy = clonePlanNode(planNode, session, metadata, planNodeIdAllocator, planNode.getOutputVariables(), varMap);
+            List<VariableReferenceExpression> payloadColumns = planNode.getOutputVariables().stream().filter(column -> !joinKeys.contains(column)).collect(Collectors.toList());
+            context.get().setPayloadColumns(payloadColumns);
             context.get().setPayloadNode(planNodeCopy);
 
             return agg;
         }
 
-        private PlanNode transformJoin(JoinNode keysNode, JoinContext context)
+        private PlanNode transformJoin(Optional<SourceLocation> sourceLocation, JoinNode keysNode, JoinContext context)
         {
             PlanNode payloadPlanNode = context.getPayloadNode();
 
@@ -435,7 +479,7 @@ public class PayloadJoinOptimizer
                 coalesceComparisonBuilder.add(coalesceComp);
             }
 
-            ProjectNode projectNode = new ProjectNode(planNodeIdAllocator.getNextId(), keysNode, assignments.build());
+            ProjectNode projectNode = new ProjectNode(sourceLocation, planNodeIdAllocator.getNextId(), keysNode, assignments.build(), LOCAL);
             List<VariableReferenceExpression> resultOutputCols = Stream.concat(payloadPlanNode.getOutputVariables().stream(), projectNode.getOutputVariables().stream()).collect(toImmutableList());
 
             List<RowExpression> joinCriteria = Stream.concat(nullComparisonBuilder.build().stream(), coalesceComparisonBuilder.build().stream()).collect(toImmutableList());
@@ -508,6 +552,24 @@ public class PayloadJoinOptimizer
         {
             return joinKeys.stream().allMatch(key -> key.getType() instanceof VarcharType || isNumericType(key.getType()));
         }
+
+        private boolean payloadJoinUseful(Session session, JoinNode joinNode, JoinContext context)
+        {
+            if (getPayloadJoinOptimizationStrategy(session) != COST_BASED) {
+                // optimization always on regardless of cost
+                return true;
+            }
+
+            statsSource = statsProvider.getStats(joinNode).getSourceInfo().getSourceInfoName();
+
+            // check size of payload
+            List<VariableReferenceExpression> payloadColumns = context.getPayloadColumns();
+            PlanNodeStatsEstimate statsEstimate = statsProvider.getStats(joinNode);
+
+            double payloadSizeEstimate = statsEstimate.getOutputSizeForVariables(payloadColumns);
+            double minJoinPayloadSizeConfig = getJoinMinPayloadSize(session).toBytes();
+            return !Double.isNaN(payloadSizeEstimate) && payloadSizeEstimate > minJoinPayloadSizeConfig;
+        }
     }
 
     private static RowExpression zeroForType(Type type)
@@ -527,6 +589,7 @@ public class PayloadJoinOptimizer
         private Map<VariableReferenceExpression, RowExpression> projectionsToPush = new HashMap<>();
 
         int numJoins;
+        List<VariableReferenceExpression> payloadColumns = new ArrayList<>();
         PlanNode payloadNode;
 
         public JoinContext() {}
@@ -561,6 +624,16 @@ public class PayloadJoinOptimizer
             joinKeyMap = map;
         }
 
+        public List<VariableReferenceExpression> getPayloadColumns()
+        {
+            return payloadColumns;
+        }
+
+        public void setPayloadColumns(List<VariableReferenceExpression> payloadColumns)
+        {
+            this.payloadColumns = payloadColumns;
+        }
+
         public PlanNode getPayloadNode()
         {
             return payloadNode;
@@ -578,6 +651,7 @@ public class PayloadJoinOptimizer
             joinKeyMap = null;
             numJoins = 0;
             payloadNode = null;
+            payloadColumns = new ArrayList<>();
         }
         public int getNumJoins()
         {
