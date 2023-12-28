@@ -21,7 +21,7 @@ import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.ScalarFunctionLambdaArgumentDescriptor;
 import com.facebook.presto.spi.function.ScalarFunctionLambdaDescriptor;
-import com.facebook.presto.spi.function.StaticMethodPointer;
+import com.facebook.presto.spi.function.SubfieldPathTransformationFunctions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -44,31 +44,28 @@ import static java.lang.String.format;
 public class FunctionDescriptorParser
 {
     private FunctionDescriptorParser() {}
+
     public static ComplexTypeFunctionDescriptor parseFunctionDescriptor(ScalarFunctionDescriptor descriptor)
     {
-        checkArgument(descriptor.outputToInputTransformationFunction().length <= 1, "outputToInputTransformationFunction must contain at most 1 element.");
         return new ComplexTypeFunctionDescriptor(
                 descriptor.isAccessingInputValues(),
                 parseLambdaDescriptors(descriptor.lambdaDescriptors()),
                 descriptor.argumentIndicesContainingMapOrArray().length == 1 ?
                         Optional.of(ImmutableSet.copyOf(Arrays.stream(descriptor.argumentIndicesContainingMapOrArray()[0].value()).iterator())) : Optional.empty(),
-                descriptor.outputToInputTransformationFunction().length == 1 ?
-                        Optional.of(parseSubfieldTransformationFunction(descriptor.outputToInputTransformationFunction()[0])) :
-                        Optional.empty());
+                descriptor.outputToInputTransformationFunction().equals("identity") ?
+                        Optional.empty() :
+                        Optional.of(parseSubfieldTransformationFunction(descriptor.outputToInputTransformationFunction())));
     }
 
-    private static Function<Set<Subfield>, Set<Subfield>> parseSubfieldTransformationFunction(StaticMethodPointer staticMethodPointer)
+    private static Function<Set<Subfield>, Set<Subfield>> parseSubfieldTransformationFunction(String subfieldPathTransformationFunction)
     {
         Method subfieldTransformationMethod;
         try {
-            subfieldTransformationMethod = ((Class<?>) staticMethodPointer.clazz()).getDeclaredMethod(staticMethodPointer.method(), Set.class);
+            subfieldTransformationMethod = SubfieldPathTransformationFunctions.class.getDeclaredMethod(subfieldPathTransformationFunction, Set.class);
         }
         catch (NoSuchMethodException cause) {
             throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR,
-                    format("Could not parse subfield transformation function: '%s.%s'",
-                    staticMethodPointer.clazz().getName(),
-                    staticMethodPointer.method()
-                    ), cause);
+                    format("Could not find subfield transformation function '%s'", subfieldPathTransformationFunction), cause);
         }
         checkSubfieldTransformFunctionTypeSignature(subfieldTransformationMethod);
 
@@ -77,7 +74,7 @@ public class FunctionDescriptorParser
                 return (Set<Subfield>) subfieldTransformationMethod.invoke(null, subfields);
             }
             catch (IllegalAccessException | InvocationTargetException e) {
-                return ComplexTypeFunctionDescriptor.allSubfieldsRequired(subfields);
+                return SubfieldPathTransformationFunctions.allSubfieldsRequired(subfields);
             }
         };
     }

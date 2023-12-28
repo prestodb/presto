@@ -43,6 +43,7 @@ import com.facebook.presto.spi.function.LambdaArgumentDescriptor;
 import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.SubfieldPathTransformationFunctions;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.base.Throwables;
@@ -105,9 +106,9 @@ public final class MapTransformValueFunction
                 false));
         descriptor = new ComplexTypeFunctionDescriptor(
                 true,
-                ImmutableList.of(new LambdaDescriptor(1, ImmutableMap.of(1, new LambdaArgumentDescriptor(0, ComplexTypeFunctionDescriptor::prependAllSubscripts)))),
+                ImmutableList.of(new LambdaDescriptor(1, ImmutableMap.of(1, new LambdaArgumentDescriptor(0, SubfieldPathTransformationFunctions::prependAllSubscripts)))),
                 Optional.of(ImmutableSet.of(0)),
-                Optional.of(ComplexTypeFunctionDescriptor::clearRequiredSubfields),
+                Optional.of(SubfieldPathTransformationFunctions::clearRequiredSubfields),
                 getSignature());
     }
 

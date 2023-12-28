@@ -30,13 +30,8 @@ public @interface ScalarFunctionLambdaArgumentDescriptor
     int callArgumentIndex();
 
     /**
-     * Contains the transformation function between the subfields of this lambda argument and the input of the function.
-     *
-     * The reason this transformation is needed because the input of the function is the Array or Map, while the lambda arguments are the element of the array or key/value of
-     * the map. Specifically for map, the transformation function for the lambda argument of the map key will be different from the transformation of the map value.
-     * If transformation succeeded, then the returned value contains the transformed set of lambda subfields. Otherwise, the function must return <code>Optional.empty()</code>
-     * value.
+     * Contains the name of the subfield path transformation function that needs to be applied ti the subfields of this lambda argument.
+     * The acceptable list of names include all static methods of SubfieldPathTransformationFunctions class.
      */
-    StaticMethodPointer lambdaArgumentToInputTransformationFunction() default @StaticMethodPointer(
-            clazz = ComplexTypeFunctionDescriptor.class, method = "prependAllSubscripts");
+    String lambdaArgumentToInputTransformationFunction() default "prependAllSubscripts";
 }

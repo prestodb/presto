@@ -26,6 +26,7 @@ import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.SubfieldPathTransformationFunctions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -62,7 +63,7 @@ public class ArrayFlattenFunction
                 false,
                 ImmutableList.of(),
                 Optional.of(ImmutableSet.of(0)),
-                Optional.of(ComplexTypeFunctionDescriptor::prependAllSubscripts),
+                Optional.of(SubfieldPathTransformationFunctions::prependAllSubscripts),
                 getSignature());
     }
 

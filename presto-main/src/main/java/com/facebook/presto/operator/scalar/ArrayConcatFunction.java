@@ -26,6 +26,7 @@ import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.SubfieldPathTransformationFunctions;
 import com.facebook.presto.sql.gen.VarArgsToArrayAdapterGenerator;
 import com.google.common.collect.ImmutableList;
 
@@ -69,7 +70,7 @@ public final class ArrayConcatFunction
                 false,
                 ImmutableList.of(),
                 Optional.empty(),
-                Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired),
+                Optional.of(SubfieldPathTransformationFunctions::allSubfieldsRequired),
                 getSignature());
     }
 

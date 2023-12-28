@@ -21,12 +21,10 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.StaticMethodPointer;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -44,7 +42,7 @@ import static java.util.Arrays.setAll;
 @Description("Returns n-element combinations from array")
 @ScalarFunction(value = "combinations", descriptor = @ScalarFunctionDescriptor(
         isAccessingInputValues = false,
-        outputToInputTransformationFunction = {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "removeSecondPathElement")},
+        outputToInputTransformationFunction = "removeSecondPathElement",
         lambdaDescriptors = {}))
 public final class ArrayCombinationsFunction
 {

@@ -413,7 +413,7 @@ Complex type function descriptor could be defined for ``@ScalarFunction`` and ``
 @ScalarFunction(value = "any_match", descriptor = @ScalarFunctionDescriptor(
         isAccessingInputValues = true,
         argumentIndicesContainingMapOrArray = {},
-        outputToInputTransformationFunction = {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "clearRequiredSubfields")},
+        outputToInputTransformationFunction = "clearRequiredSubfields",
         lambdaDescriptors = {
                     @ScalarFunctionLambdaDescriptor(
                         callArgumentIndex = 1,
@@ -450,7 +450,7 @@ public final class ArrayAnyMatchFunction
 
     * ``@lambdaArgumentToInputTransformationFunction``:
       Contains the transformation function between the subfields of this lambda argument and the input of the function.
-      Default value for this parameter is ``@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "prependAllSubscripts")``, will add prefix ``[*]`` to the
+      Default value for this parameter is ``"prependAllSubscripts"``, will add prefix ``[*]`` to the
       path of the subfield, which is correct for 99% of the functions.
       Example: ``SELECT ANY_MATCH(y, x -> x.a > 0) FROM my_table``. Even though in the lambda the access subfield has path `a`, we need to add the prefix ``[*]``, because `y`
       is of array type.
@@ -492,19 +492,19 @@ public final class ArrayAnyMatchFunction
 
   There are several pre-defined values for ``outputToInputTransformationFunction`` parameter:
 
-  * {}:
-    This value (empty array) means that no transformation is needed, which is equivalent to the identity function.
+  * ``"identity"``:
+    Identity function (no transformation needed).
 
-  * {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "allSubfieldsRequired")}:
+  * ``"allSubfieldsRequired"``:
     This transformation function will indicated that all subfield are required. At this point, optimizer will discard any collected subfields from outer calls and add special
     subfield ``[*]``  (allSubfields). It means that the transformation of the output to input is unknown and thus the lambda subfields pushdown from outer calls could not be
     done. This is a default value of ``@ScalarFunction`` annotation.
 
-  * {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "clearRequiredSubfields")}:
+  * ``"clearRequiredSubfields"``:
     There are some functions that do not send the input to the output. For instance, ``CARDINALITY`` function, does not returns the input array like ``FILTER`` function does.
     Instead, it returns only the number (the size of the array). Knowing this property of the function, we can safely discard any accessed subfields in outer functions (even
     ``[*]``) that essentially means that optimizer can start collecting the accessed subfields from now on. If we are lucky and any other inner call does not include
-    ``{@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "allSubfieldsRequired")}``, then we can conclude that only those collected subfields are required
+    ``"allSubfieldsRequired"``, then we can conclude that only those collected subfields are required
     for evaluating the expression and we can safely prune all other subfields.
 
 

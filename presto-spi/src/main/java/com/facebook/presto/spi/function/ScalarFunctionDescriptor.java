@@ -41,9 +41,11 @@ public @interface ScalarFunctionDescriptor
     IntArray[] argumentIndicesContainingMapOrArray() default {};
 
     /**
-     * Contains the transformation function to convert the output back to the input elements of the array or map.
+     * Contains the transformation function name to convert the output back to the input elements of the array or map.
+     * The acceptable list of names include all static methods of SubfieldPathTransformationFunctions class.
+     * There is a special name 'identity', which means that no transformation needed.
      */
-    StaticMethodPointer[] outputToInputTransformationFunction() default {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "allSubfieldsRequired")};
+    String outputToInputTransformationFunction() default "allSubfieldsRequired";
 
     /**
      * Contains the description of all lambdas that this function accepts.

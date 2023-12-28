@@ -34,6 +34,7 @@ import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.SubfieldPathTransformationFunctions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -95,7 +96,7 @@ public final class MapConstructor
                 false,
                 ImmutableList.of(),
                 Optional.of(ImmutableSet.of(1)),
-                Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired),
+                Optional.of(SubfieldPathTransformationFunctions::allSubfieldsRequired),
                 getSignature());
     }
 

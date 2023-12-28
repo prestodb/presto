@@ -15,17 +15,15 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.StaticMethodPointer;
 import com.facebook.presto.spi.function.TypeParameter;
 
 @ScalarFunction(value = "cardinality", descriptor = @ScalarFunctionDescriptor(
         isAccessingInputValues = false,
-        outputToInputTransformationFunction = {@StaticMethodPointer(clazz = ComplexTypeFunctionDescriptor.class, method = "clearRequiredSubfields")},
+        outputToInputTransformationFunction = "clearRequiredSubfields",
         lambdaDescriptors = {}))
 @Description("Returns the cardinality (the number of key-value pairs) of the map")
 public final class MapCardinalityFunction
