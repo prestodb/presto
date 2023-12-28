@@ -44,7 +44,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
-    private CloseableIterable<FileScanTask> fileScanTaskIterable;
     private CloseableIterator<FileScanTask> fileScanTaskIterator;
 
     private final TableScan tableScan;
@@ -60,10 +59,8 @@ public class IcebergSplitSource
     {
         this.session = requireNonNull(session, "session is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
-        this.fileScanTaskIterable = requireNonNull(fileScanTaskIterable, "combinedScanIterable is null");
         this.fileScanTaskIterator = fileScanTaskIterable.iterator();
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
-        closer.register(fileScanTaskIterable);
         closer.register(fileScanTaskIterator);
     }
 
@@ -91,6 +88,9 @@ public class IcebergSplitSource
     {
         try {
             closer.close();
+            // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
+            //  correct release resources holds by iterator.
+            fileScanTaskIterator = CloseableIterator.empty();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
