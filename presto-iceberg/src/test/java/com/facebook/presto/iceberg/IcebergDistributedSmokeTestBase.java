@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
@@ -45,6 +46,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -1120,5 +1122,39 @@ public class IcebergDistributedSmokeTestBase
         assertQuery(session, "SELECT * FROM " + tableName + " WHERE hour(c2) = 12", "VALUES (2, '2023-11-02 12:10:31.315')");
 
         dropTable(session, tableName);
+    }
+
+    @Test
+    public void testUpdatingInvalidProperty()
+    {
+        Session session = getSession();
+        String tableName = "test_invalid_property_update";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(commit_retries = 4)");
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (format = 'PARQUET')"))
+                .hasMessage("Updating property format is not supported currently");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUpdatingRandomProperty()
+    {
+        Session session = getSession();
+        String tableName = "test_random_property_update";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(commit_retries = 4)");
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (some_config = 2)"))
+                .hasMessage("Catalog 'iceberg' does not support table property 'some_config'");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUpdatingCommitRetries()
+    {
+        Session session = getSession();
+        String tableName = "test_commit_retries_update";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 varchar) WITH(commit_retries = 4)");
+        assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'commit.retry.num-retries'", "VALUES 4");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (commit_retries = 5)");
+        assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'commit.retry.num-retries'", "VALUES 5");
+        assertUpdate("DROP TABLE " + tableName);
     }
 }
