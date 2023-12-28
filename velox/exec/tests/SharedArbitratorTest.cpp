@@ -2805,7 +2805,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, taskWaitTimeout) {
   const int queryMemoryCapacity = 128 << 20;
   // Creates a large number of vectors based on the query capacity to trigger
   // memory arbitration.
-  const auto vectors = createVectors(rowType_, 1'000, queryMemoryCapacity / 2);
+  const auto vectors = createVectors(rowType_, 10'000, queryMemoryCapacity / 2);
   const int numDrivers = 4;
   const auto expectedResult =
       runHashJoinTask(vectors, nullptr, numDrivers, false).data;
