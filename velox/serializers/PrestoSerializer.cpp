@@ -2816,7 +2816,7 @@ void estimateWrapperSerializedSize(
   const int32_t numRows = rows.size();
   int32_t numInner = 0;
   auto innerRows = innerRowsHolder.get(numRows);
-  vector_size_t** innerSizes = innerSizesHolder.get(numRows);
+  auto innerSizes = sizes;
   const BaseVector* wrapped;
   if (wrapper->encoding() == VectorEncoding::Simple::DICTIONARY &&
       !wrapper->rawNulls()) {
@@ -2824,8 +2824,10 @@ void estimateWrapperSerializedSize(
     auto* indices = wrapper->wrapInfo()->as<vector_size_t>();
     wrapped = wrapper->valueVector().get();
     simd::transpose(indices, rows, innerRows);
+    numInner = numRows;
   } else {
     wrapped = wrapper->wrappedVector();
+    innerSizes = innerSizesHolder.get(numRows);
     for (int32_t i = 0; i < rows.size(); ++i) {
       if (!wrapper->isNullAt(rows[i])) {
         innerRows[numInner] = wrapper->wrappedIndex(rows[i]);
