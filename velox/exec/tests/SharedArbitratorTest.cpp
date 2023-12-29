@@ -1149,7 +1149,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimFromAggregation) {
 TEST_F(SharedArbitrationTest, reclaimFromDistinctAggregation) {
   const uint64_t maxQueryCapacity = 20L << 20;
   std::vector<RowVectorPtr> vectors =
-      createVectors(rowType_, 1024, maxQueryCapacity * 2);
+      createVectors(rowType_, maxQueryCapacity * 2, fuzzerOpts_);
   createDuckDbTable(vectors);
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   core::PlanNodeId aggrNodeId;
@@ -1851,7 +1851,8 @@ TEST_F(SharedArbitrationTest, reclaimFromCompletedJoinBuilder) {
 }
 
 TEST_F(SharedArbitrationTest, reclaimFromJoinBuilderWithMultiDrivers) {
-  const auto vectors = createVectors(rowType_, 256, 64 << 20);
+  fuzzerOpts_.vectorSize = 256;
+  const auto vectors = createVectors(rowType_, 64 << 20, fuzzerOpts_);
   const int numDrivers = 4;
   const auto expectedResult =
       runHashJoinTask(vectors, nullptr, numDrivers, false).data;
@@ -1871,7 +1872,8 @@ TEST_F(SharedArbitrationTest, reclaimFromJoinBuilderWithMultiDrivers) {
 DEBUG_ONLY_TEST_F(
     SharedArbitrationTest,
     failedToReclaimFromHashJoinBuildersInNonReclaimableSection) {
-  const auto vectors = createVectors(rowType_, 256, 32 << 10);
+  fuzzerOpts_.vectorSize = 256;
+  const auto vectors = createVectors(rowType_, 32 << 10, fuzzerOpts_);
   const int numDrivers = 1;
   std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(kMemoryCapacity);
   const auto expectedResult =
@@ -1939,7 +1941,7 @@ DEBUG_ONLY_TEST_F(
     SharedArbitrationTest,
     reclaimFromHashJoinBuildInWaitForTableBuild) {
   setupMemory(kMemoryCapacity, 0);
-  const auto vectors = createVectors(rowType_, 256, 32 << 10);
+  const auto vectors = createVectors(rowType_, 32 << 10, fuzzerOpts_);
   const int numDrivers = 4;
   const auto expectedResult =
       runHashJoinTask(vectors, nullptr, numDrivers, false).data;
@@ -2690,8 +2692,9 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, tableWriteReclaimOnClose) {
 DEBUG_ONLY_TEST_F(SharedArbitrationTest, raceBetweenWriterCloseAndTaskReclaim) {
   const uint64_t memoryCapacity = 512 * MB;
   setupMemory(memoryCapacity);
+  fuzzerOpts_.vectorSize = 1'000;
   std::vector<RowVectorPtr> vectors =
-      createVectors(rowType_, 1'000, memoryCapacity / 8);
+      createVectors(rowType_, memoryCapacity / 8, fuzzerOpts_);
   const auto expectedResult = runWriteTask(vectors, nullptr, 1, false).data;
 
   std::shared_ptr<core::QueryCtx> queryCtx = newQueryCtx(memoryCapacity);
@@ -2802,7 +2805,9 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, taskWaitTimeout) {
   const int queryMemoryCapacity = 128 << 20;
   // Creates a large number of vectors based on the query capacity to trigger
   // memory arbitration.
-  const auto vectors = createVectors(rowType_, 10'000, queryMemoryCapacity / 2);
+  fuzzerOpts_.vectorSize = 10'000;
+  const auto vectors =
+      createVectors(rowType_, queryMemoryCapacity / 2, fuzzerOpts_);
   const int numDrivers = 4;
   const auto expectedResult =
       runHashJoinTask(vectors, nullptr, numDrivers, false).data;
