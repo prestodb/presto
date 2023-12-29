@@ -38,7 +38,6 @@ import static com.facebook.presto.util.Failures.checkCondition;
 @ScalarFunction(value = "array_sort", descriptor = @ScalarFunctionDescriptor(
         lambdaDescriptors = {
                 @ScalarFunctionLambdaDescriptor(
-                        callArgumentIndex = 1,
                         lambdaArgumentDescriptors = {
                                 @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = 0),
                                 @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = 0)})}))

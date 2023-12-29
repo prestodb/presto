@@ -32,7 +32,6 @@ import io.airlift.slice.Slice;
         outputToInputTransformationFunction = "clearRequiredSubfields",
         lambdaDescriptors = {
                 @ScalarFunctionLambdaDescriptor(
-                        callArgumentIndex = 1,
                         lambdaArgumentDescriptors = {
                                 @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = 0)})}))
 public final class ArrayNoneMatchFunction

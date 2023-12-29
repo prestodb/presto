@@ -72,7 +72,6 @@ public final class MapFilterFunction
             argumentIndicesContainingMapOrArray = @IntArray(0),
             lambdaDescriptors = {
                     @ScalarFunctionLambdaDescriptor(
-                            callArgumentIndex = 1,
                             lambdaArgumentDescriptors = {
                                     @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = -1),
                                     @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = 0)})}))

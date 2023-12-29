@@ -79,7 +79,7 @@ public final class MapZipWithFunction
                 false));
         descriptor = new ComplexTypeFunctionDescriptor(
                 true,
-                ImmutableList.of(new LambdaDescriptor(2, ImmutableMap.of(
+                ImmutableList.of(new LambdaDescriptor(ImmutableMap.of(
                         1, new LambdaArgumentDescriptor(0, SubfieldPathTransformationFunctions::prependAllSubscripts),
                         2, new LambdaArgumentDescriptor(1, SubfieldPathTransformationFunctions::prependAllSubscripts)))),
                 Optional.of(ImmutableSet.of(0, 1)),

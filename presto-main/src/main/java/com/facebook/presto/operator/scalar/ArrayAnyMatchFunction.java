@@ -34,7 +34,6 @@ import static java.lang.Boolean.TRUE;
         outputToInputTransformationFunction = "clearRequiredSubfields",
         lambdaDescriptors = {
                 @ScalarFunctionLambdaDescriptor(
-                        callArgumentIndex = 1,
                         lambdaArgumentDescriptors = {
                                 @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = 0)})}))
 public final class ArrayAnyMatchFunction

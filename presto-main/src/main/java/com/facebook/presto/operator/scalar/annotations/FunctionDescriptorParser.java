@@ -105,9 +105,7 @@ public class FunctionDescriptorParser
     {
         ImmutableList.Builder<LambdaDescriptor> lambdaDescriptorBuilder = ImmutableList.builder();
         for (ScalarFunctionLambdaDescriptor lambdaDescriptor : lambdaDescriptors) {
-            lambdaDescriptorBuilder.add(
-                    new LambdaDescriptor(lambdaDescriptor.callArgumentIndex(),
-                            parseLambdaArgumentDescriptors(lambdaDescriptor.lambdaArgumentDescriptors())));
+            lambdaDescriptorBuilder.add(new LambdaDescriptor(parseLambdaArgumentDescriptors(lambdaDescriptor.lambdaArgumentDescriptors())));
         }
         return lambdaDescriptorBuilder.build();
     }

@@ -15,7 +15,9 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.PrestoException;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -23,13 +25,17 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.spi.function.LambdaDescriptor.DEDUCE_CALL_ARGUMENT_FROM_FUNCTION_SIGNATURE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Contains properties that describe how the function operates on Map or Array inputs.
@@ -87,13 +93,13 @@ public class ComplexTypeFunctionDescriptor
             Optional<Function<Set<Subfield>, Set<Subfield>>> outputToInputTransformationFunction,
             List<TypeSignature> argumentTypes)
     {
-        this(isAccessingInputValues, lambdaDescriptors, argumentIndicesContainingMapOrArray, outputToInputTransformationFunction);
+        this(isAccessingInputValues, deduceLambdaDescriptorsCallArgumentIndex(lambdaDescriptors, argumentTypes), argumentIndicesContainingMapOrArray, outputToInputTransformationFunction);
         if (argumentIndicesContainingMapOrArray.isPresent()) {
             checkArgument(argumentIndicesContainingMapOrArray.get().stream().allMatch(index -> index >= 0 &&
                     index < argumentTypes.size() &&
                     MAP_AND_ARRAY.contains(argumentTypes.get(index).getBase().toLowerCase(Locale.ENGLISH))));
         }
-        for (LambdaDescriptor lambdaDescriptor : lambdaDescriptors) {
+        for (LambdaDescriptor lambdaDescriptor : this.lambdaDescriptors) {
             checkArgument(lambdaDescriptor.getCallArgumentIndex() >= 0 && argumentTypes.get(lambdaDescriptor.getCallArgumentIndex()).isFunction());
             checkArgument(lambdaDescriptor.getLambdaArgumentDescriptors().keySet().stream().allMatch(
                     argumentIndex -> argumentIndex >= 0 && argumentIndex < argumentTypes.size()));
@@ -120,6 +126,28 @@ public class ComplexTypeFunctionDescriptor
                 Optional.of(unmodifiableSet(argumentIndicesContainingMapOrArray.get())) :
                 Optional.empty();
         this.outputToInputTransformationFunction = requireNonNull(outputToInputTransformationFunction, "outputToInputTransformationFunction is null");
+    }
+
+    private static List<LambdaDescriptor> deduceLambdaDescriptorsCallArgumentIndex(List<LambdaDescriptor> lambdaDescriptors, List<TypeSignature> functionArguments)
+    {
+        if (lambdaDescriptors.stream().noneMatch(lambdaDescriptor -> lambdaDescriptor.getCallArgumentIndex() == DEDUCE_CALL_ARGUMENT_FROM_FUNCTION_SIGNATURE) ||
+                lambdaDescriptors.isEmpty()) {
+            return lambdaDescriptors;
+        }
+        if (lambdaDescriptors.isEmpty()) {
+            return emptyList();
+        }
+        List<Integer> lambdaArgumentsIndexes = IntStream
+                .range(0, functionArguments.size())
+                .filter(i -> functionArguments.get(i).isFunction())
+                .collect(ArrayList::new, List::add, List::addAll);
+        if (lambdaDescriptors.size() != lambdaArgumentsIndexes.size()) {
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR,
+                    "Function descriptor lambda descriptor counts does not match number of function's input argument of function types");
+        }
+        return IntStream.range(0, lambdaArgumentsIndexes.size())
+                .mapToObj(i -> new LambdaDescriptor(lambdaArgumentsIndexes.get(i), lambdaDescriptors.get(i).getLambdaArgumentDescriptors()))
+                .collect(toList());
     }
 
     public static ComplexTypeFunctionDescriptor defaultFunctionDescriptor()

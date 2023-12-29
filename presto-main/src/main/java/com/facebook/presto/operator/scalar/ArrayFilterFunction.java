@@ -32,7 +32,6 @@ import static java.lang.Boolean.TRUE;
 @ScalarFunction(value = "filter", deterministic = false, descriptor = @ScalarFunctionDescriptor(
         lambdaDescriptors = {
                 @ScalarFunctionLambdaDescriptor(
-                        callArgumentIndex = 1,
                         lambdaArgumentDescriptors = {
                                 @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = 0)})}))
 public final class ArrayFilterFunction

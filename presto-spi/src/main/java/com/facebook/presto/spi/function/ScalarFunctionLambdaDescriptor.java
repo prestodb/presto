@@ -25,11 +25,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface ScalarFunctionLambdaDescriptor
 {
     /**
-     * Index of the argument in the Call expression of the lambda function that this LambdaDescriptor represents
-     */
-    int callArgumentIndex();
-
-    /**
      * Map of lambda argument descriptors where the key corresponds to the index in the list of lambda argument and value is the descriptor of the argument.
      */
     ScalarFunctionLambdaArgumentDescriptor[] lambdaArgumentDescriptors();

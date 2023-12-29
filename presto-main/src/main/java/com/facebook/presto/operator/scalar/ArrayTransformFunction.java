@@ -92,7 +92,7 @@ public final class ArrayTransformFunction
                 false));
         descriptor = new ComplexTypeFunctionDescriptor(
                 true,
-                ImmutableList.of(new LambdaDescriptor(1, ImmutableMap.of(0, new LambdaArgumentDescriptor(0, SubfieldPathTransformationFunctions::prependAllSubscripts)))),
+                ImmutableList.of(new LambdaDescriptor(ImmutableMap.of(0, new LambdaArgumentDescriptor(0, SubfieldPathTransformationFunctions::prependAllSubscripts)))),
                 Optional.of(ImmutableSet.of(0)),
                 Optional.of(SubfieldPathTransformationFunctions::clearRequiredSubfields),
                 getSignature());
