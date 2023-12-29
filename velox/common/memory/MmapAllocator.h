@@ -26,6 +26,7 @@
 
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/memory/MemoryAllocator.h"
+#include "velox/common/memory/MemoryPool.h"
 #include "velox/common/memory/MmapArena.h"
 
 namespace facebook::velox::memory {
@@ -50,7 +51,7 @@ class MmapAllocator : public MemoryAllocator {
  public:
   struct Options {
     ///  Capacity in bytes, default unlimited.
-    uint64_t capacity = kDefaultCapacityBytes;
+    uint64_t capacity{kMaxMemory};
 
     /// If set true, allocations larger than largest size class size will be
     /// delegated to ManagedMmapArena. Otherwise a system mmap call will be

@@ -16,6 +16,7 @@
 
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include <folly/executors/QueuedImmediateExecutor.h>
@@ -41,6 +42,10 @@ class SsdFileTest : public testing::Test {
  protected:
   static constexpr int64_t kMB = 1 << 20;
 
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void TearDown() override {
     if (ssdFile_) {
       ssdFile_->deleteFile();
@@ -56,7 +61,7 @@ class SsdFileTest : public testing::Test {
       bool setNoCowFlag = false) {
     // tmpfs does not support O_DIRECT, so turn this off for testing.
     FLAGS_ssd_odirect = false;
-    cache_ = AsyncDataCache::create(MemoryAllocator::getInstance());
+    cache_ = AsyncDataCache::create(memory::memoryManager()->allocator());
 
     fileName_ = StringIdLease(fileIds(), "fileInStorage");
 
@@ -301,6 +306,7 @@ TEST_F(SsdFileTest, writeAndRead) {
 
 #ifdef VELOX_SSD_FILE_TEST_SET_NO_COW_FLAG
 TEST_F(SsdFileTest, disabledCow) {
+  LOG(ERROR) << "here";
   constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
   initializeCache(128 * kMB, kSsdSize, true);
   EXPECT_TRUE(ssdFile_->testingIsCowDisabled());

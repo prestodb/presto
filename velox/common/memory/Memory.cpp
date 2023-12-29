@@ -15,6 +15,8 @@
  */
 
 #include "velox/common/memory/Memory.h"
+#include "velox/common/memory/MallocAllocator.h"
+#include "velox/common/memory/MmapAllocator.h"
 
 DECLARE_int32(velox_memory_num_shared_leaf_pools);
 
@@ -33,21 +35,44 @@ std::unique_ptr<MemoryManager>& instance() {
   static std::unique_ptr<MemoryManager> kInstance;
   return kInstance;
 }
+
+std::shared_ptr<MemoryAllocator> createAllocator(
+    const MemoryManagerOptions& options) {
+  if (options.allocator != nullptr) {
+    return options.allocator->shared_from_this();
+  }
+  if (options.useMmapAllocator) {
+    MmapAllocator::Options mmapOptions;
+    mmapOptions.capacity =
+        std::min(options.allocatorCapacity, options.capacity);
+    mmapOptions.useMmapArena = options.useMmapArena;
+    mmapOptions.mmapArenaCapacityRatio = options.mmapArenaCapacityRatio;
+    return std::make_shared<MmapAllocator>(mmapOptions);
+  } else {
+    return std::make_shared<MallocAllocator>(
+        std::min(options.allocatorCapacity, options.capacity));
+  }
+}
+
+std::unique_ptr<MemoryArbitrator> createArbitrator(
+    const MemoryManagerOptions& options) {
+  // TODO: consider to reserve a small amount of memory to compensate for the
+  // non-reclaimable cache memory which are pinned by query accesses if enabled.
+  const auto arbitratorCapacity =
+      std::min(options.queryMemoryCapacity, options.arbitratorCapacity);
+  return MemoryArbitrator::create(
+      {.kind = options.arbitratorKind,
+       .capacity = std::min(arbitratorCapacity, options.allocatorCapacity),
+       .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
+       .memoryReclaimWaitMs = options.memoryReclaimWaitMs,
+       .arbitrationStateCheckCb = options.arbitrationStateCheckCb});
+}
 } // namespace
 
 MemoryManager::MemoryManager(const MemoryManagerOptions& options)
-    : capacity_{options.capacity},
-      allocator_{options.allocator->shared_from_this()},
+    : allocator_{createAllocator(options)},
       poolInitCapacity_(options.memoryPoolInitCapacity),
-      // TODO: consider to reserve a small amount of memory to compensate for
-      //  the unreclaimable cache memory which are pinned by query accesses if
-      //  enabled.
-      arbitrator_(MemoryArbitrator::create(
-          {.kind = options.arbitratorKind,
-           .capacity = std::min(options.queryMemoryCapacity, options.capacity),
-           .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
-           .memoryReclaimWaitMs = options.memoryReclaimWaitMs,
-           .arbitrationStateCheckCb = options.arbitrationStateCheckCb})),
+      arbitrator_(createArbitrator(options)),
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
       checkUsageLeak_(options.checkUsageLeak),
       debugEnabled_(options.debugEnabled),
@@ -76,13 +101,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       spillPool_{addLeafPool("_sys.spilling")} {
   VELOX_CHECK_NOT_NULL(allocator_);
   VELOX_CHECK_NOT_NULL(arbitrator_);
-  VELOX_CHECK_EQ(
-      allocator_->capacity(),
-      capacity_,
-      "MemoryAllocator capacity {} must be the same as MemoryManager capacity {}.",
-      allocator_->capacity(),
-      capacity_);
-  VELOX_USER_CHECK_GE(capacity_, 0);
+  VELOX_USER_CHECK_GE(capacity(), 0);
   MemoryAllocator::alignmentCheck(0, alignment_);
   defaultRoot_->grow(defaultRoot_->maxCapacity());
   const size_t numSharedPools =
@@ -144,7 +163,7 @@ MemoryManager& MemoryManager::testingSetInstance(
 }
 
 int64_t MemoryManager::capacity() const {
-  return capacity_;
+  return allocator_->capacity();
 }
 
 uint16_t MemoryManager::alignment() const {
@@ -241,8 +260,8 @@ size_t MemoryManager::numPools() const {
   return numPools;
 }
 
-MemoryAllocator& MemoryManager::allocator() {
-  return *allocator_;
+MemoryAllocator* MemoryManager::allocator() {
+  return allocator_.get();
 }
 
 MemoryArbitrator* MemoryManager::arbitrator() {
@@ -250,9 +269,11 @@ MemoryArbitrator* MemoryManager::arbitrator() {
 }
 
 std::string MemoryManager::toString(bool detail) const {
+  const int64_t allocatorCapacity = capacity();
   std::stringstream out;
   out << "Memory Manager[capacity "
-      << (capacity_ == kMaxMemory ? "UNLIMITED" : succinctBytes(capacity_))
+      << (allocatorCapacity == kMaxMemory ? "UNLIMITED"
+                                          : succinctBytes(allocatorCapacity))
       << " alignment " << succinctBytes(alignment_) << " usedBytes "
       << succinctBytes(getTotalBytes()) << " number of pools " << numPools()
       << "\n";

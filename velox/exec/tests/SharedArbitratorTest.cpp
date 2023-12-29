@@ -329,10 +329,8 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
       uint64_t memoryPoolTransferCapacity = kMemoryPoolTransferCapacity,
       uint64_t maxReclaimWaitMs = 0) {
     memoryCapacity = (memoryCapacity != 0) ? memoryCapacity : kMemoryCapacity;
-    allocator_ = std::make_shared<MallocAllocator>(memoryCapacity);
     MemoryManagerOptions options;
-    options.allocator = allocator_.get();
-    options.capacity = allocator_->capacity();
+    options.allocatorCapacity = memoryCapacity;
     options.arbitratorKind = "SHARED";
     options.capacity = options.capacity;
     options.memoryPoolInitCapacity = memoryPoolInitCapacity;
@@ -683,7 +681,6 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
   }
 
   static inline FakeMemoryOperatorFactory* fakeOperatorFactory_;
-  std::shared_ptr<MemoryAllocator> allocator_;
   std::unique_ptr<MemoryManager> memoryManager_;
   SharedArbitrator* arbitrator_;
   RowTypePtr rowType_;

@@ -92,11 +92,10 @@ TEST_F(MemoryArbitrationTest, createWithDefaultConf) {
 TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
   {
     // Reserved memory is not enforced when no arbitrator is provided.
-    auto allocator = std::make_shared<MallocAllocator>(8L << 20);
-    MemoryManager manager{
-        {.capacity = (int64_t)allocator->capacity(),
-         .queryMemoryCapacity = 4L << 20,
-         .allocator = allocator.get()}};
+    MemoryManagerOptions options;
+    options.allocatorCapacity = 8L << 20;
+    options.arbitratorCapacity = 4L << 20;
+    MemoryManager manager(options);
     auto rootPool = manager.addRootPool("root-1", 8L << 20);
     auto leafPool = rootPool->addLeafChild("leaf-1.0");
     void* buffer;
@@ -108,13 +107,12 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
   {
     // Reserved memory is enforced when SharedMemoryArbitrator is used.
     exec::SharedArbitrator::registerFactory();
-    auto allocator = std::make_shared<MallocAllocator>(8L << 20);
-    MemoryManager manager{
-        {.capacity = (int64_t)allocator->capacity(),
-         .queryMemoryCapacity = 4L << 20,
-         .allocator = allocator.get(),
-         .arbitratorKind = "SHARED",
-         .memoryPoolInitCapacity = 1 << 20}};
+    MemoryManagerOptions options;
+    options.allocatorCapacity = 8L << 20;
+    options.arbitratorCapacity = 4L << 20;
+    options.arbitratorKind = "SHARED";
+    options.memoryPoolInitCapacity = 1 << 20;
+    MemoryManager manager(options);
     auto rootPool =
         manager.addRootPool("root-1", 8L << 20, MemoryReclaimer::create());
     ASSERT_EQ(rootPool->capacity(), 1 << 20);

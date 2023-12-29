@@ -63,21 +63,6 @@ struct MemoryManagerOptions {
   /// Specifies the default memory allocation alignment.
   uint16_t alignment{MemoryAllocator::kMaxAlignment};
 
-  /// Specifies the max memory capacity in bytes. MemoryManager will not
-  /// enforce capacity. This will be used by MemoryArbitrator
-  int64_t capacity{MemoryAllocator::kDefaultCapacityBytes};
-
-  /// Memory capacity for query/task memory pools. This capacity setting should
-  /// be equal or smaller than 'capacity'. The difference between 'capacity' and
-  /// 'queryMemoryCapacity' is reserved for system usage such as cache and
-  /// spilling.
-  ///
-  /// NOTE:
-  /// - if 'queryMemoryCapacity' is greater than 'capacity', the behavior
-  /// will be equivalent to as if they are equal, meaning no reservation
-  /// capacity for system usage.
-  int64_t queryMemoryCapacity{kMaxMemory};
-
   /// If true, enable memory usage tracking in the default memory pool.
   bool trackDefaultUsage{
       FLAGS_velox_enable_memory_usage_track_in_default_memory_pool};
@@ -96,10 +81,67 @@ struct MemoryManagerOptions {
   /// Terminates the process and generates a core file on an allocation failure
   bool coreOnAllocationFailureEnabled{false};
 
-  /// Specifies the backing memory allocator.
-  MemoryAllocator* allocator{MemoryAllocator::getInstance()};
+  /// ================== 'MemoryAllocator' settings ==================
+  /// Specifies the max memory allocation capacity in bytes enforced by
+  /// MemoryAllocator, default unlimited.
+  int64_t allocatorCapacity{kMaxMemory};
 
-  /// ================== 'MemoryArbitrator' settings ==================
+  /// If true, uses MmapAllocator for memory allocation which manages the
+  /// physical memory allocation on its own through std::mmap techniques. If
+  /// false, use MallocAllocator which delegates the memory allocation to
+  /// std::malloc.
+  bool useMmapAllocator{false};
+
+  /// If true, allocations larger than largest size class size will be delegated
+  /// to ManagedMmapArena. Otherwise a system mmap call will be issued for each
+  /// such allocation.
+  ///
+  /// NOTE: this only applies for MmapAllocator.
+  bool useMmapArena{false};
+
+  /// Used to determine MmapArena capacity. The ratio represents
+  /// 'allocatorCapacity' to single MmapArena capacity ratio.
+  ///
+  /// NOTE: this only applies for MmapAllocator.
+  int32_t mmapArenaCapacityRatio{10};
+
+  /// If not zero, reserve 'smallAllocationReservePct'% of space from
+  /// 'allocatorCapacity' for ad hoc small allocations. And those allocations
+  /// are delegated to std::malloc. If 'maxMallocBytes' is 0, this value will be
+  /// disregarded.
+  ///
+  /// NOTE: this only applies for MmapAllocator.
+  uint32_t smallAllocationReservePct{0};
+
+  /// The allocation threshold less than which an allocation is delegated to
+  /// std::malloc(). If it is zero, then we don't delegate any allocation
+  /// std::malloc, and 'smallAllocationReservePct' will be automatically set to
+  /// 0 disregarding any passed in value.
+  ///
+  /// NOTE: this only applies for MmapAllocator.
+  int32_t maxMallocBytes{3072};
+
+  /// Deprecated, do not use.
+  int64_t capacity{kMaxMemory};
+
+  /// Deprecated, do not use.
+  int64_t queryMemoryCapacity{kMaxMemory};
+
+  /// Deprecated, do not use.
+  MemoryAllocator* allocator{nullptr};
+
+  /// ================== 'MemoryArbitrator' settings =================
+
+  /// Memory capacity available for query/task memory pools. This capacity
+  /// setting should be equal or smaller than 'allocatorCapacity'. The
+  /// difference between 'allocatorCapacity' and 'arbitratorCapacity' is
+  /// reserved for system usage such as cache and spilling.
+  ///
+  /// NOTE:
+  /// - if 'arbitratorCapacity' is greater than 'allocatorCapacity', the
+  /// behavior will be equivalent to as if they are equal, meaning no
+  /// reservation capacity for system usage.
+  int64_t arbitratorCapacity{kMaxMemory};
 
   /// The string kind of memory arbitrator used in the memory manager.
   ///
@@ -128,9 +170,8 @@ struct MemoryManagerOptions {
   MemoryArbitrationStateCheckCB arbitrationStateCheckCb{nullptr};
 };
 
-/// 'MemoryManager' is responsible for managing the memory pools. For now, users
-/// wanting multiple different allocators would need to instantiate different
-/// MemoryManager classes and manage them across static boundaries.
+/// 'MemoryManager' is responsible for creating allocator, arbitrator and
+/// managing the memory pools.
 class MemoryManager {
  public:
   explicit MemoryManager(
@@ -202,7 +243,7 @@ class MemoryManager {
   /// leaf memory pools.
   size_t numPools() const;
 
-  MemoryAllocator& allocator();
+  MemoryAllocator* allocator();
 
   MemoryArbitrator* arbitrator();
 
@@ -240,12 +281,6 @@ class MemoryManager {
   //  Returns the shared references to all the alive memory pools in 'pools_'.
   std::vector<std::shared_ptr<MemoryPool>> getAlivePools() const;
 
-  // Specifies the total memory capacity. Memory manager itself doesn't enforce
-  // the capacity but relies on memory allocator and memory arbitrator to do the
-  // enforcement. Memory allocator ensures physical memory allocations are
-  // within capacity limit. Memory arbitrator ensures that total allocated
-  // memory pool capacity is within the limit.
-  const int64_t capacity_;
   const std::shared_ptr<MemoryAllocator> allocator_;
   // Specifies the capacity to allocate from 'arbitrator_' for a newly created
   // root memory pool.

@@ -206,6 +206,7 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
   static std::string kindString(Kind kind);
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   /// Returns the process-wide default instance or an application-supplied
   /// custom instance set via setDefaultInstance().
   static MemoryAllocator* getInstance();
@@ -220,14 +221,13 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   static std::shared_ptr<MemoryAllocator> createDefaultInstance();
 
   static void testingDestroyInstance();
+#endif
 
   virtual ~MemoryAllocator() = default;
 
   static constexpr int32_t kMaxSizeClasses = 12;
   static constexpr uint16_t kMinAlignment = alignof(max_align_t);
   static constexpr uint16_t kMaxAlignment = 64;
-  static constexpr uint64_t kDefaultCapacityBytes =
-      std::numeric_limits<int64_t>::max();
 
   /// Returns the kind of this memory allocator. For AsyncDataCache, it returns
   /// the kind of the delegated memory allocator underneath.

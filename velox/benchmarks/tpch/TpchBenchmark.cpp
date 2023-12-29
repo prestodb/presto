@@ -221,11 +221,13 @@ class TpchBenchmark {
  public:
   void initialize() {
     if (FLAGS_cache_gb) {
+      memory::MemoryManagerOptions options;
       int64_t memoryBytes = FLAGS_cache_gb * (1LL << 30);
-      memory::MmapAllocator::Options options;
-      options.capacity = memoryBytes;
+      options.useMmapAllocator = true;
+      options.allocatorCapacity = memoryBytes;
       options.useMmapArena = true;
       options.mmapArenaCapacityRatio = 1;
+      memory::MemoryManager::testingSetInstance(options);
       std::unique_ptr<cache::SsdCache> ssdCache;
       if (FLAGS_ssd_cache_gb) {
         constexpr int32_t kNumSsdShards = 16;
@@ -239,11 +241,11 @@ class TpchBenchmark {
             static_cast<uint64_t>(FLAGS_ssd_checkpoint_interval_gb) << 30);
       }
 
-      allocator_ = std::make_shared<memory::MmapAllocator>(options);
-      cache_ =
-          cache::AsyncDataCache::create(allocator_.get(), std::move(ssdCache));
+      cache_ = cache::AsyncDataCache::create(
+          memory::memoryManager()->allocator(), std::move(ssdCache));
       cache::AsyncDataCache::setInstance(cache_.get());
-      memory::MemoryAllocator::setDefaultInstance(allocator_.get());
+    } else {
+      memory::MemoryManager::testingSetInstance({});
     }
     functions::prestosql::registerAllScalarFunctions();
     aggregate::prestosql::registerAllAggregateFunctions();
@@ -582,7 +584,6 @@ BENCHMARK(q22) {
 }
 
 int tpchBenchmarkMain() {
-  facebook::velox::memory::MemoryManager::initialize({});
   benchmark.initialize();
   queryBuilder =
       std::make_shared<TpchQueryBuilder>(toFileFormat(FLAGS_data_format));

@@ -139,13 +139,10 @@ class OperatorTestBase : public testing::Test,
   static void deleteTaskAndCheckSpillDirectory(std::shared_ptr<Task>& task);
 
  protected:
-  DuckDbQueryRunner duckDbQueryRunner_;
-
-  // Used as default MemoryAllocator.
-  std::shared_ptr<memory::MemoryAllocator> allocator_;
-
   // Used as default AsyncDataCache.
-  std::shared_ptr<cache::AsyncDataCache> asyncDataCache_;
+  static inline std::shared_ptr<cache::AsyncDataCache> asyncDataCache_;
+
+  DuckDbQueryRunner duckDbQueryRunner_;
 
   // Used for driver thread execution.
   std::unique_ptr<folly::CPUThreadPoolExecutor> driverExecutor_;

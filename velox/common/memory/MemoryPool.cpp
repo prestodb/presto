@@ -383,7 +383,7 @@ MemoryPoolImpl::MemoryPoolImpl(
     const Options& options)
     : MemoryPool{name, kind, parent, options},
       manager_{memoryManager},
-      allocator_{&manager_->allocator()},
+      allocator_{manager_->allocator()},
       growCapacityCb_(std::move(growCapacityCb)),
       destructionCb_(std::move(destructionCb)),
       debugPoolNameRegex_(debugEnabled_ ? *(debugPoolNameRegex().rlock()) : ""),

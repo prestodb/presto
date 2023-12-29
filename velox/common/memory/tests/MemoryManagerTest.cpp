@@ -53,7 +53,7 @@ TEST_F(MemoryManagerTest, Ctor) {
   {
     MemoryManager manager{};
     ASSERT_EQ(manager.numPools(), 1);
-    ASSERT_EQ(manager.capacity(), MemoryAllocator::kDefaultCapacityBytes);
+    ASSERT_EQ(manager.capacity(), kMaxMemory);
     ASSERT_EQ(0, manager.getTotalBytes());
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMaxAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
@@ -63,18 +63,14 @@ TEST_F(MemoryManagerTest, Ctor) {
   }
   {
     const auto kCapacity = 8L * 1024 * 1024;
-    auto allocator = std::make_shared<MallocAllocator>(kCapacity);
-    MemoryManager manager{
-        {.capacity = kCapacity, .allocator = allocator.get()}};
+    MemoryManager manager{{.allocatorCapacity = kCapacity}};
     ASSERT_EQ(kCapacity, manager.capacity());
     ASSERT_EQ(manager.numPools(), 1);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
   }
   {
     const auto kCapacity = 8L * 1024 * 1024;
-    auto allocator = std::make_shared<MallocAllocator>(kCapacity);
-    MemoryManager manager{
-        {.alignment = 0, .capacity = kCapacity, .allocator = allocator.get()}};
+    MemoryManager manager{{.alignment = 0, .allocatorCapacity = kCapacity}};
 
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
@@ -87,9 +83,7 @@ TEST_F(MemoryManagerTest, Ctor) {
   {
     MemoryManagerOptions options;
     const auto kCapacity = 4L << 30;
-    auto allocator = std::make_shared<MallocAllocator>(kCapacity);
-    options.capacity = kCapacity;
-    options.allocator = allocator.get();
+    options.allocatorCapacity = kCapacity;
     std::string arbitratorKind = "SHARED";
     options.arbitratorKind = arbitratorKind;
     MemoryManager manager{options};
@@ -107,17 +101,6 @@ TEST_F(MemoryManagerTest, Ctor) {
         "numReserves 0 numReleases 0 queueTime 0us "
         "arbitrationTime 0us reclaimTime 0us shrunkMemory 0B "
         "reclaimedMemory 0B maxCapacity 4.00GB freeCapacity 4.00GB]]]");
-  }
-  {
-    // Test construction failure due to inconsistent allocator capacity setting.
-    MemoryManagerOptions options;
-    const auto kCapacity = 8L * 1024 * 1024;
-    options.capacity = kCapacity;
-    auto allocator = std::make_shared<MallocAllocator>(kCapacity + 1);
-    options.allocator = allocator.get();
-    VELOX_ASSERT_THROW(
-        MemoryManager(options),
-        "MemoryAllocator capacity 8388609 must be the same as MemoryManager capacity 8388608");
   }
 }
 
@@ -178,12 +161,11 @@ TEST_F(MemoryManagerTest, createWithCustomArbitrator) {
       [&] { MemoryArbitrator::unregisterFactory(kindString); });
   MemoryManagerOptions options;
   options.arbitratorKind = kindString;
-  options.capacity = 8L << 20;
-  options.queryMemoryCapacity = 256L << 20;
-  auto allocator = std::make_shared<MallocAllocator>(options.capacity);
-  options.allocator = allocator.get();
+  options.allocatorCapacity = 8L << 20;
+  options.arbitratorCapacity = 256L << 20;
   MemoryManager manager{options};
-  ASSERT_EQ(manager.arbitrator()->capacity(), options.capacity);
+  ASSERT_EQ(manager.arbitrator()->capacity(), options.allocatorCapacity);
+  ASSERT_EQ(manager.allocator()->capacity(), options.allocatorCapacity);
 }
 
 TEST_F(MemoryManagerTest, addPool) {
@@ -216,14 +198,12 @@ TEST_F(MemoryManagerTest, addPool) {
 TEST_F(MemoryManagerTest, addPoolWithArbitrator) {
   MemoryManagerOptions options;
   const auto kCapacity = 32L << 30;
-  auto allocator = std::make_shared<MallocAllocator>(kCapacity);
-  options.allocator = allocator.get();
-  options.capacity = kCapacity;
+  options.allocatorCapacity = kCapacity;
   options.arbitratorKind = arbitratorKind_;
   // The arbitrator capacity will be overridden by the memory manager's
   // capacity.
   options.capacity = options.capacity;
-  const uint64_t initialPoolCapacity = options.capacity / 32;
+  const uint64_t initialPoolCapacity = options.allocatorCapacity / 32;
   options.memoryPoolInitCapacity = initialPoolCapacity;
   MemoryManager manager{options};
 
@@ -574,9 +554,6 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
       {2 << 20, 0, 768, true}};
 
   for (const auto& testData : testSettings) {
-    auto allocator =
-        std::make_shared<MallocAllocator>(testData.memoryQuotaBytes);
-    MemoryAllocator::setDefaultInstance(allocator.get());
     SCOPED_TRACE(testData.debugString());
     std::vector<bool> contiguousAllocations = {false, true};
     for (const auto& contiguousAlloc : contiguousAllocations) {
@@ -584,7 +561,7 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
       const int alignment = 32;
       MemoryManagerOptions options;
       options.alignment = alignment;
-      options.capacity = testData.memoryQuotaBytes;
+      options.allocatorCapacity = testData.memoryQuotaBytes;
       MemoryManager manager{options};
       auto pool = manager.addLeafPool("quotaEnforcement");
       void* smallBuffer{nullptr};

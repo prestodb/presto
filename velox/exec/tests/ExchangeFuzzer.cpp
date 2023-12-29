@@ -17,6 +17,7 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <folly/init/Init.h>
 
+#include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/exec/Exchange.h"
@@ -259,7 +260,7 @@ class ExchangeFuzzer : public VectorTestBase {
       }
       LOG(INFO) << "Memory after run="
                 << succinctBytes(memory::AllocationTraits::pageBytes(
-                       memory::memoryManager()->allocator().numAllocated()));
+                       memory::memoryManager()->allocator()->numAllocated()));
 
       if (FLAGS_duration_sec == 0 && FLAGS_steps &&
           counter + 1 >= FLAGS_steps) {
@@ -404,16 +405,13 @@ int32_t ExchangeFuzzer::iteration_;
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
-  memory::MmapAllocator::Options options;
+  memory::MemoryManagerOptions options;
+  options.useMmapAllocator = true;
+  options.allocatorCapacity = 20UL << 30;
   options.capacity = 20UL << 30;
   options.useMmapArena = true;
   options.mmapArenaCapacityRatio = 1;
-
-  auto allocator = std::make_shared<memory::MmapAllocator>(options);
-  memory::MemoryAllocator::setDefaultInstance(allocator.get());
-  memory::MemoryManager::initialize(memory::MemoryManagerOptions{
-      .capacity = static_cast<int64_t>(options.capacity),
-      .allocator = allocator.get()});
+  memory::MemoryManager::initialize(options);
 
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();

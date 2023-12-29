@@ -27,29 +27,24 @@ class ByteStreamTest : public testing::Test {
  protected:
   void SetUp() override {
     constexpr uint64_t kMaxMappedMemory = 64 << 20;
-    MmapAllocator::Options options;
-    options.capacity = kMaxMappedMemory;
-    mmapAllocator_ = std::make_shared<MmapAllocator>(options);
-    MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
-    memoryManager_ = std::make_unique<MemoryManager>(MemoryManagerOptions{
-        .capacity = kMaxMappedMemory,
-        .allocator = MemoryAllocator::getInstance()});
+    MemoryManagerOptions options;
+    options.useMmapAllocator = true;
+    options.allocatorCapacity = kMaxMappedMemory;
+    memoryManager_ = std::make_unique<MemoryManager>(options);
+    mmapAllocator_ = static_cast<MmapAllocator*>(memoryManager_->allocator());
     pool_ = memoryManager_->addLeafPool("ByteStreamTest");
     rng_.seed(124);
   }
 
-  void TearDown() override {
-    MmapAllocator::testingDestroyInstance();
-    MemoryAllocator::setDefaultInstance(nullptr);
-  }
+  void TearDown() override {}
 
   std::unique_ptr<StreamArena> newArena() {
     return std::make_unique<StreamArena>(pool_.get());
   }
 
   folly::Random::DefaultGenerator rng_;
-  std::shared_ptr<MmapAllocator> mmapAllocator_;
   std::unique_ptr<MemoryManager> memoryManager_;
+  MmapAllocator* mmapAllocator_;
   std::shared_ptr<memory::MemoryPool> pool_;
 };
 

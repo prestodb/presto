@@ -22,6 +22,7 @@
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/common/memory/MemoryPool.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/SharedArbitrator.h"
@@ -95,37 +96,18 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
   }
 
   void setupMemory(
-      MemoryManagerOptions options = {.capacity = kDefaultCapacity}) {
-    if (useMmap_) {
-      MmapAllocator::Options opts{(uint64_t)options.capacity};
-      allocator_ = std::make_shared<MmapAllocator>(opts);
-      if (useCache_) {
-        cache_ = AsyncDataCache::create(allocator_.get());
-        MemoryAllocator::setDefaultInstance(allocator_.get());
-      } else {
-        MemoryAllocator::setDefaultInstance(allocator_.get());
-      }
-    } else {
-      allocator_ = std::make_shared<MallocAllocator>(options.capacity);
-      if (useCache_) {
-        cache_ = AsyncDataCache::create(allocator_.get());
-        MemoryAllocator::setDefaultInstance(allocator_.get());
-      } else {
-        MemoryAllocator::setDefaultInstance(allocator_.get());
-      }
-    }
-    options.allocator = allocator_.get();
-    // MemoryAllocator, depending on implementation, might round up capacity.
-    options.capacity = allocator_->capacity();
+      MemoryManagerOptions options = {.allocatorCapacity = kDefaultCapacity}) {
+    options.useMmapAllocator = useMmap_;
     manager_ = std::make_shared<MemoryManager>(options);
+    if (useCache_) {
+      cache_ = AsyncDataCache::create(manager_->allocator());
+    }
   }
 
   void TearDown() override {
     if (useCache_) {
       cache_->shutdown();
     }
-    allocator_->testingClearFailureInjection();
-    MmapAllocator::setDefaultInstance(nullptr);
   }
 
   void reset() {
@@ -150,7 +132,6 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
   const bool useCache_;
   const bool isLeafThreadSafe_;
   folly::Random::DefaultGenerator rng_;
-  std::shared_ptr<MemoryAllocator> allocator_;
   std::shared_ptr<MemoryManager> manager_;
   std::shared_ptr<AsyncDataCache> cache_;
   MemoryReclaimer::Stats stats_;
@@ -158,7 +139,7 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
 
 TEST_P(MemoryPoolTest, Ctor) {
   constexpr uint16_t kAlignment = 64;
-  setupMemory({.alignment = 64, .capacity = kDefaultCapacity});
+  setupMemory({.alignment = 64, .allocatorCapacity = kDefaultCapacity});
   MemoryManager& manager = *getMemoryManager();
   const int64_t capacity = 4 * GB;
   auto root = manager.addRootPool("Ctor", 4 * GB);
@@ -306,13 +287,12 @@ MachinePageCount numPagesNeeded(
 }
 
 void testMmapMemoryAllocation(
-    MmapAllocator* mmapAllocator,
+    int64_t capacity,
     MachinePageCount allocPages,
     size_t allocCount,
     bool threadSafe) {
   MemoryManager manager{
-      {.capacity = (int64_t)(mmapAllocator->capacity()),
-       .allocator = mmapAllocator}};
+      {.allocatorCapacity = capacity, .useMmapAllocator = true}};
   const auto kPageSize = 4 * KB;
 
   auto root = manager.addRootPool();
@@ -321,6 +301,7 @@ void testMmapMemoryAllocation(
   std::vector<void*> allocations;
   uint64_t totalPageAllocated = 0;
   uint64_t totalPageMapped = 0;
+  auto* mmapAllocator = static_cast<MmapAllocator*>(manager.allocator());
   const auto pageIncrement = numPagesNeeded(mmapAllocator, allocPages);
   const auto isSizeClassAlloc =
       allocPages <= mmapAllocator->sizeClasses().back();
@@ -355,26 +336,16 @@ void testMmapMemoryAllocation(
   }
 }
 
-TEST_P(MemoryPoolTest, SmallMmapMemoryAllocation) {
-  MmapAllocator::Options options;
-  options.capacity = 8 * GB;
-  auto mmapAllocator = std::make_shared<memory::MmapAllocator>(options);
-  testMmapMemoryAllocation(mmapAllocator.get(), 6, 100, isLeafThreadSafe_);
+TEST_P(MemoryPoolTest, smallMmapMemoryAllocation) {
+  testMmapMemoryAllocation(8 * GB, 6, 100, isLeafThreadSafe_);
 }
 
-TEST_P(MemoryPoolTest, BigMmapMemoryAllocation) {
-  MmapAllocator::Options options;
-  options.capacity = 8 * GB;
-  auto mmapAllocator = std::make_shared<memory::MmapAllocator>(options);
-  testMmapMemoryAllocation(
-      mmapAllocator.get(),
-      mmapAllocator->sizeClasses().back() + 56,
-      20,
-      isLeafThreadSafe_);
+TEST_P(MemoryPoolTest, bigMmapMemoryAllocation) {
+  testMmapMemoryAllocation(8 * GB, 256 + 56, 20, isLeafThreadSafe_);
 }
 
 // Mainly tests how it updates the memory usage in Memorypool->
-TEST_P(MemoryPoolTest, AllocTest) {
+TEST_P(MemoryPoolTest, allocTest) {
   auto manager = getMemoryManager();
   auto root = manager->addRootPool();
 
@@ -536,7 +507,8 @@ TEST_P(MemoryPoolTest, alignmentCheck) {
       MemoryAllocator::kMaxAlignment};
   for (const auto& alignment : alignments) {
     SCOPED_TRACE(fmt::format("alignment:{}", alignment));
-    setupMemory({.alignment = alignment, .capacity = kDefaultCapacity});
+    setupMemory(
+        {.alignment = alignment, .allocatorCapacity = kDefaultCapacity});
     auto manager = getMemoryManager();
     auto pool = manager->addLeafPool("alignmentCheck");
     ASSERT_EQ(
@@ -557,7 +529,7 @@ TEST_P(MemoryPoolTest, alignmentCheck) {
 
 TEST_P(MemoryPoolTest, MemoryCapExceptions) {
   const uint64_t kMaxCap = 128L * MB;
-  setupMemory({.capacity = kMaxCap});
+  setupMemory({.allocatorCapacity = kMaxCap});
   auto manager = getMemoryManager();
   // Capping memory pool.
   {
@@ -584,12 +556,12 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
   // Capping allocator.
   {
     auto root =
-        manager->addRootPool("MemoryCapExceptions", 2 * allocator_->capacity());
+        manager->addRootPool("MemoryCapExceptions", 2 * manager->capacity());
     auto pool = root->addLeafChild("static_quota", isLeafThreadSafe_);
     {
       ASSERT_EQ(0, pool->currentBytes());
       try {
-        pool->allocate(allocator_->capacity() + 1);
+        pool->allocate(manager->capacity() + 1);
       } catch (const velox::VeloxRuntimeError& ex) {
         ASSERT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
         ASSERT_EQ(error_code::kMemAllocError.c_str(), ex.errorCode());
@@ -669,26 +641,25 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
 
 TEST(MemoryPoolTest, GetAlignment) {
   {
-    auto allocator = std::make_shared<MallocAllocator>(
-        MemoryAllocator::kDefaultCapacityBytes);
+    MemoryManagerOptions options;
+    options.allocatorCapacity = kMaxMemory;
     EXPECT_EQ(
         MemoryAllocator::kMaxAlignment,
-        MemoryManager{{.allocator = allocator.get()}}
-            .addRootPool()
-            ->alignment());
+        MemoryManager{options}.addRootPool()->alignment());
   }
   {
-    auto allocator = std::make_shared<MallocAllocator>(
-        MemoryAllocator::kDefaultCapacityBytes);
-    MemoryManager manager{{.alignment = 64, .allocator = allocator.get()}};
+    MemoryManagerOptions options;
+    options.allocatorCapacity = kMaxMemory;
+    options.alignment = 64;
+    MemoryManager manager{options};
     EXPECT_EQ(64, manager.addRootPool()->alignment());
   }
 }
 
 TEST_P(MemoryPoolTest, MemoryManagerGlobalCap) {
-  setupMemory({.capacity = 32L * MB});
+  setupMemory({.allocatorCapacity = 32L * MB});
   auto manager = getMemoryManager();
-  const auto kAllocCap = allocator_->capacity();
+  const auto kAllocCap = manager->capacity();
   auto root = manager->addRootPool();
   auto pool = root->addAggregateChild("unbounded");
   auto child = pool->addLeafChild("unbounded", isLeafThreadSafe_);
@@ -817,8 +788,7 @@ TEST_P(MemoryPoolTest, allocatorOverflow) {
 TEST_P(MemoryPoolTest, contiguousAllocate) {
   auto manager = getMemoryManager();
   auto pool = manager->addLeafPool("contiguousAllocate");
-  const auto largestSizeClass =
-      MemoryAllocator::getInstance()->largestSizeClass();
+  const auto largestSizeClass = manager->allocator()->largestSizeClass();
   struct {
     MachinePageCount numAllocPages;
     std::string debugString() const {
@@ -876,7 +846,7 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
     const MachinePageCount minSizeClass = folly::Random().oneIn(4)
         ? 0
         : std::min(
-              MemoryAllocator::getInstance()->largestSizeClass(),
+              manager->allocator()->largestSizeClass(),
               folly::Random().rand32() % kMaxAllocationPages);
     pool->allocateContiguous(pagesToAllocate, allocation);
     numAllocatedPages += allocation.numPages();
@@ -899,9 +869,10 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
 }
 
 TEST_P(MemoryPoolTest, contiguousAllocateExceedLimit) {
-  setupMemory({.capacity = (int64_t)(AllocationTraits::pageBytes(1 << 10))});
+  setupMemory(
+      {.allocatorCapacity = (int64_t)(AllocationTraits::pageBytes(1 << 10))});
   auto manager = getMemoryManager();
-  const auto kMemoryCapBytes = allocator_->capacity();
+  const auto kMemoryCapBytes = manager->capacity();
   const auto kMaxNumPages = AllocationTraits::numPages(kMemoryCapBytes);
   auto root =
       manager->addRootPool("contiguousAllocateExceedLimit", kMemoryCapBytes);
@@ -929,7 +900,7 @@ TEST_P(MemoryPoolTest, badContiguousAllocation) {
 TEST_P(MemoryPoolTest, nonContiguousAllocate) {
   auto manager = getMemoryManager();
   auto pool = manager->addLeafPool("nonContiguousAllocate");
-  const auto& sizeClasses = MemoryAllocator::getInstance()->sizeClasses();
+  const auto& sizeClasses = manager->allocator()->sizeClasses();
   for (const auto& sizeClass : sizeClasses) {
     SCOPED_TRACE(fmt::format("sizeClass:{}", sizeClass));
     struct {
@@ -970,8 +941,7 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
           testData.numAllocPages,
           allocation,
           std::min(
-              testData.minSizeClass,
-              MemoryAllocator::getInstance()->largestSizeClass()));
+              testData.minSizeClass, manager->allocator()->largestSizeClass()));
       ASSERT_FALSE(allocation.empty());
       ASSERT_EQ(allocation.pool(), pool.get());
       ASSERT_GT(allocation.numRuns(), 0);
@@ -999,7 +969,7 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
     const MachinePageCount minSizeClass = folly::Random().oneIn(4)
         ? 0
         : std::min(
-              MemoryAllocator::getInstance()->largestSizeClass(),
+              manager->allocator()->largestSizeClass(),
               folly::Random().rand32() % kMaxAllocationPages);
     pool->allocateNonContiguous(pagesToAllocate, allocation, minSizeClass);
     numAllocatedPages += allocation.numPages();
@@ -1013,10 +983,10 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
 }
 
 TEST_P(MemoryPoolTest, allocationFailStats) {
-  setupMemory({.capacity = 16 * KB});
+  setupMemory({.allocatorCapacity = 16 * KB});
   auto manager = getMemoryManager();
   auto pool = manager->addLeafPool("allocationFailStats");
-  auto allocatorCapacity = allocator_->capacity();
+  auto allocatorCapacity = manager->capacity();
 
   EXPECT_THROW(pool->allocate(allocatorCapacity + 1), VeloxException);
   EXPECT_EQ(1, pool->stats().numAllocs);
@@ -1230,11 +1200,12 @@ TEST_P(MemoryPoolTest, persistentNonContiguousAllocateFailure) {
       pool->allocateNonContiguous(testData.numOldPages, allocation);
     }
     ASSERT_GE(allocation.numPages(), testData.numOldPages);
-    allocator_->testingSetFailureInjection(testData.injectedFailure, true);
+    manager->allocator()->testingSetFailureInjection(
+        testData.injectedFailure, true);
     ASSERT_THROW(
         pool->allocateNonContiguous(testData.numNewPages, allocation),
         VeloxRuntimeError);
-    allocator_->testingClearFailureInjection();
+    manager->allocator()->testingClearFailureInjection();
   }
 }
 
@@ -1331,7 +1302,7 @@ TEST_P(MemoryPoolTest, transientNonContiguousAllocateFailure) {
       pool->allocateNonContiguous(testData.numOldPages, allocation);
     }
     ASSERT_GE(allocation.numPages(), testData.numOldPages);
-    allocator_->testingSetFailureInjection(testData.injectedFailure);
+    manager->allocator()->testingSetFailureInjection(testData.injectedFailure);
     if (useCache_) {
       pool->allocateNonContiguous(testData.numNewPages, allocation);
       ASSERT_EQ(allocation.numPages(), testData.numNewPages);
@@ -1340,7 +1311,7 @@ TEST_P(MemoryPoolTest, transientNonContiguousAllocateFailure) {
           pool->allocateNonContiguous(testData.numNewPages, allocation),
           VeloxRuntimeError);
     }
-    allocator_->testingClearFailureInjection();
+    manager->allocator()->testingClearFailureInjection();
   }
 }
 
@@ -1488,7 +1459,8 @@ TEST_P(MemoryPoolTest, persistentContiguousAllocateFailure) {
     if (testData.numOldPages > 0) {
       pool->allocateContiguous(testData.numOldPages, allocation);
     }
-    allocator_->testingSetFailureInjection(testData.injectedFailure, true);
+    manager->allocator()->testingSetFailureInjection(
+        testData.injectedFailure, true);
     ASSERT_EQ(allocation.numPages(), testData.numOldPages);
     if ((testData.numOldPages >= testData.numNewPages) &&
         testData.injectedFailure != MemoryAllocator::InjectedFailure::kMmap) {
@@ -1499,7 +1471,7 @@ TEST_P(MemoryPoolTest, persistentContiguousAllocateFailure) {
           pool->allocateContiguous(testData.numNewPages, allocation),
           VeloxRuntimeError);
     }
-    allocator_->testingClearFailureInjection();
+    manager->allocator()->testingClearFailureInjection();
   }
 }
 
@@ -1609,7 +1581,7 @@ TEST_P(MemoryPoolTest, transientContiguousAllocateFailure) {
     if (testData.numOldPages > 0) {
       pool->allocateContiguous(testData.numOldPages, allocation);
     }
-    allocator_->testingSetFailureInjection(testData.injectedFailure);
+    manager->allocator()->testingSetFailureInjection(testData.injectedFailure);
     ASSERT_EQ(allocation.numPages(), testData.numOldPages);
     // NOTE: AsyncDataCache will retry on the transient memory allocation
     // failures from the underlying allocator.
@@ -1623,14 +1595,14 @@ TEST_P(MemoryPoolTest, transientContiguousAllocateFailure) {
           pool->allocateContiguous(testData.numNewPages, allocation),
           VeloxRuntimeError);
     }
-    allocator_->testingClearFailureInjection();
+    manager->allocator()->testingClearFailureInjection();
   }
 }
 
 TEST_P(MemoryPoolTest, contiguousAllocateExceedMemoryPoolLimit) {
   const MachinePageCount kMaxNumPages = 1 << 10;
   const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
-  setupMemory({.capacity = 1 << 30});
+  setupMemory({.allocatorCapacity = 1 << 30});
   auto manager = getMemoryManager();
   auto root =
       manager->addRootPool("contiguousAllocateExceedLimit", kMemoryCapBytes);
@@ -1707,7 +1679,8 @@ TEST_P(MemoryPoolTest, persistentContiguousGrowAllocateFailure) {
         testData.numInitialPages,
         allocation,
         testData.numGrowPages + testData.numInitialPages);
-    allocator_->testingSetFailureInjection(testData.injectedFailure, true);
+    manager->allocator()->testingSetFailureInjection(
+        testData.injectedFailure, true);
     ASSERT_EQ(allocation.numPages(), testData.numInitialPages);
     ASSERT_EQ(
         allocation.maxSize(),
@@ -1717,7 +1690,7 @@ TEST_P(MemoryPoolTest, persistentContiguousGrowAllocateFailure) {
         pool->growContiguous(testData.numGrowPages, allocation),
         testData.expectedErrorMessage);
     ASSERT_EQ(allocation.numPages(), testData.numInitialPages);
-    allocator_->testingClearFailureInjection();
+    manager->allocator()->testingClearFailureInjection();
   }
 }
 
@@ -1762,7 +1735,8 @@ TEST_P(MemoryPoolTest, transientContiguousGrowAllocateFailure) {
         testData.numInitialPages,
         allocation,
         testData.numGrowPages + testData.numInitialPages);
-    allocator_->testingSetFailureInjection(testData.injectedFailure, false);
+    manager->allocator()->testingSetFailureInjection(
+        testData.injectedFailure, false);
     ASSERT_EQ(allocation.numPages(), testData.numInitialPages);
     ASSERT_EQ(
         allocation.maxSize(),
@@ -1785,14 +1759,14 @@ TEST_P(MemoryPoolTest, transientContiguousGrowAllocateFailure) {
           VeloxRuntimeError);
       ASSERT_EQ(allocation.numPages(), testData.numInitialPages);
     }
-    allocator_->testingClearFailureInjection();
+    manager->allocator()->testingClearFailureInjection();
   }
 }
 
 TEST_P(MemoryPoolTest, contiguousAllocateGrowExceedMemoryPoolLimit) {
   const MachinePageCount kMaxNumPages = 1 << 10;
   const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
-  setupMemory({.capacity = 1 << 30});
+  setupMemory({.allocatorCapacity = 1 << 30});
   auto manager = getMemoryManager();
   auto root = manager->addRootPool(
       "contiguousAllocateGrowExceedMemoryPoolLimit", kMemoryCapBytes);
@@ -1829,14 +1803,8 @@ TEST_P(MemoryPoolTest, badNonContiguousAllocation) {
 
 TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
   const int64_t kMemoryCapBytes = AllocationTraits::pageBytes(1 << 10);
-  std::shared_ptr<MemoryAllocator> allocator;
-  if (useMmap_) {
-    MmapAllocator::Options mmapOpt{.capacity = (uint64_t)kMemoryCapBytes};
-    allocator = std::make_shared<MmapAllocator>(mmapOpt);
-  } else {
-    allocator = std::make_shared<MallocAllocator>(kMemoryCapBytes);
-  }
-  setupMemory({.capacity = kMemoryCapBytes, .allocator = allocator.get()});
+  setupMemory(
+      {.allocatorCapacity = kMemoryCapBytes, .useMmapAllocator = useMmap_});
   auto manager = getMemoryManager();
   const MachinePageCount kMaxNumPages =
       AllocationTraits::numPages(kMemoryCapBytes);
@@ -1861,14 +1829,14 @@ TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
 TEST_P(MemoryPoolTest, nonContiguousAllocateError) {
   auto manager = getMemoryManager();
   auto pool = manager->addLeafPool("nonContiguousAllocateError");
-  allocator_->testingSetFailureInjection(
+  manager->allocator()->testingSetFailureInjection(
       MemoryAllocator::InjectedFailure::kAllocate, true);
   constexpr MachinePageCount kAllocSize = 8;
   std::unique_ptr<Allocation> allocation(new Allocation());
   ASSERT_THROW(
       pool->allocateNonContiguous(kAllocSize, *allocation), VeloxRuntimeError);
   ASSERT_TRUE(allocation->empty());
-  allocator_->testingClearFailureInjection();
+  manager->allocator()->testingClearFailureInjection();
   pool->allocateNonContiguous(kAllocSize, *allocation);
   pool->freeNonContiguous(*allocation);
   ASSERT_TRUE(allocation->empty());
@@ -1905,7 +1873,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationError) {
     auto pool = root->addLeafChild(
         "mmapAllocatorCapAllocationError", isLeafThreadSafe_);
 
-    allocator_->testingSetFailureInjection(
+    manager->allocator()->testingSetFailureInjection(
         MemoryAllocator::InjectedFailure::kCap,
         testData.persistentErrorInjection);
     // Async data cache will retry transient memory allocation failure.
@@ -1916,7 +1884,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationError) {
     } else {
       ASSERT_THROW(pool->allocate(testData.allocateBytes), VeloxRuntimeError);
     }
-    allocator_->testingClearFailureInjection();
+    manager->allocator()->testingClearFailureInjection();
   }
 }
 
@@ -1954,7 +1922,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationZeroFilledError) {
     auto pool = root->addLeafChild(
         "mmapAllocatorCapAllocationZeroFilledError", isLeafThreadSafe_);
 
-    allocator_->testingSetFailureInjection(
+    manager->allocator()->testingSetFailureInjection(
         MemoryAllocator::InjectedFailure::kCap,
         testData.persistentErrorInjection);
     // Async data cache will retry transient memory allocation failure.
@@ -1968,7 +1936,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationZeroFilledError) {
           pool->allocateZeroFilled(testData.numEntries, testData.sizeEach),
           VeloxRuntimeError);
     }
-    allocator_->testingClearFailureInjection();
+    manager->allocator()->testingClearFailureInjection();
   }
 }
 
@@ -2003,7 +1971,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapReallocateError) {
     auto pool = root->addLeafChild(
         "mmapAllocatorCapReallocateError", isLeafThreadSafe_);
 
-    allocator_->testingSetFailureInjection(
+    manager->allocator()->testingSetFailureInjection(
         MemoryAllocator::InjectedFailure::kCap,
         testData.persistentErrorInjection);
     // Async data cache will retry transient memory allocation failure.
@@ -2016,7 +1984,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapReallocateError) {
           pool->reallocate(nullptr, 0, testData.allocateBytes),
           VeloxRuntimeError);
     }
-    allocator_->testingClearFailureInjection();
+    manager->allocator()->testingClearFailureInjection();
   }
 }
 
@@ -2360,9 +2328,9 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
 }
 
 TEST(MemoryPoolTest, visitChildren) {
-  auto allocator =
-      std::make_shared<MallocAllocator>(MemoryAllocator::kDefaultCapacityBytes);
-  MemoryManager manager{{.allocator = allocator.get()}};
+  MemoryManagerOptions options;
+  options.allocatorCapacity = kMaxMemory;
+  MemoryManager manager{options};
   auto root = manager.addRootPool("root");
 
   const int numChildren = 10;
@@ -2412,9 +2380,10 @@ TEST(MemoryPoolTest, debugMode) {
         }
       };
 
-  auto allocator =
-      std::make_shared<MallocAllocator>(MemoryAllocator::kDefaultCapacityBytes);
-  MemoryManager manager{{.debugEnabled = true, .allocator = allocator.get()}};
+  MemoryManagerOptions options;
+  options.allocatorCapacity = kMaxMemory;
+  options.debugEnabled = true;
+  MemoryManager manager{options};
   auto pool = manager.addRootPool("root")->addLeafChild("child");
   const auto& allocRecords = std::dynamic_pointer_cast<MemoryPoolImpl>(pool)
                                  ->testingDebugAllocRecords();
@@ -2463,11 +2432,8 @@ TEST(MemoryPoolTest, debugModeWithFilter) {
   const std::vector<int64_t> kAllocSizes = {128, 8 * KB, 2 * MB};
   const std::vector<bool> debugEnabledSet{true, false};
   for (const auto& debugEnabled : debugEnabledSet) {
-    auto allocator = std::make_shared<MallocAllocator>(kMaxMemory);
     MemoryManager manager{
-        {.capacity = kMaxMemory,
-         .debugEnabled = debugEnabled,
-         .allocator = allocator.get()}};
+        {.debugEnabled = debugEnabled, .allocatorCapacity = kMaxMemory}};
 
     // leaf child created from MemoryPool, not match filter
     MemoryPoolImpl::setDebugPoolNameRegex("NO-MATCH");
@@ -2990,7 +2956,7 @@ struct Buffer {
 
 TEST_P(MemoryPoolTest, memoryUsageUpdateCheck) {
   constexpr int64_t kMaxSize = 1 << 30; // 1GB
-  setupMemory({.capacity = kMaxSize});
+  setupMemory({.allocatorCapacity = kMaxSize});
   auto manager = getMemoryManager();
   auto root = manager->addRootPool("memoryUsageUpdate", kMaxSize);
 
@@ -3123,7 +3089,7 @@ TEST_P(MemoryPoolTest, memoryUsageUpdateCheck) {
 
 TEST_P(MemoryPoolTest, maybeReserve) {
   constexpr int64_t kMaxSize = 1 << 30; // 1GB
-  setupMemory({.capacity = kMaxSize});
+  setupMemory({.allocatorCapacity = kMaxSize});
   auto manager = getMemoryManager();
   auto root = manager->addRootPool("reserve", kMaxSize);
 
@@ -3227,7 +3193,7 @@ TEST_P(MemoryPoolTest, maybeReserve) {
 
 TEST_P(MemoryPoolTest, maybeReserveFailWithAbort) {
   constexpr int64_t kMaxSize = 1 * GB; // 1GB
-  setupMemory({.capacity = kMaxSize, .arbitratorKind = "SHARED"});
+  setupMemory({.allocatorCapacity = kMaxSize, .arbitratorKind = "SHARED"});
   MemoryManager& manager = *getMemoryManager();
   auto root = manager.addRootPool(
       "maybeReserveFailWithAbort", kMaxSize, MemoryReclaimer::create());
@@ -3247,8 +3213,8 @@ bool grow(int64_t size, int64_t hardLimit, MemoryPool& pool) {
   static std::mutex mutex;
   // The calls from different threads on the same tracker must be serialized.
   std::lock_guard<std::mutex> l(mutex);
-  // The total includes the allocation that exceeded the limit. This function's
-  // job is to raise the limit to >= current + size.
+  // The total includes the allocation that exceeded the limit. This
+  // function's job is to raise the limit to >= current + size.
   auto current = pool.reservedBytes();
   auto limit = pool.capacity();
   if (current + size <= limit) {
@@ -3271,7 +3237,7 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, raceBetweenFreeAndFailedAllocation) {
   if (!isLeafThreadSafe_) {
     return;
   }
-  setupMemory({.capacity = 1 * GB});
+  setupMemory({.allocatorCapacity = 1 * GB});
   auto manager = getMemoryManager();
   auto root = manager->addRootPool("grow", 64 * MB);
   auto child = root->addLeafChild("grow", isLeafThreadSafe_);
@@ -3284,19 +3250,20 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, raceBetweenFreeAndFailedAllocation) {
       std::function<void(MemoryPool*)>([&](MemoryPool* /*unused*/) {
         ++reservationAttempts;
         // On the first reservation attempt for the second buffer allocation,
-        // trigger to free the first allocated buffer which will cause the first
-        // reservation attempt fails. The quantized reservation size of the
-        // first attempt is 16MB which requires 20MB after the first buffer
-        // free.
+        // trigger to free the first allocated buffer which will cause the
+        // first reservation attempt fails. The quantized reservation size of
+        // the first attempt is 16MB which requires 20MB after the first
+        // buffer free.
         if (reservationAttempts == 1) {
           // Inject to free the first allocated buffer while the
           child->free(buffer1, 17 * MB);
           return;
         }
         // On the second reservation attempt for the second buffer allocation,
-        // reduce the memory pool's capacity to trigger the memory pool capacity
-        // exceeded exception error which might leave unused reservation bytes
-        // but zero used reservation if we don't do the cleanup properly.
+        // reduce the memory pool's capacity to trigger the memory pool
+        // capacity exceeded exception error which might leave unused
+        // reservation bytes but zero used reservation if we don't do the
+        // cleanup properly.
         if (reservationAttempts == 2) {
           static_cast<MemoryPoolImpl*>(root.get())->testingSetCapacity(16 * MB);
           return;
@@ -3649,7 +3616,7 @@ TEST_P(MemoryPoolTest, abort) {
 
 TEST_P(MemoryPoolTest, overuseUnderArbitration) {
   constexpr int64_t kMaxSize = 128 * MB; // 1GB
-  setupMemory({.capacity = kMaxSize, .arbitratorKind = "SHARED"});
+  setupMemory({.allocatorCapacity = kMaxSize, .arbitratorKind = "SHARED"});
   MemoryManager& manager = *getMemoryManager();
   auto root = manager.addRootPool(
       "overuseUnderArbitration", kMaxSize, MemoryReclaimer::create());

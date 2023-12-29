@@ -135,7 +135,7 @@ class HashJoinBridgeTest : public testing::Test,
 
   std::shared_ptr<memory::MemoryPool> pool_{
       memory::memoryManager()->addLeafPool()};
-  memory::MemoryAllocator* allocator_{memory::MemoryAllocator::getInstance()};
+  memory::MemoryAllocator* allocator_{memory::memoryManager()->allocator()};
   std::shared_ptr<TempDirectoryPath> tempDir_;
 
   std::mutex mutex_;

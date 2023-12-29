@@ -413,10 +413,8 @@ class MockSharedArbitrationTest : public testing::Test {
       memoryPoolTransferCapacity = kMemoryPoolTransferCapacity;
     }
     memoryCapacity = (memoryCapacity != 0) ? memoryCapacity : kMemoryCapacity;
-    allocator_ = std::make_shared<MallocAllocator>(memoryCapacity);
     MemoryManagerOptions options;
-    options.allocator = allocator_.get();
-    options.capacity = allocator_->capacity();
+    options.allocatorCapacity = memoryCapacity;
     std::string arbitratorKind = "SHARED";
     options.arbitratorKind = arbitratorKind;
     options.capacity = options.capacity;
@@ -449,7 +447,6 @@ class MockSharedArbitrationTest : public testing::Test {
     tasks_.clear();
   }
 
-  std::shared_ptr<MemoryAllocator> allocator_;
   std::unique_ptr<MemoryManager> manager_;
   SharedArbitrator* arbitrator_;
   std::vector<std::shared_ptr<MockTask>> tasks_;

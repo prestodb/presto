@@ -450,12 +450,8 @@ class CudaTest : public testing::Test {
     }
     inited = true;
     memory::MemoryManagerOptions options;
-    options.capacity = capacity;
-    memory::MmapAllocator::Options opts{(uint64_t)options.capacity};
-    mmapAllocator_ = std::make_shared<memory::MmapAllocator>(opts);
-    memory::MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
-
-    options.allocator = mmapAllocator_.get();
+    options.useMmapAllocator = true;
+    options.allocatorCapacity = capacity;
     memory::MemoryManager::initialize(options);
     manager_ = memory::memoryManager();
   }

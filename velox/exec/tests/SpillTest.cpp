@@ -72,7 +72,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
   }
 
   void SetUp() override {
-    allocator_ = memory::MemoryAllocator::getInstance();
+    allocator_ = memory::memoryManager()->allocator();
     tempDir_ = exec::test::TempDirectoryPath::create();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::

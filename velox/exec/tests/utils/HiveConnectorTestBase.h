@@ -180,10 +180,6 @@ class HiveConnectorTestBase : public OperatorTestBase {
     }
     return assignments;
   }
-
-  memory::MemoryAllocator* allocator() {
-    return memory::MemoryAllocator::getInstance();
-  }
 };
 
 class HiveConnectorSplitBuilder {

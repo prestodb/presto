@@ -25,11 +25,8 @@ using namespace facebook::velox;
 class AllocationPoolTest : public testing::Test {
  protected:
   void SetUp() override {
-    allocator_ = std::make_shared<memory::MallocAllocator>(8L << 30);
-    manager_ =
-        std::make_shared<memory::MemoryManager>(memory::MemoryManagerOptions{
-            .capacity = (int64_t)allocator_->capacity(),
-            .allocator = allocator_.get()});
+    manager_ = std::make_shared<memory::MemoryManager>(
+        memory::MemoryManagerOptions{.allocatorCapacity = 8L << 30});
 
     root_ = manager_->addRootPool("allocationPoolTestRoot");
     pool_ = root_->addLeafChild("leaf");
@@ -40,7 +37,6 @@ class AllocationPoolTest : public testing::Test {
     *reinterpret_cast<char*>(ptr) = 1;
   }
 
-  std::shared_ptr<memory::MemoryAllocator> allocator_;
   std::shared_ptr<memory::MemoryManager> manager_;
   std::shared_ptr<memory::MemoryPool> root_;
   std::shared_ptr<memory::MemoryPool> pool_;

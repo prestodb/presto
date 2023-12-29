@@ -613,16 +613,12 @@ void combineResults(
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv);
-  memory::MmapAllocator::Options options;
-  options.capacity = 10UL << 30;
+  memory::MemoryManagerOptions options;
+  options.useMmapAllocator = true;
+  options.allocatorCapacity = 10UL << 30;
   options.useMmapArena = true;
   options.mmapArenaCapacityRatio = 1;
-
-  auto allocator = std::make_shared<memory::MmapAllocator>(options);
-  memory::MemoryAllocator::setDefaultInstance(allocator.get());
-  memory::MemoryManager::initialize(memory::MemoryManagerOptions{
-      .capacity = static_cast<int64_t>(options.capacity),
-      .allocator = allocator.get()});
+  memory::MemoryManager::initialize(options);
 
   auto bm = std::make_unique<HashTableBenchmark>();
   std::vector<HashTableBenchmarkRun> results;

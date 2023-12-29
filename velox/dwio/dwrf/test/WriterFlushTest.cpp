@@ -231,7 +231,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
 
  private:
   velox::memory::MemoryAllocator* const allocator_{
-      velox::memory::MemoryAllocator::getInstance()};
+      velox::memory::memoryManager()->allocator()};
   const int64_t capacity_;
   int64_t localMemoryUsage_{0};
 };
@@ -475,8 +475,15 @@ class WriterFlushTestHelper {
   }
 };
 
+class TestWriterFlush : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
+
 // This test checks against constructed test cases.
-TEST(TestWriterFlush, CheckAgainstMemoryBudget) {
+TEST_F(TestWriterFlush, CheckAgainstMemoryBudget) {
   auto pool = MockMemoryPool::create();
   {
     auto writer = WriterFlushTestHelper::prepWriter(pool, 1024);
@@ -626,7 +633,7 @@ TEST(TestWriterFlush, CheckAgainstMemoryBudget) {
 }
 
 // Tests the number of stripes produced based on random results.
-TEST(TestWriterFlush, MemoryBasedFlushRandom) {
+TEST_F(TestWriterFlush, MemoryBasedFlushRandom) {
   struct TestCase {
     TestCase(
         uint32_t seed,

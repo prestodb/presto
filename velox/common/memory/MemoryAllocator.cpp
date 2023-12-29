@@ -122,36 +122,6 @@ MemoryAllocator::SizeMix MemoryAllocator::allocationSize(
 }
 
 // static
-MemoryAllocator* MemoryAllocator::getInstance() {
-  std::lock_guard<std::mutex> l(initMutex_);
-  if (customInstance_ != nullptr) {
-    return customInstance_;
-  }
-  if (instance_ != nullptr) {
-    return instance_.get();
-  }
-  instance_ = createDefaultInstance();
-  return instance_.get();
-}
-
-// static
-std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultInstance() {
-  return std::make_shared<MallocAllocator>(kDefaultCapacityBytes);
-}
-
-// static
-void MemoryAllocator::setDefaultInstance(MemoryAllocator* instance) {
-  std::lock_guard<std::mutex> l(initMutex_);
-  customInstance_ = instance;
-}
-
-// static
-void MemoryAllocator::testingDestroyInstance() {
-  std::lock_guard<std::mutex> l(initMutex_);
-  instance_ = nullptr;
-}
-
-// static
 bool MemoryAllocator::isAlignmentValid(
     uint64_t allocateBytes,
     uint16_t alignmentBytes) {
@@ -387,5 +357,33 @@ std::string MemoryAllocator::getAndClearFailureMessage() {
   }
   return allocatorErrMsg;
 }
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+MemoryAllocator* MemoryAllocator::getInstance() {
+  std::lock_guard<std::mutex> l(initMutex_);
+  if (customInstance_ != nullptr) {
+    return customInstance_;
+  }
+  if (instance_ != nullptr) {
+    return instance_.get();
+  }
+  instance_ = createDefaultInstance();
+  return instance_.get();
+}
+
+void MemoryAllocator::setDefaultInstance(MemoryAllocator* instance) {
+  std::lock_guard<std::mutex> l(initMutex_);
+  customInstance_ = instance;
+}
+
+std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultInstance() {
+  return std::make_shared<MallocAllocator>(kMaxMemory);
+}
+
+void MemoryAllocator::testingDestroyInstance() {
+  std::lock_guard<std::mutex> l(initMutex_);
+  instance_ = nullptr;
+}
+#endif
 
 } // namespace facebook::velox::memory
