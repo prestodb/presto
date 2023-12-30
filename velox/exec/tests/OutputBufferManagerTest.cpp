@@ -358,10 +358,8 @@ class OutputBufferManagerTest : public testing::Test {
       ASSERT_TRUE(overutilized);
     }
     if (outputBufferStatus == OutputBufferStatus::kNoMoreProducer) {
-      // output buffer is over utilized but since there is no more producer
-      // outputBufferOverutilized is not true (producers are not blocked)
-      ASSERT_GT(utilization, 0.5);
-      ASSERT_FALSE(overutilized);
+      // output buffer is over utilized if no more producer is set.
+      ASSERT_TRUE(overutilized);
     }
   }
 
@@ -573,7 +571,6 @@ TEST_F(OutputBufferManagerTest, destinationBuffer) {
 
 TEST_F(OutputBufferManagerTest, basicPartitioned) {
   vector_size_t size = 100;
-
   std::string taskId = "t0";
   auto task = initializeTask(
       taskId, rowType_, PartitionedOutputNode::Kind::kPartitioned, 5, 1);
@@ -643,7 +640,7 @@ TEST_F(OutputBufferManagerTest, basicPartitioned) {
     fetchEndMarker(taskId, destination, 2);
   }
   EXPECT_TRUE(task->isRunning());
-  verifyOutputBuffer(task, OutputBufferStatus::kRunning);
+  verifyOutputBuffer(task, OutputBufferStatus::kNoMoreProducer);
 
   deleteResults(taskId, 3);
   fetchEndMarker(taskId, 4, 2);
@@ -692,7 +689,7 @@ TEST_F(OutputBufferManagerTest, basicBroadcast) {
   bufferManager_->updateOutputBuffers(taskId, 5, false);
   EXPECT_FALSE(bufferManager_->isFinished(taskId));
   bufferManager_->updateOutputBuffers(taskId, 6, false);
-  verifyOutputBuffer(task, OutputBufferStatus::kRunning);
+  verifyOutputBuffer(task, OutputBufferStatus::kNoMoreProducer);
 
   // Fetch all for the new added destinations.
   fetch(taskId, 5, 0, 1'000'000'000, 3, true);

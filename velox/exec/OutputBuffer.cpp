@@ -695,7 +695,7 @@ double OutputBuffer::getUtilization() const {
 }
 
 bool OutputBuffer::isOverutilized() const {
-  return (totalSize_ > (0.5 * maxSize_)) && !atEnd_;
+  return (totalSize_ > (0.5 * maxSize_)) || atEnd_;
 }
 
 OutputBuffer::Stats OutputBuffer::stats() {

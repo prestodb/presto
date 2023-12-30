@@ -1143,7 +1143,7 @@ TEST_F(TaskTest, outputBufferSize) {
   // Need to call requestCancel to explicitly terminate the task.
   EXPECT_GT(finishStats.outputBufferUtilization, 0);
   EXPECT_LT(finishStats.outputBufferUtilization, 1);
-  EXPECT_FALSE(finishStats.outputBufferOverutilized);
+  EXPECT_TRUE(finishStats.outputBufferOverutilized);
   task->requestCancel();
 }
 
