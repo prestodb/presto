@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <regex>
+
 #include <velox/type/Timestamp.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
@@ -300,6 +302,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
         .capturePlanNodeId(probeScanNodeId)
         .project({"c3 as x", "c2 as y", "c1 as z", "c0 as w", "c4", "c5"});
     // Hash or Nested Loop join.
+    core::PlanNodeId joinNodeId;
     if (i == 0) {
       planBuilder
           .hashJoin(
@@ -312,6 +315,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
                   .planNode(),
               "",
               {"x", "y", "z", "w", "c4", "c5"})
+          .capturePlanNodeId(joinNodeId)
           .localPartitionRoundRobinRow()
           .project({"w as c0", "z as c1", "y as c2", "x as c3", "c4", "c5"})
           .planNode();
@@ -416,6 +420,29 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
     EXPECT_EQ(exec::TaskState::kFinished, task->state());
     EXPECT_EQ(
         std::unordered_set<int32_t>({1, 5, 8}), getCompletedSplitGroups(task));
+    if (i == 0) {
+      // Check each split group has a separate hash join node pool.
+      const std::unordered_set<int32_t> expectedSplitGroupIds({1, 5, 8});
+      int numSplitGroupJoinNodes{0};
+      task->pool()->visitChildren([&](memory::MemoryPool* childPool) -> bool {
+        if (folly::StringPiece(childPool->name())
+                .startsWith(fmt::format("node.{}[", joinNodeId))) {
+          ++numSplitGroupJoinNodes;
+          std::vector<std::string> parts;
+          folly::split(".", childPool->name(), parts);
+          const std::string name = parts[1];
+          parts.clear();
+          folly::split("[", name, parts);
+          const std::string splitGroupIdStr =
+              parts[1].substr(0, parts[1].size() - 1);
+          EXPECT_TRUE(
+              expectedSplitGroupIds.count(atoi(splitGroupIdStr.c_str())))
+              << splitGroupIdStr;
+        }
+        return true;
+      });
+      ASSERT_EQ(numSplitGroupJoinNodes, expectedSplitGroupIds.size());
+    }
   }
 }
 

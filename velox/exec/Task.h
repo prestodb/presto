@@ -298,6 +298,7 @@ class Task : public std::enable_shared_from_this<Task> {
   /// be called from the Operator's constructor.
   velox::memory::MemoryPool* addOperatorPool(
       const core::PlanNodeId& planNodeId,
+      uint32_t splitGroupId,
       int pipelineId,
       uint32_t driverId,
       const std::string& operatorType);
@@ -641,11 +642,16 @@ class Task : public std::enable_shared_from_this<Task> {
   // Invoked to initialize the memory pool for this task on creation.
   void initTaskPool();
 
-  // Creates new instance of MemoryPool for a plan node, stores it in the task
+  // Creates new instance of memory pool for a plan node, stores it in the task
   // to ensure lifetime and returns a raw pointer.
-  memory::MemoryPool* getOrAddNodePool(
+  memory::MemoryPool* getOrAddNodePool(const core::PlanNodeId& planNodeId);
+
+  // Similar to getOrAddNodePool but creates the memory pool instance for a hash
+  // join plan node. If 'splitGroupId' is not kUngroupedGroupId, it specifies
+  // the split group id under the grouped execution mode.
+  memory::MemoryPool* getOrAddJoinNodePool(
       const core::PlanNodeId& planNodeId,
-      bool isHashJoinNode = false);
+      uint32_t splitGroupId);
 
   // Creates a memory reclaimer instance for a plan node if the task memory
   // pool has set memory reclaimer. If 'isHashJoinNode' is true, it creates a
@@ -909,7 +915,7 @@ class Task : public std::enable_shared_from_this<Task> {
   // pointer.
   //
   // NOTE: 'childPools_' holds the ownerships of node memory pools.
-  std::unordered_map<core::PlanNodeId, memory::MemoryPool*> nodePools_;
+  std::unordered_map<std::string, memory::MemoryPool*> nodePools_;
 
   // Set to true by OutputBufferManager when all output is
   // acknowledged. If this happens before Drivers are at end, the last

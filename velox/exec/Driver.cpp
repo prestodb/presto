@@ -121,7 +121,8 @@ const core::QueryConfig& DriverCtx::queryConfig() const {
 velox::memory::MemoryPool* DriverCtx::addOperatorPool(
     const core::PlanNodeId& planNodeId,
     const std::string& operatorType) {
-  return task->addOperatorPool(planNodeId, pipelineId, driverId, operatorType);
+  return task->addOperatorPool(
+      planNodeId, splitGroupId, pipelineId, driverId, operatorType);
 }
 
 std::optional<common::SpillConfig> DriverCtx::makeSpillConfig(
