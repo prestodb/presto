@@ -350,6 +350,21 @@ int32_t ByteOutputStream::newRangeSize(int32_t bytes) const {
   return bits::roundUp(bytes, memory::AllocationTraits::kPageSize);
 }
 
+void ByteOutputStream::ensureSpace(int32_t bytes) {
+  const auto available = current_->size - current_->position;
+  int64_t toExtend = bytes - available;
+  const auto originalRangeIdx = current_ - ranges_.data();
+  const auto originalPosition = current_->position;
+  while (toExtend > 0) {
+    current_->position = current_->size;
+    extend(toExtend);
+    toExtend -= current_->size;
+  }
+  // Restore original position.
+  current_ = &ranges_[originalRangeIdx];
+  current_->position = originalPosition;
+}
+
 ByteInputStream ByteOutputStream::inputStream() const {
   VELOX_CHECK(!ranges_.empty());
   updateEnd();

@@ -321,10 +321,14 @@ TEST_F(ByteStreamTest, bits) {
 }
 
 TEST_F(ByteStreamTest, appendWindow) {
+  // A littel over 1MB. We must test appendss that involve multiple extend()
+  // calls for one window.
+  constexpr int32_t kNumWords = 140000;
   Scratch scratch;
   std::vector<uint64_t> words;
   uint64_t seed = 0x12345689abcdefLLU;
-  for (auto i = 0; i < 1000; ++i) {
+  words.reserve(kNumWords);
+  for (auto i = 0; i < kNumWords; ++i) {
     words.push_back(seed * (i + 1));
   }
   auto arena = newArena();
@@ -334,13 +338,21 @@ TEST_F(ByteStreamTest, appendWindow) {
   std::vector<int32_t> sizes = {1, 19, 52, 58, 129};
   int32_t counter = 0;
   while (offset < words.size()) {
-    auto numWords =
-        std::min<int32_t>(words.size() - offset, sizes[counter % sizes.size()]);
-    AppendWindow<uint64_t> window(stream, scratch);
-    auto ptr = window.get(numWords);
-    memcpy(ptr, words.data() + offset, numWords * sizeof(words[0]));
-    offset += numWords;
-    ++counter;
+    // there is one large window that spans multiple extend() calls.
+    auto numWords = std::min<int32_t>(
+        words.size() - offset,
+        (counter == 2 ? 130000 : sizes[counter % sizes.size()]));
+    int32_t bytes = -1;
+    {
+      AppendWindow<uint64_t> window(stream, scratch);
+      auto ptr = window.get(numWords);
+      bytes = arena->pool()->currentBytes();
+      memcpy(ptr, words.data() + offset, numWords * sizeof(words[0]));
+      offset += numWords;
+      ++counter;
+    }
+    // We check that there is no allocation at exit of AppendWindow block.k
+    EXPECT_EQ(arena->pool()->currentBytes(), bytes);
   }
   std::stringstream stringStream;
   OStreamOutputStream out(&stringStream);

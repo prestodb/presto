@@ -352,11 +352,19 @@ class ByteOutputStream {
           current_->buffer + current_->position - bytes);
     }
     // If the tail is not large enough, make  temp of the right size
-    // in scratch.
+    // in scratch. Extend the stream so that there is guaranteed space to copy
+    // the scratch to the stream. This copy takes place in destruction of
+    // AppendWindow and must not allocate so that it is noexcept.
+    ensureSpace(bytes);
     return scratchPtr.get(size);
   }
 
   void extend(int32_t bytes);
+
+  // Calls extend() enough times to make sure 'bytes' bytes can be
+  // appended without new allocation. Does not change the append
+  // position.
+  void ensureSpace(int32_t bytes);
 
   int32_t newRangeSize(int32_t bytes) const;
 
@@ -404,11 +412,17 @@ class AppendWindow {
   AppendWindow(ByteOutputStream& stream, Scratch& scratch)
       : stream_(stream), scratchPtr_(scratch) {}
 
-  ~AppendWindow() {
+  ~AppendWindow() noexcept {
     if (scratchPtr_.size()) {
-      stream_.appendStringView(std::string_view(
-          reinterpret_cast<const char*>(scratchPtr_.get()),
-          scratchPtr_.size() * sizeof(T)));
+      try {
+        stream_.appendStringView(std::string_view(
+            reinterpret_cast<const char*>(scratchPtr_.get()),
+            scratchPtr_.size() * sizeof(T)));
+      } catch (const std::exception& e) {
+        // This is impossible because construction ensures there is space for
+        // the bytes in the stream.
+        LOG(FATAL) << "throw from AppendWindo append: " << e.what();
+      }
     }
   }
 
