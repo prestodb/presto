@@ -895,7 +895,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .aggregate(SetAggregationFunction.class)
                 .aggregate(SetUnionFunction.class)
-                .function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg(), featuresConfig.getArrayAggGroupImplementation()))
+                .aggregate(ArrayAggregationFunction.class)
                 .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript()))
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MAP_UNION, MAP_UNION_SUM)
