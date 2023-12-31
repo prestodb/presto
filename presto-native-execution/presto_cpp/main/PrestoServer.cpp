@@ -443,8 +443,8 @@ void PrestoServer::run() {
     connectors.emplace_back(velox::connector::getConnector(connectorId));
   }
 
-  auto memoryAllocator = velox::memory::MemoryAllocator::getInstance();
-  auto asyncDataCache = cache::AsyncDataCache::getInstance();
+  auto* memoryAllocator = velox::memory::memoryManager()->allocator();
+  auto* asyncDataCache = cache::AsyncDataCache::getInstance();
   periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverExecutor_.get(),
       httpServer_->getExecutor(),
@@ -607,16 +607,34 @@ void PrestoServer::initializeVeloxMemory() {
   const uint64_t memoryGb = systemConfig->systemMemoryGb();
   PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
 
-  const int64_t memoryBytes = memoryGb << 30;
+  // Set up velox memory manager.
+  memory::MemoryManagerOptions options;
+  options.allocatorCapacity = memoryGb << 30;
   if (systemConfig->useMmapAllocator()) {
-    memory::MmapAllocator::Options options;
-    options.capacity = memoryBytes;
+    options.useMmapAllocator = true;
     options.useMmapArena = systemConfig->useMmapArena();
     options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
-    allocator_ = std::make_shared<memory::MmapAllocator>(options);
-  } else {
-    allocator_ = memory::MemoryAllocator::createDefaultInstance();
   }
+  options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
+  options.trackDefaultUsage =
+      systemConfig->enableSystemMemoryPoolUsageTracking();
+  if (!systemConfig->memoryArbitratorKind().empty()) {
+    options.arbitratorKind = systemConfig->memoryArbitratorKind();
+    const uint64_t queryMemoryGb = systemConfig->queryMemoryGb();
+    VELOX_USER_CHECK_LE(
+        queryMemoryGb,
+        memoryGb,
+        "Query memory capacity must not be larger than system memory capacity");
+    options.arbitratorCapacity = queryMemoryGb << 30;
+    options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
+    options.memoryPoolTransferCapacity =
+        systemConfig->memoryPoolTransferCapacity();
+    options.arbitrationStateCheckCb = velox::exec::memoryArbitrationStateCheck;
+  }
+  memory::initializeMemoryManager(options);
+  PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
+                           << memory::memoryManager()->toString();
+
   if (systemConfig->asyncDataCacheEnabled()) {
     std::unique_ptr<cache::SsdCache> ssd;
     const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
@@ -643,7 +661,8 @@ void PrestoServer::initializeVeloxMemory() {
     }
     std::string cacheStr =
         ssd == nullptr ? "AsyncDataCache" : "AsyncDataCache with SSD";
-    cache_ = cache::AsyncDataCache::create(allocator_.get(), std::move(ssd));
+    cache_ = cache::AsyncDataCache::create(
+        memory::memoryManager()->allocator(), std::move(ssd));
     cache::AsyncDataCache::setInstance(cache_.get());
     PRESTO_STARTUP_LOG(INFO) << cacheStr << " has been setup";
 
@@ -664,30 +683,6 @@ void PrestoServer::initializeVeloxMemory() {
         0,
         "Async data cache cannot be disabled if ssd cache is enabled");
   }
-
-  memory::MemoryAllocator::setDefaultInstance(allocator_.get());
-  // Set up velox memory manager.
-  memory::MemoryManagerOptions options;
-  options.capacity = memoryBytes;
-  options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
-  options.trackDefaultUsage =
-      systemConfig->enableSystemMemoryPoolUsageTracking();
-  if (!systemConfig->memoryArbitratorKind().empty()) {
-    options.arbitratorKind = systemConfig->memoryArbitratorKind();
-    const uint64_t queryMemoryGb = systemConfig->queryMemoryGb();
-    VELOX_USER_CHECK_LE(
-        queryMemoryGb,
-        memoryGb,
-        "Query memory capacity must not be larger than system memory capacity");
-    options.queryMemoryCapacity = queryMemoryGb << 30;
-    options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
-    options.memoryPoolTransferCapacity =
-        systemConfig->memoryPoolTransferCapacity();
-    options.arbitrationStateCheckCb = velox::exec::memoryArbitrationStateCheck;
-  }
-  memory::initializeMemoryManager(options);
-  PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
-                           << memory::memoryManager()->toString();
 }
 
 void PrestoServer::stop() {

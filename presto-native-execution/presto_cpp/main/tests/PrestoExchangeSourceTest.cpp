@@ -390,17 +390,20 @@ struct Params {
 
 class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
  public:
+  static void SetUpTestCase() {
+    MemoryManagerOptions options;
+    options.allocatorCapacity = 1L << 30;
+    options.useMmapAllocator = true;
+    MemoryManager::testingSetInstance(options);
+  }
+
   void SetUp() override {
     pool_ = memory::deprecatedAddDefaultLeafMemoryPool();
 
-    memory::MmapAllocator::Options options;
-    options.capacity = 1L << 30;
-    allocator_ = std::make_unique<memory::MmapAllocator>(options);
     exchangeCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
         GetParam().exchangeCpuThreadPoolSize);
     exchangeIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
         GetParam().exchangeIoThreadPoolSize);
-    memory::MemoryAllocator::setDefaultInstance(allocator_.get());
     TestValue::enable();
 
     filesystems::registerLocalFileSystem();
@@ -417,7 +420,6 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   }
 
   void TearDown() override {
-    memory::MemoryAllocator::setDefaultInstance(nullptr);
     TestValue::disable();
   }
 
@@ -455,7 +457,6 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
-  std::unique_ptr<memory::MemoryAllocator> allocator_;
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_;
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_;
   ConnectionPools connectionPools_;
