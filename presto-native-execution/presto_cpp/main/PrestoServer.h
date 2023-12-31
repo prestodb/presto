@@ -193,9 +193,6 @@ class PrestoServer {
 
   std::unique_ptr<ConnectionPools> exchangeSourceConnectionPools_;
 
-  // Instance of MemoryAllocator used for all query memory allocations.
-  std::shared_ptr<velox::memory::MemoryAllocator> allocator_;
-
   // If not null,  the instance of AsyncDataCache used for in-memory file cache.
   std::shared_ptr<velox::cache::AsyncDataCache> cache_;
 
