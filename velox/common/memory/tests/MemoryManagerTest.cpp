@@ -202,7 +202,6 @@ TEST_F(MemoryManagerTest, addPoolWithArbitrator) {
   options.arbitratorKind = arbitratorKind_;
   // The arbitrator capacity will be overridden by the memory manager's
   // capacity.
-  options.capacity = options.capacity;
   const uint64_t initialPoolCapacity = options.allocatorCapacity / 32;
   options.memoryPoolInitCapacity = initialPoolCapacity;
   MemoryManager manager{options};

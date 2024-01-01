@@ -206,23 +206,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
   static std::string kindString(Kind kind);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  /// Returns the process-wide default instance or an application-supplied
-  /// custom instance set via setDefaultInstance().
-  static MemoryAllocator* getInstance();
-
-  /// Overrides the process-wide default instance. The caller keeps ownership
-  /// and must not destroy the instance until it is empty. Calling this with
-  /// nullptr restores the initial process-wide default instance.
-  static void setDefaultInstance(MemoryAllocator* instance);
-
-  /// Creates a default MemoryAllocator instance but does not set this to
-  /// process default.
-  static std::shared_ptr<MemoryAllocator> createDefaultInstance();
-
-  static void testingDestroyInstance();
-#endif
-
   virtual ~MemoryAllocator() = default;
 
   static constexpr int32_t kMaxSizeClasses = 12;
@@ -517,14 +500,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   bool isPersistentFailureInjection_{false};
 
   Stats stats_;
-
- private:
-  static std::mutex initMutex_;
-  // Singleton instance.
-  static std::shared_ptr<MemoryAllocator> instance_;
-  // Application-supplied custom implementation of MemoryAllocator to be
-  // returned by getInstance().
-  static MemoryAllocator* customInstance_;
 };
 
 std::ostream& operator<<(std::ostream& out, const MemoryAllocator::Kind& kind);

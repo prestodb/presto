@@ -417,7 +417,6 @@ class MockSharedArbitrationTest : public testing::Test {
     options.allocatorCapacity = memoryCapacity;
     std::string arbitratorKind = "SHARED";
     options.arbitratorKind = arbitratorKind;
-    options.capacity = options.capacity;
     options.memoryPoolInitCapacity = memoryPoolInitCapacity;
     options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
     options.arbitrationStateCheckCb = std::move(arbitrationStateCheckCb);

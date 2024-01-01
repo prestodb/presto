@@ -121,15 +121,6 @@ struct MemoryManagerOptions {
   /// NOTE: this only applies for MmapAllocator.
   int32_t maxMallocBytes{3072};
 
-  /// Deprecated, do not use.
-  int64_t capacity{kMaxMemory};
-
-  /// Deprecated, do not use.
-  int64_t queryMemoryCapacity{kMaxMemory};
-
-  /// Deprecated, do not use.
-  MemoryAllocator* allocator{nullptr};
-
   /// ================== 'MemoryArbitrator' settings =================
 
   /// Memory capacity available for query/task memory pools. This capacity

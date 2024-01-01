@@ -332,7 +332,6 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     MemoryManagerOptions options;
     options.allocatorCapacity = memoryCapacity;
     options.arbitratorKind = "SHARED";
-    options.capacity = options.capacity;
     options.memoryPoolInitCapacity = memoryPoolInitCapacity;
     options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
     options.memoryReclaimWaitMs = maxReclaimWaitMs;

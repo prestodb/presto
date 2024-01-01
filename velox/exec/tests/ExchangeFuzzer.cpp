@@ -408,7 +408,6 @@ int main(int argc, char** argv) {
   memory::MemoryManagerOptions options;
   options.useMmapAllocator = true;
   options.allocatorCapacity = 20UL << 30;
-  options.capacity = 20UL << 30;
   options.useMmapArena = true;
   options.mmapArenaCapacityRatio = 1;
   memory::MemoryManager::initialize(options);

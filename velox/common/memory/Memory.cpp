@@ -38,19 +38,14 @@ std::unique_ptr<MemoryManager>& instance() {
 
 std::shared_ptr<MemoryAllocator> createAllocator(
     const MemoryManagerOptions& options) {
-  if (options.allocator != nullptr) {
-    return options.allocator->shared_from_this();
-  }
   if (options.useMmapAllocator) {
     MmapAllocator::Options mmapOptions;
-    mmapOptions.capacity =
-        std::min(options.allocatorCapacity, options.capacity);
+    mmapOptions.capacity = options.allocatorCapacity;
     mmapOptions.useMmapArena = options.useMmapArena;
     mmapOptions.mmapArenaCapacityRatio = options.mmapArenaCapacityRatio;
     return std::make_shared<MmapAllocator>(mmapOptions);
   } else {
-    return std::make_shared<MallocAllocator>(
-        std::min(options.allocatorCapacity, options.capacity));
+    return std::make_shared<MallocAllocator>(options.allocatorCapacity);
   }
 }
 
@@ -58,11 +53,10 @@ std::unique_ptr<MemoryArbitrator> createArbitrator(
     const MemoryManagerOptions& options) {
   // TODO: consider to reserve a small amount of memory to compensate for the
   // non-reclaimable cache memory which are pinned by query accesses if enabled.
-  const auto arbitratorCapacity =
-      std::min(options.queryMemoryCapacity, options.arbitratorCapacity);
   return MemoryArbitrator::create(
       {.kind = options.arbitratorKind,
-       .capacity = std::min(arbitratorCapacity, options.allocatorCapacity),
+       .capacity =
+           std::min(options.arbitratorCapacity, options.allocatorCapacity),
        .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
        .memoryReclaimWaitMs = options.memoryReclaimWaitMs,
        .arbitrationStateCheckCb = options.arbitrationStateCheckCb});
@@ -102,6 +96,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
   VELOX_CHECK_NOT_NULL(allocator_);
   VELOX_CHECK_NOT_NULL(arbitrator_);
   VELOX_USER_CHECK_GE(capacity(), 0);
+  VELOX_CHECK_GE(allocator_->capacity(), arbitrator_->capacity());
   MemoryAllocator::alignmentCheck(0, alignment_);
   defaultRoot_->grow(defaultRoot_->maxCapacity());
   const size_t numSharedPools =
