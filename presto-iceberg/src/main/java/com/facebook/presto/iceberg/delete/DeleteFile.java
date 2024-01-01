@@ -61,14 +61,14 @@ public final class DeleteFile
 
     @JsonCreator
     public DeleteFile(
-            FileContent content,
-            String path,
-            FileFormat format,
-            long recordCount,
-            long fileSizeInBytes,
-            List<Integer> equalityFieldIds,
-            Map<Integer, byte[]> lowerBounds,
-            Map<Integer, byte[]> upperBounds)
+            @JsonProperty("content") FileContent content,
+            @JsonProperty("path") String path,
+            @JsonProperty("format") FileFormat format,
+            @JsonProperty("recordCount") long recordCount,
+            @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
+            @JsonProperty("equalityFieldIds") List<Integer> equalityFieldIds,
+            @JsonProperty("lowerBounds") Map<Integer, byte[]> lowerBounds,
+            @JsonProperty("upperBounds") Map<Integer, byte[]> upperBounds)
     {
         this.content = requireNonNull(content, "content is null");
         this.path = requireNonNull(path, "path is null");
