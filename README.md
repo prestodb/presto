@@ -124,7 +124,7 @@ Run `make` in the root directory to compile the sources. For development, use
 an optimized version.  Use `make unittest` to build and run tests.
 
 Note that,
-* Velox requires C++17 , thus minimum supported compiler is GCC 5.0 and Clang 5.0.
+* Velox requires a compiler at the minimum GCC 9.0 or Clang 14.0.
 * Velox requires the CPU to support instruction sets:
   * bmi
   * bmi2
