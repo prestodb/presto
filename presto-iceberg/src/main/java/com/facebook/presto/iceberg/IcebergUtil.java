@@ -227,7 +227,7 @@ public final class IcebergUtil
             return name.getSnapshotId();
         }
 
-        if (name.getTableType() == TableType.CHANGELOG) {
+        if (name.getTableType() == IcebergTableType.CHANGELOG) {
             return Optional.ofNullable(SnapshotUtil.oldestAncestor(table)).map(Snapshot::snapshotId);
         }
 
