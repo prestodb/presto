@@ -87,9 +87,9 @@ class PrestoServer {
  protected:
   /// Hook for derived PrestoServer implementations to add/stop additional
   /// periodic tasks.
-  virtual void addAdditionalPeriodicTasks(){};
+  virtual void addAdditionalPeriodicTasks(){}
 
-  virtual void stopAdditionalPeriodicTasks(){};
+  virtual void stopAdditionalPeriodicTasks(){}
 
   virtual void initializeCoordinatorDiscoverer();
 
