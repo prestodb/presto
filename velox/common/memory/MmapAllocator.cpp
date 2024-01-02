@@ -104,7 +104,7 @@ bool MmapAllocator::allocateNonContiguousWithoutRetry(
   if (reservationCB != nullptr) {
     try {
       reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
           << "Exceeded memory reservation limit when reserve " << numNeededPages
           << " new pages when allocate " << mix.totalPages << " pages";
