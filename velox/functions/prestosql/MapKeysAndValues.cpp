@@ -107,7 +107,7 @@ class MapValuesFunction : public MapKeyValueFunction {
       exec::EvalCtx& context) const override {
     VELOX_CHECK(
         arg->typeKind() == TypeKind::MAP,
-        "Unsupported type for map_keys function {}",
+        "Unsupported type for map_values function {}",
         mapTypeKindToName(arg->typeKind()));
 
     auto mapVector = arg->as<MapVector>();
