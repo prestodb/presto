@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
-public enum TableType
+public enum IcebergTableType
 {
     DATA,
     HISTORY,
