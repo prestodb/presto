@@ -126,6 +126,7 @@ import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
+import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -509,7 +510,8 @@ public class LocalQueryRunner
                 new ThrowingClusterTtlProviderManager(),
                 historyBasedPlanStatisticsManager,
                 new TracerProviderManager(new TracingConfig()),
-                new NodeStatusNotificationManager());
+                new NodeStatusNotificationManager(),
+                new SystemSessionPropertyProviderManager());
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
