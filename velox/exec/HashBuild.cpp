@@ -30,9 +30,11 @@ namespace {
 BlockingReason fromStateToBlockingReason(HashBuild::State state) {
   switch (state) {
     case HashBuild::State::kRunning:
-      FOLLY_FALLTHROUGH;
+      [[fallthrough]];
     case HashBuild::State::kFinish:
       return BlockingReason::kNotBlocked;
+    case HashBuild::State::kYield:
+      return BlockingReason::kYield;
     case HashBuild::State::kWaitForSpill:
       return BlockingReason::kWaitForSpill;
     case HashBuild::State::kWaitForBuild:
@@ -912,6 +914,11 @@ void HashBuild::processSpillInput() {
     if (!isRunning()) {
       return;
     }
+    if (operatorCtx_->driver()->shouldYield()) {
+      state_ = State::kYield;
+      future_ = ContinueFuture{folly::Unit{}};
+      return;
+    }
   }
   noMoreInputInternal();
 }
@@ -963,6 +970,11 @@ BlockingReason HashBuild::isBlocked(ContinueFuture* future) {
       if (isInputFromSpill()) {
         processSpillInput();
       }
+      break;
+    case State::kYield:
+      setRunning();
+      VELOX_CHECK(isInputFromSpill());
+      processSpillInput();
       break;
     case State::kFinish:
       break;
