@@ -58,7 +58,7 @@ bool MallocAllocator::allocateNonContiguousWithoutRetry(
     bytesToAllocate = AllocationTraits::pageBytes(mix.totalPages) - freedBytes;
     try {
       reservationCB(bytesToAllocate, true);
-    } catch (std::exception& e) {
+    } catch (std::exception&) {
       VELOX_MEM_LOG(WARNING)
           << "Failed to reserve " << succinctBytes(bytesToAllocate)
           << " for non-contiguous allocation of " << numPages
@@ -204,7 +204,7 @@ bool MallocAllocator::allocateContiguousImpl(
   if (reservationCB != nullptr) {
     try {
       reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
-    } catch (std::exception& e) {
+    } catch (std::exception&) {
       // If the new memory reservation fails, we need to release the memory
       // reservation of the freed contiguous and non-contiguous memory.
       VELOX_MEM_LOG(WARNING)
