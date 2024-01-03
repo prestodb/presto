@@ -23,6 +23,7 @@
 #include "velox/exec/Exchange.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/SharedArbitrator.h"
+#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -54,12 +55,12 @@ OperatorTestBase::~OperatorTestBase() {
 void OperatorTestBase::SetUpTestCase() {
   FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   FLAGS_velox_memory_leak_check_enabled = true;
+  exec::SharedArbitrator::registerFactory();
   memory::MemoryManagerOptions options;
   options.allocatorCapacity = 8L << 30;
   memory::MemoryManager::testingSetInstance(options);
   asyncDataCache_ = cache::AsyncDataCache::create(memoryManager()->allocator());
   cache::AsyncDataCache::setInstance(asyncDataCache_.get());
-  exec::SharedArbitrator::registerFactory();
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();
   TestValue::enable();

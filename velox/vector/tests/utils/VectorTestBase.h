@@ -148,6 +148,19 @@ class VectorTestBase {
     return createVectors(type, byteSize, {.vectorSize = vectorSize});
   }
 
+  std::vector<RowVectorPtr> createVectors(
+      uint32_t numVectors,
+      const RowTypePtr& type,
+      const VectorFuzzer::Options& fuzzerOpts = {}) {
+    VectorFuzzer fuzzer(fuzzerOpts, pool());
+    std::vector<RowVectorPtr> vectors;
+    vectors.reserve(numVectors);
+    for (int i = 0; i < numVectors; ++i) {
+      vectors.emplace_back(fuzzer.fuzzRow(type));
+    }
+    return vectors;
+  }
+
   /// Splits input vector into 'n' vectors evenly. Input vector must have at
   /// least 'n' rows.
   /// @return 'n' vectors
