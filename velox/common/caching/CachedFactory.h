@@ -169,7 +169,7 @@ std::pair<bool, Value> CachedFactory<Key, Value, Generator>::generate(
     // TODO: consider using folly/ScopeGuard here.
     try {
       generatedValue = (*generator_)(key);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       {
         std::lock_guard<std::mutex> pending_lock(pendingMu_);
         pending_.erase(key);
