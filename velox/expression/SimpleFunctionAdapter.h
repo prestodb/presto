@@ -236,7 +236,7 @@ class SimpleFunctionAdapter : public VectorFunction {
         unpackInitialize<0>(config, constantInputs);
       } catch (const VeloxRuntimeError&) {
         throw;
-      } catch (const std::exception& e) {
+      } catch (const std::exception&) {
         initializeException_ = std::current_exception();
       }
     }
