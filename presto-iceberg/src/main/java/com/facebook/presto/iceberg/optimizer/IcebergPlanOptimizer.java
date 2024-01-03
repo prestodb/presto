@@ -120,6 +120,9 @@ public class IcebergPlanOptimizer
             TupleDomain<IcebergColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
                     .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
                     .transform(nameToColumnHandlesMapping::get);
+            boolean hasSubfieldsInNestedStructures = decomposedFilter.getTupleDomain().getDomains()
+                    .map(map -> map.keySet().stream().anyMatch(subfield -> !subfield.getPath().isEmpty()))
+                    .orElse(false);
 
             // Simplify call is required because iceberg does not support a large value list for IN predicate
             TupleDomain<IcebergColumnHandle> simplifiedColumnDomain = entireColumnDomain.simplify();
@@ -145,7 +148,7 @@ public class IcebergPlanOptimizer
                 return newTableScan;
             }
 
-            if (TRUE_CONSTANT.equals(decomposedFilter.getRemainingExpression()) && simplifiedColumnDomain.equals(entireColumnDomain)) {
+            if (TRUE_CONSTANT.equals(decomposedFilter.getRemainingExpression()) && !hasSubfieldsInNestedStructures && simplifiedColumnDomain.equals(entireColumnDomain)) {
                 Set<Integer> predicateColumnIds = simplifiedColumnDomain.getDomains().get().keySet().stream()
                         .map(IcebergColumnHandle::getId)
                         .collect(toImmutableSet());

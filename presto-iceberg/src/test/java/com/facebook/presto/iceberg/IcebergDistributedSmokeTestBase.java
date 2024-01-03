@@ -893,6 +893,23 @@ public class IcebergDistributedSmokeTestBase
         dropTable(session, tableName);
     }
 
+    @Test
+    public void testFilterBySubfieldOfRowType()
+    {
+        Session session = getSession();
+        String tableName = "test_filter_by_subfieldofrow";
+
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, r row(a integer, b varchar))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, (1, '1001'))", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, (2, '1002'))", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, (3, '1003'))", 1);
+
+        assertQuery("SELECT * FROM " + tableName + " WHERE r.a = 1", "VALUES (1, (1, '1001'))");
+        assertQuery("SELECT * FROM " + tableName + " WHERE r.b = '1003'", "VALUES (3, (3, '1003'))");
+        assertQuery("SELECT * FROM " + tableName + " WHERE r.a > 1 and r.b < '1003'", "VALUES (2, (2, '1002'))");
+        dropTable(session, tableName);
+    }
+
     protected String getLocation(String schema, String table)
     {
         return null;
