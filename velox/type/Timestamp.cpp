@@ -62,7 +62,7 @@ void Timestamp::toGMT(const date::time_zone& zone) {
       sysTime;
   try {
     sysTime = zone.to_sys(localTime);
-  } catch (const date::ambiguous_local_time& error) {
+  } catch (const date::ambiguous_local_time&) {
     // If the time is ambiguous, pick the earlier possibility to be consistent
     // with Presto.
     sysTime = zone.to_sys(localTime, date::choose::earliest);
