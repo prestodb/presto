@@ -110,7 +110,8 @@ data by probing the hash table and continues execution as specified by
 downstream plan nodes. HashJoinNode is translated into two separate operators:
 HashProbe and HashBuild. HashProbe operator becomes part of the probe-side
 pipeline. HashBuild operator is installed as the last operator of the
-build-side pipeline. The output of the HashBuild operator is a hash table which
+build-side pipeline. The output of the HashBuild operator is a
+`hash table <hash-table.html>`_ which
 HashProbe operator gets access to via a special mechanism: JoinBridge.
 
 .. image:: images/join-pipelines.png
@@ -118,7 +119,7 @@ HashProbe operator gets access to via a special mechanism: JoinBridge.
     :align: center
 
 Both HashBuild and HashAggregation operators use the same data structure for the
-hash table: velox::exec::HashTable. The payload, the non-join key columns
+hash table: `velox::exec::HashTable <hash-table.html>`_. The payload, the non-join key columns
 referred to as dependent columns, are stored row-wise in the RowContainer.
 
 Using the hash table in join and aggregation allows for a future optimization
@@ -183,7 +184,7 @@ join key values on the build side are unique it is possible to replace the join
 completely with the pushed down filter. Velox detects such opportunities and
 turns the join into a no-op after pushing the filter down.
 
-Dynamic filter pushdown optimization is enabled for inner, left semi, and 
+Dynamic filter pushdown optimization is enabled for inner, left semi, and
 right semi joins.
 
 Broadcast Join

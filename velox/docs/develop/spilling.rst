@@ -7,7 +7,8 @@ Background
 
 Spilling in Velox allows a query to succeed using a limited amount of memory
 when some operators are accumulating large state. For example, a hash
-aggregation operator stores the intermediate aggregation state in a hash table,
+aggregation operator stores the intermediate aggregation state in a
+`hash table <hash-table.html>`_,
 and it starts to produce the results after processing all the input.  In high
 cardinality workloads (large number of groups) the size of the hash table
 exceeds the query’s memory limit.
