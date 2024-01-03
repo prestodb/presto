@@ -125,7 +125,7 @@ void DirectBufferedInput::makeLoads(
     bool shouldPrefetch) {
   if (requests.empty() || (requests.size() < 2 && !shouldPrefetch)) {
     // A single request has no other requests to coalesce with and is not
-    // eligibale to prefetch. This will be loded by itself on first use.
+    // eligible to prefetch. This will be loaded by itself on first use.
     return;
   }
   const int32_t maxDistance = options_.maxCoalesceDistance();
@@ -254,9 +254,9 @@ std::vector<cache::CachePin> DirectCoalescedLoad::loadData(bool isPrefetch) {
     }
     if (region.length > DirectBufferedInput::kTinySize) {
       if (&request != &requests_.back()) {
-        // Case where request is a little over quantum but is folowed by another
-        // within the max distance. Coalesces and allows reading the region of
-        // max quantum + max distance in one piece.
+        // Case where request is a little over quantum but is followed by
+        // another within the max distance. Coalesces and allows reading the
+        // region of max quantum + max distance in one piece.
         request.loadSize = region.length;
       } else {
         request.loadSize = std::min<int32_t>(region.length, loadQuantum_);

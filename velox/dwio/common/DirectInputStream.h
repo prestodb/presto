@@ -26,7 +26,7 @@ namespace facebook::velox::dwio::common {
 
 class DirectBufferedInput;
 
-/// An input sream over possibly coalesced loads. Created by
+/// An input stream over possibly coalesced loads. Created by
 /// DirectBufferedInput. Similar to CacheInputStream but does not use cache.
 class DirectInputStream : public SeekableInputStream {
  public:

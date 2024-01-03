@@ -76,7 +76,7 @@ class CacheInputStream : public SeekableInputStream {
   /// Sets the stream to range over a window that starts at the current position
   /// and is 'remainingBytes' bytes in size. 'remainingBytes' must be <=
   /// 'region_.length - position_'. The stream cannot be used for reading
-  /// outside of the window. Use together wiht clone() and skip().
+  /// outside of the window. Use together with clone() and skip().
   void setRemainingBytes(uint64_t remainingBytes);
 
   /// Causes the next load quantum to be scheduled for read-ahead when
@@ -154,8 +154,8 @@ class CacheInputStream : public SeekableInputStream {
   // moving to the next load quantum.
   bool prefetchStarted_{false};
 
-  // True if a pin should be set to lowest retention score after
-  // unpinning. This applies to sequential reads where a second access
+  // True if a pin should be set to the lowest retention score after
+  // unpinning. This applies to sequential reads where second access
   // to the page is not expected.
   bool noRetention_{false};
 };

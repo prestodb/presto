@@ -163,8 +163,6 @@ std::vector<folly::Range<char*>> makeRanges(
 }
 } // namespace
 void CacheInputStream::loadSync(Region region) {
-  // rawBytesRead is the number of bytes touched. Whether they come
-  // from disk, ssd or memory is itemized in different counters. A
   process::TraceContext trace("loadSync");
   int64_t hitSize = region.length;
   if (window_.has_value()) {
@@ -176,6 +174,8 @@ void CacheInputStream::loadSync(Region region) {
         std::max<int64_t>(windowStart, region.offset);
   }
 
+  // rawBytesRead is the number of bytes touched. Whether they come
+  // from disk, ssd or memory is itemized in different counters. A
   // coalesced read from InputStream removes itself from this count
   // so as not to double count when the individual parts are
   // hit.

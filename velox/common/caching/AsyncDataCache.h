@@ -578,9 +578,9 @@ class CacheShard {
   // Adds the stats of 'this' to 'stats'.
   void updateStats(CacheStats& stats);
 
-  // Appends a batch of non-saved SSD saveable entries in 'this' to
+  // Appends a batch of non-saved SSD savable entries in 'this' to
   // 'pins'. This may have to be called several times since this keeps
-  // limits on the batch to write at one time. The saveable entries
+  // limits on the batch to write at one time. The savable entries
   // are pinned for read. 'pins' should be written or dropped before
   // calling this a second time.
   void appendSsdSaveable(std::vector<CachePin>& pins);
