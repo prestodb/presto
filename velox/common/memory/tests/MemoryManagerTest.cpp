@@ -27,12 +27,10 @@ DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
 
 using namespace ::testing;
 
-namespace facebook {
-namespace velox {
-namespace memory {
+namespace facebook::velox::memory {
 
 namespace {
-constexpr folly::StringPiece kDefaultRootName{"__default_root__"};
+constexpr folly::StringPiece kSysRootName{"__sys_root__"};
 
 MemoryManager& toMemoryManager(MemoryManager& manager) {
   return *static_cast<MemoryManager*>(&manager);
@@ -93,7 +91,7 @@ TEST_F(MemoryManagerTest, Ctor) {
     ASSERT_EQ(
         manager.toString(),
         "Memory Manager[capacity 4.00GB alignment 64B usedBytes 0B number of "
-        "pools 1\nList of root pools:\n\t__default_root__\n"
+        "pools 1\nList of root pools:\n\t__sys_root__\n"
         "Memory Allocator[MALLOC capacity 4.00GB allocated bytes 0 "
         "allocated pages 0 mapped pages 0]\n"
         "ARBITRATOR[SHARED CAPACITY[4.00GB] STATS[numRequests 0 numSucceeded 0 "
@@ -262,10 +260,10 @@ TEST_F(MemoryManagerTest, defaultMemoryManager) {
   ASSERT_EQ(managerB.numPools(), 4);
   ASSERT_EQ(
       managerA.toString(),
-      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 4\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n\trefcount 2\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 4\nList of root pools:\n\t__sys_root__\n\tdefault_root_0\n\trefcount 2\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
   ASSERT_EQ(
       managerB.toString(),
-      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 4\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n\trefcount 2\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 4\nList of root pools:\n\t__sys_root__\n\tdefault_root_0\n\trefcount 2\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
   child1.reset();
   EXPECT_EQ(
       kSharedPoolCount + 1, managerA.testingDefaultRoot().getChildCount());
@@ -278,10 +276,10 @@ TEST_F(MemoryManagerTest, defaultMemoryManager) {
   ASSERT_EQ(managerB.numPools(), 1);
   ASSERT_EQ(
       managerA.toString(),
-      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 1\nList of root pools:\n\t__default_root__\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 1\nList of root pools:\n\t__sys_root__\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
   ASSERT_EQ(
       managerB.toString(),
-      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 1\nList of root pools:\n\t__default_root__\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
+      "Memory Manager[capacity UNLIMITED alignment 64B usedBytes 0B number of pools 1\nList of root pools:\n\t__sys_root__\nMemory Allocator[MALLOC capacity UNLIMITED allocated bytes 0 allocated pages 0 mapped pages 0]\nARBIRTATOR[NOOP CAPACITY[UNLIMITED]]]");
 }
 
 // TODO: remove this test when remove deprecatedAddDefaultLeafMemoryPool.
@@ -417,7 +415,7 @@ TEST_F(MemoryManagerTest, globalMemoryManager) {
     auto childII = manager->addLeafPool("another_child");
     ASSERT_EQ(childII->kind(), MemoryPool::Kind::kLeaf);
     ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 2);
-    ASSERT_EQ(childII->parent()->name(), kDefaultRootName.str());
+    ASSERT_EQ(childII->parent()->name(), kSysRootName.str());
     childII.reset();
     ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 1);
     ASSERT_EQ(rootII.getChildCount(), kSharedPoolCount + 1);
@@ -600,6 +598,4 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
   }
 }
 
-} // namespace memory
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::memory
