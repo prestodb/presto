@@ -32,13 +32,23 @@ namespace facebook::velox {
 
 struct TimestampToStringOptions {
   enum class Precision : int8_t {
-    kMilliseconds = 3,
-    kNanoseconds = 9,
+    kMilliseconds = 3, // 10^3 milliseconds are equal to one second.
+    kMicroseconds = 6, // 10^6 microseconds are equal to one second.
+    kNanoseconds = 9, // 10^9 nanoseconds are equal to one second.
   };
 
   Precision precision = Precision::kNanoseconds;
 
+  // Whether to add a leading '+' when year is greater than 9999.
+  bool leadingPositiveSign = false;
+
+  // Whether to skip trailing zeros of fractional part.
+  bool skipTrailingZeros = false;
+
+  // Whether padding zeros are added when the digits of year is less than 4.
   bool zeroPaddingYear = false;
+
+  // The separator of date and time.
   char dateTimeSeparator = 'T';
 
   enum class Mode : int8_t {

@@ -24,6 +24,14 @@
 namespace facebook::velox {
 namespace {
 
+std::string timestampToString(
+    Timestamp ts,
+    const TimestampToStringOptions& options) {
+  std::tm tm;
+  Timestamp::epochToUtc(ts.getSeconds(), tm);
+  return Timestamp::tmToString(tm, ts.getNanos(), options);
+}
+
 TEST(TimestampTest, fromMillisAndMicros) {
   int64_t positiveSecond = 10'000;
   int64_t negativeSecond = -10'000;
@@ -418,5 +426,64 @@ TEST(TimestampTest, tmToStringTimestamp) {
   // %FT%T - equivalent to "%Y-%m-%dT%H:%M:%S" (the ISO 8601 timestamp format)
   testTmToString("%FT%T", TimestampToStringOptions::Mode::kFull);
 }
+
+TEST(TimestampTest, leadingPositiveSign) {
+  TimestampToStringOptions options = {
+      .leadingPositiveSign = true,
+      .zeroPaddingYear = true,
+      .dateTimeSeparator = ' ',
+  };
+
+  ASSERT_EQ(
+      timestampToString(Timestamp(253402231016, 0), options),
+      "9999-12-31 04:36:56.000000000");
+  ASSERT_EQ(
+      timestampToString(Timestamp(253405036800, 0), options),
+      "+10000-02-01 16:00:00.000000000");
+}
+
+TEST(TimestampTest, skipTrailingZeros) {
+  TimestampToStringOptions options = {
+      .precision = TimestampToStringOptions::Precision::kMicroseconds,
+      .skipTrailingZeros = true,
+      .zeroPaddingYear = true,
+      .dateTimeSeparator = ' ',
+  };
+
+  ASSERT_EQ(
+      timestampToString(Timestamp(-946684800, 0), options),
+      "1940-01-02 00:00:00");
+  ASSERT_EQ(timestampToString(Timestamp(0, 0), options), "1970-01-01 00:00:00");
+  ASSERT_EQ(
+      timestampToString(Timestamp(0, 365), options), "1970-01-01 00:00:00");
+  ASSERT_EQ(
+      timestampToString(Timestamp(0, 65873), options),
+      "1970-01-01 00:00:00.000065");
+  ASSERT_EQ(
+      timestampToString(Timestamp(94668480000, 0), options),
+      "4969-12-04 00:00:00");
+  ASSERT_EQ(
+      timestampToString(Timestamp(946729316, 129999999), options),
+      "2000-01-01 12:21:56.129999");
+  ASSERT_EQ(
+      timestampToString(Timestamp(946729316, 129990000), options),
+      "2000-01-01 12:21:56.12999");
+  ASSERT_EQ(
+      timestampToString(Timestamp(946729316, 129900000), options),
+      "2000-01-01 12:21:56.1299");
+  ASSERT_EQ(
+      timestampToString(Timestamp(946729316, 129000000), options),
+      "2000-01-01 12:21:56.129");
+  ASSERT_EQ(
+      timestampToString(Timestamp(946729316, 129010000), options),
+      "2000-01-01 12:21:56.12901");
+  ASSERT_EQ(
+      timestampToString(Timestamp(946729316, 129001000), options),
+      "2000-01-01 12:21:56.129001");
+  ASSERT_EQ(
+      timestampToString(Timestamp(-50049331200, 726600000), options),
+      "0384-01-01 08:00:00.7266");
+}
+
 } // namespace
 } // namespace facebook::velox
