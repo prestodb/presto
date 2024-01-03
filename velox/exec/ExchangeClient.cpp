@@ -33,7 +33,7 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
     std::shared_ptr<ExchangeSource> source;
     try {
       source = ExchangeSource::create(taskId, destination_, queue_, pool_);
-    } catch (const VeloxException& e) {
+    } catch (const VeloxException&) {
       throw;
     } catch (const std::exception& e) {
       // Task ID can be very long. Truncate to 128 characters.

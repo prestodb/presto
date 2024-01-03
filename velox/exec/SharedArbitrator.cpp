@@ -300,7 +300,7 @@ bool SharedArbitrator::handleOOM(
       VELOX_MEM_POOL_ABORTED(
           memoryPoolAbortMessage(victim, requestor, targetBytes));
     }
-  } catch (VeloxRuntimeError& e) {
+  } catch (VeloxRuntimeError&) {
     abort(victim, std::current_exception());
   }
   // Free up all the unused capacity from the aborted memory pool and gives back
