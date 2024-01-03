@@ -766,14 +766,28 @@ class TableWriteTest : public HiveConnectorTestBase {
       const std::string& targetDir) {
     verifyPartitionedDirPath(filePath, targetDir);
     if (commitStrategy_ == CommitStrategy::kNoCommit) {
-      ASSERT_TRUE(RE2::FullMatch(
-          filePath.filename().string(), "0[0-9]+_0_TaskCursorQuery_[0-9]+"))
-          << filePath.filename().string();
+      if (fileFormat_ == FileFormat::PARQUET) {
+        ASSERT_TRUE(RE2::FullMatch(
+            filePath.filename().string(),
+            "0[0-9]+_0_TaskCursorQuery_[0-9]+\\.parquet$"))
+            << filePath.filename().string();
+      } else {
+        ASSERT_TRUE(RE2::FullMatch(
+            filePath.filename().string(), "0[0-9]+_0_TaskCursorQuery_[0-9]+"))
+            << filePath.filename().string();
+      }
     } else {
-      ASSERT_TRUE(RE2::FullMatch(
-          filePath.filename().string(),
-          ".tmp.velox.0[0-9]+_0_TaskCursorQuery_[0-9]+_.+"))
-          << filePath.filename().string();
+      if (fileFormat_ == FileFormat::PARQUET) {
+        ASSERT_TRUE(RE2::FullMatch(
+            filePath.filename().string(),
+            ".tmp.velox.0[0-9]+_0_TaskCursorQuery_[0-9]+_.+\\.parquet$"))
+            << filePath.filename().string();
+      } else {
+        ASSERT_TRUE(RE2::FullMatch(
+            filePath.filename().string(),
+            ".tmp.velox.0[0-9]+_0_TaskCursorQuery_[0-9]+_.+"))
+            << filePath.filename().string();
+      }
     }
   }
 
@@ -2449,7 +2463,15 @@ TEST_P(AllTableWriterTest, tableWriteOutputCheck) {
       if (commitStrategy_ == CommitStrategy::kNoCommit) {
         ASSERT_EQ(writeFileName, targetFileName);
       } else {
-        ASSERT_TRUE(writeFileName.find(targetFileName) != std::string::npos);
+        const std::string kParquetSuffix = ".parquet";
+        if (folly::StringPiece(targetFileName).endsWith(kParquetSuffix)) {
+          // Remove the .parquet suffix.
+          auto trimmedFilename = targetFileName.substr(
+              0, targetFileName.size() - kParquetSuffix.size());
+          ASSERT_TRUE(writeFileName.find(trimmedFilename) != std::string::npos);
+        } else {
+          ASSERT_TRUE(writeFileName.find(targetFileName) != std::string::npos);
+        }
       }
     }
     if (!commitContextVector->isNullAt(i)) {
