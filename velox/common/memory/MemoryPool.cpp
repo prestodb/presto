@@ -686,7 +686,7 @@ bool MemoryPoolImpl::maybeReserve(uint64_t increment) {
   const auto reservationToAdd = bits::roundUp(increment, kGrowthQuantum);
   try {
     reserve(reservationToAdd, true);
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     if (aborted()) {
       // NOTE: we shall throw to stop the query execution if the root memory
       // pool has been aborted. It is also unsafe to proceed as the memory abort
@@ -737,7 +737,7 @@ void MemoryPoolImpl::reserveThreadSafe(uint64_t size, bool reserveOnly) {
         "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe", this);
     try {
       incrementReservationThreadSafe(this, increment);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       // When race with concurrent memory reservation free, we might end up with
       // unused reservation but no used reservation if a retry memory
       // reservation attempt run into memory capacity exceeded error.
