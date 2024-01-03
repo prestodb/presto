@@ -102,4 +102,13 @@ SignatureMapType filterSignatures(
   }
   return output;
 }
+// Compare two vectors for selected rows and throw on mismatch.
+// If rows not provided, left and right are checked to have the same size, and
+// all rows are compared.
+void compareVectors(
+    const VectorPtr& left,
+    const VectorPtr& right,
+    const std::string& leftName = "left",
+    const std::string& rightName = "right",
+    const std::optional<SelectivityVector>& rows = std::nullopt);
 } // namespace facebook::velox::test

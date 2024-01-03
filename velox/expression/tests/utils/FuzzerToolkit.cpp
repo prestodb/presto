@@ -103,4 +103,38 @@ void compareExceptions(
   LOG(INFO) << "Exceptions match.";
 }
 
+void compareVectors(
+    const VectorPtr& left,
+    const VectorPtr& right,
+    const std::string& leftName,
+    const std::string& rightName,
+    const std::optional<SelectivityVector>& rowsInput) {
+  // Print vector contents if in verbose mode.
+  VLOG(1) << "Comparing vectors " << leftName << " vs " << rightName;
+
+  if (!rowsInput.has_value()) {
+    VELOX_CHECK_EQ(left->size(), right->size(), "Vectors must be equal size.");
+  }
+
+  const auto& rows =
+      rowsInput.has_value() ? *rowsInput : SelectivityVector(left->size());
+
+  rows.applyToSelected([&](vector_size_t row) {
+    VLOG(1) << fmt::format(
+        "At {} [ {} vs {} ]", row, left->toString(row), right->toString(row));
+  });
+  VLOG(1) << "===================";
+
+  rows.applyToSelected([&](vector_size_t row) {
+    VELOX_CHECK(
+        left->equalValueAt(right.get(), row, row),
+        "Different values at idx '{}': '{}' vs. '{}'",
+        row,
+        left->toString(row),
+        right->toString(row));
+  });
+
+  LOG(INFO) << "Two vectors match.";
+}
+
 } // namespace facebook::velox::test
