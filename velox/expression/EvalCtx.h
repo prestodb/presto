@@ -109,7 +109,7 @@ class EvalCtx {
         }
         // Avoid double throwing.
         setVeloxExceptionError(row, std::current_exception());
-      } catch (const std::exception& e) {
+      } catch (const std::exception&) {
         setError(row, std::current_exception());
       }
     });
