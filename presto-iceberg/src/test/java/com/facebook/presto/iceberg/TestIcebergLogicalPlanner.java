@@ -66,6 +66,7 @@ import static com.facebook.presto.common.predicate.ValueSet.ofRanges;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.isEntireColumn;
@@ -110,6 +111,56 @@ public class TestIcebergLogicalPlanner
             throws Exception
     {
         return createIcebergQueryRunner(ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), ImmutableMap.of());
+    }
+
+    @Test
+    public void testFiltersWithPushdownDisable()
+    {
+        // The filter pushdown session property is disabled by default
+        Session sessionWithoutFilterPushdown = getQueryRunner().getDefaultSession();
+
+        assertUpdate("CREATE TABLE test_filters_with_pushdown_disable(id int, name varchar, r row(a int, b varchar)) with (partitioning = ARRAY['id'])");
+
+        // Only identity partition column predicates, would be enforced totally by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT name, r FROM test_filters_with_pushdown_disable WHERE id = 10",
+                output(exchange(
+                        strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "r")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "test_filters_with_pushdown_disable",
+                        withColumnDomains(ImmutableMap.of(new Subfield(
+                                        "id",
+                                        ImmutableList.of()),
+                                singleValue(INTEGER, 10L))),
+                        TRUE_CONSTANT,
+                        ImmutableSet.of("id")));
+
+        // Only normal column predicates, would not be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, r FROM test_filters_with_pushdown_disable WHERE name = 'adam'",
+                output(exchange(project(
+                        filter("name='adam'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
+
+        // Only subfield column predicates, would not be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, name FROM test_filters_with_pushdown_disable WHERE r.a = 10",
+                output(exchange(project(
+                        filter("r.a=10",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
+
+        // Predicates with identity partition column and normal column, would not be enforced by tableScan
+        // TODO: The predicate could be enforced partially by tableScan, so the filterNode could drop it's filter condition `id=10`
+        assertPlan(sessionWithoutFilterPushdown, "SELECT name, r FROM test_filters_with_pushdown_disable WHERE id = 10 and name = 'adam'",
+                output(exchange(project(
+                        filter("id=10 AND name='adam'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
+
+        // Predicates with identity partition column and subfield column, would not be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT name FROM test_filters_with_pushdown_disable WHERE id = 10 and r.b = 'adam'",
+                output(exchange(project(
+                        filter("id=10 AND r.b='adam'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
+
+        assertUpdate("DROP TABLE test_filters_with_pushdown_disable");
     }
 
     @Test
