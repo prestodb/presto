@@ -74,6 +74,12 @@ class MemoryArbitrator {
     /// the potential deadlock when reclaim memory from the task of the request
     /// memory pool.
     MemoryArbitrationStateCheckCB arbitrationStateCheckCb{nullptr};
+
+    /// If true, do sanity check on the arbitrator state on destruction.
+    ///
+    /// TODO: deprecate this flag after all the existing memory leak use cases
+    /// have been fixed.
+    bool checkUsageLeak{true};
   };
 
   using Factory = std::function<std::unique_ptr<MemoryArbitrator>(
@@ -227,12 +233,14 @@ class MemoryArbitrator {
       : capacity_(config.capacity),
         memoryPoolTransferCapacity_(config.memoryPoolTransferCapacity),
         memoryReclaimWaitMs_(config.memoryReclaimWaitMs),
-        arbitrationStateCheckCb_(config.arbitrationStateCheckCb) {}
+        arbitrationStateCheckCb_(config.arbitrationStateCheckCb),
+        checkUsageLeak_(config.checkUsageLeak) {}
 
   const uint64_t capacity_;
   const uint64_t memoryPoolTransferCapacity_;
   const uint64_t memoryReclaimWaitMs_;
   const MemoryArbitrationStateCheckCB arbitrationStateCheckCb_;
+  const bool checkUsageLeak_;
 };
 
 FOLLY_ALWAYS_INLINE std::ostream& operator<<(

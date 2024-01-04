@@ -58,7 +58,8 @@ std::unique_ptr<MemoryArbitrator> createArbitrator(
            std::min(options.arbitratorCapacity, options.allocatorCapacity),
        .memoryPoolTransferCapacity = options.memoryPoolTransferCapacity,
        .memoryReclaimWaitMs = options.memoryReclaimWaitMs,
-       .arbitrationStateCheckCb = options.arbitrationStateCheckCb});
+       .arbitrationStateCheckCb = options.arbitrationStateCheckCb,
+       .checkUsageLeak = options.checkUsageLeak});
 }
 } // namespace
 

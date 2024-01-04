@@ -94,9 +94,9 @@ TEST_F(MemoryManagerTest, Ctor) {
         "pools 1\nList of root pools:\n\t__sys_root__\n"
         "Memory Allocator[MALLOC capacity 4.00GB allocated bytes 0 "
         "allocated pages 0 mapped pages 0]\n"
-        "ARBITRATOR[SHARED CAPACITY[4.00GB] STATS[numRequests 0 numSucceeded 0 "
-        "numAborted 0 numFailures 0 numNonReclaimableAttempts 0 "
-        "numReserves 0 numReleases 0 queueTime 0us "
+        "ARBITRATOR[SHARED CAPACITY[4.00GB] RUNNING[false] QUEUING[0] "
+        "STATS[numRequests 0 numSucceeded 0 numAborted 0 numFailures 0 "
+        "numNonReclaimableAttempts 0 numReserves 0 numReleases 0 queueTime 0us "
         "arbitrationTime 0us reclaimTime 0us shrunkMemory 0B "
         "reclaimedMemory 0B maxCapacity 4.00GB freeCapacity 4.00GB]]]");
   }
