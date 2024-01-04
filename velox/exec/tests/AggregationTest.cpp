@@ -3263,7 +3263,7 @@ TEST_F(AggregationTest, maxSpillBytes) {
   }
 }
 
-TEST_F(AggregationTest, reclaimFromAggregation) {
+DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregation) {
   std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
   createDuckDbTable(vectors);
   std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
