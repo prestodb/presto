@@ -176,7 +176,7 @@ public class IcebergHiveMetadata
     }
 
     @Override
-    protected org.apache.iceberg.Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
+    protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return getHiveIcebergTable(metastore, hdfsEnvironment, session, schemaTableName);
     }
@@ -456,7 +456,7 @@ public class IcebergHiveMetadata
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getHiveIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
         HiveStatisticsMergeStrategy mergeStrategy = getHiveStatisticsMergeStrategy(session);
         return tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast).map(layoutHandle -> {
