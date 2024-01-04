@@ -236,6 +236,12 @@ TEST_F(ApproxDistinctTest, globalAggStrings) {
   testGlobalAgg(values, kFruits.size());
 }
 
+TEST_F(ApproxDistinctTest, globalAggTimeStamp) {
+  auto data = makeFlatVector<Timestamp>(
+      1'000, [](auto row) { return Timestamp::fromMillis(row); });
+  testGlobalAgg(data, 0.023, 1010);
+}
+
 TEST_F(ApproxDistinctTest, globalAggHighCardinalityIntegers) {
   vector_size_t size = 1'000;
   auto values = makeFlatVector<int32_t>(size, [](auto row) { return row; });
