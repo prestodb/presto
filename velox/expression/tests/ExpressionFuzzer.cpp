@@ -1004,20 +1004,24 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::generateSwitchArgs(
 }
 
 ExpressionFuzzer::FuzzedExpressionData ExpressionFuzzer::fuzzExpressions(
-    size_t numberOfExpressions) {
+    const RowTypePtr& outType) {
   state.reset();
   VELOX_CHECK_EQ(
       state.remainingLevelOfNesting_, std::max(1, options_.maxLevelOfNesting));
 
   std::vector<core::TypedExprPtr> expressions;
-  for (int i = 0; i < numberOfExpressions; i++) {
-    auto outType = fuzzReturnType();
-    expressions.push_back(generateExpression(outType));
+  for (int i = 0; i < outType->size(); i++) {
+    expressions.push_back(generateExpression(outType->childAt(i)));
   }
   return {
       std::move(expressions),
       ROW(std::move(state.inputRowNames_), std::move(state.inputRowTypes_)),
       std::move(state.expressionStats_)};
+}
+
+ExpressionFuzzer::FuzzedExpressionData ExpressionFuzzer::fuzzExpressions(
+    size_t numberOfExpressions) {
+  return fuzzExpressions(fuzzRowReturnType(numberOfExpressions));
 }
 
 ExpressionFuzzer::FuzzedExpressionData ExpressionFuzzer::fuzzExpression() {
@@ -1419,6 +1423,16 @@ TypePtr ExpressionFuzzer::fuzzReturnType() {
     rootType = typeFuzzer.fuzzReturnType();
   }
   return rootType;
+}
+
+RowTypePtr ExpressionFuzzer::fuzzRowReturnType(size_t size, char prefix) {
+  std::vector<TypePtr> children;
+  std::vector<std::string> names;
+  for (int i = 0; i < size; i++) {
+    children.push_back(fuzzReturnType());
+    names.push_back(fmt::format("{}{}", prefix, i));
+  }
+  return ROW(std::move(names), std::move(children));
 }
 
 } // namespace facebook::velox::test

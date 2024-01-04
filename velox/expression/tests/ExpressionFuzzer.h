@@ -115,6 +115,9 @@ class ExpressionFuzzer {
   /// Fuzz a set of expressions.
   FuzzedExpressionData fuzzExpressions(size_t expressionCount);
 
+  /// Fuzz a set of expressions given a output row type.
+  FuzzedExpressionData fuzzExpressions(const RowTypePtr& outType);
+
   // Fuzz a single expression and return it along with the input row type.
   FuzzedExpressionData fuzzExpression();
 
@@ -176,6 +179,11 @@ class ExpressionFuzzer {
     return supportedFunctions_;
   }
 
+  // Generate a random return type.
+  TypePtr fuzzReturnType();
+
+  RowTypePtr fuzzRowReturnType(size_t size, char prefix = 'p');
+
  private:
   // Either generates a new expression of the required return type or if
   // already generated expressions of the same return type exist then there is
@@ -198,9 +206,6 @@ class ExpressionFuzzer {
       const std::string& funcName);
 
   void appendConjunctSignatures();
-
-  // Generate a random return type.
-  TypePtr fuzzReturnType();
 
   core::TypedExprPtr generateArgConstant(const TypePtr& arg);
 
@@ -413,8 +418,8 @@ class ExpressionFuzzer {
         typeToColumnNames_;
 
     /// The remaining levels of expression nesting. It's initialized by
-    /// FLAGS_max_level_of_nesting and updated in generateExpression(). When its
-    /// value decreases to 0, we don't generate subexpressions anymore.
+    /// FLAGS_max_level_of_nesting and updated in generateExpression(). When
+    /// its value decreases to 0, we don't generate subexpressions anymore.
     int32_t remainingLevelOfNesting_;
 
   } state;
