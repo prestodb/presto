@@ -526,9 +526,20 @@ struct VectorWriter<Generic<T, comparable, orderable>>
     }
   }
 
+  template <TypeKind kind>
+  void ensureCastedWriter() {
+    if constexpr (TypeTraits<kind>::isPrimitiveType) {
+      writer_.ensureWriter<typename KindToSimpleType<kind>::type>();
+    }
+  }
+
   void init(vector_t& vector) {
     vector_ = &vector;
     writer_.initialize(vector_);
+    if (vector.type()->isPrimitiveType()) {
+      TypeKind kind = vector.typeKind();
+      VELOX_DYNAMIC_TYPE_DISPATCH_ALL(ensureCastedWriter, kind);
+    }
   }
 
   void ensureSize(size_t size) override {

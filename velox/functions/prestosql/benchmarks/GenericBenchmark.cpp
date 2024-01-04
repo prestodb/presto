@@ -18,8 +18,10 @@
 #include <folly/init/Init.h>
 
 #include "velox/benchmarks/ExpressionBenchmarkBuilder.h"
+#include "velox/common/base/VeloxException.h"
 #include "velox/expression/ComplexViewTypes.h"
 #include "velox/functions/Registerer.h"
+#include "velox/functions/Udf.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -70,6 +72,37 @@ struct TypedArraySum {
   }
 };
 
+// The following two functions is used to measure the cost of the cast of
+// generic writer when casted to for primitive type.
+template <typename T>
+struct FullGenericArraySum {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void call(
+      out_type<Generic<T1>>& outGeneric,
+      const arg_type<Array<Generic<T1>>>& arrayOfGeneric) {
+    if (arrayOfGeneric.elementKind() == TypeKind::DOUBLE) {
+      auto& out = outGeneric.template castTo<double>();
+      out = 0;
+      for (auto e : arrayOfGeneric) {
+        if (e.has_value()) {
+          out += e.value().template castTo<double>();
+        }
+      }
+    } else if (arrayOfGeneric.elementKind() == TypeKind::BIGINT) {
+      auto& out = outGeneric.template castTo<int64_t>();
+      out = 0;
+      for (auto e : arrayOfGeneric) {
+        if (e.has_value()) {
+          out += e.value().template castTo<int64_t>();
+        }
+      }
+    } else {
+      VELOX_UNREACHABLE("not implemented");
+    }
+  }
+};
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -77,6 +110,9 @@ int main(int argc, char** argv) {
 
   ExpressionBenchmarkBuilder benchmarkBuilder;
 
+  facebook::velox::
+      registerFunction<FullGenericArraySum, Generic<T1>, Array<Generic<T1>>>(
+          {"full_generic_sum"});
   facebook::velox::registerFunction<GenericInputArraySum, int64_t, Array<Any>>(
       {"generic_input_sum"});
   facebook::velox::registerFunction<TypedArraySum, int64_t, Array<double>>(
@@ -91,8 +127,10 @@ int main(int argc, char** argv) {
       .addBenchmarkSet(
           fmt::format("array_sum"),
           ROW({"c0", "c1"}, {ARRAY(BIGINT()), ARRAY(DOUBLE())}))
+      .addExpression("full_generic_int", "full_generic_sum(c0)")
       .addExpression("generic_input_int", "generic_input_sum(c0)")
       .addExpression("typed_int", "typed_sum(c0)")
+      .addExpression("full_generic_double", "full_generic_sum(c1)")
       .addExpression("generic_input_double", "generic_input_sum(c1)")
       .addExpression("typed_double", "typed_sum(c1)");
 

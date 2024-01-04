@@ -837,6 +837,10 @@ class GenericWriter {
 
   template <typename ToType>
   typename VectorWriter<ToType, void>::exec_out_t& castTo() {
+    static_assert(
+        !isGenericType<ToType>::value,
+        "Cast to generic is useless and recursive");
+
     VELOX_USER_DCHECK(
         CastTypeChecker<ToType>::check(type()),
         "castTo type is not compatible with type of vector, vector type is {}, casted to type is {}",
@@ -845,7 +849,32 @@ class GenericWriter {
             ? "DynamicRow"
             : CppToType<ToType>::create()->toString());
 
-    return castToImpl<ToType>();
+    if constexpr (SimpleTypeTrait<ToType>::isPrimitiveType) {
+      // This is an optimization for when the type of the vector is a primitive
+      // type, in that case there is only one possible option for ToType, we
+      // make sure during the construction of the VectorWriter that castWriter_
+      // and castType_ are properly initialized.
+
+      // Note that unlike tryCastTo, castTo assumes that the user is casting to
+      // the correct type. And since there is only valid type in the case of
+      // primitive this is safe.
+
+      // We make sure that the writer is initialized in the initialize call in
+      // the vector writer.
+
+      auto& writer =
+          *reinterpret_cast<VectorWriter<ToType, void>*>(castWriter_.get());
+
+      if constexpr (
+          std::is_fundamental_v<ToType> && !std::is_same_v<ToType, bool>) {
+        return writer.data_[index_];
+      } else {
+        writer.setOffset(index_);
+        return writer.current();
+      }
+    } else {
+      return castToImpl<ToType>();
+    }
   }
 
   template <typename ToType>
@@ -918,8 +947,10 @@ class GenericWriter {
   }
 
   BaseVector* vector_;
+
   std::shared_ptr<VectorWriterBase>& castWriter_;
   TypePtr& castType_;
+
   vector_size_t& index_;
 
   template <typename A, typename B>
