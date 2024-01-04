@@ -91,6 +91,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -143,15 +145,15 @@ import static java.util.function.Function.identity;
 public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
 {
-    private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
-
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
     protected final NodeVersion nodeVersion;
     protected final RowExpressionService rowExpressionService;
-    private final StandardFunctionResolution functionResolution;
-
     protected Transaction transaction;
+
+    private final StandardFunctionResolution functionResolution;
+    private final ConcurrentMap<SchemaTableName, Table> icebergTables = new ConcurrentHashMap<>();
+    private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
 
     public IcebergAbstractMetadata(
             TypeManager typeManager,
@@ -167,7 +169,14 @@ public abstract class IcebergAbstractMetadata
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
     }
 
-    protected abstract Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName);
+    protected final Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return icebergTables.computeIfAbsent(
+                schemaTableName,
+                ignored -> getRawIcebergTable(session, schemaTableName));
+    }
+
+    protected abstract Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     protected abstract boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName);
 
