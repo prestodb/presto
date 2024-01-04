@@ -89,13 +89,17 @@ jobs:
           name: presto
           path: velox/_build/debug/velox/expression/tests/velox_expression_fuzzer_test
 
-      - name: Upload spark fuzzer
+      - name: Upload spark expression fuzzer
         uses: actions/upload-artifact@v3
         with:
-          name: spark
-          path: |
-            velox/_build/debug/velox/expression/tests/spark_expression_fuzzer_test
-            velox/_build/debug/velox/functions/sparksql/fuzzer/spark_aggregation_fuzzer_test
+          name: spark_expression_fuzzer
+          path: velox/_build/debug/velox/expression/tests/spark_expression_fuzzer_test
+
+      - name: Upload spark aggregation fuzzer
+        uses: actions/upload-artifact@v3
+        with:
+          name: spark_aggregation_fuzzer
+          path: velox/_build/debug/velox/functions/sparksql/fuzzer/spark_aggregation_fuzzer_test
 
       - name: Upload aggregation fuzzer
         uses: actions/upload-artifact@v3
@@ -171,12 +175,12 @@ jobs:
       - name: "Install dependencies"
         run: source ./scripts/setup-ubuntu.sh
 
-      - name: Download spark fuzzer
+      - name: Download spark expression fuzzer
         uses: actions/download-artifact@v3
         with:
-          name: spark
+          name: spark_expression_fuzzer
 
-      - name: "Run Spark Fuzzer"
+      - name: "Run Spark Expression Fuzzer"
         run: |
           mkdir -p /tmp/spark_fuzzer_repro/
             chmod -R 777 /tmp/spark_fuzzer_repro
@@ -196,13 +200,18 @@ jobs:
                 --repro_persist_path=/tmp/spark_fuzzer_repro \
             && echo -e "\n\nSpark Fuzzer run finished successfully."
 
-      - name: Archive Spark production artifacts
+      - name: Archive Spark expression production artifacts
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: spark-fuzzer-failure-artifacts
           path: |
             /tmp/spark_fuzzer_repro
+
+      - name: Download spark aggregation fuzzer
+        uses: actions/download-artifact@v3
+        with:
+          name: spark_aggregation_fuzzer
 
       - name: "Run Spark Aggregate Fuzzer"
         run: |
