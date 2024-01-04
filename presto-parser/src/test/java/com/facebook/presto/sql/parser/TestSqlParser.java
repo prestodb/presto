@@ -456,6 +456,29 @@ public class TestSqlParser
     }
 
     @Test
+    public void testformat()
+    {
+        assertInvalidExpression("format()", "The 'format' function must have at least two arguments");
+        assertInvalidExpression("format('%s')", "The 'format' function must have at least two arguments");
+        assertExpression("format('%s %s', 'abc', 'xyz')", new FunctionCall(QualifiedName.of("format"), ImmutableList.of(
+                new StringLiteral("%s %s"),
+                new StringLiteral("abc"),
+                new StringLiteral("xyz"))));
+        assertExpression("format('%s', 'abc')", new FunctionCall(QualifiedName.of("format"), ImmutableList.of(
+                new StringLiteral("%s"),
+                new StringLiteral("abc"))));
+        assertExpression("format('%s%%', 123)", new FunctionCall(QualifiedName.of("format"), ImmutableList.of(
+                new StringLiteral("%s%%"),
+                new LongLiteral("123"))));
+        assertExpression("format('%.5f', pi())", new FunctionCall(QualifiedName.of("format"), ImmutableList.of(
+                new StringLiteral("%.5f"),
+                new FunctionCall(QualifiedName.of("pi"), ImmutableList.of()))));
+        assertExpression("format('%03d', 8)", new FunctionCall(QualifiedName.of("format"), ImmutableList.of(
+                new StringLiteral("%03d"),
+                new LongLiteral("8"))));
+    }
+
+    @Test
     public void testIf()
     {
         assertExpression("if(true, 1, 0)", new IfExpression(new BooleanLiteral("true"), new LongLiteral("1"), new LongLiteral("0")));

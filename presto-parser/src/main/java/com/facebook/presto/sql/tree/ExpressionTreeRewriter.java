@@ -502,6 +502,24 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitFormat(Format node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteFormat(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<Expression> operands = rewrite(node.getOperands(), context);
+            if (!sameElements(node.getOperands(), operands)) {
+                return new Format(operands);
+            }
+
+            return node;
+        }
+
+        @Override
         public Expression visitTryExpression(TryExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

@@ -476,6 +476,12 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitFormat(Format node, Void context)
+        {
+            return "format(" + joinExpressions(node.getOperands()) + ")";
+        }
+
+        @Override
         protected String visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
         {
             String value = process(node.getValue(), context);

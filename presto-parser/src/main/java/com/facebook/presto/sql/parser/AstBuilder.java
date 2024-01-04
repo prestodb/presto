@@ -1749,6 +1749,16 @@ class AstBuilder
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
         }
 
+        //modify the condition
+        if (name.toString().equalsIgnoreCase("format")) {
+            check(context.expression().size() >= 2, "The 'format' function must have at least two arguments", context);
+            check(!window.isPresent(), "OVER clause not valid for 'format' function", context);
+            check(!distinct, "DISTINCT not valid for 'format' function", context);
+            check(!filter.isPresent(), "FILTER not valid for 'format' function", context);
+
+            return new Format(getLocation(context), visit(context.expression()));
+        }
+
         if (name.toString().equalsIgnoreCase("$internal$bind")) {
             check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one arguments", context);
             check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);

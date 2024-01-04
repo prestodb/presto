@@ -710,6 +710,32 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitFormat(Format node, StackableAstVisitorContext<Context> context)
+        {
+            List<Type> arguments = node.getOpe.stream()
+                    .map(expression -> process(expression, context))
+                    .collect(toImmutableList());
+
+            if (!isVarcharType(arguments.get(0))) {
+                throw new SemanticException(TYPE_MISMATCH, node.getArguments().get(0), "Type of first argument to format() must be VARCHAR (actual: %s)", arguments.get(0));
+            }
+
+            for (int i = 1; i < arguments.size(); i++) {
+                try {
+                    FormatFunction.validateType(functionRegistry, arguments.get(i));
+                }
+                catch (PrestoException e) {
+                    if (e.getErrorCode().equals(StandardErrorCode.NOT_SUPPORTED.toErrorCode())) {
+                        throw new SemanticException(NOT_SUPPORTED, node.getArguments().get(i), "%s", e.getMessage());
+                    }
+                    throw e;
+                }
+            }
+
+            return setExpressionType(node, VARCHAR);
+        }
+
+        @Override
         protected Type visitArithmeticUnary(ArithmeticUnaryExpression node, StackableAstVisitorContext<Context> context)
         {
             switch (node.getSign()) {
