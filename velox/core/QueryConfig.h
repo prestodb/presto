@@ -732,7 +732,7 @@ class QueryConfig {
   }
 
   uint32_t driverCpuTimeSliceLimitMs() const {
-    return get<uint32_t>(kDriverCpuTimeSliceLimitMs, 1'000);
+    return get<uint32_t>(kDriverCpuTimeSliceLimitMs, 0);
   }
 
   template <typename T>
