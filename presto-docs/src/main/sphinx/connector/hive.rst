@@ -281,7 +281,7 @@ S3 Configuration Properties
 Property Name                                Description
 ============================================ =================================================================
 ``hive.s3.use-instance-credentials``         Use the EC2 metadata service to retrieve API credentials
-                                             (defaults to ``true``). This works with IAM roles in EC2.
+                                             (defaults to ``false``). This works with IAM roles in EC2.
 
 ``hive.s3.aws-access-key``                   Default AWS access key to use.
 
@@ -348,7 +348,7 @@ S3 Credentials
 ^^^^^^^^^^^^^^
 
 If you are running Presto on Amazon EC2 using EMR or another facility,
-it is highly recommended that you set ``hive.s3.use-instance-credentials``
+you can set ``hive.s3.use-instance-credentials``
 to ``true`` and use IAM Roles for EC2 to govern access to S3. If this is
 the case, your EC2 instances will need to be assigned an IAM Role which
 grants appropriate access to the data stored in the S3 bucket(s) you wish
