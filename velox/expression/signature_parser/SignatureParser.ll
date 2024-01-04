@@ -63,9 +63,9 @@ int yyFlexLexer::yylex() {
 facebook::velox::exec::TypeSignature facebook::velox::exec::parseTypeSignature(
     const std::string& signatureText) {
   std::istringstream is(signatureText);
+  std::ostringstream os;
   facebook::velox::exec::TypeSignaturePtr signature;
-  facebook::velox::exec::Scanner scanner{
-      is, std::cerr, signature, signatureText};
+  facebook::velox::exec::Scanner scanner{is, os, signature, signatureText};
   facebook::velox::exec::Parser parser{&scanner};
   parser.parse();
   VELOX_CHECK(signature, "Failed to parse signature [{}]", signatureText);

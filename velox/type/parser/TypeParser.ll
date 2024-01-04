@@ -66,8 +66,9 @@ int yyFlexLexer::yylex() {
 facebook::velox::TypePtr facebook::velox::parseType(const std::string& typeText)
  {
     std::istringstream is(typeText);
+    std::ostringstream os;
     facebook::velox::TypePtr type;
-    facebook::velox::type::Scanner scanner{is, std::cerr, type, typeText};
+    facebook::velox::type::Scanner scanner{is, os, type, typeText};
     facebook::velox::type::Parser parser{ &scanner };
     parser.parse();
     VELOX_CHECK(type, "Failed to parse type [{}]", typeText);
