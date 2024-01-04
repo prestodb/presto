@@ -202,11 +202,6 @@ void registerArrayFunctions(const std::string& prefix) {
       Array<Varchar>,
       Array<Varchar>,
       Varchar>({prefix + "array_remove"});
-  registerFunction<
-      ArrayRemoveFunction,
-      Array<Generic<T1>>,
-      Array<Generic<T1>>,
-      Generic<T1>>({prefix + "array_remove"});
 
   registerArrayTrimFunctions<int8_t>(prefix);
   registerArrayTrimFunctions<int16_t>(prefix);
@@ -219,15 +214,11 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayTrimFunctions<Timestamp>(prefix);
   registerArrayTrimFunctions<Date>(prefix);
   registerArrayTrimFunctions<Varbinary>(prefix);
+  registerArrayTrimFunctions<Generic<T1>>(prefix);
   registerFunction<
       ArrayTrimFunctionString,
       Array<Varchar>,
       Array<Varchar>,
-      int64_t>({prefix + "trim_array"});
-  registerFunction<
-      ArrayTrimFunction,
-      Array<Generic<T1>>,
-      Array<Generic<T1>>,
       int64_t>({prefix + "trim_array"});
 
   registerArrayRemoveNullFunctions<int8_t>(prefix);
@@ -241,14 +232,11 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayRemoveNullFunctions<Timestamp>(prefix);
   registerArrayRemoveNullFunctions<Date>(prefix);
   registerArrayRemoveNullFunctions<Varbinary>(prefix);
+  registerArrayRemoveNullFunctions<Generic<T1>>(prefix);
   registerFunction<
       ArrayRemoveNullFunctionString,
       Array<Varchar>,
       Array<Varchar>>({prefix + "remove_nulls"});
-  registerFunction<
-      ArrayRemoveNullFunction,
-      Array<Generic<T1>>,
-      Array<Generic<T1>>>({prefix + "remove_nulls"});
 
   registerArrayUnionFunctions<int8_t>(prefix);
   registerArrayUnionFunctions<int16_t>(prefix);
