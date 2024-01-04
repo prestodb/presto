@@ -42,10 +42,14 @@ struct TimestampToStringOptions {
   // Whether to add a leading '+' when year is greater than 9999.
   bool leadingPositiveSign = false;
 
-  // Whether to skip trailing zeros of fractional part.
+  /// Whether to skip trailing zeros of fractional part. E.g. when true,
+  /// '2000-01-01 12:21:56.129000' becomes '2000-01-01 12:21:56.129'.
   bool skipTrailingZeros = false;
 
-  // Whether padding zeros are added when the digits of year is less than 4.
+  /// Whether padding zeros are added when the digits of year is less than 4.
+  /// E.g. when true, '1-01-01 05:17:32.000' becomes '0001-01-01 05:17:32.000',
+  /// '-03-24 13:20:00.000' becomes '0000-03-24 13:20:00.000', and '-1-11-29
+  /// 19:33:20.000' becomes '-0001-11-29 19:33:20.000'.
   bool zeroPaddingYear = false;
 
   // The separator of date and time.

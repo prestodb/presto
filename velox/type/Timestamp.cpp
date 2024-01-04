@@ -306,11 +306,7 @@ std::string Timestamp::tmToString(
     }
   } else {
     while (nanos > 0) {
-      if (nanos % 10 == 0) {
-        out += '0';
-      } else {
-        out += '0' + nanos % 10;
-      }
+      out += '0' + nanos % 10;
       nanos /= 10;
     }
   }
