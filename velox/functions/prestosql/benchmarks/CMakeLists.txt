@@ -176,3 +176,8 @@ add_executable(velox_functions_prestosql_benchmarks_map_subscript
                MapSubscriptCachingBenchmark.cpp)
 target_link_libraries(velox_functions_prestosql_benchmarks_map_subscript
                       ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_functions_prestosql_benchmarks_generic
+               GenericBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_generic
+                      ${BENCHMARK_DEPENDENCIES})

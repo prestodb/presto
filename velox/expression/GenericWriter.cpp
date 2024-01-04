@@ -31,21 +31,6 @@ bool constexpr fastPathSupportedStatic() {
   return TypeTraits<kind>::isPrimitiveType && kind != TypeKind::UNKNOWN;
 }
 
-template <TypeKind kind>
-struct KindToSimpleType {
-  using type = typename TypeTraits<kind>::NativeType;
-};
-
-template <>
-struct KindToSimpleType<TypeKind::VARCHAR> {
-  using type = Varchar;
-};
-
-template <>
-struct KindToSimpleType<TypeKind::VARBINARY> {
-  using type = Varbinary;
-};
-
 // Base case for primitives.
 template <TypeKind T>
 void copy_from_internal(GenericWriter& out, const GenericView& in) {

@@ -637,7 +637,20 @@ struct VectorReader<Generic<T, comparable, orderable>> {
   using exec_in_t = GenericView;
   using exec_null_free_in_t = exec_in_t;
 
-  explicit VectorReader(const DecodedVector* decoded) : decoded_(*decoded) {}
+  template <TypeKind kind>
+  void ensureCastedReader() {
+    if constexpr (TypeTraits<kind>::isPrimitiveType) {
+      this->operator[](0)
+          .template ensureReader<typename KindToSimpleType<kind>::type>();
+    }
+  }
+
+  explicit VectorReader(const DecodedVector* decoded) : decoded_(*decoded) {
+    if (decoded->size() && decoded->base()->type()->isPrimitiveType()) {
+      TypeKind kind = decoded->base()->typeKind();
+      VELOX_DYNAMIC_TYPE_DISPATCH_ALL(ensureCastedReader, kind);
+    }
+  }
 
   explicit VectorReader(
       const VectorReader<Generic<T, comparable, orderable>>&) = delete;

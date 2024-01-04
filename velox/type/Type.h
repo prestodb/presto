@@ -1901,6 +1901,21 @@ struct ConstantChecker {
       isConstantType<TArgs>::value...};
 };
 
+template <TypeKind kind>
+struct KindToSimpleType {
+  using type = typename TypeTraits<kind>::NativeType;
+};
+
+template <>
+struct KindToSimpleType<TypeKind::VARCHAR> {
+  using type = Varchar;
+};
+
+template <>
+struct KindToSimpleType<TypeKind::VARBINARY> {
+  using type = Varbinary;
+};
+
 template <typename T>
 struct SimpleTypeTrait {};
 
