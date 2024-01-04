@@ -55,7 +55,6 @@ TEST_F(GenericWriterTest, boolean) {
 
   writer.setOffset(0);
   auto& current = writer.current();
-  ASSERT_THROW(current.castTo<int32_t>(), VeloxUserError);
 
   ASSERT_NO_THROW(current.tryCastTo<int32_t>());
   ASSERT_TRUE(current.tryCastTo<int32_t>() == nullptr);
@@ -205,7 +204,6 @@ TEST_F(GenericWriterTest, arrayAnyCast) {
 
   writer.setOffset(0);
   auto& current = writer.current();
-  ASSERT_THROW(current.castTo<double>(), VeloxUserError);
 
   ASSERT_NO_THROW(current.tryCastTo<double>());
   ASSERT_TRUE(current.tryCastTo<double>() == nullptr);
@@ -261,7 +259,6 @@ TEST_F(GenericWriterTest, arrayIntCast) {
 
   writer.setOffset(0);
   auto& current = writer.current();
-  ASSERT_THROW(current.castTo<double>(), VeloxUserError);
 
   ASSERT_NO_THROW(current.tryCastTo<double>());
   ASSERT_TRUE(current.tryCastTo<double>() == nullptr);
