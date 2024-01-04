@@ -90,7 +90,7 @@ public class IcebergNativeMetadata
     }
 
     @Override
-    protected Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
+    protected Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return getNativeIcebergTable(resourceFactory, session, schemaTableName);
     }
@@ -99,10 +99,8 @@ public class IcebergNativeMetadata
     protected boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName)
     {
         IcebergTableName name = IcebergTableName.from(schemaTableName.getTableName());
-        TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName.getSchemaName(), name.getTableName());
-
         try {
-            resourceFactory.getCatalog(session).loadTable(tableIdentifier);
+            getIcebergTable(session, new SchemaTableName(schemaTableName.getSchemaName(), name.getTableName()));
         }
         catch (NoSuchTableException e) {
             // return null to throw
