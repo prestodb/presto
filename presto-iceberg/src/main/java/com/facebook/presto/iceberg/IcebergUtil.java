@@ -550,9 +550,16 @@ public final class IcebergUtil
             List<IcebergColumnHandle> partitionColumns)
     {
         IcebergTableName name = ((IcebergTableHandle) tableHandle).getTableName();
+
+        // Empty iceberg table would cause `snapshotId` not present
+        Optional<Long> snapshotId = resolveSnapshotIdByName(icebergTable, name);
+        if (!snapshotId.isPresent()) {
+            return ImmutableList.of();
+        }
+
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(constraint.getSummary().simplify().transform(IcebergColumnHandle.class::cast)))
-                .useSnapshot(resolveSnapshotIdByName(icebergTable, name).get());
+                .useSnapshot(snapshotId.get());
 
         Set<HivePartition> partitions = new HashSet<>();
 
