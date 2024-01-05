@@ -286,6 +286,8 @@ public class ThriftTpchService
                 return createPageSource(TpchTable.REGION, columnNames, splitInfo);
             case "part":
                 return createPageSource(TpchTable.PART, columnNames, splitInfo);
+            case "supplier":
+                return createPageSource(TpchTable.SUPPLIER, columnNames, splitInfo);
             default:
                 throw new IllegalArgumentException("Table not setup: " + splitInfo.getTableName());
         }

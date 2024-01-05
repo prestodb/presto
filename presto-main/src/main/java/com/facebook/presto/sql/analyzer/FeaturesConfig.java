@@ -296,6 +296,7 @@ public class FeaturesConfig
     private boolean removeRedundantCastToVarcharInJoin = true;
     private boolean skipHashGenerationForJoinWithTableScanInput;
     private long kHyperLogLogAggregationGroupNumberLimit;
+    private boolean generateDomainFilters;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2969,6 +2970,19 @@ public class FeaturesConfig
     public FeaturesConfig setKHyperLogLogAggregationGroupNumberLimit(long kHyperLogLogAggregationGroupNumberLimit)
     {
         this.kHyperLogLogAggregationGroupNumberLimit = kHyperLogLogAggregationGroupNumberLimit;
+        return this;
+    }
+
+    public boolean getGenerateDomainFilters()
+    {
+        return generateDomainFilters;
+    }
+
+    @Config("optimizer.generate-domain-filters")
+    @ConfigDescription("Infer predicates from column domains during predicate pushdown")
+    public FeaturesConfig setGenerateDomainFilters(boolean generateDomainFilters)
+    {
+        this.generateDomainFilters = generateDomainFilters;
         return this;
     }
 }
