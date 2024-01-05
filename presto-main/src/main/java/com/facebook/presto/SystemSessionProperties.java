@@ -305,6 +305,7 @@ public final class SystemSessionProperties
     public static final String REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN = "remove_redundant_cast_to_varchar_in_join";
     public static final String HANDLE_COMPLEX_EQUI_JOINS = "handle_complex_equi_joins";
     public static final String SKIP_HASH_GENERATION_FOR_JOIN_WITH_TABLE_SCAN_INPUT = "skip_hash_generation_for_join_with_table_scan_input";
+    public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -1847,6 +1848,11 @@ public final class SystemSessionProperties
                         SKIP_HASH_GENERATION_FOR_JOIN_WITH_TABLE_SCAN_INPUT,
                         "Skip hash generation for join, when input is table scan node",
                         featuresConfig.isSkipHashGenerationForJoinWithTableScanInput(),
+                        false),
+                booleanProperty(
+                        GENERATE_DOMAIN_FILTERS,
+                        "Infer predicates from column domains during predicate pushdown",
+                        featuresConfig.getGenerateDomainFilters(),
                         false));
     }
 
@@ -3070,5 +3076,10 @@ public final class SystemSessionProperties
     public static boolean skipHashGenerationForJoinWithTableScanInput(Session session)
     {
         return session.getSystemProperty(SKIP_HASH_GENERATION_FOR_JOIN_WITH_TABLE_SCAN_INPUT, Boolean.class);
+    }
+
+    public static boolean shouldGenerateDomainFilters(Session session)
+    {
+        return session.getSystemProperty(GENERATE_DOMAIN_FILTERS, Boolean.class);
     }
 }
