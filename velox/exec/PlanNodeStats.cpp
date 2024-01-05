@@ -54,6 +54,8 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   peakMemoryBytes += stats.memoryStats.peakTotalMemoryReservation;
   numMemoryAllocations += stats.memoryStats.numMemoryAllocations;
 
+  physicalWrittenBytes += stats.physicalWrittenBytes;
+
   for (const auto& [name, runtimeStats] : stats.runtimeStats) {
     if (UNLIKELY(customStats.count(name) == 0)) {
       customStats.insert(std::make_pair(name, runtimeStats));
@@ -154,6 +156,7 @@ folly::dynamic toPlanStatsJson(const facebook::velox::exec::TaskStats& stats) {
       stat["blockedWallNanos"] = operatorStat.second->blockedWallNanos;
       stat["peakMemoryBytes"] = operatorStat.second->peakMemoryBytes;
       stat["numMemoryAllocations"] = operatorStat.second->numMemoryAllocations;
+      stat["physicalWrittenBytes"] = operatorStat.second->physicalWrittenBytes;
       stat["numDrivers"] = operatorStat.second->numDrivers;
       stat["numSplits"] = operatorStat.second->numSplits;
       stat["spilledInputBytes"] = operatorStat.second->spilledInputBytes;

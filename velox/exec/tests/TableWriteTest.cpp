@@ -2972,17 +2972,18 @@ TEST_P(AllTableWriterTest, tableWriterStats) {
   const int32_t ORC_HEADER_LEN{3};
   const auto fixedWrittenBytes =
       numWrittenFiles * (fileFormat_ == FileFormat::DWRF ? ORC_HEADER_LEN : 0);
-  for (int i = 0; i < task->taskStats().pipelineStats.size(); ++i) {
-    auto operatorStats = task->taskStats().pipelineStats.at(i).operatorStats;
-    for (int j = 0; j < operatorStats.size(); ++j) {
-      if (operatorStats.at(j).operatorType == "TableWrite") {
-        ASSERT_GT(operatorStats.at(j).physicalWrittenBytes, fixedWrittenBytes);
-        ASSERT_EQ(
-            operatorStats.at(j).runtimeStats.at("numWrittenFiles").sum,
-            numWrittenFiles);
-      }
-    }
-  }
+
+  auto planStats = exec::toPlanStats(task->taskStats());
+  auto& stats = planStats.at(tableWriteNodeId_);
+  ASSERT_GT(stats.physicalWrittenBytes, fixedWrittenBytes);
+  ASSERT_GT(
+      stats.operatorStats.at("TableWrite")->physicalWrittenBytes,
+      fixedWrittenBytes);
+  ASSERT_EQ(
+      stats.operatorStats.at("TableWrite")
+          ->customStats.at("numWrittenFiles")
+          .sum,
+      numWrittenFiles);
 }
 
 DEBUG_ONLY_TEST_P(

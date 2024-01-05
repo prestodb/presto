@@ -92,6 +92,8 @@ struct PlanNodeStats {
 
   uint64_t numMemoryAllocations{0};
 
+  uint64_t physicalWrittenBytes{0};
+
   /// Operator-specific counters.
   std::unordered_map<std::string, RuntimeMetric> customStats;
 
