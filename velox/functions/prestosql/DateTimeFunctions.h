@@ -80,18 +80,16 @@ struct TimestampWithTimezoneSupport {
     return timestamp;
   }
 
-  // Get offset in seconds with GMT from timestampWithTimezone
+  // Get offset in seconds with GMT from timestampWithTimezone.
   FOLLY_ALWAYS_INLINE
   int64_t getGMTOffsetSec(
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     Timestamp inputTimeStamp = this->toTimestamp(timestampWithTimezone);
-    // Get the given timezone name
-    auto timezone =
-        util::getTimeZoneName(*timestampWithTimezone.template at<1>());
-    auto* timezonePtr = date::locate_zone(timezone);
+
     // Create a copy of inputTimeStamp and convert it to GMT
     auto gmtTimeStamp = inputTimeStamp;
-    gmtTimeStamp.toGMT(*timezonePtr);
+    gmtTimeStamp.toGMT(*timestampWithTimezone.template at<1>());
+
     // Get offset in seconds with GMT and convert to hour
     return (inputTimeStamp.getSeconds() - gmtTimeStamp.getSeconds());
   }

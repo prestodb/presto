@@ -3576,15 +3576,24 @@ TEST_F(DateTimeFunctionsTest, timeZoneHour) {
   // Asia/Kolkata - should return 5 throughout the year
   EXPECT_EQ(5, timezone_hour("2023-01-01 03:20:00", "Asia/Kolkata"));
   EXPECT_EQ(5, timezone_hour("2023-06-01 03:20:00", "Asia/Kolkata"));
+
   // America/Los_Angeles - Day light savings is from March 12 to Nov 5
   EXPECT_EQ(-8, timezone_hour("2023-03-11 12:00:00", "America/Los_Angeles"));
   EXPECT_EQ(-8, timezone_hour("2023-03-12 02:30:00", "America/Los_Angeles"));
   EXPECT_EQ(-7, timezone_hour("2023-03-13 12:00:00", "America/Los_Angeles"));
   EXPECT_EQ(-7, timezone_hour("2023-11-05 01:30:00", "America/Los_Angeles"));
   EXPECT_EQ(-8, timezone_hour("2023-12-05 01:30:00", "America/Los_Angeles"));
+
   // Different time with same date
   EXPECT_EQ(-4, timezone_hour("2023-01-01 03:20:00", "Canada/Atlantic"));
   EXPECT_EQ(-4, timezone_hour("2023-01-01 10:00:00", "Canada/Atlantic"));
+
+  // By definition (+/-) 00:00 offsets should always return the hour part of the
+  // offset itself.
+  EXPECT_EQ(0, timezone_hour("2023-12-05 01:30:00", "+00:00"));
+  EXPECT_EQ(8, timezone_hour("2023-12-05 01:30:00", "+08:00"));
+  EXPECT_EQ(-10, timezone_hour("2023-12-05 01:30:00", "-10:00"));
+
   // Invalid inputs
   VELOX_ASSERT_THROW(
       timezone_hour("invalid_date", "Canada/Atlantic"),
@@ -3610,6 +3619,13 @@ TEST_F(DateTimeFunctionsTest, timeZoneMinute) {
   EXPECT_EQ(0, timezone_minute("1970-01-01 03:20:00", "Canada/Atlantic"));
   EXPECT_EQ(30, timezone_minute("1970-01-01 03:20:00", "Asia/Katmandu"));
   EXPECT_EQ(45, timezone_minute("1970-01-01 03:20:00", "Pacific/Chatham"));
+
+  // By definition (+/-) 00:00 offsets should always return the minute part of
+  // the offset itself.
+  EXPECT_EQ(0, timezone_minute("2023-12-05 01:30:00", "+00:00"));
+  EXPECT_EQ(17, timezone_minute("2023-12-05 01:30:00", "+08:17"));
+  EXPECT_EQ(-59, timezone_minute("2023-12-05 01:30:00", "-10:59"));
+
   VELOX_ASSERT_THROW(
       timezone_minute("abc", "Pacific/Chatham"),
       "Unable to parse timestamp value: \"abc\", expected format is (YYYY-MM-DD HH:MM:SS[.MS])");
