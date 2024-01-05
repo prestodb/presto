@@ -109,12 +109,18 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
 }
 
 MemoryManager::~MemoryManager() {
-  if (checkUsageLeak_) {
-    VELOX_CHECK_EQ(
+  if (pools_.size() != 0) {
+    const auto errMsg = fmt::format(
+        "pools_.size() != 0 ({} vs {}). There are unexpected alive memory "
+        "pools allocated by user on memory manager destruction:\n{}",
         pools_.size(),
         0,
-        "There are unexpected alive memory pools allocated by user on memory manager destruction:\n{}",
         toString(true));
+    if (checkUsageLeak_) {
+      VELOX_FAIL(errMsg);
+    } else {
+      LOG(ERROR) << errMsg;
+    }
   }
 }
 
