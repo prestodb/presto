@@ -103,7 +103,14 @@ min_debug:				#: Minimal build with debugging symbols
 	$(MAKE) build BUILD_DIR=debug
 
 benchmarks-basic-build:
-	$(MAKE) release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_ENABLE_BENCHMARKS_BASIC=ON"
+	$(MAKE) release EXTRA_CMAKE_FLAGS=" ${EXTRA_CMAKE_FLAGS} \
+                                            -DVELOX_BUILD_TESTING=OFF \
+                                            -DVELOX_ENABLE_BENCHMARKS_BASIC=ON"
+
+benchmarks-build:
+	$(MAKE) release EXTRA_CMAKE_FLAGS=" ${EXTRA_CMAKE_FLAGS} \
+                                            -DVELOX_BUILD_TESTING=OFF \
+                                            -DVELOX_ENABLE_BENCHMARKS=ON"
 
 benchmarks-basic-run:
 	scripts/benchmark-runner.py run \

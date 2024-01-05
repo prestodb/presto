@@ -377,11 +377,9 @@ jobs:
             ccache -s
           no_output_timeout: 1h
       - run:
-          name: "Build Velox Without Testing"
+          name: "Build Velox With Benchmarks and Without Testing"
           command: |
-            make clean
-            make debug EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_TESTING=OFF" NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
-            ccache -s
+            make benchmarks-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
           no_output_timeout: 1h
       - post-steps
 

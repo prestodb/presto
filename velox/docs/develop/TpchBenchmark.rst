@@ -16,7 +16,7 @@ following command line to do the build with S3 support:
 
 .. code:: shell
 
-   $ make release EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_BENCHMARKS=ON -DVELOX_ENABLE_S3=ON"
+   $ make benchmarks-build EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_S3=ON"
 
 ----
 
