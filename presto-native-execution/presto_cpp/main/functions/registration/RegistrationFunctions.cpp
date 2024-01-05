@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -11,8 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/Registerer.h"
+#include <string>
 
 namespace facebook::presto::functions {
-void registerKeySamplingPercentFunction(const std::string& prefix);
-}; // namespace facebook::presto::functions
+
+extern void registerKeySamplingPercentFunction(const std::string& prefix);
+
+void registerAllPrestoFunctions(const std::string& prefix) {
+  registerKeySamplingPercentFunction(prefix);
+}
+} // namespace facebook::presto::functions
+
