@@ -756,7 +756,7 @@ void SsdFile::checkpoint(bool force) {
   } catch (const std::exception& e) {
     try {
       checkpointError(-1, e.what());
-    } catch (const std::exception& inner) {
+    } catch (const std::exception&) {
     }
     // Ignore nested exception.
   }
@@ -798,7 +798,7 @@ void SsdFile::initializeCheckpoint() {
                                  << e.what() << ": Starting without checkpoint";
       entries_.clear();
       deleteCheckpoint(true);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
     }
   }
 }

@@ -279,10 +279,10 @@ bool CoalescedLoad::loadOrFuture(folly::SemiFuture<bool>* wait) {
       entry->setExclusiveToShared();
     }
     setEndState(State::kLoaded);
-  } catch (std::exception& e) {
+  } catch (std::exception&) {
     try {
       setEndState(State::kCancelled);
-    } catch (std::exception& inner) {
+    } catch (std::exception&) {
       // May not throw from inside catch.
     }
     throw;
