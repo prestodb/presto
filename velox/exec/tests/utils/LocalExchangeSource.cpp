@@ -56,11 +56,24 @@ class LocalExchangeSource : public exec::ExchangeSource {
     VELOX_CHECK(requestPending_);
     auto requestedSequence = sequence_;
     auto self = shared_from_this();
+
+    // Have a flag shared between the data available and timeout callbacks. Only
+    // one of these must run but they could overlap at call time.
+    static std::mutex realizeMutex;
+    auto state = std::make_shared<State>(State::kPending);
+
     // Since this lambda may outlive 'this', we need to capture a
     // shared_ptr to the current object (self).
-    auto resultCallback = [self, requestedSequence, buffers, this](
+    auto resultCallback = [self, requestedSequence, buffers, state, this](
                               std::vector<std::unique_ptr<folly::IOBuf>> data,
                               int64_t sequence) {
+      {
+        std::lock_guard<std::mutex> l(realizeMutex);
+        if (*state != State::kPending) {
+          return;
+        }
+        *state = State::kResultReceived;
+      }
       if (requestedSequence > sequence) {
         VLOG(2) << "Receives earlier sequence than requested: task " << taskId_
                 << ", destination " << destination_ << ", requested "
@@ -127,24 +140,55 @@ class LocalExchangeSource : public exec::ExchangeSource {
       if (!requestPromise.isFulfilled()) {
         requestPromise.setValue(Response{totalBytes, atEnd_});
       }
+      {
+        std::lock_guard<std::mutex> l(realizeMutex);
+        *state = State::kResultProcessed;
+      }
     };
 
     // Call the callback in any case after timeout.
     auto& exec = folly::QueuedImmediateExecutor::instance();
+
     future = std::move(future).via(&exec).onTimeout(
-        std::chrono::seconds(maxWaitSeconds), [self, this] {
-          common::testutil::TestValue::adjust(
-              "facebook::velox::exec::test::LocalExchangeSource::timeout",
-              this);
-          VeloxPromise<Response> requestPromise;
-          {
-            std::lock_guard<std::mutex> l(queue_->mutex());
-            requestPending_ = false;
-            requestPromise = std::move(promise_);
-          }
+        std::chrono::seconds(maxWaitSeconds), [self, state, this] {
+          // The timeout callback detects if a result is being
+          // processed. If so, it waits for the result processing to be
+          // complete. It must not realize promises while a result is
+          // being processed. After the result is processed, returning a
+          // value should be no-op since the promise already has a value.
+          bool done = false;
+          bool timeout = false;
+          do {
+            {
+              std::lock_guard<std::mutex> l(realizeMutex);
+              if (*state == State::kPending) {
+                *state = State::kTimeout;
+                timeout = true;
+                done = true;
+              } else if (*state == State::kResultReceived) {
+                done = true;
+              }
+            }
+            if (!done) {
+              // wait for the result callback to finish on another thread. Must
+              // not set the future until the other thread is finished.
+              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+          } while (!done);
           Response response = {0, false};
-          if (!requestPromise.isFulfilled()) {
-            requestPromise.setValue(response);
+          if (timeout) {
+            common::testutil::TestValue::adjust(
+                "facebook::velox::exec::test::LocalExchangeSource::timeout",
+                this);
+            VeloxPromise<Response> requestPromise;
+            {
+              std::lock_guard<std::mutex> l(queue_->mutex());
+              requestPending_ = false;
+              requestPromise = std::move(promise_);
+            }
+            if (!requestPromise.isFulfilled()) {
+              requestPromise.setValue(response);
+            }
           }
           return response;
         });
@@ -173,6 +217,12 @@ class LocalExchangeSource : public exec::ExchangeSource {
   }
 
  private:
+  // state for serializing concurrent result and timeout. If timeout
+  // happens when state is kResultReceived, it must wait until state
+  // is kResultProcessed. If result arrives when state != kPending,
+  // the result is ignored.
+  enum class State { kPending, kResultReceived, kResultProcessed, kTimeout };
+
   bool checkSetRequestPromise() {
     VeloxPromise<Response> promise;
     {

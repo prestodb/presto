@@ -84,6 +84,11 @@ class ExchangeClientTest : public testing::Test,
       bool atEnd;
       ContinueFuture future;
       auto pages = client.next(1, &atEnd, &future);
+      if (pages.empty()) {
+        auto& exec = folly::QueuedImmediateExecutor::instance();
+        std::move(future).via(&exec).wait();
+        pages = client.next(1, &atEnd, &future);
+      }
       ASSERT_EQ(1, pages.size());
     }
   }
@@ -342,6 +347,48 @@ TEST_F(ExchangeClientTest, sourceTimeout) {
   pages = client.next(10'000, &atEnd, &future);
   ASSERT_EQ(0, pages.size());
   ASSERT_TRUE(atEnd);
+}
+
+TEST_F(ExchangeClientTest, timeoutDuringValueCallback) {
+  common::testutil::TestValue::enable();
+  auto row = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
+
+  auto plan = test::PlanBuilder()
+                  .values({row})
+                  .partitionedOutput({"c0"}, 100)
+                  .planNode();
+  auto taskId = "local://t1";
+  auto task = makeTask(taskId, plan);
+
+  bufferManager_->initializeTask(
+      task, core::PartitionedOutputNode::Kind::kPartitioned, 100, 16);
+
+  ExchangeClient client(
+      "t", 17, pool(), ExchangeClient::kDefaultMaxQueuedBytes);
+  client.addRemoteTaskId(taskId);
+  int32_t numTimeouts = 0;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::test::LocalExchangeSource::timeout",
+      std::function<void(void*)>(([&](void* /*ignore*/) { ++numTimeouts; })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::test::LocalExchangeSource",
+      std::function<void(void*)>(([&](void* /*pages*/) {
+        std::this_thread::sleep_for(
+            std::chrono::seconds(2 * ExchangeClient::kDefaultMaxWaitSeconds));
+      })));
+
+  auto thread = std::thread([&]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    enqueue(taskId, 17, row);
+  });
+
+  fetchPages(client, 1);
+  thread.join();
+  EXPECT_EQ(0, numTimeouts);
+
+  task->requestCancel();
+  bufferManager_->removeTask(taskId);
 }
 
 } // namespace
