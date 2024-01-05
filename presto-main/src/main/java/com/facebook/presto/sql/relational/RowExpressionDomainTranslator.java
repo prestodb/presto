@@ -132,7 +132,7 @@ public final class RowExpressionDomainTranslator
         return predicate.accept(new Visitor<>(metadata, session, columnExtractor), false);
     }
 
-    private RowExpression toPredicate(Domain domain, RowExpression reference)
+    public RowExpression toPredicate(Domain domain, RowExpression reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? isNull(reference) : FALSE_CONSTANT;
