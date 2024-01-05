@@ -114,6 +114,36 @@ public class TestIcebergLogicalPlanner
     }
 
     @Test
+    public void testFilterByUnmatchedValueWithFilterPushdown()
+    {
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        String tableName = "test_filter_by_unmatched_value";
+        assertUpdate("CREATE TABLE " + tableName + " (a varchar, b integer, r row(c int, d varchar)) WITH(partitioning = ARRAY['a'])");
+
+        // query with normal column filter on empty table
+        assertPlan(sessionWithFilterPushdown, "select a, r from " + tableName + " where b = 1001",
+                output(values("a", "r")));
+
+        // query with partition column filter on empty table
+        assertPlan(sessionWithFilterPushdown, "select b, r from " + tableName + " where a = 'var3'",
+                output(values("b", "r")));
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('var1', 1, (1001, 't1')), ('var1', 3, (1003, 't3'))", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('var2', 8, (1008, 't8')), ('var2', 10, (1010, 't10'))", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('var1', 2, (1002, 't2')), ('var1', 9, (1009, 't9'))", 2);
+
+        // query with unmatched normal column filter
+        assertPlan(sessionWithFilterPushdown, "select a, r from " + tableName + " where b = 1001",
+                output(values("a", "r")));
+
+        // query with unmatched partition column filter
+        assertPlan(sessionWithFilterPushdown, "select b, r from " + tableName + " where a = 'var3'",
+                output(values("b", "r")));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testFiltersWithPushdownDisable()
     {
         // The filter pushdown session property is disabled by default
