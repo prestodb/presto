@@ -239,6 +239,17 @@ public abstract class IcebergAbstractMetadata
             return new ConnectorTableLayout(handle);
         }
 
+        if (!icebergTableLayoutHandle.getPartitions().isPresent()) {
+            return new ConnectorTableLayout(
+                    icebergTableLayoutHandle,
+                    Optional.empty(),
+                    TupleDomain.none(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableList.of(),
+                    Optional.empty());
+        }
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(icebergTableLayoutHandle.getPartitionColumns());
         List<HivePartition> partitions = icebergTableLayoutHandle.getPartitions().get();
 
