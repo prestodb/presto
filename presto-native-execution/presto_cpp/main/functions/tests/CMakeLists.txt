@@ -17,23 +17,4 @@ add_test(presto_functions_test presto_functions_test)
 target_link_libraries(
   presto_functions_test
   presto_functions
-  velox_type
-  velox_exec
-  velox_expression
-  velox_functions_lib
-  velox_exec_test_lib
-  velox_functions_test_lib
-  velox_dwio_common_test_utils
-  velox_vector_fuzzer
-  gtest
-  gtest_main
-  gflags::gflags
-  gmock
-  gmock_main
-  simdjson::simdjson
-  presto_type_converter
-  ${ANTLR4_RUNTIME})
-
-  set_property(TARGET presto_functions_test PROPERTY JOB_POOL_COMPILE presto_link_job_pool)
-
-
+  velox_functions_test_lib)

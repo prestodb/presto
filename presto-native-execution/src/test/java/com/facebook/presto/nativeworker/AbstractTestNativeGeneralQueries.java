@@ -1291,6 +1291,14 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testKeySamplingPercentFunction()
+    {
+        assertQuery("SELECT key_sampling_percent('10')");
+        assertQuery("SELECT key_sampling_percent(comment) FROM nation");
+        assertQuery("SELECT key_sampling_percent(shipinstruct) FROM lineitem");
+    }
+
+    @Test
     public void testSystemTables()
     {
         String tableName = generateRandomTableName();

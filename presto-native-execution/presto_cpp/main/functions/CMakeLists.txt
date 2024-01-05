@@ -10,28 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_functions_impl
-KeySamplingPercentFunction.cpp)
-
-target_link_libraries(
-  presto_functions_impl
-  presto_common
-  velox_functions_prestosql
-  velox_functions_json
-  velox_functions_lib
-  velox_expression
-  md5
-  velox_type_tz
-  velox_presto_types
-  velox_functions_util
-  ${ANTLR4_RUNTIME}
-  Folly::folly)
-
-set_property(TARGET presto_functions_impl PROPERTY JOB_POOL_COMPILE presto_link_job_pool)
-
-# if(PRESTO_ENABLE_TESTING)
-   add_subdirectory(tests)
-# endif()
-
 add_subdirectory(registration)
 
+if(PRESTO_ENABLE_TESTING)
+   add_subdirectory(tests)
+endif()
