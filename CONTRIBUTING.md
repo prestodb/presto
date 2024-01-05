@@ -2,12 +2,21 @@
 
 Thanks for your interest in Presto.  Our goal is to build a fast, scalable and reliable distributed SQL query engine for running low latency interactive and batch analytic queries against data sources of all sizes ranging from gigabytes to petabytes.
 
+## Requirements
+
+* Mac OS X or Linux
+* Java 8 Update 151 or higher (8u151+), 64-bit. Both Oracle JDK and OpenJDK are supported.
+* Maven 3.3.9+ (for building)
+* Python 2.4+ (for running with the launcher script)
+
 ## Getting Started
 
 Presto's [open issues are here](https://github.com/prestodb/presto/issues). Issues that would make a good first pull request for new contributors with the `beginner-task` tag. An easy way to get started helping the project is to *file an issue*. Issues can include bugs, new features, or documentation that looks outdated. For community support, [ask for help in Slack](https://join.slack.com/t/prestodb/shared_invite/enQtNTQ3NjU2MTYyNDA2LTYyOTg3MzUyMWE1YTI3Njc5YjgxZjNiYTgxODAzYjI5YWMwYWE0MTZjYWFhNGMwNjczYjI3N2JhM2ExMGJlMWM).
 
 <details> <!-- from: https://github.com/prestodb/presto/blob/master/README.md -->
   <summary><h2>Building Presto</h2></summary>
+
+### Overview (Java)
 
 Presto is a standard Maven project. Simply run the following command from the project root directory:
 
@@ -18,8 +27,6 @@ On the first build, Maven will download all the dependencies from the internet a
 Presto has a comprehensive set of unit tests that can take several minutes to run. You can disable the tests when building:
 
     ./mvnw clean install -DskipTests
-
-### Overview
 
 After building Presto for the first time, you can load the project into your IDE and run the server. We recommend using [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven project, you can import it into your IDE using the root `pom.xml` file. In IntelliJ, choose Open Project from the Quick Start box or choose Open from the File menu and select the root `pom.xml` file.
 
@@ -85,6 +92,15 @@ To simplify iteration, you can also run in `watch` mode, which automatically re-
     yarn --cwd presto-main/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
+
+## Presto native and Velox
+
+[Presto native](https://github.com/prestodb/presto/tree/master/presto-native-execution) is a C++ rewrite of Presto worker. [Presto native](https://github.com/prestodb/presto/tree/master/presto-native-execution) uses [Velox](https://github.com/facebookincubator/velox) as its primary engine to run presto workloads.
+
+[Velox](https://github.com/facebookincubator/velox) is a C++ database library which provides reusable, extensible, and high-performance data processing components.
+
+Check out [building instructions](https://github.com/prestodb/presto/tree/master/presto-native-execution#building) to get started.
+
 
 <hr>
 </details>
