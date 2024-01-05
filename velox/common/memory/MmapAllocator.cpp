@@ -532,8 +532,7 @@ void* MmapAllocator::allocateBytesWithoutRetry(
   }
 
   ContiguousAllocation allocation;
-  auto numPages = bits::roundUp(bytes, AllocationTraits::kPageSize) /
-      AllocationTraits::kPageSize;
+  auto numPages = AllocationTraits::numPages(bytes);
   if (!allocateContiguousWithoutRetry(numPages, nullptr, allocation)) {
     return nullptr;
   }
