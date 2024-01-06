@@ -17,6 +17,7 @@
 #include "velox/expression/EvalCtx.h"
 #include <exception>
 #include "velox/common/testutil/TestValue.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/PeeledEncoding.h"
 
@@ -28,7 +29,13 @@ EvalCtx::EvalCtx(core::ExecCtx* execCtx, ExprSet* exprSet, const RowVector* row)
     : execCtx_(execCtx),
       exprSet_(exprSet),
       row_(row),
-      cacheEnabled_(execCtx->exprEvalCacheEnabled()) {
+      cacheEnabled_(execCtx->exprEvalCacheEnabled()),
+      maxSharedSubexprResultsCached_(
+          execCtx->queryCtx()
+              ? execCtx->queryCtx()
+                    ->queryConfig()
+                    .maxSharedSubexprResultsCached()
+              : core::QueryConfig({}).maxSharedSubexprResultsCached()) {
   // TODO Change the API to replace raw pointers with non-const references.
   // Sanity check inputs to prevent crashes.
   VELOX_CHECK_NOT_NULL(execCtx);
@@ -49,7 +56,13 @@ EvalCtx::EvalCtx(core::ExecCtx* execCtx)
     : execCtx_(execCtx),
       exprSet_(nullptr),
       row_(nullptr),
-      cacheEnabled_(execCtx->exprEvalCacheEnabled()) {
+      cacheEnabled_(execCtx->exprEvalCacheEnabled()),
+      maxSharedSubexprResultsCached_(
+          execCtx->queryCtx()
+              ? execCtx->queryCtx()
+                    ->queryConfig()
+                    .maxSharedSubexprResultsCached()
+              : core::QueryConfig({}).maxSharedSubexprResultsCached()) {
   VELOX_CHECK_NOT_NULL(execCtx);
 }
 

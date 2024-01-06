@@ -124,10 +124,12 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::vector<VectorPtr> evaluateMultiple(
       const std::vector<std::string>& texts,
       const RowVectorPtr& input,
-      const std::optional<SelectivityVector>& rows = std::nullopt) {
+      const std::optional<SelectivityVector>& rows = std::nullopt,
+      core::ExecCtx* execCtx = nullptr) {
     auto exprSet = compileMultiple(texts, asRowType(input->type()));
 
-    exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
+    exec::EvalCtx context(
+        execCtx ? execCtx : execCtx_.get(), exprSet.get(), input.get());
     std::vector<VectorPtr> result(texts.size());
     if (rows.has_value()) {
       exprSet->eval(*rows, context, result);
@@ -4073,6 +4075,23 @@ TEST_F(ExprTest, commonSubExpressionWithPeeling) {
       ASSERT_EQ(totalDefaultNullFunc, 2);
       // It is evaluated twice during expr1 and 4 times during expr2.
       ASSERT_EQ(totalNotDefaultNullFunc, 6);
+      clearResults();
+    }
+    {
+      // Set max_shared_subexpr_results_cached low so the
+      // second result isn't cached, so expr1 is only evaluated once, but expr2
+      // is evaluated twice.
+      auto queryCtx = std::make_shared<core::QueryCtx>(
+          nullptr,
+          core::QueryConfig(std::unordered_map<std::string, std::string>{
+              {core::QueryConfig::kMaxSharedSubexprResultsCached, "1"}}));
+      core::ExecCtx execCtx(pool_.get(), queryCtx.get());
+      auto results = makeRowVector(evaluateMultiple(
+          {expr1, expr2, expr1, expr2}, data, std::nullopt, &execCtx));
+      ASSERT_EQ(totalDefaultNullFunc, 2);
+      // It is evaluated twice during expr1 and 4 times during expr2, expr2 is
+      // evaluated twice.
+      ASSERT_EQ(totalNotDefaultNullFunc, 10);
     }
   }
 }

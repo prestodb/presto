@@ -118,6 +118,12 @@ Generic Configuration
      - true
      - Whether to enable caches in expression evaluation. If set to true, optimizations including vector pools and
        evalWithMemo are enabled.
+   * - max_shared_subexpr_results_cached
+     - integer
+     - 10
+     - For a given shared subexpression, the maximum distinct sets of inputs we cache results for. Lambdas can call
+       the same expression with different inputs many times, causing the results we cache to explode in size. Putting
+       a limit contains the memory usage.
    * - driver_cpu_time_slice_limit_ms
      - integer
      - 0

@@ -360,6 +360,13 @@ class QueryConfig {
   static constexpr const char* kEnableExpressionEvaluationCache =
       "enable_expression_evaluation_cache";
 
+  // For a given shared subexpression, the maximum distinct sets of inputs we
+  // cache results for. Lambdas can call the same expression with different
+  // inputs many times, causing the results we cache to explode in size. Putting
+  // a limit contains the memory usage.
+  static constexpr const char* kMaxSharedSubexprResultsCached =
+      "max_shared_subexpr_results_cached";
+
   /// Maximum number of splits to preload. Set to 0 to disable preloading.
   static constexpr const char* kMaxSplitPreloadPerDriver =
       "max_split_preload_per_driver";
@@ -725,6 +732,22 @@ class QueryConfig {
 
   bool isExpressionEvaluationCacheEnabled() const {
     return get<bool>(kEnableExpressionEvaluationCache, true);
+  }
+
+  uint32_t maxSharedSubexprResultsCached() const {
+    // 10 was chosen as a default as there are cases where a shared
+    // subexpression can be called in 2 different places and a particular
+    // argument may be peeled in one and not peeled in another. 10 is large
+    // enough to handle this happening for a few arguments in different
+    // combinations.
+    //
+    // For example, when the UDF at the root of a shared subexpression does not
+    // have default null behavior and takes an input that is dictionary encoded
+    // with nulls set in the DictionaryVector. That dictionary
+    // encoding may be peeled depending on whether or not there is a UDF above
+    // it in the expression tree that has default null behavior and takes the
+    // same input as an argument.
+    return get<uint32_t>(kMaxSharedSubexprResultsCached, 10);
   }
 
   int32_t maxSplitPreloadPerDriver() const {
