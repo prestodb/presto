@@ -82,7 +82,7 @@ ReaderBase::ReaderBase(
           pool,
           std::move(input),
           nullptr,
-          dwio::common::ReaderOptions::kDefaultDirectorySizeGuess,
+          dwio::common::ReaderOptions::kDefaultFooterEstimatedSize,
           dwio::common::ReaderOptions::kDefaultFilePreloadThreshold,
           fileFormat) {}
 
@@ -90,14 +90,14 @@ ReaderBase::ReaderBase(
     MemoryPool& pool,
     std::unique_ptr<dwio::common::BufferedInput> input,
     std::shared_ptr<DecrypterFactory> decryptorFactory,
-    uint64_t directorySizeGuess,
+    uint64_t footerEstimatedSize,
     uint64_t filePreloadThreshold,
     FileFormat fileFormat,
     bool fileColumnNamesReadAsLowerCase)
     : pool_{pool},
       arena_(std::make_unique<google::protobuf::Arena>()),
       decryptorFactory_(decryptorFactory),
-      directorySizeGuess_(directorySizeGuess),
+      footerEstimatedSize_(footerEstimatedSize),
       filePreloadThreshold_(filePreloadThreshold),
       input_(std::move(input)) {
   // read last bytes into buffer to get PostScript
@@ -108,7 +108,7 @@ ReaderBase::ReaderBase(
 
   auto preloadFile = fileLength_ <= filePreloadThreshold_;
   uint64_t readSize =
-      preloadFile ? fileLength_ : std::min(fileLength_, directorySizeGuess_);
+      preloadFile ? fileLength_ : std::min(fileLength_, footerEstimatedSize_);
   DWIO_ENSURE_GE(readSize, 4, "File size too small");
 
   input_->enqueue({fileLength_ - readSize, readSize, "footer"});

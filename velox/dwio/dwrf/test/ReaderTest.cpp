@@ -303,7 +303,7 @@ void verifyFlatMapReading(
 
   /* If an extra sanity check is desired you can uncomment the 2 below lines and
    * re-run */
-  // readerOpts.setDirectorySizeGuess(257);
+  // readerOpts.setFooterEstimatedSize(257);
   // readerOpts.setFilePreloadThreshold(0);
 
   RowReaderOptions rowReaderOpts;
@@ -727,7 +727,7 @@ TEST_F(TestRowReaderPrefetch, testParallelPrefetchNoPreload) {
   dwio::common::ReaderOptions readerOpts{pool()};
   // Explicitly disable so IO takes some time
   readerOpts.setFilePreloadThreshold(0);
-  readerOpts.setDirectorySizeGuess(4);
+  readerOpts.setFooterEstimatedSize(4);
   RowReaderOptions rowReaderOpts;
   rowReaderOpts.select(std::make_shared<ColumnSelector>(getFlatmapSchema()));
   auto reader = DwrfReader::create(
@@ -754,7 +754,7 @@ TEST_F(TestRowReaderPrefetch, testParallelPrefetchNoPreload) {
 TEST_F(TestRowReaderPrefetch, prefetchWithCachedIndexStream) {
   dwio::common::ReaderOptions readerOpts{pool()};
   readerOpts.setFilePreloadThreshold(0);
-  readerOpts.setDirectorySizeGuess(4);
+  readerOpts.setFooterEstimatedSize(4);
   RowReaderOptions rowReaderOpts;
 
   std::shared_ptr<const RowType> requestedType = std::dynamic_pointer_cast<
@@ -819,7 +819,7 @@ TEST_P(TestRowReaderPrefetchByStripe, prefetchWithCachedIndexStream) {
   auto opt = GetParam();
   dwio::common::ReaderOptions readerOpts{pool()};
   readerOpts.setFilePreloadThreshold(0);
-  readerOpts.setDirectorySizeGuess(4);
+  readerOpts.setFooterEstimatedSize(4);
   RowReaderOptions rowReaderOpts;
   rowReaderOpts.range(opt.offset, opt.length);
 

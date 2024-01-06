@@ -769,7 +769,7 @@ DwrfReader::DwrfReader(
           options.getMemoryPool(),
           std::move(input),
           options.getDecrypterFactory(),
-          options.getDirectorySizeGuess(),
+          options.getFooterEstimatedSize(),
           options.getFilePreloadThreshold(),
           options.getFileFormat() == FileFormat::ORC ? FileFormat::ORC
                                                      : FileFormat::DWRF,
@@ -1055,8 +1055,8 @@ uint64_t DwrfReader::getMemoryUse(
 
   // Do we need even more memory to read the footer or the metadata?
   auto footerLength = readerBase.getPostScript().footerLength();
-  if (memory < footerLength + readerBase.getDirectorySizeGuess()) {
-    memory = footerLength + readerBase.getDirectorySizeGuess();
+  if (memory < footerLength + readerBase.getFooterEstimatedSize()) {
+    memory = footerLength + readerBase.getFooterEstimatedSize();
   }
 
   // Account for firstRowOfStripe.

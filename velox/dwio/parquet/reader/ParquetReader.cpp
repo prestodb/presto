@@ -106,7 +106,7 @@ class ReaderBase {
       bool fileColumnNamesReadAsLowerCase);
 
   memory::MemoryPool& pool_;
-  const uint64_t directorySizeGuess_;
+  const uint64_t footerEstimatedSize_;
   const uint64_t filePreloadThreshold_;
   // Copy of options. Must be owned by 'this'.
   const dwio::common::ReaderOptions options_;
@@ -127,7 +127,7 @@ ReaderBase::ReaderBase(
     std::unique_ptr<dwio::common::BufferedInput> input,
     const dwio::common::ReaderOptions& options)
     : pool_(options.getMemoryPool()),
-      directorySizeGuess_(options.getDirectorySizeGuess()),
+      footerEstimatedSize_(options.getFooterEstimatedSize()),
       filePreloadThreshold_(options.getFilePreloadThreshold()),
       options_(options),
       input_(std::move(input)) {
@@ -141,8 +141,8 @@ ReaderBase::ReaderBase(
 
 void ReaderBase::loadFileMetaData() {
   bool preloadFile =
-      fileLength_ <= std::max(filePreloadThreshold_, directorySizeGuess_);
-  uint64_t readSize = preloadFile ? fileLength_ : directorySizeGuess_;
+      fileLength_ <= std::max(filePreloadThreshold_, footerEstimatedSize_);
+  uint64_t readSize = preloadFile ? fileLength_ : footerEstimatedSize_;
 
   std::unique_ptr<dwio::common::SeekableInputStream> stream;
   if (preloadFile) {

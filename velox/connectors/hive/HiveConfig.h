@@ -110,12 +110,18 @@ class HiveConfig {
   static constexpr const char* kFileColumnNamesReadAsLowerCaseSession =
       "file_column_names_read_as_lower_case";
 
-  /// Sets the max coalesce bytes for a request.
+  /// The max coalesce bytes for a request.
   static constexpr const char* kMaxCoalescedBytes = "max-coalesced-bytes";
 
-  /// Sets the max coalesce distance bytes for combining requests.
+  /// The max coalesce distance bytes for combining requests.
   static constexpr const char* kMaxCoalescedDistanceBytes =
       "max-coalesced-distance-bytes";
+
+  /// The number of prefetch rowgroups
+  static constexpr const char* kPrefetchRowGroups = "prefetch-rowgroups";
+
+  /// The total size in bytes for a direct coalesce request.
+  static constexpr const char* kLoadQuantum = "load-quantum";
 
   /// Maximum number of entries in the file handle cache.
   static constexpr const char* kNumCacheFileHandles = "num_cached_file_handles";
@@ -123,6 +129,15 @@ class HiveConfig {
   /// Enable file handle cache.
   static constexpr const char* kEnableFileHandleCache =
       "file-handle-cache-enabled";
+
+  /// The size in bytes to be fetched with Meta data together, used when the
+  /// data after meta data will be used later. Optimization to decrease small IO
+  /// request
+  static constexpr const char* kFooterEstimatedSize = "footer-estimated-size";
+
+  /// The threshold of file size in bytes when the whole file is fetched with
+  /// meta data together. Optimization to decrease the small IO requests
+  static constexpr const char* kFilePreloadThreshold = "file-preload-threshold";
 
   /// Maximum stripe size in orc writer.
   static constexpr const char* kOrcWriterMaxStripeSize =
@@ -198,6 +213,10 @@ class HiveConfig {
 
   int32_t maxCoalescedDistanceBytes() const;
 
+  int32_t prefetchRowGroups() const;
+
+  int32_t loadQuantum() const;
+
   int32_t numCacheFileHandles() const;
 
   bool isFileHandleCacheEnabled() const;
@@ -213,6 +232,10 @@ class HiveConfig {
   uint32_t sortWriterMaxOutputRows(const Config* session) const;
 
   uint64_t sortWriterMaxOutputBytes(const Config* session) const;
+
+  uint64_t footerEstimatedSize() const;
+
+  uint64_t filePreloadThreshold() const;
 
   std::string fileCreateConfig(const Config* session) const;
 

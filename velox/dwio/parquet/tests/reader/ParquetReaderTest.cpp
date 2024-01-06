@@ -820,7 +820,7 @@ TEST_F(ParquetReaderTest, preloadSmallFile) {
       fileSize <= facebook::velox::dwio::common::ReaderOptions::
                       kDefaultFilePreloadThreshold ||
       fileSize <= facebook::velox::dwio::common::ReaderOptions::
-                      kDefaultDirectorySizeGuess);
+                      kDefaultFooterEstimatedSize);
 
   // Check the whole file already loaded.
   ASSERT_EQ(file->bytesRead(), fileSize);

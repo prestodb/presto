@@ -584,7 +584,7 @@ TEST_F(E2EFilterTest, largeMetadata) {
       test::BatchMaker::createBatch(rowType_, 1000, *leafPool_, nullptr, 0)));
   writeToMemory(rowType_, batches, false);
   dwio::common::ReaderOptions readerOpts{leafPool_.get()};
-  readerOpts.setDirectorySizeGuess(1024);
+  readerOpts.setFooterEstimatedSize(1024);
   readerOpts.setFilePreloadThreshold(1024 * 8);
   dwio::common::RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->data(), sinkPtr_->size());

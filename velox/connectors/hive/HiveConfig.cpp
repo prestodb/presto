@@ -156,6 +156,14 @@ int32_t HiveConfig::maxCoalescedDistanceBytes() const {
   return config_->get<int32_t>(kMaxCoalescedDistanceBytes, 512 << 10);
 }
 
+int32_t HiveConfig::prefetchRowGroups() const {
+  return config_->get<int32_t>(kPrefetchRowGroups, 1);
+}
+
+int32_t HiveConfig::loadQuantum() const {
+  return config_->get<int32_t>(kLoadQuantum, 8 << 20);
+}
+
 int32_t HiveConfig::numCacheFileHandles() const {
   return config_->get<int32_t>(kNumCacheFileHandles, 20'000);
 }
@@ -215,6 +223,14 @@ uint64_t HiveConfig::sortWriterMaxOutputBytes(const Config* session) const {
         core::CapacityUnit::BYTE);
   }
   return 10UL << 20;
+}
+
+uint64_t HiveConfig::footerEstimatedSize() const {
+  return config_->get<uint64_t>(kFooterEstimatedSize, 1UL << 20);
+}
+
+uint64_t HiveConfig::filePreloadThreshold() const {
+  return config_->get<uint64_t>(kFilePreloadThreshold, 8UL << 20);
 }
 
 std::string HiveConfig::fileCreateConfig(const Config* session) const {
