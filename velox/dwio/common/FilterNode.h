@@ -102,14 +102,14 @@ struct FilterNode {
     return name == other.name;
   }
 
-  bool match(const std::string_view& name) const {
+  bool match(const std::string_view& name_to_match) const {
     // no match if any is invalid
     if (!valid()) {
       // even current is invlaid
       return false;
     }
 
-    return this->name == name;
+    return name == name_to_match;
   }
 
   // expect the incoming list has all valid nodes
@@ -117,8 +117,8 @@ struct FilterNode {
   std::vector<FilterNode>::const_iterator in(
       const std::vector<FilterNode>& list) const {
     return std::find_if(
-        list.cbegin(), list.cend(), [this](const FilterNode& node) {
-          return node.match(*this);
+        list.cbegin(), list.cend(), [this](const FilterNode& filter_node) {
+          return filter_node.match(*this);
         });
   }
 
