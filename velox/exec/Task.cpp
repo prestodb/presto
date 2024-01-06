@@ -1744,15 +1744,15 @@ ContinueFuture Task::terminate(TaskState terminalState) {
     if (taskStats_.executionEndTimeMs == 0) {
       taskStats_.executionEndTimeMs = getCurrentTimeMs();
     }
-    if (taskStats_.terminationTimeMs == 0) {
-      // In case terminate gets called multiple times somehow,
-      // this represents the first time.
-      taskStats_.terminationTimeMs = getCurrentTimeMs();
-    }
     if (not isRunningLocked()) {
       return makeFinishFutureLocked("Task::terminate");
     }
     state_ = terminalState;
+    VELOX_CHECK_EQ(
+        taskStats_.terminationTimeMs,
+        0,
+        "Termination time has already been set, this should only happen once.");
+    taskStats_.terminationTimeMs = getCurrentTimeMs();
     if (state_ == TaskState::kCanceled || state_ == TaskState::kAborted) {
       try {
         VELOX_FAIL(

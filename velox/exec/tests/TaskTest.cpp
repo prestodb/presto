@@ -1092,6 +1092,9 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
     EXPECT_EQ(0, liveStats[i].numTerminatedDrivers);
     EXPECT_EQ(1, liveStats[i].numRunningDrivers);
     EXPECT_EQ(0, liveStats[i].numBlockedDrivers.size());
+
+    EXPECT_EQ(0, liveStats[i].executionEndTimeMs);
+    EXPECT_EQ(0, liveStats[i].terminationTimeMs);
   }
 
   EXPECT_EQ(1, finishStats.numTotalDrivers);
@@ -1108,6 +1111,19 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   EXPECT_EQ(1, operatorStats.finishTiming.count);
   // No operators with background CPU time yet.
   EXPECT_EQ(0, operatorStats.backgroundTiming.count);
+
+  EXPECT_NE(0, finishStats.executionEndTimeMs);
+  EXPECT_NE(0, finishStats.terminationTimeMs);
+  const auto terminationTimeMs = finishStats.terminationTimeMs;
+
+  // Sleep to allow time to pass, so the values change.
+  std::this_thread::sleep_for(std::chrono::milliseconds{5});
+  EXPECT_NE(0, task->timeSinceEndMs());
+  EXPECT_NE(0, task->timeSinceTerminationMs());
+
+  // This should be a no-op.
+  task->requestCancel();
+  EXPECT_EQ(terminationTimeMs, task->taskStats().terminationTimeMs);
 }
 
 TEST_F(TaskTest, outputBufferSize) {
