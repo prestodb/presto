@@ -31,6 +31,7 @@ import org.apache.iceberg.util.TableScanUtil;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.hive.rule.FilterPushdownUtils.isEntireColumn;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
@@ -67,7 +68,11 @@ public class IcebergSplitManager
         }
 
         TupleDomain<IcebergColumnHandle> predicate = isPushdownFilterEnabled(session) ?
-                layoutHandle.getPartitionColumnPredicate().transform(IcebergColumnHandle.class::cast) :
+                layoutHandle.getPartitionColumnPredicate()
+                        .transform(IcebergColumnHandle.class::cast)
+                        .intersect(layoutHandle.getDomainPredicate()
+                                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                                .transform(layoutHandle.getPredicateColumns()::get)) :
                 table.getPredicate();
 
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
