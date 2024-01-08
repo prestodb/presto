@@ -1,9 +1,9 @@
 
-==============
-Runtime Metric
-==============
+===============
+Runtime Metrics
+===============
 
-Runtime metric is used to collect the metrics of important velox runtime events
+Runtime metrics are used to collect the metrics of important velox runtime events
 for monitoring purpose. The collected metrics can provide insights into the
 continuous availability and performance analysis of a Velox runtime system. For
 instance, the collected data can help automatically generate alerts at an
