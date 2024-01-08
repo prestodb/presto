@@ -95,9 +95,9 @@ public final class GlueToPrestoConverter
             if (sd == null) {
                 throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
             }
-            tableBuilder.setDataColumns(convertColumns(sd.getColumns()));
+            tableBuilder.setDataColumns(convertColumns(sd.getColumns(), Optional.ofNullable(sd.getSerdeInfo().getSerializationLibrary())));
             if (glueTable.getPartitionKeys() != null) {
-                tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys()));
+                tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys(), Optional.ofNullable(sd.getSerdeInfo().getSerializationLibrary())));
             }
             else {
                 tableBuilder.setPartitionColumns(ImmutableList.of());
@@ -109,14 +109,17 @@ public final class GlueToPrestoConverter
         return tableBuilder.build();
     }
 
-    private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn)
+    private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn, Optional<String> serde)
     {
+        if (serde.isPresent() && HiveStorageFormat.CSV.getSerDe().equalsIgnoreCase(serde.get())) {
+            return new Column(glueColumn.getName(), HiveType.HIVE_STRING, Optional.ofNullable(glueColumn.getComment()), Optional.empty());
+        }
         return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()), Optional.empty());
     }
 
-    private static List<Column> convertColumns(List<com.amazonaws.services.glue.model.Column> glueColumns)
+    private static List<Column> convertColumns(List<com.amazonaws.services.glue.model.Column> glueColumns, Optional<String> serde)
     {
-        return mappedCopy(glueColumns, GlueToPrestoConverter::convertColumn);
+        return mappedCopy(glueColumns, glueColumn -> convertColumn(glueColumn, serde));
     }
 
     private static Map<String, String> convertParameters(Map<String, String> input)
@@ -140,16 +143,18 @@ public final class GlueToPrestoConverter
     public static final class GluePartitionConverter
             implements Function<com.amazonaws.services.glue.model.Partition, Partition>
     {
-        private final Function<List<com.amazonaws.services.glue.model.Column>, List<Column>> columnsConverter = memoizeLast(GlueToPrestoConverter::convertColumns);
+        private final Function<List<com.amazonaws.services.glue.model.Column>, List<Column>> columnsConverter;
         private final Function<Map<String, String>, Map<String, String>> parametersConverter = parametersConverter();
         private final StorageConverter storageConverter = new StorageConverter();
         private final String databaseName;
         private final String tableName;
 
-        public GluePartitionConverter(String databaseName, String tableName)
+        public GluePartitionConverter(Table table)
         {
-            this.databaseName = requireNonNull(databaseName, "databaseName is null");
-            this.tableName = requireNonNull(tableName, "tableName is null");
+            this.databaseName = requireNonNull(table.getDatabaseName(), "databaseName is null");
+            this.tableName = requireNonNull(table.getTableName(), "tableName is null");
+            this.columnsConverter = memoizeLast(glueColumns -> convertColumns(glueColumns,
+                    Optional.of(table.getStorage().getStorageFormat().getSerDe())));
         }
 
         @Override

@@ -187,6 +187,7 @@ public class TestHiveCommitHandleOutput
 
         // Get the partition; the last commit output should equal to the one returned when adding the partition.
         hiveMeta = getHiveMetadata(metastore, hiveClientConfig, listeningExecutor);
+        Table table = metastore.getTable(hiveMeta.getMetastoreContext(connectorSession), TEST_SCHEMA, TEST_TABLE).get();
         Map<String, Optional<Partition>> partitions = hiveMeta.getMetastore().getPartitionsByNames(
                 new MetastoreContext(
                         connectorSession.getUser(),
@@ -196,8 +197,7 @@ public class TestHiveCommitHandleOutput
                         Optional.empty(),
                         false,
                         HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER),
-                TEST_SCHEMA,
-                TEST_TABLE,
+                table,
                 ImmutableList.of(partitionName));
         handle = hiveMeta.commit();
 
@@ -385,9 +385,9 @@ public class TestHiveCommitHandleOutput
         }
 
         @Override
-        public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
+        public Optional<Partition> getPartition(MetastoreContext metastoreContext, Table table, List<String> partitionValues)
         {
-            String partitionKey = createPartitionKey(databaseName, tableName, partitionValues);
+            String partitionKey = createPartitionKey(table.getDatabaseName(), table.getTableName(), partitionValues);
             long time = lastDataCommitTimes.getOrDefault(partitionKey, 0L);
 
             Partition partition = partitions.get(partitionKey);
@@ -400,12 +400,12 @@ public class TestHiveCommitHandleOutput
         }
 
         @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, Table table, List<String> partitionNames)
         {
             Map<String, Optional<Partition>> result = new HashMap<>();
             for (String partitionName : partitionNames) {
                 List<String> partitionValues = toPartitionValues(partitionName);
-                String partitionKey = createPartitionKey(databaseName, tableName, partitionValues);
+                String partitionKey = createPartitionKey(table.getDatabaseName(), table.getTableName(), partitionValues);
                 long time = lastDataCommitTimes.getOrDefault(partitionKey, 0L);
 
                 Partition partition = partitions.get(partitionKey);

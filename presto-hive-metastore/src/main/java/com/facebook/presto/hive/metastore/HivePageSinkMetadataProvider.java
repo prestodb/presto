@@ -53,7 +53,7 @@ public class HivePageSinkMetadataProvider
         }
         Optional<Partition> modifiedPartition = modifiedPartitions.get(partitionValues);
         if (modifiedPartition == null) {
-            return delegate.getPartition(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues);
+            return delegate.getPartition(metastoreContext, table.get(), partitionValues);
         }
         else {
             return modifiedPartition;

@@ -19,8 +19,11 @@ import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
@@ -101,11 +104,11 @@ public class CreateEmptyPartitionProcedure
         }
     }
 
-    private void doCreateEmptyPartition(ConnectorSession session, String schema, String table, List<Object> partitionColumnNames, List<Object> partitionValues)
+    private void doCreateEmptyPartition(ConnectorSession session, String schemaName, String tableName, List<Object> partitionColumnNames, List<Object> partitionValues)
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
 
-        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, new HiveTableHandle(schema, table));
+        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, new HiveTableHandle(schemaName, tableName));
 
         List<String> actualPartitionColumnNames = hiveInsertTableHandle.getInputColumns().stream()
                 .filter(HiveColumnHandle::isPartitionKey)
@@ -119,7 +122,10 @@ public class CreateEmptyPartitionProcedure
                 .map(String.class::cast)
                 .collect(toImmutableList());
 
-        if (metastore.getPartition(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER), schema, table, partitionStringValues).isPresent()) {
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        Table table = metastore.getTable(metastoreContext, schemaName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schemaName, tableName)));
+        if (metastore.getPartition(metastoreContext, table, partitionStringValues).isPresent()) {
             throw new PrestoException(ALREADY_EXISTS, "Partition already exists");
         }
         String partitionName = FileUtils.makePartName(actualPartitionColumnNames, partitionStringValues);

@@ -353,12 +353,16 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, Optional<Table> table)
     {
+        if (!table.isPresent()) {
+            // RecordingHiveMetastore is used with ThriftHiveMetastore only and delegate here is BridgingHiveMetastore.
+            return Optional.empty();
+        }
         return loadValue(
                 partitionNamesCache,
-                hiveTableName(databaseName, tableName),
-                () -> delegate.getPartitionNames(metastoreContext, databaseName, tableName));
+                hiveTableName(table.get().getDatabaseName(), table.get().getTableName()),
+                () -> delegate.getPartitionNames(metastoreContext, table));
     }
 
     @Override

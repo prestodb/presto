@@ -151,13 +151,13 @@ public class UnimplementedHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
+    public Optional<Partition> getPartition(MetastoreContext metastoreContext, Table table, List<String> partitionValues)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, Optional<Table> table)
     {
         throw new UnsupportedOperationException();
     }
@@ -183,7 +183,7 @@ public class UnimplementedHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, Table table, List<String> partitionNames)
     {
         throw new UnsupportedOperationException();
     }

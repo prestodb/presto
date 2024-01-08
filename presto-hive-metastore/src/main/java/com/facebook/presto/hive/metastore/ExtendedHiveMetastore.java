@@ -23,6 +23,7 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 
 import java.util.List;
@@ -96,9 +97,17 @@ public interface ExtendedHiveMetastore
 
     MetastoreOperationResult dropColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName);
 
-    Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues);
+    default Optional<Partition> getPartition(MetastoreContext metastoreContext, Table table, List<String> partitionValues)
+    {
+        return Optional.empty();
+    }
 
-    Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName);
+    default Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
+    {
+        return Optional.empty();
+    }
+
+    Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, Optional<Table> table);
 
     List<String> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
@@ -112,7 +121,15 @@ public interface ExtendedHiveMetastore
             String tableName,
             Map<Column, Domain> partitionPredicates);
 
-    Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames);
+    default Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, Table table, List<String> partitionNames)
+    {
+        return ImmutableMap.of();
+    }
+
+    default Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    {
+        return ImmutableMap.of();
+    }
 
     MetastoreOperationResult addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 
@@ -160,5 +177,10 @@ public interface ExtendedHiveMetastore
     default int getPartitionCommitBatchSize()
     {
         return 10;
+    }
+
+    default Optional<ExtendedHiveMetastore> getDelegate()
+    {
+        return Optional.empty();
     }
 }

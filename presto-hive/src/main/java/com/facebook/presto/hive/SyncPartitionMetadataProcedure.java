@@ -144,7 +144,7 @@ public class SyncPartitionMetadataProcedure
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             ImmutableList.Builder<String> partitionsInMetastore = new ImmutableList.Builder<>();
             for (List<String> batchPartitionNames : partition(partitionNamesInMetastore, GET_PARTITION_BY_NAMES_BATCH_SIZE)) {
-                Map<String, Optional<Partition>> partitionsOptionalMap = metastore.getPartitionsByNames(metastoreContext, schemaName, tableName, batchPartitionNames);
+                Map<String, Optional<Partition>> partitionsOptionalMap = metastore.getPartitionsByNames(metastoreContext, table, batchPartitionNames);
                 for (Map.Entry<String, Optional<Partition>> entry : partitionsOptionalMap.entrySet()) {
                     if (entry.getValue().isPresent()) {
                         partitionsInMetastore.add(tableLocation.toUri().relativize(new Path(entry.getValue().get().getStorage().getLocation()).toUri()).getPath());

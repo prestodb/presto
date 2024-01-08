@@ -160,14 +160,15 @@ public class TestRecordingHiveMetastore
     {
         assertEquals(hiveMetastore.getDatabase(TEST_METASTORE_CONTEXT, "database"), Optional.of(DATABASE));
         assertEquals(hiveMetastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of("database"));
-        assertEquals(hiveMetastore.getTable(TEST_METASTORE_CONTEXT, "database", "table"), Optional.of(TABLE));
+        Optional<Table> table = hiveMetastore.getTable(TEST_METASTORE_CONTEXT, "database", "table");
+        assertEquals(table, Optional.of(TABLE));
         assertEquals(hiveMetastore.getSupportedColumnStatistics(TEST_METASTORE_CONTEXT, createVarcharType(123)), ImmutableSet.of(MIN_VALUE, MAX_VALUE));
         assertEquals(hiveMetastore.getTableStatistics(TEST_METASTORE_CONTEXT, "database", "table"), PARTITION_STATISTICS);
         assertEquals(hiveMetastore.getPartitionStatistics(TEST_METASTORE_CONTEXT, "database", "table", ImmutableSet.of("value")), ImmutableMap.of("value", PARTITION_STATISTICS));
         assertEquals(hiveMetastore.getAllTables(TEST_METASTORE_CONTEXT, "database"), Optional.of(ImmutableList.of("table")));
         assertEquals(hiveMetastore.getAllViews(TEST_METASTORE_CONTEXT, "database"), Optional.empty());
         assertEquals(hiveMetastore.getPartition(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
-        assertEquals(hiveMetastore.getPartitionNames(TEST_METASTORE_CONTEXT, "database", "table"), Optional.of(ImmutableList.of("value")));
+        assertEquals(hiveMetastore.getPartitionNames(TEST_METASTORE_CONTEXT, table), Optional.of(ImmutableList.of("value")));
         Map<Column, Domain> map = new HashMap<>();
         Column column = new Column("column", HiveType.HIVE_STRING, Optional.empty(), Optional.empty());
         map.put(column, Domain.singleValue(VARCHAR, utf8Slice("value")));
@@ -271,9 +272,12 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+        public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, Optional<Table> table)
         {
-            if (databaseName.equals("database") && tableName.equals("table")) {
+            if (!table.isPresent()) {
+                return Optional.empty();
+            }
+            if (table.get().getDatabaseName().equals("database") && table.get().getTableName().equals("table")) {
                 return Optional.of(ImmutableList.of("value"));
             }
 
