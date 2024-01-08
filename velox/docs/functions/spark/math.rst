@@ -105,8 +105,12 @@ Mathematical Functions
 
     Returns the square root of `a` squared plus `b` squared.
 
+.. spark:function:: isnan(x) -> boolean
 
-.. function:: log1p(x) -> double
+    Returns true if x is Nan, or false otherwise. Returns false is x is NULL.
+    Supported types are: REAL, DOUBLE.
+
+.. spark::function:: log1p(x) -> double
 
     Returns the natural logarithm of the “given value ``x`` plus one”.
     Return NULL if x is less than or equal to -1.
@@ -146,7 +150,7 @@ Mathematical Functions
 .. spark:function:: pmod(n, m) -> [same as n]
 
     Returns the positive remainder of n divided by m.
-    Supported types are: TINYINT, SMALLINT, INTEGER, BIGINT, FLOAT and DOUBLE.
+    Supported types are: TINYINT, SMALLINT, INTEGER, BIGINT, REAL and DOUBLE.
 
 .. spark:function:: power(x, p) -> double
 

@@ -147,6 +147,7 @@ class ArithmeticTest : public SparkFunctionBaseTest {
   }
 
   static constexpr float kNan = std::numeric_limits<float>::quiet_NaN();
+  static constexpr double kNanDouble = std::numeric_limits<double>::quiet_NaN();
   static constexpr float kInf = std::numeric_limits<float>::infinity();
 };
 
@@ -392,6 +393,28 @@ TEST_F(ArithmeticTest, atan2) {
   EXPECT_EQ(atan2(1.0, 1.0), std::atan2(1.0, 1.0));
   EXPECT_EQ(atan2(1.0, -1.0), std::atan2(1.0, -1.0));
   EXPECT_EQ(atan2(-1.0, -1.0), std::atan2(-1.0, -1.0));
+}
+
+TEST_F(ArithmeticTest, isNanFloat) {
+  const auto isNan = [&](std::optional<float> a) {
+    return evaluateOnce<bool>("isnan(c0)", a);
+  };
+
+  EXPECT_EQ(false, isNan(0.0f));
+  EXPECT_EQ(true, isNan(kNan));
+  EXPECT_EQ(true, isNan(0.0f / 0.0f));
+  EXPECT_EQ(false, isNan(std::nullopt));
+}
+
+TEST_F(ArithmeticTest, isNanDouble) {
+  const auto isNan = [&](std::optional<double> a) {
+    return evaluateOnce<bool>("isnan(c0)", a);
+  };
+
+  EXPECT_EQ(false, isNan(0.0));
+  EXPECT_EQ(true, isNan(kNanDouble));
+  EXPECT_EQ(true, isNan(0.0 / 0.0));
+  EXPECT_EQ(false, isNan(std::nullopt));
 }
 
 class LogNTest : public SparkFunctionBaseTest {
