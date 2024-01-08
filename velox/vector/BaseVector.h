@@ -487,7 +487,7 @@ class BaseVector {
     copyRanges(source, folly::Range(&range, 1));
   }
 
-  /// Converts SelectivityVetor into a list of CopyRanges having sourceIndex ==
+  /// Converts SelectivityVector into a list of CopyRanges having sourceIndex ==
   /// targetIndex. Aims to produce as few ranges as possible. If all rows are
   /// selected, returns a single range.
   static std::vector<CopyRange> toCopyRanges(const SelectivityVector& rows);

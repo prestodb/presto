@@ -122,7 +122,7 @@ static VectorPtr addDictionary(
   auto pool = vector->pool();
   return std::make_shared<
       DictionaryVector<typename KindToFlatVector<kind>::WrapperType>>(
-      pool, nulls, size, std::move(vector), std::move(indices));
+      pool, std::move(nulls), size, std::move(vector), std::move(indices));
 }
 
 // static
@@ -219,7 +219,7 @@ static VectorPtr addConstant(
       index = constVector->index();
       vector = vector->valueVector();
     } else if (vector->encoding() == VectorEncoding::Simple::DICTIONARY) {
-      BufferPtr indices = vector->as<DictionaryVector<T>>()->indices();
+      const BufferPtr& indices = vector->as<DictionaryVector<T>>()->indices();
       index = indices->as<vector_size_t>()[index];
       vector = vector->valueVector();
     } else {
@@ -340,7 +340,12 @@ VectorPtr BaseVector::createInternal(
     case TypeKind::UNKNOWN: {
       BufferPtr nulls = allocateNulls(size, pool, bits::kNull);
       return std::make_shared<FlatVector<UnknownValue>>(
-          pool, UNKNOWN(), nulls, size, nullptr, std::vector<BufferPtr>());
+          pool,
+          UNKNOWN(),
+          std::move(nulls),
+          size,
+          nullptr,
+          std::vector<BufferPtr>());
     }
     default:
       return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
@@ -471,7 +476,7 @@ void BaseVector::resizeIndices(
     if (indices->size() < newNumBytes) {
       AlignedBuffer::reallocate<vector_size_t>(&indices, newSize, 0);
     }
-    // indices->size() may cover more indices than cureentSize.
+    // indices->size() may cover more indices than currentSize.
     if (newSize > currentSize) {
       auto* raw = indices->asMutable<vector_size_t>();
       std::fill(raw + currentSize, raw + newSize, 0);
@@ -755,11 +760,9 @@ const VectorPtr& BaseVector::loadedVectorShared(const VectorPtr& vector) {
 VectorPtr BaseVector::transpose(BufferPtr indices, VectorPtr&& source) {
   // TODO: Reuse the indices if 'source' is already a dictionary and
   // there are no other users of its indices.
+  vector_size_t size = indices->size() / sizeof(vector_size_t);
   return wrapInDictionary(
-      BufferPtr(nullptr),
-      indices,
-      indices->size() / sizeof(vector_size_t),
-      std::move(source));
+      BufferPtr(nullptr), std::move(indices), size, std::move(source));
 }
 
 bool isLazyNotLoaded(const BaseVector& vector) {
