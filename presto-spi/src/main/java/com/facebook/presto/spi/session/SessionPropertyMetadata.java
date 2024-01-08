@@ -14,6 +14,9 @@
 package com.facebook.presto.spi.session;
 
 import com.facebook.presto.common.type.Type;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -21,12 +24,23 @@ import static java.util.Objects.requireNonNull;
 
 public class SessionPropertyMetadata
 {
+    @JsonProperty("name")
     private final String name;
+
+    @JsonProperty("description")
     private final String description;
+
+    @JsonProperty("sqlType")
+    @JsonDeserialize(using = TypeDeserializer.class)
     private final Type sqlType;
+
+    @JsonProperty("defaultValue")
     private final String defaultValue;
+
+    @JsonProperty("hidden")
     private final boolean hidden;
 
+    @JsonCreator
     public SessionPropertyMetadata(
             String name,
             String description,
@@ -51,6 +65,7 @@ public class SessionPropertyMetadata
     /**
      * Name of the property.  This must be a valid identifier.
      */
+    @JsonProperty
     public String getName()
     {
         return name;
@@ -59,6 +74,7 @@ public class SessionPropertyMetadata
     /**
      * Description for the end user.
      */
+    @JsonProperty
     public String getDescription()
     {
         return description;
@@ -67,6 +83,7 @@ public class SessionPropertyMetadata
     /**
      * SQL type of the property.
      */
+    @JsonProperty
     public Type getSqlType()
     {
         return sqlType;
@@ -75,6 +92,7 @@ public class SessionPropertyMetadata
     /**
      * Gets the default value for this property.
      */
+    @JsonProperty
     public String getDefaultValue()
     {
         return defaultValue;
@@ -83,6 +101,7 @@ public class SessionPropertyMetadata
     /**
      * Is this property hidden from users?
      */
+    @JsonProperty
     public boolean isHidden()
     {
         return hidden;
