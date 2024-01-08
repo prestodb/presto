@@ -24,18 +24,13 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class PropertyMetadata<T>
 {
-    private final String name;
-    private final String description;
-    private final Type sqlType;
+    private final SessionPropertyMetadata sessionPropertyMetadata;
     private final Class<T> javaType;
     private final T defaultValue;
-    private final boolean hidden;
     private final Function<Object, T> decoder;
     private final Function<T, Object> encoder;
 
@@ -49,28 +44,16 @@ public final class PropertyMetadata<T>
             Function<Object, T> decoder,
             Function<T, Object> encoder)
     {
-        requireNonNull(name, "name is null");
-        requireNonNull(description, "description is null");
-        requireNonNull(sqlType, "type is null");
-        requireNonNull(javaType, "javaType is null");
-        requireNonNull(decoder, "decoder is null");
-        requireNonNull(encoder, "encoder is null");
-
-        if (name.isEmpty() || !name.trim().toLowerCase(ENGLISH).equals(name)) {
-            throw new IllegalArgumentException(format("Invalid property name '%s'", name));
-        }
-        if (description.isEmpty() || !description.trim().equals(description)) {
-            throw new IllegalArgumentException(format("Invalid property description '%s'", description));
-        }
-
-        this.name = name;
-        this.description = description;
-        this.javaType = javaType;
-        this.sqlType = sqlType;
+        this.sessionPropertyMetadata = new SessionPropertyMetadata(
+                name,
+                description,
+                sqlType,
+                defaultValue == null ? "" : defaultValue.toString(),
+                hidden);
+        this.javaType = requireNonNull(javaType, "javaType is null");
         this.defaultValue = defaultValue;
-        this.hidden = hidden;
-        this.decoder = decoder;
-        this.encoder = encoder;
+        this.decoder = requireNonNull(decoder, "decoder is null");
+        this.encoder = requireNonNull(encoder, "encoder is null");
     }
 
     /**
@@ -78,7 +61,7 @@ public final class PropertyMetadata<T>
      */
     public String getName()
     {
-        return name;
+        return sessionPropertyMetadata.getName();
     }
 
     /**
@@ -86,7 +69,7 @@ public final class PropertyMetadata<T>
      */
     public String getDescription()
     {
-        return description;
+        return sessionPropertyMetadata.getDescription();
     }
 
     /**
@@ -94,7 +77,7 @@ public final class PropertyMetadata<T>
      */
     public Type getSqlType()
     {
-        return sqlType;
+        return sessionPropertyMetadata.getSqlType();
     }
 
     /**
@@ -118,7 +101,7 @@ public final class PropertyMetadata<T>
      */
     public boolean isHidden()
     {
-        return hidden;
+        return sessionPropertyMetadata.isHidden();
     }
 
     /**
