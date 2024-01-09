@@ -653,7 +653,6 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeInternalAddress{
       "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
-  static constexpr std::string_view kNodeMemoryGb{"node.memory_gb"};
 
   NodeConfig();
 
@@ -669,9 +668,6 @@ class NodeConfig : public ConfigBase {
       const std::function<std::string()>& defaultIp = nullptr) const;
 
   std::string nodeLocation() const;
-
-  uint64_t nodeMemoryGb(
-      const std::function<uint64_t()>& defaultNodeMemoryGb = nullptr) const;
 };
 
 /// Used only in the single instance as the source of the initial properties for
