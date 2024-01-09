@@ -46,21 +46,15 @@ public class TestTimeZoneKey
         assertSame(TimeZoneKey.getTimeZoneKey("UTC"), UTC_KEY);
 
         // verify UTC equivalent zones map to UTC
-        assertTimeZoneNotSupported("Z");
-        assertTimeZoneNotSupported("Zulu");
-        assertTimeZoneNotSupported("zulu");
-        assertTimeZoneNotSupported("ZULU");
-        assertTimeZoneNotSupported("UT");
-        assertTimeZoneNotSupported("UCT");
-        assertTimeZoneNotSupported("Universal");
-        assertTimeZoneNotSupported("GMT");
-        assertTimeZoneNotSupported("GMT0");
-        assertTimeZoneNotSupported("GMT+0");
-        assertTimeZoneNotSupported("GMT-0");
+        assertSame(TimeZoneKey.getTimeZoneKey("Z"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("ZULU"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UT"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("UCT"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Universal"), UTC_KEY);
         assertTimeZoneNotSupported("GMT+00:00");
         assertTimeZoneNotSupported("GMT-00:00");
-        assertTimeZoneNotSupported("+00:00");
-        assertTimeZoneNotSupported("-00:00");
+        assertSame(TimeZoneKey.getTimeZoneKey("+00:00"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("-00:00"), UTC_KEY);
         assertTimeZoneNotSupported("etc/utc");
         assertTimeZoneNotSupported("etc/gmt");
         assertSame(TimeZoneKey.getTimeZoneKey("etc/gmt+0"), UTC_KEY);
@@ -75,11 +69,10 @@ public class TestTimeZoneKey
     @Test
     public void testHourOffsetZone()
     {
-        assertTimeZoneNotSupported("GMT0");
-        assertTimeZoneNotSupported("GMT+0");
-        assertTimeZoneNotSupported("GMT-0");
-        assertTimeZoneNotSupported("GMT+0");
-        assertTimeZoneNotSupported("GMT-0");
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT+0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT-0"), UTC_KEY);
         assertTimeZoneNotSupported("GMT7");
         assertTimeZoneNotSupported("GMT+7");
         assertTimeZoneNotSupported("GMT-7");
