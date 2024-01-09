@@ -261,7 +261,7 @@ public final class TimeZoneKey
         return zoneId;
     }
 
-  private static String flipSign(String zoneId)
+    private static String flipSign(String zoneId)
     {
         return zoneId.charAt(0) == '+' ? "-" + zoneId.substring(1) : "+" + zoneId.substring(1);
     }
@@ -374,8 +374,9 @@ public final class TimeZoneKey
                 zoneId.equals("gmt0");
     }
 
-  private static boolean isGmtTimeZone(String zoneId) {
-    return zoneId.equals("gmt+0") || zoneId.equals("gmt-0");
+  private static boolean isGmtTimeZone(String zoneId)
+  {
+      return zoneId.equals("gmt+0") || zoneId.equals("gmt-0");
   }
 
     private static void checkArgument(boolean check, String message, Object... args)
