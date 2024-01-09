@@ -43,7 +43,7 @@ struct ProcessSize {
 };
 } // namespace
 
-static constexpr uint64_t kCapacityBytes = 256UL * 1024 * 1024;
+static constexpr uint64_t kCapacityBytes = 1024UL * 1024 * 1024;
 static constexpr MachinePageCount kCapacityPages =
     (kCapacityBytes / AllocationTraits::kPageSize);
 
@@ -85,12 +85,12 @@ class MemoryAllocatorTest : public testing::TestWithParam<bool> {
       ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kMmap);
       ASSERT_EQ(
           instance_->toString(),
-          "Memory Allocator[MMAP capacity 64.00KB allocated pages 0 mapped pages 0 external mapped pages 0\n[size 1: 0(0MB) allocated 0 mapped]\n[size 2: 0(0MB) allocated 0 mapped]\n[size 4: 0(0MB) allocated 0 mapped]\n[size 8: 0(0MB) allocated 0 mapped]\n[size 16: 0(0MB) allocated 0 mapped]\n[size 32: 0(0MB) allocated 0 mapped]\n[size 64: 0(0MB) allocated 0 mapped]\n[size 128: 0(0MB) allocated 0 mapped]\n[size 256: 0(0MB) allocated 0 mapped]\n]");
+          "Memory Allocator[MMAP capacity 256.00KB allocated pages 0 mapped pages 0 external mapped pages 0\n[size 1: 0(0MB) allocated 0 mapped]\n[size 2: 0(0MB) allocated 0 mapped]\n[size 4: 0(0MB) allocated 0 mapped]\n[size 8: 0(0MB) allocated 0 mapped]\n[size 16: 0(0MB) allocated 0 mapped]\n[size 32: 0(0MB) allocated 0 mapped]\n[size 64: 0(0MB) allocated 0 mapped]\n[size 128: 0(0MB) allocated 0 mapped]\n[size 256: 0(0MB) allocated 0 mapped]\n]");
     } else {
       ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kMalloc);
       ASSERT_EQ(
           instance_->toString(),
-          "Memory Allocator[MALLOC capacity 256.00MB allocated bytes 0 allocated pages 0 mapped pages 0]");
+          "Memory Allocator[MALLOC capacity 1.00GB allocated bytes 0 allocated pages 0 mapped pages 0]");
     }
     ASSERT_EQ(
         MemoryAllocator::kindString(static_cast<MemoryAllocator::Kind>(100)),
@@ -1342,15 +1342,17 @@ TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
   }
 }
 
-TEST_P(MemoryAllocatorTest, badNonContiguousAllocation) {
+TEST_P(MemoryAllocatorTest, nonContiguousAllocationBounds) {
   // Set the num of pages to allocate exceeds one PageRun limit.
   constexpr MachinePageCount kNumPages =
       Allocation::PageRun::kMaxPagesInRun + 1;
   std::unique_ptr<Allocation> allocation(new Allocation());
-  ASSERT_THROW(
-      instance_->allocateNonContiguous(kNumPages, *allocation),
-      VeloxRuntimeError);
+  ASSERT_TRUE(instance_->allocateNonContiguous(kNumPages, *allocation));
+  instance_->freeNonContiguous(*allocation);
   ASSERT_TRUE(instance_->allocateNonContiguous(kNumPages - 1, *allocation));
+  instance_->freeNonContiguous(*allocation);
+  ASSERT_TRUE(instance_->allocateNonContiguous(
+      Allocation::PageRun::kMaxPagesInRun * 2, *allocation));
   instance_->freeNonContiguous(*allocation);
 }
 
@@ -1442,9 +1444,6 @@ TEST_P(MemoryAllocatorTest, allocatorCapacity) {
 TEST_P(MemoryAllocatorTest, allocatorCapacityWithThreads) {
   std::atomic<int64_t> numOps{0};
   const int64_t numMaxOps = 100000;
-  // We need large enough (at least close to capacity) allocations to breach the
-  // capacity limit in this test.
-  EXPECT_GT(Allocation::PageRun::kMaxPagesInRun, kCapacityPages / 4 * 3);
   const int64_t nonContAllocPages = Allocation::PageRun::kMaxPagesInRun;
 
   std::function<void()> nonContiguousReserveFail = [&, this]() {
