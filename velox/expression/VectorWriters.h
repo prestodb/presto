@@ -103,7 +103,7 @@ struct VectorWriter<Array<V>> : public VectorWriterBase {
 
   // This should be called once all rows are processed.
   void finish() override {
-    writer_.elementsVector_->resize(writer_.valuesOffset_);
+    writer_.elementsVector()->resize(writer_.valuesOffset_);
     arrayVector_ = nullptr;
     childWriter_.finish();
   }

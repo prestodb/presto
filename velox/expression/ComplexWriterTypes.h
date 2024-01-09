@@ -128,7 +128,7 @@ class ArrayWriter {
 
     if constexpr (!requires_commit<V>) {
       VELOX_DCHECK(provide_std_interface<V>);
-      elementsVector_->setNull(index, false);
+      elementsVector()->setNull(index, false);
       return childWriter_->data_[index];
     } else {
       needCommit_ = true;
@@ -141,7 +141,7 @@ class ArrayWriter {
   void add_null() {
     resize(length_ + 1);
     auto index = valuesOffset_ + length_ - 1;
-    elementsVector_->setNull(index, true);
+    elementsVector()->setNull(index, true);
     // Note: no need to commit the null item.
   }
 
@@ -200,13 +200,13 @@ class ArrayWriter {
   typename std::enable_if_t<provide_std_interface<T>, PrimitiveWriter<T>>
   operator[](vector_size_t index) {
     VELOX_DCHECK_LT(index, length_, "out of bound access");
-    return PrimitiveWriter<V>{elementsVector_, valuesOffset_ + index};
+    return PrimitiveWriter<V>{elementsVector(), valuesOffset_ + index};
   }
 
   template <typename T = V>
   typename std::enable_if_t<provide_std_interface<T>, PrimitiveWriter<T>>
   back() {
-    return PrimitiveWriter<V>{elementsVector_, valuesOffset_ + length_ - 1};
+    return PrimitiveWriter<V>{elementsVector(), valuesOffset_ + length_ - 1};
   }
 
   // Any vector type with std-like optional-free interface.
@@ -218,8 +218,10 @@ class ArrayWriter {
 
   // Don't mutate elementVecotr_ through this API unless you know what you're
   // doing.
+  // This function returns the base of elements vector and the elements vector
+  // itself.
   typename child_writer_t::vector_t* elementsVector() {
-    return elementsVector_;
+    return decodedElementsVectorBase_;
   }
 
   vector_size_t valuesOffset() const {
@@ -288,12 +290,42 @@ class ArrayWriter {
     VELOX_DCHECK_NE(sourceArray.elementKind(), TypeKind::BOOLEAN);
     auto start = length_ + valuesOffset_;
     resize(length_ + sourceArray.size());
-    auto* flat = elementsVector_->template asUnchecked<FlatVector<
-        typename VectorExec::resolver<ElementSimpleType>::in_type>>();
-    auto* rawValues = flat->mutableRawValues();
+    auto* flatOutput =
+        elementsVector()
+            ->template asUnchecked<FlatVector<
+                typename VectorExec::resolver<ElementSimpleType>::in_type>>();
+    auto* rawValues = flatOutput->mutableRawValues();
+    flatOutput->clearNulls(start, start + sourceArray.size());
 
-    flat->clearNulls(start, start + sourceArray.size());
+    // Flat input fast path.
+    if (sourceArray.isFlatElements()) {
+      auto* flatInput =
+          sourceArray.elementsVectorBase()
+              ->template asUnchecked<FlatVector<
+                  typename VectorExec::resolver<ElementSimpleType>::in_type>>();
+      auto* inputData = flatInput->rawValues();
+      auto inputOffset = sourceArray.offset();
+      if (!sourceArray.mayHaveNulls()) {
+        std::memcpy(
+            &rawValues[start],
+            &inputData[inputOffset],
+            sourceArray.size() *
+                sizeof(
+                    typename VectorExec::resolver<ElementSimpleType>::in_type));
 
+      } else {
+        for (int i = 0; i < sourceArray.size(); i++) {
+          if (!flatInput->isNullAt(i + inputOffset)) {
+            rawValues[i + start] = inputData[i + inputOffset];
+          } else {
+            flatOutput->setNull(i + start, true);
+          }
+        }
+      }
+      return;
+    }
+
+    // All input encodings, no nulls.
     int i = 0;
     if (!sourceArray.mayHaveNulls()) {
       for (auto item : sourceArray) {
@@ -304,27 +336,29 @@ class ArrayWriter {
         }
         i++;
       }
-    } else {
-      for (auto item : sourceArray) {
-        if (item.has_value()) {
-          if constexpr (isGenericType<V>::value) {
-            rawValues[i + start] = item->template castTo<ElementSimpleType>();
-          } else {
-            rawValues[i + start] = item.value();
-          }
+      return;
+    }
+
+    // All input encodings, with nulls.
+    for (auto item : sourceArray) {
+      if (item.has_value()) {
+        if constexpr (isGenericType<V>::value) {
+          rawValues[i + start] = item->template castTo<ElementSimpleType>();
         } else {
-          flat->setNull(i + start, true);
+          rawValues[i + start] = item.value();
         }
-        i++;
+      } else {
+        flatOutput->setNull(i + start, true);
       }
+      i++;
     }
   }
 
   template <TypeKind kind, typename Input>
   void addItemsStringFastPath(const Input& sourceArray) {
-    auto* vector = sourceArray.elementsVector();
+    auto* vector = sourceArray.elementsVectorBase();
     auto* flatOutput =
-        this->elementsVector_->template asUnchecked<FlatVector<StringView>>();
+        this->elementsVector()->template asUnchecked<FlatVector<StringView>>();
     bool found = false;
     // Caching at this layer is much faster.
     for (auto* item : vectorsWithAcquiredBuffers_) {
@@ -359,9 +393,9 @@ class ArrayWriter {
 
   template <typename Input>
   void addItemsBoolFastPath(const Input& sourceArray) {
-    auto* vector = sourceArray.elementsVector();
+    auto* vector = sourceArray.elementsVectorBase();
     auto* flatOutput =
-        this->elementsVector_->template asUnchecked<FlatVector<bool>>();
+        this->elementsVector()->template asUnchecked<FlatVector<bool>>();
 
     auto start = length_ + valuesOffset_;
     resize(length_ + sourceArray.size());
@@ -419,14 +453,15 @@ class ArrayWriter {
 
   void initialize(VectorWriter<Array<V>, void>* writer) {
     childWriter_ = &writer->childWriter_;
-    elementsVector_ = &childWriter_->vector();
-    valuesOffset_ = elementsVector_->size();
+    decodedElementsVectorBase_ = &childWriter_->vector();
+    valuesOffset_ = elementsVector()->size();
     childWriter_->ensureSize(1);
-    elementsVectorCapacity_ = elementsVector_->size();
-    elementIsPrimitive = elementsVector_->type()->isPrimitiveType();
+    elementsVectorCapacity_ = elementsVector()->size();
+    elementIsPrimitive = elementsVector()->type()->isPrimitiveType();
   }
 
-  typename child_writer_t::vector_t* elementsVector_ = nullptr;
+  // The base of the decoded elements vectors.
+  typename child_writer_t::vector_t* decodedElementsVectorBase_ = nullptr;
 
   // Pointer to child vector writer.
   child_writer_t* childWriter_ = nullptr;
@@ -951,17 +986,17 @@ class GenericWriter {
             : CppToType<ToType>::create()->toString());
 
     if constexpr (SimpleTypeTrait<ToType>::isPrimitiveType) {
-      // This is an optimization for when the type of the vector is a primitive
-      // type, in that case there is only one possible option for ToType, we
-      // make sure during the construction of the VectorWriter that castWriter_
-      // and castType_ are properly initialized.
+      // This is an optimization for when the type of the vector is a
+      // primitive type, in that case there is only one possible option for
+      // ToType, we make sure during the construction of the VectorWriter
+      // that castWriter_ and castType_ are properly initialized.
 
-      // Note that unlike tryCastTo, castTo assumes that the user is casting to
-      // the correct type. And since there is only valid type in the case of
-      // primitive this is safe.
+      // Note that unlike tryCastTo, castTo assumes that the user is casting
+      // to the correct type. And since there is only valid type in the case
+      // of primitive this is safe.
 
-      // We make sure that the writer is initialized in the initialize call in
-      // the vector writer.
+      // We make sure that the writer is initialized in the initialize call
+      // in the vector writer.
 
       auto& writer =
           *reinterpret_cast<VectorWriter<ToType, void>*>(castWriter_.get());
@@ -1020,7 +1055,8 @@ class GenericWriter {
   VectorWriter<B, void>* retrieveCastedWriter() {
     DCHECK(castType_);
     DCHECK(castWriter_);
-    // TODO: optimize this check using disjoint sets of types (see GenericView).
+    // TODO: optimize this check using disjoint sets of types (see
+    // GenericView).
 
     return dynamic_cast<VectorWriter<B, void>*>(castWriter_.get());
   }

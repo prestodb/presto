@@ -673,8 +673,12 @@ class ArrayView {
         "efficient to use the standard iterator interface.");
   }
 
-  const BaseVector* elementsVector() const {
+  const BaseVector* elementsVectorBase() const {
     return reader_->baseVector();
+  }
+
+  bool isFlatElements() const {
+    return reader_->decoded_.isIdentityMapping();
   }
 
   vector_size_t offset() const {
@@ -682,7 +686,7 @@ class ArrayView {
   }
 
   TypeKind elementKind() const {
-    return elementsVector()->typeKind();
+    return elementsVectorBase()->typeKind();
   }
 
  private:
