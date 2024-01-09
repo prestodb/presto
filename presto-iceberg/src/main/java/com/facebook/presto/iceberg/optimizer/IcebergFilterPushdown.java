@@ -45,6 +45,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import org.apache.iceberg.Table;
 
@@ -192,7 +193,7 @@ public class IcebergFilterPushdown
                     metadata.getTableLayout(
                             session,
                             new IcebergTableLayoutHandle.Builder()
-                                    .setPartitionColumns(partitionColumns)
+                                    .setPartitionColumns(ImmutableList.copyOf(partitionColumns))
                                     .setDataColumns(toHiveColumns(icebergTable.schema().columns()))
                                     .setDomainPredicate(domainPredicate)
                                     .setRemainingPredicate(remainingExpressions.getRemainingExpression())

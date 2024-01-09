@@ -2565,7 +2565,7 @@ public class HiveMetadata
                 .collect(toImmutableSet());
 
         Set<String> partitionColumnNames = layoutHandle.getPartitionColumns().stream()
-                .map(HiveColumnHandle::getName)
+                .map(BaseHiveColumnHandle::getName)
                 .collect(toImmutableSet());
 
         return partitionColumnNames.containsAll(predicateColumnNames);
@@ -2633,7 +2633,7 @@ public class HiveMetadata
                         new HiveTableLayoutHandle.Builder()
                                 .setSchemaTableName(handle.getSchemaTableName())
                                 .setTablePath(table.getStorage().getLocation())
-                                .setPartitionColumns(hivePartitionResult.getPartitionColumns())
+                                .setPartitionColumns(ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()))
                                 .setDataColumns(pruneColumnComments(hivePartitionResult.getDataColumns()))
                                 .setTableParameters(hivePartitionResult.getTableParameters())
                                 .setDomainPredicate(domainPredicate)
@@ -3666,7 +3666,7 @@ public class HiveMetadata
     {
         HiveTableLayoutHandle tableHandle = (HiveTableLayoutHandle) connectorTableLayoutHandle;
         Set<String> relevantColumns = tableHandle.getPartitionColumns().stream()
-                .map(HiveColumnHandle::getName)
+                .map(BaseHiveColumnHandle::getName)
                 .filter(relevantPartitionColumns::contains)
                 .collect(toImmutableSet());
         if (relevantColumns.isEmpty()) {
