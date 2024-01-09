@@ -198,10 +198,13 @@ std::vector<SharedArbitrator::Candidate> SharedArbitrator::getCandidateStats(
   std::vector<SharedArbitrator::Candidate> candidates;
   candidates.reserve(pools.size());
   for (const auto& pool : pools) {
-    uint64_t reclaimableBytes;
-    const bool reclaimable = pool->reclaimableBytes(reclaimableBytes);
+    auto reclaimableBytesOpt = pool->reclaimableBytes();
+    const uint64_t reclaimableBytes = reclaimableBytesOpt.value_or(0);
     candidates.push_back(
-        {reclaimable, reclaimableBytes, pool->freeBytes(), pool.get()});
+        {reclaimableBytesOpt.has_value(),
+         reclaimableBytes,
+         pool->freeBytes(),
+         pool.get()});
   }
   return candidates;
 }

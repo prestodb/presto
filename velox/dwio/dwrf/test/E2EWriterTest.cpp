@@ -1909,20 +1909,18 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimDuringInit) {
     SCOPED_TESTVALUE_SET(
         "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
         std::function<void(MemoryPool*)>([&](MemoryPool* /*unused*/) {
-          uint64_t reclaimableBytes{0};
-          ASSERT_EQ(
-              writerPool->reclaimableBytes(reclaimableBytes), reclaimable);
+          auto reclaimableBytesOpt = writerPool->reclaimableBytes();
+          ASSERT_EQ(reclaimableBytesOpt.has_value(), reclaimable);
 
           memory::MemoryReclaimer::Stats stats;
           writerPool->reclaim(1L << 30, 0, stats);
           if (reclaimable) {
-            ASSERT_GE(reclaimableBytes, 0);
+            ASSERT_GE(reclaimableBytesOpt.value(), 0);
             // We can't reclaim during writer init.
             ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
             ASSERT_EQ(stats.reclaimedBytes, 0);
             ASSERT_EQ(stats.reclaimExecTimeUs, 0);
           } else {
-            ASSERT_EQ(reclaimableBytes, 0);
             ASSERT_EQ(stats, memory::MemoryReclaimer::Stats{});
           }
         }));

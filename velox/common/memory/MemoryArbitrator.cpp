@@ -189,9 +189,9 @@ bool MemoryReclaimer::reclaimableBytes(
   }
   bool reclaimable{false};
   pool.visitChildren([&](MemoryPool* pool) {
-    uint64_t poolReclaimableBytes{0};
-    reclaimable |= pool->reclaimableBytes(poolReclaimableBytes);
-    reclaimableBytes += poolReclaimableBytes;
+    auto reclaimableBytesOpt = pool->reclaimableBytes();
+    reclaimable |= reclaimableBytesOpt.has_value();
+    reclaimableBytes += reclaimableBytesOpt.value_or(0);
     return true;
   });
   VELOX_CHECK(reclaimable || reclaimableBytes == 0);

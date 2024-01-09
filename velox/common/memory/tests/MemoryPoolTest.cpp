@@ -2795,9 +2795,7 @@ TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
       }
     }
     for (auto& pool : pools) {
-      uint64_t reclaimableBytes{100};
-      ASSERT_FALSE(pool->reclaimableBytes(reclaimableBytes));
-      ASSERT_EQ(reclaimableBytes, 0);
+      ASSERT_FALSE(pool->reclaimableBytes().has_value());
       ASSERT_EQ(pool->reclaim(0, 0, stats_), 0);
       ASSERT_EQ(pool->reclaim(100, 0, stats_), 0);
       ASSERT_EQ(pool->reclaim(kMaxMemory, 0, stats_), 0);

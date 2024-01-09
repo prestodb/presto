@@ -512,12 +512,11 @@ related methods are used in the memory arbitration and reclaim process.
   /// corresponding method.
   virtual void MemoryPool::leaveArbitration();
 
-  /// Returns how many bytes is reclaimable from this memory pool. The function
-  /// true if we can reclaim memory from this memory pool, and returns the number
-  /// of reclaimable bytes in 'bytes'. Otherwise returns false. The function
-  /// returns false if if 'reclaimer_' is not set, otherwise invoke the
-  /// reclaimer's corresponding method.
-  virtual bool MemoryPool::reclaimableBytes(uint64_t& bytes) const;
+  /// Function estimates the number of reclaimable bytes and returns in
+  /// 'reclaimableBytes'. If the 'reclaimer' is not set, the function returns
+  /// std::nullopt. Otherwise, it will invoke the corresponding method of the
+  /// reclaimer.
+  virtual std::optional<uint64_t> reclaimableBytes() const = 0;
 
   /// Invoked by the memory arbitrator to reclaim memory from this memory pool
   /// with specified reclaim target bytes. If 'targetBytes' is zero, then it

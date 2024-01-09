@@ -192,7 +192,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
-  bool reclaimableBytes(uint64_t& reclaimableBytes) const override {
+  std::optional<uint64_t> reclaimableBytes() const override {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 

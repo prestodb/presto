@@ -957,12 +957,17 @@ MemoryReclaimer* MemoryPoolImpl::reclaimer() const {
   return reclaimer_.get();
 }
 
-bool MemoryPoolImpl::reclaimableBytes(uint64_t& reclaimableBytes) const {
-  reclaimableBytes = 0;
+std::optional<uint64_t> MemoryPoolImpl::reclaimableBytes() const {
   if (reclaimer() == nullptr) {
-    return false;
+    return std::nullopt;
   }
-  return reclaimer()->reclaimableBytes(*this, reclaimableBytes);
+
+  uint64_t reclaimableBytes = 0;
+  if (!reclaimer()->reclaimableBytes(*this, reclaimableBytes)) {
+    return std::nullopt;
+  }
+
+  return reclaimableBytes;
 }
 
 uint64_t MemoryPoolImpl::reclaim(

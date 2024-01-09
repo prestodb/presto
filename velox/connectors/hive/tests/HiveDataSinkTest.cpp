@@ -674,9 +674,9 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
       dataSink->appendData(vectors[i]);
     }
     memory::MemoryReclaimer::Stats stats;
-    uint64_t reclaimableBytes;
+    uint64_t reclaimableBytes{0};
     if (testData.expectedWriterReclaimed) {
-      ASSERT_TRUE(root_->reclaimableBytes(reclaimableBytes));
+      reclaimableBytes = root_->reclaimableBytes().value();
       ASSERT_GT(reclaimableBytes, 0);
       ASSERT_GT(root_->reclaim(256L << 20, 0, stats), 0);
       ASSERT_GT(stats.reclaimExecTimeUs, 0);
@@ -684,8 +684,7 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
       // We expect dwrf writer set numNonReclaimableAttempts counter.
       ASSERT_LE(stats.numNonReclaimableAttempts, 1);
     } else {
-      ASSERT_FALSE(root_->reclaimableBytes(reclaimableBytes));
-      ASSERT_EQ(reclaimableBytes, 0);
+      ASSERT_FALSE(root_->reclaimableBytes().has_value());
       ASSERT_EQ(root_->reclaim(256L << 20, 0, stats), 0);
       ASSERT_EQ(stats.reclaimExecTimeUs, 0);
       ASSERT_EQ(stats.reclaimedBytes, 0);
@@ -822,9 +821,9 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
     }
 
     memory::MemoryReclaimer::Stats stats;
-    uint64_t reclaimableBytes;
+    uint64_t reclaimableBytes{0};
     if (testData.expectedWriterReclaimEnabled) {
-      ASSERT_TRUE(root_->reclaimableBytes(reclaimableBytes));
+      reclaimableBytes = root_->reclaimableBytes().value();
       if (testData.close) {
         // NOTE: file writer might not release all the memory on close
         // immediately.
@@ -833,8 +832,7 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
         ASSERT_EQ(reclaimableBytes, 0);
       }
     } else {
-      ASSERT_FALSE(root_->reclaimableBytes(reclaimableBytes));
-      ASSERT_EQ(reclaimableBytes, 0);
+      ASSERT_FALSE(root_->reclaimableBytes().has_value());
     }
     ASSERT_EQ(root_->reclaim(1L << 30, 0, stats), 0);
     ASSERT_EQ(stats.reclaimExecTimeUs, 0);
