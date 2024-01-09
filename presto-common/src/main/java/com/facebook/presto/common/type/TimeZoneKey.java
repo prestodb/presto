@@ -278,7 +278,7 @@ public final class TimeZoneKey
         }
 
         if (SHORT_ETC_PATTERN.matcher(zoneId).matches()) {
-            String lastNumbers = zoneId.replaceAll("etc/(greenwich|uct|universal|utc|zulu)", "");
+            String lastNumbers = zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "");
 
             if (lastNumbers.isEmpty()) {
                 throw new TimeZoneNotSupportedException(zoneId);
