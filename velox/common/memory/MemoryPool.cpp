@@ -771,12 +771,10 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
     }
   }
 
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    if (maybeIncrementReservationLocked(size)) {
-      return true;
-    }
+  if (maybeIncrementReservation(size)) {
+    return true;
   }
+
   VELOX_CHECK_NULL(parent_);
 
   if (growCapacityCb_(requestor, size)) {
@@ -807,10 +805,6 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
 
 bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {
   std::lock_guard<std::mutex> l(mutex_);
-  return maybeIncrementReservationLocked(size);
-}
-
-bool MemoryPoolImpl::maybeIncrementReservationLocked(uint64_t size) {
   if (isRoot()) {
     checkIfAborted();
 

@@ -831,7 +831,6 @@ class MemoryPoolImpl : public MemoryPool {
   // Tries to increment the reservation 'size' if it is within the limit and
   // returns true, otherwise the function returns false.
   bool maybeIncrementReservation(uint64_t size);
-  bool maybeIncrementReservationLocked(uint64_t size);
 
   // Release memory reservation for an allocation free or memory release with
   // specified 'size'. If 'releaseOnly' is true, then we only release the unused

@@ -362,7 +362,7 @@ The implementation of MemoryPool::incrementReservationThreadSafe:
       expects a query memory capacity exceeded exception thrown and the memory
       allocation fails
 
-#. Call *MemoryPool::maybeIncrementReservationLocked* to try to increment the
+#. Call *MemoryPool::maybeIncrementReservation* to try to increment the
    reservation and check the result:
 
    a. For a non-root memory pool, this should always succeed as we only check
