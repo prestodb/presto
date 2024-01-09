@@ -36,6 +36,9 @@ FetchContent_Declare(
                 ${CMAKE_CURRENT_LIST_DIR}/cpr/cpr-libcurl-compatible.patch)
 set(BUILD_SHARED_LIBS OFF)
 set(CPR_USE_SYSTEM_CURL OFF)
+# ZLIB has already been found by find_package(ZLIB, REQUIRED), set CURL_ZLIB=OFF
+# to save compile time.
+set(CURL_ZLIB OFF)
 FetchContent_MakeAvailable(cpr)
 # libcpr in its CMakeLists.txt file disables the BUILD_TESTING globally when
 # CPR_USE_SYSTEM_CURL=OFF. unset BUILD_TESTING here.
