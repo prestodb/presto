@@ -99,8 +99,10 @@ StringView convertToStringView(
       std::memset(writePosition, '0', numLeadingZeros);
       writePosition += numLeadingZeros;
       // Append remaining fraction digits.
-      auto [position, errorCode] = std::to_chars(
+      auto result = std::to_chars(
           writePosition, writePosition + maxVarcharSize, fraction);
+      position = result.ptr;
+      errorCode = result.ec;
       VELOX_DCHECK_EQ(
           errorCode,
           std::errc(),
