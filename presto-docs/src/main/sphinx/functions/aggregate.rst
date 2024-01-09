@@ -576,9 +576,9 @@ Statistical Aggregate Functions
 
     .. math::
 
-        \mathrm{kurtosis}(x) = {n(n+1) \over (n-1)(n-2)(n-3)} { \sum[(x_i-\mu)^4] \over \sigma^4} -3{ (n-1)^2 \over (n-2)(n-3) },
+        \mathrm{kurtosis}(x) = {n(n+1) \over (n-1)(n-2)(n-3)} { \sum[(x_i-\mu)^4] \over \sigma^4} -3{ (n-1)^2 \over (n-2)(n-3) }
 
-   where :math:`\mu` is the mean, and :math:`\sigma` is the standard deviation.
+    where :math:`\mu` is the mean, and :math:`\sigma` is the standard deviation.
 
 .. function:: regr_intercept(y, x) -> double
 
