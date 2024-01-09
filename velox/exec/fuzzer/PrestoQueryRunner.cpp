@@ -212,17 +212,15 @@ std::string toTypeSql(const TypePtr& type) {
   }
 }
 
-std::string toCallSql(
-    const core::CallTypedExprPtr& call,
-    const std::vector<core::FieldAccessTypedExprPtr>& sortingKeys,
-    const std::vector<core::SortOrder>& sortingOrders) {
-  VELOX_CHECK_EQ(sortingKeys.size(), sortingOrders.size());
-  std::stringstream sql;
-  sql << call->name() << "(";
-  for (auto i = 0; i < call->inputs().size(); ++i) {
+std::string toCallSql(const core::CallTypedExprPtr& call);
+
+void toCallInputsSql(
+    const std::vector<core::TypedExprPtr>& inputs,
+    std::stringstream& sql) {
+  for (auto i = 0; i < inputs.size(); ++i) {
     appendComma(i, sql);
 
-    const auto& input = call->inputs()[i];
+    const auto& input = inputs.at(i);
     if (auto field =
             std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
                 input)) {
@@ -230,7 +228,7 @@ std::string toCallSql(
     } else if (
         auto call =
             std::dynamic_pointer_cast<const core::CallTypedExpr>(input)) {
-      sql << toCallSql(call, {}, {});
+      sql << toCallSql(call);
     } else if (
         auto lambda =
             std::dynamic_pointer_cast<const core::LambdaTypedExpr>(input)) {
@@ -240,16 +238,40 @@ std::string toCallSql(
       VELOX_CHECK_NOT_NULL(body);
 
       sql << "(";
-      for (auto i = 0; i < signature->size(); ++i) {
-        appendComma(i, sql);
-        sql << signature->nameOf(i);
+      for (auto j = 0; j < signature->size(); ++j) {
+        appendComma(j, sql);
+        sql << signature->nameOf(j);
       }
 
-      sql << ") -> " << toCallSql(body, {}, {});
+      sql << ") -> " << toCallSql(body);
     } else {
       VELOX_NYI();
     }
   }
+}
+
+std::string toCallSql(const core::CallTypedExprPtr& call) {
+  std::stringstream sql;
+  sql << call->name() << "(";
+  toCallInputsSql(call->inputs(), sql);
+  sql << ")";
+  return sql.str();
+}
+
+std::string toAggregateCallSql(
+    const core::CallTypedExprPtr& call,
+    const std::vector<core::FieldAccessTypedExprPtr>& sortingKeys,
+    const std::vector<core::SortOrder>& sortingOrders,
+    bool distinct) {
+  VELOX_CHECK_EQ(sortingKeys.size(), sortingOrders.size());
+  std::stringstream sql;
+  sql << call->name() << "(";
+
+  if (distinct) {
+    sql << "distinct ";
+  }
+
+  toCallInputsSql(call->inputs(), sql);
 
   if (!sortingKeys.empty()) {
     sql << " ORDER BY ";
@@ -306,11 +328,11 @@ std::optional<std::string> PrestoQueryRunner::toSql(
     for (auto i = 0; i < aggregates.size(); ++i) {
       appendComma(i, sql);
       const auto& aggregate = aggregates[i];
-      VELOX_CHECK(
-          !aggregate.distinct,
-          "Presto Query Runner does not support distinct aggregates");
-      sql << toCallSql(
-          aggregate.call, aggregate.sortingKeys, aggregate.sortingOrders);
+      sql << toAggregateCallSql(
+          aggregate.call,
+          aggregate.sortingKeys,
+          aggregate.sortingOrders,
+          aggregate.distinct);
 
       if (aggregate.mask != nullptr) {
         sql << " filter (where " << aggregate.mask->name() << ")";
@@ -348,7 +370,7 @@ std::optional<std::string> PrestoQueryRunner::toSql(
     } else if (
         auto call =
             std::dynamic_pointer_cast<const core::CallTypedExpr>(projection)) {
-      sql << toCallSql(call, {}, {});
+      sql << toCallSql(call);
     } else {
       VELOX_NYI();
     }
@@ -380,7 +402,7 @@ std::optional<std::string> PrestoQueryRunner::toSql(
   const auto& functions = windowNode->windowFunctions();
   for (auto i = 0; i < functions.size(); ++i) {
     appendComma(i, sql);
-    sql << toCallSql(functions[i].functionCall, {}, {});
+    sql << toCallSql(functions[i].functionCall);
   }
   sql << " OVER (";
 

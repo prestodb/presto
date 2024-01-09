@@ -42,9 +42,15 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
 std::string toAggregateCallSql(
     const core::CallTypedExprPtr& call,
     const std::vector<core::FieldAccessTypedExprPtr>& sortingKeys,
-    const std::vector<core::SortOrder>& sortingOrders) {
+    const std::vector<core::SortOrder>& sortingOrders,
+    bool distinct) {
   std::stringstream sql;
   sql << call->name() << "(";
+
+  if (distinct) {
+    sql << "distinct ";
+  }
+
   for (auto i = 0; i < call->inputs().size(); ++i) {
     appendComma(i, sql);
     sql << std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
@@ -194,7 +200,10 @@ std::optional<std::string> DuckQueryRunner::toSql(
       appendComma(i, sql);
       const auto& aggregate = aggregates[i];
       sql << toAggregateCallSql(
-          aggregate.call, aggregate.sortingKeys, aggregate.sortingOrders);
+          aggregate.call,
+          aggregate.sortingKeys,
+          aggregate.sortingOrders,
+          aggregate.distinct);
 
       if (aggregate.mask != nullptr) {
         sql << " filter (where " << aggregate.mask->name() << ")";

@@ -150,12 +150,11 @@ TEST_F(PrestoQueryRunnerTest, distinctAggregation) {
 
   auto plan = velox::exec::test::PlanBuilder()
                   .values({data})
-                  .singleAggregation(
-                      {}, {"multimap_agg(distinct c0, c1 order by c0 asc)"})
+                  .singleAggregation({}, {"array_agg(distinct c0)"})
                   .planNode();
 
-  VELOX_ASSERT_THROW(
-      queryRunner->toSql(plan),
-      "Presto Query Runner does not support distinct aggregates");
+  auto sql = queryRunner->toSql(plan);
+  ASSERT_TRUE(sql.has_value());
+  ASSERT_EQ("SELECT array_agg(distinct c0) as a0 FROM tmp", sql.value());
 }
 } // namespace facebook::velox::exec::test
