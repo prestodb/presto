@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/functions/lib/Re2Functions.h"
+#include "velox/functions/lib/string/StringImpl.h"
 
 #include <re2/re2.h>
 #include <memory>
@@ -420,6 +421,18 @@ bool matchSubstringPattern(
       std::string::npos);
 }
 
+// Return true if the input VARCHAR argument is all-ASCII for the specified
+// rows.
+FOLLY_ALWAYS_INLINE static bool isAsciiArg(
+    const SelectivityVector& rows,
+    const VectorPtr& arg) {
+  VELOX_DCHECK(
+      arg->type()->isVarchar(), "Input vector is expected to be VARCHAR type.");
+
+  return arg->asUnchecked<SimpleVector<StringView>>()->computeAndSetIsAscii(
+      rows);
+}
+
 template <PatternKind P>
 class OptimizedLike final : public VectorFunction {
  public:
@@ -427,15 +440,26 @@ class OptimizedLike final : public VectorFunction {
       : pattern_{std::move(pattern)},
         reducedPatternLength_{reducedPatternLength} {}
 
+  template <bool isAscii>
   static bool match(
       const StringView& input,
       const std::string& pattern,
       size_t reducedPatternLength) {
     switch (P) {
       case PatternKind::kExactlyN:
-        return input.size() == reducedPatternLength;
+        if constexpr (isAscii) {
+          return input.size() == reducedPatternLength;
+        } else {
+          return stringImpl::cappedLength<isAscii>(
+                     input, reducedPatternLength + 1) == reducedPatternLength;
+        }
       case PatternKind::kAtLeastN:
-        return input.size() >= reducedPatternLength;
+        if constexpr (isAscii) {
+          return input.size() >= reducedPatternLength;
+        } else {
+          return stringImpl::cappedLength<isAscii>(
+                     input, reducedPatternLength + 1) >= reducedPatternLength;
+        }
       case PatternKind::kFixed:
         return matchExactPattern(input, pattern, reducedPatternLength);
       case PatternKind::kPrefix:
@@ -454,20 +478,45 @@ class OptimizedLike final : public VectorFunction {
       EvalCtx& context,
       VectorPtr& resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
+
+    constexpr bool isUtf8SensitivePattern =
+        (P == PatternKind::kExactlyN || P == PatternKind::kAtLeastN);
+    bool needsUtf8Processing =
+        isUtf8SensitivePattern && !isAsciiArg(rows, args[0]);
     FlatVector<bool>& result = ensureWritableBool(rows, context, resultRef);
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto toSearch = decodedArgs.at(0);
 
     if (toSearch->isIdentityMapping()) {
       auto input = toSearch->data<StringView>();
-      context.applyToSelectedNoThrow(rows, [&](vector_size_t i) {
-        result.set(i, match(input[i], pattern_, reducedPatternLength_));
-      });
+      if (!needsUtf8Processing) {
+        context.applyToSelectedNoThrow(rows, [&](vector_size_t i) {
+          result.set(
+              i,
+              match</*isAscii*/ true>(
+                  input[i], pattern_, reducedPatternLength_));
+        });
+      } else {
+        context.applyToSelectedNoThrow(rows, [&](vector_size_t i) {
+          result.set(
+              i,
+              match</*isAscii*/ false>(
+                  input[i], pattern_, reducedPatternLength_));
+        });
+      }
       return;
     }
+
     if (toSearch->isConstantMapping()) {
       auto input = toSearch->valueAt<StringView>(0);
-      bool matchResult = match(input, pattern_, reducedPatternLength_);
+      bool matchResult;
+      if (!needsUtf8Processing) {
+        matchResult =
+            match</*isAscii*/ true>(input, pattern_, reducedPatternLength_);
+      } else {
+        matchResult =
+            match</*isAscii*/ false>(input, pattern_, reducedPatternLength_);
+      }
       context.applyToSelectedNoThrow(
           rows, [&](vector_size_t i) { result.set(i, matchResult); });
       return;
@@ -561,7 +610,7 @@ class LikeGeneric final : public VectorFunction {
       EvalCtx& context,
       VectorPtr& result) const final {
     VectorPtr localResult;
-
+    bool isAscii = isAsciiArg(rows, args[0]);
     auto applyWithRegex = [&](const StringView& input,
                               const StringView& pattern,
                               const std::optional<char>& escapeChar) -> bool {
@@ -594,27 +643,52 @@ class LikeGeneric final : public VectorFunction {
       const auto reducedLength = patternMetadata.length;
       const auto& fixedPattern = patternMetadata.fixedPattern;
 
-      switch (patternMetadata.patternKind) {
-        case PatternKind::kExactlyN:
-          return OptimizedLike<PatternKind::kExactlyN>::match(
-              input, pattern, reducedLength);
-        case PatternKind::kAtLeastN:
-          return OptimizedLike<PatternKind::kAtLeastN>::match(
-              input, pattern, reducedLength);
-        case PatternKind::kFixed:
-          return OptimizedLike<PatternKind::kFixed>::match(
-              input, fixedPattern, reducedLength);
-        case PatternKind::kPrefix:
-          return OptimizedLike<PatternKind::kPrefix>::match(
-              input, fixedPattern, reducedLength);
-        case PatternKind::kSuffix:
-          return OptimizedLike<PatternKind::kSuffix>::match(
-              input, fixedPattern, reducedLength);
-        case PatternKind::kSubstring:
-          return OptimizedLike<PatternKind::kSubstring>::match(
-              input, fixedPattern, reducedLength);
-        default:
-          return applyWithRegex(input, pattern, escapeChar);
+      if (isAscii) {
+        switch (patternMetadata.patternKind) {
+          case PatternKind::kExactlyN:
+            return OptimizedLike<PatternKind::kExactlyN>::match<
+                /*isAscii*/ true>(input, pattern, reducedLength);
+          case PatternKind::kAtLeastN:
+            return OptimizedLike<PatternKind::kAtLeastN>::match<
+                /*isAscii*/ true>(input, pattern, reducedLength);
+          case PatternKind::kFixed:
+            return OptimizedLike<PatternKind::kFixed>::match</*isAscii*/ true>(
+                input, fixedPattern, reducedLength);
+          case PatternKind::kPrefix:
+            return OptimizedLike<PatternKind::kPrefix>::match</*isAscii*/ true>(
+                input, fixedPattern, reducedLength);
+          case PatternKind::kSuffix:
+            return OptimizedLike<PatternKind::kSuffix>::match</*isAscii*/ true>(
+                input, fixedPattern, reducedLength);
+          case PatternKind::kSubstring:
+            return OptimizedLike<PatternKind::kSubstring>::match<
+                /*isAscii*/ true>(input, fixedPattern, reducedLength);
+          default:
+            return applyWithRegex(input, pattern, escapeChar);
+        }
+      } else {
+        switch (patternMetadata.patternKind) {
+          case PatternKind::kExactlyN:
+            return OptimizedLike<PatternKind::kExactlyN>::match<
+                /*isAscii*/ false>(input, pattern, reducedLength);
+          case PatternKind::kAtLeastN:
+            return OptimizedLike<PatternKind::kAtLeastN>::match<
+                /*isAscii*/ false>(input, pattern, reducedLength);
+          case PatternKind::kFixed:
+            return OptimizedLike<PatternKind::kFixed>::match</*isAscii*/ false>(
+                input, fixedPattern, reducedLength);
+          case PatternKind::kPrefix:
+            return OptimizedLike<PatternKind::kPrefix>::match<
+                /*isAscii*/ false>(input, fixedPattern, reducedLength);
+          case PatternKind::kSuffix:
+            return OptimizedLike<PatternKind::kSuffix>::match<
+                /*isAscii*/ false>(input, fixedPattern, reducedLength);
+          case PatternKind::kSubstring:
+            return OptimizedLike<PatternKind::kSubstring>::match<
+                /*isAscii*/ false>(input, fixedPattern, reducedLength);
+          default:
+            return applyWithRegex(input, pattern, escapeChar);
+        }
       }
     };
 

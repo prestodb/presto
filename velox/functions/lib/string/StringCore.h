@@ -212,7 +212,7 @@ applyAppendersRecursive(TOutStr& output, Func appenderFunc, Funcs... funcs) {
 /**
  * Return the length in chars of a utf8 string stored in the input buffer
  * @param inputBuffer input buffer that hold the string
- * @param numBytes size of input buffer
+ * @param bufferLength size of input buffer
  * @return the number of characters represented by the input utf8 string
  */
 FOLLY_ALWAYS_INLINE int64_t
@@ -228,6 +228,40 @@ lengthUnicode(const char* inputBuffer, size_t bufferLength) {
     size++;
   }
   return size;
+}
+
+/**
+ * Return an capped length(controlled by maxChars) of a unicode string. The
+ * returned length is not greater than maxChars.
+ *
+ * This method is used to tell whether a string is longer or the same length of
+ * another string, in these scenarios we don't need accurate length, by
+ * providing maxChars we can get better performance by avoid calculating whole
+ * length of a string which might be very long.
+ *
+ * @param input input buffer that hold the string
+ * @param size size of input buffer
+ * @param maxChars stop counting characters if the string is longer
+ * than this value
+ * @return the number of characters represented by the input utf8 string
+ */
+FOLLY_ALWAYS_INLINE int64_t
+cappedLengthUnicode(const char* input, size_t size, size_t maxChars) {
+  // First address after the last byte in the input
+  auto end = input + size;
+  auto currentChar = input;
+  int64_t numChars = 0;
+
+  // Use maxChars to early stop to avoid calculating the whole
+  // length of long string.
+  while (currentChar < end && numChars < maxChars) {
+    auto charSize = utf8proc_char_length(currentChar);
+    // Skip bad byte if we get utf length < 0.
+    currentChar += UNLIKELY(charSize < 0) ? 1 : charSize;
+    numChars++;
+  }
+
+  return numChars;
 }
 
 /// Returns the start byte index of the Nth instance of subString in

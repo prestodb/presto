@@ -177,6 +177,25 @@ TEST_F(StringImplTest, length) {
   }
 }
 
+TEST_F(StringImplTest, cappedLength) {
+  auto input = std::string("abcd");
+  ASSERT_EQ(cappedLength</*isAscii*/ true>(input, 1), 1);
+  ASSERT_EQ(cappedLength</*isAscii*/ true>(input, 2), 2);
+  ASSERT_EQ(cappedLength</*isAscii*/ true>(input, 3), 3);
+  ASSERT_EQ(cappedLength</*isAscii*/ true>(input, 4), 4);
+  ASSERT_EQ(cappedLength</*isAscii*/ true>(input, 5), 4);
+  ASSERT_EQ(cappedLength</*isAscii*/ true>(input, 6), 4);
+
+  input = std::string("你好a世界");
+  ASSERT_EQ(cappedLength</*isAscii*/ false>(input, 1), 1);
+  ASSERT_EQ(cappedLength</*isAscii*/ false>(input, 2), 2);
+  ASSERT_EQ(cappedLength</*isAscii*/ false>(input, 3), 3);
+  ASSERT_EQ(cappedLength</*isAscii*/ false>(input, 4), 4);
+  ASSERT_EQ(cappedLength</*isAscii*/ false>(input, 5), 5);
+  ASSERT_EQ(cappedLength</*isAscii*/ false>(input, 6), 5);
+  ASSERT_EQ(cappedLength</*isAscii*/ false>(input, 7), 5);
+}
+
 TEST_F(StringImplTest, badUnicodeLength) {
   ASSERT_EQ(0, length</*isAscii*/ false>(std::string("")));
   ASSERT_EQ(2, length</*isAscii*/ false>(std::string("ab")));

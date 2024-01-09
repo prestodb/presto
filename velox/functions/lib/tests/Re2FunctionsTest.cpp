@@ -101,6 +101,8 @@ class Re2FunctionsTest : public test::FunctionBaseTest {
       std::optional<bool> expected,
       const std::string& errorMessage = "") {
     {
+      SCOPED_TRACE(fmt::format("Input: '{}', pattern: '{}'", input, pattern));
+
       // Test literal path.
       auto eval = [&]() {
         return evaluateOnce<bool>(
@@ -788,6 +790,29 @@ TEST_F(Re2FunctionsTest, likePatternAndEscape) {
       '#',
       std::nullopt,
       "Escape character must be followed by '%', '_' or the escape character itself");
+}
+
+TEST_F(Re2FunctionsTest, likePatternUnicode) {
+  // Input contains unicode.
+  testLike("你abc", "______", false);
+  testLike("你abc好", "_____", true);
+  testLike("你abc好", "______", false);
+
+  // Long string.
+  testLike("你abc好好好好好好好好好好好好好好好好", "______", false);
+
+  testLike("你abc好", "_abc%", true);
+  testLike("你abc好", "%abc_", true);
+  testLike("你好", "__%", true);
+  testLike("你好a", "__%", true);
+
+  // Pattern contains unicode.
+  testLike("你好吗?", "你好%", true);
+  testLike("你好吗?", "你%", true);
+  testLike("你abc?", "你%", true);
+  testLike("你abc?", "我%", false);
+  testLike("你好a世界", "你好_世界%", true);
+  testLike("你好吗世界", "你好_世界%", true);
 }
 
 template <typename T>
