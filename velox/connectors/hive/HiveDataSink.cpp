@@ -618,8 +618,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
           writePath,
           {.bufferWrite = false,
            .connectorProperties = hiveConfig_->config(),
-           .fileCreateConfig =
-               hiveConfig_->fileCreateConfig(connectorSessionProperties),
+           .fileCreateConfig = hiveConfig_->writeFileCreateConfig(),
            .pool = writerInfo_.back()->sinkPool.get(),
            .metricLogger = dwio::common::MetricsLog::voidLog(),
            .stats = ioStats_.back().get()}),
