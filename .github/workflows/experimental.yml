@@ -116,7 +116,7 @@ jobs:
           name: aggregation
 
       - name: "Run Aggregate Fuzzer"
-        run: |  
+        run: |
           mkdir -p /tmp/aggregate_fuzzer_repro/
           rm -rfv /tmp/aggregate_fuzzer_repro/*
           chmod -R 777 /tmp/aggregate_fuzzer_repro
@@ -177,4 +177,3 @@ jobs:
           name: spark-agg-fuzzer-failure-artifacts
           path: |
             /tmp/spark_aggregate_fuzzer_repro
-
