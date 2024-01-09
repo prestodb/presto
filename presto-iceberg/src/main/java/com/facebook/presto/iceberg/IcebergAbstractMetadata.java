@@ -198,7 +198,7 @@ public abstract class IcebergAbstractMetadata
         ConnectorTableLayout layout = getTableLayout(
                 session,
                 new IcebergTableLayoutHandle.Builder()
-                        .setPartitionColumns(getPartitionKeyColumnHandles(icebergTable, typeManager))
+                        .setPartitionColumns(ImmutableList.copyOf(getPartitionKeyColumnHandles(icebergTable, typeManager)))
                         .setDataColumns(toHiveColumns(icebergTable.schema().columns()))
                         .setDomainPredicate(constraint.getSummary().transform(IcebergAbstractMetadata::toSubfield))
                         .setRemainingPredicate(TRUE_CONSTANT)
