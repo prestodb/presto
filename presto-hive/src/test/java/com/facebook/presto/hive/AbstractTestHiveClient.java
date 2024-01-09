@@ -894,7 +894,7 @@ public abstract class AbstractTestHiveClient
         tableLayout = new ConnectorTableLayout(
                 new HiveTableLayoutHandle.Builder()
                         .setSchemaTableName(tablePartitionFormat).setTablePath("path")
-                        .setPartitionColumns(partitionColumns)
+                        .setPartitionColumns(ImmutableList.copyOf(partitionColumns))
                         .setDataColumns(dataColumns)
                         .setTableParameters(ImmutableMap.of())
                         .setDomainPredicate(domainPredicate)
