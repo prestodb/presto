@@ -598,7 +598,6 @@ NodeConfig::NodeConfig() {
           NONE_PROP(kNodeIp),
           NONE_PROP(kNodeInternalAddress),
           NONE_PROP(kNodeLocation),
-          NONE_PROP(kNodeMemoryGb),
       };
 }
 
@@ -636,26 +635,6 @@ std::string NodeConfig::nodeInternalAddress(
         "Node Internal Address or IP was not found in NodeConfigs. Default IP was not provided "
         "either.");
   }
-}
-
-uint64_t NodeConfig::nodeMemoryGb(
-    const std::function<uint64_t()>& defaultNodeMemoryGb) const {
-  auto resultOpt = optionalProperty<uint64_t>(kNodeMemoryGb);
-  uint64_t result = 0;
-  if (resultOpt.has_value()) {
-    result = resultOpt.value();
-  } else if (defaultNodeMemoryGb != nullptr) {
-    result = defaultNodeMemoryGb();
-  } else {
-    VELOX_FAIL(
-        "Node memory GB was not found in NodeConfigs. Default node memory was "
-        "not provided either.");
-  }
-  if (result == 0) {
-    LOG(ERROR) << "Bad node memory size.";
-    exit(1);
-  }
-  return result;
 }
 
 BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
