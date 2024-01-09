@@ -288,6 +288,9 @@ class ArrayWriter {
   template <typename ElementSimpleType, typename Input>
   void addItemsOrimitiveFastPath(const Input& sourceArray) {
     VELOX_DCHECK_NE(sourceArray.elementKind(), TypeKind::BOOLEAN);
+    VELOX_DCHECK_NE(sourceArray.elementKind(), TypeKind::VARBINARY);
+    VELOX_DCHECK_NE(sourceArray.elementKind(), TypeKind::VARCHAR);
+
     auto start = length_ + valuesOffset_;
     resize(length_ + sourceArray.size());
     auto* flatOutput =
@@ -374,15 +377,55 @@ class ArrayWriter {
     }
     auto start = length_ + valuesOffset_;
     resize(length_ + sourceArray.size());
+    flatOutput->clearNulls(start, start + sourceArray.size());
+
+    auto* outputData = flatOutput->mutableRawValues();
+
+    // Flat fast path.
+    if (sourceArray.isFlatElements()) {
+      auto* flatInput = sourceArray.elementsVectorBase()
+                            ->template asUnchecked<FlatVector<StringView>>();
+      auto* inputData = flatInput->rawValues();
+      auto inputOffset = sourceArray.offset();
+      if (!sourceArray.mayHaveNulls()) {
+        std::memcpy(
+            &outputData[start],
+            &inputData[inputOffset],
+            sourceArray.size() * sizeof(StringView));
+
+      } else {
+        for (int i = 0; i < sourceArray.size(); i++) {
+          if (!flatInput->isNullAt(i + inputOffset)) {
+            outputData[i + start] = inputData[i + inputOffset];
+          } else {
+            flatOutput->setNull(i + start, true);
+          }
+        }
+      }
+      return;
+    }
+
+    // Null free fast path with all input encodings.
+    if (!sourceArray.mayHaveNulls()) {
+      for (const auto& element : sourceArray) {
+        if constexpr (isGenericType<V>::value) {
+          outputData[start] =
+              element->template castTo<typename KindToSimpleType<kind>::type>();
+        } else {
+          outputData[start] = element.value();
+        }
+        start++;
+      }
+      return;
+    }
+
     for (const auto& element : sourceArray) {
       if (element.has_value()) {
         if constexpr (isGenericType<V>::value) {
-          flatOutput->setNoCopy(
-              start,
-              element
-                  ->template castTo<typename KindToSimpleType<kind>::type>());
+          outputData[start] =
+              element->template castTo<typename KindToSimpleType<kind>::type>();
         } else {
-          flatOutput->setNoCopy(start, element.value());
+          outputData[start] = element.value();
         }
       } else {
         flatOutput->setNull(start, true);
