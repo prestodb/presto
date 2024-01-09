@@ -121,10 +121,21 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT overlay('Spark SQL', 'tructured', 2, 4); -- "Structured SQL"
         SELECT overlay('Spark SQL', '_', -6, 3); -- "_Sql"
 
-.. spark:function:: replace(string, search, replace) -> string
+.. spark:function:: replace(input, replaced) -> varchar
 
-    Replaces all occurrences of `search` with `replace`. ::
+    Removes all instances of ``replaced`` from ``input``.
+    If ``replaced`` is an empty string, returns the original ``input`` string. ::
 
+        SELECT replace('ABCabc', ''); -- ABCabc
+        SELECT replace('ABCabc', 'bc'); -- ABCc
+
+.. spark:function:: replace(input, replaced, replacement) -> varchar
+
+    Replaces all instances of ``replaced`` with ``replacement`` in ``input``.
+    If ``replaced`` is an empty string, returns the original ``input`` string. ::
+
+        SELECT replace('ABCabc', '', 'DEF'); -- ABCabc
+        SELECT replace('ABCabc', 'abc', ''); -- ABC
         SELECT replace('ABCabc', 'abc', 'DEF'); -- ABCDEF
 
 .. spark:function:: rpad(string, len, pad) -> string

@@ -26,6 +26,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/UDFOutputString.h"
+#include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/lib/string/StringImpl.h"
 
 namespace facebook::velox::functions::sparksql {
@@ -1039,6 +1040,57 @@ struct ConvFunction {
       toUpper(result.data(), result.size());
     }
     return true;
+  }
+};
+
+/// replace(input, replaced) -> varchar
+///
+///     Removes all instances of ``replaced`` from ``input``.
+///     If ``replaced`` is an empty string, returns the original ``input``
+///     string.
+
+///
+/// replace(input, replaced, replacement) -> varchar
+///
+///     Replaces all instances of ``replaced`` with ``replacement`` in
+///     ``input``. If ``replaced`` is an empty string, returns the original
+///     ``input`` string.
+template <typename T>
+struct ReplaceFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& replaced) {
+    result.reserve(input.size());
+    auto resultSize = stringCore::replace<true /*ignoreEmptyReplaced*/>(
+        result.data(),
+        std::string_view(input.data(), input.size()),
+        std::string_view(replaced.data(), replaced.size()),
+        std::string_view(),
+        false);
+    result.resize(resultSize);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& replaced,
+      const arg_type<Varchar>& replacement) {
+    size_t reserveSize = input.size();
+    if (replaced.size() != 0 && replacement.size() > replaced.size()) {
+      reserveSize = (input.size() / replaced.size()) * replacement.size() +
+          input.size() % replaced.size();
+    }
+    result.reserve(reserveSize);
+    auto resultSize = stringCore::replace<true /*ignoreEmptyReplaced*/>(
+        result.data(),
+        std::string_view(input.data(), input.size()),
+        std::string_view(replaced.data(), replaced.size()),
+        std::string_view(replacement.data(), replacement.size()),
+        false);
+    result.resize(resultSize);
   }
 };
 
