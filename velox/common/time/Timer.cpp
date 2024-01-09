@@ -16,49 +16,14 @@
 
 #include "velox/common/time/Timer.h"
 
-#include "velox/common/base/Exceptions.h"
+#include "velox/common/testutil/ScopedTestTime.h"
 
 namespace facebook::velox {
 
 using namespace std::chrono;
+using common::testutil::ScopedTestTime;
 
 #ifndef NDEBUG
-bool ScopedTestTime::enabled_ = false;
-std::optional<size_t> ScopedTestTime::testTimeUs_ = {};
-
-ScopedTestTime::ScopedTestTime() {
-  VELOX_CHECK(!enabled_, "Only one ScopedTestTime can be active at a time");
-  enabled_ = true;
-}
-
-ScopedTestTime::~ScopedTestTime() {
-  testTimeUs_.reset();
-  enabled_ = false;
-}
-
-void ScopedTestTime::setCurrentTestTimeSec(size_t currentTimeSec) {
-  setCurrentTestTimeMicro(currentTimeSec * 1000000);
-}
-
-void ScopedTestTime::setCurrentTestTimeMs(size_t currentTimeMs) {
-  setCurrentTestTimeMicro(currentTimeMs * 1000);
-}
-
-void ScopedTestTime::setCurrentTestTimeMicro(size_t currentTimeUs) {
-  testTimeUs_ = currentTimeUs;
-}
-
-std::optional<size_t> ScopedTestTime::getCurrentTestTimeSec() {
-  return testTimeUs_.has_value() ? std::make_optional(*testTimeUs_ / 1000000L)
-                                 : testTimeUs_;
-}
-std::optional<size_t> ScopedTestTime::getCurrentTestTimeMs() {
-  return testTimeUs_.has_value() ? std::make_optional(*testTimeUs_ / 1000L)
-                                 : testTimeUs_;
-}
-std::optional<size_t> ScopedTestTime::getCurrentTestTimeMicro() {
-  return testTimeUs_;
-}
 
 size_t getCurrentTimeSec() {
   return ScopedTestTime::getCurrentTestTimeSec().value_or(

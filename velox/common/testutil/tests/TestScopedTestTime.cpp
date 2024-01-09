@@ -18,15 +18,16 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/ScopedTestTime.h"
 #include "velox/common/time/Timer.h"
 
 namespace {
 
 using namespace facebook::velox;
+using namespace facebook::velox::common::testutil;
 
-// NOTE: we can only build TestScopedTestTimer on debug build.
-#ifndef NDEBUG
-TEST(TestScopedTestTimer, testSetCurrentTimeMs) {
+// NOTE: we can only construct ScopedTestTime in debug builds.
+DEBUG_ONLY_TEST(TestScopedTestTime, testSetCurrentTimeMs) {
   {
     ScopedTestTime scopedTestTime;
     scopedTestTime.setCurrentTestTimeMs(1);
@@ -43,7 +44,7 @@ TEST(TestScopedTestTimer, testSetCurrentTimeMs) {
   ASSERT_NE(getCurrentTimeMicro(), 2000);
 }
 
-TEST(TestScopedTestTimer, testSetCurrentTimeMicro) {
+DEBUG_ONLY_TEST(TestScopedTestTime, testSetCurrentTimeMicro) {
   {
     ScopedTestTime scopedTestTime;
     scopedTestTime.setCurrentTestTimeMicro(1000);
@@ -60,7 +61,7 @@ TEST(TestScopedTestTimer, testSetCurrentTimeMicro) {
   ASSERT_NE(getCurrentTimeMicro(), 2000);
 }
 
-TEST(TestScopedTestTimer, multipleScopedTestTimes) {
+DEBUG_ONLY_TEST(TestScopedTestTime, multipleScopedTestTimes) {
   {
     ScopedTestTime scopedTestTime;
     scopedTestTime.setCurrentTestTimeMs(1);
@@ -86,5 +87,4 @@ TEST(TestScopedTestTimer, multipleScopedTestTimes) {
         "Only one ScopedTestTime can be active at a time");
   }
 }
-#endif
 } // namespace

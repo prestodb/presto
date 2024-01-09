@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 include(GoogleTest)
-add_executable(velox_test_util_test TestValueTest.cpp)
+add_executable(velox_test_util_test TestScopedTestTime.cpp TestValueTest.cpp)
 gtest_add_tests(velox_test_util_test "" AUTO)
 
 target_link_libraries(
-  velox_test_util_test PRIVATE velox_test_util velox_exception velox_exec gtest
-                               gtest_main)
+  velox_test_util_test PRIVATE velox_test_util velox_exception velox_exec
+                               velox_time gtest gtest_main)
