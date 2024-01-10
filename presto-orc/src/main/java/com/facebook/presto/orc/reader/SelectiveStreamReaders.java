@@ -33,6 +33,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
+import com.facebook.presto.orc.OrcLocalMemoryContext;
+import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -40,6 +42,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.joda.time.DateTimeZone;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,7 +68,8 @@ public final class SelectiveStreamReaders
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             OrcAggregatedMemoryContext systemMemoryContext,
-            boolean isLowMemory)
+            boolean isLowMemory,
+            Map<String, Boolean> orcReaderUserOptions)
     {
         OrcTypeKind type = streamDescriptor.getOrcTypeKind();
         switch (type) {
@@ -93,7 +99,7 @@ public final class SelectiveStreamReaders
             case DOUBLE:
                 checkArgument(requiredSubfields.isEmpty(), "Double stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, DoubleType.class::isInstance);
-                return new DoubleSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+                return getDoubleSelectiveStreamReader(streamDescriptor, filters, outputType, systemMemoryContext, orcReaderUserOptions, type);
             case BINARY:
             case STRING:
             case VARCHAR:
@@ -136,6 +142,44 @@ public final class SelectiveStreamReaders
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
         }
+    }
+
+    private static SelectiveStreamReader getDoubleSelectiveStreamReader(StreamDescriptor streamDescriptor, Map<Subfield, TupleDomainFilter> filters, Optional<Type> outputType, OrcAggregatedMemoryContext systemMemoryContext, Map<String, Boolean> orcReaderUserOptions, OrcTypeKind type)
+    {
+        if ((null != orcReaderUserOptions)
+                && (true == orcReaderUserOptions.get(OrcReader.ORC_USE_VECTOR_FILTER))) {
+            try {
+                Class doubleSelectiveStreamVectorReaderClass = Class.forName("com.facebook.presto.orc.reader.vector.DoubleSelectiveStreamVectorReader",
+                        false, SelectiveStreamReaders.class.getClassLoader());
+                // Ensure Memory Segment class is availabe for use
+                Class memorySegmentClass = Class.forName("java.lang.foreign.MemorySegment");
+                // Ensure DoubleVector and VectoMask classes included in the jdk
+                Class doubleVector = Class.forName("jdk.incubator.vector.DoubleVector");
+                Class vectorMask = Class.forName("jdk.incubator.vector.VectorMask");
+                // Ensure compress api is available used in vector implementation
+                Class[] methodParameterArgs = new Class[1];
+                methodParameterArgs[0] = vectorMask;
+                Method commpressApi = doubleVector.getDeclaredMethod("compress", methodParameterArgs);
+
+                // create the vector class during runtime if the vector path is chosen for execution else fallback to the old execution flow
+                Class[] constructorArguments = new Class[4];
+                constructorArguments[0] = StreamDescriptor.class;
+                constructorArguments[1] = Optional.class;
+                constructorArguments[2] = boolean.class;
+                constructorArguments[3] = OrcLocalMemoryContext.class;
+                Constructor constructor = doubleSelectiveStreamVectorReaderClass.getDeclaredConstructor(constructorArguments);
+                return (SelectiveStreamReader) constructor.newInstance(streamDescriptor,
+                        getOptionalOnlyFilter(type, filters),
+                        outputType.isPresent(),
+                        systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+            }
+            catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                // Fallback to old execution flow for any runtime exceptions as checked above
+                return new DoubleSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(),
+                        systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+            }
+        }
+        return new DoubleSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
     }
 
     private static void verifyStreamType(StreamDescriptor streamDescriptor, Optional<Type> outputType, Predicate<Type> predicate)
@@ -193,7 +237,8 @@ public final class SelectiveStreamReaders
                     // No need to read the elements when output is not required and the filter is a simple IS [NOT] NULL
                     return null;
                 }
-                return createStreamReader(streamDescriptor, elementFilters, outputType, requiredSubfields, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
+
+                return createStreamReader(streamDescriptor, elementFilters, outputType, requiredSubfields, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory, null);
             case LIST:
                 Optional<ListFilter> childFilter = parentFilter.map(HierarchicalFilter::getChild).map(ListFilter.class::cast);
                 return new ListSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, childFilter.orElse(null), level, outputType, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
