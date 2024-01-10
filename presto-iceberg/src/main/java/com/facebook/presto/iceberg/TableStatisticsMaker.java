@@ -107,7 +107,7 @@ public class TableStatisticsMaker
 
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
     {
-        if (!tableHandle.getTableName().getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
+        if (!tableHandle.getIcebergTableName().getSnapshotId().isPresent() || constraint.getSummary().isNone()) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
@@ -141,7 +141,7 @@ public class TableStatisticsMaker
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(intersection))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
-                .useSnapshot(tableHandle.getTableName().getSnapshotId().get())
+                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
                 .includeColumnStats();
 
         Partition summary = null;
@@ -218,7 +218,7 @@ public class TableStatisticsMaker
 
     private void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
-        Snapshot snapshot = tableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
+        Snapshot snapshot = tableHandle.getIcebergTableName().getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
         if (snapshot == null) {
             // this may occur if the table has not been written to.
             return;
@@ -332,7 +332,7 @@ public class TableStatisticsMaker
 
     private Optional<StatisticsFile> getClosestStatisticsFileForSnapshot(IcebergTableHandle handle)
     {
-        Snapshot target = handle.getTableName().getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
+        Snapshot target = handle.getIcebergTableName().getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
         return icebergTable.statisticsFiles()
                 .stream()
                 .min((first, second) -> {
