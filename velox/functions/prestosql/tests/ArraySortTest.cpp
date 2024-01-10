@@ -589,8 +589,7 @@ TEST_F(ArraySortTest, failOnArrayNullCompare) {
       "[5, null]",
       "null",
   });
-  static const std::string kErrorMessage =
-      "array_sort contains nested nulls not supported for comparison";
+  static const std::string kErrorMessage = "Ordering nulls is not supported";
 
   // [2, null] vs [4, 4], [5, null] vs null no throw.
   const auto noNullCompareBatch = makeRowVector({
@@ -639,8 +638,7 @@ TEST_F(ArraySortTest, failOnRowNullCompare) {
           {1, 1, 2, std::nullopt, 4, std::nullopt, 0}),
   });
   baseVector->setNull(6, true);
-  static const std::string kErrorMessage =
-      "array_sort contains nested nulls not supported for comparison";
+  static const std::string kErrorMessage = "Ordering nulls is not supported";
 
   // (2, null) vs (4, 4), (5, null) vs null no throw.
   const auto noNullCompareBatch = makeRowVector({

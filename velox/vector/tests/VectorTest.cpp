@@ -3273,7 +3273,10 @@ TEST_F(VectorTest, primitiveTypeNullEqual) {
 
   auto equalStopAtNull = [&](vector_size_t i, vector_size_t j) {
     return base->equalValueAt(
-        other.get(), i, j, CompareFlags::NullHandlingMode::kStopAtNull);
+        other.get(),
+        i,
+        j,
+        CompareFlags::NullHandlingMode::kNullAsIndeterminate);
   };
 
   // No null compare.
@@ -3303,7 +3306,10 @@ TEST_F(VectorTest, complexTypeNullEqual) {
 
   auto equalStopAtNull = [&](vector_size_t i, vector_size_t j) {
     return base->equalValueAt(
-        other.get(), i, j, CompareFlags::NullHandlingMode::kStopAtNull);
+        other.get(),
+        i,
+        j,
+        CompareFlags::NullHandlingMode::kNullAsIndeterminate);
   };
 
   // No null compare, [0, 1] vs [0, 1].
@@ -3344,7 +3350,10 @@ TEST_F(VectorTest, dictionaryNullEqual) {
 
   auto equalStopAtNull = [&](vector_size_t i, vector_size_t j) {
     return dictVector->equalValueAt(
-        other.get(), i, j, CompareFlags::NullHandlingMode::kStopAtNull);
+        other.get(),
+        i,
+        j,
+        CompareFlags::NullHandlingMode::kNullAsIndeterminate);
   };
 
   for (vector_size_t i = 0; i < 2; ++i) {
@@ -3384,7 +3393,10 @@ TEST_F(VectorTest, constantNullEqual) {
 
   auto equalStopAtNull = [&](vector_size_t i, vector_size_t j) {
     return constantVector->equalValueAt(
-        other.get(), i, j, CompareFlags::NullHandlingMode::kStopAtNull);
+        other.get(),
+        i,
+        j,
+        CompareFlags::NullHandlingMode::kNullAsIndeterminate);
   };
 
   // No null compare, [2, null] vs [0, 1], [2, null] vs [1, 2].

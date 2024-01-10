@@ -126,8 +126,8 @@ struct EqFunction : public TimestampWithTimezoneComparisonSupport<T> {
       bool& out,
       const arg_type<Generic<T1>>& lhs,
       const arg_type<Generic<T1>>& rhs) {
-    static constexpr CompareFlags kFlags =
-        CompareFlags::equality(CompareFlags::NullHandlingMode::kStopAtNull);
+    static constexpr CompareFlags kFlags = CompareFlags::equality(
+        CompareFlags::NullHandlingMode::kNullAsIndeterminate);
 
     auto result = lhs.compare(rhs, kFlags);
     if (!result.has_value()) {

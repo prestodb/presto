@@ -108,6 +108,7 @@ std::optional<int32_t> RowVector::compare(
   }
 
   auto compareSize = std::min(children_.size(), otherRow->children_.size());
+  bool resultIsindeterminate = false;
   for (int32_t i = 0; i < compareSize; ++i) {
     BaseVector* child = children_[i].get();
     BaseVector* otherChild = otherRow->childAt(i).get();
@@ -127,13 +128,19 @@ std::optional<int32_t> RowVector::compare(
     auto wrappedOtherIndex = other->wrappedIndex(otherIndex);
     auto result = child->compare(
         otherChild->loadedVector(), index, wrappedOtherIndex, flags);
-    if (flags.mayStopAtNull() && !result.has_value()) {
-      return std::nullopt;
-    }
-
-    if (result.value()) {
+    if (result == kIndeterminate) {
+      VELOX_DCHECK(
+          flags.equalsOnly,
+          "Compare should have thrown when null is encountered in child.");
+      resultIsindeterminate = true;
+    } else if (result.value() != 0) {
+      // If values are not equal no need to continue looping.
       return result;
     }
+  }
+
+  if (resultIsindeterminate) {
+    return kIndeterminate;
   }
   return children_.size() - otherRow->children_.size();
 }
@@ -751,17 +758,23 @@ std::optional<int32_t> compareArrays(
     return 1;
   }
   auto compareSize = std::min(leftRange.size, rightRange.size);
+  bool resultIsindeterminate = false;
   for (auto i = 0; i < compareSize; ++i) {
     auto result =
         left.compare(&right, leftRange.begin + i, rightRange.begin + i, flags);
-    if (flags.mayStopAtNull() && !result.has_value()) {
-      // Null is encountered.
-      return std::nullopt;
-    }
-    if (result.value() != 0) {
+    if (result == kIndeterminate) {
+      VELOX_DCHECK(
+          flags.equalsOnly,
+          "Compare should have thrown when null is encountered in child.");
+      resultIsindeterminate = true;
+    } else if (result.value() != 0) {
       return result;
     }
   }
+  if (resultIsindeterminate) {
+    return kIndeterminate;
+  }
+
   int result = leftRange.size - rightRange.size;
   return flags.ascending ? result : result * -1;
 }
@@ -776,17 +789,26 @@ std::optional<int32_t> compareArrays(
     // return early if not caring about collation order.
     return 1;
   }
+
   auto compareSize = std::min(leftRange.size(), rightRange.size());
+
+  bool resultIsindeterminate = false;
   for (auto i = 0; i < compareSize; ++i) {
     auto result = left.compare(&right, leftRange[i], rightRange[i], flags);
-    if (flags.mayStopAtNull() && !result.has_value()) {
-      // Null is encountered.
-      return std::nullopt;
-    }
-    if (result.value() != 0) {
+    if (result == kIndeterminate) {
+      VELOX_DCHECK(
+          flags.equalsOnly,
+          "Compare should have thrown when null is encountered in child.");
+      resultIsindeterminate = true;
+    } else if (result.value() != 0) {
       return result;
     }
   }
+
+  if (resultIsindeterminate) {
+    return kIndeterminate;
+  }
+
   int result = leftRange.size() - rightRange.size();
   return flags.ascending ? result : result * -1;
 }
@@ -1028,6 +1050,9 @@ std::optional<int32_t> MapVector::compare(
     vector_size_t index,
     vector_size_t otherIndex,
     CompareFlags flags) const {
+  VELOX_CHECK(
+      flags.nullAsValue() || flags.equalsOnly, "Map is not orderable type");
+
   bool isNull = isNullAt(index);
   bool otherNull = other->isNullAt(otherIndex);
   if (isNull || otherNull) {
@@ -1063,16 +1088,13 @@ std::optional<int32_t> MapVector::compare(
 
   auto result =
       compareArrays(*keys_, *otherMap->keys_, leftIndices, rightIndices, flags);
-  VELOX_DCHECK(result.has_value(), "keys can not have null");
+  VELOX_DCHECK(result.has_value(), "Keys may not have nulls or nested nulls");
 
-  if (flags.mayStopAtNull() && !result.has_value()) {
-    return std::nullopt;
-  }
-
-  // Keys are not the same.
+  // Keys are not the same, values not compared.
   if (result.value()) {
     return result;
   }
+
   return compareArrays(
       *values_, *otherMap->values_, leftIndices, rightIndices, flags);
 }

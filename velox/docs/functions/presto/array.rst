@@ -157,7 +157,7 @@ Array Functions
         SELECT array_sort(ARRAY [NULL, 1, NULL]); -- [1, NULL, NULL]
         SELECT array_sort(ARRAY [NULL, 2, 1]); -- [1, 2, NULL]
         SELECT array_sort(ARRAY [ARRAY [1, 2], ARRAY [2, null]]); -- [[1, 2], [2, null]]
-        SELECT array_sort(ARRAY [ARRAY [1, 2], ARRAY [1, null]]); -- failed: array_sort contains nested nulls not supported for comparison
+        SELECT array_sort(ARRAY [ARRAY [1, 2], ARRAY [1, null]]); -- failed: Ordering nulls is not supported
 
 .. function:: array_sort(array(T), function(T,U)) -> array(T)
 
@@ -182,7 +182,7 @@ Array Functions
         SELECT array_sort_desc(ARRAY [NULL, 1, NULL]); -- [1, NULL, NULL]
         SELECT array_sort_desc(ARRAY [NULL, 2, 1]); -- [2, 1, NULL]
         SELECT array_sort(ARRAY [ARRAY [1, 2], ARRAY [2, null]]); -- [[1, 2], [2, null]]
-        SELECT array_sort(ARRAY [ARRAY [1, 2], ARRAY [1, null]]); -- failed: array_sort contains nested nulls not supported for comparison
+        SELECT array_sort(ARRAY [ARRAY [1, 2], ARRAY [1, null]]); -- failed: Ordering nulls is not supported
 
 .. function:: array_sort_desc(array(T), function(T,U)) -> array(T)
 

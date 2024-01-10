@@ -45,7 +45,8 @@ BufferPtr sortElements(
 
   CompareFlags flags{.nullsFirst = false, .ascending = ascending};
   if (throwOnNestedNull) {
-    flags.nullHandlingMode = CompareFlags::NullHandlingMode::kStopAtNull;
+    flags.nullHandlingMode =
+        CompareFlags::NullHandlingMode::kNullAsIndeterminate;
   }
 
   auto decodedIndices = decodedElements->indices();
@@ -77,8 +78,7 @@ BufferPtr sortElements(
               baseElementsVector, decodedIndices[a], decodedIndices[b], flags);
 
           if (!result.has_value()) {
-            VELOX_USER_FAIL(
-                "array_sort contains nested nulls not supported for comparison");
+            VELOX_USER_FAIL("Ordering nulls is not supported");
           }
 
           return result.value() < 0;

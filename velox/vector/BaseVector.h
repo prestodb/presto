@@ -808,21 +808,21 @@ class BaseVector {
   compareNulls(bool thisNull, bool otherNull, CompareFlags flags) {
     DCHECK(thisNull || otherNull);
     switch (flags.nullHandlingMode) {
-      case CompareFlags::NullHandlingMode::kStopAtNull:
-        return std::nullopt;
+      case CompareFlags::NullHandlingMode::kNullAsIndeterminate:
+        if (flags.equalsOnly) {
+          return kIndeterminate;
+        } else {
+          VELOX_USER_FAIL("Ordering nulls is not supported");
+        }
       case CompareFlags::NullHandlingMode::kNullAsValue:
-      default:
-        break;
-    }
+        if (thisNull && otherNull) {
+          return 0;
+        }
 
-    if (thisNull) {
-      if (otherNull) {
-        return 0;
-      }
-      return flags.nullsFirst ? -1 : 1;
-    }
-    if (otherNull) {
-      return flags.nullsFirst ? 1 : -1;
+        if (flags.nullsFirst) {
+          return thisNull ? -1 : 1;
+        }
+        return thisNull ? 1 : -1;
     }
 
     VELOX_UNREACHABLE(

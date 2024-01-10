@@ -318,32 +318,55 @@ TEST_F(ArrayContainsTest, dictionaryEncodingElements) {
 }
 
 TEST_F(ArrayContainsTest, arrayCheckNulls) {
-  const auto baseVector = makeArrayVectorFromJson<int32_t>({
-      "[1, 1]",
-      "[2, 2]",
-      "[3, null]",
-      "[4, 4]",
-      "[5, 5]",
-      "[6, 6]",
-  });
-  const auto data = makeArrayVector({0, 3}, baseVector);
-  auto contains = [&](const std::string& search) {
+  static const std::string kErrorMessage =
+      "contains does not support arrays with elements that contain null";
+  auto contains = [&](const std::string& search, const auto& data) {
     const auto searchBase = makeArrayVectorFromJson<int32_t>({search});
     const auto searchConstant =
         BaseVector::wrapInConstant(data->size(), 0, searchBase);
     const auto result =
         evaluate("contains(c0, c1)", makeRowVector({data, searchConstant}));
-    return result->asFlatVector<bool>()->valueAt(0);
+    return result->template asFlatVector<bool>()->valueAt(0);
   };
 
-  static const std::string kErrorMessage =
-      "contains does not support arrays with elements that contain null";
-  // No null equal.
-  ASSERT_FALSE(contains("[7, null]"));
-  // Null equal, [3, null] vs [3, 3].
-  VELOX_ASSERT_THROW(contains("[3, 3]"), kErrorMessage);
-  // Null equal, [6, 6] vs [6, null].
-  VELOX_ASSERT_THROW(contains("[6, null]"), kErrorMessage);
+  {
+    // Null at the end of the array.
+    const auto baseVector = makeArrayVectorFromJson<int32_t>({
+        "[1, 1]",
+        "[2, 2]",
+        "[3, null]",
+        "[4, 4]",
+        "[5, 5]",
+        "[6, 6]",
+    });
+    const auto data = makeArrayVector({0, 3}, baseVector);
+
+    // No null equal.
+    ASSERT_FALSE(contains("[7, null]", data));
+    // Null equal, [3, null] vs [3, 3].
+    VELOX_ASSERT_THROW(contains("[3, 3]", data), kErrorMessage);
+    // Null equal, [6, 6] vs [6, null].
+    VELOX_ASSERT_THROW(contains("[6, null]", data), kErrorMessage);
+  }
+
+  {
+    // Null at the beginning of the array.
+    // data is [[null, 3]].
+    const auto data =
+        makeNullableNestedArrayVector<int32_t>({{{{{std::nullopt, 3}}}}});
+
+    // [null] = [null, 3] is false.
+    ASSERT_FALSE(contains("[null]", data));
+    //  [null, 4] = [null, 3] is false.
+    ASSERT_FALSE(contains("[null, 4]", data));
+    //  [null, 4] = [1, 1] is false.
+    ASSERT_FALSE(contains("[1, 1]", data));
+
+    // [null, 3] = [null, 3] is indeterminate.
+    VELOX_ASSERT_THROW(contains("[null, 3]", data), kErrorMessage);
+    // [null, 3] = [null, null] is indeterminate.
+    VELOX_ASSERT_THROW(contains("[null, null]", data), kErrorMessage);
+  }
 }
 
 TEST_F(ArrayContainsTest, rowCheckNulls) {

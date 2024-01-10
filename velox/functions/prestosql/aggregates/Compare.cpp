@@ -28,7 +28,7 @@ int32_t compare(
       true, // nullsFirst
       true, // ascending
       false, // equalsOnly
-      CompareFlags::NullHandlingMode::kStopAtNull};
+      CompareFlags::NullHandlingMode::kNullAsIndeterminate};
 
   auto result = accumulator->compare(decoded, index, kCompareFlags);
   VELOX_USER_CHECK(

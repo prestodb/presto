@@ -112,7 +112,7 @@ void applyComplexType(
             searchBase,
             elementIndices[offset + i],
             searchIndex,
-            CompareFlags::NullHandlingMode::kStopAtNull);
+            CompareFlags::NullHandlingMode::kNullAsIndeterminate);
         VELOX_USER_CHECK(
             result.has_value(),
             "contains does not support arrays with elements that contain null");

@@ -125,6 +125,21 @@ TEST_F(ArrayRemoveTest, arrayWithComplexTypes) {
       "array_remove(c0, c1)",
       {arrayOfArrays, elementVector},
       "array_remove does not support arrays with elements that are null or contain null");
+
+  // Test array_remove([[null ,1]], [null, 2]).
+  // This does not throw because [null ,1] = [null, 2] is false.
+  {
+    std::string nestedArray =
+        "array_constructor(array_constructor(null::bigint, 1))";
+    auto result = evaluate(
+        fmt::format(
+            "array_remove({}, array_constructor(null::bigint, 2))",
+            nestedArray),
+        makeRowVector({makeFlatVector<int32_t>(1)}));
+    auto expected =
+        evaluate(nestedArray, makeRowVector({makeFlatVector<int32_t>(1)}));
+    assertEqualVectors(result, expected);
+  }
 }
 
 ////  Remove null from array.
