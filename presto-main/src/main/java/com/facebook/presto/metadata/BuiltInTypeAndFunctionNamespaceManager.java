@@ -104,6 +104,7 @@ import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximat
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountIfGaussianAggregation;
 import com.facebook.presto.operator.aggregation.noisyaggregation.SfmSketchMergeAggregation;
 import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleFunction;
+import com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchAggregationFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
@@ -370,7 +371,6 @@ import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySum
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianClippingAggregation.NOISY_SUM_GAUSSIAN_CLIPPING_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianClippingRandomSeedAggregation.NOISY_SUM_GAUSSIAN_CLIPPING_RANDOM_SEED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianRandomSeedAggregation.NOISY_SUM_GAUSSIAN_RANDOM_SEED_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchAggregationFunction.THETA_SKETCH;
 import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
@@ -951,7 +951,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(TDigestOperators.class)
                 .scalars(TDigestFunctions.class)
                 .functions(TDIGEST_AGG, TDIGEST_AGG_WITH_WEIGHT, TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION)
-                .function(THETA_SKETCH)
+                .aggregate(ThetaSketchAggregationFunction.class)
                 .scalars(ThetaSketchFunctions.class)
                 .function(MergeTDigestFunction.MERGE)
                 .sqlInvokedScalar(MapNormalizeFunction.class)
