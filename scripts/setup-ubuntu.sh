@@ -31,6 +31,7 @@ export CMAKE_BUILD_TYPE=Release
 # Install all velox and folly dependencies. 
 # The is an issue on 22.04 where a version conflict prevents glog install,
 # installing libunwind first fixes this.
+apt update && apt install sudo
 sudo --preserve-env apt update && sudo --preserve-env apt install -y libunwind-dev && \
   sudo --preserve-env apt install -y \
   g++ \

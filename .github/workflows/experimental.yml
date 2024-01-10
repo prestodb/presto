@@ -47,7 +47,7 @@ permissions:
 
 jobs:
   compile:
-    runs-on: 16-core
+    runs-on: 8-core
     timeout-minutes: 120
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache/"
@@ -86,13 +86,23 @@ jobs:
           name: aggregation
           path: velox/_build/debug/velox/exec/tests/velox_aggregation_fuzzer_test
 
-      - name: Upload spark fuzzer
+      - name: Upload spark aggregation fuzzer
         uses: actions/upload-artifact@v3
         with:
-          name: spark
-          path: |
-            velox/_build/debug/velox/expression/tests/spark_expression_fuzzer_test
-            velox/_build/debug/velox/expression/tests/spark_aggregation_fuzzer_test
+          name: spark_aggregation_fuzzer
+          path: velox/_build/debug/velox/functions/sparksql/fuzzer/spark_aggregation_fuzzer_test
+
+      - name: Upload aggregation fuzzer
+        uses: actions/upload-artifact@v3
+        with:
+          name: aggregation
+          path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_aggregation_fuzzer_test
+
+      - name: Upload join fuzzer
+        uses: actions/upload-artifact@v3
+        with:
+          name: join
+          path: velox/_build/debug/velox/exec/tests/velox_join_fuzzer_test
 
 
   presto-java-aggregation-fuzzer-run:
@@ -151,10 +161,10 @@ jobs:
       - name: "Install dependencies"
         run: source ./scripts/setup-ubuntu.sh
 
-      - name: Download spark fuzzer
+      - name: Download spark aggregation fuzzer
         uses: actions/download-artifact@v3
         with:
-          name: spark
+          name: spark_aggregation_fuzzer
 
       - name: "Run Spark Aggregate Fuzzer"
         run: |
@@ -177,3 +187,44 @@ jobs:
           name: spark-agg-fuzzer-failure-artifacts
           path: |
             /tmp/spark_aggregate_fuzzer_repro
+
+  linux-join-fuzzer-run:
+    runs-on: ubuntu-latest
+    needs: compile
+    timeout-minutes: 120
+    steps:
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v3
+        with:
+          ref: "${{ inputs.ref || 'main' }}"
+
+      - name: "Install dependencies"
+        run: source ./scripts/setup-ubuntu.sh
+
+      - name: Download join fuzzer
+        uses: actions/download-artifact@v3
+        with:
+          name: join
+
+      - name: "Run Join Fuzzer"
+        run: |
+          ls /lib64
+          mkdir -p /tmp/join_fuzzer_repro/
+          rm -rfv /tmp/join_fuzzer_repro/*
+          chmod -R 777 /tmp/join_fuzzer_repro
+          chmod +x velox_join_fuzzer_test
+          ./velox_join_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec 1800 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+            && echo -e "\n\nAggregation fuzzer run finished successfully."
+
+      - name: Archive aggregate production artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: join-fuzzer-failure-artifacts
+          path: |
+            /tmp/join_fuzzer_repro
