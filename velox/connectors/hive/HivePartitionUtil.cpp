@@ -51,13 +51,23 @@ template <TypeKind Kind>
 std::pair<std::string, std::string> makePartitionKeyValueString(
     const BaseVector* partitionVector,
     vector_size_t row,
-    const std::string& name) {
+    const std::string& name,
+    bool isDate) {
   using T = typename TypeTraits<Kind>::NativeType;
+  if (partitionVector->as<SimpleVector<T>>()->isNullAt(row)) {
+    return std::make_pair(name, "");
+  }
+  if (isDate) {
+    return std::make_pair(
+        name,
+        DATE()->toString(
+            partitionVector->as<SimpleVector<int32_t>>()->valueAt(row)));
+  }
   return std::make_pair(
       name,
       makePartitionValueString(
           partitionVector->as<SimpleVector<T>>()->valueAt(row)));
-};
+}
 
 } // namespace
 
@@ -66,21 +76,13 @@ std::vector<std::pair<std::string, std::string>> extractPartitionKeyValues(
     vector_size_t row) {
   std::vector<std::pair<std::string, std::string>> partitionKeyValues;
   for (auto i = 0; i < partitionsVector->childrenSize(); i++) {
-    if (partitionsVector->childAt(i)->type()->isDate()) {
-      auto partitionVector = partitionsVector->childAt(i)->loadedVector();
-      auto partitionName = asRowType(partitionsVector->type())->nameOf(i);
-      partitionKeyValues.push_back(
-          {partitionName,
-           DATE()->toString(
-               partitionVector->as<SimpleVector<int32_t>>()->valueAt(row))});
-    } else {
-      partitionKeyValues.push_back(PARTITION_TYPE_DISPATCH(
-          makePartitionKeyValueString,
-          partitionsVector->childAt(i)->typeKind(),
-          partitionsVector->childAt(i)->loadedVector(),
-          row,
-          asRowType(partitionsVector->type())->nameOf(i)));
-    }
+    partitionKeyValues.push_back(PARTITION_TYPE_DISPATCH(
+        makePartitionKeyValueString,
+        partitionsVector->childAt(i)->typeKind(),
+        partitionsVector->childAt(i)->loadedVector(),
+        row,
+        asRowType(partitionsVector->type())->nameOf(i),
+        partitionsVector->childAt(i)->type()->isDate()));
   }
   return partitionKeyValues;
 }
