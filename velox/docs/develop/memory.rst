@@ -720,7 +720,7 @@ defines *MmapAllocator::SizeClass* data structure (similar to the one used in
 `Umbra <https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf>`_) to manage the non-contiguous allocation. A *SizeClass* object provides
 allocation of a fixed size buffer (class page) which is a power of 2 of a
 machine page size. *MMapAllocator* creates 9 different *SizeClass* objects with
-class page size ranging from 1 machine page (4KB) to 512 machine pages (1MB).
+class page size ranging from 1 machine page (4KB) to 256 machine pages (1MB).
 To allocate a large number of machines pages, *MmapAllocator* calls
 &MemoryAllocator::allocationSize* to build the allocation plan
 (*MemoryAllocator::SizeMix*) which consists of a list of chosen *SizeClass* objects
