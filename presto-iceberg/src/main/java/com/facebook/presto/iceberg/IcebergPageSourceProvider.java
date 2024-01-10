@@ -737,7 +737,7 @@ public class IcebergPageSourceProvider
                 .forEach(regularColumns::add);
 
         // TODO: pushdownFilter for icebergLayout
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName().getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getIcebergTableName().getTableName());
         ConnectorPageSourceWithRowPositions connectorPageSourceWithRowPositions = createDataPageSource(
                 session,
                 hdfsContext,

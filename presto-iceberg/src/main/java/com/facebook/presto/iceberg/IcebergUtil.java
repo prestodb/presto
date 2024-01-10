@@ -549,7 +549,7 @@ public final class IcebergUtil
             Constraint<ColumnHandle> constraint,
             List<IcebergColumnHandle> partitionColumns)
     {
-        IcebergTableName name = ((IcebergTableHandle) tableHandle).getTableName();
+        IcebergTableName name = ((IcebergTableHandle) tableHandle).getIcebergTableName();
 
         // Empty iceberg table would cause `snapshotId` not present
         Optional<Long> snapshotId = resolveSnapshotIdByName(icebergTable, name);
