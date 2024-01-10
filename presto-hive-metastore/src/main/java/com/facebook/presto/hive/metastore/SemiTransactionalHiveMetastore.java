@@ -97,6 +97,7 @@ import static com.facebook.presto.hive.metastore.Statistics.reduce;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static com.facebook.presto.spi.WarningCollector.NOOP;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -512,7 +513,7 @@ public class SemiTransactionalHiveMetastore
         setShared();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider, session.getWarningCollector());
         if (oldTableAction == null || oldTableAction.getData().getTable().getTableType().equals(TEMPORARY_TABLE)) {
             Table table = getTable(metastoreContext, databaseName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
@@ -558,7 +559,8 @@ public class SemiTransactionalHiveMetastore
                         session.getSource(),
                         getMetastoreHeaders(session),
                         isUserDefinedTypeEncodingEnabled(session),
-                        columnConverterProvider),
+                        columnConverterProvider,
+                        session.getWarningCollector()),
                 databaseName,
                 tableName);
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
@@ -902,7 +904,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(schemaTableName, k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider, session.getWarningCollector());
 
         if (oldPartitionAction == null) {
             Partition partition = delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues)
@@ -1129,7 +1131,8 @@ public class SemiTransactionalHiveMetastore
                         hdfsContext.getSource(),
                         hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders),
                         hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
-                        columnConverterProvider);
+                        columnConverterProvider,
+                        hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP));
                 switch (action.getType()) {
                     case DROP:
                         committer.prepareDropTable(metastoreContext, schemaTableName);
@@ -1160,7 +1163,8 @@ public class SemiTransactionalHiveMetastore
                             hdfsContext.getSource(),
                             hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders),
                             hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
-                            columnConverterProvider);
+                            columnConverterProvider,
+                            hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP));
                     switch (action.getType()) {
                         case DROP:
                             committer.prepareDropPartition(metastoreContext, schemaTableName, partitionValues);

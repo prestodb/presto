@@ -195,7 +195,8 @@ public class TestHiveCommitHandleOutput
                         Optional.empty(),
                         Optional.empty(),
                         false,
-                        HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER),
+                        HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                        connectorSession.getWarningCollector()),
                 TEST_SCHEMA,
                 TEST_TABLE,
                 ImmutableList.of(partitionName));

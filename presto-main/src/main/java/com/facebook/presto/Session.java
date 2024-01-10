@@ -161,9 +161,9 @@ public final class Session
         checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
-        this.context = new AccessControlContext(queryId, clientInfo, source);
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.context = new AccessControlContext(queryId, clientInfo, source, warningCollector);
     }
 
     public QueryId getQueryId()
