@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
+import com.facebook.presto.spi.WarningCollector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -70,7 +71,7 @@ public class MockHiveMetastoreClient
     public static final List<SQLPrimaryKey> TEST_PRIMARY_KEY = ImmutableList.of(new SQLPrimaryKey(TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c1", 0, "", true, false, true));
     public static final List<SQLUniqueConstraint> TEST_UNIQUE_CONSTRAINT = ImmutableList.of(new SQLUniqueConstraint("", TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c2", 1, "", true, false, true));
     public static final String TEST_TOKEN = "token";
-    public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+    public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP);
     public static final String TEST_PARTITION1 = "key=testpartition1";
     public static final String TEST_PARTITION2 = "key=testpartition2";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");

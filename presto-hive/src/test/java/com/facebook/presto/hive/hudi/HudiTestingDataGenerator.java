@@ -28,6 +28,7 @@ import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -67,7 +68,7 @@ import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
 public class HudiTestingDataGenerator
 {
     private static final String OWNER_PUBLIC = "public";
-    private static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+    private static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP);
     private static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
 
     private static final StorageFormat STORAGE_FORMAT_COPY_ON_WRITE = StorageFormat.create(
