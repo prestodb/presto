@@ -690,7 +690,7 @@ public class TestIcebergLogicalPlanner
 
     private static boolean isTableScanNode(PlanNode node, String tableName)
     {
-        return node instanceof TableScanNode && ((IcebergTableHandle) ((TableScanNode) node).getTable().getConnectorHandle()).getTableName().getTableName().equals(tableName);
+        return node instanceof TableScanNode && ((IcebergTableHandle) ((TableScanNode) node).getTable().getConnectorHandle()).getIcebergTableName().getTableName().equals(tableName);
     }
 
     private Session pushdownFilterEnabled()
