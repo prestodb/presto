@@ -16,7 +16,6 @@
 
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/lib/TimeUtils.h"
-#include "velox/functions/prestosql/DateTimeImpl.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions::sparksql {
@@ -299,8 +298,7 @@ struct DateSubFunction {
 };
 
 template <typename T>
-struct DayOfWeekFunction : public InitSessionTimezone<T>,
-                           public TimestampWithTimezoneSupport<T> {
+struct DayOfWeekFunction : public InitSessionTimezone<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   // 1 = Sunday, 2 = Monday, ..., 7 = Saturday
