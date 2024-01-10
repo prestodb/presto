@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_functions_spark_specialforms DecimalRound.cpp MakeDecimal.cpp)
+add_library(
+  velox_functions_spark_specialforms DecimalRound.cpp MakeDecimal.cpp
+                                     SparkCastExpr.cpp SparkCastHooks.cpp)
 
 target_link_libraries(velox_functions_spark_specialforms fmt::fmt
                       velox_expression)

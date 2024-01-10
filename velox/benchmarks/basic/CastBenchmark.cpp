@@ -120,6 +120,8 @@ int main(int argc, char** argv) {
           "cast_large_double_to_standard_notation",
           "cast(large_double as varchar)")
       .addExpression("cast_timestamp", "cast (timestamp as varchar)")
+      .addExpression("cast_real_as_int", "cast (small_real as integer)")
+      .addExpression("cast_decimal_as_bigint", "cast (short_decimal as bigint)")
       .withIterations(100)
       .disableTesting();
 

@@ -36,7 +36,6 @@ TEST_F(QueryConfigTest, emptyConfig) {
   ASSERT_FALSE(config.codegenEnabled());
   ASSERT_EQ(config.codegenConfigurationFilePath(), "");
   ASSERT_FALSE(config.isLegacyCast());
-  ASSERT_FALSE(config.isCastToIntByTruncate());
 }
 
 TEST_F(QueryConfigTest, setConfig) {
@@ -51,7 +50,6 @@ TEST_F(QueryConfigTest, setConfig) {
   ASSERT_TRUE(config.codegenEnabled());
   ASSERT_EQ(config.codegenConfigurationFilePath(), path);
   ASSERT_TRUE(config.isLegacyCast());
-  ASSERT_FALSE(config.isCastToIntByTruncate());
 }
 
 TEST_F(QueryConfigTest, memConfig) {

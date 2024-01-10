@@ -396,11 +396,12 @@ ExprPtr compileRewrittenExpression(
     if (FOLLY_UNLIKELY(*resultType == *compiledInputs[0]->type())) {
       result = compiledInputs[0];
     } else {
-      result = std::make_shared<CastExpr>(
+      result = getSpecialForm(
+          config,
+          cast->nullOnFailure() ? "try_cast" : "cast",
           resultType,
-          std::move(compiledInputs[0]),
-          trackCpuUsage,
-          cast->nullOnFailure());
+          std::move(compiledInputs),
+          trackCpuUsage);
     }
   } else if (auto call = dynamic_cast<const core::CallTypedExpr*>(expr.get())) {
     if (auto specialForm = getSpecialForm(

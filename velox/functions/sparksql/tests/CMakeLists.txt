@@ -36,6 +36,7 @@ add_executable(
   RegexFunctionsTest.cpp
   SizeTest.cpp
   SortArrayTest.cpp
+  SparkCastExprTest.cpp
   SplitFunctionsTest.cpp
   StringTest.cpp
   StringToMapTest.cpp

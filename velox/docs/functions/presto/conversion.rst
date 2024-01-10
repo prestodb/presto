@@ -269,10 +269,6 @@ From strings
 Casting a string to an integral type is allowed if the string represents an
 integral number within the range of the result type. By default, casting from
 strings that represent floating-point numbers is not allowed.
-
-If cast_to_int_by_truncate is set to true, and the string represents a floating-point number,
-the decimal part will be truncated for casting to an integer.
-
 Casting from invalid input values throws.
 
 Valid examples
@@ -283,34 +279,7 @@ Valid examples
   SELECT cast('+1' as tinyint); -- 1
   SELECT cast('-1' as tinyint); -- -1
 
-Valid examples if cast_to_int_by_truncate=true
-
-::
-
-  SELECT cast('12345.67' as bigint); -- 12345
-  SELECT cast('1.2' as tinyint); -- 1
-  SELECT cast('-1.8' as tinyint); -- -1
-  SELECT cast('+1' as tinyint); -- 1
-  SELECT cast('1.' as tinyint); -- 1
-  SELECT cast('-1' as tinyint); -- -1
-  SELECT cast('-1.' as tinyint); -- -1
-  SELECT cast('0.' as tinyint); -- 0
-  SELECT cast('.' as tinyint); -- 0
-  SELECT cast('-.' as tinyint); -- 0
-
 Invalid examples
-
-::
-
-  SELECT cast('1234567' as tinyint); -- Out of range
-  SELECT cast('1a' as tinyint); -- Invalid argument
-  SELECT cast('' as tinyint); -- Invalid argument
-  SELECT cast('1,234,567' as bigint); -- Invalid argument
-  SELECT cast('1'234'567' as bigint); -- Invalid argument
-  SELECT cast('nan' as bigint); -- Invalid argument
-  SELECT cast('infinity' as bigint); -- Invalid argument
-
-Invalid examples if cast_to_int_by_truncate=false
 
 ::
 
@@ -327,14 +296,13 @@ Invalid examples if cast_to_int_by_truncate=false
 From decimal
 ^^^^^^^^^^^^
 
-By default, the decimal part is rounded. If cast_to_int_by_truncate is enabled, the decimal part will be truncated for casting to an integer.
+The decimal part is rounded.
 
 Valid examples
 
 ::
 
-  SELECT cast(2.56 decimal(6, 2) as integer); -- 2 /* cast_to_int_by_truncate enabled */
-  SELECT cast(2.56 decimal(6, 2) as integer); -- 3 /* cast_to_int_by_truncate disabled */
+  SELECT cast(2.56 decimal(6, 2) as integer); -- 3
   SELECT cast(3.46 decimal(6, 2) as integer); -- 3
 
 Invalid examples
@@ -684,36 +652,15 @@ Cast to Date
 From strings
 ^^^^^^^^^^^^
 
-By default, only ISO 8601 strings are supported: `[+-]YYYY-MM-DD`.
-
-If cast_string_to_date_is_iso_8601 is set to false, all Spark supported patterns are allowed.
-See the documentation for cast_string_to_date_is_iso_8601 in :ref:`Expression Evaluation Configuration<expression-evaluation-conf>`
-for the full list of supported patterns.
-
-Casting from invalid input values throws.
+Only ISO 8601 strings are supported: `[+-]YYYY-MM-DD`. Casting from invalid input values throws.
 
 Valid examples
 
-**cast_string_to_date_is_iso_8601=true**
-
 ::
 
   SELECT cast('1970-01-01' as date); -- 1970-01-01
-
-**cast_string_to_date_is_iso_8601=false**
-
-::
-
-  SELECT cast('1970' as date); -- 1970-01-01
-  SELECT cast('1970-01' as date); -- 1970-01-01
-  SELECT cast('1970-01-01' as date); -- 1970-01-01
-  SELECT cast('1970-01-01T123' as date); -- 1970-01-01
-  SELECT cast('1970-01-01 ' as date); -- 1970-01-01
-  SELECT cast('1970-01-01 (BC)' as date); -- 1970-01-01
 
 Invalid examples
-
-**cast_string_to_date_is_iso_8601=true**
 
 ::
 
@@ -725,14 +672,6 @@ Invalid examples
   SELECT cast('2012/10/23' as date); -- Invalid argument
   SELECT cast('2012.10.23' as date); -- Invalid argument
   SELECT cast('2012-10-23 ' as date); -- Invalid argument
-
-**cast_string_to_date_is_iso_8601=false**
-
-::
-
-  SELECT cast('2012-Oct-23' as date); -- Invalid argument
-  SELECT cast('2012/10/23' as date); -- Invalid argument
-  SELECT cast('2012.10.23' as date); -- Invalid argument
 
 From TIMESTAMP
 ^^^^^^^^^^^^^^

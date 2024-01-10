@@ -511,10 +511,12 @@ class QueryConfig {
     return get<bool>(kCastMatchStructByName, false);
   }
 
+  // TODO: to be removed.
   bool isCastToIntByTruncate() const {
     return get<bool>(kCastToIntByTruncate, false);
   }
 
+  // TODO: to be removed.
   bool isIso8601() const {
     return get<bool>(kCastStringToDateIsIso8601, true);
   }

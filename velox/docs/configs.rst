@@ -160,25 +160,6 @@ Expression Evaluation Configuration
      - bool
      - false
      - This flag makes the Row conversion to by applied in a way that the casting row field are matched by name instead of position.
-   * - cast_to_int_by_truncate
-     - bool
-     - false
-     - This flags forces the cast from float/double/decimal/string to integer to be performed by truncating the decimal part instead of rounding.
-   * - cast_string_to_date_is_iso_8601
-     - bool
-     - true
-     - If set, cast from string to date allows only ISO 8601 formatted strings: ``[+-](YYYY-MM-DD)``.
-       Otherwise, allows all patterns supported by Spark:
-         * ``[+-]yyyy*``
-         * ``[+-]yyyy*-[m]m``
-         * ``[+-]yyyy*-[m]m-[d]d``
-         * ``[+-]yyyy*-[m]m-[d]d *``
-         * ``[+-]yyyy*-[m]m-[d]dT*``
-       The asterisk ``*`` in ``yyyy*`` stands for any numbers.
-       For the last two patterns, the trailing ``*`` can represent none or any sequence of characters, e.g:
-         * "1970-01-01 123"
-         * "1970-01-01 (BC)"
-       Regardless of this setting's value, leading spaces will be trimmed.
 
 Memory Management
 -----------------
