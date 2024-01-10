@@ -287,7 +287,7 @@ std::string MemoryManager::toString(bool detail) const {
   std::vector<std::shared_ptr<MemoryPool>> pools = getAlivePools();
   for (const auto& pool : pools) {
     if (detail) {
-      out << pool->treeMemoryUsage(true);
+      out << pool->treeMemoryUsage(false);
     } else {
       out << "\t" << pool->name() << "\n";
     }
