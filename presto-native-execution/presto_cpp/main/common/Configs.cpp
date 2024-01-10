@@ -664,8 +664,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
               QueryConfig::kOperatorTrackCpuUsage, c.operatorTrackCpuUsage()),
           BOOL_PROP(
               QueryConfig::kCastMatchStructByName, c.isMatchStructByName()),
-          BOOL_PROP(
-              QueryConfig::kCastToIntByTruncate, c.isCastToIntByTruncate()),
           NUM_PROP(
               QueryConfig::kMaxLocalExchangeBufferSize,
               c.maxLocalExchangeBufferSize()),
