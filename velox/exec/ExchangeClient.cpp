@@ -140,32 +140,34 @@ ExchangeClient::next(uint32_t maxBytes, bool* atEnd, ContinueFuture* future) {
 
 void ExchangeClient::request(const RequestSpec& requestSpec) {
   auto& exec = folly::QueuedImmediateExecutor::instance();
+  auto self = shared_from_this();
   for (auto& source : requestSpec.sources) {
     auto future = source->request(requestSpec.maxBytes, kDefaultMaxWaitSeconds);
     VELOX_CHECK(future.valid());
     std::move(future)
         .via(&exec)
-        .thenValue([this, requestSource = source](auto&& response) {
+        .thenValue([self, requestSource = source](auto&& response) {
           RequestSpec requestSpec;
           {
-            std::lock_guard<std::mutex> l(queue_->mutex());
-            if (closed_) {
+            std::lock_guard<std::mutex> l(self->queue_->mutex());
+            if (self->closed_) {
               return;
             }
             if (!response.atEnd) {
               if (response.bytes > 0) {
-                producingSources_.push(requestSource);
+                self->producingSources_.push(requestSource);
               } else {
-                emptySources_.push(requestSource);
+                self->emptySources_.push(requestSource);
               }
             }
-            requestSpec = pickSourcesToRequestLocked();
+            requestSpec = self->pickSourcesToRequestLocked();
           }
-          request(requestSpec);
+          self->request(requestSpec);
         })
         .thenError(
-            folly::tag_t<std::exception>{},
-            [&](const std::exception& e) { queue_->setError(e.what()); });
+            folly::tag_t<std::exception>{}, [self](const std::exception& e) {
+              self->queue_->setError(e.what());
+            });
   }
 }
 

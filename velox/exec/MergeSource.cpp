@@ -123,7 +123,7 @@ class MergeExchangeSource : public MergeSource {
       int64_t maxQueuedBytes,
       memory::MemoryPool* pool)
       : mergeExchange_(mergeExchange),
-        client_(std::make_unique<ExchangeClient>(
+        client_(std::make_shared<ExchangeClient>(
             taskId,
             destination,
             pool,
@@ -187,7 +187,7 @@ class MergeExchangeSource : public MergeSource {
 
  private:
   MergeExchange* const mergeExchange_;
-  std::unique_ptr<ExchangeClient> client_;
+  std::shared_ptr<ExchangeClient> client_;
   std::optional<ByteInputStream> inputStream_;
   std::unique_ptr<SerializedPage> currentPage_;
   bool atEnd_ = false;
