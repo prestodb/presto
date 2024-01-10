@@ -1,0 +1,92 @@
+diff --git a/fbcode/velox/external/date/date.h b/fbcode/velox/external/date/date.h
+--- a/fbcode/velox/external/date/date.h
++++ b/fbcode/velox/external/date/date.h
+@@ -396,7 +396,7 @@
+ 
+ class year
+ {
+-    short y_;
++    int y_;
+ 
+ public:
+     year() = default;
+@@ -2864,11 +2864,11 @@
+              "This algorithm has not been ported to a 16 bit unsigned integer");
+     static_assert(std::numeric_limits<int>::digits >= 20,
+              "This algorithm has not been ported to a 16 bit signed integer");
+-    auto const z = dp.count() + 719468;
++    auto const z = dp.count() + 719468L; // For velox, use long to avoid overflow.
+     auto const era = (z >= 0 ? z : z - 146096) / 146097;
+     auto const doe = static_cast<unsigned>(z - era * 146097);          // [0, 146096]
+     auto const yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;  // [0, 399]
+-    auto const y = static_cast<days::rep>(yoe) + era * 400;
++    auto const y = static_cast<days::rep>(yoe + era * 400);
+     auto const doy = doe - (365*yoe + yoe/4 - yoe/100);                // [0, 365]
+     auto const mp = (5*doy + 2)/153;                                   // [0, 11]
+     auto const d = doy - (153*mp+2)/5 + 1;                             // [1, 31]
+diff --git a/fbcode/velox/functions/prestosql/tests/SequenceTest.cpp b/fbcode/velox/functions/prestosql/tests/SequenceTest.cpp
+--- a/fbcode/velox/functions/prestosql/tests/SequenceTest.cpp
++++ b/fbcode/velox/functions/prestosql/tests/SequenceTest.cpp
+@@ -145,6 +145,18 @@
+   testExpression("sequence(C0, C1)", {startVector, stopVector}, expected);
+ }
+ 
++TEST_F(SequenceTest, dateRange) {
++  const auto startVector = makeConstant<int32_t>(0, 1, DATE());
++  const auto stopVector =
++      makeConstant<int32_t>(std::numeric_limits<int32_t>::max(), 1, DATE());
++  const auto stepVector =
++      makeConstant<int32_t>(12 * 1'000'000, 1, INTERVAL_YEAR_MONTH());
++  const auto expected = makeArrayVector<int32_t>(
++      {{0, 365242500, 730485000, 1095727500, 1460970000, 1826212500}}, DATE());
++  testExpression(
++      "sequence(C0, C1, C2)", {startVector, stopVector, stepVector}, expected);
++}
++
+ TEST_F(SequenceTest, dateArgumentsExceedMaxEntries) {
+   const auto startVector = makeFlatVector<int32_t>({1991, 1992, 1992}, DATE());
+   const auto stopVector = makeFlatVector<int32_t>({1996, 198800, 1992}, DATE());
+@@ -211,16 +223,18 @@
+   const auto startVector = makeFlatVector<int32_t>(
+       {parseDate("1975-01-31"),
+        parseDate("1975-03-15"),
+-       parseDate("2023-12-31")},
++       parseDate("2023-12-31"),
++       parseDate("3892314-06-02")},
+       DATE());
+   const auto stopVector = makeFlatVector<int32_t>(
+       {parseDate("1975-06-20"),
+        parseDate("1974-12-15"),
+-       parseDate("2024-05-31")},
++       parseDate("2024-05-31"),
++       parseDate("4045127-11-23")},
+       DATE());
+ 
+   const auto stepVector =
+-      makeFlatVector<int32_t>({1, -1, 2}, INTERVAL_YEAR_MONTH());
++      makeFlatVector<int32_t>({1, -1, 2, 162700}, INTERVAL_YEAR_MONTH());
+   const auto expected = makeArrayVector<int32_t>(
+       {// last day of Feb
+        // result won't include 1975-06-20
+@@ -237,7 +251,20 @@
+        // leap year
+        {parseDate("2023-12-31"),
+         parseDate("2024-02-29"),
+-        parseDate("2024-04-30")}},
++        parseDate("2024-04-30")},
++       // range of date
++       {parseDate("3892314-06-02"),
++        parseDate("3905872-10-02"),
++        parseDate("3919431-02-02"),
++        parseDate("3932989-06-02"),
++        parseDate("3946547-10-02"),
++        parseDate("3960106-02-02"),
++        parseDate("3973664-06-02"),
++        parseDate("3987222-10-02"),
++        parseDate("4000781-02-02"),
++        parseDate("4014339-06-02"),
++        parseDate("4027897-10-02"),
++        parseDate("4041456-02-02")}},
+       DATE());
+   testExpression(
+       "sequence(C0, C1, C2)", {startVector, stopVector, stepVector}, expected);
