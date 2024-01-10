@@ -17,6 +17,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/MapConcat.h"
+#include "velox/functions/prestosql/MultimapFromEntries.h"
 
 namespace facebook::velox::functions {
 void registerMapFunctions(const std::string& prefix) {
@@ -42,6 +43,11 @@ void registerMapFunctions(const std::string& prefix) {
       udf_no_values_match, prefix + "no_values_match");
 
   registerMapConcatFunction(prefix + "map_concat");
+
+  registerFunction<
+      MultimapFromEntriesFunction,
+      Map<Generic<T1>, Array<Generic<T2>>>,
+      Array<Row<Generic<T1>, Generic<T2>>>>({prefix + "multimap_from_entries"});
 }
 
 void registerMapAllowingDuplicates(
