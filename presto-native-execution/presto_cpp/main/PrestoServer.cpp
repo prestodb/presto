@@ -438,10 +438,6 @@ void PrestoServer::run() {
   }
 
   PRESTO_STARTUP_LOG(INFO) << "Starting all periodic tasks...";
-  std::vector<std::shared_ptr<velox::connector::Connector>> connectors;
-  for (auto connectorId : catalogNames) {
-    connectors.emplace_back(velox::connector::getConnector(connectorId));
-  }
 
   auto* memoryAllocator = velox::memory::memoryManager()->allocator();
   auto* asyncDataCache = cache::AsyncDataCache::getInstance();
