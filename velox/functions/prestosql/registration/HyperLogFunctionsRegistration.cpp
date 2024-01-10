@@ -24,8 +24,10 @@ void registerHyperLogFunctions(const std::string& prefix) {
   registerFunction<CardinalityFunction, int64_t, HyperLogLog>(
       {prefix + "cardinality"});
 
-  registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
-      {prefix + "empty_approx_set"});
+  registerFunction<
+      EmptyApproxSetWithMaxErrorFunction,
+      HyperLogLog,
+      Constant<double>>({prefix + "empty_approx_set"});
   registerFunction<EmptyApproxSetFunction, HyperLogLog>(
       {prefix + "empty_approx_set"});
 }

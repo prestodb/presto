@@ -80,10 +80,14 @@ void registerSimpleFunctions(const std::string& prefix) {
 
   registerFunction<SplitPart, Varchar, Varchar, Varchar, int64_t>(
       {prefix + "split_part"});
-  registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Varchar>(
+  registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Constant<Varchar>>(
       {prefix + "regexp_replace"});
-  registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Varchar, Varchar>(
-      {prefix + "regexp_replace"});
+  registerFunction<
+      Re2RegexpReplacePresto,
+      Varchar,
+      Varchar,
+      Constant<Varchar>,
+      Constant<Varchar>>({prefix + "regexp_replace"});
 }
 } // namespace
 

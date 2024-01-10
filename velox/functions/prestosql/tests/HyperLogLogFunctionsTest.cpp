@@ -66,7 +66,7 @@ TEST_F(HyperLogLogFunctionsTest, emptyApproxSetSignatures) {
   auto signatures = getSignatureStrings("empty_approx_set");
   ASSERT_EQ(2, signatures.size());
 
-  ASSERT_EQ(1, signatures.count("(double) -> hyperloglog"));
+  ASSERT_EQ(1, signatures.count("(constant double) -> hyperloglog"));
   ASSERT_EQ(1, signatures.count("() -> hyperloglog"));
 }
 

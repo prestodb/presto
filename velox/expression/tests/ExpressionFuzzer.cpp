@@ -730,10 +730,6 @@ ExpressionFuzzer::ExpressionFuzzer(
 
   // Register function override (for cases where we want to restrict the types
   // or parameters we pass to functions).
-  registerFuncOverride(
-      &ExpressionFuzzer::generateEmptyApproxSetArgs, "empty_approx_set");
-  registerFuncOverride(
-      &ExpressionFuzzer::generateRegexpReplaceArgs, "regexp_replace");
   registerFuncOverride(&ExpressionFuzzer::generateSwitchArgs, "switch");
 }
 
