@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.security;
 
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 
 import java.util.Optional;
 
@@ -24,12 +25,14 @@ public class AccessControlContext
     private final QueryId queryId;
     private final Optional<String> clientInfo;
     private final Optional<String> source;
+    private final WarningCollector warningCollector;
 
-    public AccessControlContext(QueryId queryId, Optional<String> clientInfo, Optional<String> source)
+    public AccessControlContext(QueryId queryId, Optional<String> clientInfo, Optional<String> source, WarningCollector warningCollector)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.source = requireNonNull(source, "source is null");
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     public QueryId getQueryId()
@@ -45,5 +48,10 @@ public class AccessControlContext
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    public WarningCollector getWarningCollector()
+    {
+        return warningCollector;
     }
 }
