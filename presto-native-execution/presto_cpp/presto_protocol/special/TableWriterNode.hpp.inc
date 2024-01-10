@@ -11,15 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-namespace facebook::presto::protocol {
-struct StatisticAggregations {
-  std::vector<VariableReferenceExpression> outputVariables = {};
-  Map<VariableReferenceExpression, Aggregation> aggregations = {};
-  std::vector<VariableReferenceExpression> groupingVariables = {};
-};
-void to_json(json& j, const StatisticAggregations& p);
-void from_json(const json& j, StatisticAggregations& p);
-} // namespace facebook::presto::protocol
 
 namespace facebook::presto::protocol {
 struct TableWriterNode : public PlanNode {
