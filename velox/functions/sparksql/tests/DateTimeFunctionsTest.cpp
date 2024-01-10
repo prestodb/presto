@@ -503,5 +503,79 @@ TEST_F(DateTimeFunctionsTest, nextDay) {
   EXPECT_EQ(nextDay("2015-07-23", ""), std::nullopt);
 }
 
+TEST_F(DateTimeFunctionsTest, getTimestamp) {
+  const auto getTimestamp = [&](const std::optional<StringView>& dateString,
+                                const std::string& format) {
+    return evaluateOnce<Timestamp>(
+        fmt::format("get_timestamp(c0, '{}')", format), dateString);
+  };
+
+  const auto getTimestampString =
+      [&](const std::optional<StringView>& dateString,
+          const std::string& format) {
+        return getTimestamp(dateString, format).value().toString();
+      };
+
+  EXPECT_EQ(getTimestamp("1970-01-01", "yyyy-MM-dd"), Timestamp(0, 0));
+  EXPECT_EQ(
+      getTimestamp("1970-01-01 00:00:00.010", "yyyy-MM-dd HH:mm:ss.SSS"),
+      Timestamp::fromMillis(10));
+  auto milliSeconds = (6 * 60 * 60 + 10 * 60 + 59) * 1000 + 19;
+  EXPECT_EQ(
+      getTimestamp("1970-01-01 06:10:59.019", "yyyy-MM-dd HH:mm:ss.SSS"),
+      Timestamp::fromMillis(milliSeconds));
+
+  EXPECT_EQ(
+      getTimestampString("1970-01-01", "yyyy-MM-dd"),
+      "1970-01-01T00:00:00.000000000");
+  EXPECT_EQ(
+      getTimestampString("1970/01/01", "yyyy/MM/dd"),
+      "1970-01-01T00:00:00.000000000");
+  EXPECT_EQ(
+      getTimestampString("08/27/2017", "MM/dd/yyy"),
+      "2017-08-27T00:00:00.000000000");
+  EXPECT_EQ(
+      getTimestampString("1970/01/01 12:08:59", "yyyy/MM/dd HH:mm:ss"),
+      "1970-01-01T12:08:59.000000000");
+  EXPECT_EQ(
+      getTimestampString("2023/12/08 08:20:19", "yyyy/MM/dd HH:mm:ss"),
+      "2023-12-08T08:20:19.000000000");
+
+  // 8 hours ahead UTC.
+  setQueryTimeZone("Asia/Shanghai");
+  EXPECT_EQ(
+      getTimestampString("1970-01-01", "yyyy-MM-dd"),
+      "1969-12-31T16:00:00.000000000");
+  EXPECT_EQ(
+      getTimestampString("1970/01/01", "yyyy/MM/dd"),
+      "1969-12-31T16:00:00.000000000");
+  EXPECT_EQ(
+      getTimestampString("2023/12/08 08:20:19", "yyyy/MM/dd HH:mm:ss"),
+      "2023-12-08T00:20:19.000000000");
+
+  // 8 hours behind UTC.
+  setQueryTimeZone("America/Los_Angeles");
+  EXPECT_EQ(
+      getTimestampString("1970/01/01", "yyyy/MM/dd"),
+      "1970-01-01T08:00:00.000000000");
+  EXPECT_EQ(
+      getTimestampString("2023/12/08 08:20:19", "yyyy/MM/dd HH:mm:ss"),
+      "2023-12-08T16:20:19.000000000");
+
+  // Parsing error.
+  EXPECT_EQ(
+      getTimestamp("1970-01-01 06:10:59.019", "HH:mm:ss.SSS"), std::nullopt);
+  EXPECT_EQ(
+      getTimestamp("1970-01-01 06:10:59.019", "yyyy/MM/dd HH:mm:ss.SSS"),
+      std::nullopt);
+
+  // Invalid date format.
+  VELOX_ASSERT_THROW(
+      getTimestamp("2020/01/24", "AA/MM/dd"), "Specifier A is not supported");
+  VELOX_ASSERT_THROW(
+      getTimestamp("2023-07-13 21:34", "yyyy-MM-dd HH:II"),
+      "Specifier I is not supported");
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

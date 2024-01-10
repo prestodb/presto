@@ -119,16 +119,14 @@ struct UnixTimestampParseFunction {
   FOLLY_ALWAYS_INLINE bool call(
       int64_t& result,
       const arg_type<Varchar>& input) {
-    DateTimeResult dateTimeResult;
-    try {
-      dateTimeResult =
-          format_->parse(std::string_view(input.data(), input.size()));
-    } catch (const VeloxUserError&) {
-      // Return null if could not parse.
+    auto dateTimeResult =
+        format_->parse(std::string_view(input.data(), input.size()));
+    // Return null if could not parse.
+    if (!dateTimeResult.has_value()) {
       return false;
     }
-    dateTimeResult.timestamp.toGMT(getTimezoneId(dateTimeResult));
-    result = dateTimeResult.timestamp.getSeconds();
+    (*dateTimeResult).timestamp.toGMT(getTimezoneId(*dateTimeResult));
+    result = (*dateTimeResult).timestamp.getSeconds();
     return true;
   }
 
@@ -184,26 +182,81 @@ struct UnixTimestampParseWithFormatFunction
       return false;
     }
 
-    // Format or parsing error returns null.
+    // Format error returns null.
     try {
       if (!isConstFormat_) {
         this->format_ = buildJodaDateTimeFormatter(
             std::string_view(format.data(), format.size()));
       }
-
-      auto dateTimeResult =
-          this->format_->parse(std::string_view(input.data(), input.size()));
-      dateTimeResult.timestamp.toGMT(this->getTimezoneId(dateTimeResult));
-      result = dateTimeResult.timestamp.getSeconds();
     } catch (const VeloxUserError&) {
       return false;
     }
+    auto dateTimeResult =
+        this->format_->parse(std::string_view(input.data(), input.size()));
+    // parsing error returns null
+    if (!dateTimeResult.has_value()) {
+      return false;
+    }
+    (*dateTimeResult).timestamp.toGMT(this->getTimezoneId(*dateTimeResult));
+    result = (*dateTimeResult).timestamp.getSeconds();
     return true;
   }
 
  private:
   bool isConstFormat_{false};
   bool invalidFormat_{false};
+};
+
+/// Converts date string to Timestmap type.
+template <typename T>
+struct GetTimestampFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* /*input*/,
+      const arg_type<Varchar>* format) {
+    auto sessionTimezoneName = config.sessionTimezone();
+    if (!sessionTimezoneName.empty()) {
+      sessionTimezoneId_ = util::getTimeZoneID(sessionTimezoneName);
+    }
+    if (format != nullptr) {
+      formatter_ = buildJodaDateTimeFormatter(
+          std::string_view(format->data(), format->size()));
+      isConstantTimeFormat_ = true;
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Timestamp>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& format) {
+    if (!isConstantTimeFormat_) {
+      formatter_ = buildJodaDateTimeFormatter(
+          std::string_view(format.data(), format.size()));
+    }
+    auto dateTimeResult =
+        formatter_->parse(std::string_view(input.data(), input.size()));
+    // Null as result for parsing error.
+    if (!dateTimeResult.has_value()) {
+      return false;
+    }
+    (*dateTimeResult).timestamp.toGMT(getTimezoneId(*dateTimeResult));
+    result = (*dateTimeResult).timestamp;
+    return true;
+  }
+
+ private:
+  int16_t getTimezoneId(const DateTimeResult& result) const {
+    // If timezone was not parsed, fallback to the session timezone. If there's
+    // no session timezone, fallback to 0 (GMT).
+    return result.timezoneId != -1 ? result.timezoneId
+                                   : sessionTimezoneId_.value_or(0);
+  }
+
+  std::shared_ptr<DateTimeFormatter> formatter_{nullptr};
+  bool isConstantTimeFormat_{false};
+  std::optional<int64_t> sessionTimezoneId_;
 };
 
 template <typename T>

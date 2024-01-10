@@ -299,12 +299,15 @@ bool specAllowsPlusSign(DateTimeFormatSpecifier s, bool specifierNext) {
 void parseFail(
     const std::string_view& input,
     const char* cur,
-    const char* end) {
-  VELOX_DCHECK(cur <= end);
-  VELOX_USER_FAIL(
-      "Invalid format: \"{}\" is malformed at \"{}\"",
-      input,
-      std::string_view(cur, end - cur));
+    const char* end,
+    const bool failOnError) {
+  if (failOnError) {
+    VELOX_DCHECK(cur <= end);
+    VELOX_USER_FAIL(
+        "Invalid format: \"{}\" is malformed at \"{}\"",
+        input,
+        std::string_view(cur, end - cur));
+  }
 }
 
 // Joda only supports parsing a few three-letter prefixes. The list is available
@@ -343,7 +346,7 @@ int64_t parseTimezone(const char* cur, const char* end, Date& date) {
       return 2;
     }
   }
-  throw std::runtime_error("Unable to parse timezone.");
+  return -1;
 }
 
 int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
@@ -363,7 +366,11 @@ int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
         if (std::strncmp(cur + 1, "00:00", 5) == 0) {
           date.timezoneId = 0;
         } else {
-          date.timezoneId = util::getTimeZoneID(std::string_view(cur, 6));
+          date.timezoneId =
+              util::getTimeZoneID(std::string_view(cur, 6), false);
+          if (date.timezoneId == -1) {
+            return -1;
+          }
         }
         return 6;
       }
@@ -378,8 +385,10 @@ int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
           // thread_local buffer to prevent extra allocations.
           std::memcpy(&timezoneBuffer[0], cur, 3);
           std::memcpy(&timezoneBuffer[4], cur + 3, 2);
-
-          date.timezoneId = util::getTimeZoneID(timezoneBuffer);
+          date.timezoneId = util::getTimeZoneID(timezoneBuffer, false);
+          if (date.timezoneId == -1) {
+            return -1;
+          }
         }
         return 5;
       }
@@ -394,7 +403,10 @@ int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
           // buffer to prevent extra allocations.
           std::memcpy(&timezoneBuffer[0], cur, 3);
           std::memcpy(&timezoneBuffer[4], defaultTrailingOffset, 2);
-          date.timezoneId = util::getTimeZoneID(timezoneBuffer);
+          date.timezoneId = util::getTimeZoneID(timezoneBuffer, false);
+          if (date.timezoneId == -1) {
+            return -1;
+          }
         }
         return 3;
       }
@@ -405,7 +417,7 @@ int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
       return 1;
     }
   }
-  throw std::runtime_error("Unable to parse timezone offset id.");
+  return -1;
 }
 
 int64_t parseEra(const char* cur, const char* end, Date& date) {
@@ -418,10 +430,10 @@ int64_t parseEra(const char* cur, const char* end, Date& date) {
       date.isAd = false;
       return 2;
     } else {
-      throw std::runtime_error("Unable to parse era.");
+      return -1;
     }
   } else {
-    throw std::runtime_error("Unable to parse era.");
+    return -1;
   }
 }
 
@@ -441,8 +453,7 @@ int64_t parseMonthText(const char* cur, const char* end, Date& date) {
       return 3;
     }
   }
-  throw std::runtime_error("Unable to parse month.");
-  return 0;
+  return -1;
 }
 
 int64_t parseDayOfWeekText(const char* cur, const char* end, Date& date) {
@@ -460,8 +471,7 @@ int64_t parseDayOfWeekText(const char* cur, const char* end, Date& date) {
       return 3;
     }
   }
-  throw std::runtime_error("Unable to parse day of week.");
-  return 0;
+  return -1;
 }
 
 int64_t parseHalfDayOfDay(const char* cur, const char* end, Date& date) {
@@ -474,10 +484,10 @@ int64_t parseHalfDayOfDay(const char* cur, const char* end, Date& date) {
       date.isAm = false;
       return 2;
     } else {
-      throw std::runtime_error("Unable to parse halfday of day.");
+      return -1;
     }
   } else {
-    throw std::runtime_error("Unable to parse halfday of day.");
+    return -1;
   }
 }
 
@@ -613,7 +623,9 @@ int getMaxDigitConsume(
   }
 }
 
-void parseFromPattern(
+// If failOnError is true, throws exception for parsing error. Otherwise,
+// returns -1. Returns 0 if no parsing error.
+int32_t parseFromPattern(
     FormatPattern curPattern,
     const std::string_view& input,
     const char*& cur,
@@ -622,52 +634,52 @@ void parseFromPattern(
     bool specifierNext,
     DateTimeFormatterType type) {
   if (curPattern.specifier == DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID) {
-    try {
-      cur += parseTimezoneOffset(cur, end, date);
-    } catch (...) {
-      parseFail(input, cur, end);
+    auto size = parseTimezoneOffset(cur, end, date);
+    if (size == -1) {
+      return -1;
     }
+    cur += size;
   } else if (curPattern.specifier == DateTimeFormatSpecifier::TIMEZONE) {
-    try {
-      cur += parseTimezone(cur, end, date);
-    } catch (...) {
-      parseFail(input, cur, end);
+    auto size = parseTimezone(cur, end, date);
+    if (size == -1) {
+      return -1;
     }
+    cur += size;
   } else if (curPattern.specifier == DateTimeFormatSpecifier::ERA) {
-    try {
-      cur += parseEra(cur, end, date);
-    } catch (...) {
-      parseFail(input, cur, end);
+    auto size = parseEra(cur, end, date);
+    if (size == -1) {
+      return -1;
     }
+    cur += size;
   } else if (
       curPattern.specifier == DateTimeFormatSpecifier::MONTH_OF_YEAR_TEXT) {
-    try {
-      cur += parseMonthText(cur, end, date);
-      if (!date.hasYear) {
-        date.hasYear = true;
-        date.year = 2000;
-      }
-    } catch (...) {
-      parseFail(input, cur, end);
+    auto size = parseMonthText(cur, end, date);
+    if (size == -1) {
+      return -1;
+    }
+    cur += size;
+    if (!date.hasYear) {
+      date.hasYear = true;
+      date.year = 2000;
     }
   } else if (curPattern.specifier == DateTimeFormatSpecifier::HALFDAY_OF_DAY) {
-    try {
-      cur += parseHalfDayOfDay(cur, end, date);
-    } catch (...) {
-      parseFail(input, cur, end);
+    auto size = parseHalfDayOfDay(cur, end, date);
+    if (size == -1) {
+      return -1;
     }
+    cur += size;
   } else if (
       curPattern.specifier == DateTimeFormatSpecifier::DAY_OF_WEEK_TEXT) {
-    try {
-      cur += parseDayOfWeekText(cur, end, date);
-      date.weekDateFormat = true;
-      date.dayOfYearFormat = false;
-      if (!date.hasYear) {
-        date.hasYear = true;
-        date.year = 2000;
-      }
-    } catch (...) {
-      parseFail(input, cur, end);
+    auto size = parseDayOfWeekText(cur, end, date);
+    if (size == -1) {
+      return -1;
+    }
+    cur += size;
+    date.weekDateFormat = true;
+    date.dayOfYearFormat = false;
+    if (!date.hasYear) {
+      date.hasYear = true;
+      date.year = 2000;
     }
   } else {
     // Numeric specifier case
@@ -724,13 +736,15 @@ void parseFromPattern(
         }
       } else if (type == DateTimeFormatterType::MYSQL) {
         // In MySQL format, year read in must have exactly two digits, otherwise
-        // throw an error
+        // return -1 to indicate parsing error.
         if (count > 2) {
           // Larger than expected, print suffix.
-          parseFail(input, cur - count + 2, end);
+          cur = cur - count + 2;
+          return -1;
         } else {
           // Smaller than expected, print prefix.
-          parseFail(input, cur - count, end);
+          cur = cur - count;
+          return -1;
         }
       }
     } else {
@@ -743,7 +757,7 @@ void parseFromPattern(
 
     // Need to have read at least one digit.
     if (cur <= startPos) {
-      parseFail(input, cur, end);
+      return -1;
     }
 
     if (negative) {
@@ -754,8 +768,7 @@ void parseFromPattern(
       case DateTimeFormatSpecifier::CENTURY_OF_ERA:
         // Enforce Joda's year range if year was specified as "century of year".
         if (number < 0 || number > 2922789) {
-          VELOX_USER_FAIL(
-              "Value {} for year must be in the range [0,2922789]", number);
+          return -1;
         }
         date.centuryFormat = true;
         date.year = number * 100;
@@ -769,15 +782,11 @@ void parseFromPattern(
             (curPattern.specifier == DateTimeFormatSpecifier::YEAR_OF_ERA);
         // Enforce Joda's year range if year was specified as "year of era".
         if (date.isYearOfEra && (number > 292278993 || number < 1)) {
-          VELOX_USER_FAIL(
-              "Value {} for yearOfEra must be in the range [1,292278993]",
-              number);
+          return -1;
         }
         // Enforce Joda's year range if year was specified as "year".
         if (!date.isYearOfEra && (number > 292278994 || number < -292275055)) {
-          VELOX_USER_FAIL(
-              "Value {} for year must be in the range [-292275055,292278994]",
-              number);
+          return -1;
         }
         date.hasYear = true;
         date.year = number;
@@ -785,8 +794,7 @@ void parseFromPattern(
 
       case DateTimeFormatSpecifier::MONTH_OF_YEAR:
         if (number < 1 || number > 12) {
-          VELOX_USER_FAIL(
-              "Value {} for monthOfYear must be in the range [1,12]", number);
+          return -1;
         }
         date.month = number;
         date.weekDateFormat = false;
@@ -830,9 +838,7 @@ void parseFromPattern(
 
       case DateTimeFormatSpecifier::CLOCK_HOUR_OF_DAY:
         if (number > 24 || number < 1) {
-          VELOX_USER_FAIL(
-              "Value {} for clockHourOfDay must be in the range [1,24]",
-              number);
+          return -1;
         }
         date.isClockHour = true;
         date.isHourOfHalfDay = false;
@@ -841,9 +847,7 @@ void parseFromPattern(
 
       case DateTimeFormatSpecifier::HOUR_OF_DAY:
         if (number > 23 || number < 0) {
-          VELOX_USER_FAIL(
-              "Value {} for clockHourOfDay must be in the range [0,23]",
-              number);
+          return -1;
         }
         date.isClockHour = false;
         date.isHourOfHalfDay = false;
@@ -852,9 +856,7 @@ void parseFromPattern(
 
       case DateTimeFormatSpecifier::CLOCK_HOUR_OF_HALFDAY:
         if (number > 12 || number < 1) {
-          VELOX_USER_FAIL(
-              "Value {} for clockHourOfHalfDay must be in the range [1,12]",
-              number);
+          return -1;
         }
         date.isClockHour = true;
         date.isHourOfHalfDay = true;
@@ -863,8 +865,7 @@ void parseFromPattern(
 
       case DateTimeFormatSpecifier::HOUR_OF_HALFDAY:
         if (number > 11 || number < 0) {
-          VELOX_USER_FAIL(
-              "Value {} for hourOfHalfDay must be in the range [0,11]", number);
+          return -1;
         }
         date.isClockHour = false;
         date.isHourOfHalfDay = true;
@@ -873,17 +874,14 @@ void parseFromPattern(
 
       case DateTimeFormatSpecifier::MINUTE_OF_HOUR:
         if (number > 59 || number < 0) {
-          VELOX_USER_FAIL(
-              "Value {} for minuteOfHour must be in the range [0,59]", number);
+          return -1;
         }
         date.minute = number;
         break;
 
       case DateTimeFormatSpecifier::SECOND_OF_MINUTE:
         if (number > 59 || number < 0) {
-          VELOX_USER_FAIL(
-              "Value {} for secondOfMinute must be in the range [0,59]",
-              number);
+          return -1;
         }
         date.second = number;
         break;
@@ -895,9 +893,7 @@ void parseFromPattern(
       case DateTimeFormatSpecifier::WEEK_YEAR:
         // Enforce Joda's year range if year was specified as "week year".
         if (number < -292275054 || number > 292278993) {
-          VELOX_USER_FAIL(
-              "Value {} for year must be in the range [-292275054,292278993]",
-              number);
+          return -1;
         }
         date.year = number;
         date.weekDateFormat = true;
@@ -908,9 +904,7 @@ void parseFromPattern(
 
       case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
         if (number < 1 || number > 52) {
-          VELOX_USER_FAIL(
-              "Value {} for weekOfWeekYear must be in the range [1,52]",
-              number);
+          return -1;
         }
         date.week = number;
         date.weekDateFormat = true;
@@ -923,8 +917,7 @@ void parseFromPattern(
 
       case DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED:
         if (number < 1 || number > 7) {
-          VELOX_USER_FAIL(
-              "Value {} for weekOfWeekYear must be in the range [1,7]", number);
+          return -1;
         }
         date.dayOfWeek = number;
         date.weekDateFormat = true;
@@ -942,6 +935,7 @@ void parseFromPattern(
             " not implemented yet.");
     }
   }
+  return 0;
 }
 
 } // namespace
@@ -1257,7 +1251,9 @@ int32_t DateTimeFormatter::format(
   return resultSize;
 }
 
-DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
+std::optional<DateTimeResult> DateTimeFormatter::parse(
+    const std::string_view& input,
+    const bool failOnError) const {
   Date date;
   const char* cur = input.data();
   const char* end = cur + input.size();
@@ -1268,16 +1264,25 @@ DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
       case DateTimeToken::Type::kLiteral:
         if (tok.literal.size() > end - cur ||
             std::memcmp(cur, tok.literal.data(), tok.literal.size()) != 0) {
-          parseFail(input, cur, end);
+          parseFail(input, cur, end, failOnError);
+          return std::nullopt;
         }
         cur += tok.literal.size();
         break;
       case DateTimeToken::Type::kPattern:
         if (i + 1 < tokens_.size() &&
             tokens_[i + 1].type == DateTimeToken::Type::kPattern) {
-          parseFromPattern(tok.pattern, input, cur, end, date, true, type_);
+          if (parseFromPattern(
+                  tok.pattern, input, cur, end, date, true, type_) == -1) {
+            parseFail(input, cur, end, failOnError);
+            return std::nullopt;
+          }
         } else {
-          parseFromPattern(tok.pattern, input, cur, end, date, false, type_);
+          if (parseFromPattern(
+                  tok.pattern, input, cur, end, date, false, type_) == -1) {
+            parseFail(input, cur, end, failOnError);
+            return std::nullopt;
+          }
         }
         break;
     }
@@ -1285,7 +1290,8 @@ DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
 
   // Ensure all input was consumed.
   if (cur < end) {
-    parseFail(input, cur, end);
+    parseFail(input, cur, end, failOnError);
+    return std::nullopt;
   }
 
   // Era is BC and year of era is provided
@@ -1302,6 +1308,9 @@ DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
   // Ensure all day of month values are valid for ending month value
   for (int i = 0; i < date.dayOfMonthValues.size(); i++) {
     if (!util::isValidDate(date.year, date.month, date.dayOfMonthValues[i])) {
+      if (!failOnError) {
+        return std::nullopt;
+      }
       VELOX_USER_FAIL(
           "Value {} for dayOfMonth must be in the range [1,{}]",
           date.dayOfMonthValues[i],
@@ -1312,6 +1321,9 @@ DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
   // Ensure all day of year values are valid for ending year value
   for (int i = 0; i < date.dayOfYearValues.size(); i++) {
     if (!util::isValidDayOfYear(date.year, date.dayOfYearValues[i])) {
+      if (!failOnError) {
+        return std::nullopt;
+      }
       VELOX_USER_FAIL(
           "Value {} for dayOfMonth must be in the range [1,{}]",
           date.dayOfYearValues[i],
@@ -1334,7 +1346,7 @@ DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
 
   int64_t microsSinceMidnight =
       util::fromTime(date.hour, date.minute, date.second, date.microsecond);
-  return {
+  return DateTimeResult{
       util::fromDatetime(daysSinceEpoch, microsSinceMidnight), date.timezoneId};
 }
 

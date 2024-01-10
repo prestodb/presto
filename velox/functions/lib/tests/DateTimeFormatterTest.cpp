@@ -77,13 +77,16 @@ class DateTimeFormatterTest : public testing::Test {
   DateTimeResult parseJoda(
       const std::string_view& input,
       const std::string_view& format) {
-    return buildJodaDateTimeFormatter(format)->parse(input);
+    return buildJodaDateTimeFormatter(format)->parse(input, true).value();
   }
 
   Timestamp parseMysql(
       const std::string_view& input,
       const std::string_view& format) {
-    return buildMysqlDateTimeFormatter(format)->parse(input).timestamp;
+    return buildMysqlDateTimeFormatter(format)
+        ->parse(input, true)
+        .value()
+        .timestamp;
   }
 
   // Parses and returns the timezone converted back to string, to ease
@@ -91,7 +94,8 @@ class DateTimeFormatterTest : public testing::Test {
   std::string parseTZ(
       const std::string_view& input,
       const std::string_view& format) {
-    auto result = buildJodaDateTimeFormatter(format)->parse(input);
+    auto result =
+        buildJodaDateTimeFormatter(format)->parse(input, true).value();
     if (result.timezoneId == 0) {
       return "+00:00";
     }

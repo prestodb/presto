@@ -70,6 +70,19 @@ These functions support TIMESTAMP and DATE input types.
 
     This is an alias for :func:`day_of_week`.
 
+.. function:: get_timestamp(string, dateFormat) -> timestamp
+
+    Returns timestamp by parsing ``string`` according to the specified ``dateFormat``.
+    The format follows Spark's
+    `Datetime patterns
+    <https://spark.apache.org/docs/latest/sql-ref-datetime-pattern.html>`_.
+    Returns NULL for parsing error or NULL input. Throws exception for invalid format. ::
+
+        SELECT get_timestamp('1970-01-01', 'yyyy-MM-dd);  -- timestamp `1970-01-01`
+        SELECT get_timestamp('1970-01-01', 'yyyy-MM');  -- NULL (parsing error)
+        SELECT get_timestamp('1970-01-01', null);  -- NULL
+        SELECT get_timestamp('2020-06-10', 'A');  -- (throws exception)
+
 .. spark:function:: last_day(date) -> date
 
     Returns the last day of the month which the date belongs to.

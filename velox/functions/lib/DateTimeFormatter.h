@@ -173,7 +173,11 @@ class DateTimeFormatter {
     return tokens_;
   }
 
-  DateTimeResult parse(const std::string_view& input) const;
+  // If failOnError is false, returns std::nullopt for parsing error.
+  // Otherwise, fail with error thrown.
+  std::optional<DateTimeResult> parse(
+      const std::string_view& input,
+      const bool failOnError = false) const;
 
   /// Returns max size of the formatted string. Can be used to preallocate
   /// memory before calling format() to avoid extra copy.
