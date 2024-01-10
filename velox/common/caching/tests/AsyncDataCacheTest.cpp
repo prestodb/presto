@@ -877,7 +877,7 @@ TEST_F(AsyncDataCacheTest, cacheStats) {
       "Prefetch entries: 0 bytes: 0B\n"
       "Alloc Megaclocks 0\n"
       "Allocated pages: 0 cached pages: 0\n"
-      "Backing: Memory Allocator[MMAP capacity 16.00KB allocated pages 0 mapped pages 0 external mapped pages 0\n"
+      "Backing: Memory Allocator[MMAP total capacity 64.00MB free capacity 64.00MB allocated pages 0 mapped pages 0 external mapped pages 0\n"
       "[size 1: 0(0MB) allocated 0 mapped]\n"
       "[size 2: 0(0MB) allocated 0 mapped]\n"
       "[size 4: 0(0MB) allocated 0 mapped]\n"
