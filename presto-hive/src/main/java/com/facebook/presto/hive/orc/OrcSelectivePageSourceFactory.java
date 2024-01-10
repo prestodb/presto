@@ -115,6 +115,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDista
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcUseVectorFilter;
 import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReorderingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
@@ -394,6 +395,9 @@ public class OrcSelectivePageSourceFactory
 
             List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), bucketAdapter, session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
 
+            boolean orcUseVectorFilter = getOrcUseVectorFilter(session);
+            Map<String, Boolean> orcReaderUserOptions = new HashMap<String, Boolean>();
+            orcReaderUserOptions.put(OrcReader.ORC_USE_VECTOR_FILTER, orcUseVectorFilter);
             OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                     columnTypes,
                     outputIndices,
@@ -409,7 +413,8 @@ public class OrcSelectivePageSourceFactory
                     hiveStorageTimeZone,
                     systemMemoryUsage,
                     Optional.empty(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    orcReaderUserOptions);
 
             return new OrcSelectivePageSource(
                     recordReader,
