@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <grpc.version>1.41.0</grpc.version>
+        <grpc.version>1.60.1</grpc.version>
     </properties>
 
     <dependencies>
@@ -319,7 +319,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.21.7</version>
+            <version>3.25.1</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>
@@ -375,6 +375,12 @@
             <groupId>io.grpc</groupId>
             <artifactId>grpc-netty-shaded</artifactId>
             <version>${grpc.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.code.gson</groupId>
+                    <artifactId>gson</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.calcite</groupId>
@@ -384,7 +390,7 @@
         <dependency>
             <groupId>io.perfmark</groupId>
             <artifactId>perfmark-api</artifactId>
-            <version>0.23.0</version>
+            <version>0.26.0</version>
         </dependency>
 
         <dependency>

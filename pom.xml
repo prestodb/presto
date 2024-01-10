@@ -86,7 +86,7 @@
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>4g</air.test.jvmsize>
-        <grpc.version>1.35.0</grpc.version>
+        <grpc.version>1.60.1</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
@@ -529,7 +529,7 @@
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
-                <version>3.16.3</version>
+                <version>3.25.1</version>
             </dependency>
 
             <dependency>
