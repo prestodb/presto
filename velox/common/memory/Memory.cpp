@@ -280,14 +280,14 @@ std::string MemoryManager::toString(bool detail) const {
       << "\n";
   out << "List of root pools:\n";
   if (detail) {
-    out << defaultRoot_->treeMemoryUsage();
+    out << defaultRoot_->treeMemoryUsage(false);
   } else {
     out << "\t" << defaultRoot_->name() << "\n";
   }
   std::vector<std::shared_ptr<MemoryPool>> pools = getAlivePools();
   for (const auto& pool : pools) {
     if (detail) {
-      out << pool->treeMemoryUsage();
+      out << pool->treeMemoryUsage(true);
     } else {
       out << "\t" << pool->name() << "\n";
     }

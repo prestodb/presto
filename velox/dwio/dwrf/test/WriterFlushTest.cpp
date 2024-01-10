@@ -225,7 +225,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
-  std::string treeMemoryUsage() const override {
+  std::string treeMemoryUsage(bool /*unused*/) const override {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 

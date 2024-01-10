@@ -466,8 +466,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual std::string toString() const = 0;
 
   /// Invoked to generate a descriptive memory usage summary of the entire tree.
-  /// MemoryPoolImpl::treeMemoryUsage()
-  virtual std::string treeMemoryUsage() const = 0;
+  /// MemoryPoolImpl::treeMemoryUsage(). If 'skipEmptyPool' is true, then skip
+  /// print out the child memory pools with empty memory usage.
+  virtual std::string treeMemoryUsage(bool skipEmptyPool = true) const = 0;
 
   /// Indicates if this is a leaf memory pool or not.
   FOLLY_ALWAYS_INLINE bool isLeaf() const {
@@ -650,30 +651,30 @@ class MemoryPoolImpl : public MemoryPool {
     return toStringLocked();
   }
 
-  // Detailed debug pool state printout by traversing the pool structure from
-  // the root memory pool.
-  //
-  // Exceeded memory cap of 5.00MB when requesting 2.00MB
-  // default_root_1 usage 5.00MB peak 5.00MB
-  //     task.test_cursor 1 usage 5.00MB peak 5.00MB
-  //         node.N/A usage 0B peak 0B
-  //             op.N/A.0.0.CallbackSink usage 0B peak 0B
-  //         node.2 usage 4.00MB peak 4.00MB
-  //             op.2.0.0.Aggregation usage 3.77MB peak 3.77MB
-  //         node.1 usage 1.00MB peak 1.00MB
-  //             op.1.0.0.FilterProject usage 12.00KB peak 12.00KB
-  //         node.3 usage 0B peak 0B
-  //             op.3.0.0.OrderBy usage 0B peak 0B
-  //         node.0 usage 0B peak 0B
-  //             op.0.0.0.Values usage 0B peak 0B
-  //
-  // Top 5 leaf memory pool usages:
-  //     op.2.0.0.Aggregation usage 3.77MB peak 3.77MB
-  //     op.1.0.0.FilterProject usage 12.00KB peak 12.00KB
-  //     op.N/A.0.0.CallbackSink usage 0B peak 0B
-  //     op.3.0.0.OrderBy usage 0B peak 0B
-  //     op.0.0.0.Values usage 0B peak 0B
-  std::string treeMemoryUsage() const override;
+  /// Detailed debug pool state printout by traversing the pool structure from
+  /// the root memory pool.
+  ///
+  /// Exceeded memory cap of 5.00MB when requesting 2.00MB
+  /// default_root_1 usage 5.00MB peak 5.00MB
+  ///     task.test_cursor 1 usage 5.00MB peak 5.00MB
+  ///         node.N/A usage 0B peak 0B
+  ///             op.N/A.0.0.CallbackSink usage 0B peak 0B
+  ///         node.2 usage 4.00MB peak 4.00MB
+  ///             op.2.0.0.Aggregation usage 3.77MB peak 3.77MB
+  ///         node.1 usage 1.00MB peak 1.00MB
+  ///             op.1.0.0.FilterProject usage 12.00KB peak 12.00KB
+  ///         node.3 usage 0B peak 0B
+  ///             op.3.0.0.OrderBy usage 0B peak 0B
+  ///         node.0 usage 0B peak 0B
+  ///             op.0.0.0.Values usage 0B peak 0B
+  ///
+  /// Top 5 leaf memory pool usages:
+  ///     op.2.0.0.Aggregation usage 3.77MB peak 3.77MB
+  ///     op.1.0.0.FilterProject usage 12.00KB peak 12.00KB
+  ///     op.N/A.0.0.CallbackSink usage 0B peak 0B
+  ///     op.3.0.0.OrderBy usage 0B peak 0B
+  ///     op.0.0.0.Values usage 0B peak 0B
+  std::string treeMemoryUsage(bool skipEmptyPool = true) const override;
 
   Stats stats() const override;
 
