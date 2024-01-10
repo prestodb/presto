@@ -3141,6 +3141,62 @@ TEST_P(MultiThreadedHashJoinTest, noSpillLevelLimit) {
       .run();
 }
 
+// Verify that dynamic filter pushed down from null-aware right semi project
+// join into table scan doesn't filter out nulls.
+TEST_F(HashJoinTest, nullAwareRightSemiProjectOverScan) {
+  auto probe = makeRowVector(
+      {"t0"},
+      {
+          makeNullableFlatVector<int32_t>({1, std::nullopt, 2}),
+      });
+
+  auto build = makeRowVector(
+      {"u0"},
+      {
+          makeNullableFlatVector<int32_t>({1, 2, 3, std::nullopt}),
+      });
+
+  std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
+  writeToFile(probeFile->path, {probe});
+
+  std::shared_ptr<TempFilePath> buildFile = TempFilePath::create();
+  writeToFile(buildFile->path, {build});
+
+  createDuckDbTable("t", {probe});
+  createDuckDbTable("u", {build});
+
+  core::PlanNodeId probeScanId;
+  core::PlanNodeId buildScanId;
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(asRowType(probe->type()))
+                  .capturePlanNodeId(probeScanId)
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(asRowType(build->type()))
+                          .capturePlanNodeId(buildScanId)
+                          .planNode(),
+                      "",
+                      {"u0", "match"},
+                      core::JoinType::kRightSemiProject,
+                      true /*nullAware*/)
+                  .planNode();
+
+  SplitInput splitInput = {
+      {probeScanId, {exec::Split(makeHiveConnectorSplit(probeFile->path))}},
+      {buildScanId, {exec::Split(makeHiveConnectorSplit(buildFile->path))}},
+  };
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .planNode(plan)
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery("SELECT u0, u0 IN (SELECT t0 FROM t) FROM u")
+      .run();
+}
+
 TEST_F(HashJoinTest, duplicateJoinKeys) {
   auto leftVectors = makeBatches(3, [&](int32_t /*unused*/) {
     return makeRowVector({

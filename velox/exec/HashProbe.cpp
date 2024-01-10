@@ -325,9 +325,14 @@ void HashProbe::asyncWaitForHashTable() {
     const auto& buildHashers = table_->hashers();
     auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
         this, keyChannels_);
+
+    // Null aware Right Semi Project join needs to know whether there are any
+    // nulls on the probe side. Hence, cannot filter these out.
+    const auto nullAllowed = isRightSemiProjectJoin(joinType_) && nullAware_;
+
     for (auto i = 0; i < keyChannels_.size(); i++) {
       if (channels.find(keyChannels_[i]) != channels.end()) {
-        if (auto filter = buildHashers[i]->getFilter(false)) {
+        if (auto filter = buildHashers[i]->getFilter(nullAllowed)) {
           dynamicFilters_.emplace(keyChannels_[i], std::move(filter));
         }
       }
