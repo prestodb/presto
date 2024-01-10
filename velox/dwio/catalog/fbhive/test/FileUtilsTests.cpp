@@ -27,8 +27,11 @@ TEST(FileUtilsTests, MakePartName) {
   std::vector<std::pair<std::string, std::string>> pairs{
       {"ds", "2016-01-01"}, {"FOO", ""}, {"a\nb:c", "a#b=c"}};
   ASSERT_EQ(
-      FileUtils::makePartName(pairs),
+      FileUtils::makePartName(pairs, true),
       "ds=2016-01-01/foo=__HIVE_DEFAULT_PARTITION__/a%0Ab%3Ac=a%23b%3Dc");
+  ASSERT_EQ(
+      FileUtils::makePartName(pairs, false),
+      "ds=2016-01-01/FOO=__HIVE_DEFAULT_PARTITION__/a%0Ab%3Ac=a%23b%3Dc");
 }
 
 TEST(FileUtilsTests, ParsePartKeyValues) {

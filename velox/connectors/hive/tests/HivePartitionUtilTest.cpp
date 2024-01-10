@@ -92,8 +92,10 @@ TEST_F(HivePartitionUtilTest, partitionName) {
       std::iota(partitionChannels.begin(), partitionChannels.end(), 0);
 
       EXPECT_EQ(
-          FileUtils::makePartName(extractPartitionKeyValues(
-              makePartitionsVector(input, partitionChannels), 0)),
+          FileUtils::makePartName(
+              extractPartitionKeyValues(
+                  makePartitionsVector(input, partitionChannels), 0),
+              true),
           folly::join(
               "/",
               std::vector<std::string>(
@@ -112,8 +114,10 @@ TEST_F(HivePartitionUtilTest, partitionName) {
     std::vector<column_index_t> partitionChannels{0};
 
     VELOX_ASSERT_THROW(
-        FileUtils::makePartName(extractPartitionKeyValues(
-            makePartitionsVector(input, partitionChannels), 0)),
+        FileUtils::makePartName(
+            extractPartitionKeyValues(
+                makePartitionsVector(input, partitionChannels), 0),
+            true),
         "Unsupported partition type: MAP");
   }
 }

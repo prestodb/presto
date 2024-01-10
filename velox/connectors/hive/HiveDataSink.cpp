@@ -301,12 +301,15 @@ HiveDataSink::HiveDataSink(
           connectorQueryCtx->sessionProperties())),
       partitionChannels_(getPartitionChannels(insertTableHandle_)),
       partitionIdGenerator_(
-          !partitionChannels_.empty() ? std::make_unique<PartitionIdGenerator>(
-                                            inputType_,
-                                            partitionChannels_,
-                                            maxOpenWriters_,
-                                            connectorQueryCtx_->memoryPool())
-                                      : nullptr),
+          !partitionChannels_.empty()
+              ? std::make_unique<PartitionIdGenerator>(
+                    inputType_,
+                    partitionChannels_,
+                    maxOpenWriters_,
+                    connectorQueryCtx_->memoryPool(),
+                    hiveConfig_->isFileColumnNamesReadAsLowerCase(
+                        connectorQueryCtx->sessionProperties()))
+              : nullptr),
       bucketCount_(
           insertTableHandle_->bucketProperty() == nullptr
               ? 0

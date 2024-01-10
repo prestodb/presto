@@ -158,7 +158,8 @@ std::string FileUtils::unescapePathName(const std::string& data) {
 }
 
 std::string FileUtils::makePartName(
-    const std::vector<std::pair<std::string, std::string>>& entries) {
+    const std::vector<std::pair<std::string, std::string>>& entries,
+    bool partitionPathAsLowerCase) {
   size_t size = 0;
   size_t escapeCount = 0;
   std::for_each(entries.begin(), entries.end(), [&](auto& pair) {
@@ -166,6 +167,7 @@ std::string FileUtils::makePartName(
     DWIO_ENSURE_GT(keySize, 0);
     size += keySize;
     escapeCount += countEscape(pair.first);
+
     auto valSize = pair.second.size();
     if (valSize == 0) {
       size += DEFAULT_PARTITION_VALUE.size();
@@ -182,7 +184,12 @@ std::string FileUtils::makePartName(
     if (ret.size() > 0) {
       ret += "/";
     }
-    ret += escapePathName(toLower(pair.first));
+    if (partitionPathAsLowerCase) {
+      ret += escapePathName(toLower(pair.first));
+    } else {
+      ret += escapePathName(pair.first);
+    }
+
     ret += "=";
     if (pair.second.size() == 0) {
       ret += DEFAULT_PARTITION_VALUE;
@@ -211,7 +218,7 @@ std::vector<std::pair<std::string, std::string>> FileUtils::parsePartKeyValues(
 
 std::string FileUtils::extractPartitionName(const std::string& filePath) {
   const auto& partitionParts = extractPartitionKeyValues(filePath);
-  return partitionParts.empty() ? "" : makePartName(partitionParts);
+  return partitionParts.empty() ? "" : makePartName(partitionParts, false);
 }
 
 } // namespace fbhive
