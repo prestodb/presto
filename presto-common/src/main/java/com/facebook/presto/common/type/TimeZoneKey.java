@@ -269,7 +269,8 @@ public final class TimeZoneKey
         return zoneId;
     }
 
-    private static boolean isSimpleZoneId(String zoneId) {
+    private static boolean isSimpleZoneId(String zoneId)
+    {
         return zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "").isEmpty();
     }
 
