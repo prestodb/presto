@@ -262,7 +262,7 @@ public final class TimeZoneKey
             return "utc";
         }
 
-        if (isUtcTimeZone(originalZoneId)) {
+        if (isUtcTimeZone(originalZoneId.toLowerCase(ENGLISH))) {
             return flipSign(zoneId);
         }
 
@@ -281,7 +281,7 @@ public final class TimeZoneKey
 
     private static boolean isUtcTimeZone(String zoneId)
     {
-        return zoneId.toLowerCase().contains("utc");
+        return zoneId.contains("utc");
     }
 
     private static boolean isValidZoneId(String zoneId)
