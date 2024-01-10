@@ -30,6 +30,7 @@ public final class SessionConfigurationContext
     private final Optional<String> queryType;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<String> clientInfo;
+    private final String prestoServerVersion;
 
     public SessionConfigurationContext(
             String user,
@@ -37,7 +38,8 @@ public final class SessionConfigurationContext
             Set<String> clientTags,
             Optional<String> queryType,
             Optional<ResourceGroupId> resourceGroupId,
-            Optional<String> clientInfo)
+            Optional<String> clientInfo,
+            String prestoServerVersion)
     {
         this.user = requireNonNull(user, "user is null");
         this.source = requireNonNull(source, "source is null");
@@ -45,6 +47,7 @@ public final class SessionConfigurationContext
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.prestoServerVersion = requireNonNull(prestoServerVersion, "prestoServerVersion is null");
     }
 
     public String getUser()
@@ -75,5 +78,10 @@ public final class SessionConfigurationContext
     public Optional<String> getClientInfo()
     {
         return clientInfo;
+    }
+
+    public String getPrestoServerVersion()
+    {
+        return prestoServerVersion;
     }
 }

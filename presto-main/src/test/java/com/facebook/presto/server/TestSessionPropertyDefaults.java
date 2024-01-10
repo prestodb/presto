@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -36,11 +37,12 @@ public class TestSessionPropertyDefaults
 {
     private static final ResourceGroupId TEST_RESOURCE_GROUP_ID = new ResourceGroupId("test");
     private static final NodeInfo TEST_NODE_INFO = new NodeInfo("test");
+    private static final NodeVersion TEST_NODE_VERSION = new NodeVersion("testversion");
 
     @Test
     public void testApplyDefaultProperties()
     {
-        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO);
+        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, TEST_NODE_VERSION);
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 new SystemSessionPropertyConfiguration(
                     ImmutableMap.<String, String>builder()
