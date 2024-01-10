@@ -235,6 +235,10 @@ public final class TimeZoneKey
             throw new TimeZoneNotSupportedException(originalZoneId);
         }
 
+        if (isSimpleZoneId(zoneId)) {
+            return "utc";
+        }
+
         if (zoneId.startsWith("etc/") || isUtcEquivalentName(zoneId)) {
             zoneId = normalizeEtcZoneId(zoneId);
         }
@@ -250,6 +254,10 @@ public final class TimeZoneKey
             zoneId = normalizeShortOffset(zoneId);
         }
 
+        if (zoneId.equals("utc")) {
+            return zoneId;
+        }
+
         if (isFixedOffsetTimeZone(zoneId)) {
             return "utc";
         }
@@ -261,6 +269,10 @@ public final class TimeZoneKey
         return zoneId;
     }
 
+    private static boolean isSimpleZoneId(String zoneId) {
+        return zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "").isEmpty();
+    }
+
     private static String flipSign(String zoneId)
     {
         return zoneId.charAt(0) == '+' ? "-" + zoneId.substring(1) : "+" + zoneId.substring(1);
@@ -268,7 +280,7 @@ public final class TimeZoneKey
 
     private static boolean isUtcTimeZone(String zoneId)
     {
-        return zoneId.contains("utc");
+        return zoneId.toLowerCase().contains("utc");
     }
 
     private static boolean isValidZoneId(String zoneId)
@@ -281,7 +293,7 @@ public final class TimeZoneKey
             String lastNumbers = zoneId.replaceAll("etc/(gmt|greenwich|uct|universal|utc|zulu)", "");
 
             if (lastNumbers.isEmpty()) {
-                throw new TimeZoneNotSupportedException(zoneId);
+                return true;
             }
 
             if (lastNumbers.length() == 3 && lastNumbers.charAt(1) == '0') {
