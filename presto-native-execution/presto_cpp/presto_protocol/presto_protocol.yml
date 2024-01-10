@@ -39,14 +39,13 @@ ExtraFields:
         List<RowExpression>: arguments
 
     PlanNode:
-        PlanNodeId :         id
+        PlanNodeId:          id
 
     RemoteTransactionHandle:
         Optional<String>:    dummy
 
 AddToOutput:
     - NodeState
-    - StatisticAggregations
 
 AbstractClasses:
     ColumnHandle:
@@ -265,6 +264,10 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/cost/PlanCostEstimate.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/PlanFragment.java
   - presto-main/src/main/java/com/facebook/presto/cost/PlanNodeStatsEstimate.java
+  - presto-main/src/main/java/com/facebook/presto/cost/JoinNodeStatsEstimate.java
+  - presto-main/src/main/java/com/facebook/presto/cost/TableWriterNodeStatsEstimate.java
+  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/StatisticAggregations.java
+  - presto-main/src/main/java/com/facebook/presto/cost/PartialAggregationStatsEstimate.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/ProjectNode.java
   - presto-matching/src/test/java/com/facebook/presto/matching/example/rel/ProjectNode.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/Range.java

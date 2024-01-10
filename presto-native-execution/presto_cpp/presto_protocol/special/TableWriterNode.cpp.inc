@@ -16,55 +16,6 @@ TableWriterNode::TableWriterNode() noexcept {
   _type = "com.facebook.presto.sql.planner.plan.TableWriterNode";
 }
 
-void to_json(json& j, const StatisticAggregations& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "outputVariables",
-      p.outputVariables,
-      "StatisticAggregations",
-      "std::vector<VariableReferenceExpression>",
-      "outputVariables");
-  to_json_key(
-      j,
-      "aggregations",
-      p.aggregations,
-      "StatisticAggregations",
-      "Map<VariableReferenceExpression, Aggregation>",
-      "aggregations");
-  to_json_key(
-      j,
-      "groupingVariables",
-      p.groupingVariables,
-      "StatisticAggregations",
-      "std::vector<VariableReferenceExpression>",
-      "groupingVariables");
-}
-
-void from_json(const json& j, StatisticAggregations& p) {
-  from_json_key(
-      j,
-      "outputVariables",
-      p.outputVariables,
-      "StatisticAggregations",
-      "std::vector<VariableReferenceExpression>",
-      "outputVariables");
-  from_json_key(
-      j,
-      "aggregations",
-      p.aggregations,
-      "StatisticAggregations",
-      "Map<VariableReferenceExpression, Aggregation>",
-      "aggregations");
-  from_json_key(
-      j,
-      "groupingVariables",
-      p.groupingVariables,
-      "StatisticAggregations",
-      "std::vector<VariableReferenceExpression>",
-      "groupingVariables");
-}
-
 void to_json(json& j, const TableWriterNode& p) {
   j = json::object();
   j["@type"] = "com.facebook.presto.sql.planner.plan.TableWriterNode";
