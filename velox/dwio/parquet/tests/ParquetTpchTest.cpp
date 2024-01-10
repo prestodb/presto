@@ -17,7 +17,6 @@
 #include <folly/init/Init.h>
 #include <vector>
 
-#include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
@@ -37,13 +36,13 @@ using namespace facebook::velox::exec::test;
 
 class ParquetTpchTest : public testing::Test {
  protected:
-  static void SetUpTestCase() {
+  static void SetUpTestSuite() {
     memory::MemoryManager::testingSetInstance({});
-  }
 
-  void SetUp() override {
     duckDb_ = std::make_shared<DuckDbQueryRunner>();
     tempDirectory_ = TempDirectoryPath::create();
+    tpchBuilder_ =
+        std::make_shared<TpchQueryBuilder>(dwio::common::FileFormat::PARQUET);
 
     functions::prestosql::registerAllScalarFunctions();
     aggregate::prestosql::registerAllAggregateFunctions();
@@ -69,17 +68,17 @@ class ParquetTpchTest : public testing::Test {
     connector::registerConnector(tpchConnector);
 
     saveTpchTablesAsParquet();
-    tpchBuilder_.initialize(tempDirectory_->path);
+    tpchBuilder_->initialize(tempDirectory_->path);
   }
 
-  void TearDown() override {
+  static void TearDownTestSuite() {
     connector::unregisterConnector(kHiveConnectorId);
     connector::unregisterConnector(kTpchConnectorId);
     parquet::unregisterParquetReaderFactory();
     parquet::unregisterParquetWriterFactory();
   }
 
-  void saveTpchTablesAsParquet() {
+  static void saveTpchTablesAsParquet() {
     std::shared_ptr<memory::MemoryPool> rootPool{
         memory::memoryManager()->addRootPool()};
     std::shared_ptr<memory::MemoryPool> pool{rootPool->addLeafChild("leaf")};
@@ -113,7 +112,7 @@ class ParquetTpchTest : public testing::Test {
   void assertQuery(
       int queryId,
       const std::optional<std::vector<uint32_t>>& sortingKeys = {}) {
-    auto tpchPlan = tpchBuilder_.getQueryPlan(queryId);
+    auto tpchPlan = tpchBuilder_->getQueryPlan(queryId);
     auto duckDbSql = tpch::getQuery(queryId);
     assertQuery(tpchPlan, duckDbSql, sortingKeys);
   }
@@ -147,12 +146,16 @@ class ParquetTpchTest : public testing::Test {
         params, addSplits, duckQuery, *duckDb_, sortingKeys);
   }
 
-  std::shared_ptr<DuckDbQueryRunner> duckDb_;
-  std::shared_ptr<TempDirectoryPath> tempDirectory_;
-  TpchQueryBuilder tpchBuilder_{dwio::common::FileFormat::PARQUET};
+  static std::shared_ptr<DuckDbQueryRunner> duckDb_;
+  static std::shared_ptr<TempDirectoryPath> tempDirectory_;
+  static std::shared_ptr<TpchQueryBuilder> tpchBuilder_;
 
   static constexpr char const* kTpchConnectorId{"test-tpch"};
 };
+
+std::shared_ptr<DuckDbQueryRunner> ParquetTpchTest::duckDb_ = nullptr;
+std::shared_ptr<TempDirectoryPath> ParquetTpchTest::tempDirectory_ = nullptr;
+std::shared_ptr<TpchQueryBuilder> ParquetTpchTest::tpchBuilder_ = nullptr;
 
 TEST_F(ParquetTpchTest, Q1) {
   assertQuery(1);
