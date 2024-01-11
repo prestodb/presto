@@ -193,6 +193,7 @@ public final class SystemSessionProperties
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String CTE_MATERIALIZATION_STRATEGY = "cte_materialization_strategy";
+    public static final String CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED = "cte_filter_and_projection_pushdown_enabled";
     public static final String DEFAULT_JOIN_SELECTIVITY_COEFFICIENT = "default_join_selectivity_coefficient";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String OPTIMIZE_CONSTANT_GROUPING_KEYS = "optimize_constant_grouping_keys";
@@ -1076,6 +1077,11 @@ public final class SystemSessionProperties
                         false,
                         value -> CteMaterializationStrategy.valueOf(((String) value).toUpperCase()),
                         CteMaterializationStrategy::name),
+                booleanProperty(
+                        CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED,
+                        "Enable pushing of filters and projections inside common table expressions.",
+                        featuresConfig.getCteFilterAndProjectionPushdownEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         DEFAULT_JOIN_SELECTIVITY_COEFFICIENT,
                         "use a default join selectivity coefficient factor when column statistics are not available in a join node",
@@ -2416,6 +2422,11 @@ public final class SystemSessionProperties
     public static CteMaterializationStrategy getCteMaterializationStrategy(Session session)
     {
         return session.getSystemProperty(CTE_MATERIALIZATION_STRATEGY, CteMaterializationStrategy.class);
+    }
+
+    public static boolean getCteFilterAndProjectionPushdownEnabled(Session session)
+    {
+        return session.getSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static int getFilterAndProjectMinOutputPageRowCount(Session session)
