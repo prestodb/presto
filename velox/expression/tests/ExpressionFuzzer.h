@@ -90,6 +90,13 @@ class ExpressionFuzzer {
     //   "width_bucket",
     //   "array_sort(array(T),constant function(T,T,bigint)) -> array(T)"}
     std::unordered_set<std::string> skipFunctions;
+
+    // When set, when the input size of the generated expressions reaches
+    // maxInputsThreshold, fuzzing input columns will reuse one of the existing
+    // columns if any is already generated with the same type.
+    // This can be used to control the size of the input of the fuzzer
+    // expression.
+    std::optional<int32_t> maxInputsThreshold = std::nullopt;
   };
 
   ExpressionFuzzer(

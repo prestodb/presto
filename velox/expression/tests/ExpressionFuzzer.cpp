@@ -821,6 +821,12 @@ core::TypedExprPtr ExpressionFuzzer::generateArgColumn(const TypePtr& arg) {
   auto& listOfCandidateCols = state.typeToColumnNames_[arg->toString()];
   bool reuseColumn = options_.enableColumnReuse &&
       !listOfCandidateCols.empty() && vectorFuzzer_->coinToss(0.3);
+
+  if (!reuseColumn && options_.maxInputsThreshold.has_value() &&
+      state.inputRowTypes_.size() >= options_.maxInputsThreshold.value()) {
+    reuseColumn = !listOfCandidateCols.empty();
+  }
+
   if (!reuseColumn) {
     state.inputRowTypes_.emplace_back(arg);
     state.inputRowNames_.emplace_back(
