@@ -349,7 +349,8 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
                 remoteSourceTaskIds_[remoteSourceIndex],
                 operatorCtx_->task()->destination(),
                 maxQueuedBytesPerSource,
-                pool));
+                pool,
+                operatorCtx_->task()->queryCtx()->executor()));
           }
         }
         // TODO Delay this call until all input data has been processed.

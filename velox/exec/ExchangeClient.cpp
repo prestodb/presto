@@ -139,13 +139,12 @@ ExchangeClient::next(uint32_t maxBytes, bool* atEnd, ContinueFuture* future) {
 }
 
 void ExchangeClient::request(const RequestSpec& requestSpec) {
-  auto& exec = folly::QueuedImmediateExecutor::instance();
   auto self = shared_from_this();
   for (auto& source : requestSpec.sources) {
     auto future = source->request(requestSpec.maxBytes, kDefaultMaxWaitSeconds);
     VELOX_CHECK(future.valid());
     std::move(future)
-        .via(&exec)
+        .via(executor_)
         .thenValue([self, requestSource = source](auto&& response) {
           RequestSpec requestSpec;
           {

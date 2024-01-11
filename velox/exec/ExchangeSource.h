@@ -148,11 +148,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   const std::string taskId_;
   // Destination number of 'this' on producer
   const int destination_;
-  int64_t sequence_ = 0;
-  std::shared_ptr<ExchangeQueue> queue_;
-  std::atomic<bool> requestPending_{false};
-  bool atEnd_ = false;
-
+  const std::shared_ptr<ExchangeQueue> queue_;
   // Holds a shared reference on the memory pool as it might be still possible
   // to be accessed by external components after the query task is destroyed.
   // For instance, in Prestissimo, there might be a pending http request issued
@@ -161,6 +157,10 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   // so we need to hold an additional shared reference on the memory pool to
   // keeps it alive.
   const std::shared_ptr<memory::MemoryPool> pool_;
+
+  int64_t sequence_{0};
+  std::atomic<bool> requestPending_{false};
+  bool atEnd_{false};
 };
 
 } // namespace facebook::velox::exec

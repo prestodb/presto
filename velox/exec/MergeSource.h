@@ -44,7 +44,8 @@ class MergeSource {
       const std::string& taskId,
       int destination,
       int64_t maxQueuedBytes,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      folly::Executor* executor);
 };
 
 /// Coordinates data transfer between single producer and single consumer. Used

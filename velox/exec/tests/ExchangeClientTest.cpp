@@ -35,6 +35,7 @@ class ExchangeClientTest : public testing::Test,
   }
 
   void SetUp() override {
+    executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(16);
     exec::ExchangeSource::factories().clear();
     exec::ExchangeSource::registerFactory(test::createLocalExchangeSource);
     if (!isRegisteredVectorSerde()) {
@@ -122,6 +123,11 @@ class ExchangeClientTest : public testing::Test,
     return std::make_unique<SerializedPage>(std::move(ioBuf));
   }
 
+  folly::Executor* executor() const {
+    return executor_.get();
+  }
+
+  std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
   std::shared_ptr<OutputBufferManager> bufferManager_;
 };
 
@@ -133,7 +139,7 @@ TEST_F(ExchangeClientTest, nonVeloxCreateExchangeSourceException) {
       });
 
   auto client = std::make_shared<ExchangeClient>(
-      "t", 1, pool(), ExchangeClient::kDefaultMaxQueuedBytes);
+      "t", 1, ExchangeClient::kDefaultMaxQueuedBytes, pool(), executor());
 
   VELOX_ASSERT_THROW(
       client->addRemoteTaskId("task.1.2.3"),
@@ -166,7 +172,7 @@ TEST_F(ExchangeClientTest, stats) {
       task, core::PartitionedOutputNode::Kind::kPartitioned, 100, 16);
 
   auto client = std::make_shared<ExchangeClient>(
-      "t", 17, pool(), ExchangeClient::kDefaultMaxQueuedBytes);
+      "t", 17, ExchangeClient::kDefaultMaxQueuedBytes, pool(), executor());
   client->addRemoteTaskId(taskId);
 
   // Enqueue 3 pages.
@@ -180,10 +186,13 @@ TEST_F(ExchangeClientTest, stats) {
 
   fetchPages(*client, 3);
 
-  const auto stats = client->stats();
-  EXPECT_EQ(totalBytes, stats.at("peakBytes").sum);
-  EXPECT_EQ(data.size(), stats.at("numReceivedPages").sum);
-  EXPECT_EQ(totalBytes / data.size(), stats.at("averageReceivedPageBytes").sum);
+  auto stats = client->stats();
+  // Since we run exchange source response callback in an executor, then we
+  // might start to fetch from the client before all the source buffers are
+  // enqueued.
+  ASSERT_GE(totalBytes, stats.at("peakBytes").sum);
+  ASSERT_EQ(data.size(), stats.at("numReceivedPages").sum);
+  ASSERT_EQ(totalBytes / data.size(), stats.at("averageReceivedPageBytes").sum);
 
   task->requestCancel();
   bufferManager_->removeTask(taskId);
@@ -203,7 +212,7 @@ TEST_F(ExchangeClientTest, flowControl) {
 
   // Set limit at 3.5 pages.
   auto client = std::make_shared<ExchangeClient>(
-      "flow.control", 17, pool(), page->size() * 3.5);
+      "flow.control", 17, page->size() * 3.5, pool(), executor());
 
   auto plan = test::PlanBuilder()
                   .values({data})
@@ -243,7 +252,8 @@ TEST_F(ExchangeClientTest, flowControl) {
 }
 
 TEST_F(ExchangeClientTest, multiPageFetch) {
-  auto client = std::make_shared<ExchangeClient>("test", 17, pool(), 1 << 20);
+  auto client =
+      std::make_shared<ExchangeClient>("test", 17, 1 << 20, pool(), executor());
 
   bool atEnd;
   ContinueFuture future;
@@ -287,7 +297,8 @@ TEST_F(ExchangeClientTest, multiPageFetch) {
 TEST_F(ExchangeClientTest, sourceTimeout) {
   constexpr int32_t kNumSources = 3;
   common::testutil::TestValue::enable();
-  auto client = std::make_shared<ExchangeClient>("test", 17, pool(), 1 << 20);
+  auto client =
+      std::make_shared<ExchangeClient>("test", 17, 1 << 20, pool(), executor());
 
   bool atEnd;
   ContinueFuture future;
@@ -377,8 +388,7 @@ TEST_F(ExchangeClientTest, timeoutDuringValueCallback) {
       task, core::PartitionedOutputNode::Kind::kPartitioned, 100, 16);
 
   auto client = std::make_shared<ExchangeClient>(
-      "t", 17, pool(), ExchangeClient::kDefaultMaxQueuedBytes);
-
+      "t", 17, ExchangeClient::kDefaultMaxQueuedBytes, pool(), executor());
   client->addRemoteTaskId(taskId);
   int32_t numTimeouts = 0;
   SCOPED_TESTVALUE_SET(

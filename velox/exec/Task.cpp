@@ -749,7 +749,7 @@ void Task::createAndStartDrivers(uint32_t concurrentSplitGroups) {
     }
 
     // Set and start all Drivers together inside 'mutex_' so that
-    // cancellations and pauses have the well defined timing. For example, do
+    // cancellations and pauses have the well-defined timing. For example, do
     // not pause and restart a task while it is still adding Drivers.
     //
     // NOTE: the executor must not be folly::InlineLikeExecutor for parallel
@@ -2513,8 +2513,9 @@ void Task::createExchangeClientLocked(
   exchangeClients_[pipelineId] = std::make_shared<ExchangeClient>(
       taskId_,
       destination_,
+      queryCtx()->queryConfig().maxExchangeBufferSize(),
       addExchangeClientPool(planNodeId, pipelineId),
-      queryCtx()->queryConfig().maxExchangeBufferSize());
+      queryCtx()->executor());
   exchangeClientByPlanNode_.emplace(planNodeId, exchangeClients_[pipelineId]);
 }
 
