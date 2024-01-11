@@ -421,6 +421,9 @@ public class TestVarbinaryFunctions
         assertFunction("fnv1_32(from_hex('232706FC6BF50919'))", BIGINT, 0x9f2263f3L + Integer.MIN_VALUE * 2L);
         assertFunction("fnv1_64(from_hex(''))", BIGINT, 0xcbf29ce484222325L);
         assertFunction("fnv1_64(from_hex('232706FC6BF50919'))", BIGINT, 0x4a65ff96675a9f33L);
+	// Add tests from http://www.isthe.com/chongo/src/fnv/test_fnv.c to validate
+	assertFunction("fnv1_64(CAST('chongo was here!' AS VARBINARY))", BIGINT, 0x4C9CA59581B27F45L);
+	assertFunction("fnv1_64(CAST('391581216093391581216093391581216093391581216093391581216093391581216093391581216093391581216093391581216093391581216093' AS VARBINARY))", BIGINT, 0x43c94e2c8b277509L);
 
         assertFunction("fnv1a_32(from_hex(''))", BIGINT, 0x811c9dc5L + Integer.MIN_VALUE * 2L);
         assertFunction("fnv1a_32(from_hex('19'))", BIGINT, 0x1c0c8154L);
