@@ -40,15 +40,12 @@ UnsafeRowExchangeSource::request(
       return folly::makeFuture(Response{0, true});
     }
 
-    bool hasNext;
-    CALL_SHUFFLE(hasNext = shuffle_->hasNext(), "hasNext");
-
-    if (!hasNext) {
+    velox::BufferPtr buffer;
+    CALL_SHUFFLE(buffer = shuffle_->next(), "next");
+    if (buffer == nullptr) {
       atEnd_ = true;
       queue_->enqueueLocked(nullptr, promises);
     } else {
-      velox::BufferPtr buffer;
-      CALL_SHUFFLE(buffer = shuffle_->next(), "next");
       totalBytes = buffer->size();
 
       ++numBatches_;

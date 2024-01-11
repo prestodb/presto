@@ -160,16 +160,16 @@ LocalPersistentShuffleReader::LocalPersistentShuffleReader(
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
-bool LocalPersistentShuffleReader::hasNext() {
+BufferPtr LocalPersistentShuffleReader::next() {
   if (readPartitionFiles_.empty()) {
     readPartitionFiles_ = getReadPartitionFiles();
   }
 
-  return readPartitionFileIndex_ < readPartitionFiles_.size();
-}
+  if (readPartitionFileIndex_ >= readPartitionFiles_.size()) {
+    return nullptr;
+  }
 
-BufferPtr LocalPersistentShuffleReader::next() {
-  auto filename = readPartitionFiles_[readPartitionFileIndex_];
+  const auto filename = readPartitionFiles_[readPartitionFileIndex_];
   auto file = fileSystem_->openFileForRead(filename);
   auto buffer = AlignedBuffer::allocate<char>(file->size(), pool_, 0);
   file->pread(0, file->size(), buffer->asMutable<void>());
@@ -246,10 +246,7 @@ std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
   const operators::LocalShuffleReadInfo readInfo =
       operators::LocalShuffleReadInfo::deserialize(serializedStr);
   return std::make_shared<operators::LocalPersistentShuffleReader>(
-      readInfo.rootPath,
-      readInfo.queryId,
-      readInfo.partitionIds,
-      pool);
+      readInfo.rootPath, readInfo.queryId, readInfo.partitionIds, pool);
 }
 
 std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
