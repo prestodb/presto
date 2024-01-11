@@ -463,6 +463,12 @@ uint64_t SystemConfig::memoryPoolTransferCapacity() const {
       .value_or(kMemoryPoolTransferCapacityDefault);
 }
 
+uint64_t SystemConfig::memoryReclaimWaitMs() const {
+  static constexpr uint64_t kMemoryReclaimWaitMsDefault = {300'000}; // 5 mins.
+  return optionalProperty<uint64_t>(kMemoryReclaimWaitMs)
+      .value_or(kMemoryReclaimWaitMsDefault);
+}
+
 bool SystemConfig::enableSystemMemoryPoolUsageTracking() const {
   return optionalProperty<bool>(kEnableSystemMemoryPoolUsageTracking)
       .value_or(true);

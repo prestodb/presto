@@ -316,6 +316,15 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kMemoryPoolTransferCapacity{
       "memory-pool-transfer-capacity"};
+
+  /// Specifies the max time to wait for memory reclaim by arbitration. The
+  /// memory reclaim might fail if the max wait time has exceeded. If it is
+  /// zero, then there is no timeout.
+  ///
+  /// NOTE: this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kMemoryReclaimWaitMs{
+      "memory-reclaim-wait-ms"};
+
   /// Enables the memory usage tracking for the system memory pool used for
   /// cases such as disk spilling.
   static constexpr std::string_view kEnableSystemMemoryPoolUsageTracking{
@@ -587,6 +596,8 @@ class SystemConfig : public ConfigBase {
   uint64_t memoryPoolInitCapacity() const;
 
   uint64_t memoryPoolTransferCapacity() const;
+
+  uint64_t memoryReclaimWaitMs() const;
 
   bool enableSystemMemoryPoolUsageTracking() const;
 
