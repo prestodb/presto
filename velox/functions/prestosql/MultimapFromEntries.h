@@ -28,7 +28,12 @@ struct MultimapFromEntriesFunction {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Map<Generic<T1>, Array<Generic<T2>>>>& out,
       const arg_type<Array<Row<Generic<T1>, Generic<T2>>>>& inputArray) {
-    folly::F14FastMap<
+    // Use std::unordered_map to ensure deterministic order of keys in the
+    // result. Without ensuring deterministic order of keys, the results of
+    // expressions like map_keys(multimap_from_entries(...)) will be
+    // non-deterministic and trigger Fuzzer failures. F14Map is faster, but in
+    // debug builds it returns keys in non-deterministic order (on purpose).
+    std::unordered_map<
         exec::GenericView,
         std::vector<std::optional<exec::GenericView>>>
         keyValuesMap;
