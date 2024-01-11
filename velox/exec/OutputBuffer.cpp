@@ -358,6 +358,24 @@ void OutputBuffer::addOutputBuffersLocked(int numBuffers) {
   finishedBufferStats_.resize(numBuffers);
 }
 
+void OutputBuffer::updateStatsWithEnqueuedPageLocked(
+    int64_t pageBytes,
+    int64_t pageRows) {
+  bufferedBytes_ += pageBytes;
+  ++bufferedPages_;
+  ++numOutputPages_;
+  numOutputRows_ += pageRows;
+}
+
+void OutputBuffer::updateStatsWithFreedPagesLocked(
+    int numPages,
+    int64_t pageBytes) {
+  bufferedBytes_ -= pageBytes;
+  VELOX_CHECK_GE(bufferedBytes_, 0);
+  bufferedPages_ -= numPages;
+  VELOX_CHECK_GE(bufferedPages_, 0);
+}
+
 bool OutputBuffer::enqueue(
     int destination,
     std::unique_ptr<SerializedPage> data,
@@ -371,7 +389,8 @@ bool OutputBuffer::enqueue(
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK_LT(destination, buffers_.size());
 
-    totalSize_ += data->size();
+    updateStatsWithEnqueuedPageLocked(data->size(), data->numRows().value());
+
     switch (kind_) {
       case PartitionedOutputNode::Kind::kBroadcast:
         VELOX_CHECK_EQ(destination, 0, "Bad destination {}", destination);
@@ -389,7 +408,7 @@ bool OutputBuffer::enqueue(
         VELOX_UNREACHABLE(PartitionedOutputNode::kindString(kind_));
     }
 
-    if (totalSize_ > maxSize_ && future) {
+    if (bufferedBytes_ > maxSize_ && future) {
       promises_.emplace_back("OutputBuffer::enqueue");
       *future = promises_.back().getSemiFuture();
       blocked = true;
@@ -468,8 +487,7 @@ void OutputBuffer::enqueuePartitionedOutputLocked(
   } else {
     // Some downstream tasks may finish early and delete the corresponding
     // buffers. Further data for these buffers is dropped.
-    totalSize_ -= data->size();
-    VELOX_CHECK_GE(totalSize_, 0);
+    updateStatsWithFreedPagesLocked(1, data->size());
   }
 }
 
@@ -562,25 +580,23 @@ void OutputBuffer::acknowledge(int destination, int64_t sequence) {
 void OutputBuffer::updateAfterAcknowledgeLocked(
     const std::vector<std::shared_ptr<SerializedPage>>& freed,
     std::vector<ContinuePromise>& promises) {
-  uint64_t totalFreed = 0;
+  uint64_t freedBytes{0};
+  int freedPages{0};
   for (const auto& free : freed) {
     if (free.unique()) {
-      totalFreed += free->size();
+      ++freedPages;
+      freedBytes += free->size();
     }
   }
-  if (totalFreed == 0) {
+  if (freedPages == 0) {
+    VELOX_CHECK_EQ(freedBytes, 0);
     return;
   }
+  VELOX_CHECK_GT(freedBytes, 0);
 
-  VELOX_CHECK_LE(
-      totalFreed,
-      totalSize_,
-      "Output buffer size goes negative: released {} over {}",
-      totalFreed,
-      totalSize_);
-  totalSize_ -= totalFreed;
-  VELOX_CHECK_GE(totalSize_, 0);
-  if (totalSize_ < continueSize_) {
+  updateStatsWithFreedPagesLocked(freedPages, freedBytes);
+
+  if (bufferedBytes_ < continueSize_) {
     promises = std::move(promises_);
   }
 }
@@ -675,7 +691,7 @@ std::string OutputBuffer::toString() {
 
 std::string OutputBuffer::toStringLocked() const {
   std::stringstream out;
-  out << "[OutputBuffer[" << kind_ << "] totalSize_=" << totalSize_
+  out << "[OutputBuffer[" << kind_ << "] bufferedBytes_=" << bufferedBytes_
       << "b, num producers blocked=" << promises_.size()
       << ", completed=" << numFinished_ << "/" << numDrivers_ << ", "
       << (atEnd_ ? "at end, " : "") << "destinations: " << std::endl;
@@ -691,11 +707,11 @@ std::string OutputBuffer::toStringLocked() const {
 }
 
 double OutputBuffer::getUtilization() const {
-  return totalSize_ / (double)maxSize_;
+  return bufferedBytes_ / (double)maxSize_;
 }
 
 bool OutputBuffer::isOverutilized() const {
-  return (totalSize_ > (0.5 * maxSize_)) || atEnd_;
+  return (bufferedBytes_ > (0.5 * maxSize_)) || atEnd_;
 }
 
 OutputBuffer::Stats OutputBuffer::stats() {
@@ -705,14 +721,22 @@ OutputBuffer::Stats OutputBuffer::stats() {
   bufferStats.resize(buffers_.size());
   for (auto i = 0; i < buffers_.size(); ++i) {
     auto buffer = buffers_[i].get();
-    if (buffer) {
+    if (buffer != nullptr) {
       bufferStats[i] = buffer->stats();
     } else {
       bufferStats[i] = finishedBufferStats_[i];
     }
   }
   return OutputBuffer::Stats(
-      kind_, noMoreBuffers_, atEnd_, isFinishedLocked(), bufferStats);
+      kind_,
+      noMoreBuffers_,
+      atEnd_,
+      isFinishedLocked(),
+      bufferedBytes_,
+      bufferedPages_,
+      numOutputRows_,
+      numOutputPages_,
+      bufferStats);
 }
 
 } // namespace facebook::velox::exec

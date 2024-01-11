@@ -1130,6 +1130,7 @@ TEST_F(TaskTest, outputBufferSize) {
   constexpr int32_t numBatches = 10;
   std::vector<RowVectorPtr> dataBatches;
   dataBatches.reserve(numBatches);
+  const int numRows = numBatches * 3;
   for (int32_t i = 0; i < numBatches; ++i) {
     dataBatches.push_back(makeRowVector({makeFlatVector<int64_t>({0, 1, 10})}));
   }
@@ -1153,13 +1154,20 @@ TEST_F(TaskTest, outputBufferSize) {
     result.push_back(cursor->current());
   }
 
-  TaskStats finishStats = task->taskStats();
+  const TaskStats finishStats = task->taskStats();
   // We only have one task and the task has outputBuffer which won't be
   // consumed, verify 0 < outputBufferUtilization < 1.
   // Need to call requestCancel to explicitly terminate the task.
-  EXPECT_GT(finishStats.outputBufferUtilization, 0);
-  EXPECT_LT(finishStats.outputBufferUtilization, 1);
-  EXPECT_TRUE(finishStats.outputBufferOverutilized);
+  ASSERT_GT(finishStats.outputBufferUtilization, 0);
+  ASSERT_LT(finishStats.outputBufferUtilization, 1);
+  ASSERT_TRUE(finishStats.outputBufferOverutilized);
+  ASSERT_TRUE(finishStats.outputBufferStats.has_value());
+  const auto outputStats = finishStats.outputBufferStats.value();
+  ASSERT_EQ(outputStats.kind, core::PartitionedOutputNode::Kind::kPartitioned);
+  ASSERT_EQ(outputStats.totalRowsSent, numRows);
+  ASSERT_GT(outputStats.totalPagesSent, 0);
+  ASSERT_GT(outputStats.bufferedBytes, 0);
+  ASSERT_EQ(outputStats.bufferedPages, outputStats.totalPagesSent);
   task->requestCancel();
 }
 

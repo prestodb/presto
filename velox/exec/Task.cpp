@@ -1979,7 +1979,7 @@ TaskStats Task::taskStats() const {
   auto bufferManager = bufferManager_.lock();
   taskStats.outputBufferUtilization = bufferManager->getUtilization(taskId_);
   taskStats.outputBufferOverutilized = bufferManager->isOverutilized(taskId_);
-
+  taskStats.outputBufferStats = bufferManager->stats(taskId_);
   return taskStats;
 }
 

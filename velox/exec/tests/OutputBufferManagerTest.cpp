@@ -111,21 +111,25 @@ class OutputBufferManagerTest : public testing::Test {
     enqueue(taskId, 0, rowType, size);
   }
 
-  void enqueue(
+  // Returns the enqueued page byte size.
+  uint64_t enqueue(
       const std::string& taskId,
       int destination,
       const RowTypePtr& rowType,
       vector_size_t size,
       bool expectedBlock = false) {
     ContinueFuture future;
-    auto blocked = bufferManager_->enqueue(
-        taskId, destination, makeSerializedPage(rowType, size), &future);
+    auto page = makeSerializedPage(rowType, size);
+    const uint64_t pageSize = page->size();
+    auto blocked =
+        bufferManager_->enqueue(taskId, destination, std::move(page), &future);
     if (!expectedBlock) {
-      ASSERT_FALSE(blocked);
+      EXPECT_FALSE(blocked);
     }
     if (blocked) {
       future.wait();
     }
+    return pageSize;
   }
 
   OutputBuffer::Stats getStats(const std::string& taskId) {
@@ -974,53 +978,90 @@ TEST_P(AllOutputBufferManagerTest, outputBufferUtilization) {
 }
 
 TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
-  const vector_size_t size = 100;
+  const vector_size_t vectorSize = 100;
   const std::string taskId = std::to_string(folly::Random::rand32());
   initializeTask(taskId, rowType_, kind_, 1, 1);
-  // Check the stats kind.
-  ASSERT_EQ(getStats(taskId).kind, kind_);
+  {
+    const auto stats = getStats(taskId);
+    ASSERT_EQ(stats.kind, kind_);
+    ASSERT_FALSE(stats.noMoreData);
+    ASSERT_FALSE(stats.finished);
+    ASSERT_FALSE(stats.noMoreBuffers);
+    ASSERT_EQ(stats.totalPagesSent, 0);
+    ASSERT_EQ(stats.totalRowsSent, 0);
+    ASSERT_EQ(stats.bufferedPages, 0);
+    ASSERT_EQ(stats.bufferedBytes, 0);
+  }
 
-  const int pageNum = 3;
-  int totalSize = 0;
-  for (int pageId = 0; pageId < pageNum; pageId++) {
+  const int numPages = 3;
+  int totalNumRows = 0;
+  int totalBytes = 0;
+  for (int pageId = 0; pageId < numPages; ++pageId) {
     // Enqueue pages and check stats of buffered data.
-    enqueue(taskId, 0, rowType_, size);
-    totalSize += size;
+    const auto pageBytes = enqueue(taskId, 0, rowType_, vectorSize);
+    totalBytes += pageBytes;
+    totalNumRows += vectorSize;
     // Force ArbitraryBuffer to load data, otherwise the data would
     // not be buffered in DestinationBuffer.
     if (kind_ == PartitionedOutputNode::Kind::kArbitrary) {
       fetchOne(taskId, 0, pageId);
     }
-    auto statsEnqueue = getStats(taskId);
+    const auto statsEnqueue = getStats(taskId);
     ASSERT_EQ(statsEnqueue.buffersStats[0].pagesBuffered, 1);
-    ASSERT_EQ(statsEnqueue.buffersStats[0].rowsBuffered, size);
+    ASSERT_EQ(statsEnqueue.buffersStats[0].rowsBuffered, vectorSize);
+    if (kind_ == core::PartitionedOutputNode::Kind::kBroadcast) {
+      ASSERT_EQ(statsEnqueue.bufferedPages, pageId + 1);
+      ASSERT_EQ(statsEnqueue.bufferedBytes, totalBytes);
+    } else {
+      ASSERT_EQ(statsEnqueue.bufferedPages, 1);
+      ASSERT_EQ(statsEnqueue.bufferedBytes, pageBytes);
+    }
+    ASSERT_EQ(statsEnqueue.totalPagesSent, pageId + 1);
+    ASSERT_EQ(statsEnqueue.totalRowsSent, totalNumRows);
 
     // Ack pages and check stats of sent data.
     fetchOneAndAck(taskId, 0, pageId);
-    auto statsAck = getStats(taskId);
+    const auto statsAck = getStats(taskId);
     ASSERT_EQ(statsAck.buffersStats[0].pagesSent, pageId + 1);
-    ASSERT_EQ(statsAck.buffersStats[0].rowsSent, totalSize);
+    ASSERT_EQ(statsAck.buffersStats[0].rowsSent, totalNumRows);
     ASSERT_EQ(statsAck.buffersStats[0].pagesBuffered, 0);
     ASSERT_EQ(statsAck.buffersStats[0].rowsBuffered, 0);
+    if (kind_ == core::PartitionedOutputNode::Kind::kBroadcast) {
+      ASSERT_EQ(statsAck.bufferedPages, pageId + 1);
+      ASSERT_EQ(statsAck.bufferedBytes, totalBytes);
+    } else {
+      ASSERT_EQ(statsAck.bufferedPages, 0);
+      ASSERT_EQ(statsAck.bufferedBytes, 0);
+    }
+    ASSERT_EQ(statsAck.totalPagesSent, pageId + 1);
+    ASSERT_EQ(statsAck.totalRowsSent, totalNumRows);
   }
 
   // Set outputBuffer to NoMoreBuffers and check stats.
   bufferManager_->updateOutputBuffers(taskId, 1, true);
-  auto statsNoMoreBuffers = getStats(taskId);
+  const auto statsNoMoreBuffers = getStats(taskId);
   ASSERT_TRUE(statsNoMoreBuffers.noMoreBuffers);
   ASSERT_FALSE(statsNoMoreBuffers.noMoreData);
+  ASSERT_EQ(statsNoMoreBuffers.bufferedPages, 0);
+  ASSERT_EQ(statsNoMoreBuffers.bufferedBytes, 0);
+  ASSERT_EQ(statsNoMoreBuffers.totalPagesSent, numPages);
+  ASSERT_EQ(statsNoMoreBuffers.totalRowsSent, totalNumRows);
 
   // Set outputBuffer to noMoreData and check stats.
   noMoreData(taskId);
-  auto statsNoMoreData = getStats(taskId);
+  const auto statsNoMoreData = getStats(taskId);
   ASSERT_TRUE(statsNoMoreData.noMoreData);
 
   // DeleteResults and check stats.
-  fetchEndMarker(taskId, 0, pageNum);
+  fetchEndMarker(taskId, 0, numPages);
   deleteResults(taskId, 0);
-  auto statsDeleteResults = getStats(taskId);
+  const auto statsDeleteResults = getStats(taskId);
   ASSERT_TRUE(statsDeleteResults.buffersStats[0].finished);
   ASSERT_TRUE(statsDeleteResults.finished);
+  ASSERT_EQ(statsNoMoreBuffers.bufferedPages, 0);
+  ASSERT_EQ(statsNoMoreBuffers.bufferedBytes, 0);
+  ASSERT_EQ(statsNoMoreBuffers.totalPagesSent, numPages);
+  ASSERT_EQ(statsNoMoreBuffers.totalRowsSent, totalNumRows);
 
   // Remove task and check stats.
   bufferManager_->removeTask(taskId);

@@ -168,22 +168,38 @@ class OutputBuffer {
         bool _noMoreBuffers,
         bool _noMoreData,
         bool _finished,
+        int64_t _bufferedBytes,
+        int64_t _bufferedPages,
+        int64_t _totalRowsSent,
+        int64_t _totalPagesSent,
         const std::vector<DestinationBuffer::Stats>& _buffersStats)
         : kind(_kind),
           noMoreBuffers(_noMoreBuffers),
           noMoreData(_noMoreData),
           finished(_finished),
+          bufferedBytes(_bufferedBytes),
+          bufferedPages(_bufferedPages),
+          totalRowsSent(_totalRowsSent),
+          totalPagesSent(_totalPagesSent),
           buffersStats(_buffersStats) {}
 
-    const core::PartitionedOutputNode::Kind kind;
+    core::PartitionedOutputNode::Kind kind;
 
-    /// States of the OutputBuffer.
-    const bool noMoreBuffers;
-    const bool noMoreData;
-    const bool finished;
+    /// States of this output buffer.
+    bool noMoreBuffers{false};
+    bool noMoreData{false};
+    bool finished{false};
+
+    /// The sum of buffered bytes/pages in this output buffer.
+    int64_t bufferedBytes{0};
+    int64_t bufferedPages{0};
+
+    /// The total number of rows/pages sent this output buffer.
+    int64_t totalRowsSent{0};
+    int64_t totalPagesSent{0};
 
     /// Stats of the OutputBuffer's destinations.
-    const std::vector<DestinationBuffer::Stats> buffersStats;
+    std::vector<DestinationBuffer::Stats> buffersStats;
   };
 
   OutputBuffer(
@@ -222,10 +238,9 @@ class OutputBuffer {
 
   void acknowledge(int destination, int64_t sequence);
 
-  // Deletes all data for 'destination'. Returns true if all
-  // destinations are deleted, meaning that the buffer is fully
-  // consumed and the producer can be marked finished and the buffers
-  // freed.
+  /// Deletes all data for 'destination'. Returns true if all destinations are
+  /// deleted, meaning that the buffer is fully consumed and the producer can be
+  /// marked finished and the buffers freed.
   bool deleteResults(int destination);
 
   void getData(
@@ -240,15 +255,16 @@ class OutputBuffer {
 
   std::string toString();
 
-  // Gets the memory utilization ratio in this output buffer.
+  /// Gets the memory utilization ratio in this output buffer.
   double getUtilization() const;
 
-  // Indicates if this output buffer is over-utilized, i.e. at least half full,
-  // and will start blocking producers soon. This is used to dynamically scale
-  // the number of consumers, for example, increase number of TableWriter tasks.
+  /// Indicates if this output buffer is over-utilized, i.e. at least half full,
+  /// and will start blocking producers soon. This is used to dynamically scale
+  /// the number of consumers, for example, increase number of TableWriter
+  /// tasks.
   bool isOverutilized() const;
 
-  // Gets the Stats of this output buffer.
+  /// Gets the Stats of this output buffer.
   Stats stats();
 
  private:
@@ -256,9 +272,13 @@ class OutputBuffer {
   // be unblocked.
   static constexpr int32_t kContinuePct = 90;
 
-  /// If this is called due to a driver processed all its data (no more data),
-  /// we increment the number of finished drivers. If it is called due to us
-  /// updating the total number of drivers, we don't.
+  void updateStatsWithEnqueuedPageLocked(int64_t pageBytes, int64_t pageRows);
+
+  void updateStatsWithFreedPagesLocked(int numPages, int64_t pageBytes);
+
+  // If this is called due to a driver processed all its data (no more data),
+  // we increment the number of finished drivers. If it is called due to us
+  // updating the total number of drivers, we don't.
   void checkIfDone(bool oneDriverFinished);
 
   // Updates buffered size and returns possibly continuable producer promises
@@ -324,7 +344,12 @@ class OutputBuffer {
 
   std::mutex mutex_;
   // Actual data size in 'buffers_'.
-  uint64_t totalSize_ = 0;
+  int64_t bufferedBytes_{0};
+  // The number of buffered pages which corresponds to 'bufferedBytes_'.
+  int64_t bufferedPages_{0};
+  // The total number of output rows and pages.
+  uint64_t numOutputRows_{0};
+  uint64_t numOutputPages_{0};
   std::vector<ContinuePromise> promises_;
   // The next buffer index in 'buffers_' to load data from arbitrary buffer
   // which is only used by arbitrary output type.

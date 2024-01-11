@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "velox/exec/Driver.h"
+#include "velox/exec/OutputBuffer.h"
 
 namespace facebook::velox::exec {
 
@@ -96,6 +97,9 @@ struct TaskStats {
   double outputBufferUtilization{0};
   /// Indicates if output buffer is over-utilized and thus blocks the producers.
   bool outputBufferOverutilized{false};
+
+  /// Output buffer stats if present.
+  std::optional<OutputBuffer::Stats> outputBufferStats;
 
   /// The longest still running operator call in "op::call" format.
   std::string longestRunningOpCall;
