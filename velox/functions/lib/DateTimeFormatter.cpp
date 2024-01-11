@@ -61,7 +61,7 @@ struct Date {
 
   bool isClockHour = false; // Whether most recent hour specifier is clockhour
   bool isHourOfHalfDay =
-      false; // Whether most recent hour specifier is of half day.
+      true; // Whether most recent hour specifier is of half day.
 
   std::vector<int32_t> dayOfMonthValues;
   std::vector<int32_t> dayOfYearValues;

@@ -1004,6 +1004,17 @@ TEST_F(JodaDateTimeFormatterTest, parseHalfOfDay) {
   EXPECT_EQ(
       util::fromTimestampString("1970-01-01 12:00:00"),
       parseJoda("1 AM 12", "h a H").timestamp);
+
+  // Half of day still has effect even though hour or clockhour is not provided.
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 12:00:00"),
+      parseJoda("PM", "a").timestamp);
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 12:11:11"),
+      parseJoda("11:11 PM", "mm:ss a").timestamp);
+  EXPECT_EQ(
+      util::fromTimestampString("2018-04-28 12:59:30"),
+      parseJoda("2018-04-28 59:30 PM", "yyyy-MM-dd mm:ss a").timestamp);
 }
 
 TEST_F(JodaDateTimeFormatterTest, parseMinute) {
