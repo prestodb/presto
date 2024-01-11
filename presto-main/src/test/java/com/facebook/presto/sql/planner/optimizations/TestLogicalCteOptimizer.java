@@ -282,7 +282,7 @@ public class TestLogicalCteOptimizer
                 anyTree(values("text_column", "number_column")));
     }
 
-    private String addQueryScopeDelimiter(String cteName, int scope)
+    public static String addQueryScopeDelimiter(String cteName, int scope)
     {
         return String.valueOf(scope) + delimiter + cteName;
     }

@@ -92,6 +92,7 @@ public class FeaturesConfig
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
 
     private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
+    private boolean cteFilterAndProjectionPushdownEnabled = true;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
@@ -594,6 +595,19 @@ public class FeaturesConfig
     public FeaturesConfig setCteMaterializationStrategy(CteMaterializationStrategy cteMaterializationStrategy)
     {
         this.cteMaterializationStrategy = cteMaterializationStrategy;
+        return this;
+    }
+
+    public boolean getCteFilterAndProjectionPushdownEnabled()
+    {
+        return cteFilterAndProjectionPushdownEnabled;
+    }
+
+    @Config("cte-filter-and-projection-pushdown-enabled")
+    @ConfigDescription("Enable pushing down filters and projections inside common table expressions")
+    public FeaturesConfig setCteFilterAndProjectionPushdownEnabled(boolean cteFilterAndProjectionPushdownEnabled)
+    {
+        this.cteFilterAndProjectionPushdownEnabled = cteFilterAndProjectionPushdownEnabled;
         return this;
     }
 

@@ -792,6 +792,34 @@ public class TestCteExecution
                 "DROP View non_persistent_view");
     }
 
+    public void testCteProjectionPushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String query = "WITH  temp as (SELECT * FROM ORDERS) " +
+                "SELECT * FROM (select orderkey from temp) t JOIN (select custkey, orderkey as orderkey2 from temp) t2 ON t.orderkey=t2.orderkey2";
+        compareResults(queryRunner.execute(getMaterializedSession(), query),
+                queryRunner.execute(getSession(), query));
+    }
+
+    public void testCteFilterPushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String query = "WITH  temp as (SELECT * FROM ORDERS) " +
+                "SELECT * FROM (select orderkey from temp where orderkey > 20) t JOIN (select custkey, orderkey as orderkey2 from temp where custkey < 1000) t2 ON t.orderkey=t2.orderkey2";
+        compareResults(queryRunner.execute(getMaterializedSession(), query),
+                queryRunner.execute(getSession(), query));
+    }
+
+    public void testCteNoFilterPushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        // one CTE consumer used without a filter: no filter pushdown
+        String query = "WITH  temp as (SELECT * FROM ORDERS) " +
+                "SELECT * FROM (select orderkey from temp where orderkey > 20) t UNION ALL select orderkey from temp";
+        compareResults(queryRunner.execute(getMaterializedSession(), query),
+                queryRunner.execute(getSession(), query));
+    }
+
     private void compareResults(MaterializedResult actual, MaterializedResult expected)
     {
         compareResults(actual, expected, false);
