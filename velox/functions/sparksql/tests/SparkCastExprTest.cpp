@@ -16,6 +16,7 @@
 
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/sparksql/Register.h"
+#include "velox/parse/TypeResolver.h"
 
 using namespace facebook::velox;
 namespace facebook::velox::test {
@@ -23,8 +24,10 @@ namespace {
 
 class SparkCastExprTest : public functions::test::CastBaseTest {
  protected:
-  SparkCastExprTest() {
+  static void SetUpTestCase() {
+    parse::registerTypeResolver();
     functions::sparksql::registerFunctions("");
+    memory::MemoryManager::testingSetInstance({});
   }
 
   template <typename T>
