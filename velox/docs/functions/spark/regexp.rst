@@ -35,7 +35,7 @@ See https://github.com/google/re2/wiki/Syntax for more information.
 
         SELECT rlike('1a 2b 14m', '\d+b'); -- true
 
-.. spark:function:: regex_replace(string, pattern, overwrite) -> varchar
+.. spark:function:: regexp_replace(string, pattern, overwrite) -> varchar
 
     Replaces all substrings in ``string`` that match the regular expression ``pattern`` with the string ``overwrite``. If no match is found, the original string is returned as is.
     There is a limit to the number of unique regexes to be compiled per function call, which is 20.
@@ -50,11 +50,11 @@ See https://github.com/google/re2/wiki/Syntax for more information.
 
     ::
 
-        SELECT regex_replace('Hello, World!', 'l', 'L'); -- 'HeLLo, WorLd!'
-        SELECT regex_replace('300-300', '(\\d+)-(\\d+)', '400'); -- '400'
-        SELECT regex_replace('300-300', '(\\d+)', '400'); -- '400-400'
+        SELECT regexp_replace('Hello, World!', 'l', 'L'); -- 'HeLLo, WorLd!'
+        SELECT regexp_replace('300-300', '(\\d+)-(\\d+)', '400'); -- '400'
+        SELECT regexp_replace('300-300', '(\\d+)', '400'); -- '400-400'
 
-.. spark:function:: regex_replace(string, pattern, overwrite, position) -> varchar
+.. spark:function:: regexp_replace(string, pattern, overwrite, position) -> varchar
     :noindex:
 
     Replaces all substrings in ``string`` that match the regular expression ``pattern`` with the string ``overwrite`` starting from the specified ``position``. If the ``position`` is less than one, the function returns an error. If ``position`` is greater than the length of ``string``, the function returns the original ``string`` without any modifications.
@@ -72,8 +72,8 @@ See https://github.com/google/re2/wiki/Syntax for more information.
 
     ::
 
-        SELECT regex_replace('Hello, World!', 'l', 'L', 6); -- 'Hello, WorLd!'
+        SELECT regexp_replace('Hello, World!', 'l', 'L', 6); -- 'Hello, WorLd!'
 
-        SELECT regex_replace('Hello, World!', 'l', 'L', -5); -- 'Hello, World!'
+        SELECT regexp_replace('Hello, World!', 'l', 'L', -5); -- 'Hello, World!'
 
-        SELECT regex_replace('Hello, World!', 'l', 'L', 100); -- ERROR: Position exceeds string length.
+        SELECT regexp_replace('Hello, World!', 'l', 'L', 100); -- ERROR: Position exceeds string length.

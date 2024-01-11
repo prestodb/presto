@@ -62,8 +62,8 @@ std::shared_ptr<exec::VectorFunction> makeRegexExtract(
 
 /// Full implementation of RegexReplace found in SparkSQL only,
 /// due to semantic mismatches betweeen Spark and Presto
-/// regex_replace(string, pattern, overwrite) → string
-/// regex_replace(string, pattern, overwrite, position) → string
+/// regexp_replace(string, pattern, overwrite) → string
+/// regexp_replace(string, pattern, overwrite, position) → string
 ///
 /// If a string has a substring that matches the given pattern, replace
 /// the match in the string with overwrite and return the string. If
@@ -72,6 +72,6 @@ std::shared_ptr<exec::VectorFunction> makeRegexExtract(
 ///
 /// If position <= 0, throw error.
 /// If position > length string, return string.
-void registerRegexReplace(const std::string& prefix);
+void registerRegexpReplace(const std::string& prefix);
 
 } // namespace facebook::velox::functions::sparksql
