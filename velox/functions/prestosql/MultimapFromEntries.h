@@ -28,15 +28,9 @@ struct MultimapFromEntriesFunction {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Map<Generic<T1>, Array<Generic<T2>>>>& out,
       const arg_type<Array<Row<Generic<T1>, Generic<T2>>>>& inputArray) {
-    // Use std::unordered_map to ensure deterministic order of keys in the
-    // result. Without ensuring deterministic order of keys, the results of
-    // expressions like map_keys(multimap_from_entries(...)) will be
-    // non-deterministic and trigger Fuzzer failures. F14Map is faster, but in
-    // debug builds it returns keys in non-deterministic order (on purpose).
-    std::unordered_map<
-        exec::GenericView,
-        std::vector<std::optional<exec::GenericView>>>
-        keyValuesMap;
+    // Reuse map between rows to avoid re-allocating memory. The benchmark shows
+    // 20-30% performance improvement.
+    keyValuesMap_.clear();
 
     for (const auto& entry : inputArray.skipNulls()) {
       const auto& key = entry.template at<0>();
@@ -44,11 +38,11 @@ struct MultimapFromEntriesFunction {
 
       VELOX_USER_CHECK(key.has_value(), "map key cannot be null")
 
-      auto result = keyValuesMap.insert({key.value(), {}});
+      auto result = keyValuesMap_.insert({key.value(), {}});
       result.first->second.push_back(value);
     }
 
-    for (const auto& [key, values] : keyValuesMap) {
+    for (const auto& [key, values] : keyValuesMap_) {
       auto [keyWriter, valueWriter] = out.add_item();
       keyWriter.copy_from(key);
       for (const auto& value : values) {
@@ -60,6 +54,17 @@ struct MultimapFromEntriesFunction {
       }
     }
   }
+
+ private:
+  // Use std::unordered_map to ensure deterministic order of keys in the
+  // result. Without ensuring deterministic order of keys, the results of
+  // expressions like map_keys(multimap_from_entries(...)) will be
+  // non-deterministic and trigger Fuzzer failures. F14Map is faster, but in
+  // debug builds it returns keys in non-deterministic order (on purpose).
+  std::unordered_map<
+      exec::GenericView,
+      std::vector<std::optional<exec::GenericView>>>
+      keyValuesMap_;
 };
 
 } // namespace facebook::velox::functions
