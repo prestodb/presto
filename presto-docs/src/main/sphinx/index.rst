@@ -18,6 +18,7 @@ Presto Documentation
     sql
     migration
     rest
+    ecosystem
     router
     develop
     release
