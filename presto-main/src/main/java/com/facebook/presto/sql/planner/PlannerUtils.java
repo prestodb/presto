@@ -37,6 +37,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -502,5 +503,12 @@ public class PlannerUtils
         return searchFrom(plan, lookup)
                 .where(planNode -> planNode instanceof TableScanNode && isInternalSystemConnector(((TableScanNode) planNode).getTable().getConnectorId()))
                 .matches();
+    }
+
+    public static boolean isConstant(RowExpression expression, Type type, Object value)
+    {
+        return expression instanceof ConstantExpression &&
+                ((ConstantExpression) expression).getType() == type &&
+                ((ConstantExpression) expression).getValue() == value;
     }
 }
