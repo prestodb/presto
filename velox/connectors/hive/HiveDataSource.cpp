@@ -710,6 +710,8 @@ void HiveDataSource::setFromDataSource(
 
   split_ = std::move(source->split_);
   if (source->splitReader_ && source->splitReader_->emptySplit()) {
+    runtimeStats_.skippedSplits += source->runtimeStats_.skippedSplits;
+    runtimeStats_.skippedSplitBytes += source->runtimeStats_.skippedSplitBytes;
     return;
   }
   source->scanSpec_->moveAdaptationFrom(*scanSpec_);

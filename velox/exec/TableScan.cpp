@@ -92,6 +92,7 @@ RowVectorPtr TableScan::getOutput() {
 
       if (!split.hasConnectorSplit()) {
         noMoreSplits_ = true;
+        pendingDynamicFilters_.clear();
         if (dataSource_) {
           auto connectorStats = dataSource_->runtimeStats();
           auto lockedStats = stats_.wlock();
@@ -132,7 +133,6 @@ RowVectorPtr TableScan::getOutput() {
         for (const auto& entry : pendingDynamicFilters_) {
           dataSource_->addDynamicFilter(entry.first, entry.second);
         }
-        pendingDynamicFilters_.clear();
       }
 
       debugString_ = fmt::format(
@@ -256,6 +256,7 @@ void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
        ctx = operatorCtx_->createConnectorQueryCtx(
            split->connectorId, planNodeId(), connectorPool_),
        task = operatorCtx_->task(),
+       pendingDynamicFilters = pendingDynamicFilters_,
        split]() -> std::unique_ptr<connector::DataSource> {
         if (task->isCancelled()) {
           return nullptr;
@@ -271,6 +272,9 @@ void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
         auto ptr = connector->createDataSource(type, table, columns, ctx.get());
         if (task->isCancelled()) {
           return nullptr;
+        }
+        for (const auto& entry : pendingDynamicFilters) {
+          ptr->addDynamicFilter(entry.first, entry.second);
         }
         ptr->addSplit(split);
         return ptr;
@@ -309,9 +313,8 @@ void TableScan::addDynamicFilter(
     const std::shared_ptr<common::Filter>& filter) {
   if (dataSource_) {
     dataSource_->addDynamicFilter(outputChannel, filter);
-  } else {
-    pendingDynamicFilters_.emplace(outputChannel, filter);
   }
+  pendingDynamicFilters_.emplace(outputChannel, filter);
 }
 
 } // namespace facebook::velox::exec
