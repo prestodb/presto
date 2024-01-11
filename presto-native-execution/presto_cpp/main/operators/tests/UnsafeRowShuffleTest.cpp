@@ -186,16 +186,12 @@ class TestShuffleReader : public ShuffleReader {
           readyPartitions)
       : partition_(partition), readyPartitions_(readyPartitions) {}
 
-  bool hasNext() override {
-    TestValue::adjust(
-        "facebook::presto::operators::test::TestShuffleReader::hasNext", this);
-    return !(*readyPartitions_)[partition_].empty();
-  }
-
   BufferPtr next() override {
     TestValue::adjust(
         "facebook::presto::operators::test::TestShuffleReader::next", this);
-    VELOX_CHECK(!(*readyPartitions_)[partition_].empty());
+    if ((*readyPartitions_)[partition_].empty()) {
+      return nullptr;
+    }
 
     auto buffer = (*readyPartitions_)[partition_].back();
     (*readyPartitions_)[partition_].pop_back();
@@ -811,14 +807,6 @@ TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   params.planNode = exec::test::PlanBuilder()
                         .addNode(addShuffleReadNode(asRowType(data->type())))
                         .planNode();
-  {
-    SCOPED_TESTVALUE_SET(
-        "facebook::presto::operators::test::TestShuffleReader::hasNext",
-        injectFailure);
-
-    VELOX_ASSERT_THROW(
-        runShuffleReadTask(params, info), "ShuffleReader::hasNext failed");
-  }
 
   {
     SCOPED_TESTVALUE_SET(
