@@ -339,15 +339,34 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   return info.taskStatus;
 }
 
+void PrestoTask::updateOutputBufferInfoLocked(
+    const velox::exec::TaskStats& taskStats) {
+  if (!taskStats.outputBufferStats.has_value()) {
+    return;
+  }
+  const auto& outputBufferStats = taskStats.outputBufferStats.value();
+  auto& outputBufferInfo = info.outputBuffers;
+  outputBufferInfo.type =
+      velox::core::PartitionedOutputNode::kindString(outputBufferStats.kind);
+  outputBufferInfo.canAddBuffers = !outputBufferStats.noMoreBuffers;
+  outputBufferInfo.canAddPages = !outputBufferStats.noMoreData;
+  outputBufferInfo.totalBufferedBytes = outputBufferStats.bufferedBytes;
+  outputBufferInfo.totalBufferedPages = outputBufferStats.bufferedPages;
+  outputBufferInfo.totalPagesSent = outputBufferStats.totalPagesSent;
+  outputBufferInfo.totalRowsSent = outputBufferStats.totalRowsSent;
+  // TODO: populate state and destination buffer stats in info.outputBuffers.
+}
+
 protocol::TaskInfo PrestoTask::updateInfoLocked() {
   protocol::TaskStatus taskStatus = updateStatusLocked();
 
   // Return limited info if there is no exec task.
-  if (!task) {
+  if (task == nullptr) {
     return info;
   }
 
   const velox::exec::TaskStats taskStats = task->taskStats();
+  updateOutputBufferInfoLocked(taskStats);
   protocol::TaskStats& prestoTaskStats = info.stats;
   // Clear the old runtime metrics as not all of them would be overwritten by
   // the new ones.
