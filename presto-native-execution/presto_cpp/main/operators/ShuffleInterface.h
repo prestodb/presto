@@ -37,11 +37,6 @@ class ShuffleReader {
  public:
   virtual ~ShuffleReader() = default;
 
-  /// Deprecate, do not use!
-  virtual bool hasNext() {
-    return true;
-  }
-
   /// Reads the next block of data. The function returns null if it has read all
   /// the data. The function throws if run into any error.
   virtual velox::BufferPtr next() = 0;
