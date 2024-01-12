@@ -307,7 +307,7 @@ std::shared_ptr<MemoryPool> MemoryPool::addLeafChild(
     std::unique_ptr<MemoryReclaimer> reclaimer) {
   CHECK_POOL_MANAGEMENT_OP(addLeafChild);
 
-  folly::SharedMutex::WriteHolder guard{poolMutex_};
+  std::unique_lock guard{poolMutex_};
   VELOX_CHECK_EQ(
       children_.count(name),
       0,
@@ -329,7 +329,7 @@ std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
     std::unique_ptr<MemoryReclaimer> reclaimer) {
   CHECK_POOL_MANAGEMENT_OP(addAggregateChild);
 
-  folly::SharedMutex::WriteHolder guard{poolMutex_};
+  std::unique_lock guard{poolMutex_};
   VELOX_CHECK_EQ(
       children_.count(name),
       0,
@@ -348,7 +348,7 @@ std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
 
 void MemoryPool::dropChild(const MemoryPool* child) {
   CHECK_POOL_MANAGEMENT_OP(dropChild);
-  folly::SharedMutex::WriteHolder guard{poolMutex_};
+  std::unique_lock guard{poolMutex_};
   const auto ret = children_.erase(child->name());
   VELOX_CHECK_EQ(
       ret,

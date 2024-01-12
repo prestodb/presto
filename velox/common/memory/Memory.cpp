@@ -188,7 +188,7 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   options.debugEnabled = debugEnabled_;
   options.coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled_;
 
-  folly::SharedMutex::WriteHolder guard{mutex_};
+  std::unique_lock guard{mutex_};
   if (pools_.find(poolName) != pools_.end()) {
     VELOX_FAIL("Duplicate root pool name found: {}", poolName);
   }
@@ -231,7 +231,7 @@ uint64_t MemoryManager::shrinkPools(uint64_t targetBytes) {
 
 void MemoryManager::dropPool(MemoryPool* pool) {
   VELOX_CHECK_NOT_NULL(pool);
-  folly::SharedMutex::WriteHolder guard{mutex_};
+  std::unique_lock guard{mutex_};
   auto it = pools_.find(pool->name());
   if (it == pools_.end()) {
     VELOX_FAIL("The dropped memory pool {} not found", pool->name());
