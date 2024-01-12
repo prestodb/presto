@@ -642,7 +642,7 @@ jobs:
             pip install deepdiff
             python ./scripts/signature.py export --presto presto_pr_signatures.json
             python ./scripts/signature.py export --spark spark_pr_signatures.json
-            if python ./scripts/signature.py bias presto_merge_base_signatures.json presto_pr_signatures.json /tmp/presto_bias_functions ; \
+            if python ./scripts/signature.py bias presto_merge_base_signatures.json presto_pr_signatures.json /tmp/presto_bias_functions 2>&1 > /tmp/presto-err-message; \
             then echo "Presto signature check success" ; else echo "Presto signature check failed" > /tmp/presto-signature-error-code ; fi
             if python ./scripts/signature.py bias spark_merge_base_signatures.json spark_pr_signatures.json /tmp/spark_bias_functions ; \
             then echo "Spark signature check success"; else echo "Spark signature check failed" > /tmp/spark-signature-error-code ; fi
@@ -684,7 +684,11 @@ jobs:
       - run:
           name: "Surface only Presto function signature errors if any"
           command: |
-              if [ -f /tmp/presto-signature-error-code ]; then return 1 ; fi
+              if [ -f /tmp/presto-signature-error-code ]; then \
+              echo "Incompatible changes have been made to function signatures:\n"; \
+              cat /tmp/presto-err-message ; \
+              exit 1 ; \
+              fi
 
 
 workflows:
