@@ -411,12 +411,11 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
     SystemConfig::instance()->setValue(
         std::string(SystemConfig::kExchangeImmediateBufferTransfer),
         GetParam().immediateBufferTransfer ? "true" : "false");
-    SystemConfig::instance()->setValue(
-        std::string(SystemConfig::kHttpsClientCertAndKeyPath),
-        getCertsPath("client_ca.pem"));
-    SystemConfig::instance()->setValue(
-        std::string(SystemConfig::kHttpsSupportedCiphers),
-        "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384");
+    const std::string keyPath = getCertsPath("client_ca.pem");
+    const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
+    sslContext_ = std::make_shared<folly::SSLContext>();
+    sslContext_->loadCertKeyPairFromFiles(keyPath.c_str(), keyPath.c_str());
+    sslContext_->setCiphersOrThrow(ciphers);
   }
 
   void TearDown() override {
@@ -443,7 +442,8 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         pool != nullptr ? pool : pool_.get(),
         exchangeCpuExecutor_.get(),
         exchangeIoExecutor_.get(),
-        &connectionPools_);
+        &connectionPools_,
+        useHttps ? sslContext_ : nullptr);
   }
 
   void requestNextPage(
@@ -460,6 +460,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_;
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_;
   ConnectionPools connectionPools_;
+  folly::SSLContextPtr sslContext_;
 };
 
 int64_t totalBytes(const std::vector<std::string>& pages) {

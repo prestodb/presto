@@ -188,10 +188,15 @@ class SystemConfig : public ConfigBase {
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
       "http-server.https.enabled"};
+  // List of comma separated ciphers the client can use.
+  ///
+  /// NOTE: the client needs to have at least one cipher shared with server
+  // to communicate.
   static constexpr std::string_view kHttpsSupportedCiphers{
       "https-supported-ciphers"};
   static constexpr std::string_view kHttpsCertPath{"https-cert-path"};
   static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
+  // Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
 
