@@ -46,8 +46,24 @@ public class BaseHiveTableLayoutHandle
             @JsonProperty("domainPredicate") TupleDomain<Subfield> domainPredicate,
             @JsonProperty("remainingPredicate") RowExpression remainingPredicate,
             @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
-            @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate,
-            @JsonProperty("partitions") Optional<List<HivePartition>> partitions)
+            @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate)
+    {
+        this(
+                partitionColumns,
+                domainPredicate,
+                remainingPredicate,
+                pushdownFilterEnabled,
+                partitionColumnPredicate,
+                Optional.empty());
+    }
+
+    public BaseHiveTableLayoutHandle(
+            List<BaseHiveColumnHandle> partitionColumns,
+            TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
+            boolean pushdownFilterEnabled,
+            TupleDomain<ColumnHandle> partitionColumnPredicate,
+            Optional<List<HivePartition>> partitions)
     {
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.domainPredicate = requireNonNull(domainPredicate, "domainPredicate is null");
