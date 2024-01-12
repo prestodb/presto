@@ -81,14 +81,12 @@ Announcer::Announcer(
     const std::string& nodeLocation,
     const std::vector<std::string>& connectorIds,
     const uint64_t maxFrequencyMs,
-    const std::string& clientCertAndKeyPath,
-    const std::string& ciphers)
+    folly::SSLContextPtr sslContext)
     : PeriodicServiceInventoryManager(
           address,
           port,
           coordinatorDiscoverer,
-          clientCertAndKeyPath,
-          ciphers,
+          std::move(sslContext),
           "Announcement",
           maxFrequencyMs),
       announcementBody_(announcementBody(

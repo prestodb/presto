@@ -16,6 +16,7 @@
 #include <folly/SocketAddress.h>
 #include <folly/Synchronized.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include <folly/io/async/SSLContext.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <velox/exec/Task.h>
 #include <velox/expression/Expr.h>
@@ -219,6 +220,7 @@ class PrestoServer {
   std::string nodeId_;
   std::string address_;
   std::string nodeLocation_;
+  folly::SSLContextPtr sslContext_;
 };
 
 } // namespace facebook::presto

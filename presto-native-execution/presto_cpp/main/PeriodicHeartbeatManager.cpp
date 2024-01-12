@@ -19,16 +19,14 @@ PeriodicHeartbeatManager::PeriodicHeartbeatManager(
     const std::string& address,
     int port,
     const std::shared_ptr<CoordinatorDiscoverer>& coordinatorDiscoverer,
-    const std::string& clientCertAndKeyPath,
-    const std::string& ciphers,
+    folly::SSLContextPtr sslContext,
     std::function<protocol::NodeStatus()> nodeStatusFetcher,
     uint64_t frequencyMs)
     : PeriodicServiceInventoryManager(
           address,
           port,
           coordinatorDiscoverer,
-          clientCertAndKeyPath,
-          ciphers,
+          std::move(sslContext),
           "Heartbeat",
           frequencyMs),
       nodeStatusFetcher_(std::move(nodeStatusFetcher)) {}
