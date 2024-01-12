@@ -873,13 +873,18 @@ void copyBitsBackward(
     uint64_t targetOffset,
     uint64_t numBits);
 
-// Copies consecutive bits from 'source' to positions in 'target'
-// where 'targetMask' has a 1. 'source' may be a prefix of 'target',
-// so that contiguous bits of source are scattered in place. The
-// positions of 'target' where 'targetMask' is 0 are 0. A sample use
-// case is reading a column of boolean with nulls. The booleans
-// from the column get inserted into the places given by ones in the
-// present bitmap.
+/// Copies consecutive bits from 'source' to positions in 'target'
+/// where 'targetMask' has a 1. 'source' may be a prefix of 'target',
+/// so that contiguous bits of source are scattered in place. The
+/// positions of 'target' where 'targetMask' is 0 are 0. A sample use
+/// case is reading a column of boolean with nulls. The booleans from
+/// the column get inserted into the places given by ones in the
+/// present bitmap. All source, target and mask bit arrays are
+/// accessed at 64 bit width and must have a minimum of 64 bits plus
+/// one addressable byte after the last bit. Using std::vector as a
+/// bit array without explicit padding, for example, can crash with
+/// access to unmapped address if the vector happens to border on
+/// unmapped memory.
 void scatterBits(
     int32_t numSource,
     int32_t numTarget,

@@ -19,6 +19,8 @@
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/process/ProcessBase.h"
 
+#include <folly/BenchmarkUtil.h>
+
 namespace facebook::velox::bits {
 
 namespace {
@@ -118,6 +120,17 @@ void scatterBits(
   int32_t highBit = numTarget & 7;
   int lowByte = std::max(0, highByte - 7);
   auto maskAsBytes = reinterpret_cast<const char*>(targetMask);
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+  int32_t sourceOffset = std::min(0, (numSource / 8) - 7) + 1;
+  folly::doNotOptimizeAway(
+      *reinterpret_cast<const uint64_t*>(source + sourceOffset));
+  folly::doNotOptimizeAway(
+      *reinterpret_cast<const uint64_t*>(maskAsBytes + lowByte + 1));
+  folly::doNotOptimizeAway(*reinterpret_cast<uint64_t*>(target + lowByte + 1));
+#endif
+#endif
+
   // Loop from top to bottom of 'targetMask' up to 64 bits at a time,
   // with a partial word at either end. Count the set bits and fetch
   // as many consecutive bits of source data. Scatter the source bits

@@ -1201,15 +1201,12 @@ TEST(BooleanRle, skipTestWithNulls) {
   std::unique_ptr<SeekableInputStream> stream(
       new SeekableArrayInputStream(buffer, VELOX_ARRAY_SIZE(buffer)));
   std::unique_ptr<ByteRleDecoder> rle = createBooleanDecoder(std::move(stream));
-  std::vector<char> data;
-  // Buffers are expected to be writable in full words. Init a full
-  // word for valgrind, then resize to actually used size.
-  data.resize(bits::roundUp(3, 8));
+  raw_vector<char> data;
   data.resize(3);
   std::vector<uint64_t> someNull(1, ~0x0505050505050505);
   std::vector<uint64_t> allNull(1, bits::kNull64);
   for (size_t i = 0; i < 16384; i += 5) {
-    data.assign(data.size(), -1);
+    std::fill(data.begin(), data.end(), -1);
     rle->next(data.data(), data.size(), someNull.data());
     EXPECT_EQ(0, bits::isBitSet(data.data(), 0)) << "Output wrong at " << i;
     EXPECT_EQ(0, bits::isBitSet(data.data(), 2)) << "Output wrong at " << i;
@@ -1219,7 +1216,7 @@ TEST(BooleanRle, skipTestWithNulls) {
       rle->skip(4);
     }
     rle->skip(0);
-    data.assign(data.size(), -1);
+    std::fill(data.begin(), data.end(), -1);
     ;
     rle->next(data.data(), data.size(), allNull.data());
     for (size_t j = 0; j < data.size(); ++j) {
