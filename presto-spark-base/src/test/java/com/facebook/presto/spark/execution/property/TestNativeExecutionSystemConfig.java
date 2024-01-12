@@ -42,7 +42,8 @@ public class TestNativeExecutionSystemConfig
                 .setSpillEnabled(true)
                 .setAggregationSpillEnabled(true)
                 .setJoinSpillEnabled(true)
-                .setOrderBySpillEnabled(true));
+                .setOrderBySpillEnabled(true)
+                .setMaxSpillBytes(500L << 30));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
@@ -50,7 +51,8 @@ public class TestNativeExecutionSystemConfig
                 .setSpillEnabled(false)
                 .setAggregationSpillEnabled(false)
                 .setJoinSpillEnabled(false)
-                .setOrderBySpillEnabled(false);
+                .setOrderBySpillEnabled(false)
+                .setMaxSpillBytes(1L);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }
