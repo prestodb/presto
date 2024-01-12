@@ -132,10 +132,14 @@ bool OutputBufferManager::updateOutputBuffers(
   return false;
 }
 
-void OutputBufferManager::updateNumDrivers(
+bool OutputBufferManager::updateNumDrivers(
     const std::string& taskId,
     uint32_t newNumDrivers) {
-  getBuffer(taskId)->updateNumDrivers(newNumDrivers);
+  if (auto buffer = getBufferIfExists(taskId)) {
+    buffer->updateNumDrivers(newNumDrivers);
+    return true;
+  }
+  return false;
 }
 
 void OutputBufferManager::removeTask(const std::string& taskId) {

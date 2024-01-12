@@ -1149,6 +1149,9 @@ TEST_F(OutputBufferManagerTest, getDataOnFailedTask) {
       [](std::vector<std::unique_ptr<folly::IOBuf>> pages, int64_t sequence) {
         VELOX_UNREACHABLE();
       }));
+
+  // Missing tasks should be ignored in this call.
+  ASSERT_FALSE(bufferManager_->updateNumDrivers("test.0.2", 1));
 }
 
 TEST_F(OutputBufferManagerTest, updateBrodcastBufferOnFailedTask) {
