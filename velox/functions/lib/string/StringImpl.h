@@ -493,7 +493,7 @@ template <
 FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
     TOutString& output,
     const TInString& input) {
-  auto emtpyOutput = [&]() {
+  auto emptyOutput = [&]() {
     if constexpr (std::is_same_v<TOutString, StringView>) {
       output = StringView("");
     } else {
@@ -501,7 +501,7 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
     }
   };
   if (input.empty()) {
-    emtpyOutput;
+    emptyOutput();
     return;
   }
 
@@ -520,7 +520,7 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
     }
 
     if (curStartPos >= input.size()) {
-      emtpyOutput;
+      emptyOutput();
       return;
     }
   }
@@ -542,7 +542,7 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
     }
 
     if (endIndex < startIndex) {
-      emtpyOutput;
+      emptyOutput();
       return;
     }
   }
