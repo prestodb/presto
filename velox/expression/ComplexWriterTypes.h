@@ -137,6 +137,42 @@ class ArrayWriter {
     }
   }
 
+  void push_back(const OptionalAccessor<V>& item) {
+    if (!item.has_value()) {
+      add_null();
+    } else {
+      if constexpr (provide_std_interface<V>) {
+        push_back(item.value());
+      } else {
+        add_item().copy_from(item.value());
+      }
+    }
+  }
+
+  void push_back(const std::optional<GenericView>& inputView) {
+    if (inputView.has_value()) {
+      push_back(*inputView);
+    } else {
+      add_null();
+    }
+  }
+
+  void push_back(const GenericView& item) {
+    add_item().copy_from(item);
+  }
+
+  void push_back(const StringView& item) {
+    add_item().copy_from(item);
+  }
+
+  void push_back(const std::optional<StringView>& item) {
+    if (item.has_value()) {
+      push_back(*item);
+    } else {
+      add_null();
+    }
+  }
+
   // Add a new null item to the array.
   void add_null() {
     resize(length_ + 1);

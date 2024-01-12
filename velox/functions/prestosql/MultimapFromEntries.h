@@ -45,12 +45,9 @@ struct MultimapFromEntriesFunction {
     for (const auto& [key, values] : keyValuesMap_) {
       auto [keyWriter, valueWriter] = out.add_item();
       keyWriter.copy_from(key);
+
       for (const auto& value : values) {
-        if (value.has_value()) {
-          valueWriter.add_item().copy_from(value.value());
-        } else {
-          valueWriter.add_null();
-        }
+        valueWriter.push_back(value);
       }
     }
   }

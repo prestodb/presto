@@ -116,12 +116,7 @@ struct ArrayTrimFunction {
       const int64_t& n) {
     int64_t end = inputArray.size() - n;
     for (int i = 0; i < end; ++i) {
-      if (inputArray[i].has_value()) {
-        auto& newItem = out.add_item();
-        newItem.copy_from(inputArray[i].value());
-      } else {
-        out.add_null();
-      }
+      out.push_back(inputArray[i]);
     }
   }
 };

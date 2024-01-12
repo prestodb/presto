@@ -316,12 +316,16 @@ TEST_F(ArrayWriterTest, testVarChar) {
         stringWriter,
         "test a long string, a bit longer than that, longer, and longer");
   }
+
+  arrayWriter.push_back("new_feature"_sv);
+
   vectorWriter.commit();
   auto expected = std::vector<std::vector<std::optional<StringView>>>{
       {"hi"_sv,
        std::nullopt,
        "welcome"_sv,
-       "test a long string, a bit longer than that, longer, and longer"_sv}};
+       "test a long string, a bit longer than that, longer, and longer"_sv,
+       "new_feature"_sv}};
   assertEqualVectors(result, makeNullableArrayVector(expected));
 }
 
@@ -853,7 +857,6 @@ TEST_F(ArrayWriterTest, nestedArrayWriteThenCommitNull) {
     auto& nestedArray = current.add_item();
     nestedArray.push_back(1);
     nestedArray.push_back(2);
-
     writer.commitNull();
   }
 
