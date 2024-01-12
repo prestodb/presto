@@ -960,17 +960,58 @@ struct ConvFunction {
     }
   }
 
-  // For signed value, toBase is negative.
-  static void
-  toChars(out_type<Varchar>& result, int64_t signedValue, int32_t toBase) {
+  static std::pair<int64_t, int32_t> getSignedValueAndResultSize(
+      uint64_t unsignedValue,
+      bool isNegativeInput,
+      int32_t toBase) {
+    // This flag is used to make sure when we calculate the resultSize in
+    // `toChars` we always get a positive number. It is due to the
+    // `std::abs(min_int64)` would return a negative number.
+    auto isMinInt64Num =
+        unsignedValue == (uint64_t)std::numeric_limits<int64_t>::min();
+    int64_t signedValue;
+    int64_t absValue;
+    if (isMinInt64Num) {
+      signedValue = (int64_t)unsignedValue;
+      // `std::abs(min_int64)` return a negative number, so here we set
+      // absValue to max_int64 manually.
+      absValue = std::numeric_limits<int64_t>::max();
+    } else if (!isNegativeInput) {
+      signedValue = (int64_t)unsignedValue;
+      absValue = std::abs(signedValue);
+    } else {
+      signedValue = -std::abs((int64_t)unsignedValue);
+      absValue = std::abs(signedValue);
+    }
     int32_t resultSize =
-        (int32_t)std::floor(
-            std::log(std::abs(signedValue)) / std::log(-toBase)) +
-        1;
+        (int32_t)std::floor(std::log(absValue) / std::log(-toBase)) + 1;
     // Negative symbol is considered.
     if (signedValue < 0) {
       ++resultSize;
     }
+    return std::make_pair(signedValue, resultSize);
+  }
+
+  static std::pair<uint64_t, int32_t> getUnsignedValueAndResultSize(
+      uint64_t unsignedInput,
+      bool isNegativeInput,
+      int32_t toBase) {
+    uint64_t unsignedValue = unsignedInput;
+    if (isNegativeInput) {
+      int64_t negativeInput = -std::abs((int64_t)unsignedValue);
+      unsignedValue = (uint64_t)negativeInput;
+    } // Here directly use unsignedValue if isNegativeInput = false.
+    int32_t resultSize =
+        (int32_t)std::floor(std::log(unsignedValue) / std::log(toBase)) + 1;
+    return std::make_pair(unsignedValue, resultSize);
+  }
+
+  // For signed value, toBase is negative.
+  static void toChars(
+      out_type<Varchar>& result,
+      int64_t signedValue,
+      int32_t toBase,
+      int32_t resultSize) {
     result.resize(resultSize);
     auto toStatus = std::to_chars(
         result.data(), result.data() + result.size(), signedValue, -toBase);
@@ -978,10 +1019,11 @@ struct ConvFunction {
   }
 
   // For unsigned value, toBase is positive.
-  static void
-  toChars(out_type<Varchar>& result, uint64_t unsignedValue, int32_t toBase) {
-    int32_t resultSize =
-        (int32_t)std::floor(std::log(unsignedValue) / std::log(toBase)) + 1;
+  static void toChars(
+      out_type<Varchar>& result,
+      uint64_t unsignedValue,
+      int32_t toBase,
+      int32_t resultSize) {
     result.resize(resultSize);
     auto toStatus = std::to_chars(
         result.data(),
@@ -1011,8 +1053,8 @@ struct ConvFunction {
       ++i;
     }
 
-    uint64_t unsignedValue = toUnsigned(input, i, fromBase);
-    if (unsignedValue == 0) {
+    uint64_t unsignedInput = toUnsigned(input, i, fromBase);
+    if (unsignedInput == 0) {
       result.append("0");
       return true;
     }
@@ -1020,19 +1062,13 @@ struct ConvFunction {
     // When toBase is negative, converts to signed value. Otherwise, converts to
     // unsigned value. Overflow is allowed, consistent with Spark.
     if (toBase < 0) {
-      int64_t signedValue;
-      if (isNegativeInput) {
-        signedValue = -std::abs((int64_t)unsignedValue);
-      } else {
-        signedValue = (int64_t)unsignedValue;
-      }
-      toChars(result, signedValue, toBase);
+      auto [signedValue, resultSize] =
+          getSignedValueAndResultSize(unsignedInput, isNegativeInput, toBase);
+      toChars(result, signedValue, toBase, resultSize);
     } else {
-      if (isNegativeInput) {
-        int64_t negativeInput = -std::abs((int64_t)unsignedValue);
-        unsignedValue = (uint64_t)negativeInput;
-      } // Here directly use unsignedValue if isNegativeInput = false.
-      toChars(result, unsignedValue, toBase);
+      auto [unsignedValue, resultSize] =
+          getUnsignedValueAndResultSize(unsignedInput, isNegativeInput, toBase);
+      toChars(result, unsignedValue, toBase, resultSize);
     }
 
     // Converts to uppper case, consistent with Spark.
