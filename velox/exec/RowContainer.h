@@ -953,21 +953,13 @@ class RowContainer {
       uint8_t nullMask,
       const DecodedVector& decoded,
       vector_size_t index) {
-    using T = typename KindToFlatVector<Kind>::HashRowType;
     bool rowIsNull = isNullAt(row, nullByte, nullMask);
     bool indexIsNull = decoded.isNullAt(index);
     if (rowIsNull || indexIsNull) {
       return rowIsNull == indexIsNull;
     }
-    if (Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
-        Kind == TypeKind::MAP) {
-      return compareComplexType(row, offset, decoded, index) == 0;
-    }
-    if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
-      return compareStringAsc(
-                 valueAt<StringView>(row, offset), decoded, index) == 0;
-    }
-    return decoded.valueAt<T>(index) == valueAt<T>(row, offset);
+
+    return equalsNoNulls<Kind>(row, offset, decoded, index);
   }
 
   template <TypeKind Kind>
@@ -976,17 +968,17 @@ class RowContainer {
       int32_t offset,
       const DecodedVector& decoded,
       vector_size_t index) {
-    using T = typename KindToFlatVector<Kind>::HashRowType;
-
-    if (Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
+    if constexpr (
+        Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
         Kind == TypeKind::MAP) {
       return compareComplexType(row, offset, decoded, index) == 0;
     }
-    if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
+    if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       return compareStringAsc(
                  valueAt<StringView>(row, offset), decoded, index) == 0;
     }
 
+    using T = typename KindToFlatVector<Kind>::HashRowType;
     return decoded.valueAt<T>(index) == valueAt<T>(row, offset);
   }
 
