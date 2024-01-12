@@ -273,7 +273,8 @@ void run(
     uint8_t nullsRateX100,
     uint32_t nextSize,
     bool disableDictionary) {
-  ParquetReaderBenchmark benchmark(disableDictionary, asRowType(type));
+  RowTypePtr rowType = ROW({columnName}, {type});
+  ParquetReaderBenchmark benchmark(disableDictionary, rowType);
   BIGINT()->toString();
   benchmark.readSingleColumn(
       columnName, type, 0, filterRateX100, nullsRateX100, nextSize);
