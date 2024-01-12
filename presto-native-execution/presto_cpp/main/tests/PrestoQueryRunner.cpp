@@ -469,7 +469,8 @@ std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
       coordinatorUri_,
       std::chrono::milliseconds(10'000),
       std::chrono::milliseconds(20'000),
-      pool_);
+      pool_,
+      nullptr);
 
   auto response = ServerResponse(startQuery(sql, *client));
   response.throwIfFailed();

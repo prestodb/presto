@@ -76,14 +76,12 @@ PrestoExchangeSource::PrestoExchangeSource(
     folly::CPUThreadPoolExecutor* driverExecutor,
     folly::EventBase* ioEventBase,
     proxygen::SessionPool* sessionPool,
-    const std::string& clientCertAndKeyPath,
-    const std::string& ciphers)
+    folly::SSLContextPtr sslContext)
     : ExchangeSource(extractTaskId(baseUri.path()), destination, queue, pool),
       basePath_(baseUri.path()),
       host_(baseUri.host()),
       port_(baseUri.port()),
-      clientCertAndKeyPath_(clientCertAndKeyPath),
-      ciphers_(ciphers),
+      sslContext_(std::move(sslContext)),
       immediateBufferTransfer_(
           SystemConfig::instance()->exchangeImmediateBufferTransfer()),
       driverExecutor_(driverExecutor) {
@@ -109,8 +107,7 @@ PrestoExchangeSource::PrestoExchangeSource(
       requestTimeoutMs,
       connectTimeoutMs,
       immediateBufferTransfer_ ? pool_ : nullptr,
-      clientCertAndKeyPath_,
-      ciphers_,
+      sslContext_,
       [](size_t bufferBytes) {
         RECORD_METRIC_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
         RECORD_HISTOGRAM_METRIC_VALUE(
@@ -516,9 +513,11 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     velox::memory::MemoryPool* memoryPool,
     folly::CPUThreadPoolExecutor* cpuExecutor,
     folly::IOThreadPoolExecutor* ioExecutor,
-    ConnectionPools* connectionPools) {
+    ConnectionPools* connectionPools,
+    folly::SSLContextPtr sslContext) {
   folly::Uri uri(url);
   if (uri.scheme() == "http") {
+    VELOX_CHECK_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), false);
     auto [eventBase, sessionPool] =
         getSessionPool(connectionPools, ioExecutor, ep);
@@ -529,16 +528,14 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         memoryPool,
         cpuExecutor,
         eventBase,
-        sessionPool);
+        sessionPool,
+        sslContext);
   }
   if (uri.scheme() == "https") {
+    VELOX_CHECK_NOT_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), true);
     auto [eventBase, sessionPool] =
         getSessionPool(connectionPools, ioExecutor, ep);
-    const auto* systemConfig = SystemConfig::instance();
-    const auto clientCertAndKeyPath =
-        systemConfig->httpsClientCertAndKeyPath().value_or("");
-    const auto ciphers = systemConfig->httpsSupportedCiphers();
     return std::make_shared<PrestoExchangeSource>(
         uri,
         destination,
@@ -547,8 +544,7 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         cpuExecutor,
         eventBase,
         sessionPool,
-        clientCertAndKeyPath,
-        ciphers);
+        std::move(sslContext));
   }
   return nullptr;
 }

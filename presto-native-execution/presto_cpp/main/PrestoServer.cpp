@@ -176,6 +176,18 @@ void PrestoServer::run() {
             "Https Client Certificates are not configured correctly");
       }
       clientCertAndKeyPath = optionalClientCertPath.value();
+
+      try {
+        sslContext_ = std::make_shared<folly::SSLContext>();
+        sslContext_->loadCertKeyPairFromFiles(
+            clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
+        sslContext_->setCiphersOrThrow(ciphers);
+      } catch (const std::exception& ex) {
+        LOG(FATAL) << fmt::format(
+            "Unable to load certificate or key from {} : {}",
+            clientCertAndKeyPath,
+            ex.what());
+      }
     }
 
     if (systemConfig->internalCommunicationJwtEnabled()) {
@@ -237,17 +249,16 @@ void PrestoServer::run() {
         nodeLocation_,
         catalogNames,
         systemConfig->announcementMaxFrequencyMs(),
-        clientCertAndKeyPath,
-        ciphers);
+        sslContext_);
     announcer_->start();
+
     uint64_t heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
     if (heartbeatFrequencyMs > 0) {
       heartbeatManager_ = std::make_unique<PeriodicHeartbeatManager>(
           address_,
           httpsPort.has_value() ? httpsPort.value() : httpPort,
           coordinatorDiscoverer_,
-          clientCertAndKeyPath,
-          ciphers,
+          sslContext_,
           [server = this]() { return server->fetchNodeStatus(); },
           heartbeatFrequencyMs);
       heartbeatManager_->start();
@@ -352,7 +363,8 @@ void PrestoServer::run() {
             pool,
             driverExecutor_.get(),
             exchangeHttpExecutor_.get(),
-            exchangeSourceConnectionPools_.get());
+            exchangeSourceConnectionPools_.get(),
+            sslContext_);
       });
 
   facebook::velox::exec::ExchangeSource::registerFactory(

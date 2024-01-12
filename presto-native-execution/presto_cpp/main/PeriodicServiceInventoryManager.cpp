@@ -20,15 +20,13 @@ PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
     std::string address,
     int port,
     std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer,
-    std::string clientCertAndKeyPath,
-    std::string ciphers,
+    folly::SSLContextPtr sslContext,
     std::string id,
     uint64_t frequencyMs)
     : address_(std::move(address)),
       port_(port),
       coordinatorDiscoverer_(std::move(coordinatorDiscoverer)),
-      clientCertAndKeyPath_(std::move(clientCertAndKeyPath)),
-      ciphers_(std::move(ciphers)),
+      sslContext_(std::move(sslContext)),
       id_(std::move(id)),
       frequencyMs_(frequencyMs),
       pool_(velox::memory::deprecatedAddDefaultLeafMemoryPool(id_)),
@@ -72,8 +70,7 @@ void PeriodicServiceInventoryManager::sendRequest() {
           std::chrono::milliseconds(10'000),
           std::chrono::milliseconds(0),
           pool_,
-          clientCertAndKeyPath_,
-          ciphers_);
+          sslContext_);
     }
   } catch (const std::exception& ex) {
     LOG(WARNING) << "Error occurred during updating service address: "

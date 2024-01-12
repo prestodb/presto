@@ -108,8 +108,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       folly::CPUThreadPoolExecutor* driverExecutor,
       folly::EventBase* ioEventBase,
       proxygen::SessionPool* sessionPool,
-      const std::string& clientCertAndKeyPath_ = "",
-      const std::string& ciphers_ = "");
+      folly::SSLContextPtr sslContext);
 
   /// Returns 'true' is there is no request in progress, this source is not at
   /// end and most recent request hasn't failed. Transitions into
@@ -141,7 +140,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       velox::memory::MemoryPool* memoryPool,
       folly::CPUThreadPoolExecutor* cpuExecutor,
       folly::IOThreadPoolExecutor* ioExecutor,
-      ConnectionPools* connectionPools);
+      ConnectionPools* connectionPools,
+      folly::SSLContextPtr sslContext);
 
   /// Completes the future returned by 'request()' if it hasn't completed
   /// already.
@@ -247,8 +247,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const std::string basePath_;
   const std::string host_;
   const uint16_t port_;
-  const std::string clientCertAndKeyPath_;
-  const std::string ciphers_;
+  const folly::SSLContextPtr sslContext_;
   const bool immediateBufferTransfer_;
 
   folly::CPUThreadPoolExecutor* const driverExecutor_;
