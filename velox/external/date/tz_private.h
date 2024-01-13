@@ -34,6 +34,12 @@
 #include <vector>
 #endif
 
+namespace facebook
+{
+
+namespace velox
+{
+
 namespace date
 {
 
@@ -308,6 +314,10 @@ struct transition
 }  // namespace detail
 
 }  // namespace date
+
+}  // namespace velox
+
+}  // namespace facebook
 
 #if defined(_MSC_VER) && (_MSC_VER < 1900)
 #include "tz.h"

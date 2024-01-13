@@ -268,6 +268,10 @@ get_download_folder()
 
 #endif  // !USE_OS_TZDB
 
+namespace facebook
+{
+namespace velox
+{
 namespace date
 {
 // +---------------------+
@@ -3860,6 +3864,8 @@ current_zone()
 }
 
 }  // namespace date
+}  // namespace velox
+}  // namespace facebook
 
 #if defined(__GNUC__) && __GNUC__ < 5
 # pragma GCC diagnostic pop

@@ -24,11 +24,11 @@
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/type/StringView.h"
 
+namespace facebook::velox {
+
 namespace date {
 class time_zone;
 }
-
-namespace facebook::velox {
 
 struct TimestampToStringOptions {
   enum class Precision : int8_t {

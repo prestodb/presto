@@ -143,6 +143,10 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
 #  endif
 #endif
 
+namespace facebook
+{
+namespace velox
+{
 namespace date
 {
 
@@ -2790,5 +2794,7 @@ to_gps_time(const tai_time<Duration>& t)
 #endif  // !MISSING_LEAP_SECONDS
 
 }  // namespace date
+}  // namespace velox
+}  // namespace facebook
 
 #endif  // TZ_H

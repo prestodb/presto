@@ -86,6 +86,10 @@
 #   pragma warning(disable : 4127)
 #endif
 
+namespace facebook
+{
+namespace velox
+{
 namespace date
 {
 
@@ -7933,7 +7937,9 @@ operator<<(std::basic_ostream<CharT, Traits>& os,
                  detail::get_units<CharT>(typename Period::type{});
 }
 
-}  // namespace date
+} // namespace date
+} // namespace velox
+} // namespace facebook
 
 #ifdef _MSC_VER
 #   pragma warning(pop)

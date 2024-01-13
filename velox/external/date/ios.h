@@ -32,16 +32,22 @@
 # if TARGET_OS_IPHONE
 #   include <string>
 
+    namespace facebook
+    {
+    namespace velox
+    {
     namespace date
     {
     namespace iOSUtils
     {
-    
+
     std::string get_tzdata_path();
     std::string get_current_timezone();
-    
+
     }  // namespace iOSUtils
     }  // namespace date
+    }  // namespace velox
+    }  // namespace facebook
 
 # endif  // TARGET_OS_IPHONE
 #else   // !__APPLE__
