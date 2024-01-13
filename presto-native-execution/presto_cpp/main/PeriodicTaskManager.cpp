@@ -284,6 +284,17 @@ void PeriodicTaskManager::updateCacheStats() {
   RECORD_METRIC_VALUE(
       kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
 
+  if (memoryCacheStats.ssdStats) {
+    RECORD_METRIC_VALUE(
+        kCounterSsdCacheCachedEntries,
+        memoryCacheStats.ssdStats->entriesCached);
+    RECORD_METRIC_VALUE(
+        kCounterSsdCacheCachedRegions,
+        memoryCacheStats.ssdStats->regionsCached);
+    RECORD_METRIC_VALUE(
+        kCounterSsdCacheCachedBytes, memoryCacheStats.ssdStats->bytesCached);
+  }
+
   // Interval cumulatives.
   RECORD_METRIC_VALUE(
       kCounterMemoryCacheNumHit,

@@ -27,12 +27,7 @@ void PrometheusStatsReporter::registerMetricExportType(
     facebook::velox::StatType statType) const {
   std::lock_guard<std::mutex> lock(mutex_);
   registeredStats_.emplace(key, statType);
-  if (statType == velox::StatType::COUNT) {
-    counterMetrics.emplace(key, 0);
-  }
-  if (statType == velox::StatType::SUM) {
-    gaugeMetrics.emplace(key, std::vector<std::shared_ptr<Gauge>>());
-  }
+  metricsMap_.emplace(key, 0);
 }
 
 const uint64_t getCurrentEpochTimestamp() {
@@ -43,26 +38,19 @@ const uint64_t getCurrentEpochTimestamp() {
 
 void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
     const {
+  std::lock_guard<std::mutex> lock(mutex_);
   auto it = registeredStats_.find(key);
   if (it == registeredStats_.end()) {
-    VLOG(2) << "addMetricValue() for unregistered stat";
+    VLOG(1) << "addMetricValue() for unregistered stat " << key;
     return;
   }
   if (it->second == facebook::velox::StatType::COUNT) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto countItr = counterMetrics.find(key);
-    if (countItr == counterMetrics.end()) {
-      counterMetrics.emplace(key, 1);
-      return;
-    }
-    countItr->second++;
+    // increment the counter.
+    metricsMap_[key]++;
     return;
   }
-  std::lock_guard<std::mutex> lock(mutex_);
-  std::shared_ptr<Gauge> metric = std::make_shared<Gauge>();
-  metric->timestamp = getCurrentEpochTimestamp();
-  metric->value = value;
-  gaugeMetrics[key].push_back(std::move(metric));
+  // Gauge type metric value must be reset.
+  metricsMap_[key] = value;
 }
 
 void PrometheusStatsReporter::addMetricValue(
@@ -80,26 +68,18 @@ void PrometheusStatsReporter::addMetricValue(
 const std::string PrometheusStatsReporter::getMetricsForPrometheus() {
   std::lock_guard<std::mutex> lock(mutex_);
   std::stringstream ss;
-  for (const auto gauge : gaugeMetrics) {
-    auto metricName = gauge.first.substr(gauge.first.find(".") + 1);
+  for (const auto metric : metricsMap_) {
+    auto metricName = metric.first;
+    std::replace(metricName.begin(), metricName.end(), '.', '_');
+    auto statType = registeredStats_[metric.first];
     ss << "# HELP " << metricName << std::endl;
-    ss << "# TYPE " << metricName << " gauge" << std::endl;
-    for (auto metric : gauge.second) {
-      ss << metricName << "{cluster=\"" << cluster_ << "\""
-         << ",worker=\"" << workerPod_ << "\"} " << metric->value << " "
-         << metric->timestamp * 1000 << std::endl;
+    std::string statTypeStr = "gauge";
+    if (statType == facebook::velox::StatType::COUNT) {
+      statTypeStr = "counter";
     }
-    std::vector<std::shared_ptr<Gauge>> metricsVector = gauge.second;
-    metricsVector.clear();
-  }
-
-  for (const auto counter : counterMetrics) {
-    auto metricName = counter.first.substr(counter.first.find(".") + 1);
-    ss << "# HELP " << metricName << std::endl;
-    ss << "# TYPE " << metricName << " "
-       << "counter" << std::endl;
-    ss << metricName << "{cluster=\"" << cluster_ << "\",worker=\""
-       << workerPod_ << "\"} " << counter.second << std::endl;
+    ss << "# TYPE " << metricName << " " << statTypeStr << std::endl;
+    ss << metricName << "{cluster=\"" << cluster_ << "\""
+       << ",worker=\"" << workerPod_ << "\"} " << metric.second << std::endl;
   }
   return ss.str();
 }

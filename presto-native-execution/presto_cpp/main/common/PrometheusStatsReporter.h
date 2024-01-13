@@ -37,11 +37,6 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
     workerPod_ = !hostName ? worker : hostName;
   }
 
-  struct Gauge {
-    uint64_t timestamp; // Epoch timestamp.
-    size_t value; // Metric value.
-  };
-
   /// Register a stat of the given stat type.
   /// @param key The key to identify the stat.
   /// @param statType How the stat is aggregated.
@@ -115,12 +110,7 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   mutable std::unordered_map<std::string, facebook::velox::StatType>
       registeredStats_;
   /// A mapping from stats key of type COUNT to value.
-  mutable std::unordered_map<std::string, int64_t> counterMetrics;
-  /// A mapping from stats key to a vector of Gauge objects. Example AVG type
-  /// is a gauge. After every succesfull query of metrics, the values are
-  /// cleaned up.
-  mutable std::unordered_map<std::string, std::vector<std::shared_ptr<Gauge>>>
-      gaugeMetrics;
+  mutable std::unordered_map<std::string, int64_t> metricsMap_;
   // Mutex to control access to registeredStats_ and metricMap_ members.
   mutable std::mutex mutex_;
   std::string cluster_;
