@@ -16,6 +16,7 @@ package com.facebook.presto.router.scheduler;
 import com.facebook.airlift.log.Logger;
 
 import java.net.URI;
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -25,7 +26,7 @@ public class RandomChoiceScheduler
 {
     private List<URI> candidates;
 
-    private static final Random RANDOM = new Random();
+    private static final Random RANDOM = new SecureRandom();
     private static final Logger log = Logger.get(RandomChoiceScheduler.class);
 
     @Override

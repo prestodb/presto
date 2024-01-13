@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import com.google.common.net.HttpHeaders;
+import java.security.SecureRandom;
 import org.apache.pinot.spi.data.Schema;
 
 import javax.inject.Inject;
@@ -444,7 +445,7 @@ public class PinotClusterInfoFetcher
 
                 // We are given multiple routing tables for a table, each with different segment to host assignments
                 // We pick one randomly, so that a retry may hit a different server
-                Map<String, List<String>> routingTableEntries = routingTableEntriesList.get(new Random().nextInt(routingTableEntriesList.size()));
+                Map<String, List<String>> routingTableEntries = routingTableEntriesList.get(new SecureRandom().nextInt(routingTableEntriesList.size()));
                 ImmutableMap.Builder<String, List<String>> routingTableBuilder = ImmutableMap.builder();
                 routingTableEntries.forEach((host, segments) -> {
                     List<String> segmentsCopied = new ArrayList<>(segments);
