@@ -18,6 +18,7 @@
 
 #include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/common/ColumnVisitors.h"
+#include "velox/dwio/parquet/reader/ParquetReaderUtil.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
 #include "velox/vector/FlatVector.h"
 
@@ -118,36 +119,6 @@ const char* PageReader::readBytes(int32_t size, BufferPtr& copy) {
   return copy->as<char>();
 }
 
-common::CompressionKind PageReader::thriftCodecToCompressionKind() {
-  switch (codec_) {
-    case thrift::CompressionCodec::UNCOMPRESSED:
-      return common::CompressionKind::CompressionKind_NONE;
-      break;
-    case thrift::CompressionCodec::SNAPPY:
-      return common::CompressionKind::CompressionKind_SNAPPY;
-      break;
-    case thrift::CompressionCodec::GZIP:
-      return common::CompressionKind::CompressionKind_GZIP;
-      break;
-    case thrift::CompressionCodec::LZO:
-      return common::CompressionKind::CompressionKind_LZO;
-      break;
-    case thrift::CompressionCodec::LZ4:
-      return common::CompressionKind::CompressionKind_LZ4;
-      break;
-    case thrift::CompressionCodec::ZSTD:
-      return common::CompressionKind::CompressionKind_ZSTD;
-      break;
-    case thrift::CompressionCodec::LZ4_RAW:
-      return common::CompressionKind::CompressionKind_LZ4;
-    default:
-      VELOX_UNSUPPORTED(
-          "Unsupported compression type: " +
-          facebook::velox::parquet::thrift::to_string(codec_));
-      break;
-  }
-}
-
 const char* FOLLY_NONNULL PageReader::decompressData(
     const char* pageData,
     uint32_t compressedSize,
@@ -159,11 +130,11 @@ const char* FOLLY_NONNULL PageReader::decompressData(
       fmt::format("Page Reader: Stream {}", inputStream_->getName());
   std::unique_ptr<dwio::common::SeekableInputStream> decompressedStream =
       dwio::common::compression::createDecompressor(
-          thriftCodecToCompressionKind(),
+          thriftCodecToCompressionKind(codec_),
           std::move(inputStream),
           uncompressedSize,
           pool_,
-          getParquetDecompressionOptions(thriftCodecToCompressionKind()),
+          getParquetDecompressionOptions(thriftCodecToCompressionKind(codec_)),
           streamDebugInfo,
           nullptr,
           true,

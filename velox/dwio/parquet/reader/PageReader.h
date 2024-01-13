@@ -203,8 +203,6 @@ class PageReader {
   // straddles buffers. Allocates or resizes 'copy' as needed.
   const char* FOLLY_NONNULL readBytes(int32_t size, BufferPtr& copy);
 
-  common::CompressionKind thriftCodecToCompressionKind();
-
   // Decompresses data starting at 'pageData_', consuming 'compressedsize' and
   // producing up to 'uncompressedSize' bytes. The start of the decoding
   // result is returned. an intermediate copy may be made in 'decompresseddata_'
