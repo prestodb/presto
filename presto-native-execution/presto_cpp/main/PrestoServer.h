@@ -57,7 +57,7 @@ struct MemoryInfo;
 
 namespace facebook::presto {
 
-// Three states our server can be in.
+/// Three states server can be in.
 enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
 
 class Announcer;
