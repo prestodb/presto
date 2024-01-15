@@ -108,6 +108,23 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> addTableWriter(
   };
 }
 
+RowTypePtr getScanOutput(
+    const std::vector<std::string>& partitionedKeys,
+    const RowTypePtr& rowType) {
+  std::vector<std::string> dataColumnNames;
+  std::vector<TypePtr> dataColumnTypes;
+  for (auto i = 0; i < rowType->size(); i++) {
+    auto name = rowType->names()[i];
+    if (std::find(partitionedKeys.cbegin(), partitionedKeys.cend(), name) ==
+        partitionedKeys.cend()) {
+      dataColumnNames.emplace_back(name);
+      dataColumnTypes.emplace_back(rowType->findChild(name));
+    }
+  }
+
+  return ROW(std::move(dataColumnNames), std::move(dataColumnTypes));
+}
+
 FOLLY_ALWAYS_INLINE std::ostream& operator<<(std::ostream& os, TestMode mode) {
   os << testModeString(mode);
   return os;
@@ -208,13 +225,13 @@ class TableWriteTest : public HiveConnectorTestBase {
       std::vector<TypePtr> bucketedTypes = {REAL(), VARCHAR()};
       std::vector<std::shared_ptr<const HiveSortingColumn>> sortedBy;
       if (testParam_.bucketSort()) {
-        sortedBy = {
-            std::make_shared<const HiveSortingColumn>(
-                "c4", core::SortOrder{true, true}),
-            std::make_shared<const HiveSortingColumn>(
-                "c1", core::SortOrder{false, false})};
-        sortColumnIndices_ = {4, 1};
-        sortedFlags_ = {{true, true}, {false, false}};
+        // The sortedBy key shouldn't contain partitionBy key.
+        sortedBy = {std::make_shared<const HiveSortingColumn>(
+            "c4", core::SortOrder{true, true})};
+        // The sortColumnIndices_ should represent the indices after removing
+        // the partition keys.
+        sortColumnIndices_ = {2};
+        sortedFlags_ = {{true, true}};
       }
       bucketProperty_ = std::make_shared<HiveBucketProperty>(
           testParam_.bucketKind(), 4, bucketedBy, bucketedTypes, sortedBy);
@@ -841,7 +858,7 @@ class TableWriteTest : public HiveConnectorTestBase {
         PlanBuilder().tableScan(rowType_).planNode(),
         {makeHiveConnectorSplits(filePaths)},
         fmt::format(
-            "SELECT * FROM tmp WHERE {}",
+            "SELECT c2, c3, c4, c5 FROM tmp WHERE {}",
             partitionNameToPredicate(getPartitionDirNames(dirPath))));
   }
 
@@ -1493,12 +1510,20 @@ TEST_P(AllTableWriterTest, scanFilterProjectWrite) {
   // To test the correctness of the generated output,
   // We create a new plan that only read that file and then
   // compare that against a duckDB query that runs the whole query.
-  assertQuery(
-      PlanBuilder().tableScan(outputType).planNode(),
-      makeHiveConnectorSplits(outputDirectory),
-      "SELECT c0, c1, c3, c5, c2 + c3, substr(c5, 1, 1) FROM tmp WHERE c2 <> 0");
-
-  verifyTableWriterOutput(outputDirectory->path, outputType, false);
+  if (partitionedBy_.size() > 0) {
+    auto newOutputType = getScanOutput(partitionedBy_, outputType);
+    assertQuery(
+        PlanBuilder().tableScan(newOutputType).planNode(),
+        makeHiveConnectorSplits(outputDirectory),
+        "SELECT c3, c5, c2 + c3, substr(c5, 1, 1) FROM tmp WHERE c2 <> 0");
+    verifyTableWriterOutput(outputDirectory->path, newOutputType, false);
+  } else {
+    assertQuery(
+        PlanBuilder().tableScan(outputType).planNode(),
+        makeHiveConnectorSplits(outputDirectory),
+        "SELECT c0, c1, c3, c5, c2 + c3, substr(c5, 1, 1) FROM tmp WHERE c2 <> 0");
+    verifyTableWriterOutput(outputDirectory->path, outputType, false);
+  }
 }
 
 TEST_P(AllTableWriterTest, renameAndReorderColumns) {
@@ -1547,12 +1572,22 @@ TEST_P(AllTableWriterTest, renameAndReorderColumns) {
 
   assertQueryWithWriterConfigs(plan, filePaths, "SELECT count(*) FROM tmp");
 
-  HiveConnectorTestBase::assertQuery(
-      PlanBuilder().tableScan(tableSchema_).planNode(),
-      makeHiveConnectorSplits(outputDirectory),
-      "SELECT c2, c5, c4, c1, c0, c3 FROM tmp");
+  if (partitionedBy_.size() > 0) {
+    auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+    HiveConnectorTestBase::assertQuery(
+        PlanBuilder().tableScan(newOutputType).planNode(),
+        makeHiveConnectorSplits(outputDirectory),
+        "SELECT c2, c5, c4, c3 FROM tmp");
 
-  verifyTableWriterOutput(outputDirectory->path, tableSchema_, false);
+    verifyTableWriterOutput(outputDirectory->path, newOutputType, false);
+  } else {
+    HiveConnectorTestBase::assertQuery(
+        PlanBuilder().tableScan(tableSchema_).planNode(),
+        makeHiveConnectorSplits(outputDirectory),
+        "SELECT c2, c5, c4, c1, c0, c3 FROM tmp");
+
+    verifyTableWriterOutput(outputDirectory->path, tableSchema_, false);
+  }
 }
 
 // Runs a pipeline with read + write.
@@ -1583,12 +1618,22 @@ TEST_P(AllTableWriterTest, directReadWrite) {
   // We create a new plan that only read that file and then
   // compare that against a duckDB query that runs the whole query.
 
-  assertQuery(
-      PlanBuilder().tableScan(rowType_).planNode(),
-      makeHiveConnectorSplits(outputDirectory),
-      "SELECT * FROM tmp");
+  if (partitionedBy_.size() > 0) {
+    auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+    assertQuery(
+        PlanBuilder().tableScan(newOutputType).planNode(),
+        makeHiveConnectorSplits(outputDirectory),
+        "SELECT c2, c3, c4, c5 FROM tmp");
+    rowType_ = newOutputType;
+    verifyTableWriterOutput(outputDirectory->path, rowType_);
+  } else {
+    assertQuery(
+        PlanBuilder().tableScan(rowType_).planNode(),
+        makeHiveConnectorSplits(outputDirectory),
+        "SELECT * FROM tmp");
 
-  verifyTableWriterOutput(outputDirectory->path, rowType_);
+    verifyTableWriterOutput(outputDirectory->path, rowType_);
+  }
 }
 
 // Tests writing constant vectors.
@@ -1614,12 +1659,22 @@ TEST_P(AllTableWriterTest, constantVectors) {
 
   assertQuery(op, fmt::format("SELECT {}", size));
 
-  assertQuery(
-      PlanBuilder().tableScan(rowType_).planNode(),
-      makeHiveConnectorSplits(outputDirectory),
-      "SELECT * FROM tmp");
+  if (partitionedBy_.size() > 0) {
+    auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+    assertQuery(
+        PlanBuilder().tableScan(newOutputType).planNode(),
+        makeHiveConnectorSplits(outputDirectory),
+        "SELECT c2, c3, c4, c5 FROM tmp");
+    rowType_ = newOutputType;
+    verifyTableWriterOutput(outputDirectory->path, rowType_);
+  } else {
+    assertQuery(
+        PlanBuilder().tableScan(rowType_).planNode(),
+        makeHiveConnectorSplits(outputDirectory),
+        "SELECT * FROM tmp");
 
-  verifyTableWriterOutput(outputDirectory->path, rowType_);
+    verifyTableWriterOutput(outputDirectory->path, rowType_);
+  }
 }
 
 TEST_P(AllTableWriterTest, emptyInput) {
@@ -1663,11 +1718,23 @@ TEST_P(AllTableWriterTest, commitStrategies) {
 
     assertQuery(plan, "SELECT count(*) FROM tmp");
 
-    assertQuery(
-        PlanBuilder().tableScan(rowType_).planNode(),
-        makeHiveConnectorSplits(outputDirectory),
-        "SELECT * FROM tmp");
-    verifyTableWriterOutput(outputDirectory->path, rowType_);
+    if (partitionedBy_.size() > 0) {
+      auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+      assertQuery(
+          PlanBuilder().tableScan(newOutputType).planNode(),
+          makeHiveConnectorSplits(outputDirectory),
+          "SELECT c2, c3, c4, c5 FROM tmp");
+      auto originalRowType = rowType_;
+      rowType_ = newOutputType;
+      verifyTableWriterOutput(outputDirectory->path, rowType_);
+      rowType_ = originalRowType;
+    } else {
+      assertQuery(
+          PlanBuilder().tableScan(rowType_).planNode(),
+          makeHiveConnectorSplits(outputDirectory),
+          "SELECT * FROM tmp");
+      verifyTableWriterOutput(outputDirectory->path, rowType_);
+    }
   }
   // Test kNoCommit commit strategy writing to non-temporary files.
   {
@@ -1687,11 +1754,21 @@ TEST_P(AllTableWriterTest, commitStrategies) {
 
     assertQuery(plan, "SELECT count(*) FROM tmp");
 
-    assertQuery(
-        PlanBuilder().tableScan(rowType_).planNode(),
-        makeHiveConnectorSplits(outputDirectory),
-        "SELECT * FROM tmp");
-    verifyTableWriterOutput(outputDirectory->path, rowType_);
+    if (partitionedBy_.size() > 0) {
+      auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+      assertQuery(
+          PlanBuilder().tableScan(newOutputType).planNode(),
+          makeHiveConnectorSplits(outputDirectory),
+          "SELECT c2, c3, c4, c5 FROM tmp");
+      rowType_ = newOutputType;
+      verifyTableWriterOutput(outputDirectory->path, rowType_);
+    } else {
+      assertQuery(
+          PlanBuilder().tableScan(rowType_).planNode(),
+          makeHiveConnectorSplits(outputDirectory),
+          "SELECT * FROM tmp");
+      verifyTableWriterOutput(outputDirectory->path, rowType_);
+    }
   }
 }
 
@@ -1873,12 +1950,13 @@ TEST_P(PartitionedTableWriterTest, multiplePartitions) {
   // Verify distribution of records in partition directories.
   auto iterPartitionDirectory = actualPartitionDirectories.begin();
   auto iterPartitionName = partitionNames.begin();
+  auto newOutputType = getScanOutput(partitionKeys, rowType);
   while (iterPartitionDirectory != actualPartitionDirectories.end()) {
     assertQuery(
-        PlanBuilder().tableScan(rowType).planNode(),
+        PlanBuilder().tableScan(newOutputType).planNode(),
         makeHiveConnectorSplits(*iterPartitionDirectory),
         fmt::format(
-            "SELECT * FROM tmp WHERE {}",
+            "SELECT c0, c1, c3, c5 FROM tmp WHERE {}",
             partitionNameToPredicate(*iterPartitionName, partitionTypes)));
     // In case of unbucketed partitioned table, one single file is written to
     // each partition directory for Hive connector.
@@ -1947,10 +2025,11 @@ TEST_P(PartitionedTableWriterTest, singlePartition) {
       fs::path(outputDirectory->path) / "p0=365");
 
   // Verify all data is written to the single partition directory.
+  auto newOutputType = getScanOutput(partitionKeys, rowType);
   assertQuery(
-      PlanBuilder().tableScan(rowType).planNode(),
+      PlanBuilder().tableScan(newOutputType).planNode(),
       makeHiveConnectorSplits(outputDirectory),
-      "SELECT * FROM tmp");
+      "SELECT c0, c3, c5 FROM tmp");
 
   // In case of unbucketed partitioned table, one single file is written to
   // each partition directory for Hive connector.
@@ -1993,10 +2072,11 @@ TEST_P(PartitionedWithoutBucketTableWriterTest, fromSinglePartitionToMultiple) {
 
   assertQueryWithWriterConfigs(plan, "SELECT count(*) FROM tmp");
 
+  auto newOutputType = getScanOutput(partitionKeys, rowType);
   assertQuery(
-      PlanBuilder().tableScan(rowType).planNode(),
+      PlanBuilder().tableScan(newOutputType).planNode(),
       makeHiveConnectorSplits(outputDirectory),
-      "SELECT * FROM tmp");
+      "SELECT c1 FROM tmp");
 }
 
 TEST_P(PartitionedTableWriterTest, maxPartitions) {
@@ -2335,11 +2415,23 @@ TEST_P(BucketedTableOnlyWriteTest, bucketCountLimit) {
     } else {
       assertQueryWithWriterConfigs(plan, "SELECT count(*) FROM tmp");
 
-      assertQuery(
-          PlanBuilder().tableScan(rowType_).planNode(),
-          makeHiveConnectorSplits(outputDirectory),
-          "SELECT * FROM tmp");
-      verifyTableWriterOutput(outputDirectory->path, rowType_);
+      if (partitionedBy_.size() > 0) {
+        auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+        assertQuery(
+            PlanBuilder().tableScan(newOutputType).planNode(),
+            makeHiveConnectorSplits(outputDirectory),
+            "SELECT c2, c3, c4, c5 FROM tmp");
+        auto originalRowType = rowType_;
+        rowType_ = newOutputType;
+        verifyTableWriterOutput(outputDirectory->path, rowType_);
+        rowType_ = originalRowType;
+      } else {
+        assertQuery(
+            PlanBuilder().tableScan(rowType_).planNode(),
+            makeHiveConnectorSplits(outputDirectory),
+            "SELECT * FROM tmp");
+        verifyTableWriterOutput(outputDirectory->path, rowType_);
+      }
     }
   }
 }
@@ -3113,7 +3205,13 @@ TEST_P(BucketSortOnlyTableWriterTest, sortWriterSpill) {
   const auto spillStats = globalSpillStats();
   auto task =
       assertQueryWithWriterConfigs(op, fmt::format("SELECT {}", 5 * 500), true);
-  verifyTableWriterOutput(outputDirectory->path, rowType_);
+  if (partitionedBy_.size() > 0) {
+    rowType_ = getScanOutput(partitionedBy_, rowType_);
+    verifyTableWriterOutput(outputDirectory->path, rowType_);
+  } else {
+    verifyTableWriterOutput(outputDirectory->path, rowType_);
+  }
+
   const auto updatedSpillStats = globalSpillStats();
   ASSERT_GT(updatedSpillStats.spilledBytes, spillStats.spilledBytes);
   ASSERT_GT(updatedSpillStats.spilledPartitions, spillStats.spilledPartitions);
