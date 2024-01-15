@@ -738,6 +738,12 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "DROP TABLE " + table);
         assertFalse(getQueryRunner().tableExists(session, table));
     }
+
+    protected void unregisterTable(String schemaName, String newTableName)
+    {
+        assertUpdate("CALL system.unregister_table('" + schemaName + "', '" + newTableName + "')");
+    }
+
     @Test
     public void testCreateNestedPartitionedTable()
     {
@@ -1155,6 +1161,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate("CALL system.register_table('" + schemaName + "', '" + newTableName + "', '" + metadataLocation + "')");
         assertQuery("SELECT * FROM " + newTableName, "VALUES (1, 1)");
 
+        unregisterTable(schemaName, newTableName);
         dropTable(getSession(), tableName);
     }
 
@@ -1175,6 +1182,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1)");
 
+        unregisterTable(schemaName, newTableName);
         dropTable(getSession(), tableName);
     }
 
@@ -1194,6 +1202,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate("CALL system.register_table('" + schemaName + "', '" + newTableName + "', '" + metadataLocation + "', '" + metadataFileName + "')");
         assertQuery("SELECT * FROM " + newTableName, "VALUES (1, 1)");
 
+        unregisterTable(schemaName, newTableName);
         dropTable(getSession(), tableName);
     }
 
