@@ -319,6 +319,10 @@ public final class SystemSessionProperties
     public static final String NATIVE_SPILL_WRITE_BUFFER_SIZE = "native_spill_write_buffer_size";
     public static final String NATIVE_SPILL_FILE_CREATE_CONFIG = "native_spill_file_create_config";
     public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
+    public static final String NATIVE_WINDOW_SPILL_ENABLED = "native_window_spill_enabled";
+    public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
+    public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
+    public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
@@ -1594,6 +1598,26 @@ public final class SystemSessionProperties
                 booleanProperty(
                         NATIVE_JOIN_SPILL_ENABLED,
                         "Native Execution only. Enable join spilling on native engine",
+                        false,
+                        false),
+                booleanProperty(
+                        NATIVE_WINDOW_SPILL_ENABLED,
+                        "Native Execution only. Enable window spilling on native engine",
+                        false,
+                        false),
+                booleanProperty(
+                        NATIVE_WRITER_SPILL_ENABLED,
+                        "Native Execution only. Enable writer spilling on native engine",
+                        false,
+                        false),
+                booleanProperty(
+                        NATIVE_ROW_NUMBER_SPILL_ENABLED,
+                        "Native Execution only. Enable row number spilling on native engine",
+                        false,
+                        false),
+                booleanProperty(
+                        NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED,
+                        "Native Execution only. Enable topN row number spilling on native engine",
                         false,
                         false),
                 booleanProperty(
