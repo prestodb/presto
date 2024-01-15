@@ -105,6 +105,12 @@ inline void registerArrayRemoveFunctions(const std::string& prefix) {
       {prefix + "array_remove"});
 }
 
+template <typename T>
+inline void registerArrayNGramsFunctions(const std::string& prefix) {
+  registerFunction<ArrayNGramsFunction, Array<Array<T>>, Array<T>, int64_t>(
+      {prefix + "ngrams"});
+}
+
 void registerInternalArrayFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_$internal$canonicalize, "$internal$canonicalize");
@@ -237,6 +243,24 @@ void registerArrayFunctions(const std::string& prefix) {
       ArrayRemoveNullFunctionString,
       Array<Varchar>,
       Array<Varchar>>({prefix + "remove_nulls"});
+
+  registerArrayNGramsFunctions<int8_t>(prefix);
+  registerArrayNGramsFunctions<int16_t>(prefix);
+  registerArrayNGramsFunctions<int32_t>(prefix);
+  registerArrayNGramsFunctions<int64_t>(prefix);
+  registerArrayNGramsFunctions<int128_t>(prefix);
+  registerArrayNGramsFunctions<float>(prefix);
+  registerArrayNGramsFunctions<double>(prefix);
+  registerArrayNGramsFunctions<bool>(prefix);
+  registerArrayNGramsFunctions<Timestamp>(prefix);
+  registerArrayNGramsFunctions<Date>(prefix);
+  registerArrayNGramsFunctions<Varbinary>(prefix);
+  registerArrayNGramsFunctions<Generic<T1>>(prefix);
+  registerFunction<
+      ArrayNGramsFunctionFunctionString,
+      Array<Array<Varchar>>,
+      Array<Varchar>,
+      int64_t>({prefix + "ngrams"});
 
   registerArrayUnionFunctions<int8_t>(prefix);
   registerArrayUnionFunctions<int16_t>(prefix);

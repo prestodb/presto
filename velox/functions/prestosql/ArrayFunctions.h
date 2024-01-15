@@ -705,6 +705,94 @@ struct ArrayRemoveNullFunctionString {
   }
 };
 
+template <typename T>
+struct ArrayNGramsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T)
+
+  // Fast path for primitives.
+  template <typename Out, typename In>
+  void call(Out& out, const In& input, int64_t n) {
+    VELOX_USER_CHECK_GT(n, 0, "N must be greater than zero.");
+
+    if (n > input.size()) {
+      auto& newItem = out.add_item();
+      newItem.copy_from(input);
+      return;
+    }
+
+    for (auto i = 0; i <= input.size() - n; ++i) {
+      auto& newItem = out.add_item();
+      for (auto j = 0; j < n; ++j) {
+        if (input[i + j].has_value()) {
+          auto& newGranularItem = newItem.add_item();
+          newGranularItem = input[i + j].value();
+        } else {
+          newItem.add_null();
+        }
+      }
+    }
+  }
+
+  // Generic implementation.
+  void call(
+      out_type<Array<Array<Generic<T1>>>>& out,
+      const arg_type<Array<Generic<T1>>>& input,
+      int64_t n) {
+    VELOX_USER_CHECK_GT(n, 0, "N must be greater than zero.");
+
+    if (n > input.size()) {
+      auto& newItem = out.add_item();
+      newItem.copy_from(input);
+      return;
+    }
+
+    for (auto i = 0; i <= input.size() - n; ++i) {
+      auto& newItem = out.add_item();
+      for (auto j = 0; j < n; ++j) {
+        if (input[i + j].has_value()) {
+          auto& newGranularItem = newItem.add_item();
+          newGranularItem.copy_from(input[i + j].value());
+        } else {
+          newItem.add_null();
+        }
+      }
+    }
+  }
+};
+
+template <typename T>
+struct ArrayNGramsFunctionFunctionString {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  // String version that avoids copy of strings.
+  void call(
+      out_type<Array<Array<Varchar>>>& out,
+      const arg_type<Array<Varchar>>& input,
+      int64_t n) {
+    VELOX_USER_CHECK_GT(n, 0, "N must be greater than zero.");
+
+    if (n > input.size()) {
+      auto& newItem = out.add_item();
+      newItem.copy_from(input);
+      return;
+    }
+
+    for (auto i = 0; i <= input.size() - n; ++i) {
+      auto& newItem = out.add_item();
+      for (auto j = 0; j < n; ++j) {
+        if (input[i + j].has_value()) {
+          auto& newGranularItem = newItem.add_item();
+          newGranularItem.setNoCopy(input[i + j].value());
+        } else {
+          newItem.add_null();
+        }
+      }
+    }
+  }
+};
+
 /// This class implements the array flatten function.
 ///
 /// DEFINITION:
