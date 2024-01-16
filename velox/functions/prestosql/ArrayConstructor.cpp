@@ -95,11 +95,11 @@ class ArrayConstructor : public exec::VectorFunction {
         for (int i = 1; i < numArgs; i++) {
           targetRows.clearAll();
 
-          vector_size_t offset = baseOffset;
+          vector_size_t offset_2 = baseOffset;
           rows.applyToSelected([&](vector_size_t row) {
-            targetRows.setValid(offset + i, true);
-            toSourceRow[offset + i] = row;
-            offset += numArgs;
+            targetRows.setValid(offset_2 + i, true);
+            toSourceRow[offset_2 + i] = row;
+            offset_2 += numArgs;
           });
 
           targetRows.updateBounds();
