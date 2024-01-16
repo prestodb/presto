@@ -179,6 +179,9 @@ class MultiFragmentTest : public HiveConnectorTestBase {
       int32_t expectedBackgroundCpuCount) const {
     auto taskStats = exec::toPlanStats(task->taskStats());
 
+    const auto& exchangeOperatorStats = taskStats.at("0");
+    ASSERT_GT(exchangeOperatorStats.rawInputBytes, 0);
+    ASSERT_GT(exchangeOperatorStats.rawInputRows, 0);
     const auto& exchangeStats = taskStats.at("0").customStats;
     ASSERT_EQ(1, exchangeStats.count("localExchangeSource.numPages"));
     ASSERT_EQ(

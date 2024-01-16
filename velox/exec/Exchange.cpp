@@ -123,6 +123,7 @@ RowVectorPtr Exchange::getOutput() {
   {
     auto lockedStats = stats_.wlock();
     lockedStats->rawInputBytes += rawInputBytes;
+    lockedStats->rawInputPositions += result_->size();
     lockedStats->addInputVector(result_->estimateFlatSize(), result_->size());
   }
 
