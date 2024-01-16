@@ -7,3 +7,4 @@
 -XX:+HeapDumpOnOutOfMemoryError
 -XX:+ExitOnOutOfMemoryError
 -Djdk.attach.allowAttachSelf=true
+-Duser.timezone=America/Los_Angeles

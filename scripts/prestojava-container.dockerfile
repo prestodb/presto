@@ -28,7 +28,7 @@ ARG PRESTO_CLI_JAR=presto-cli-$PRESTO_VERSION-executable.jar
 ENV PRESTO_HOME="/opt/presto-server"
 RUN cp $PRESTO_CLI_JAR /opt/presto-cli
 
-RUN dnf install -y java-11-openjdk less procps python3 \
+RUN dnf install -y java-11-openjdk less procps python3 tzdata \
     && ln -s $(which python3) /usr/bin/python \
     && tar -zxf $PRESTO_PKG \
     && mv ./presto-server-$PRESTO_VERSION $PRESTO_HOME \
@@ -36,12 +36,17 @@ RUN dnf install -y java-11-openjdk less procps python3 \
     && ln -s /opt/presto-cli /usr/local/bin/ \
     && mkdir -p $PRESTO_HOME/etc \
     && mkdir -p $PRESTO_HOME/etc/catalog \
-    && mkdir -p /var/lib/presto/data \
+    && mkdir -p $PRESTO_HOME/etc/data \
     && mkdir -p /usr/lib/presto/utils
+
+# We set the timezone to America/Los_Angeles due to issue
+# detailed here : https://github.com/facebookincubator/velox/issues/8127
+ENV TZ=America/Los_Angeles
 
 COPY scripts/etc/config.properties.example $PRESTO_HOME/etc/config.properties
 COPY scripts/etc/jvm.config.example $PRESTO_HOME/etc/jvm.config
 COPY scripts/etc/node.properties $PRESTO_HOME/etc/node.properties
+COPY scripts/etc/hive.properties $PRESTO_HOME/etc/catalog
 COPY scripts/start-prestojava.sh /opt
 
 WORKDIR /velox
