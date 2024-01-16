@@ -19,7 +19,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConfig.h"
-#include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/connectors/hive/HiveDataSource.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 
@@ -86,7 +86,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_multilevel) {
             VARCHAR(), ROW({{"c0c1c0", BIGINT()}, {"c0c1c1", BIGINT()}})))}});
   auto rowType = ROW({{"c0", columnType}});
   auto subfields = makeSubfields({"c0.c0c1[3][\"foo\"].c0c1c0"});
-  auto scanSpec = HiveDataSource::makeScanSpec(
+  auto scanSpec = makeScanSpec(
       rowType, groupSubfields(subfields), {}, nullptr, {}, pool_.get());
   auto* c0c0 = scanSpec->childByName("c0")->childByName("c0c0");
   validateNullConstant(*c0c0, *BIGINT());
@@ -115,7 +115,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeFields) {
              {"c0c0c2", BIGINT()}})},
        {"c0c1", ROW({{"c0c1c0", BIGINT()}, {"c0c1c1", BIGINT()}})}});
   auto rowType = ROW({{"c0", columnType}});
-  auto scanSpec = HiveDataSource::makeScanSpec(
+  auto scanSpec = makeScanSpec(
       rowType,
       groupSubfields(makeSubfields(
           {"c0.c0c0.c0c0c0", "c0.c0c0.c0c0c2", "c0.c0c1", "c0.c0c1.c0c1c0"})),
@@ -138,7 +138,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArray) {
   auto columnType =
       ARRAY(ROW({{"c0c0", BIGINT()}, {"c0c1", BIGINT()}, {"c0c2", BIGINT()}}));
   auto rowType = ROW({{"c0", columnType}});
-  auto scanSpec = HiveDataSource::makeScanSpec(
+  auto scanSpec = makeScanSpec(
       rowType,
       groupSubfields(makeSubfields({"c0[1].c0c0", "c0[2].c0c2"})),
       {},
@@ -160,8 +160,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArrayNegative) {
   auto subfields = makeSubfields({"c0[1].c0c0", "c0[-1].c0c2"});
   auto groupedSubfields = groupSubfields(subfields);
   VELOX_ASSERT_USER_THROW(
-      HiveDataSource::makeScanSpec(
-          rowType, groupedSubfields, {}, nullptr, {}, pool_.get()),
+      makeScanSpec(rowType, groupedSubfields, {}, nullptr, {}, pool_.get()),
       "Non-positive array subscript cannot be push down");
 }
 
@@ -170,7 +169,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeMap) {
       MAP(BIGINT(),
           ROW({{"c0c0", BIGINT()}, {"c0c1", BIGINT()}, {"c0c2", BIGINT()}}));
   auto rowType = ROW({{"c0", columnType}});
-  auto scanSpec = HiveDataSource::makeScanSpec(
+  auto scanSpec = makeScanSpec(
       rowType,
       groupSubfields(makeSubfields({"c0[10].c0c0", "c0[20].c0c2"})),
       {},
@@ -195,7 +194,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
   auto rowType = ROW({{"c0", columnType}});
   for (auto* path : {"c0", "c0[*]", "c0[*][*]"}) {
     SCOPED_TRACE(path);
-    auto scanSpec = HiveDataSource::makeScanSpec(
+    auto scanSpec = makeScanSpec(
         rowType,
         groupSubfields(makeSubfields({path})),
         {},
@@ -213,7 +212,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
     ASSERT_FALSE(elements->childByName("c0c0")->isConstant());
     ASSERT_FALSE(elements->childByName("c0c1")->isConstant());
   }
-  auto scanSpec = HiveDataSource::makeScanSpec(
+  auto scanSpec = makeScanSpec(
       rowType,
       groupSubfields(makeSubfields({"c0[*][*].c0c0"})),
       {},
@@ -235,7 +234,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
 TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
   auto rowType =
       ROW({{"c0", MAP(REAL(), BIGINT())}, {"c1", MAP(DOUBLE(), BIGINT())}});
-  auto scanSpec = HiveDataSource::makeScanSpec(
+  auto scanSpec = makeScanSpec(
       rowType,
       groupSubfields(makeSubfields({"c0[0]", "c1[-1]"})),
       {},
@@ -261,7 +260,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
   ASSERT_FALSE(applyFilter(*keysFilter, -2.0));
 
   // Integer min and max means infinities.
-  scanSpec = HiveDataSource::makeScanSpec(
+  scanSpec = makeScanSpec(
       rowType,
       groupSubfields(makeSubfields(
           {"c0[-9223372036854775808]", "c1[9223372036854775807]"})),
@@ -279,7 +278,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
                    ->filter();
   ASSERT_TRUE(applyFilter(*keysFilter, 1e100));
   ASSERT_FALSE(applyFilter(*keysFilter, 9223372036854700000.0));
-  scanSpec = HiveDataSource::makeScanSpec(
+  scanSpec = makeScanSpec(
       rowType,
       groupSubfields(makeSubfields(
           {"c0[9223372036854775807]", "c0[-9223372036854775808]"})),
@@ -295,7 +294,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
   ASSERT_TRUE(applyFilter(*keysFilter, 1e30f));
 
   // Unrepresentable values.
-  scanSpec = HiveDataSource::makeScanSpec(
+  scanSpec = makeScanSpec(
       rowType,
       groupSubfields(makeSubfields({"c0[-100000000]", "c0[100000000]"})),
       {},
@@ -330,7 +329,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_filtersNotInRequiredSubfields) {
   filters.emplace(Subfield("c0.c0c2"), exec::isNotNull());
   filters.emplace(Subfield("c0.c0c3"), exec::isNotNull());
   filters.emplace(Subfield("c1.c1c0.c1c0c0"), exec::equal(43));
-  auto scanSpec = HiveDataSource::makeScanSpec(
+  auto scanSpec = makeScanSpec(
       ROW({{"c0", c0Type}}),
       groupSubfields(makeSubfields({"c0.c0c1", "c0.c0c3"})),
       filters,
@@ -373,7 +372,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_duplicateSubfields) {
   auto c0Type = MAP(BIGINT(), MAP(BIGINT(), BIGINT()));
   auto c1Type = MAP(VARCHAR(), MAP(BIGINT(), BIGINT()));
   auto rowType = ROW({{"c0", c0Type}, {"c1", c1Type}});
-  auto scanSpec = HiveDataSource::makeScanSpec(
+  auto scanSpec = makeScanSpec(
       rowType,
       groupSubfields(makeSubfields(
           {"c0[10][1]", "c0[10][2]", "c1[\"foo\"][1]", "c1[\"foo\"][2]"})),
@@ -392,7 +391,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_filterPartitionKey) {
   auto rowType = ROW({{"c0", BIGINT()}});
   SubfieldFilters filters;
   filters.emplace(Subfield("ds"), exec::equal("2023-10-13"));
-  auto scanSpec = HiveDataSource::makeScanSpec(
+  auto scanSpec = makeScanSpec(
       rowType, {}, filters, rowType, {{"ds", nullptr}}, pool_.get());
   ASSERT_TRUE(scanSpec->childByName("c0")->projectOut());
   ASSERT_FALSE(scanSpec->childByName("ds")->projectOut());

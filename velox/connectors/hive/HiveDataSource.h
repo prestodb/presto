@@ -21,13 +21,16 @@
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/SplitReader.h"
 #include "velox/connectors/hive/TableHandle.h"
-#include "velox/dwio/common/BufferedInput.h"
-#include "velox/dwio/common/Reader.h"
-#include "velox/dwio/common/ScanSpec.h"
+#include "velox/dwio/common/Statistics.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/expression/Expr.h"
 
 namespace facebook::velox::connector::hive {
+
+class HiveConfig;
+
+using SubfieldFilters =
+    std::unordered_map<common::Subfield, std::unique_ptr<common::Filter>>;
 
 class HiveDataSource : public DataSource {
  public:
@@ -38,11 +41,9 @@ class HiveDataSource : public DataSource {
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
       FileHandleFactory* fileHandleFactory,
-      core::ExpressionEvaluator* expressionEvaluator,
-      cache::AsyncDataCache* cache,
-      const std::string& scanId,
       folly::Executor* executor,
-      const dwio::common::ReaderOptions& options);
+      const ConnectorQueryCtx* connectorQueryCtx,
+      const std::shared_ptr<HiveConfig>& hiveConfig);
 
   void addSplit(std::shared_ptr<ConnectorSplit> split) override;
 
@@ -73,19 +74,6 @@ class HiveDataSource : public DataSource {
 
   // Internal API, made public to be accessible in unit tests.  Do not use in
   // other places.
-  static std::shared_ptr<common::ScanSpec> makeScanSpec(
-      const RowTypePtr& rowType,
-      const folly::F14FastMap<
-          std::string,
-          std::vector<const common::Subfield*>>& outputSubfields,
-      const SubfieldFilters& filters,
-      const RowTypePtr& dataColumns,
-      const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
-          partitionKeys,
-      memory::MemoryPool* pool);
-
-  // Internal API, made public to be accessible in unit tests.  Do not use in
-  // other places.
   static core::TypedExprPtr extractFiltersFromRemainingFilter(
       const core::TypedExprPtr& expr,
       core::ExpressionEvaluator* evaluator,
@@ -95,15 +83,10 @@ class HiveDataSource : public DataSource {
  protected:
   virtual std::unique_ptr<SplitReader> createSplitReader();
 
-  std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
-      const FileHandle&,
-      const dwio::common::ReaderOptions&);
-
   std::shared_ptr<HiveConnectorSplit> split_;
-  FileHandleFactory* fileHandleFactory_;
-  dwio::common::ReaderOptions readerOpts_;
-  std::shared_ptr<common::ScanSpec> scanSpec_;
+  std::shared_ptr<HiveTableHandle> hiveTableHandle_;
   memory::MemoryPool* pool_;
+  std::shared_ptr<common::ScanSpec> scanSpec_;
   VectorPtr output_;
   std::unique_ptr<SplitReader> splitReader_;
 
@@ -117,6 +100,12 @@ class HiveDataSource : public DataSource {
   std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
       partitionKeys_;
 
+  FileHandleFactory* const fileHandleFactory_;
+  folly::Executor* const executor_;
+  const ConnectorQueryCtx* const connectorQueryCtx_;
+  const std::shared_ptr<HiveConfig> hiveConfig_;
+  std::shared_ptr<io::IoStatistics> ioStats_;
+
  private:
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows
   // passed. Populates filterEvalCtx_.selectedIndices and selectedBits if only
@@ -128,9 +117,6 @@ class HiveDataSource : public DataSource {
   // hold adaptation.
   void resetSplit();
 
-  void parseSerdeParameters(
-      const std::unordered_map<std::string, std::string>& serdeParameters);
-
   const RowVectorPtr& getEmptyOutput() {
     if (!emptyOutput_) {
       emptyOutput_ = RowVector::createEmpty(outputType_, pool_);
@@ -138,11 +124,8 @@ class HiveDataSource : public DataSource {
     return emptyOutput_;
   }
 
-  std::shared_ptr<HiveTableHandle> hiveTableHandle_;
-
-  // The row type for the data source output, not including filter only columns
+  // The row type for the data source output, not including filter-only columns
   const RowTypePtr outputType_;
-  std::shared_ptr<io::IoStatistics> ioStats_;
   std::shared_ptr<common::MetadataFilter> metadataFilter_;
   std::unique_ptr<exec::ExprSet> remainingFilterExprSet_;
   RowVectorPtr emptyOutput_;
@@ -155,10 +138,6 @@ class HiveDataSource : public DataSource {
   VectorPtr filterResult_;
   SelectivityVector filterRows_;
   exec::FilterEvalCtx filterEvalCtx_;
-
-  cache::AsyncDataCache* const cache_{nullptr};
-  const std::string& scanId_;
-  folly::Executor* executor_;
 };
 
 } // namespace facebook::velox::connector::hive
