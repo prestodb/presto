@@ -278,12 +278,6 @@ void PeriodicTaskManager::updateCacheStats() {
       kCounterMemoryCacheTotalPrefetchBytes, memoryCacheStats.prefetchBytes);
   RECORD_METRIC_VALUE(
       kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
-  RECORD_METRIC_VALUE(
-      kCounterSsdCacheCachedEntries, memoryCacheStats.ssdStats->entriesCached);
-  RECORD_METRIC_VALUE(
-      kCounterSsdCacheCachedRegions, memoryCacheStats.ssdStats->regionsCached);
-  RECORD_METRIC_VALUE(
-      kCounterSsdCacheCachedBytes, memoryCacheStats.ssdStats->bytesCached);
 
   // Interval cumulatives.
   RECORD_METRIC_VALUE(
@@ -374,6 +368,14 @@ void PeriodicTaskManager::updateCacheStats() {
     RECORD_METRIC_VALUE(
         kCounterSsdCacheCumulativeReadCheckpointErrors,
         memoryCacheStats.ssdStats->readCheckpointErrors);
+    RECORD_METRIC_VALUE(
+        kCounterSsdCacheCachedEntries,
+        memoryCacheStats.ssdStats->entriesCached);
+    RECORD_METRIC_VALUE(
+        kCounterSsdCacheCachedRegions,
+        memoryCacheStats.ssdStats->regionsCached);
+    RECORD_METRIC_VALUE(
+        kCounterSsdCacheCachedBytes, memoryCacheStats.ssdStats->bytesCached);
   }
 
   if (auto* cacheTTLController =
@@ -617,7 +619,8 @@ void PeriodicTaskManager::updateSpillStatsTask() {
             << velox::succinctBytes(spillMemoryStats.currentBytes) << "] peak["
             << velox::succinctBytes(spillMemoryStats.peakBytes) << "]";
   RECORD_METRIC_VALUE(kCounterSpillMemoryBytes, spillMemoryStats.currentBytes);
-  RECORD_METRIC_VALUE(kCounterSpillPeakMemoryBytes, spillMemoryStats.peakBytes);
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterSpillPeakMemoryBytes, spillMemoryStats.peakBytes);
 
   lastSpillStats_ = updatedSpillStats;
 }
