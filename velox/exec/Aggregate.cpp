@@ -70,9 +70,9 @@ AggregateRegistrationResult registerAggregateFunction(
   } else {
     auto inserted =
         aggregateFunctions().withWLock([&](auto& aggregationFunctionMap) {
-          auto [_, inserted] = aggregationFunctionMap.insert(
+          auto [_, inserted_2] = aggregationFunctionMap.insert(
               {sanitizedName, {signatures, factory}});
-          return inserted;
+          return inserted_2;
         });
     registered.mainFunction = inserted;
   }
