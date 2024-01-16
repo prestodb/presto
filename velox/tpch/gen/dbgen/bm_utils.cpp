@@ -427,36 +427,36 @@ char** mk_ascdate(void) {
  */
 DSS_HUGE
 set_state(
-    int table,
+    int table_2,
     long sf,
     long procs,
-    long step,
+    long step_2,
     DSS_HUGE* extra_rows,
     DBGenContext* ctx) {
   int i;
   DSS_HUGE rowcount, result;
 
-  if (sf == 0 || step == 0)
+  if (sf == 0 || step_2 == 0)
     return (0);
 
-  rowcount = ctx->tdefs[table].base;
+  rowcount = ctx->tdefs[table_2].base;
   rowcount *= sf;
   *extra_rows = rowcount % procs;
   rowcount /= procs;
   result = rowcount;
-  for (i = 0; i < step - 1; i++) {
-    if (table == LINE) /* special case for shared seeds */
-      ctx->tdefs[table].gen_seed(1, rowcount);
+  for (i = 0; i < step_2 - 1; i++) {
+    if (table_2 == LINE) /* special case for shared seeds */
+      ctx->tdefs[table_2].gen_seed(1, rowcount);
     else
-      ctx->tdefs[table].gen_seed(0, rowcount);
+      ctx->tdefs[table_2].gen_seed(0, rowcount);
     /* need to set seeds of child in case there's a dependency */
     /* NOTE: this assumes that the parent and child have the same base row
      * count */
-    if (ctx->tdefs[table].child != NONE)
-      ctx->tdefs[ctx->tdefs[table].child].gen_seed(0, rowcount);
+    if (ctx->tdefs[table_2].child != NONE)
+      ctx->tdefs[ctx->tdefs[table_2].child].gen_seed(0, rowcount);
   }
-  if (step > procs) /* moving to the end to generate updates */
-    ctx->tdefs[table].gen_seed(0, *extra_rows);
+  if (step_2 > procs) /* moving to the end to generate updates */
+    ctx->tdefs[table_2].gen_seed(0, *extra_rows);
 
   return (result);
 }
