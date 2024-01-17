@@ -169,7 +169,8 @@ class TaskManagerTest : public testing::Test {
               pool,
               cpuExecutor.get(),
               ioExecutor.get(),
-              connectionPools.get());
+              connectionPools.get(),
+              nullptr);
         });
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();

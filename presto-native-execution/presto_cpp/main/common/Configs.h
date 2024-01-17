@@ -188,10 +188,15 @@ class SystemConfig : public ConfigBase {
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
       "http-server.https.enabled"};
+  // List of comma separated ciphers the client can use.
+  ///
+  /// NOTE: the client needs to have at least one cipher shared with server
+  // to communicate.
   static constexpr std::string_view kHttpsSupportedCiphers{
       "https-supported-ciphers"};
   static constexpr std::string_view kHttpsCertPath{"https-cert-path"};
   static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
+  // Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
 
@@ -293,10 +298,6 @@ class SystemConfig : public ConfigBase {
   /// cache entries.
   static constexpr std::string_view kCacheVeloxTtlCheckInterval{
       "cache.velox.ttl-check-interval"};
-
-  static constexpr std::string_view kUseMmapArena{"use-mmap-arena"};
-  static constexpr std::string_view kMmapArenaCapacityRatio{
-      "mmap-arena-capacity-ratio"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
 
   /// Specifies the memory arbitrator kind. If it is empty, then there is no
@@ -316,6 +317,15 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kMemoryPoolTransferCapacity{
       "memory-pool-transfer-capacity"};
+
+  /// Specifies the max time to wait for memory reclaim by arbitration. The
+  /// memory reclaim might fail if the max wait time has exceeded. If it is
+  /// zero, then there is no timeout.
+  ///
+  /// NOTE: this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kMemoryReclaimWaitMs{
+      "memory-reclaim-wait-ms"};
+
   /// Enables the memory usage tracking for the system memory pool used for
   /// cases such as disk spilling.
   static constexpr std::string_view kEnableSystemMemoryPoolUsageTracking{
@@ -574,10 +584,6 @@ class SystemConfig : public ConfigBase {
 
   bool enableVeloxExprSetLogging() const;
 
-  bool useMmapArena() const;
-
-  int32_t mmapArenaCapacityRatio() const;
-
   bool useMmapAllocator() const;
 
   std::string memoryArbitratorKind() const;
@@ -587,6 +593,8 @@ class SystemConfig : public ConfigBase {
   uint64_t memoryPoolInitCapacity() const;
 
   uint64_t memoryPoolTransferCapacity() const;
+
+  uint64_t memoryReclaimWaitMs() const;
 
   bool enableSystemMemoryPoolUsageTracking() const;
 

@@ -175,8 +175,6 @@ SystemConfig::SystemConfig() {
           STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
           STR_PROP(kAsyncCacheSsdDisableFileCow, "false"),
           STR_PROP(kEnableSerializedPageChecksum, "true"),
-          STR_PROP(kUseMmapArena, "false"),
-          NUM_PROP(kMmapArenaCapacityRatio, 10),
           STR_PROP(kUseMmapAllocator, "true"),
           STR_PROP(kMemoryArbitratorKind, ""),
           NUM_PROP(kQueryMemoryGb, 38),
@@ -431,14 +429,6 @@ bool SystemConfig::enableVeloxExprSetLogging() const {
   return optionalProperty<bool>(kEnableVeloxExprSetLogging).value();
 }
 
-bool SystemConfig::useMmapArena() const {
-  return optionalProperty<bool>(kUseMmapArena).value();
-}
-
-int32_t SystemConfig::mmapArenaCapacityRatio() const {
-  return optionalProperty<int32_t>(kMmapArenaCapacityRatio).value();
-}
-
 bool SystemConfig::useMmapAllocator() const {
   return optionalProperty<bool>(kUseMmapAllocator).value();
 }
@@ -461,6 +451,12 @@ uint64_t SystemConfig::memoryPoolTransferCapacity() const {
   static constexpr uint64_t kMemoryPoolTransferCapacityDefault = 32 << 20;
   return optionalProperty<uint64_t>(kMemoryPoolTransferCapacity)
       .value_or(kMemoryPoolTransferCapacityDefault);
+}
+
+uint64_t SystemConfig::memoryReclaimWaitMs() const {
+  static constexpr uint64_t kMemoryReclaimWaitMsDefault = {300'000}; // 5 mins.
+  return optionalProperty<uint64_t>(kMemoryReclaimWaitMs)
+      .value_or(kMemoryReclaimWaitMsDefault);
 }
 
 bool SystemConfig::enableSystemMemoryPoolUsageTracking() const {

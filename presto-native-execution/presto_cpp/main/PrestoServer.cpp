@@ -23,10 +23,8 @@
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
-#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
@@ -35,12 +33,10 @@
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
-#include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -176,6 +172,18 @@ void PrestoServer::run() {
             "Https Client Certificates are not configured correctly");
       }
       clientCertAndKeyPath = optionalClientCertPath.value();
+
+      try {
+        sslContext_ = std::make_shared<folly::SSLContext>();
+        sslContext_->loadCertKeyPairFromFiles(
+            clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
+        sslContext_->setCiphersOrThrow(ciphers);
+      } catch (const std::exception& ex) {
+        LOG(FATAL) << fmt::format(
+            "Unable to load certificate or key from {} : {}",
+            clientCertAndKeyPath,
+            ex.what());
+      }
     }
 
     if (systemConfig->internalCommunicationJwtEnabled()) {
@@ -237,17 +245,16 @@ void PrestoServer::run() {
         nodeLocation_,
         catalogNames,
         systemConfig->announcementMaxFrequencyMs(),
-        clientCertAndKeyPath,
-        ciphers);
+        sslContext_);
     announcer_->start();
+
     uint64_t heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
     if (heartbeatFrequencyMs > 0) {
       heartbeatManager_ = std::make_unique<PeriodicHeartbeatManager>(
           address_,
           httpsPort.has_value() ? httpsPort.value() : httpPort,
           coordinatorDiscoverer_,
-          clientCertAndKeyPath,
-          ciphers,
+          sslContext_,
           [server = this]() { return server->fetchNodeStatus(); },
           heartbeatFrequencyMs);
       heartbeatManager_->start();
@@ -352,7 +359,8 @@ void PrestoServer::run() {
             pool,
             driverExecutor_.get(),
             exchangeHttpExecutor_.get(),
-            exchangeSourceConnectionPools_.get());
+            exchangeSourceConnectionPools_.get(),
+            sslContext_);
       });
 
   facebook::velox::exec::ExchangeSource::registerFactory(
@@ -608,8 +616,6 @@ void PrestoServer::initializeVeloxMemory() {
   options.allocatorCapacity = memoryGb << 30;
   if (systemConfig->useMmapAllocator()) {
     options.useMmapAllocator = true;
-    options.useMmapArena = systemConfig->useMmapArena();
-    options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
   }
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
   options.trackDefaultUsage =
@@ -627,6 +633,7 @@ void PrestoServer::initializeVeloxMemory() {
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
+    options.memoryReclaimWaitMs = systemConfig->memoryReclaimWaitMs();
     options.arbitrationStateCheckCb = velox::exec::memoryArbitrationStateCheck;
   }
   memory::initializeMemoryManager(options);

@@ -15,6 +15,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
@@ -100,7 +101,16 @@ std::unique_ptr<facebook::presto::test::HttpServerWrapper> makeDiscoveryServer(
 class AnnouncerTestSuite : public ::testing::TestWithParam<bool> {
   void SetUp() override {
     FLAGS_velox_memory_leak_check_enabled = true;
+
+    std::string keyPath = getCertsPath("client_ca.pem");
+    std::string ciphers = "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384";
+    sslContext_ = std::make_shared<folly::SSLContext>();
+    sslContext_->loadCertKeyPairFromFiles(keyPath.c_str(), keyPath.c_str());
+    sslContext_->setCiphersOrThrow(ciphers);
   }
+
+ protected:
+  folly::SSLContextPtr sslContext_;
 };
 
 class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
@@ -156,10 +166,6 @@ TEST_P(AnnouncerTestSuite, basic) {
   auto coordinatorDiscoverer =
       std::make_shared<TestCoordinatorDiscoverer>(std::move(promise), useHttps);
 
-  std::string keyPath = useHttps ? getCertsPath("client_ca.pem") : "";
-  std::string ciphers =
-      useHttps ? "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384" : "";
-
   Announcer announcer(
       "127.0.0.1",
       useHttps,
@@ -171,8 +177,7 @@ TEST_P(AnnouncerTestSuite, basic) {
       "test-node-location",
       {"hive", "tpch"},
       500 /*milliseconds*/,
-      keyPath,
-      ciphers);
+      useHttps ? sslContext_ : nullptr);
 
   announcer.start();
   ASSERT_TRUE(std::move(future).getTry().hasValue());

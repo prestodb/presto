@@ -120,8 +120,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
       std::chrono::milliseconds transactionTimeout,
       std::chrono::milliseconds connectTimeout,
       std::shared_ptr<velox::memory::MemoryPool> pool,
-      const std::string& clientCertAndKeyPath = "",
-      const std::string& ciphers = "",
+      folly::SSLContextPtr sslContext,
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr);
 
   ~HttpClient();
@@ -142,13 +141,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   const proxygen::WheelTimerInstance transactionTimer_;
   const std::chrono::milliseconds connectTimeout_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
-  // clientCertAndKeyPath_ Points to a file (usually with pem extension) which
-  // contains certificate and key concatenated together
-  const std::string clientCertAndKeyPath_;
-  // List of ciphers (comma separated) client can use. Note that, to communicate
-  // successfully with server, client needs to have at least one cipher common
-  // with server's cipher list
-  const std::string ciphers_;
+  const folly::SSLContextPtr sslContext_;
   const std::function<void(int)> reportOnBodyStatsFunc_;
   const uint64_t maxResponseAllocBytes_;
   proxygen::SessionPool* sessionPool_;

@@ -810,7 +810,6 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
 
     // If the task is aborted or failed, then return an error.
     if (prestoTask->info.taskStatus.state == protocol::TaskState::ABORTED) {
-      LOG(WARNING) << "Calling getResult() on a aborted task: " << taskId;
       promiseHolder->promise.setValue(createEmptyResult(token));
       return std::move(future).via(httpSrvCpuExecutor_);
     }
