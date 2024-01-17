@@ -69,6 +69,9 @@ class SortWindowBuild : public WindowBuild {
   // structure that helps simplify the window function computations.
   void computePartitionStartRows();
 
+  // Find the next partition start row from start.
+  vector_size_t findNextPartitionStartRow(vector_size_t start);
+
   // Reads next partition from spilled data into 'data_' and 'sortedRows_'.
   void loadNextPartitionFromSpill();
 
