@@ -69,11 +69,11 @@ constexpr char const* kConnectorName = "connector.name";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
-    case presto::NodeState::ACTIVE:
+    case presto::NodeState::kActive:
       return protocol::NodeState::ACTIVE;
-    case presto::NodeState::INACTIVE:
+    case presto::NodeState::kInActive:
       return protocol::NodeState::INACTIVE;
-    case presto::NodeState::SHUTTING_DOWN:
+    case presto::NodeState::kShuttingDown:
       return protocol::NodeState::SHUTTING_DOWN;
   }
   return protocol::NodeState::ACTIVE; // For gcc build.
@@ -696,7 +696,7 @@ void PrestoServer::stop() {
   if (!shuttingDown_.exchange(true)) {
     PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown has been requested. "
                                  "Setting node state to 'shutting down'.";
-    setNodeState(NodeState::SHUTTING_DOWN);
+    setNodeState(NodeState::kShuttingDown);
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waiting for " << shutdownOnsetSec
         << " second(s) before proceeding with the shutdown...";
