@@ -15,16 +15,22 @@ parameters:
   run_native_specific_jobs:
     type: boolean
     default: false
+  run_linux_tests:
+    type: boolean
+    default: true
 
 workflows:
   version: 2
   dist-compile:
     jobs:
-      - linux-build-and-unit-test
+      - linux-build-and-unit-test:
+          run_linux_tests: << pipeline.parameters.run_linux_tests >>
       - linux-presto-e2e-tests:
+          run_linux_tests: << pipeline.parameters.run_linux_tests >>
           requires:
             - linux-build-and-unit-test
       - linux-spark-e2e-tests:
+          run_linux_tests: << pipeline.parameters.run_linux_tests >>
           requires:
             - linux-build-and-unit-test
 
@@ -72,143 +78,166 @@ executors:
 jobs:
   linux-build-and-unit-test:
     executor: build
+    parameters:
+      run_linux_tests:
+        type: boolean
+        default: true
     steps:
-      - checkout
-      - run:
-          name: "Update velox"
-          command: |
-            cd presto-native-execution
-            make velox-submodule
-      - run:
-          name: "Install JWT adapter dependency"
-          command: |
-            mkdir -p ${HOME}/adapter-deps/install
-            source /opt/rh/gcc-toolset-9/enable
-            set -xu
-            cd presto-native-execution
-            DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
-      - run:
-          name: "Calculate merge-base date for CCache"
-          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/master HEAD) | tee merge-base-date
-      - restore_cache:
-          name: "Restore CCache cache"
-          keys:
-            - native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
-      - run:
-          name: Build
-          command: |
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 8Gi
-            source /opt/rh/gcc-toolset-9/enable
-            cd presto-native-execution
-            cmake \
-              -B _build/debug \
-              -GNinja \
-              -DTREAT_WARNINGS_AS_ERRORS=1 \
-              -DENABLE_ALL_WARNINGS=1 \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DPRESTO_ENABLE_PARQUET=ON \
-              -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
-              -DPRESTO_ENABLE_JWT=ON \
-              -DCMAKE_PREFIX_PATH=/usr/local \
-              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-              -DMAX_LINK_JOBS=2
-            ninja -C _build/debug -j 8
-            ccache -s
-      - save_cache:
-          name: "Save CCache cache"
-          key: native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
-          paths:
-            - .ccache/
-      - run:
-          name: 'Run Unit Tests'
-          command: |
-            cd presto-native-execution/_build/debug
-            ctest -j 10 -VV --output-on-failure --no-tests=error
-      - persist_to_workspace:
-          root: presto-native-execution
-          paths:
-            - _build/debug/presto_cpp/main/presto_server
-            - _build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main
+      - run: echo "Run Linux tests is << parameters.run_linux_tests >>"
+      - when:
+          condition: << parameters.run_linux_tests >>
+          steps:
+            - checkout
+            - run:
+                name: "Update velox"
+                command: |
+                  cd presto-native-execution
+                  make velox-submodule
+            - run:
+                name: "Install JWT adapter dependency"
+                command: |
+                  mkdir -p ${HOME}/adapter-deps/install
+                  source /opt/rh/gcc-toolset-9/enable
+                  set -xu
+                  cd presto-native-execution
+                  DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
+            - run:
+                name: "Calculate merge-base date for CCache"
+                command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/master HEAD) | tee merge-base-date
+            - restore_cache:
+                name: "Restore CCache cache"
+                keys:
+                  - native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+            - run:
+                name: Build
+                command: |
+                  mkdir -p .ccache
+                  export CCACHE_DIR=$(realpath .ccache)
+                  ccache -sz -M 8Gi
+                  source /opt/rh/gcc-toolset-9/enable
+                  cd presto-native-execution
+                  cmake \
+                    -B _build/debug \
+                    -GNinja \
+                    -DTREAT_WARNINGS_AS_ERRORS=1 \
+                    -DENABLE_ALL_WARNINGS=1 \
+                    -DCMAKE_BUILD_TYPE=Debug \
+                    -DPRESTO_ENABLE_PARQUET=ON \
+                    -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+                    -DPRESTO_ENABLE_JWT=ON \
+                    -DCMAKE_PREFIX_PATH=/usr/local \
+                    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                    -DMAX_LINK_JOBS=2
+                  ninja -C _build/debug -j 8
+                  ccache -s
+            - save_cache:
+                name: "Save CCache cache"
+                key: native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+                paths:
+                  - .ccache/
+            - run:
+                name: 'Run Unit Tests'
+                command: |
+                  cd presto-native-execution/_build/debug
+                  ctest -j 10 -VV --output-on-failure --no-tests=error
+            - persist_to_workspace:
+                root: presto-native-execution
+                paths:
+                  - _build/debug/presto_cpp/main/presto_server
+                  - _build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main
 
   linux-presto-e2e-tests:
     executor: build
+    parameters:
+      run_linux_tests:
+        type: boolean
+        default: true
     parallelism: 5
     steps:
-      - checkout
-      - attach_workspace:
-          at: presto-native-execution
-      - maven_install:
-          maven_install_opts: ${MAVEN_INSTALL_OPTS}
-          maven_fast_install: ${MAVEN_FAST_INSTALL}
+      - run: echo "Run Linux tests is << parameters.run_linux_tests >>"
+      - when:
+          condition: << parameters.run_linux_tests >>
+          steps:
+            - checkout
+            - attach_workspace:
+                at: presto-native-execution
+            - maven_install:
+                maven_install_opts: ${MAVEN_INSTALL_OPTS}
+                maven_fast_install: ${MAVEN_FAST_INSTALL}
+            - run:
+                name: 'Run presto-native e2e tests'
+                command: |
+                  export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
+                  export TEMP_PATH="/tmp"
+                  TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoNative*.java" | circleci tests split --split-by=timings)
+                  # Convert file paths to comma separated class names
+                  export TESTCLASSES=
+                  for test_file in $TESTFILES
+                  do
+                    tmp=${test_file##*/}
+                    test_class=${tmp%%\.*}
+                    export TESTCLASSES="${TESTCLASSES},$test_class"
+                  done
+                  export TESTCLASSES=${TESTCLASSES#,}
 
-      - run:
-          name: 'Run presto-native e2e tests'
-          command: |
-            export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
-            export TEMP_PATH="/tmp"
-            TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoNative*.java" | circleci tests split --split-by=timings)
-            # Convert file paths to comma separated class names
-            export TESTCLASSES=
-            for test_file in $TESTFILES
-            do
-              tmp=${test_file##*/}
-              test_class=${tmp%%\.*}
-              export TESTCLASSES="${TESTCLASSES},$test_class"
-            done
-            export TESTCLASSES=${TESTCLASSES#,}
-
-            # TODO: neeed to enable remote function tests with
-            # "-Ppresto-native-execution-remote-functions" once
-            # > https://github.com/facebookincubator/velox/discussions/6163
-            # is fixed.
-            if [ ! -z $TESTCLASSES ]; then
-              mvn test \
-                ${MAVEN_TEST} \
-                -pl 'presto-native-execution' \
-                -Dtest="${TESTCLASSES}" \
-                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
-                -DDATA_DIR=${TEMP_PATH} \
-                -Duser.timezone=America/Bahia_Banderas \
-                -T1C
-            fi
+                  # TODO: neeed to enable remote function tests with
+                  # "-Ppresto-native-execution-remote-functions" once
+                  # > https://github.com/facebookincubator/velox/discussions/6163
+                  # is fixed.
+                  if [ ! -z $TESTCLASSES ]; then
+                    mvn test \
+                      ${MAVEN_TEST} \
+                      -pl 'presto-native-execution' \
+                      -Dtest="${TESTCLASSES}" \
+                      -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+                      -DDATA_DIR=${TEMP_PATH} \
+                      -Duser.timezone=America/Bahia_Banderas \
+                      -T1C
+                  fi
 
   linux-spark-e2e-tests:
     executor: build
+    parameters:
+      run_linux_tests:
+        type: boolean
+        default: true
     parallelism: 5
     steps:
-      - checkout
-      - attach_workspace:
-          at: presto-native-execution
-      - maven_install:
-          maven_install_opts: ${MAVEN_INSTALL_OPTS}
-          maven_fast_install: ${MAVEN_FAST_INSTALL}
-      - run:
-          name: 'Run spark e2e tests'
-          command: |
-            export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
-            export TEMP_PATH="/tmp"
-            TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoSpark*.java" | circleci tests split --split-by=timings)
-            # Convert file paths to comma separated class names
-            export TESTCLASSES=
-            for test_file in $TESTFILES
-            do
-              tmp=${test_file##*/}
-              test_class=${tmp%%\.*}
-              export TESTCLASSES="${TESTCLASSES},$test_class"
-            done
-            export TESTCLASSES=${TESTCLASSES#,}
-            if [ ! -z $TESTCLASSES ]; then
-              mvn test \
-                ${MAVEN_TEST} \
-                -pl 'presto-native-execution' \
-                -Dtest="${TESTCLASSES}" \
-                -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
-                -DDATA_DIR=${TEMP_PATH} \
-                -Duser.timezone=America/Bahia_Banderas \
-                -T1C
-            fi
+      - run: echo "Run Linux tests is << parameters.run_linux_tests >>"
+      - when:
+          condition: << parameters.run_linux_tests >>
+          steps:
+            - checkout
+            - attach_workspace:
+                at: presto-native-execution
+            - maven_install:
+                maven_install_opts: ${MAVEN_INSTALL_OPTS}
+                maven_fast_install: ${MAVEN_FAST_INSTALL}
+            - run:
+                name: 'Run spark e2e tests'
+                command: |
+                  export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
+                  export TEMP_PATH="/tmp"
+                  TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoSpark*.java" | circleci tests split --split-by=timings)
+                  # Convert file paths to comma separated class names
+                  export TESTCLASSES=
+                  for test_file in $TESTFILES
+                  do
+                    tmp=${test_file##*/}
+                    test_class=${tmp%%\.*}
+                    export TESTCLASSES="${TESTCLASSES},$test_class"
+                  done
+                  export TESTCLASSES=${TESTCLASSES#,}
+                  if [ ! -z $TESTCLASSES ]; then
+                    mvn test \
+                      ${MAVEN_TEST} \
+                      -pl 'presto-native-execution' \
+                      -Dtest="${TESTCLASSES}" \
+                      -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+                      -DDATA_DIR=${TEMP_PATH} \
+                      -Duser.timezone=America/Bahia_Banderas \
+                      -T1C
+                  fi
 
   linux-build-all:
     executor: build
