@@ -28,9 +28,12 @@ struct MultimapFromEntriesFunction {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Map<Generic<T1>, Array<Generic<T2>>>>& out,
       const arg_type<Array<Row<Generic<T1>, Generic<T2>>>>& inputArray) {
-    // Reuse map between rows to avoid re-allocating memory. The benchmark shows
-    // 20-30% performance improvement.
+    // Reuse map and vector between rows to avoid re-allocating memory. The
+    // benchmark shows 20-30% performance improvement.
     keyValuesMap_.clear();
+
+    uniqueKeys_.clear();
+    uniqueKeys_.reserve(inputArray.size());
 
     for (const auto& entry : inputArray.skipNulls()) {
       const auto& key = entry.template at<0>();
@@ -40,11 +43,16 @@ struct MultimapFromEntriesFunction {
 
       auto result = keyValuesMap_.insert({key.value(), {}});
       result.first->second.push_back(value);
+      if (result.second) {
+        uniqueKeys_.push_back(key.value());
+      }
     }
 
-    for (const auto& [key, values] : keyValuesMap_) {
+    for (const auto& key : uniqueKeys_) {
       auto [keyWriter, valueWriter] = out.add_item();
       keyWriter.copy_from(key);
+
+      const auto& values = keyValuesMap_[key];
 
       for (const auto& value : values) {
         valueWriter.push_back(value);
@@ -53,15 +61,18 @@ struct MultimapFromEntriesFunction {
   }
 
  private:
-  // Use std::unordered_map to ensure deterministic order of keys in the
-  // result. Without ensuring deterministic order of keys, the results of
-  // expressions like map_keys(multimap_from_entries(...)) will be
-  // non-deterministic and trigger Fuzzer failures. F14Map is faster, but in
-  // debug builds it returns keys in non-deterministic order (on purpose).
-  std::unordered_map<
+  folly::F14FastMap<
       exec::GenericView,
       std::vector<std::optional<exec::GenericView>>>
       keyValuesMap_;
+
+  // List of unique keys in the same order as they appear in inputArray.
+  // Used to ensure deterministic order of keys in the result. Without ensuring
+  // deterministic order of keys, the results of expressions like
+  // map_keys(multimap_from_entries(...)) will be non-deterministic and trigger
+  // Fuzzer failures. F14FastMap in debug build returns keys in
+  // non-deterministic order (on purpose).
+  std::vector<exec::GenericView> uniqueKeys_;
 };
 
 } // namespace facebook::velox::functions
