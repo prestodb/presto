@@ -48,7 +48,6 @@ import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
@@ -180,7 +179,7 @@ public class HiveFilterPushdown
                             new HiveTableLayoutHandle.Builder()
                                     .setSchemaTableName(tableName)
                                     .setTablePath(table.getStorage().getLocation())
-                                    .setPartitionColumns(ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()))
+                                    .setPartitionColumns(hivePartitionResult.getPartitionColumns())
                                     .setDataColumns(pruneColumnComments(hivePartitionResult.getDataColumns()))
                                     .setTableParameters(hivePartitionResult.getTableParameters())
                                     .setDomainPredicate(domainPredicate)
