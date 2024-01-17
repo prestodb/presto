@@ -266,7 +266,7 @@ TEST_F(FunctionRegistryTest, multipleNames) {
       "aggregate_func2", {BIGINT(), DOUBLE()}, BIGINT(), ARRAY(BIGINT()));
 
   auto registrationResults = registerAggregateFunction(
-      {std::string("aggregate_func2"), std::string("aggregate_func3")},
+      std::vector<std::string>{"aggregate_func2", "aggregate_func3"},
       signatures,
       factory,
       /*registerCompanionFunctions*/ true,
