@@ -24,6 +24,7 @@ import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.testing.TestingEventListenerManager;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.base.Ticker;
@@ -527,7 +528,8 @@ public class TestTaskExecutor
                 new MultilevelSplitQueue(2),
                 Ticker.systemTicker(),
                 false,
-                false);
+                false,
+                new TestingEventListenerManager());
         taskExecutor.start();
 
         try {

@@ -13,29 +13,41 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
-public interface EventListener
+import javax.annotation.concurrent.Immutable;
+
+@Immutable
+public class GracefulPreemptionEvent
 {
-    default void queryCreated(QueryCreatedEvent queryCreatedEvent)
+    private final String queryId;
+    private final String taskId;
+    private final long eventTime;
+    private final String state;
+
+    public GracefulPreemptionEvent(String queryId, String taskId, long eventTime, String state)
     {
+        this.queryId = queryId;
+        this.taskId = taskId;
+        this.eventTime = eventTime;
+        this.state = state;
     }
 
-    /**
-     * Called after queryCreated event and can be used to capture intermediate
-     * info like query_plan, partial stats while the query is running
-     */
-    default void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
+    public String getQueryId()
     {
+        return queryId;
     }
 
-    default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
+    public String getTaskId()
     {
+        return taskId;
     }
 
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
+    public long getEventTime()
     {
+        return eventTime;
     }
 
-    default void trackGracefulPreemption(GracefulPreemptionEvent gracefulPreemptionEvent)
+    public String getState()
     {
+        return state;
     }
 }

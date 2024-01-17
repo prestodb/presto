@@ -19,6 +19,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeDistribution;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
@@ -29,6 +30,7 @@ import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.testing.TestingEventListenerManager;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -189,6 +191,7 @@ public class TaskExecutor
     private final TimeStat taskExecutorShutdownTime = new TimeStat(NANOSECONDS);
     private final TimeStat outputBufferEmptyWaitTime = new TimeStat(NANOSECONDS);
     private final TimeStat waitForRunningSplitTime = new TimeStat(NANOSECONDS);
+    private final EventListenerManager eventListenerManager;
     private volatile boolean closed;
     private final ExecutorService taskShutdownExecutor = newCachedThreadPool(daemonThreadsNamed("task-shutdown-%s"));
     private final AtomicBoolean isGracefulShutdownStarted = new AtomicBoolean(false);
@@ -200,7 +203,7 @@ public class TaskExecutor
     private boolean enableRetryForFailedSplits;
 
     @Inject
-    public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue, QueryManagerConfig queryManagerConfig)
+    public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue, QueryManagerConfig queryManagerConfig, EventListenerManager eventListenerManager)
     {
         this(requireNonNull(config, "config is null").getMaxWorkerThreads(),
                 config.getMinDrivers(),
@@ -214,7 +217,8 @@ public class TaskExecutor
                 splitQueue,
                 Ticker.systemTicker(),
                 queryManagerConfig.isEnableGracefulShutdown(),
-                queryManagerConfig.isEnableRetryForFailedSplits());
+                queryManagerConfig.isEnableRetryForFailedSplits(),
+                eventListenerManager);
     }
 
     public void gracefulShutdown()
@@ -268,6 +272,7 @@ public class TaskExecutor
 
     private void gracefulShutdown(List<TaskHandle> currentTasksSnapshot)
     {
+        //FIXME this is just to test scribe
         checkState(enableGracefulShutdown || enableRetryForFailedSplits, "gracefulShutdown should only be called when enableGracefulShutdown or enableRetryForFailedSplits is set to true");
         currentTasksSnapshot.stream().forEach(taskHandle -> taskHandle.gracefulShutdown());
         //wait for running splits to be over
@@ -279,6 +284,9 @@ public class TaskExecutor
             taskShutdownExecutor.execute(
                     () -> {
                         TaskId taskId = taskHandle.getTaskId();
+                        log.info("Before trackPreemptionLifeCycle test");
+                        eventListenerManager.trackPreemptionLifeCycle(taskId, QueryRecoveryState.INIT_GRACEFUL_PREEMPTION);
+                        log.info("After trackPreemptionLifeCycle test");
                         if (!taskHandle.getOutputBuffer().isPresent()) {
                             log.info("No output buffer for task %s", taskId);
                             taskHandle.forceFailure("No output buffer for task");
@@ -294,6 +302,7 @@ public class TaskExecutor
                             log.info("Output buffer for task %s= %s", taskId, taskHandle.getOutputBuffer().get().getInfo());
 
                             while (!taskHandle.isTotalRunningSplitEmpty()) {
+                                eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_RUNNING_SPLITS);
                                 checkState(!taskHandle.isTaskDone(), "Task is done while waiting for total running split empty");
                                 try {
                                     long currentTime = System.currentTimeMillis();
@@ -324,6 +333,7 @@ public class TaskExecutor
                             startTime = System.nanoTime();
                             while (!taskHandle.isOutputBufferEmpty()) {
                                 try {
+                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_OUTPUT_BUFFER);
                                     log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s, outputbuffer info = %s", taskId, outputBuffer.getInfo());
                                     Thread.sleep(waitTimeMillis);
                                 }
@@ -333,6 +343,7 @@ public class TaskExecutor
                             }
                             outputBufferEmptyWaitTime.add(Duration.nanosSince(startTime));
                             log.warn("GracefulShutdown:: calling handleShutDown for task- %s, buffer info : %s", taskId, outputBuffer.getInfo());
+                            eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.INITIATE_HANDLE_SHUTDOWN);
                             taskHandle.handleShutDown();
                         }
                         catch (Throwable ex) {
@@ -375,7 +386,8 @@ public class TaskExecutor
                 new MultilevelSplitQueue(2),
                 ticker,
                 false,
-                false);
+                false,
+                new TestingEventListenerManager());
     }
 
     @VisibleForTesting
@@ -401,7 +413,8 @@ public class TaskExecutor
                 splitQueue,
                 ticker,
                 false,
-                false);
+                false,
+                new TestingEventListenerManager());
     }
 
     @VisibleForTesting
@@ -418,7 +431,8 @@ public class TaskExecutor
             MultilevelSplitQueue splitQueue,
             Ticker ticker,
             boolean enableGracefulShutdown,
-            boolean enableRetryForFailedSplits)
+            boolean enableRetryForFailedSplits,
+            EventListenerManager eventListenerManager)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
         checkArgument(guaranteedNumberOfDriversPerTask > 0, "guaranteedNumberOfDriversPerTask must be at least 1");
@@ -460,6 +474,7 @@ public class TaskExecutor
         this.interruptSplitInterval = interruptSplitInterval;
         this.enableGracefulShutdown = enableGracefulShutdown;
         this.enableRetryForFailedSplits = enableRetryForFailedSplits;
+        this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
     }
 
     @PostConstruct
@@ -582,6 +597,7 @@ public class TaskExecutor
 
         log.debug("Task finished or failed %s", taskHandle.getTaskId());
     }
+
     public List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
     {
         List<PrioritizedSplitRunner> splitsToDestroy = new ArrayList<>();
