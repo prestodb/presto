@@ -76,9 +76,9 @@ class SerializedPage {
   std::function<void(folly::IOBuf&)> onDestructionCb_;
 };
 
-// Queue of results retrieved from source. Owned by shared_ptr by
-// Exchange and client threads and registered callbacks waiting
-// for input.
+/// Queue of results retrieved from source. Owned by shared_ptr by
+/// Exchange and client threads and registered callbacks waiting
+/// for input.
 class ExchangeQueue {
  public:
   ~ExchangeQueue() {
@@ -93,13 +93,19 @@ class ExchangeQueue {
     return queue_.empty();
   }
 
+  /// Enqueues 'page' to the queue. One random promise(top of promise queue)
+  /// associated with the future that is waiting for the data from the queue is
+  /// returned in 'promises' if 'page' is not nullptr. When 'page' is nullptr
+  /// and the queue is completed serving data, all left over promises will be
+  /// returned in 'promises'. When 'page' is nullptr and the queue is not
+  /// completed serving data, no 'promises' will be added and returned.
   void enqueueLocked(
       std::unique_ptr<SerializedPage>&& page,
       std::vector<ContinuePromise>& promises);
 
-  // If data is permanently not available, e.g. the source cannot be
-  // contacted, this registers an error message and causes the reading
-  // Exchanges to throw with the message.
+  /// If data is permanently not available, e.g. the source cannot be
+  /// contacted, this registers an error message and causes the reading
+  /// Exchanges to throw with the message.
   void setError(const std::string& error);
 
   /// Returns pages of data.

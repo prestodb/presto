@@ -23,7 +23,7 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
 
-    bool duplicate = !taskIds_.insert(taskId).second;
+    bool duplicate = !remoteTaskIds_.insert(taskId).second;
     if (duplicate) {
       // Do not add sources twice. Presto protocol may add duplicate sources
       // and the task updates have no guarantees of arriving in order.

@@ -127,7 +127,7 @@ class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
   folly::Executor* const executor_;
   const std::shared_ptr<ExchangeQueue> queue_;
 
-  std::unordered_set<std::string> taskIds_;
+  std::unordered_set<std::string> remoteTaskIds_;
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
   bool closed_{false};
 
