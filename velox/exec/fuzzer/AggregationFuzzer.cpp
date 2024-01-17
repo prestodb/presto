@@ -138,6 +138,15 @@ class AggregationFuzzer : public AggregationFuzzerBase {
 
   void verifyAggregation(const std::vector<PlanWithSplits>& plans);
 
+  // Use the result of the first plan in the plans as the expected result to
+  // compare or verify it with the results of other equivalent plans.
+  bool compareEquivalentPlanResults(
+      const std::vector<PlanWithSplits>& plans,
+      bool customVerification,
+      const std::vector<RowVectorPtr>& input,
+      const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
+      int32_t maxDrivers = 2);
+
   static bool hasPartialGroupBy(const core::PlanNodePtr& plan) {
     auto partialAgg = core::PlanNode::findFirstNode(
         plan.get(), [](const core::PlanNode* node) {
@@ -675,6 +684,7 @@ bool AggregationFuzzer::verifyWindow(
   }
 }
 
+namespace {
 void resetCustomVerifiers(
     const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers) {
   for (auto& verifier : customVerifiers) {
@@ -683,6 +693,29 @@ void resetCustomVerifiers(
     }
   }
 }
+
+void initializeVerifiers(
+    const core::PlanNodePtr& plan,
+    const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
+    const std::vector<RowVectorPtr>& input,
+    const std::vector<std::string>& groupingKeys) {
+  const auto& aggregationNode =
+      std::dynamic_pointer_cast<const core::AggregationNode>(plan);
+
+  for (auto i = 0; i < customVerifiers.size(); ++i) {
+    auto& verifier = customVerifiers[i];
+    if (verifier == nullptr) {
+      continue;
+    }
+
+    verifier->initialize(
+        input,
+        groupingKeys,
+        aggregationNode->aggregates()[i],
+        aggregationNode->aggregateNames()[i]);
+  }
+}
+} // namespace
 
 bool AggregationFuzzer::verifyAggregation(
     const std::vector<std::string>& groupingKeys,
@@ -697,21 +730,7 @@ bool AggregationFuzzer::verifyAggregation(
                        .planNode();
 
   if (customVerification) {
-    const auto& aggregationNode =
-        std::dynamic_pointer_cast<const core::AggregationNode>(firstPlan);
-
-    for (auto i = 0; i < customVerifiers.size(); ++i) {
-      auto& verifier = customVerifiers[i];
-      if (verifier == nullptr) {
-        continue;
-      }
-
-      verifier->initialize(
-          input,
-          groupingKeys,
-          aggregationNode->aggregates()[i],
-          aggregationNode->aggregateNames()[i]);
-    }
+    initializeVerifiers(firstPlan, customVerifiers, input, groupingKeys);
   }
 
   SCOPE_EXIT {
@@ -784,54 +803,8 @@ bool AggregationFuzzer::verifyAggregation(
     persistReproInfo(plans, reproPersistPath_);
   }
 
-  try {
-    auto resultOrError = execute(firstPlan);
-    if (resultOrError.exceptionPtr) {
-      ++stats_.numFailed;
-    }
-
-    // TODO Use ResultVerifier::compare API to compare Velox results with
-    // reference DB results once reference query runner is updated to return
-    // results as Velox vectors.
-    std::optional<MaterializedRowMultiset> expectedResult;
-    if (resultOrError.result != nullptr) {
-      if (!customVerification) {
-        auto referenceResult = computeReferenceResults(firstPlan, input);
-        updateReferenceQueryStats(referenceResult.second);
-        expectedResult = referenceResult.first;
-      } else {
-        ++stats_.numVerificationSkipped;
-
-        for (auto& verifier : customVerifiers) {
-          if (verifier != nullptr && verifier->supportsVerify()) {
-            VELOX_CHECK(
-                verifier->verify(resultOrError.result),
-                "Aggregation results failed custom verification");
-          }
-        }
-      }
-    }
-
-    if (expectedResult && resultOrError.result) {
-      ++stats_.numVerified;
-      VELOX_CHECK(
-          assertEqualResults(
-              expectedResult.value(),
-              firstPlan->outputType(),
-              {resultOrError.result}),
-          "Velox and reference DB results don't match");
-      LOG(INFO) << "Verified results against reference DB";
-    }
-
-    testPlans(plans, customVerification, customVerifiers, resultOrError);
-
-    return resultOrError.exceptionPtr != nullptr;
-  } catch (...) {
-    if (!reproPersistPath_.empty()) {
-      persistReproInfo(plans, reproPersistPath_);
-    }
-    throw;
-  }
+  return compareEquivalentPlanResults(
+      plans, customVerification, input, customVerifiers);
 }
 
 bool AggregationFuzzer::verifySortedAggregation(
@@ -1025,6 +998,63 @@ void AggregationFuzzer::Stats::print(size_t numIterations) const {
       << " / " << printPercentageStat(numReferenceQueryFailed, numIterations);
   LOG(INFO) << "Total failed aggregations: "
             << printPercentageStat(numFailed, numIterations);
+}
+
+bool AggregationFuzzer::compareEquivalentPlanResults(
+    const std::vector<PlanWithSplits>& plans,
+    bool customVerification,
+    const std::vector<RowVectorPtr>& input,
+    const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
+    int32_t maxDrivers) {
+  try {
+    auto firstPlan = plans.at(0).plan;
+    auto resultOrError = execute(firstPlan);
+    if (resultOrError.exceptionPtr) {
+      ++stats_.numFailed;
+    }
+
+    // TODO Use ResultVerifier::compare API to compare Velox results with
+    // reference DB results once reference query runner is updated to return
+    // results as Velox vectors.
+    std::optional<MaterializedRowMultiset> expectedResult;
+    if (resultOrError.result != nullptr) {
+      if (!customVerification) {
+        auto referenceResult = computeReferenceResults(firstPlan, input);
+        updateReferenceQueryStats(referenceResult.second);
+        expectedResult = referenceResult.first;
+      } else {
+        ++stats_.numVerificationSkipped;
+
+        for (auto& verifier : customVerifiers) {
+          if (verifier != nullptr && verifier->supportsVerify()) {
+            VELOX_CHECK(
+                verifier->verify(resultOrError.result),
+                "Aggregation results failed custom verification");
+          }
+        }
+      }
+    }
+
+    if (expectedResult && resultOrError.result) {
+      ++stats_.numVerified;
+      VELOX_CHECK(
+          assertEqualResults(
+              expectedResult.value(),
+              firstPlan->outputType(),
+              {resultOrError.result}),
+          "Velox and reference DB results don't match");
+      LOG(INFO) << "Verified results against reference DB";
+    }
+
+    testPlans(plans, customVerification, customVerifiers, resultOrError);
+
+    return resultOrError.exceptionPtr != nullptr;
+  } catch (...) {
+    if (!reproPersistPath_.empty()) {
+      persistReproInfo(plans, reproPersistPath_);
+    }
+    throw;
+  }
 }
 
 } // namespace
