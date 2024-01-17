@@ -343,6 +343,16 @@ jobs:
       - store_artifacts:
           path: '/tmp/aggregate_fuzzer_repro'
       - run:
+          name: "Run Join Fuzzer Tests"
+          command: |
+            _build/debug/velox/exec/tests/velox_join_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec 1800 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+            && echo -e "\n\nJoin fuzzer run finished successfully."
+          no_output_timeout: 5m
+      - run:
           name: "Run Example Binaries"
           command: |
             find _build/debug/velox/examples/ -maxdepth 1 -type f -executable -exec "{}" \;
@@ -531,7 +541,7 @@ jobs:
           fuzzer_repro: "/tmp/join_fuzzer_repro"
           fuzzer_name: "Join"
           fuzzer_exe: "_build/debug/velox/exec/tests/velox_join_fuzzer_test"
-          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 --v=1"
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0"
 
   format-check:
     executor: check
