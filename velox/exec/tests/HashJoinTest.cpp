@@ -24,6 +24,7 @@
 #include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/TableScan.h"
+#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -742,6 +743,12 @@ class HashJoinTest : public HiveConnectorTestBase {
         ROW({{"t_k1", INTEGER()}, {"t_k2", VARCHAR()}, {"t_v1", VARCHAR()}});
     buildType_ =
         ROW({{"u_k1", INTEGER()}, {"u_k2", VARCHAR()}, {"u_v1", INTEGER()}});
+    fuzzerOpts_ = {
+        .vectorSize = 1024,
+        .nullRatio = 0,
+        .stringLength = 1024,
+        .stringVariableLength = false,
+        .allowLazyVector = false};
   }
 
   // Make splits with each plan node having a number of source files.
@@ -864,6 +871,7 @@ class HashJoinTest : public HiveConnectorTestBase {
   // The default left and right table types used for test.
   RowTypePtr probeType_;
   RowTypePtr buildType_;
+  VectorFuzzer::Options fuzzerOpts_;
 
   memory::MemoryReclaimer::Stats reclaimerStats_;
   friend class HashJoinBuilder;
@@ -6403,5 +6411,582 @@ TEST_F(HashJoinTest, onlyHashBuildMaxSpillBytes) {
           e.errorCode(), facebook::velox::error_code::kSpillLimitExceeded);
     }
   }
+}
+
+DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromJoinBuild) {
+  std::vector<RowVectorPtr> vectors = createVectors(8, buildType_, fuzzerOpts_);
+  createDuckDbTable(vectors);
+  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  std::vector<bool> sameQueries = {false, true};
+  for (bool sameQuery : sameQueries) {
+    SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    std::shared_ptr<core::QueryCtx> fakeQueryCtx =
+        newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+    std::shared_ptr<core::QueryCtx> joinQueryCtx;
+    if (sameQuery) {
+      joinQueryCtx = fakeQueryCtx;
+    } else {
+      joinQueryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+    }
+
+    folly::EventCount arbitrationWait;
+    std::atomic_bool arbitrationWaitFlag{true};
+    folly::EventCount taskPauseWait;
+    std::atomic_bool taskPauseWaitFlag{true};
+
+    std::atomic_int numInputs{0};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Driver::runInternal::addInput",
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "HashBuild") {
+            return;
+          }
+          if (++numInputs != 5) {
+            return;
+          }
+          arbitrationWaitFlag = false;
+          arbitrationWait.notifyAll();
+
+          // Wait for task pause to be triggered.
+          taskPauseWait.await([&] { return !taskPauseWaitFlag.load(); });
+        })));
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Task::requestPauseLocked",
+        std::function<void(Task*)>(([&](Task* /*unused*/) {
+          taskPauseWaitFlag = false;
+          taskPauseWait.notifyAll();
+        })));
+
+    std::unordered_map<std::string, std::string> config{
+        {core::QueryConfig::kSpillEnabled, "true"},
+        {core::QueryConfig::kJoinSpillEnabled, "true"},
+        {core::QueryConfig::kJoinSpillPartitionBits, "2"},
+    };
+    joinQueryCtx->testingOverrideConfigUnsafe(std::move(config));
+
+    std::thread joinThread([&]() {
+      auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+      auto task =
+          AssertQueryBuilder(duckDbQueryRunner_)
+              .spillDirectory(spillDirectory->path)
+              .queryCtx(joinQueryCtx)
+              .plan(PlanBuilder(planNodeIdGenerator)
+                        .values(vectors)
+                        .project({"u_k1 AS t0", "u_k2 AS t1", "u_v1 AS t2"})
+                        .hashJoin(
+                            {"t0"},
+                            {"u0"},
+                            PlanBuilder(planNodeIdGenerator)
+                                .values(vectors)
+                                .project(
+                                    {"u_k1 AS u0", "u_k2 AS u1", "u_v1 AS u2"})
+                                .planNode(),
+                            "",
+                            {"t1"},
+                            core::JoinType::kAnti)
+                        .planNode())
+              .assertResults(
+                  "SELECT u_k2 FROM tmp WHERE u_k1 NOT IN (SELECT u_k1 FROM tmp)");
+      auto stats = task->taskStats().pipelineStats;
+      ASSERT_GT(stats[1].operatorStats[2].spilledBytes, 0);
+    });
+
+    arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
+
+    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
+        "fakePool", true, FakeMemoryReclaimer::create());
+
+    memoryManager->testingGrowPool(
+        fakePool.get(), memoryManager->arbitrator()->capacity());
+
+    joinThread.join();
+
+    waitForAllTasksToBeDeleted();
+  }
+}
+
+TEST_F(HashJoinTest, reclaimFromCompletedJoinBuilder) {
+  std::vector<RowVectorPtr> vectors = createVectors(8, buildType_, fuzzerOpts_);
+  createDuckDbTable(vectors);
+  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  std::vector<bool> sameQueries = {false, true};
+  for (bool sameQuery : sameQueries) {
+    SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    std::shared_ptr<core::QueryCtx> fakeQueryCtx =
+        newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+    std::shared_ptr<core::QueryCtx> joinQueryCtx;
+    if (sameQuery) {
+      joinQueryCtx = fakeQueryCtx;
+    } else {
+      joinQueryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+    }
+
+    folly::EventCount arbitrationWait;
+    std::atomic_bool arbitrationWaitFlag{true};
+
+    std::thread joinThread([&]() {
+      auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+      auto task =
+          AssertQueryBuilder(duckDbQueryRunner_)
+              .spillDirectory(spillDirectory->path)
+              .queryCtx(joinQueryCtx)
+              .plan(PlanBuilder(planNodeIdGenerator)
+                        .values(vectors)
+                        .project({"u_k1 AS t0", "u_k2 AS t1", "u_v1 AS t2"})
+                        .hashJoin(
+                            {"t0"},
+                            {"u0"},
+                            PlanBuilder(planNodeIdGenerator)
+                                .values(vectors)
+                                .project(
+                                    {"u_k1 AS u0", "u_k2 AS u1", "u_v1 AS u2"})
+                                .planNode(),
+                            "",
+                            {"t1"},
+                            core::JoinType::kAnti)
+                        .planNode())
+              .assertResults(
+                  "SELECT u_k2 FROM tmp WHERE u_k1 NOT IN (SELECT u_k1 FROM tmp)");
+      waitForTaskCompletion(task.get());
+      arbitrationWaitFlag = false;
+      arbitrationWait.notifyAll();
+      auto stats = task->taskStats().pipelineStats;
+      ASSERT_EQ(stats[1].operatorStats[2].spilledBytes, 0);
+    });
+
+    arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
+
+    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
+        "fakePool", true, FakeMemoryReclaimer::create());
+
+    memoryManager->testingGrowPool(
+        fakePool.get(), memoryManager->arbitrator()->capacity());
+
+    joinThread.join();
+
+    waitForAllTasksToBeDeleted();
+  }
+}
+
+TEST_F(HashJoinTest, reclaimFromJoinBuilderWithMultiDrivers) {
+  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  const auto& arbitrator = memoryManager->arbitrator();
+  auto rowType = ROW({
+      {"c0", INTEGER()},
+      {"c1", INTEGER()},
+      {"c2", VARCHAR()},
+  });
+  const auto vectors = createVectors(rowType, 64 << 20, fuzzerOpts_);
+  const int numDrivers = 4;
+  const auto expectedResult =
+      runHashJoinTask(vectors, nullptr, numDrivers, pool(), false).data;
+  // Create a query ctx with a small capacity to trigger spilling.
+  std::shared_ptr<core::QueryCtx> queryCtx =
+      newQueryCtx(memoryManager, executor_, 128 << 20);
+  auto result = runHashJoinTask(
+      vectors, queryCtx, numDrivers, pool(), true, expectedResult);
+  auto taskStats = exec::toPlanStats(result.task->taskStats());
+  auto& planStats = taskStats.at(result.planNodeId);
+  ASSERT_GT(planStats.spilledBytes, 0);
+  result.task.reset();
+  waitForAllTasksToBeDeleted();
+  ASSERT_GT(arbitrator->stats().numRequests, 0);
+  ASSERT_GT(arbitrator->stats().numReclaimedBytes, 0);
+}
+
+DEBUG_ONLY_TEST_F(
+    HashJoinTest,
+    failedToReclaimFromHashJoinBuildersInNonReclaimableSection) {
+  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  const auto& arbitrator = memoryManager->arbitrator();
+  auto rowType = ROW({
+      {"c0", INTEGER()},
+      {"c1", INTEGER()},
+      {"c2", VARCHAR()},
+  });
+  const auto vectors = createVectors(rowType, 64 << 20, fuzzerOpts_);
+  const int numDrivers = 1;
+  std::shared_ptr<core::QueryCtx> queryCtx =
+      newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  const auto expectedResult =
+      runHashJoinTask(vectors, queryCtx, numDrivers, pool(), false).data;
+
+  std::atomic_bool nonReclaimableSectionWaitFlag{true};
+  folly::EventCount nonReclaimableSectionWait;
+  std::atomic_bool memoryArbitrationWaitFlag{true};
+  folly::EventCount memoryArbitrationWait;
+
+  std::atomic<bool> injectNonReclaimableSectionOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::common::memory::MemoryPoolImpl::allocateNonContiguous",
+      std::function<void(memory::MemoryPoolImpl*)>(
+          ([&](memory::MemoryPoolImpl* pool) {
+            if (!isHashBuildMemoryPool(*pool)) {
+              return;
+            }
+            if (!injectNonReclaimableSectionOnce.exchange(false)) {
+              return;
+            }
+
+            // Signal the test control that one of the hash build operator has
+            // entered into non-reclaimable section.
+            nonReclaimableSectionWaitFlag = false;
+            nonReclaimableSectionWait.notifyAll();
+
+            // Suspend the driver to simulate the arbitration.
+            pool->reclaimer()->enterArbitration();
+            // Wait for the memory arbitration to complete.
+            memoryArbitrationWait.await(
+                [&]() { return !memoryArbitrationWaitFlag.load(); });
+            pool->reclaimer()->leaveArbitration();
+          })));
+
+  std::thread joinThread([&]() {
+    const auto result = runHashJoinTask(
+        vectors, queryCtx, numDrivers, pool(), true, expectedResult);
+    auto taskStats = exec::toPlanStats(result.task->taskStats());
+    auto& planStats = taskStats.at(result.planNodeId);
+    ASSERT_EQ(planStats.spilledBytes, 0);
+  });
+
+  auto fakePool = queryCtx->pool()->addLeafChild(
+      "fakePool", true, FakeMemoryReclaimer::create());
+  // Wait for the hash build operators to enter into non-reclaimable section.
+  nonReclaimableSectionWait.await(
+      [&]() { return !nonReclaimableSectionWaitFlag.load(); });
+
+  // We expect capacity grow fails as we can't reclaim from hash join operators.
+  ASSERT_FALSE(memoryManager->testingGrowPool(fakePool.get(), kMemoryCapacity));
+
+  // Notify the hash build operator that memory arbitration has been done.
+  memoryArbitrationWaitFlag = false;
+  memoryArbitrationWait.notifyAll();
+
+  joinThread.join();
+  waitForAllTasksToBeDeleted();
+  ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 1);
+}
+
+DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromHashJoinBuildInWaitForTableBuild) {
+  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  const auto& arbitrator = memoryManager->arbitrator();
+  auto rowType = ROW({
+      {"c0", INTEGER()},
+      {"c1", INTEGER()},
+      {"c2", VARCHAR()},
+  });
+  const auto vectors = createVectors(rowType, 32 << 20, fuzzerOpts_);
+  const int numDrivers = 4;
+  const auto expectedResult =
+      runHashJoinTask(vectors, nullptr, numDrivers, pool(), false).data;
+  std::shared_ptr<core::QueryCtx> queryCtx =
+      newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+
+  folly::EventCount arbitrationWait;
+  std::atomic_bool arbitrationWaitFlag{true};
+  folly::EventCount taskPauseWait;
+  std::atomic_bool taskPauseWaitFlag{true};
+
+  std::atomic_int blockedBuildOperators{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal",
+      std::function<void(Driver*)>(([&](Driver* driver) {
+        // Check if the driver is from hash join build.
+        if (driver->driverCtx()->pipelineId != 1) {
+          return;
+        }
+
+        if (++blockedBuildOperators > numDrivers - 1) {
+          return;
+        }
+
+        taskPauseWait.await([&]() { return !taskPauseWaitFlag.load(); });
+      })));
+
+  std::atomic_bool injectNoMoreInputOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "HashBuild") {
+          return;
+        }
+
+        if (!injectNoMoreInputOnce.exchange(false)) {
+          return;
+        }
+
+        arbitrationWaitFlag = false;
+        arbitrationWait.notifyAll();
+        taskPauseWait.await([&]() { return !taskPauseWaitFlag.load(); });
+      })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>([&](Task* /*unused*/) {
+        taskPauseWaitFlag = false;
+        taskPauseWait.notifyAll();
+      }));
+
+  std::thread joinThread([&]() {
+    VELOX_ASSERT_THROW(
+        runHashJoinTask(
+            vectors, queryCtx, numDrivers, pool(), true, expectedResult),
+        "Exceeded memory pool cap of");
+  });
+
+  arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
+  auto fakePool = queryCtx->pool()->addLeafChild(
+      "fakePool", true, FakeMemoryReclaimer::create());
+  void* fakeBuffer{nullptr};
+  arbitrationWait.await([&]() { return !arbitrationWaitFlag.load(); });
+  // Let the first hash build operator reaches to wait for table build state.
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  fakeBuffer = fakePool->allocate(kMemoryCapacity);
+
+  joinThread.join();
+
+  // We expect the reclaimed bytes from hash build.
+  ASSERT_GT(arbitrator->stats().numReclaimedBytes, 0);
+  waitForAllTasksToBeDeleted();
+  ASSERT_TRUE(fakeBuffer != nullptr);
+  fakePool->free(fakeBuffer, kMemoryCapacity);
+  waitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredDuringParallelJoinBuild) {
+  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  const auto& arbitrator = memoryManager->arbitrator();
+  auto rowType = ROW({
+      {"c0", INTEGER()},
+      {"c1", INTEGER()},
+      {"c2", VARCHAR()},
+  });
+  // Build a large vector to trigger memory arbitration.
+  fuzzerOpts_.vectorSize = 10'000;
+  std::vector<RowVectorPtr> vectors = createVectors(2, rowType, fuzzerOpts_);
+  createDuckDbTable(vectors);
+
+  const int numDrivers = 4;
+  std::shared_ptr<core::QueryCtx> joinQueryCtx =
+      newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  // Make sure the parallel build has been triggered.
+  std::atomic<bool> parallelBuildTriggered{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashTable::parallelJoinBuild",
+      std::function<void(void*)>(
+          [&](void*) { parallelBuildTriggered = true; }));
+
+  // TODO: add driver context to test if the memory allocation is triggered in
+  // driver context or not.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  AssertQueryBuilder(duckDbQueryRunner_)
+      // Set very low table size threshold to trigger parallel build.
+      .config(
+          core::QueryConfig::kMinTableRowsForParallelJoinBuild,
+          std::to_string(0))
+      // Set multiple hash build drivers to trigger parallel build.
+      .maxDrivers(4)
+      .queryCtx(joinQueryCtx)
+      .plan(PlanBuilder(planNodeIdGenerator)
+                .values(vectors, true)
+                .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                .hashJoin(
+                    {"t0", "t1"},
+                    {"u1", "u0"},
+                    PlanBuilder(planNodeIdGenerator)
+                        .values(vectors, true)
+                        .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                        .planNode(),
+                    "",
+                    {"t1"},
+                    core::JoinType::kInner)
+                .planNode())
+      .assertResults(
+          "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
+  ASSERT_TRUE(parallelBuildTriggered);
+  waitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
+  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  const auto& arbitrator = memoryManager->arbitrator();
+  auto rowType = ROW({
+      {"c0", INTEGER()},
+      {"c1", INTEGER()},
+      {"c2", VARCHAR()},
+  });
+  // Build a large vector to trigger memory arbitration.
+  fuzzerOpts_.vectorSize = 10'000;
+  std::vector<RowVectorPtr> vectors = createVectors(2, rowType, fuzzerOpts_);
+  createDuckDbTable(vectors);
+
+  std::shared_ptr<core::QueryCtx> joinQueryCtx =
+      newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  std::shared_ptr<core::QueryCtx> fakeCtx =
+      newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+
+  auto fakePool = fakeCtx->pool()->addLeafChild(
+      "fakePool", true, FakeMemoryReclaimer::create());
+  std::vector<std::unique_ptr<TestAllocation>> injectAllocations;
+  std::atomic<bool> injectAllocationOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashBuild::ensureTableFits",
+      std::function<void(HashBuild*)>([&](HashBuild* buildOp) {
+        // Inject the allocation once to ensure the merged table allocation will
+        // trigger memory arbitration.
+        if (!injectAllocationOnce.exchange(false)) {
+          return;
+        }
+        auto* buildPool = buildOp->pool();
+        // Free up available reservation from the leaf build memory pool.
+        uint64_t injectAllocationSize = buildPool->availableReservation();
+        injectAllocations.emplace_back(new TestAllocation{
+            buildPool,
+            buildPool->allocate(injectAllocationSize),
+            injectAllocationSize});
+        // Free up available memory from the system.
+        injectAllocationSize = arbitrator->stats().freeCapacityBytes +
+            joinQueryCtx->pool()->freeBytes();
+        injectAllocations.emplace_back(new TestAllocation{
+            fakePool.get(),
+            fakePool->allocate(injectAllocationSize),
+            injectAllocationSize});
+      }));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashBuild::reclaim",
+      std::function<void(Operator*)>([&](Operator* /*unused*/) {
+        ASSERT_EQ(injectAllocations.size(), 2);
+        for (auto& injectAllocation : injectAllocations) {
+          injectAllocation->free();
+        }
+      }));
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto task =
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, "true")
+          .config(core::QueryConfig::kJoinSpillEnabled, "true")
+          .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
+          // Set multiple hash build drivers to trigger parallel build.
+          .maxDrivers(4)
+          .queryCtx(joinQueryCtx)
+          .plan(PlanBuilder(planNodeIdGenerator)
+                    .values(vectors, true)
+                    .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                    .hashJoin(
+                        {"t0", "t1"},
+                        {"u1", "u0"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .values(vectors, true)
+                            .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                            .planNode(),
+                        "",
+                        {"t1"},
+                        core::JoinType::kInner)
+                    .planNode())
+          .assertResults(
+              "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
+  task.reset();
+  waitForAllTasksToBeDeleted();
+  ASSERT_EQ(injectAllocations.size(), 2);
+}
+
+DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringJoinTableBuild) {
+  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  const auto& arbitrator = memoryManager->arbitrator();
+  auto rowType = ROW({
+      {"c0", INTEGER()},
+      {"c1", INTEGER()},
+      {"c2", VARCHAR()},
+  });
+  // Build a large vector to trigger memory arbitration.
+  fuzzerOpts_.vectorSize = 10'000;
+  std::vector<RowVectorPtr> vectors = createVectors(2, rowType, fuzzerOpts_);
+  createDuckDbTable(vectors);
+
+  std::shared_ptr<core::QueryCtx> joinQueryCtx =
+      newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+
+  std::atomic<bool> blockTableBuildOpOnce{true};
+  std::atomic<bool> tableBuildBlocked{false};
+  folly::EventCount tableBuildBlockWait;
+  std::atomic<bool> unblockTableBuild{false};
+  folly::EventCount unblockTableBuildWait;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashTable::parallelJoinBuild",
+      std::function<void(memory::MemoryPool*)>(([&](memory::MemoryPool* pool) {
+        if (!blockTableBuildOpOnce.exchange(false)) {
+          return;
+        }
+        tableBuildBlocked = true;
+        tableBuildBlockWait.notifyAll();
+        unblockTableBuildWait.await([&]() { return unblockTableBuild.load(); });
+        void* buffer = pool->allocate(kMemoryCapacity / 4);
+        pool->free(buffer, kMemoryCapacity / 4);
+      })));
+
+  std::thread joinThread([&]() {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .spillDirectory(spillDirectory->path)
+            .config(core::QueryConfig::kSpillEnabled, "true")
+            .config(core::QueryConfig::kJoinSpillEnabled, "true")
+            .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
+            // Set multiple hash build drivers to trigger parallel build.
+            .maxDrivers(4)
+            .queryCtx(joinQueryCtx)
+            .plan(PlanBuilder(planNodeIdGenerator)
+                      .values(vectors, true)
+                      .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                      .hashJoin(
+                          {"t0", "t1"},
+                          {"u1", "u0"},
+                          PlanBuilder(planNodeIdGenerator)
+                              .values(vectors, true)
+                              .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                              .planNode(),
+                          "",
+                          {"t1"},
+                          core::JoinType::kInner)
+                      .planNode())
+            .assertResults(
+                "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
+  });
+
+  tableBuildBlockWait.await([&]() { return tableBuildBlocked.load(); });
+
+  folly::EventCount taskPauseWait;
+  std::atomic<bool> taskPaused{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>(([&](Task* /*unused*/) {
+        taskPaused = true;
+        taskPauseWait.notifyAll();
+      })));
+
+  std::thread memThread([&]() {
+    std::shared_ptr<core::QueryCtx> fakeCtx =
+        newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+    auto fakePool = fakeCtx->pool()->addLeafChild("fakePool");
+    ASSERT_FALSE(memoryManager->testingGrowPool(
+        fakePool.get(), memoryManager->arbitrator()->capacity()));
+  });
+
+  taskPauseWait.await([&]() { return taskPaused.load(); });
+
+  unblockTableBuild = true;
+  unblockTableBuildWait.notifyAll();
+
+  joinThread.join();
+  memThread.join();
+  waitForAllTasksToBeDeleted();
 }
 } // namespace

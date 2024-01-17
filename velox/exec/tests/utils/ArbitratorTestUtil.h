@@ -22,6 +22,9 @@
 #include "velox/exec/Driver.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/Task.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 namespace facebook::velox::exec::test {
 
@@ -63,6 +66,26 @@ class FakeMemoryReclaimer : public exec::MemoryReclaimer {
   }
 };
 
+struct TestAllocation {
+  memory::MemoryPool* pool{nullptr};
+  void* buffer{nullptr};
+  size_t size{0};
+
+  size_t free() {
+    const size_t freedBytes = size;
+    if (pool == nullptr) {
+      VELOX_CHECK_EQ(freedBytes, 0);
+      return freedBytes;
+    }
+    VELOX_CHECK_GT(freedBytes, 0);
+    pool->free(buffer, freedBytes);
+    pool = nullptr;
+    buffer = nullptr;
+    size = 0;
+    return freedBytes;
+  }
+};
+
 std::shared_ptr<core::QueryCtx> newQueryCtx(
     const std::unique_ptr<facebook::velox::memory::MemoryManager>&
         memoryManager,
@@ -72,4 +95,22 @@ std::shared_ptr<core::QueryCtx> newQueryCtx(
 
 std::unique_ptr<memory::MemoryManager> createMemoryManager();
 
+// Contains the query result.
+struct QueryTestResult {
+  std::shared_ptr<Task> task;
+  RowVectorPtr data;
+  core::PlanNodeId planNodeId;
+};
+
+core::PlanNodePtr hashJoinPlan(
+    const std::vector<RowVectorPtr>& vectors,
+    core::PlanNodeId& joinNodeId);
+
+QueryTestResult runHashJoinTask(
+    const std::vector<RowVectorPtr>& vectors,
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
+    uint32_t numDrivers,
+    memory::MemoryPool* pool,
+    bool enableSpilling,
+    const RowVectorPtr& expectedResult = nullptr);
 } // namespace facebook::velox::exec::test

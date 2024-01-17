@@ -56,4 +56,55 @@ std::unique_ptr<memory::MemoryManager> createMemoryManager() {
   return std::make_unique<memory::MemoryManager>(options);
 }
 
+core::PlanNodePtr hashJoinPlan(
+    const std::vector<RowVectorPtr>& vectors,
+    core::PlanNodeId& joinNodeId) {
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  return PlanBuilder(planNodeIdGenerator)
+      .values(vectors, true)
+      .project({"c0", "c1", "c2"})
+      .hashJoin(
+          {"c0"},
+          {"u1"},
+          PlanBuilder(planNodeIdGenerator)
+              .values(vectors, true)
+              .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+              .planNode(),
+          "",
+          {"c0", "c1", "c2"},
+          core::JoinType::kInner)
+      .capturePlanNodeId(joinNodeId)
+      .planNode();
+}
+
+QueryTestResult runHashJoinTask(
+    const std::vector<RowVectorPtr>& vectors,
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
+    uint32_t numDrivers,
+    memory::MemoryPool* pool,
+    bool enableSpilling,
+    const RowVectorPtr& expectedResult) {
+  QueryTestResult result;
+  const auto plan = hashJoinPlan(vectors, result.planNodeId);
+  if (enableSpilling) {
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    result.data = AssertQueryBuilder(plan)
+                      .spillDirectory(spillDirectory->path)
+                      .config(core::QueryConfig::kSpillEnabled, "true")
+                      .config(core::QueryConfig::kJoinSpillEnabled, "true")
+                      .queryCtx(queryCtx)
+                      .maxDrivers(numDrivers)
+                      .copyResults(pool, result.task);
+  } else {
+    result.data = AssertQueryBuilder(plan)
+                      .queryCtx(queryCtx)
+                      .maxDrivers(numDrivers)
+                      .copyResults(pool, result.task);
+  }
+  if (expectedResult != nullptr) {
+    assertEqualResults({result.data}, {expectedResult});
+  }
+  return result;
+}
+
 } // namespace facebook::velox::exec::test
