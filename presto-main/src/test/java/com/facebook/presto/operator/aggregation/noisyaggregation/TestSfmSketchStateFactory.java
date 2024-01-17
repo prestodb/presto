@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.noisyaggregation;
 
 import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.operator.aggregation.noisyaggregation.sketch.SfmSketch;
+import com.facebook.presto.operator.aggregation.noisyaggregation.sketch.TestingSeededRandomizationStrategy;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
@@ -40,9 +41,12 @@ public class TestSfmSketchStateFactory
     public void testCreateSingleStatePresent()
     {
         SfmSketchState state = factory.createSingleState();
+        long emptySize = state.getEstimatedSize();
+
         SfmSketch sketch = SfmSketch.create(16, 16);
         state.setSketch(sketch);
         assertEquals(sketch, state.getSketch());
+        assertEquals(state.getEstimatedSize() - emptySize, sketch.getRetainedSizeInBytes());
     }
 
     @Test
@@ -79,19 +83,53 @@ public class TestSfmSketchStateFactory
     }
 
     @Test
-    public void testMemoryAccounting()
+    public void testGroupedMemoryAccounting()
     {
         SfmSketchState state = factory.createGroupedState();
-        long oldSize = state.getEstimatedSize();
-        SfmSketch sketch1 = SfmSketch.create(16, 16);
+        long emptySize = state.getEstimatedSize();
 
+        // Create three sketches:
+        // - sketch1 has one 1-bit.
+        // - sketch2 has one other 1-bit.
+        // - sketch3 has many random bits.
+        // On initial creation, they will all be of equal size.
+        // However, due to the internals of BitSet.valueOf(), serializing and deserializing will drop trailing zeros in the sketch.
+        // So we can create sketches of equal logical size but different physical size by round-tripping them.
+        // The physical sizes (SfmSketch.getRetainedSizeInBytes()) observed by the author after this round-trip are:
+        // - sketch1: 232
+        // - sketch2: 120
+        // - sketch3: 2144
+        SfmSketch sketch1 = SfmSketch.create(1024, 16);
+        sketch1.add(1);
+        sketch1 = SfmSketch.deserialize(sketch1.serialize());
+
+        SfmSketch sketch2 = SfmSketch.create(1024, 16);
+        sketch2.add(0);
+        sketch2 = SfmSketch.deserialize(sketch2.serialize());
+
+        SfmSketch sketch3 = SfmSketch.create(1024, 16);
+        sketch3.enablePrivacy(0.1, new TestingSeededRandomizationStrategy(1));
+        sketch3 = SfmSketch.deserialize(sketch3.serialize());
+
+        // Set initial state to use sketch1, check memory estimate.
+        // Memory usage should increase by the size of the new sketch.
         state.setSketch(sketch1);
-        assertEquals(
-                state.getEstimatedSize(),
-                oldSize + sketch1.getRetainedSizeInBytes(),
-                format(
-                        "Expected old size %s plus new sketch sketch size to be equal than new estimate %s",
-                        oldSize,
-                        state.getEstimatedSize()));
+        long memoryIncrease = state.getEstimatedSize() - emptySize;
+        assertEquals(memoryIncrease, state.getSketch().getRetainedSizeInBytes());
+
+        // Merge in sketch2, and ensure memory estimate reflects the size of the merged sketch.
+        // Memory usage should stay the same, as the merged sketch should be the same size as the initial sketch.
+        state.mergeSketch(sketch2);
+        memoryIncrease = state.getEstimatedSize() - emptySize - memoryIncrease;
+        assertEquals(memoryIncrease, 0);
+        assertEquals(state.getEstimatedSize() - emptySize, state.getSketch().getRetainedSizeInBytes());
+
+        // Merge in sketch3, and ensure memory estimate reflects the size of the merged sketch.
+        // Memory usage should increase now to be at least as large as sketch3.
+        // (The actual size may be larger than sketch3 due to the way BitSet expands.)
+        state.mergeSketch(sketch3);
+        memoryIncrease = state.getEstimatedSize() - emptySize - memoryIncrease;
+        assertTrue(memoryIncrease >= 0);
+        assertEquals(state.getEstimatedSize() - emptySize, state.getSketch().getRetainedSizeInBytes());
     }
 }
