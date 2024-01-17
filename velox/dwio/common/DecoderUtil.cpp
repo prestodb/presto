@@ -92,16 +92,7 @@ bool nonNullRowsFromSparse(
     if (isDense(rows.data() + i, width)) {
       uint16_t flags = load8Bits(nulls, rows[i]) & widthMask;
       if (outputNulls) {
-        if constexpr (kStep == 8) {
-          resultNullBytes[i / 8] = flags;
-        } else {
-          VELOX_DCHECK_EQ(kStep, 4);
-          if (i % 8 == 0) {
-            resultNullBytes[i / 8] = flags;
-          } else {
-            resultNullBytes[i / 8] |= flags << 4;
-          }
-        }
+        bits::storeBitsToByte<kStep>(flags, resultNullBytes, i);
         anyNull |= flags != widthMask;
       }
       if (!flags) {
@@ -131,16 +122,7 @@ bool nonNullRowsFromSparse(
       auto next8Rows = xsimd::load_unaligned(rows.data() + i);
       uint16_t flags = simd::gather8Bits(nulls, next8Rows, width);
       if (outputNulls) {
-        if constexpr (kStep == 8) {
-          resultNullBytes[i / 8] = flags;
-        } else {
-          VELOX_DCHECK_EQ(kStep, 4);
-          if (i % 8 == 0) {
-            resultNullBytes[i / 8] = flags;
-          } else {
-            resultNullBytes[i / 8] |= flags << 4;
-          }
-        }
+        bits::storeBitsToByte<kStep>(flags, resultNullBytes, i);
         anyNull |= flags != widthMask;
       }
       if (!flags) {

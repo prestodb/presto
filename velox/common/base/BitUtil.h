@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "velox/common/base/Exceptions.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -975,6 +977,26 @@ inline __int128_t builtin_bswap128(__int128_t value) {
 #else
 #undef VELOX_HAS_BUILTIN_BSWAP_INT128
 #endif
+}
+
+/// Store `bits' into the memory region pointed by `byte', at `index' (bit
+/// index).  If `kSize' is 8, we store the whole byte directly; otherwise it
+/// must be 4 and we store either the whole byte or the upper 4 bits only,
+/// depending on the `index'.
+template <int kSize>
+void storeBitsToByte(uint8_t bits, uint8_t* bytes, unsigned index) {
+  VELOX_DCHECK_EQ(index % kSize, 0);
+  VELOX_DCHECK_EQ(bits >> kSize, 0);
+  if constexpr (kSize == 8) {
+    bytes[index / 8] = bits;
+  } else {
+    VELOX_DCHECK_EQ(kSize, 4);
+    if (index % 8 == 0) {
+      bytes[index / 8] = bits;
+    } else {
+      bytes[index / 8] |= bits << 4;
+    }
+  }
 }
 
 } // namespace bits
