@@ -175,8 +175,6 @@ SystemConfig::SystemConfig() {
           STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
           STR_PROP(kAsyncCacheSsdDisableFileCow, "false"),
           STR_PROP(kEnableSerializedPageChecksum, "true"),
-          STR_PROP(kUseMmapArena, "false"),
-          NUM_PROP(kMmapArenaCapacityRatio, 10),
           STR_PROP(kUseMmapAllocator, "true"),
           STR_PROP(kMemoryArbitratorKind, ""),
           NUM_PROP(kQueryMemoryGb, 38),
@@ -429,14 +427,6 @@ bool SystemConfig::enableVeloxTaskLogging() const {
 
 bool SystemConfig::enableVeloxExprSetLogging() const {
   return optionalProperty<bool>(kEnableVeloxExprSetLogging).value();
-}
-
-bool SystemConfig::useMmapArena() const {
-  return optionalProperty<bool>(kUseMmapArena).value();
-}
-
-int32_t SystemConfig::mmapArenaCapacityRatio() const {
-  return optionalProperty<int32_t>(kMmapArenaCapacityRatio).value();
 }
 
 bool SystemConfig::useMmapAllocator() const {

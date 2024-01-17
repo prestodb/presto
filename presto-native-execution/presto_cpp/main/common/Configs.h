@@ -298,10 +298,6 @@ class SystemConfig : public ConfigBase {
   /// cache entries.
   static constexpr std::string_view kCacheVeloxTtlCheckInterval{
       "cache.velox.ttl-check-interval"};
-
-  static constexpr std::string_view kUseMmapArena{"use-mmap-arena"};
-  static constexpr std::string_view kMmapArenaCapacityRatio{
-      "mmap-arena-capacity-ratio"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
 
   /// Specifies the memory arbitrator kind. If it is empty, then there is no
@@ -587,10 +583,6 @@ class SystemConfig : public ConfigBase {
   bool enableVeloxTaskLogging() const;
 
   bool enableVeloxExprSetLogging() const;
-
-  bool useMmapArena() const;
-
-  int32_t mmapArenaCapacityRatio() const;
 
   bool useMmapAllocator() const;
 
