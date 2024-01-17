@@ -37,7 +37,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;

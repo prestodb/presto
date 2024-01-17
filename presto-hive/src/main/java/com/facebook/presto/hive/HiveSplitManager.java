@@ -79,7 +79,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;

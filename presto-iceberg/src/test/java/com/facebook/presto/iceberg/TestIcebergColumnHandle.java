@@ -28,10 +28,10 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static org.testng.Assert.assertEquals;
