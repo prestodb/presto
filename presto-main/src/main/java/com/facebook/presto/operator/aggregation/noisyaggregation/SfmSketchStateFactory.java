@@ -89,7 +89,7 @@ public class SfmSketchStateFactory
             requireNonNull(value, "value is null");
             retainedBytes -= getSketch().getRetainedSizeInBytes();
             getSketch().mergeWith(value);
-            retainedBytes += value.getRetainedSizeInBytes();
+            retainedBytes += getSketch().getRetainedSizeInBytes();
         }
 
         @Override
