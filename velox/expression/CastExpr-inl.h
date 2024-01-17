@@ -101,14 +101,12 @@ StringView convertToStringView(
       // Append remaining fraction digits.
       auto result = std::to_chars(
           writePosition, writePosition + maxVarcharSize, fraction);
-      position = result.ptr;
-      errorCode = result.ec;
       VELOX_DCHECK_EQ(
-          errorCode,
+          result.ec,
           std::errc(),
           "Failed to cast decimal to varchar: {}",
-          std::make_error_code(errorCode).message());
-      writePosition = position;
+          std::make_error_code(result.ec).message());
+      writePosition = result.ptr;
     }
   }
   return StringView(startPosition, writePosition - startPosition);
