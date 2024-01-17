@@ -63,8 +63,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;

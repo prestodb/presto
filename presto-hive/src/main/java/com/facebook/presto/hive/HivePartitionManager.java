@@ -277,7 +277,7 @@ public class HivePartitionManager
 
         if (effectivePredicate.isNone()) {
             return new HivePartitionResult(
-                    partitionColumns,
+                    ImmutableList.copyOf(partitionColumns),
                     table.getDataColumns(),
                     table.getParameters(),
                     partitions,
@@ -292,7 +292,7 @@ public class HivePartitionManager
 
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
-                    partitionColumns,
+                    ImmutableList.copyOf(partitionColumns),
                     table.getDataColumns(),
                     table.getParameters(),
                     partitions,
@@ -307,7 +307,7 @@ public class HivePartitionManager
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
         return new HivePartitionResult(
-                partitionColumns,
+                ImmutableList.copyOf(partitionColumns),
                 table.getDataColumns(),
                 table.getParameters(),
                 partitions,
@@ -398,7 +398,7 @@ public class HivePartitionManager
 
         Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
         return new HivePartitionResult(
-                partitionColumns,
+                ImmutableList.copyOf(partitionColumns),
                 table.getDataColumns(),
                 table.getParameters(),
                 partitionList,

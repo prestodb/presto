@@ -97,7 +97,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
