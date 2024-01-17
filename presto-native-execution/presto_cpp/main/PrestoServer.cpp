@@ -616,8 +616,6 @@ void PrestoServer::initializeVeloxMemory() {
   options.allocatorCapacity = memoryGb << 30;
   if (systemConfig->useMmapAllocator()) {
     options.useMmapAllocator = true;
-    options.useMmapArena = systemConfig->useMmapArena();
-    options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
   }
   options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
   options.trackDefaultUsage =
