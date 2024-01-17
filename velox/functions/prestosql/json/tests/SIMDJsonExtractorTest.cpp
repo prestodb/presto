@@ -49,10 +49,10 @@ class SIMDJsonExtractorTest : public testing::Test {
     auto consumer = [&res](auto& v) {
       SIMDJSON_ASSIGN_OR_RAISE(auto jsonStr, simdjson::to_json_string(v));
       res.emplace_back(jsonStr);
-      return true;
+      return simdjson::SUCCESS;
     };
 
-    EXPECT_TRUE(simdJsonExtract(json, path, consumer))
+    EXPECT_EQ(simdJsonExtract(json, path, consumer), simdjson::SUCCESS)
         << "with json " << json << " and path " << path;
 
     if (!expected) {
@@ -80,7 +80,7 @@ class SIMDJsonExtractorTest : public testing::Test {
         // We expect a single value, if consumer gets called multiple times,
         // e.g. the path contains [*], return null.
         actual = std::nullopt;
-        return true;
+        return simdjson::SUCCESS;
       }
 
       resultPopulated = true;
@@ -105,10 +105,10 @@ class SIMDJsonExtractorTest : public testing::Test {
           SIMDJSON_ASSIGN_OR_RAISE(actual, simdjson::to_json_string(v));
         }
       }
-      return true;
+      return simdjson::SUCCESS;
     };
 
-    EXPECT_TRUE(simdJsonExtract(json, path, consumer))
+    EXPECT_EQ(simdJsonExtract(json, path, consumer), simdjson::SUCCESS)
         << "with json " << json << " and path " << path;
 
     EXPECT_EQ(expected, actual) << "with json " << json << " and path " << path;
@@ -464,7 +464,7 @@ TEST_F(SIMDJsonExtractorTest, reextractJsonTest) {
   std::string ret;
   auto consumer = [&ret](auto& v) {
     SIMDJSON_ASSIGN_OR_RAISE(ret, simdjson::to_json_string(v));
-    return true;
+    return simdjson::SUCCESS;
   };
 
   simdJsonExtract(json, "$", consumer);
@@ -510,7 +510,7 @@ TEST_F(SIMDJsonExtractorTest, jsonMultipleExtractsTest) {
   std::string ret;
   auto consumer = [&ret](auto& v) {
     SIMDJSON_ASSIGN_OR_RAISE(ret, simdjson::to_json_string(v));
-    return true;
+    return simdjson::SUCCESS;
   };
 
   simdJsonExtract(json, "$.store", consumer);
@@ -523,17 +523,17 @@ TEST_F(SIMDJsonExtractorTest, jsonMultipleExtractsTest) {
 
 TEST_F(SIMDJsonExtractorTest, invalidJson) {
   // No-op consumer.
-  auto consumer = [](auto& /* unused */) { return true; };
+  auto consumer = [](auto& /* unused */) { return simdjson::SUCCESS; };
 
   // Object key is invalid.
   std::string json = "{\"foo: \"bar\"}";
-  EXPECT_FALSE(simdJsonExtract(json, "$.foo", consumer));
+  EXPECT_NE(simdJsonExtract(json, "$.foo", consumer), simdjson::SUCCESS);
   // Object value is invalid.
   json = "{\"foo\": \"bar}";
-  EXPECT_FALSE(simdJsonExtract(json, "$.foo", consumer));
+  EXPECT_NE(simdJsonExtract(json, "$.foo", consumer), simdjson::SUCCESS);
   // Value in array is invalid.
   // Inner object is invalid.
   json = "{\"foo\": [\"bar\", \"baz]}";
-  EXPECT_FALSE(simdJsonExtract(json, "$.foo[0]", consumer));
+  EXPECT_NE(simdJsonExtract(json, "$.foo[0]", consumer), simdjson::SUCCESS);
 }
 } // namespace

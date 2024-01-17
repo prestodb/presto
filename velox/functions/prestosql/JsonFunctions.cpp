@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/prestosql/json/SIMDJsonWrapper.h"
+#include "velox/functions/prestosql/json/SIMDJsonUtil.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox::functions {
@@ -71,13 +71,9 @@ class JsonParseFunction : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    folly::call_once(initializeErrors_, [this] {
-      // Initilize errors here so that we get the proper exception context.
-      for (int i = 1; i < simdjson::NUM_ERROR_CODES; ++i) {
-        simdjson::simdjson_error e(static_cast<simdjson::error_code>(i));
-        errors_[i] = toVeloxException(std::make_exception_ptr(e));
-      }
-    });
+    // Initilize errors here so that we get the proper exception context.
+    folly::call_once(
+        initializeErrors_, [this] { simdjsonErrorsToExceptions(errors_); });
 
     VectorPtr localResult;
 

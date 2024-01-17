@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(velox_functions_json JsonExtractor.cpp JsonPathTokenizer.cpp
-                                 SIMDJsonExtractor.cpp)
+                                 SIMDJsonExtractor.cpp SIMDJsonUtil.cpp)
 
 target_link_libraries(velox_functions_json velox_exception Folly::folly
                       simdjson::simdjson)

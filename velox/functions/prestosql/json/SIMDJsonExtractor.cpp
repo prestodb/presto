@@ -42,12 +42,6 @@ namespace facebook::velox::functions::detail {
   return *it.first->second;
 }
 
-simdjson::simdjson_result<simdjson::ondemand::document>
-SIMDJsonExtractor::parse(const simdjson::padded_string& json) {
-  thread_local static simdjson::ondemand::parser parser;
-  return parser.iterate(json);
-}
-
 bool SIMDJsonExtractor::tokenize(const std::string& path) {
   thread_local static JsonPathTokenizer tokenizer;
 
@@ -71,7 +65,7 @@ bool SIMDJsonExtractor::tokenize(const std::string& path) {
   return true;
 }
 
-bool extractObject(
+simdjson::error_code extractObject(
     simdjson::ondemand::value& jsonValue,
     const std::string& key,
     std::optional<simdjson::ondemand::value>& ret) {
@@ -80,13 +74,13 @@ bool extractObject(
     SIMDJSON_ASSIGN_OR_RAISE(auto currentKey, field.unescaped_key());
     if (currentKey == key) {
       ret.emplace(field.value());
-      return true;
+      return simdjson::SUCCESS;
     }
   }
-  return true;
+  return simdjson::SUCCESS;
 }
 
-bool extractArray(
+simdjson::error_code extractArray(
     simdjson::ondemand::value& jsonValue,
     const std::string& index,
     std::optional<simdjson::ondemand::value>& ret) {
@@ -98,6 +92,6 @@ bool extractArray(
       ret.emplace(std::move(val));
     }
   }
-  return true;
+  return simdjson::SUCCESS;
 }
 } // namespace facebook::velox::functions::detail
