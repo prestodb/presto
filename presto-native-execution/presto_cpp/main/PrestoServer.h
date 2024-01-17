@@ -58,7 +58,7 @@ struct MemoryInfo;
 namespace facebook::presto {
 
 /// Three states server can be in.
-enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
+enum class NodeState : int8_t { kActive, kInActive, kShuttingDown };
 
 class Announcer;
 class SignalHandler;
@@ -204,7 +204,7 @@ class PrestoServer {
   std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
-  std::atomic<NodeState> nodeState_{NodeState::ACTIVE};
+  std::atomic<NodeState> nodeState_{NodeState::kActive};
   std::atomic_bool shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
