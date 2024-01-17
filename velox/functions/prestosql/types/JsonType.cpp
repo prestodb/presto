@@ -30,9 +30,11 @@
 #include "velox/expression/StringWriter.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
+#include "velox/functions/prestosql/json/SIMDJsonUtil.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
+
 namespace {
 
 template <typename T, bool isMapKey = false>
@@ -509,292 +511,419 @@ void castToJsonFromRow(
   });
 }
 
-// Write object to writer at the current offset.
-template <TypeKind kind>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped(
-    const folly::dynamic& /*object*/,
-    exec::GenericWriter&
-    /*writer*/) {
-  VELOX_NYI(
-      "Casting from JSON to {} is not supported.", TypeTraits<kind>::name);
-}
-
-// Forward declarations.
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::ARRAY>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer);
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::MAP>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer);
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::ROW>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer);
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::VARCHAR>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  if (isJsonType(writer.type())) {
-    // Sort keys to match Presto's behavior.
-    folly::json::serialization_opts opts;
-    opts.sort_keys = true;
-    writer.castTo<Varchar>().append(folly::json::serialize(object, opts));
-  } else if (object.isBool()) {
-    writer.castTo<Varchar>().append(object.asBool() ? "true" : "false");
-  } else {
-    writer.castTo<Varchar>().append(object.asString());
-  }
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::BOOLEAN>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  writer.castTo<bool>() = object.asBool();
-}
-
 template <typename T>
-FOLLY_ALWAYS_INLINE T castJsonToInt(const folly::dynamic& object) {
-  if (object.isDouble()) {
-    constexpr double kIntMaxAsDouble =
-        static_cast<double>(std::numeric_limits<T>::max());
-    constexpr double kIntMinAsDouble =
-        static_cast<double>(std::numeric_limits<T>::min());
-
-    double value = object.asDouble();
-    if (value <= kIntMaxAsDouble && value >= kIntMinAsDouble) {
-      return static_cast<T>(value);
-    }
-
-    VELOX_USER_FAIL(
-        "value is out of range [{}, {}]: {}",
-        kIntMinAsDouble,
-        kIntMaxAsDouble,
-        value);
-  } else {
-    return folly::to<T>(object.asInt());
+simdjson::simdjson_result<T> fromString(const std::string_view& s) {
+  auto result = folly::tryTo<T>(s);
+  if (result.hasError()) {
+    return simdjson::INCORRECT_TYPE;
   }
+  return std::move(*result);
 }
 
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::TINYINT>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  writer.castTo<int8_t>() = castJsonToInt<int8_t>(object);
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::SMALLINT>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  writer.castTo<int16_t>() = castJsonToInt<int16_t>(object);
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::INTEGER>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  writer.castTo<int32_t>() = castJsonToInt<int32_t>(object);
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::BIGINT>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  writer.castTo<int64_t>() = castJsonToInt<int64_t>(object);
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::REAL>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  writer.castTo<float>() = folly::to<float>(object.asDouble());
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::DOUBLE>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  writer.castTo<double>() = folly::to<double>(object.asDouble());
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::ARRAY>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  auto& writerTyped = writer.castTo<Array<Any>>();
-
-  for (auto it = object.begin(); it != object.end(); ++it) {
-    // If casting to array of JSON, nulls in array elements should become the
-    // JSON text "null".
-    if (!isJsonType(writer.type()->childAt(0)) && it->isNull()) {
-      writerTyped.add_null();
-    } else {
-      VELOX_DYNAMIC_TYPE_DISPATCH(
-          castFromJsonTyped,
-          writer.type()->childAt(0)->kind(),
-          *it,
-          writerTyped.add_item());
+// Write x to writer if x is in the range of writer type `To'.  Only the
+// following cases are supported:
+//
+// Signed Integer -> Signed Integer
+// Unsigned Integer -> Unsigned Integer
+// Signed Integer / Float / Double -> Float/Double
+template <typename To, typename From>
+simdjson::error_code convertIfInRange(From x, exec::GenericWriter& writer) {
+  static_assert(std::is_signed_v<From> && std::is_signed_v<To>);
+  static_assert(std::is_integral_v<To> || !std::is_integral_v<From>);
+  if constexpr (!std::is_same_v<To, From>) {
+    constexpr From kMin = std::numeric_limits<To>::lowest();
+    constexpr From kMax = std::numeric_limits<To>::max();
+    if (!(kMin <= x && x <= kMax)) {
+      return simdjson::NUMBER_OUT_OF_RANGE;
     }
   }
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::MAP>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  auto& writerTyped = writer.castTo<Map<Any, Any>>();
-
-  for (const auto& pair : object.items()) {
-    // If casting to map of JSON values, nulls in map values should become the
-    // JSON text "null".
-    if (!isJsonType(writer.type()->childAt(1)) && pair.second.isNull()) {
-      auto& keyWriter = writerTyped.add_null();
-      VELOX_DYNAMIC_TYPE_DISPATCH(
-          castFromJsonTyped,
-          writer.type()->childAt(0)->kind(),
-          pair.first,
-          keyWriter);
-    } else {
-      auto writerPair = writerTyped.add_item();
-      VELOX_DYNAMIC_TYPE_DISPATCH(
-          castFromJsonTyped,
-          writer.type()->childAt(0)->kind(),
-          pair.first,
-          std::get<0>(writerPair));
-      VELOX_DYNAMIC_TYPE_DISPATCH(
-          castFromJsonTyped,
-          writer.type()->childAt(1)->kind(),
-          pair.second,
-          std::get<1>(writerPair));
-    }
-  }
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::ROW>(
-    const folly::dynamic& object,
-    exec::GenericWriter& writer) {
-  VELOX_USER_CHECK(
-      object.isArray() || object.isObject(),
-      "Only casting from JSON array or object to ROW is supported.");
-
-  auto& writerTyped = writer.castTo<DynamicRow>();
-
-  if (object.isArray()) {
-    VELOX_USER_CHECK_EQ(
-        writer.type()->size(),
-        object.size(),
-        "Cannot cast a JSON array of size {} to ROW with {} fields.",
-        object.size(),
-        writer.type()->size());
-
-    column_index_t i = 0;
-    for (auto it = object.begin(); it != object.end(); ++it, ++i) {
-      if (it->isNull()) {
-        writerTyped.set_null_at(i);
-      } else {
-        VELOX_DYNAMIC_TYPE_DISPATCH(
-            castFromJsonTyped,
-            writer.type()->childAt(i)->kind(),
-            *it,
-            writerTyped.get_writer_at(i));
-      }
-    }
-  } else {
-    auto rowType = writer.type()->asRow();
-    column_index_t fieldCount = rowType.size();
-
-    folly::F14FastMap<std::string, const folly::dynamic*> lowerCaseKeys;
-    lowerCaseKeys.reserve(object.size());
-
-    for (const auto& [key, value] : object.items()) {
-      // Skip null values.
-      if (!value.isNull()) {
-        const auto lowerCaseKey =
-            boost::algorithm::to_lower_copy(key.asString());
-        lowerCaseKeys.insert({lowerCaseKey, &value});
-      }
-    }
-
-    for (column_index_t i = 0; i < fieldCount; ++i) {
-      const auto lowerCaseName =
-          boost::algorithm::to_lower_copy(rowType.nameOf(i));
-      auto it = lowerCaseKeys.find(lowerCaseName);
-      if (it == lowerCaseKeys.end()) {
-        writerTyped.set_null_at(i);
-      } else {
-        VELOX_DYNAMIC_TYPE_DISPATCH(
-            castFromJsonTyped,
-            rowType.childAt(i)->kind(),
-            *(it->second),
-            writerTyped.get_writer_at(i));
-      }
-    }
-  }
+  writer.castTo<To>() = x;
+  return simdjson::SUCCESS;
 }
 
 template <TypeKind kind>
-void castFromJson(
-    const BaseVector& input,
-    exec::EvalCtx& context,
-    const SelectivityVector& rows,
-    BaseVector& result) {
-  // result is guaranteed to be a flat writable vector.
-  auto* flatResult = result.as<typename KindToFlatVector<kind>::type>();
-  exec::VectorWriter<Any> writer;
-  writer.init(*flatResult);
+simdjson::error_code appendMapKey(
+    const std::string_view& value,
+    exec::GenericWriter& writer) {
+  using T = typename TypeTraits<kind>::NativeType;
+  if constexpr (std::is_same_v<T, void>) {
+    return simdjson::INCORRECT_TYPE;
+  } else {
+    SIMDJSON_ASSIGN_OR_RAISE(writer.castTo<T>(), fromString<T>(value));
+    return simdjson::SUCCESS;
+  }
+}
 
-  // input is guaranteed to be in flat or constant encodings when passed in.
-  auto* inputVector = input.as<SimpleVector<StringView>>();
+template <>
+simdjson::error_code appendMapKey<TypeKind::VARCHAR>(
+    const std::string_view& value,
+    exec::GenericWriter& writer) {
+  writer.castTo<Varchar>().append(value);
+  return simdjson::SUCCESS;
+}
 
-  folly::dynamic object;
-  context.applyToSelectedNoThrow(rows, [&](auto row) {
-    writer.setOffset(row);
+template <>
+simdjson::error_code appendMapKey<TypeKind::VARBINARY>(
+    const std::string_view& /*value*/,
+    exec::GenericWriter& /*writer*/) {
+  return simdjson::INCORRECT_TYPE;
+}
 
-    if (inputVector->isNullAt(row)) {
-      writer.commitNull();
-    } else {
-      try {
-        object = folly::parseJson(inputVector->valueAt(row));
-      } catch (const std::exception&) {
-        writer.commitNull();
-        VELOX_USER_FAIL("Not a JSON input: {}", inputVector->valueAt(row));
-      }
+template <>
+simdjson::error_code appendMapKey<TypeKind::TIMESTAMP>(
+    const std::string_view& /*value*/,
+    exec::GenericWriter& /*writer*/) {
+  return simdjson::INCORRECT_TYPE;
+}
 
-      if (object.isNull()) {
-        writer.commitNull();
-      } else {
-        try {
-          castFromJsonTyped<kind>(object, writer.current());
-        } catch (const VeloxException& ve) {
-          if (!ve.isUserError()) {
-            throw;
-          }
-          writer.commitNull();
-          VELOX_USER_FAIL(
-              "Cannot cast from Json value {} to {}: {}",
-              inputVector->valueAt(row),
-              result.type()->toString(),
-              ve.message());
-        } catch (const std::exception& e) {
-          writer.commitNull();
-          VELOX_USER_FAIL(
-              "Cannot cast from Json value {} to {}: {}",
-              inputVector->valueAt(row),
-              result.type()->toString(),
-              e.what());
-        }
-        writer.commit(true);
-      }
+template <typename Input>
+struct CastFromJsonTypedImpl {
+  template <TypeKind kind>
+  static simdjson::error_code apply(Input input, exec::GenericWriter& writer) {
+    return KindDispatcher<kind>::apply(input, writer);
+  }
+
+ private:
+  // Dummy is needed because full/explicit specialization is not allowed inside
+  // class.
+  template <TypeKind kind, typename Dummy = void>
+  struct KindDispatcher {
+    static simdjson::error_code apply(Input, exec::GenericWriter&) {
+      VELOX_NYI(
+          "Casting from JSON to {} is not supported.", TypeTraits<kind>::name);
     }
-  });
-  writer.finish();
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::VARCHAR, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
+      std::string_view s;
+      if (isJsonType(writer.type())) {
+        SIMDJSON_ASSIGN_OR_RAISE(s, rawJson(value, type));
+      } else {
+        switch (type) {
+          case simdjson::ondemand::json_type::string: {
+            SIMDJSON_ASSIGN_OR_RAISE(s, value.get_string());
+            break;
+          }
+          case simdjson::ondemand::json_type::number:
+          case simdjson::ondemand::json_type::boolean:
+            s = value.raw_json_token();
+            break;
+          default:
+            return simdjson::INCORRECT_TYPE;
+        }
+      }
+      writer.castTo<Varchar>().append(s);
+      return simdjson::SUCCESS;
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::BOOLEAN, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
+      auto& w = writer.castTo<bool>();
+      switch (type) {
+        case simdjson::ondemand::json_type::boolean: {
+          SIMDJSON_ASSIGN_OR_RAISE(w, value.get_bool());
+          break;
+        }
+        case simdjson::ondemand::json_type::number: {
+          SIMDJSON_ASSIGN_OR_RAISE(auto num, value.get_number());
+          switch (num.get_number_type()) {
+            case simdjson::ondemand::number_type::floating_point_number:
+              w = num.get_double() != 0;
+              break;
+            case simdjson::ondemand::number_type::signed_integer:
+              w = num.get_int64() != 0;
+              break;
+            case simdjson::ondemand::number_type::unsigned_integer:
+              w = num.get_uint64() != 0;
+              break;
+          }
+          break;
+        }
+        case simdjson::ondemand::json_type::string: {
+          SIMDJSON_ASSIGN_OR_RAISE(auto s, value.get_string());
+          SIMDJSON_ASSIGN_OR_RAISE(w, fromString<bool>(s));
+          break;
+        }
+        default:
+          return simdjson::INCORRECT_TYPE;
+      }
+      return simdjson::SUCCESS;
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::TINYINT, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      return castJsonToInt<int8_t>(value, writer);
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::SMALLINT, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      return castJsonToInt<int16_t>(value, writer);
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::INTEGER, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      return castJsonToInt<int32_t>(value, writer);
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::BIGINT, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      return castJsonToInt<int64_t>(value, writer);
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::REAL, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      return castJsonToFloatingPoint<float>(value, writer);
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::DOUBLE, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      return castJsonToFloatingPoint<double>(value, writer);
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::ARRAY, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      auto& writerTyped = writer.castTo<Array<Any>>();
+      auto& elementType = writer.type()->childAt(0);
+      SIMDJSON_ASSIGN_OR_RAISE(auto array, value.get_array());
+      for (auto elementResult : array) {
+        SIMDJSON_ASSIGN_OR_RAISE(auto element, elementResult);
+        // If casting to array of JSON, nulls in array elements should become
+        // the JSON text "null".
+        if (!isJsonType(elementType) && element.is_null()) {
+          writerTyped.add_null();
+        } else {
+          SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(
+              CastFromJsonTypedImpl<simdjson::ondemand::value>::apply,
+              elementType->kind(),
+              element,
+              writerTyped.add_item()));
+        }
+      }
+      return simdjson::SUCCESS;
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::MAP, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      auto& writerTyped = writer.castTo<Map<Any, Any>>();
+      auto& keyType = writer.type()->childAt(0);
+      auto& valueType = writer.type()->childAt(1);
+      SIMDJSON_ASSIGN_OR_RAISE(auto object, value.get_object());
+      for (auto fieldResult : object) {
+        SIMDJSON_ASSIGN_OR_RAISE(auto field, fieldResult);
+        SIMDJSON_ASSIGN_OR_RAISE(auto key, field.unescaped_key(true));
+        // If casting to map of JSON values, nulls in map values should become
+        // the JSON text "null".
+        if (!isJsonType(valueType) && field.value().is_null()) {
+          SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(
+              appendMapKey, keyType->kind(), key, writerTyped.add_null()));
+        } else {
+          auto writers = writerTyped.add_item();
+          SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(
+              appendMapKey, keyType->kind(), key, std::get<0>(writers)));
+          SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(
+              CastFromJsonTypedImpl<simdjson::ondemand::value>::apply,
+              valueType->kind(),
+              field.value(),
+              std::get<1>(writers)));
+        }
+      }
+      return simdjson::SUCCESS;
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::ROW, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer) {
+      auto& rowType = writer.type()->asRow();
+      auto& writerTyped = writer.castTo<DynamicRow>();
+      SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
+      if (type == simdjson::ondemand::json_type::array) {
+        SIMDJSON_ASSIGN_OR_RAISE(auto array, value.get_array());
+        SIMDJSON_ASSIGN_OR_RAISE(auto arraySize, array.count_elements());
+        if (arraySize != writer.type()->size()) {
+          return simdjson::INCORRECT_TYPE;
+        }
+        column_index_t i = 0;
+        for (auto elementResult : array) {
+          SIMDJSON_ASSIGN_OR_RAISE(auto element, elementResult);
+          if (element.is_null()) {
+            writerTyped.set_null_at(i);
+          } else {
+            SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(
+                CastFromJsonTypedImpl<simdjson::ondemand::value>::apply,
+                rowType.childAt(i)->kind(),
+                element,
+                writerTyped.get_writer_at(i)));
+          }
+          ++i;
+        }
+      } else {
+        SIMDJSON_ASSIGN_OR_RAISE(auto object, value.get_object());
+        folly::F14FastMap<std::string, simdjson::ondemand::value> lowerCaseKeys(
+            object.count_fields());
+        std::string key;
+        for (auto fieldResult : object) {
+          SIMDJSON_ASSIGN_OR_RAISE(auto field, fieldResult);
+          if (!field.value().is_null()) {
+            SIMDJSON_ASSIGN_OR_RAISE(key, field.unescaped_key(true));
+            boost::algorithm::to_lower(key);
+            lowerCaseKeys[key] = field.value();
+          }
+        }
+        for (column_index_t numFields = rowType.size(), i = 0; i < numFields;
+             ++i) {
+          key = rowType.nameOf(i);
+          boost::algorithm::to_lower(key);
+          auto it = lowerCaseKeys.find(key);
+          if (it == lowerCaseKeys.end()) {
+            writerTyped.set_null_at(i);
+          } else {
+            SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(
+                CastFromJsonTypedImpl<simdjson::ondemand::value>::apply,
+                rowType.childAt(i)->kind(),
+                it->second,
+                writerTyped.get_writer_at(i)));
+          }
+        }
+      }
+      return simdjson::SUCCESS;
+    }
+  };
+
+  static simdjson::simdjson_result<std::string_view> rawJson(
+      Input value,
+      simdjson::ondemand::json_type type) {
+    switch (type) {
+      case simdjson::ondemand::json_type::array: {
+        SIMDJSON_ASSIGN_OR_RAISE(auto array, value.get_array());
+        return array.raw_json();
+      }
+      case simdjson::ondemand::json_type::object: {
+        SIMDJSON_ASSIGN_OR_RAISE(auto object, value.get_object());
+        return object.raw_json();
+      }
+      default:
+        return value.raw_json_token();
+    }
+  }
+
+  template <typename T>
+  static simdjson::error_code castJsonToInt(
+      Input value,
+      exec::GenericWriter& writer) {
+    SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
+    switch (type) {
+      case simdjson::ondemand::json_type::number: {
+        SIMDJSON_ASSIGN_OR_RAISE(auto num, value.get_number());
+        switch (num.get_number_type()) {
+          case simdjson::ondemand::number_type::floating_point_number:
+            return convertIfInRange<T>(num.get_double(), writer);
+          case simdjson::ondemand::number_type::signed_integer:
+            return convertIfInRange<T>(num.get_int64(), writer);
+          case simdjson::ondemand::number_type::unsigned_integer:
+            return simdjson::NUMBER_OUT_OF_RANGE;
+        }
+        break;
+      }
+      case simdjson::ondemand::json_type::boolean: {
+        writer.castTo<T>() = value.get_bool();
+        break;
+      }
+      case simdjson::ondemand::json_type::string: {
+        SIMDJSON_ASSIGN_OR_RAISE(auto s, value.get_string());
+        SIMDJSON_ASSIGN_OR_RAISE(writer.castTo<T>(), fromString<T>(s));
+        break;
+      }
+      default:
+        return simdjson::INCORRECT_TYPE;
+    }
+    return simdjson::SUCCESS;
+  }
+
+  template <typename T>
+  static simdjson::error_code castJsonToFloatingPoint(
+      Input value,
+      exec::GenericWriter& writer) {
+    SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
+    switch (type) {
+      case simdjson::ondemand::json_type::number: {
+        SIMDJSON_ASSIGN_OR_RAISE(auto num, value.get_number());
+        return convertIfInRange<T>(num.as_double(), writer);
+      }
+      case simdjson::ondemand::json_type::boolean: {
+        writer.castTo<T>() = value.get_bool();
+        break;
+      }
+      case simdjson::ondemand::json_type::string: {
+        SIMDJSON_ASSIGN_OR_RAISE(auto s, value.get_string());
+        SIMDJSON_ASSIGN_OR_RAISE(writer.castTo<T>(), fromString<T>(s));
+        break;
+      }
+      default:
+        return simdjson::INCORRECT_TYPE;
+    }
+    return simdjson::SUCCESS;
+  }
+};
+
+template <TypeKind kind>
+simdjson::error_code castFromJsonOneRow(
+    simdjson::padded_string_view input,
+    exec::VectorWriter<Any>& writer) {
+  SIMDJSON_ASSIGN_OR_RAISE(auto doc, simdjsonParse(input));
+  if (doc.is_null()) {
+    writer.commitNull();
+  } else {
+    SIMDJSON_TRY(
+        CastFromJsonTypedImpl<simdjson::ondemand::document&>::apply<kind>(
+            doc, writer.current()));
+    writer.commit(true);
+  }
+  return simdjson::SUCCESS;
 }
 
 bool isSupportedBasicType(const TypePtr& type) {
@@ -813,7 +942,71 @@ bool isSupportedBasicType(const TypePtr& type) {
   }
 }
 
-} // namespace
+/// Custom operator for casts from and to Json type.
+class JsonCastOperator : public exec::CastOperator {
+ public:
+  bool isSupportedFromType(const TypePtr& other) const override;
+
+  bool isSupportedToType(const TypePtr& other) const override;
+
+  void castTo(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override;
+
+  void castFrom(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override;
+
+ private:
+  template <TypeKind kind>
+  void castFromJson(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      BaseVector& result) const {
+    // Result is guaranteed to be a flat writable vector.
+    auto* flatResult = result.as<typename KindToFlatVector<kind>::type>();
+    exec::VectorWriter<Any> writer;
+    writer.init(*flatResult);
+    // Input is guaranteed to be in flat or constant encodings when passed in.
+    auto* inputVector = input.as<SimpleVector<StringView>>();
+    size_t maxSize = 0;
+    rows.applyToSelected([&](auto row) {
+      if (inputVector->isNullAt(row)) {
+        return;
+      }
+      auto& input = inputVector->valueAt(row);
+      maxSize = std::max(maxSize, input.size());
+    });
+    paddedInput_.resize(maxSize + simdjson::SIMDJSON_PADDING);
+    rows.applyToSelected([&](auto row) {
+      writer.setOffset(row);
+      if (inputVector->isNullAt(row)) {
+        writer.commitNull();
+        return;
+      }
+      auto& input = inputVector->valueAt(row);
+      memcpy(paddedInput_.data(), input.data(), input.size());
+      simdjson::padded_string_view paddedInput(
+          paddedInput_.data(), input.size(), paddedInput_.size());
+      if (auto error = castFromJsonOneRow<kind>(paddedInput, writer)) {
+        context.setVeloxExceptionError(row, errors_[error]);
+        writer.commitNull();
+      }
+    });
+    writer.finish();
+  }
+
+  mutable folly::once_flag initializeErrors_;
+  mutable std::exception_ptr errors_[simdjson::NUM_ERROR_CODES];
+  mutable std::string paddedInput_;
+};
 
 bool JsonCastOperator::isSupportedFromType(const TypePtr& other) const {
   if (isSupportedBasicType(other)) {
@@ -903,12 +1096,30 @@ void JsonCastOperator::castFrom(
     const SelectivityVector& rows,
     const TypePtr& resultType,
     VectorPtr& result) const {
+  // Initialize errors here so that we get the proper exception context.
+  folly::call_once(
+      initializeErrors_, [this] { simdjsonErrorsToExceptions(errors_); });
   context.ensureWritable(rows, resultType, result);
   // Casting to unsupported types should have been rejected by isSupportedType()
   // in the caller.
   VELOX_DYNAMIC_TYPE_DISPATCH(
       castFromJson, result->typeKind(), input, context, rows, *result);
 }
+
+class JsonTypeFactories : public CustomTypeFactories {
+ public:
+  JsonTypeFactories() = default;
+
+  TypePtr getType() const override {
+    return JSON();
+  }
+
+  exec::CastOperatorPtr getCastOperator() const override {
+    return std::make_shared<JsonCastOperator>();
+  }
+};
+
+} // namespace
 
 void registerJsonType() {
   registerCustomType("json", std::make_unique<const JsonTypeFactories>());

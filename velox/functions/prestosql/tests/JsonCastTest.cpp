@@ -788,29 +788,29 @@ TEST_F(JsonCastTest, toInteger) {
       JSON(),
       TINYINT(),
       {"128"_sv},
-      "Cannot cast from Json value 128 to TINYINT: Overflow during arithmetic conversion: (signed char) 128");
+      "The JSON number is too large or too small to fit within the requested type");
   testThrow<JsonNativeType, int8_t>(
       JSON(),
       TINYINT(),
       {"128.01"_sv},
-      "Cannot cast from Json value 128.01 to TINYINT: value is out of range [-128, 127]: 128.01");
+      "The JSON number is too large or too small to fit within the requested type");
   testThrow<JsonNativeType, int8_t>(
       JSON(),
       TINYINT(),
       {"-1223456"_sv},
-      "Cannot cast from Json value -1223456 to TINYINT: Negative overflow during arithmetic conversion: (signed char) -1223456");
+      "The JSON number is too large or too small to fit within the requested type");
   testThrow<JsonNativeType, int8_t>(
       JSON(),
       TINYINT(),
-      {"Infinity"_sv},
-      "Cannot cast from Json value Infinity to TINYINT: value is out of range [-128, 127]: inf");
+      {"\"Infinity\""_sv},
+      "The JSON element does not have the requested type");
   testThrow<JsonNativeType, int8_t>(
       JSON(),
       TINYINT(),
-      {"NaN"_sv},
-      "Cannot cast from Json value NaN to TINYINT: value is out of range [-128, 127]: nan");
+      {"\"NaN\""_sv},
+      "The JSON element does not have the requested type");
   testThrow<JsonNativeType, int8_t>(
-      JSON(), TINYINT(), {""_sv}, "Not a JSON input");
+      JSON(), TINYINT(), {""_sv}, "no JSON found");
 }
 
 TEST_F(JsonCastTest, toDouble) {
@@ -824,8 +824,23 @@ TEST_F(JsonCastTest, toDouble) {
        "123"_sv,
        "true"_sv,
        "false"_sv,
+       R"("Infinity")"_sv,
+       R"("-Infinity")"_sv,
+       R"("NaN")"_sv,
+       R"("-NaN")"_sv,
        std::nullopt},
-      {1.1, 2.0001, 10.0, 0.0314, 123, 1, 0, std::nullopt});
+      {1.1,
+       2.0001,
+       10.0,
+       0.0314,
+       123,
+       1,
+       0,
+       HUGE_VAL,
+       -HUGE_VAL,
+       std::numeric_limits<double>::quiet_NaN(),
+       std::numeric_limits<double>::quiet_NaN(),
+       std::nullopt});
   testCast<JsonNativeType, double>(
       JSON(),
       DOUBLE(),
@@ -836,13 +851,23 @@ TEST_F(JsonCastTest, toDouble) {
       JSON(),
       REAL(),
       {"-1.7E+307"_sv},
-      "Cannot cast from Json value -1.7E+307 to REAL: Negative overflow during arithmetic conversion: (float) -1.7E307");
+      "The JSON number is too large or too small to fit within the requested type");
   testThrow<JsonNativeType, float>(
       JSON(),
       REAL(),
       {"1.7E+307"_sv},
-      "Cannot cast from Json value 1.7E+307 to REAL: Overflow during arithmetic conversion: (float) 1.7E307");
-  testThrow<JsonNativeType, float>(JSON(), REAL(), {""_sv}, "Not a JSON input");
+      "The JSON number is too large or too small to fit within the requested type");
+  testThrow<JsonNativeType, float>(JSON(), REAL(), {""_sv}, "no JSON found");
+  testThrow<JsonNativeType, double>(
+      JSON(),
+      DOUBLE(),
+      {"Infinity"_sv},
+      "The JSON document has an improper structure");
+  testThrow<JsonNativeType, double>(
+      JSON(),
+      DOUBLE(),
+      {"NaN"_sv},
+      "The JSON document has an improper structure");
 }
 
 TEST_F(JsonCastTest, toBoolean) {
@@ -881,14 +906,13 @@ TEST_F(JsonCastTest, toBoolean) {
       JSON(),
       BOOLEAN(),
       {R"("123")"_sv},
-      "Cannot cast from Json value \"123\" to BOOLEAN: Integer overflow when parsing bool (must be 0 or 1): \"123\"");
+      "The JSON element does not have the requested type");
   testThrow<JsonNativeType, bool>(
       JSON(),
       BOOLEAN(),
       {R"("abc")"_sv},
-      "Cannot cast from Json value \"abc\" to BOOLEAN: Invalid value for bool: \"abc\"");
-  testThrow<JsonNativeType, bool>(
-      JSON(), BOOLEAN(), {""_sv}, "Not a JSON input");
+      "The JSON element does not have the requested type");
+  testThrow<JsonNativeType, bool>(JSON(), BOOLEAN(), {""_sv}, "no JSON found");
 }
 
 TEST_F(JsonCastTest, toArray) {
@@ -958,12 +982,12 @@ TEST_F(JsonCastTest, toMap) {
       JSON(),
       MAP(VARCHAR(), DOUBLE()),
       {R"({"red":1.1,"blue":2.2})"_sv, R"({null:3.3,"yellow":4.4})"_sv},
-      "Not a JSON input");
+      "The JSON document has an improper structure");
   testThrow<JsonNativeType, ComplexType>(
       JSON(),
       MAP(BIGINT(), DOUBLE()),
       {"{1:1.1,2:2.2}"_sv},
-      "Not a JSON input");
+      "The JSON document has an improper structure");
 }
 
 TEST_F(JsonCastTest, orderOfKeys) {
@@ -976,8 +1000,8 @@ TEST_F(JsonCastTest, orderOfKeys) {
 
   auto map = makeMapVector<std::string, JsonNativeType>(
       {
-          {{"k1", R"({"a":1,"b":2})"}},
-          {{"k2", R"({"a":10,"b":20})"}},
+          {{"k1", R"({"a": 1, "b": 2})"}},
+          {{"k2", R"({"a": 10, "b": 20})"}},
       },
       MAP(VARCHAR(), JSON()));
 
@@ -1143,17 +1167,17 @@ TEST_F(JsonCastTest, toInvalid) {
       JSON(),
       ROW({VARCHAR(), DOUBLE(), BIGINT()}),
       {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv},
-      "Cannot cast a JSON array of size 2 to ROW with 3 fields");
+      "The JSON element does not have the requested type");
   testThrow<JsonNativeType, ComplexType>(
       JSON(),
       ROW({VARCHAR()}),
       {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv},
-      "Cannot cast a JSON array of size 2 to ROW with 1 fields");
+      "The JSON element does not have the requested type");
   testThrow<JsonNativeType, ComplexType>(
       JSON(),
       ROW({DOUBLE(), VARCHAR()}),
       {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv},
-      "Unable to convert string to floating point value: \"red\"");
+      "The JSON element does not have the requested type");
 
   // Casting to ROW type from JSON text other than arrays or objects are not
   // supported.
@@ -1161,7 +1185,7 @@ TEST_F(JsonCastTest, toInvalid) {
       JSON(),
       ROW({BIGINT()}),
       {R"(123)"_sv, R"(456)"_sv},
-      "Only casting from JSON array or object to ROW is supported");
+      "The JSON element does not have the requested type");
 }
 
 TEST_F(JsonCastTest, castInTry) {
@@ -1273,8 +1297,10 @@ TEST_F(JsonCastTest, tryCastFromJson) {
       {R"({"102":"2","101a":1.1})"_sv,
        R"({"103":null,"104":2859327816787296000})"_sv},
       JSON());
-  auto expectedMap =
-      makeNullableMapVector<int64_t, float>({std::nullopt, std::nullopt});
+  std::vector<std::pair<int64_t, std::optional<float>>> row;
+  row.emplace_back(103, std::nullopt);
+  row.emplace_back(104, 2859327816787296000.0f);
+  auto expectedMap = makeNullableMapVector<int64_t, float>({std::nullopt, row});
   evaluateAndVerify(
       JSON(), MAP(BIGINT(), REAL()), makeRowVector({data}), expectedMap, true);
 
