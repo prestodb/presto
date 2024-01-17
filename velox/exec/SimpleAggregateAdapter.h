@@ -67,17 +67,16 @@ class SimpleAggregateAdapter : public Aggregate {
   // there are a couple of differences in their implementations.
   // 1. When default_null_behavior_ is true, authors define
   //     void AccumulatorType::addInput(HashStringAllocator* allocator,
-  //     exec::arg_type<T1> arg1, ...) void
-  //     AccumulatorType::combine(HashStringAllocator* allocator,
-  //     exec::arg_type<IntermediateType> arg)
+  //                                    exec::arg_type<T1> arg1, ...)
+  //     void AccumulatorType::combine(HashStringAllocator* allocator,
+  //                                   exec::arg_type<IntermediateType> arg)
   // These functions only receive non-null input values. Input rows that contain
   // at least one NULL argument are ignored. The accumulator of a group is set
   // to non-null if at least one input is added to this group through addInput()
   // or combine(). Similarly, authors define
-  //     bool
-  //     AccumulatorType::writeIntermediateResult(exec::out_type<IntermediateType>&
-  //     out) bool AccumulatorType::writeFinalResult(exec::out_type<OutputType>&
-  //     out)
+  //     bool AccumulatorType::writeIntermediateResult(
+  //         exec::out_type<IntermediateType>&out)
+  //     bool AccumulatorType::writeFinalResult(exec::out_type<OutputType>&out)
   // These functions are only called on groups of non-null accumulators. Groups
   // that have NULL accumulators automatically become NULL in the result vector.
   // These functions also return a bool indicating whether the current group
@@ -85,18 +84,21 @@ class SimpleAggregateAdapter : public Aggregate {
   //
   // 2. When default_null_behavior_ is false, authors define
   //     bool AccumulatorType::addInput(HashStringAllocator* allocator,
-  //     exec::optional_arg_type<T1> arg1, ...) bool
-  //     AccumulatorType::combine(HashStringAllocator* allocator,
-  //     exec::optional_arg_type<IntermediateType> arg)
+  //                                    exec::optional_arg_type<T1> arg1, ...)
+  //     bool AccumulatorType::combine(
+  //         HashStringAllocator* allocator,
+  //         exec::optional_arg_type<IntermediateType> arg)
   // These functions receive both non-null and null inputs. They return a bool
   // indicating whether to set the current group's accumulator to non-null. If
   // the accumulator of a group is already non-NULL, returning false from
   // addInput() or combine() doesn't change this group's nullness. Authors also
   // define
-  //     bool AccumulatorType::writeIntermediateResult(bool nonNullGroup,
-  //     exec::out_type<IntermediateType>& out) bool
-  //     AccumulatorType::writeFinalResult(bool nonNullGroup,
-  //     exec::out_type<OutputType>& out)
+  //     bool AccumulatorType::writeIntermediateResult(
+  //         bool nonNullGroup,
+  //         exec::out_type<IntermediateType>& out)
+  //     bool AccumulatorType::writeFinalResult(
+  //         bool nonNullGroup,
+  //         exec::out_type<OutputType>& out)
   // These functions are called on groups of both non-null and null
   // accumulators. These functions also return a bool indicating whether the
   // current group should be a NULL in the result vector.
