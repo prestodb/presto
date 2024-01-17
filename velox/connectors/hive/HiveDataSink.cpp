@@ -38,8 +38,8 @@ namespace facebook::velox::connector::hive {
 
 namespace {
 
-// Returns the type corresponding to non-partition keys.
-RowTypePtr getDataType(
+// Returns the type of non-partition keys.
+static RowTypePtr getNonPartitionTypes(
     const std::vector<column_index_t>& dataCols,
     const RowTypePtr& inputType) {
   std::vector<std::string> childNames;
@@ -57,7 +57,8 @@ RowTypePtr getDataType(
   return ROW(std::move(childNames), std::move(childTypes));
 }
 
-RowVectorPtr makeDataInput(
+// Filters out partition columns if there is any.
+static RowVectorPtr makeDataInput(
     const std::vector<column_index_t>& dataCols,
     const RowVectorPtr& input) {
   std::vector<VectorPtr> childVectors;
@@ -70,7 +71,7 @@ RowVectorPtr makeDataInput(
 
   return std::make_shared<RowVector>(
       input->pool(),
-      getDataType(dataCols, asRowType(input->type())),
+      getNonPartitionTypes(dataCols, asRowType(input->type())),
       input->nulls(),
       input->size(),
       std::move(childVectors),
@@ -78,7 +79,7 @@ RowVectorPtr makeDataInput(
 }
 
 // Returns a subset of column indices corresponding to partition keys.
-std::vector<column_index_t> getPartitionChannels(
+static std::vector<column_index_t> getPartitionChannels(
     const std::shared_ptr<const HiveInsertTableHandle>& insertTableHandle) {
   std::vector<column_index_t> channels;
 
@@ -92,8 +93,8 @@ std::vector<column_index_t> getPartitionChannels(
   return channels;
 }
 
-// Returns a subset of column indices corresponding to non-partition keys.
-std::vector<column_index_t> getDataChannels(
+// Returns the column indices of non-partition keys.
+static std::vector<column_index_t> getNonPartitionChannels(
     const std::vector<column_index_t>& partitionChannels,
     const column_index_t childrenSize) {
   std::vector<column_index_t> dataChannels;
@@ -366,7 +367,8 @@ HiveDataSink::HiveDataSink(
                     hiveConfig_->isFileColumnNamesReadAsLowerCase(
                         connectorQueryCtx->sessionProperties()))
               : nullptr),
-      dataChannels_(getDataChannels(partitionChannels_, inputType_->size())),
+      dataChannels_(
+          getNonPartitionChannels(partitionChannels_, inputType_->size())),
       bucketCount_(
           insertTableHandle_->bucketProperty() == nullptr
               ? 0
@@ -400,7 +402,7 @@ HiveDataSink::HiveDataSink(
     sortCompareFlags_.reserve(sortedProperty.size());
     for (int i = 0; i < sortedProperty.size(); ++i) {
       auto columnIndex =
-          getDataType(dataChannels_, inputType_)
+          getNonPartitionTypes(dataChannels_, inputType_)
               ->getChildIdxIfExists(sortedProperty.at(i)->sortColumn());
       if (columnIndex.has_value()) {
         sortColumnIndices_.push_back(columnIndex.value());
@@ -664,7 +666,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   dwio::common::WriterOptions options;
   const auto* connectorSessionProperties =
       connectorQueryCtx_->sessionProperties();
-  options.schema = getDataType(dataChannels_, inputType_);
+  options.schema = getNonPartitionTypes(dataChannels_, inputType_);
 
   options.memoryPool = writerInfo_.back()->writerPool.get();
   options.compressionKind = insertTableHandle_->compressionKind();
@@ -711,7 +713,7 @@ HiveDataSink::maybeCreateBucketSortWriter(
   auto* sortPool = writerInfo_.back()->sortPool.get();
   VELOX_CHECK_NOT_NULL(sortPool);
   auto sortBuffer = std::make_unique<exec::SortBuffer>(
-      getDataType(dataChannels_, inputType_),
+      getNonPartitionTypes(dataChannels_, inputType_),
       sortColumnIndices_,
       sortCompareFlags_,
       sortPool,

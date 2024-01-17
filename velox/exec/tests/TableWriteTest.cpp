@@ -108,7 +108,7 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> addTableWriter(
   };
 }
 
-RowTypePtr getScanOutput(
+RowTypePtr getNonPartitionsColumns(
     const std::vector<std::string>& partitionedKeys,
     const RowTypePtr& rowType) {
   std::vector<std::string> dataColumnNames;
@@ -1511,7 +1511,7 @@ TEST_P(AllTableWriterTest, scanFilterProjectWrite) {
   // We create a new plan that only read that file and then
   // compare that against a duckDB query that runs the whole query.
   if (partitionedBy_.size() > 0) {
-    auto newOutputType = getScanOutput(partitionedBy_, outputType);
+    auto newOutputType = getNonPartitionsColumns(partitionedBy_, outputType);
     assertQuery(
         PlanBuilder().tableScan(newOutputType).planNode(),
         makeHiveConnectorSplits(outputDirectory),
@@ -1573,7 +1573,7 @@ TEST_P(AllTableWriterTest, renameAndReorderColumns) {
   assertQueryWithWriterConfigs(plan, filePaths, "SELECT count(*) FROM tmp");
 
   if (partitionedBy_.size() > 0) {
-    auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+    auto newOutputType = getNonPartitionsColumns(partitionedBy_, tableSchema_);
     HiveConnectorTestBase::assertQuery(
         PlanBuilder().tableScan(newOutputType).planNode(),
         makeHiveConnectorSplits(outputDirectory),
@@ -1619,7 +1619,7 @@ TEST_P(AllTableWriterTest, directReadWrite) {
   // compare that against a duckDB query that runs the whole query.
 
   if (partitionedBy_.size() > 0) {
-    auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+    auto newOutputType = getNonPartitionsColumns(partitionedBy_, tableSchema_);
     assertQuery(
         PlanBuilder().tableScan(newOutputType).planNode(),
         makeHiveConnectorSplits(outputDirectory),
@@ -1660,7 +1660,7 @@ TEST_P(AllTableWriterTest, constantVectors) {
   assertQuery(op, fmt::format("SELECT {}", size));
 
   if (partitionedBy_.size() > 0) {
-    auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+    auto newOutputType = getNonPartitionsColumns(partitionedBy_, tableSchema_);
     assertQuery(
         PlanBuilder().tableScan(newOutputType).planNode(),
         makeHiveConnectorSplits(outputDirectory),
@@ -1719,7 +1719,8 @@ TEST_P(AllTableWriterTest, commitStrategies) {
     assertQuery(plan, "SELECT count(*) FROM tmp");
 
     if (partitionedBy_.size() > 0) {
-      auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+      auto newOutputType =
+          getNonPartitionsColumns(partitionedBy_, tableSchema_);
       assertQuery(
           PlanBuilder().tableScan(newOutputType).planNode(),
           makeHiveConnectorSplits(outputDirectory),
@@ -1755,7 +1756,8 @@ TEST_P(AllTableWriterTest, commitStrategies) {
     assertQuery(plan, "SELECT count(*) FROM tmp");
 
     if (partitionedBy_.size() > 0) {
-      auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+      auto newOutputType =
+          getNonPartitionsColumns(partitionedBy_, tableSchema_);
       assertQuery(
           PlanBuilder().tableScan(newOutputType).planNode(),
           makeHiveConnectorSplits(outputDirectory),
@@ -1950,7 +1952,7 @@ TEST_P(PartitionedTableWriterTest, multiplePartitions) {
   // Verify distribution of records in partition directories.
   auto iterPartitionDirectory = actualPartitionDirectories.begin();
   auto iterPartitionName = partitionNames.begin();
-  auto newOutputType = getScanOutput(partitionKeys, rowType);
+  auto newOutputType = getNonPartitionsColumns(partitionKeys, rowType);
   while (iterPartitionDirectory != actualPartitionDirectories.end()) {
     assertQuery(
         PlanBuilder().tableScan(newOutputType).planNode(),
@@ -2025,7 +2027,7 @@ TEST_P(PartitionedTableWriterTest, singlePartition) {
       fs::path(outputDirectory->path) / "p0=365");
 
   // Verify all data is written to the single partition directory.
-  auto newOutputType = getScanOutput(partitionKeys, rowType);
+  auto newOutputType = getNonPartitionsColumns(partitionKeys, rowType);
   assertQuery(
       PlanBuilder().tableScan(newOutputType).planNode(),
       makeHiveConnectorSplits(outputDirectory),
@@ -2072,7 +2074,7 @@ TEST_P(PartitionedWithoutBucketTableWriterTest, fromSinglePartitionToMultiple) {
 
   assertQueryWithWriterConfigs(plan, "SELECT count(*) FROM tmp");
 
-  auto newOutputType = getScanOutput(partitionKeys, rowType);
+  auto newOutputType = getNonPartitionsColumns(partitionKeys, rowType);
   assertQuery(
       PlanBuilder().tableScan(newOutputType).planNode(),
       makeHiveConnectorSplits(outputDirectory),
@@ -2416,7 +2418,8 @@ TEST_P(BucketedTableOnlyWriteTest, bucketCountLimit) {
       assertQueryWithWriterConfigs(plan, "SELECT count(*) FROM tmp");
 
       if (partitionedBy_.size() > 0) {
-        auto newOutputType = getScanOutput(partitionedBy_, tableSchema_);
+        auto newOutputType =
+            getNonPartitionsColumns(partitionedBy_, tableSchema_);
         assertQuery(
             PlanBuilder().tableScan(newOutputType).planNode(),
             makeHiveConnectorSplits(outputDirectory),
@@ -3206,7 +3209,7 @@ TEST_P(BucketSortOnlyTableWriterTest, sortWriterSpill) {
   auto task =
       assertQueryWithWriterConfigs(op, fmt::format("SELECT {}", 5 * 500), true);
   if (partitionedBy_.size() > 0) {
-    rowType_ = getScanOutput(partitionedBy_, rowType_);
+    rowType_ = getNonPartitionsColumns(partitionedBy_, rowType_);
     verifyTableWriterOutput(outputDirectory->path, rowType_);
   } else {
     verifyTableWriterOutput(outputDirectory->path, rowType_);
