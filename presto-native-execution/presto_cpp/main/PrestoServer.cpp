@@ -24,7 +24,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
-#include "presto_cpp/main/common/PrometheusStatsReporter.h"
+#include "presto_cpp/main/common/StatsReporterImpl.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -1103,7 +1103,7 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 }
 
 void PrestoServer::reportHealthMetrics(proxygen::ResponseHandler* downstream) {
-  auto reporter = std::dynamic_pointer_cast<PrometheusStatsReporter>(
+  auto reporter = std::dynamic_pointer_cast<StatsReporterImpl>(
       folly::Singleton<facebook::velox::BaseStatsReporter>::try_get());
   http::sendOkResponse(downstream, reporter->getMetricsForPrometheus());
 }

@@ -12,22 +12,22 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/common/PrometheusStatsReporter.h"
+#include "presto_cpp/main/common/StatsReporterImpl.h"
 #include <gtest/gtest.h>
 #include <cstring>
 
 namespace facebook::presto {
 
-class PrometheusStatsReporterTest : public testing::Test {
+class StatsReporterImplTest : public testing::Test {
   void SetUp() override {}
 
   void TearDown() override {}
 };
 
 /// Tests addStatType and addStats functions.
-TEST_F(PrometheusStatsReporterTest, addStats) {
-  auto reporter = std::make_shared<PrometheusStatsReporter>(
-      "test_cluster", "test_worker_pod");
+TEST_F(StatsReporterImplTest, addStats) {
+  auto reporter =
+      std::make_shared<StatsReporterImpl>("test_cluster", "test_worker_pod");
 
   reporter->registerMetricExportType("key1", facebook::velox::StatType::COUNT);
   reporter->registerMetricExportType("key2", facebook::velox::StatType::AVG);
@@ -38,7 +38,7 @@ TEST_F(PrometheusStatsReporterTest, addStats) {
   EXPECT_EQ(
       facebook::velox::StatType::AVG, reporter->getRegisteredStatType("key2"));
 
-  std::unordered_set<size_t> testData = {10, 11, 15};
+  std::vector<size_t> testData = {10, 11, 15};
   for (auto i : testData) {
     reporter->addMetricValue("key1", i);
     reporter->addMetricValue("key2", i + 1000);
@@ -49,12 +49,10 @@ TEST_F(PrometheusStatsReporterTest, addStats) {
   const std::string expected[] = {
       "# HELP key2",
       "# TYPE key2 gauge",
-      "key2{cluster=\"test_cluster\",worker=\"test_worker_pod\"} 1011",
       "key2{cluster=\"test_cluster\",worker=\"test_worker_pod\"} 1015",
-      "key2{cluster=\"test_cluster\",worker=\"test_worker_pod\"} 1010",
       "# HELP key1",
       "# TYPE key1 counter",
-      "key1{cluster=\"test_cluster\",worker=\"test_worker_pod\"} 4"};
+      "key1{cluster=\"test_cluster\",worker=\"test_worker_pod\"} 37"};
 
   auto i = 0;
   auto pos = prometheusFormat.find("\n");

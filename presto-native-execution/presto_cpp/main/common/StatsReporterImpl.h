@@ -22,9 +22,9 @@
 
 namespace facebook::presto {
 
-class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
+class StatsReporterImpl : public facebook::velox::BaseStatsReporter {
  public:
-  PrometheusStatsReporter(
+  StatsReporterImpl(
       const std::string cluster = "",
       const std::string worker = "") {
     if (cluster.empty()) {
@@ -115,5 +115,5 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   mutable std::mutex mutex_;
   std::string cluster_;
   std::string workerPod_;
-}; // class PrometheusStatsReporter
+}; // class StatsReporterImpl
 } // namespace facebook::presto

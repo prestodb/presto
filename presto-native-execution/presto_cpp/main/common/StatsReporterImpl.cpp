@@ -12,17 +12,17 @@
  * limitations under the License.
  */
 
-#include "PrometheusStatsReporter.h"
+#include "StatsReporterImpl.h"
 
 namespace facebook::presto {
 
-void PrometheusStatsReporter::registerMetricExportType(
+void StatsReporterImpl::registerMetricExportType(
     folly::StringPiece key,
     facebook::velox::StatType statType) const {
   registerMetricExportType(key.start(), statType);
 }
 
-void PrometheusStatsReporter::registerMetricExportType(
+void StatsReporterImpl::registerMetricExportType(
     const char* key,
     facebook::velox::StatType statType) const {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -36,8 +36,7 @@ const uint64_t getCurrentEpochTimestamp() {
       .count();
 }
 
-void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
-    const {
+void StatsReporterImpl::addMetricValue(const char* key, size_t value) const {
   std::lock_guard<std::mutex> lock(mutex_);
   auto it = registeredStats_.find(key);
   if (it == registeredStats_.end()) {
@@ -46,26 +45,24 @@ void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
   }
   if (it->second == facebook::velox::StatType::COUNT) {
     // increment the counter.
-    metricsMap_[key]++;
+    metricsMap_[key] += value;
     return;
   }
   // Gauge type metric value must be reset.
   metricsMap_[key] = value;
 }
 
-void PrometheusStatsReporter::addMetricValue(
-    const std::string& key,
-    size_t value) const {
+void StatsReporterImpl::addMetricValue(const std::string& key, size_t value)
+    const {
   addMetricValue(key.c_str(), value);
 }
 
-void PrometheusStatsReporter::addMetricValue(
-    folly::StringPiece key,
-    size_t value) const {
+void StatsReporterImpl::addMetricValue(folly::StringPiece key, size_t value)
+    const {
   addMetricValue(key.start(), value);
 }
 
-const std::string PrometheusStatsReporter::getMetricsForPrometheus() {
+const std::string StatsReporterImpl::getMetricsForPrometheus() {
   std::lock_guard<std::mutex> lock(mutex_);
   std::stringstream ss;
   for (const auto metric : metricsMap_) {
@@ -86,6 +83,6 @@ const std::string PrometheusStatsReporter::getMetricsForPrometheus() {
 
 // Initialize singleton for the reporter
 folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
-  return new PrometheusStatsReporter();
+  return new StatsReporterImpl();
 });
 } // namespace facebook::presto
