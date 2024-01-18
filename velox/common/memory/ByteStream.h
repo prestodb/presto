@@ -273,9 +273,10 @@ class ByteOutputStream {
           values.size() * sizeof(T)));
       return;
     }
-    auto target = reinterpret_cast<T*>(current_->buffer + current_->position);
-    auto end = target + values.size();
-    auto valuePtr = &values[0];
+
+    auto* target = reinterpret_cast<T*>(current_->buffer + current_->position);
+    const auto* end = target + values.size();
+    auto* valuePtr = &values[0];
     while (target != end) {
       *target = *valuePtr;
       ++target;
@@ -337,8 +338,8 @@ class ByteOutputStream {
   std::string toString() const;
 
  private:
-  /// Returns a range of 'size' items of T. If there is no contiguous space in
-  /// 'this', uses 'scratch' to make a temp block that is appended to 'this' in
+  // Returns a range of 'size' items of T. If there is no contiguous space in
+  // 'this', uses 'scratch' to make a temp block that is appended to 'this' in
   template <typename T>
   T* getAppendWindow(int32_t size, ScratchPtr<T>& scratchPtr) {
     const int32_t bytes = sizeof(T) * size;

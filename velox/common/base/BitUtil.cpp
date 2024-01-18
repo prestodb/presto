@@ -33,7 +33,7 @@ void scatterBitsSimple(
     char* target) {
   int64_t from = numSource - 1;
   for (int64_t to = numTarget - 1; to >= 0; to--) {
-    bool maskIsSet = bits::isBitSet(targetMask, to);
+    const bool maskIsSet = bits::isBitSet(targetMask, to);
     bits::setBit(target, to, maskIsSet && bits::isBitSet(source, from));
     from -= maskIsSet ? 1 : 0;
   }

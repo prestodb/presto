@@ -79,10 +79,10 @@ class Scratch {
       Item* newItems =
           reinterpret_cast<Item*>(::malloc(sizeof(Item) * newCapacity));
       if (fill_ > 0) {
-        memcpy(newItems, items_, fill_ * sizeof(Item));
+        ::memcpy(newItems, items_, fill_ * sizeof(Item));
       }
-      memset(newItems + fill_, 0, (newCapacity - fill_) * sizeof(Item));
-      free(items_);
+      ::memset(newItems + fill_, 0, (newCapacity - fill_) * sizeof(Item));
+      ::free(items_);
       items_ = newItems;
       capacity_ = newCapacity;
     }
@@ -111,7 +111,7 @@ class ScratchPtr {
   ScratchPtr(ScratchPtr&& other) = delete;
 
   inline ~ScratchPtr() {
-    if (data_.data()) {
+    if (data_.data() != nullptr) {
       scratch_->release(std::move(data_));
     }
   }
@@ -148,7 +148,8 @@ class ScratchPtr {
   }
 
  private:
-  Scratch* scratch_{nullptr};
+  Scratch* const scratch_{nullptr};
+
   raw_vector<char> data_;
   T* ptr_{nullptr};
   int32_t size_{0};

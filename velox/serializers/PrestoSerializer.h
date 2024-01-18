@@ -33,13 +33,14 @@ class PrestoVectorSerde : public VectorSerde {
         : useLosslessTimestamp(_useLosslessTimestamp),
           compressionKind(_compressionKind) {}
 
-    // Currently presto only supports millisecond precision and the serializer
-    // converts velox native timestamp to that resulting in loss of precision.
-    // This option allows it to serialize with nanosecond precision and is
-    // currently used for spilling. Is false by default.
+    /// Currently presto only supports millisecond precision and the serializer
+    /// converts velox native timestamp to that resulting in loss of precision.
+    /// This option allows it to serialize with nanosecond precision and is
+    /// currently used for spilling. Is false by default.
     bool useLosslessTimestamp{false};
     common::CompressionKind compressionKind{
         common::CompressionKind::CompressionKind_NONE};
+    /// Specifies the encoding for each of the top-level child vector.
     std::vector<VectorEncoding::Simple> encodings;
   };
 

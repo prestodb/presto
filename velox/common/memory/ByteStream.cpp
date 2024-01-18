@@ -179,6 +179,8 @@ size_t ByteOutputStream::size() const {
 }
 
 void ByteOutputStream::appendBool(bool value, int32_t count) {
+  VELOX_DCHECK(isBits_);
+
   if (count == 1 && current_->size > current_->position) {
     bits::setBit(
         reinterpret_cast<uint64_t*>(current_->buffer),
@@ -187,10 +189,10 @@ void ByteOutputStream::appendBool(bool value, int32_t count) {
     ++current_->position;
     return;
   }
-  int32_t offset = 0;
-  VELOX_DCHECK(isBits_);
+
+  int32_t offset{0};
   for (;;) {
-    int32_t bitsFit =
+    const int32_t bitsFit =
         std::min(count - offset, current_->size - current_->position);
     bits::fillBits(
         reinterpret_cast<uint64_t*>(current_->buffer),
@@ -211,10 +213,11 @@ void ByteOutputStream::appendBits(
     int32_t begin,
     int32_t end) {
   VELOX_DCHECK(isBits_);
-  int32_t count = end - begin;
+
+  const int32_t count = end - begin;
   int32_t offset = 0;
   for (;;) {
-    int32_t bitsFit =
+    const int32_t bitsFit =
         std::min(count - offset, current_->size - current_->position);
     bits::copyBits(
         bits,
@@ -321,6 +324,7 @@ void ByteOutputStream::extend(int32_t bytes) {
     current_->position = 0;
     return;
   }
+
   ranges_.emplace_back();
   current_ = &ranges_.back();
   lastRangeEnd_ = 0;
