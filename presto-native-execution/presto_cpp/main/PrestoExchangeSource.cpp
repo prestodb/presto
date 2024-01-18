@@ -141,9 +141,15 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   // calls that mutate promise_ can be called concurrently.
   auto promise = VeloxPromise<Response>("PrestoExchangeSource::request");
   auto future = promise.getSemiFuture();
+  velox::common::testutil::TestValue::adjust(
+      "facebook::presto::PrestoExchangeSource::request", this);
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
+    if (closed_.load()) {
+      promise.setValue(Response{0, false});
+      return future;
+    }
     promise_ = std::move(promise);
   }
 
