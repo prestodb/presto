@@ -364,7 +364,7 @@ HiveDataSink::HiveDataSink(
                     partitionChannels_,
                     maxOpenWriters_,
                     connectorQueryCtx_->memoryPool(),
-                    hiveConfig_->isFileColumnNamesReadAsLowerCase(
+                    hiveConfig_->isPartitionPathAsLowerCase(
                         connectorQueryCtx->sessionProperties()))
               : nullptr),
       dataChannels_(
