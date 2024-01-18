@@ -50,10 +50,18 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -1304,13 +1312,74 @@ public abstract class AbstractTestNativeGeneralQueries
                     "AS " +
                     "SELECT nationkey, name, comment, regionkey FROM nation", tableName));
 
+            String filter = format("SELECT regionkey FROM \"%s\" WHERE regionkey %% 3 = 1", partitionsTableName);
+            assertPlan(
+                    filter,
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER,
+                                    filter(
+                                            "REGION_KEY % 3 = 1",
+                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))));
+            assertQuery(filter);
+
+            String project = format("SELECT regionkey + 1 FROM \"%s\"", partitionsTableName);
+            assertPlan(
+                    project,
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER,
+                                    project(
+                                            ImmutableMap.of("EXPRESSION", expression("REGION_KEY + CAST(1 AS bigint)")),
+                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))));
+            assertQuery(project);
+
+            String filterProject = format("SELECT regionkey + 1 FROM \"%s\" WHERE regionkey %% 3 = 1", partitionsTableName);
+            assertPlan(
+                    filterProject,
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER,
+                                    project(
+                                            ImmutableMap.of("EXPRESSION", expression("REGION_KEY + CAST(1 AS bigint)")),
+                                            filter(
+                                                    "REGION_KEY % 3 = 1",
+                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+            assertQuery(filterProject);
+
+            String aggregation = format("SELECT count(*), sum(regionkey) FROM \"%s\"", partitionsTableName);
+            assertPlan(
+                    aggregation,
+                    anyTree(
+                            aggregation(
+                                    ImmutableMap.of(
+                                            "FINAL_COUNT", functionCall("count", ImmutableList.of()),
+                                            "FINAL_SUM", functionCall("sum", ImmutableList.of("REGION_KEY"))),
+                                    SINGLE,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+            assertQuery(aggregation);
+
+            String groupBy = format("SELECT regionkey, count(*) FROM \"%s\" GROUP BY regionkey", partitionsTableName);
+            assertPlan(
+                    groupBy,
+                    anyTree(
+                            aggregation(
+                                    singleGroupingSet("REGION_KEY"),
+                                    ImmutableMap.of(
+                                            Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
+                                    ImmutableMap.of(),
+                                    Optional.empty(),
+                                    SINGLE,
+                                    exchange(LOCAL, REPARTITION,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+            assertQuery(groupBy);
+
             String join = format("SELECT * " +
                     "FROM " +
                     "   (SELECT DISTINCT regionkey FROM %s) t " +
                     "INNER JOIN " +
                     "   (SELECT regionkey FROM \"%s\") p " +
                     "ON t.regionkey = p.regionkey", tableName, partitionsTableName);
-
             Session session = Session.builder(getSession())
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
                     .build();
@@ -1323,8 +1392,8 @@ public abstract class AbstractTestNativeGeneralQueries
                                     anyTree(
                                             exchange(REMOTE_STREAMING, REPARTITION,
                                                     exchange(REMOTE_STREAMING, GATHER,
-                                                            anyTree(
-                                                                    tableScan(partitionsTableName))))))));
+                                                            filter("REGION_KEY IN (0, 1, 2, 3, 4)",
+                                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))))));
             assertQuery(session, join);
         }
         finally {

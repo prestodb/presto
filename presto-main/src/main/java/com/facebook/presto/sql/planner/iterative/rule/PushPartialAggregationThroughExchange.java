@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isStreamingForPartialAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.usePartialAggregationHistory;
 import static com.facebook.presto.cost.PartialAggregationStatsEstimate.isUnknown;
@@ -58,6 +59,7 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
+import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -158,6 +160,11 @@ public class PushPartialAggregationThroughExchange
 
         // currently, we only support plans that don't use pre-computed hash functions
         if (aggregationNode.getHashVariable().isPresent() || exchangeNode.getPartitioningScheme().getHashColumn().isPresent()) {
+            return Result.empty();
+        }
+
+        // System table scan must be run in Java on coordinator and partial aggregation output may not be compatible with Velox
+        if (isNativeExecutionEnabled(context.getSession()) && containsSystemTableScan(exchangeNode, context.getLookup())) {
             return Result.empty();
         }
 
