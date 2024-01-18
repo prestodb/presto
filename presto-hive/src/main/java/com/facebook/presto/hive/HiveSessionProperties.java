@@ -1032,9 +1032,4 @@ public final class HiveSessionProperties
     {
         return session.getProperty(ORC_USE_VECTOR_FILTER, Boolean.class);
     }
-
-    public static boolean getOrcUseVectorFilter(ConnectorSession session)
-    {
-        return session.getProperty(ORC_USE_VECTOR_FILTER, Boolean.class);
-    }
 }

@@ -306,9 +306,9 @@
             </build>
         </profile>
         <profile>
-            <id>lessThanJdk19</id>
+            <id>lessThanJdk19PrestoOrc</id>
             <activation>
-                <jdk>[8,19)</jdk>
+                <jdk>[1.8,19)</jdk>
             </activation>
             <build>
                 <plugins>

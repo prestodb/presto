@@ -184,7 +184,7 @@
         <profile>
             <id>lessThanJava19PrestoCommon</id>
             <activation>
-                <jdk>[8,19)</jdk>
+                <jdk>[1.8,19)</jdk>
             </activation>
             <build>
                 <plugins>
