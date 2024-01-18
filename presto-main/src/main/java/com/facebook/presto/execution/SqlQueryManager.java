@@ -31,7 +31,6 @@ import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.version.EmbedVersion;
@@ -65,6 +64,7 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxOutputPosit
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxOutputSize;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxScanRawInputBytes;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxWrittenIntermediateBytesLimit;
+import static com.facebook.presto.SystemSessionProperties.isCteMaterializationApplicable;
 import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
 import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
 import static com.facebook.presto.execution.QueryLimit.Source.SYSTEM;
@@ -438,8 +438,7 @@ public class SqlQueryManager
     private void enforceWrittenIntermediateBytesLimit()
     {
         for (QueryExecution query : queryTracker.getAllQueries()) {
-            if (query.getSession().getCteInformationCollector()
-                    .getCTEInformationList().stream().noneMatch(CTEInformation::isMaterialized)) {
+            if (!isCteMaterializationApplicable(query.getSession())) {
                 // No Ctes Materialized
                 continue;
             }

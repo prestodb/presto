@@ -119,7 +119,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolR
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.ALL;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
@@ -185,12 +185,16 @@ class RelationPlanner
                 cteName = createQualifiedObjectName(session, node, node.getName()).toString();
             }
             RelationPlan subPlan = process(namedQuery.getQuery(), context);
-            boolean shouldBeMaterialized = getCteMaterializationStrategy(session).equals(ALL);
-            session.getCteInformationCollector().addCTEReference(cteName, namedQuery.isFromView(), shouldBeMaterialized);
-            if (shouldBeMaterialized) {
+            if (getCteMaterializationStrategy(session).equals(NONE)) {
+                session.getCteInformationCollector().addCTEReference(cteName, namedQuery.isFromView(), false);
+            }
+            else {
+                // cte considered for materialization
+                String normalizedCteId = context.getCteInfo().normalize(analysis, namedQuery.getQuery(), cteName);
+                session.getCteInformationCollector().addCTEReference(cteName, normalizedCteId, namedQuery.isFromView(), true);
                 subPlan = new RelationPlan(
                         new CteReferenceNode(getSourceLocation(node.getLocation()),
-                                idAllocator.getNextId(), subPlan.getRoot(), context.getCteInfo().normalize(analysis, namedQuery.getQuery(), cteName)),
+                                idAllocator.getNextId(), subPlan.getRoot(), normalizedCteId),
                         subPlan.getScope(),
                         subPlan.getFieldMappings());
             }
