@@ -113,4 +113,67 @@ QueryTestResult runHashJoinTask(
     memory::MemoryPool* pool,
     bool enableSpilling,
     const RowVectorPtr& expectedResult = nullptr);
+
+core::PlanNodePtr aggregationPlan(
+    const std::vector<RowVectorPtr>& vectors,
+    core::PlanNodeId& aggregateNodeId);
+
+QueryTestResult runAggregateTask(
+    const std::vector<RowVectorPtr>& vectors,
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
+    bool enableSpilling,
+    uint32_t numDrivers,
+    memory::MemoryPool* pool,
+    const RowVectorPtr& expectedResult = nullptr);
+
+core::PlanNodePtr orderByPlan(
+    const std::vector<RowVectorPtr>& vectors,
+    core::PlanNodeId& orderNodeId);
+
+QueryTestResult runOrderByTask(
+    const std::vector<RowVectorPtr>& vectors,
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
+    uint32_t numDrivers,
+    memory::MemoryPool* pool,
+    bool enableSpilling,
+    const RowVectorPtr& expectedResult = nullptr);
+
+core::PlanNodePtr rowNumberPlan(
+    const std::vector<RowVectorPtr>& vectors,
+    core::PlanNodeId& rowNumberNodeId);
+
+QueryTestResult runRowNumberTask(
+    const std::vector<RowVectorPtr>& vectors,
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
+    uint32_t numDrivers,
+    memory::MemoryPool* pool,
+    bool enableSpilling,
+    const RowVectorPtr& expectedResult = nullptr);
+
+core::PlanNodePtr topNPlan(
+    const std::vector<RowVectorPtr>& vectors,
+    core::PlanNodeId& topNodeId);
+
+QueryTestResult runTopNTask(
+    const std::vector<RowVectorPtr>& vectors,
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
+    uint32_t numDrivers,
+    memory::MemoryPool* pool,
+    bool enableSpilling,
+    const RowVectorPtr& expectedResult = nullptr);
+
+core::PlanNodePtr writePlan(
+    const std::vector<RowVectorPtr>& vectors,
+    const std::string& outputDirPath,
+    core::PlanNodeId& writeNodeId);
+
+QueryTestResult runWriteTask(
+    const std::vector<RowVectorPtr>& vectors,
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
+    uint32_t numDrivers,
+    memory::MemoryPool* pool,
+    const std::string& kHiveConnectorId,
+    bool enableSpilling,
+    const RowVectorPtr& expectedResult = nullptr);
+
 } // namespace facebook::velox::exec::test
