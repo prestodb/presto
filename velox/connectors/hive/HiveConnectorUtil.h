@@ -89,20 +89,4 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
     std::shared_ptr<io::IoStatistics> ioStats,
     folly::Executor* executor);
 
-template <TypeKind ToKind>
-velox::variant convertFromString(const std::optional<std::string>& value) {
-  if (value.has_value()) {
-    if constexpr (ToKind == TypeKind::VARCHAR) {
-      return velox::variant(value.value());
-    }
-    if constexpr (ToKind == TypeKind::VARBINARY) {
-      return velox::variant::binary((value.value()));
-    }
-    auto result = velox::util::Converter<ToKind>::cast(value.value());
-
-    return velox::variant(result);
-  }
-  return velox::variant(ToKind);
-}
-
 } // namespace facebook::velox::connector::hive

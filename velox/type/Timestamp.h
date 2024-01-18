@@ -275,6 +275,9 @@ struct Timestamp {
   // Same as above, but accepts PrestoDB time zone ID.
   void toTimezone(int16_t tzID);
 
+  /// A default time zone that is same across the process.
+  static const date::time_zone& defaultTimezone();
+
   bool operator==(const Timestamp& b) const {
     return seconds_ == b.seconds_ && nanos_ == b.nanos_;
   }
