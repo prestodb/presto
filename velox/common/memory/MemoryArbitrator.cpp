@@ -395,7 +395,6 @@ bool MemoryArbitrator::Stats::operator!=(const Stats& other) const {
 }
 
 bool MemoryArbitrator::Stats::operator<(const Stats& other) const {
-  uint32_t eqCount{0};
   uint32_t gtCount{0};
   uint32_t ltCount{0};
 #define UPDATE_COUNTER(counter)           \
@@ -404,8 +403,6 @@ bool MemoryArbitrator::Stats::operator<(const Stats& other) const {
       ++ltCount;                          \
     } else if (counter > other.counter) { \
       ++gtCount;                          \
-    } else {                              \
-      ++eqCount;                          \
     }                                     \
   } while (0);
 
