@@ -151,6 +151,12 @@ public class PrestoNativeQueryRunnerUtils
             boolean addStorageFormatToPath)
             throws Exception
     {
+        // The property "hive.allow-drop-table" needs to be set to true because security is always "legacy" in NativeQueryRunner.
+        ImmutableMap<String, String> hiveProperties = ImmutableMap.<String, String>builder()
+                .putAll(getNativeWorkerHiveProperties(storageFormat))
+                .put("hive.allow-drop-table", "true")
+                .build();
+
         // Make query runner with external workers for tests
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(),
@@ -162,7 +168,7 @@ public class PrestoNativeQueryRunnerUtils
                         .build(),
                 ImmutableMap.of(),
                 "legacy",
-                getNativeWorkerHiveProperties(storageFormat),
+                hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
                 Optional.of((workerIndex, discoveryUri) -> {
