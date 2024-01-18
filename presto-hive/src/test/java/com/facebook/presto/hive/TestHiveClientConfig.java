@@ -152,7 +152,8 @@ public class TestHiveClientConfig
                 .setCopyOnFirstWriteConfigurationEnabled(true)
                 .setPartitionFilteringFromMetastoreEnabled(true)
                 .setParallelParsingOfPartitionValuesEnabled(false)
-                .setMaxParallelParsingConcurrency(100));
+                .setMaxParallelParsingConcurrency(100)
+                .setOrcUseVectorFilter(false));
     }
 
     @Test
@@ -267,6 +268,7 @@ public class TestHiveClientConfig
                 .put("hive.partition-filtering-from-metastore-enabled", "false")
                 .put("hive.parallel-parsing-of-partition-values-enabled", "true")
                 .put("hive.max-parallel-parsing-concurrency", "200")
+                .put("hive.orc-use-vector-filter", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -376,7 +378,8 @@ public class TestHiveClientConfig
                 .setCopyOnFirstWriteConfigurationEnabled(false)
                 .setPartitionFilteringFromMetastoreEnabled(false)
                 .setParallelParsingOfPartitionValuesEnabled(true)
-                .setMaxParallelParsingConcurrency(200);
+                .setMaxParallelParsingConcurrency(200)
+                .setOrcUseVectorFilter(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
