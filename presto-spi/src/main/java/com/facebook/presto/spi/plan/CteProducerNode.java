@@ -31,7 +31,7 @@ public final class CteProducerNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final String cteName;
+    private final String cteId;
     private final VariableReferenceExpression rowCountVariable;
     private final List<VariableReferenceExpression> originalOutputVariables;
 
@@ -40,11 +40,11 @@ public final class CteProducerNode
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("cteName") String cteName,
+            @JsonProperty("cteId") String cteId,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("originalOutputVariables") List<VariableReferenceExpression> originalOutputVariables)
     {
-        this(sourceLocation, id, Optional.empty(), source, cteName, rowCountVariable, originalOutputVariables);
+        this(sourceLocation, id, Optional.empty(), source, cteId, rowCountVariable, originalOutputVariables);
     }
 
     public CteProducerNode(
@@ -52,13 +52,13 @@ public final class CteProducerNode
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
-            String cteName,
+            String cteId,
             VariableReferenceExpression rowCountVariable,
             List<VariableReferenceExpression> originalOutputVariables)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         // Inside your method or constructor
-        this.cteName = requireNonNull(cteName, "cteName must not be null");
+        this.cteId = requireNonNull(cteId, "cteName must not be null");
         this.source = requireNonNull(source, "source must not be null");
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable must not be null");
         this.originalOutputVariables = requireNonNull(originalOutputVariables, "originalOutputVariables must not be null");
@@ -87,13 +87,13 @@ public final class CteProducerNode
     {
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
         return new CteProducerNode(newChildren.get(0).getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0),
-                cteName, rowCountVariable, originalOutputVariables);
+                cteId, rowCountVariable, originalOutputVariables);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new CteProducerNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, cteName, rowCountVariable, originalOutputVariables);
+        return new CteProducerNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, cteId, rowCountVariable, originalOutputVariables);
     }
 
     @Override
@@ -103,9 +103,9 @@ public final class CteProducerNode
     }
 
     @JsonProperty
-    public String getCteName()
+    public String getCteId()
     {
-        return cteName;
+        return cteId;
     }
 
     public VariableReferenceExpression getRowCountVariable()

@@ -25,6 +25,7 @@ import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -94,6 +95,7 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String CTE_HASH_PARTITION_COUNT = "cte_hash_partition_count";
+    public static final String CTE_HEURISTIC_REPLICATION_THRESHOLD = "cte_heuristic_replication_threshold";
 
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
 
@@ -1090,6 +1092,11 @@ public final class SystemSessionProperties
                         "Enable pushing of filters and projections inside common table expressions.",
                         featuresConfig.getCteFilterAndProjectionPushdownEnabled(),
                         false),
+                integerProperty(
+                        CTE_HEURISTIC_REPLICATION_THRESHOLD,
+                        "Used with CTE Materialization Strategy = Heuristic. CTES are only materialized if they are used greater than or equal to this number",
+                        featuresConfig.getCteHeuristicReplicationThreshold(),
+                        false),
                 new PropertyMetadata<>(
                         DEFAULT_JOIN_SELECTIVITY_COEFFICIENT,
                         "use a default join selectivity coefficient factor when column statistics are not available in a join node",
@@ -2025,6 +2032,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(CTE_HASH_PARTITION_COUNT, Integer.class);
     }
 
+    public static int getCteHeuristicReplicationThreshold(Session session)
+    {
+        return session.getSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, Integer.class);
+    }
+
     public static String getPartitioningProviderCatalog(Session session)
     {
         return session.getSystemProperty(PARTITIONING_PROVIDER_CATALOG, String.class);
@@ -2033,6 +2045,15 @@ public final class SystemSessionProperties
     public static String getCtePartitioningProviderCatalog(Session session)
     {
         return session.getSystemProperty(CTE_PARTITIONING_PROVIDER_CATALOG, String.class);
+    }
+
+    public static boolean isCteMaterializationApplicable(Session session)
+    {
+        boolean isStrategyNone = getCteMaterializationStrategy(session).equals(NONE);
+        boolean hasMaterializedCTE = session.getCteInformationCollector().getCTEInformationList()
+                .stream()
+                .anyMatch(CTEInformation::isMaterialized);
+        return !isStrategyNone && hasMaterializedCTE;
     }
 
     public static ExchangeMaterializationStrategy getExchangeMaterializationStrategy(Session session)
