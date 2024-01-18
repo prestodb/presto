@@ -179,7 +179,6 @@ static std::
             {"NOV", {"EMBER", 11}},
             {"DEC", {"EMBER", 12}},
         };
-constexpr int monthsFullLength[] = {7, 8, 5, 5, 3, 4, 4, 6, 9, 7, 8, 8};
 
 // Pads the content with desired padding characters. E.g. if we need to pad 999
 // with three 0s in front, the result will be '000999'.
