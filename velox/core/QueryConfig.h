@@ -156,6 +156,7 @@ class QueryConfig {
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "max_page_partitioning_buffer_size";
 
+  /// TODO Rename configuration property to remove 'arbitrary' from the name.
   static constexpr const char* kMaxArbitraryBufferSize =
       "max_arbitrary_buffer_size";
 
@@ -445,9 +446,7 @@ class QueryConfig {
     return get<uint64_t>(kMaxPartitionedOutputBufferSize, kDefault);
   }
 
-  /// Returns the maximum size in bytes for the task's buffered output when
-  /// output is distributed randomly among consumers. See
-  /// PartitionedOutputNode::Kind::kArbitrary.
+  /// Returns the maximum size in bytes for the task's buffered output.
   uint64_t maxArbitraryBufferSize() const {
     static constexpr uint64_t kDefault = 32UL << 20;
     return get<uint64_t>(kMaxArbitraryBufferSize, kDefault);

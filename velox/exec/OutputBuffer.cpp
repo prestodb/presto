@@ -261,16 +261,6 @@ void releaseAfterAcknowledge(
   }
 }
 
-uint64_t maxBufferSize(
-    const core::QueryConfig& config,
-    PartitionedOutputNode::Kind bufferKind) {
-  if (bufferKind == PartitionedOutputNode::Kind::kArbitrary) {
-    return config.maxArbitraryBufferSize();
-  }
-
-  return config.maxPartitionedOutputBufferSize();
-}
-
 } // namespace
 
 OutputBuffer::OutputBuffer(
@@ -280,7 +270,7 @@ OutputBuffer::OutputBuffer(
     uint32_t numDrivers)
     : task_(std::move(task)),
       kind_(kind),
-      maxSize_(maxBufferSize(task_->queryCtx()->queryConfig(), kind)),
+      maxSize_(task_->queryCtx()->queryConfig().maxArbitraryBufferSize()),
       continueSize_((maxSize_ * kContinuePct) / 100),
       arbitraryBuffer_(
           isArbitrary() ? std::make_unique<ArbitraryBuffer>() : nullptr),
