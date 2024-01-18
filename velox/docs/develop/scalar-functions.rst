@@ -242,10 +242,38 @@ not go away prematurely. The output types can be scalar strings (varchar and
 varbinaries), but also complex types containing strings, such as arrays, maps,
 and rows.
 
+The setNoCopy method of the out_type template can be used to set the result
+to a string in the input argument without copying. The setEmpty method
+can be used to set the result to an empty string.
+
 .. code-block:: c++
 
   // Results refer to strings in the first argument.
   static constexpr int32_t reuse_strings_from_arg = 0;
+
+
+Here is an example of a zero-copy function:
+
+.. code-block:: c++
+
+  template <typename TExecParams>
+  struct TrimFunction {
+    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+
+    // Results refer to strings in the first argument.
+    static constexpr int32_t reuse_strings_from_arg = 0;
+
+    FOLLY_ALWAYS_INLINE void call(
+        out_type<Varchar>& result,
+        const arg_type<Varchar>& input) {
+      if (input.size() == 0) {
+        result.setEmpty();
+        return;
+      }
+      result.setNoCopy(stringImpl::trimUnicodeWhiteSpace(input));
+    }
+  };
+
 
 Access to Session Properties and Constant Inputs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
