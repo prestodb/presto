@@ -18,14 +18,20 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SequenceNode;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,14 +41,18 @@ import com.google.common.graph.Traverser;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.Stack;
 
+import static com.facebook.presto.SystemSessionProperties.getCteHeuristicReplicationThreshold;
 import static com.facebook.presto.SystemSessionProperties.getCteMaterializationStrategy;
+import static com.facebook.presto.SystemSessionProperties.isCteMaterializationApplicable;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.ALL;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.HEURISTIC_COMPLEX_QUERIES_ONLY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -87,12 +97,11 @@ public class LogicalCteOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(warningCollector, "warningCollector is null");
-        if (!getCteMaterializationStrategy(session).equals(ALL)
-                || session.getCteInformationCollector().getCTEInformationList().stream().noneMatch(CTEInformation::isMaterialized)) {
+        if (!isCteMaterializationApplicable(session)) {
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
         CteEnumerator cteEnumerator = new CteEnumerator(idAllocator, variableAllocator);
-        PlanNode rewrittenPlan = cteEnumerator.transformPersistentCtes(plan);
+        PlanNode rewrittenPlan = cteEnumerator.transformPersistentCtes(session, plan);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, cteEnumerator.isPlanRewritten());
     }
 
@@ -109,16 +118,21 @@ public class LogicalCteOptimizer
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator must not be null");
         }
 
-        public PlanNode transformPersistentCtes(PlanNode root)
+        public PlanNode transformPersistentCtes(Session session, PlanNode root)
         {
             checkArgument(root.getSources().size() == 1, "expected newChildren to contain 1 node");
-            CteTransformerContext context = new CteTransformerContext();
-            PlanNode transformedCte = SimplePlanRewriter.rewriteWith(new CteConsumerTransformer(planNodeIdAllocator, variableAllocator),
+            LogicalCteOptimizerContext context = new LogicalCteOptimizerContext();
+            if (getCteMaterializationStrategy(session).equals(HEURISTIC_COMPLEX_QUERIES_ONLY)) {
+                // Mark all Complex CTES and store info in the context
+                root.accept(new ComplexCteAnalyzer(session), context);
+            }
+            PlanNode transformedCte = SimplePlanRewriter.rewriteWith(new CteConsumerTransformer(session, planNodeIdAllocator, variableAllocator),
                     root, context);
             List<PlanNode> topologicalOrderedList = context.getTopologicalOrdering();
             if (topologicalOrderedList.isEmpty()) {
                 isPlanRewritten = false;
-                return root;
+                // Returning transformed Cte because cte reference nodes are cleared in the transformedCte regardless of materialization
+                return transformedCte;
             }
             isPlanRewritten = true;
             SequenceNode sequenceNode = new SequenceNode(root.getSourceLocation(), planNodeIdAllocator.getNextId(), topologicalOrderedList,
@@ -132,38 +146,120 @@ public class LogicalCteOptimizer
         }
     }
 
-    public class CteConsumerTransformer
-            extends SimplePlanRewriter<CteTransformerContext>
+    // Checks if the CTE has an underlying JoinNode.class, SemiJoinNode.class, AggregationNode.class
+    // The presence of a complex node will mark the nearest parent CTE as complex
+    public static class ComplexCteAnalyzer
+            extends SimplePlanVisitor<LogicalCteOptimizerContext>
     {
-        private final PlanNodeIdAllocator idAllocator;
+        private final Session session;
 
-        private final VariableAllocator variableAllocator;
+        private static final List<Class<? extends PlanNode>> DATA_SOURCES_PLAN_NODES = ImmutableList.of(TableScanNode.class, RemoteSourceNode.class);
 
-        public CteConsumerTransformer(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
+        public ComplexCteAnalyzer(Session session)
         {
-            this.idAllocator = requireNonNull(idAllocator, "idAllocator must not be null");
-            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator must not be null");
+            this.session = requireNonNull(session, "Session is null");
         }
 
         @Override
-        public PlanNode visitCteReference(CteReferenceNode node, RewriteContext<CteTransformerContext> context)
+        public Void visitCteReference(CteReferenceNode node, LogicalCteOptimizerContext context)
         {
-            context.get().addDependency(node.getCteName());
-            context.get().pushActiveCte(node.getCteName());
+            context.pushActiveCte(node.getCteId());
+            node.getSource().accept(this, context);
+            context.popActiveCte();
+            // Check for source nodes
+            if (context.isComplexCte(node.getCteId()) &&
+                    !PlanNodeSearcher.searchFrom(node)
+                            .where(planNode -> DATA_SOURCES_PLAN_NODES.stream()
+                                    .anyMatch(clazz -> clazz.isInstance(planNode)))
+                            .matches()) {
+                context.removeComplexCte(node.getCteId());
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitJoin(JoinNode node, LogicalCteOptimizerContext context)
+        {
+            Optional<String> parentCte = context.peekActiveCte();
+            parentCte.ifPresent(context::addComplexCte);
+            return super.visitJoin(node, context);
+        }
+
+        @Override
+        public Void visitSemiJoin(SemiJoinNode node, LogicalCteOptimizerContext context)
+        {
+            Optional<String> parentCte = context.peekActiveCte();
+            parentCte.ifPresent(context::addComplexCte);
+            return super.visitSemiJoin(node, context);
+        }
+
+        @Override
+        public Void visitAggregation(AggregationNode node, LogicalCteOptimizerContext context)
+        {
+            Optional<String> parentCte = context.peekActiveCte();
+            parentCte.ifPresent(context::addComplexCte);
+            return super.visitAggregation(node, context);
+        }
+    }
+
+    public static class CteConsumerTransformer
+            extends SimplePlanRewriter<LogicalCteOptimizerContext>
+    {
+        private final PlanNodeIdAllocator idAllocator;
+        private final VariableAllocator variableAllocator;
+        private final Session session;
+
+        public CteConsumerTransformer(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
+        {
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator must not be null");
+            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator must not be null");
+            this.session = requireNonNull(session, "Session is null");
+        }
+
+        public boolean shouldCteBeMaterialized(String cteId, LogicalCteOptimizerContext context)
+        {
+            HashMap<String, CTEInformation> cteInformationMap = session.getCteInformationCollector().getCteInformationMap();
+            CTEInformation cteInfo = cteInformationMap.get(cteId);
+            switch (getCteMaterializationStrategy(session)) {
+                case HEURISTIC_COMPLEX_QUERIES_ONLY:
+                    if (!context.isComplexCte(cteId)) {
+                        break;
+                    }
+                case HEURISTIC:
+                    if (cteInfo.getNumberOfReferences() < getCteHeuristicReplicationThreshold(session)) {
+                        break;
+                    }
+                case ALL:
+                    return true;
+            }
+            // do not materialize and update the cteInfo
+            cteInformationMap.put(cteId,
+                    new CTEInformation(cteInfo.getCteName(), cteInfo.getCteId(), cteInfo.getNumberOfReferences(), cteInfo.getIsView(), false));
+            return false;
+        }
+
+        @Override
+        public PlanNode visitCteReference(CteReferenceNode node, RewriteContext<LogicalCteOptimizerContext> context)
+        {
+            if (!shouldCteBeMaterialized(node.getCteId(), context.get())) {
+                return context.rewrite(node.getSource(), context.get());
+            }
+            context.get().addDependency(node.getCteId());
+            context.get().pushActiveCte(node.getCteId());
             // So that dependent CTEs are processed properly
             PlanNode actualSource = context.rewrite(node.getSource(), context.get());
             context.get().popActiveCte();
             CteProducerNode cteProducerSource = new CteProducerNode(node.getSourceLocation(),
                     idAllocator.getNextId(),
                     actualSource,
-                    node.getCteName(),
+                    node.getCteId(),
                     variableAllocator.newVariable("rows", BIGINT), node.getOutputVariables());
-            context.get().addProducer(node.getCteName(), cteProducerSource);
-            return new CteConsumerNode(node.getSourceLocation(), idAllocator.getNextId(), Optional.of(actualSource), actualSource.getOutputVariables(), node.getCteName(), actualSource);
+            context.get().addProducer(node.getCteId(), cteProducerSource);
+            return new CteConsumerNode(node.getSourceLocation(), idAllocator.getNextId(), Optional.of(actualSource), actualSource.getOutputVariables(), node.getCteId(), actualSource);
         }
 
         @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<CteTransformerContext> context)
+        public PlanNode visitApply(ApplyNode node, RewriteContext<LogicalCteOptimizerContext> context)
         {
             return new ApplyNode(node.getSourceLocation(),
                     idAllocator.getNextId(),
@@ -177,7 +273,7 @@ public class LogicalCteOptimizer
                     node.getMayParticipateInAntiJoin());
         }}
 
-    public class CteTransformerContext
+    public static class LogicalCteOptimizerContext
     {
         public Map<String, CteProducerNode> cteProducerMap;
 
@@ -185,12 +281,15 @@ public class LogicalCteOptimizer
         MutableGraph<String> graph;
         public Stack<String> activeCteStack;
 
-        public CteTransformerContext()
+        public Set<String> complexCtes;
+
+        public LogicalCteOptimizerContext()
         {
             cteProducerMap = new HashMap<>();
             // The cte graph will never have cycles because sql won't allow it
             graph = GraphBuilder.directed().build();
             activeCteStack = new Stack<>();
+            complexCtes = new HashSet<>();
         }
 
         public Map<String, CteProducerNode> getCteProducerMap()
@@ -223,6 +322,21 @@ public class LogicalCteOptimizer
             graph.addNode(currentCte);
             Optional<String> parentCte = peekActiveCte();
             parentCte.ifPresent(s -> graph.putEdge(currentCte, s));
+        }
+
+        public void addComplexCte(String cteId)
+        {
+            complexCtes.add(cteId);
+        }
+
+        public void removeComplexCte(String cteId)
+        {
+            complexCtes.remove(cteId);
+        }
+
+        public boolean isComplexCte(String cteId)
+        {
+            return complexCtes.contains(cteId);
         }
 
         public List<PlanNode> getTopologicalOrdering()

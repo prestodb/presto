@@ -93,9 +93,9 @@ public class FeaturesConfig
     private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
-
     private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
     private boolean cteFilterAndProjectionPushdownEnabled;
+    private int cteHeuristicReplicationThreshold = 4;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
@@ -364,7 +364,9 @@ public class FeaturesConfig
     public enum CteMaterializationStrategy
     {
         ALL, // Materialize all CTES
-        NONE // Materialize no ctes
+        NONE, // Materialize no CTES
+        HEURISTIC, // Materialize CTES occuring  >= CTE_HEURISTIC_REPLICATION_THRESHOLD
+        HEURISTIC_COMPLEX_QUERIES_ONLY // Materialize CTES occuring >= CTE_HEURISTIC_REPLICATION_THRESHOLD and having a join or an aggregate
     }
 
     public enum TaskSpillingStrategy
@@ -597,7 +599,7 @@ public class FeaturesConfig
     }
 
     @Config("cte-materialization-strategy")
-    @ConfigDescription("Set strategy used to determine whether to materialize CTEs (ALL, NONE)")
+    @ConfigDescription("Set strategy used to determine whether to materialize ctes (ALL, NONE, HEURISTIC, HEURISTIC_COMPLEX_QUERIES_ONLY)")
     public FeaturesConfig setCteMaterializationStrategy(CteMaterializationStrategy cteMaterializationStrategy)
     {
         this.cteMaterializationStrategy = cteMaterializationStrategy;
@@ -614,6 +616,19 @@ public class FeaturesConfig
     public FeaturesConfig setCteFilterAndProjectionPushdownEnabled(boolean cteFilterAndProjectionPushdownEnabled)
     {
         this.cteFilterAndProjectionPushdownEnabled = cteFilterAndProjectionPushdownEnabled;
+        return this;
+    }
+
+    public int getCteHeuristicReplicationThreshold()
+    {
+        return cteHeuristicReplicationThreshold;
+    }
+
+    @Config("cte-heuristic-replication-threshold")
+    @ConfigDescription("Used with CTE Materialization Strategy = Heuristic. CTES are only materialized if they are used greater than or equal to this number")
+    public FeaturesConfig setCteHeuristicReplicationThreshold(int cteHeuristicReplicationThreshold)
+    {
+        this.cteHeuristicReplicationThreshold = cteHeuristicReplicationThreshold;
         return this;
     }
 
