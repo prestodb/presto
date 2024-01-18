@@ -577,5 +577,28 @@ TEST_F(DateTimeFunctionsTest, getTimestamp) {
       "Specifier I is not supported");
 }
 
+TEST_F(DateTimeFunctionsTest, hour) {
+  const auto hour = [&](const StringView timestampStr) {
+    const auto timeStamp =
+        std::make_optional(util::fromTimestampString(timestampStr));
+    return evaluateOnce<int32_t>("hour(c0)", timeStamp);
+  };
+
+  EXPECT_EQ(0, hour("2024-01-08 00:23:00.001"));
+  EXPECT_EQ(0, hour("2024-01-08 00:59:59.999"));
+  EXPECT_EQ(1, hour("2024-01-08 01:23:00.001"));
+  EXPECT_EQ(13, hour("2024-01-20 13:23:00.001"));
+  EXPECT_EQ(13, hour("1969-01-01 13:23:00.001"));
+
+  // Set time zone to Pacific/Apia (13 hours ahead of UTC).
+  setQueryTimeZone("Pacific/Apia");
+
+  EXPECT_EQ(13, hour("2024-01-08 00:23:00.001"));
+  EXPECT_EQ(13, hour("2024-01-08 00:59:59.999"));
+  EXPECT_EQ(14, hour("2024-01-08 01:23:00.001"));
+  EXPECT_EQ(2, hour("2024-01-20 13:23:00.001"));
+  EXPECT_EQ(2, hour("1969-01-01 13:23:00.001"));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

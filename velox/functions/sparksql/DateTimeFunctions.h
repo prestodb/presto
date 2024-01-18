@@ -517,4 +517,14 @@ struct NextDayFunction {
   bool invalidFormat_{false};
 };
 
+template <typename T>
+struct HourFunction : public InitSessionTimezone<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int32_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getDateTime(timestamp, this->timeZone_).tm_hour;
+  }
+};
 } // namespace facebook::velox::functions::sparksql
