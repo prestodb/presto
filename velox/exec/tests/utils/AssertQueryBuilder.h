@@ -43,6 +43,13 @@ class AssertQueryBuilder {
   /// properties.
   AssertQueryBuilder& config(const std::string& key, const std::string& value);
 
+  template <typename T>
+  typename std::enable_if<std::is_arithmetic<T>::value, AssertQueryBuilder&>::
+      type
+      config(const std::string& key, const T& value) {
+    return config(key, std::to_string(value));
+  }
+
   /// Set multiple configuration properties.
   AssertQueryBuilder& configs(
       const std::unordered_map<std::string, std::string>& values);

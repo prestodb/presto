@@ -6329,15 +6329,11 @@ TEST_F(HashJoinTest, maxSpillBytes) {
       AssertQueryBuilder(plan)
           .spillDirectory(spillDirectory->path)
           .queryCtx(queryCtx)
-          .config(core::QueryConfig::kSpillEnabled, "true")
-          .config(core::QueryConfig::kJoinSpillEnabled, "true")
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kJoinSpillEnabled, true)
           // Set a small capacity to trigger threshold based spilling
-          .config(
-              core::QueryConfig::kJoinSpillMemoryThreshold,
-              std::to_string(5 << 20))
-          .config(
-              core::QueryConfig::kMaxSpillBytes,
-              std::to_string(testData.maxSpilledBytes))
+          .config(core::QueryConfig::kJoinSpillMemoryThreshold, 5 << 20)
+          .config(core::QueryConfig::kMaxSpillBytes, testData.maxSpilledBytes)
           .copyResults(pool_.get());
       ASSERT_FALSE(testData.expectedExceedLimit);
     } catch (const VeloxRuntimeError& e) {
@@ -6390,15 +6386,11 @@ TEST_F(HashJoinTest, onlyHashBuildMaxSpillBytes) {
       AssertQueryBuilder(plan)
           .spillDirectory(spillDirectory->path)
           .queryCtx(queryCtx)
-          .config(core::QueryConfig::kSpillEnabled, "true")
-          .config(core::QueryConfig::kJoinSpillEnabled, "true")
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kJoinSpillEnabled, true)
           // Set a small capacity to trigger threshold based spilling
-          .config(
-              core::QueryConfig::kJoinSpillMemoryThreshold,
-              std::to_string(5 << 20))
-          .config(
-              core::QueryConfig::kMaxSpillBytes,
-              std::to_string(testData.maxSpilledBytes))
+          .config(core::QueryConfig::kJoinSpillMemoryThreshold, 5 << 20)
+          .config(core::QueryConfig::kMaxSpillBytes, testData.maxSpilledBytes)
           .copyResults(pool_.get());
       ASSERT_FALSE(testData.expectedExceedLimit);
     } catch (const VeloxRuntimeError& e) {
@@ -6784,9 +6776,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredDuringParallelJoinBuild) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   AssertQueryBuilder(duckDbQueryRunner_)
       // Set very low table size threshold to trigger parallel build.
-      .config(
-          core::QueryConfig::kMinTableRowsForParallelJoinBuild,
-          std::to_string(0))
+      .config(core::QueryConfig::kMinTableRowsForParallelJoinBuild, 0)
       // Set multiple hash build drivers to trigger parallel build.
       .maxDrivers(4)
       .queryCtx(joinQueryCtx)
@@ -6870,9 +6860,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
   auto task =
       AssertQueryBuilder(duckDbQueryRunner_)
           .spillDirectory(spillDirectory->path)
-          .config(core::QueryConfig::kSpillEnabled, "true")
-          .config(core::QueryConfig::kJoinSpillEnabled, "true")
-          .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kJoinSpillEnabled, true)
+          .config(core::QueryConfig::kJoinSpillPartitionBits, 2)
           // Set multiple hash build drivers to trigger parallel build.
           .maxDrivers(4)
           .queryCtx(joinQueryCtx)
@@ -6937,9 +6927,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringJoinTableBuild) {
     auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
             .spillDirectory(spillDirectory->path)
-            .config(core::QueryConfig::kSpillEnabled, "true")
-            .config(core::QueryConfig::kJoinSpillEnabled, "true")
-            .config(core::QueryConfig::kJoinSpillPartitionBits, "2")
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kJoinSpillEnabled, true)
+            .config(core::QueryConfig::kJoinSpillPartitionBits, 2)
             // Set multiple hash build drivers to trigger parallel build.
             .maxDrivers(4)
             .queryCtx(joinQueryCtx)

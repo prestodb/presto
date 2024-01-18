@@ -494,12 +494,10 @@ TEST_F(OrderByTest, spill) {
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   auto task = AssertQueryBuilder(plan)
                   .spillDirectory(spillDirectory->path)
-                  .config(core::QueryConfig::kSpillEnabled, "true")
-                  .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+                  .config(core::QueryConfig::kSpillEnabled, true)
+                  .config(core::QueryConfig::kOrderBySpillEnabled, true)
                   // Set a small capacity to trigger threshold based spilling
-                  .config(
-                      QueryConfig::kOrderBySpillMemoryThreshold,
-                      std::to_string(32 << 20))
+                  .config(QueryConfig::kOrderBySpillMemoryThreshold, 32 << 20)
                   .assertResults(expectedResult);
   auto taskStats = exec::toPlanStats(task->taskStats());
   auto& planStats = taskStats.at(orderNodeId);
@@ -571,11 +569,11 @@ TEST_F(OrderByTest, spillWithMemoryLimit) {
                 .planNode())
             .queryCtx(queryCtx)
             .spillDirectory(tempDirectory->path)
-            .config(core::QueryConfig::kSpillEnabled, "true")
-            .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kOrderBySpillEnabled, true)
             .config(
                 QueryConfig::kOrderBySpillMemoryThreshold,
-                std::to_string(testData.orderByMemLimit))
+                testData.orderByMemLimit)
             .assertResults(results);
 
     auto stats = task->taskStats().pipelineStats;
@@ -676,8 +674,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
                 .planNode())
             .queryCtx(queryCtx)
             .spillDirectory(tempDirectory->path)
-            .config(core::QueryConfig::kSpillEnabled, "true")
-            .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kOrderBySpillEnabled, true)
             .maxDrivers(1)
             .assertResults(expectedResult);
       } else {
@@ -815,8 +813,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
             .planNode())
         .queryCtx(queryCtx)
         .spillDirectory(tempDirectory->path)
-        .config(core::QueryConfig::kSpillEnabled, "true")
-        .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+        .config(core::QueryConfig::kSpillEnabled, true)
+        .config(core::QueryConfig::kOrderBySpillEnabled, true)
         .maxDrivers(1)
         .assertResults(expectedResult);
   });
@@ -933,8 +931,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringAllocation) {
                 .planNode())
             .queryCtx(queryCtx)
             .spillDirectory(tempDirectory->path)
-            .config(core::QueryConfig::kSpillEnabled, "true")
-            .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kOrderBySpillEnabled, true)
             .maxDrivers(1)
             .assertResults(expectedResult);
       } else {
@@ -1050,8 +1048,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
                 .planNode())
             .queryCtx(queryCtx)
             .spillDirectory(tempDirectory->path)
-            .config(core::QueryConfig::kSpillEnabled, "true")
-            .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kOrderBySpillEnabled, true)
             .maxDrivers(1)
             .assertResults(expectedResult);
       } else {
@@ -1329,19 +1327,14 @@ DEBUG_ONLY_TEST_F(OrderByTest, spillWithNoMoreOutput) {
   auto task =
       AssertQueryBuilder(plan)
           .spillDirectory(spillDirectory->path)
-          .config(core::QueryConfig::kSpillEnabled, "true")
-          .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kOrderBySpillEnabled, true)
           // Set output buffer size to extreme large to read all the
           // output rows in one vector.
-          .config(
-              QueryConfig::kPreferredOutputBatchRows,
-              std::to_string(1'000'000'000))
-          .config(
-              QueryConfig::kMaxOutputBatchRows, std::to_string(1'000'000'000))
-          .config(
-              QueryConfig::kPreferredOutputBatchBytes,
-              std::to_string(1'000'000'000))
-          .config(QueryConfig::kMaxSpillBytes, std::to_string(1))
+          .config(QueryConfig::kPreferredOutputBatchRows, 1'000'000'000)
+          .config(QueryConfig::kMaxOutputBatchRows, 1'000'000'000)
+          .config(QueryConfig::kPreferredOutputBatchBytes, 1'000'000'000)
+          .config(QueryConfig::kMaxSpillBytes, 1)
           .maxDrivers(1)
           .assertResults(expectedResult);
   auto taskStats = exec::toPlanStats(task->taskStats());
@@ -1380,15 +1373,11 @@ TEST_F(OrderByTest, maxSpillBytes) {
       AssertQueryBuilder(plan)
           .spillDirectory(spillDirectory->path)
           .queryCtx(queryCtx)
-          .config(core::QueryConfig::kSpillEnabled, "true")
-          .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kOrderBySpillEnabled, true)
           // Set a small capacity to trigger threshold based spilling
-          .config(
-              QueryConfig::kOrderBySpillMemoryThreshold,
-              std::to_string(5 << 20))
-          .config(
-              QueryConfig::kMaxSpillBytes,
-              std::to_string(testData.maxSpilledBytes))
+          .config(QueryConfig::kOrderBySpillMemoryThreshold, 5 << 20)
+          .config(QueryConfig::kMaxSpillBytes, testData.maxSpilledBytes)
           .copyResults(pool_.get());
       ASSERT_FALSE(testData.expectedExceedLimit);
     } catch (const VeloxRuntimeError& e) {
@@ -1454,8 +1443,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromOrderBy) {
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .spillDirectory(spillDirectory->path)
-              .config(core::QueryConfig::kSpillEnabled, "true")
-              .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+              .config(core::QueryConfig::kSpillEnabled, true)
+              .config(core::QueryConfig::kOrderBySpillEnabled, true)
               .queryCtx(orderByQueryCtx)
               .plan(PlanBuilder()
                         .values(vectors)
@@ -1522,8 +1511,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromEmptyOrderBy) {
     auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
             .spillDirectory(spillDirectory->path)
-            .config(core::QueryConfig::kSpillEnabled, "true")
-            .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kOrderBySpillEnabled, true)
             .queryCtx(orderByQueryCtx)
             .plan(PlanBuilder()
                       .values(vectors)

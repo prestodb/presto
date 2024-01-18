@@ -90,8 +90,8 @@ QueryTestResult runHashJoinTask(
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     result.data = AssertQueryBuilder(plan)
                       .spillDirectory(spillDirectory->path)
-                      .config(core::QueryConfig::kSpillEnabled, "true")
-                      .config(core::QueryConfig::kJoinSpillEnabled, "true")
+                      .config(core::QueryConfig::kSpillEnabled, true)
+                      .config(core::QueryConfig::kJoinSpillEnabled, true)
                       .queryCtx(queryCtx)
                       .maxDrivers(numDrivers)
                       .copyResults(pool, result.task);

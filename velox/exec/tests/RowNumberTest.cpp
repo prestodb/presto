@@ -52,9 +52,9 @@ TEST_F(RowNumberTest, spill) {
     });
 
     auto task = AssertQueryBuilder(plan)
-                    .config(core::QueryConfig::kTestingSpillPct, "100")
-                    .config(core::QueryConfig::kSpillEnabled, "true")
-                    .config(core::QueryConfig::kRowNumberSpillEnabled, "true")
+                    .config(core::QueryConfig::kTestingSpillPct, 100)
+                    .config(core::QueryConfig::kSpillEnabled, true)
+                    .config(core::QueryConfig::kRowNumberSpillEnabled, true)
                     .spillDirectory(spillDirectory->path)
                     .assertResults({expected});
 
@@ -245,12 +245,10 @@ TEST_F(RowNumberTest, maxSpillBytes) {
       AssertQueryBuilder(plan)
           .spillDirectory(spillDirectory->path)
           .queryCtx(queryCtx)
-          .config(core::QueryConfig::kSpillEnabled, "true")
-          .config(core::QueryConfig::kRowNumberSpillEnabled, "true")
-          .config(core::QueryConfig::kTestingSpillPct, "100")
-          .config(
-              core::QueryConfig::kMaxSpillBytes,
-              std::to_string(testData.maxSpilledBytes))
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kRowNumberSpillEnabled, true)
+          .config(core::QueryConfig::kTestingSpillPct, 100)
+          .config(core::QueryConfig::kMaxSpillBytes, testData.maxSpilledBytes)
           .copyResults(pool_.get());
       ASSERT_FALSE(testData.expectedExceedLimit);
     } catch (const VeloxRuntimeError& e) {
