@@ -275,6 +275,7 @@ public abstract class AbstractTestNativeGeneralQueries
             dropTableIfExists(tmpTableName);
         }
     }
+
     @Test
     public void testTableSample()
     {
@@ -1051,6 +1052,7 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         assertQuery("SELECT * FROM nation_text");
     }
+
     private void dropTableIfExists(String tableName)
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
@@ -1377,10 +1379,10 @@ public abstract class AbstractTestNativeGeneralQueries
                     .build();
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(table, ImmutableList.of(
                     new ColumnMetadata("col", RowType.from(ImmutableList.of(
-                        new RowType.Field(Optional.of("NationKey"), BIGINT),
-                        new RowType.Field(Optional.of("NAME"), VARCHAR),
-                        new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
-                        new RowType.Field(Optional.of("commenT"), VARCHAR))))),
+                            new RowType.Field(Optional.of("NationKey"), BIGINT),
+                            new RowType.Field(Optional.of("NAME"), VARCHAR),
+                            new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
+                            new RowType.Field(Optional.of("commenT"), VARCHAR))))),
                     tableProperties);
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .singleStatement()
