@@ -978,6 +978,36 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
   }
 }
 
+TEST_P(PrestoExchangeSourceTest, closeRaceCondition) {
+  const auto useHttps = GetParam().useHttps;
+  auto producer = std::make_unique<Producer>();
+  producer->enqueue("one pager");
+  producer->noMoreData();
+
+  auto producerServer = createHttpServer(useHttps);
+  producer->registerEndpoints(producerServer.get());
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+  auto queue = makeSingleSourceQueue();
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::PrestoExchangeSource::request",
+      std::function<void(PrestoExchangeSource*)>((
+          [&](auto* prestoExchangeSource) { prestoExchangeSource->close(); })));
+  auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
+  {
+    std::lock_guard<std::mutex> l(queue->mutex());
+    ASSERT_TRUE(exchangeSource->shouldRequestLocked());
+  }
+  auto future = exchangeSource->request(1 << 20, 2);
+  ASSERT_TRUE(future.isReady());
+  auto response = std::move(future).get();
+  ASSERT_EQ(response.bytes, 0);
+  ASSERT_FALSE(response.atEnd);
+  exchangeCpuExecutor_->stop();
+  serverWrapper.stop();
+}
+
 INSTANTIATE_TEST_CASE_P(
     PrestoExchangeSourceTest,
     PrestoExchangeSourceTest,
