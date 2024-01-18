@@ -23,6 +23,7 @@ void gatherBits(
     const uint64_t* bits,
     folly::Range<const int32_t*> indexRange,
     uint64_t* result) {
+  constexpr int32_t kStep = xsimd::batch<int32_t>::size;
   const auto size = indexRange.size();
   auto indices = indexRange.data();
   uint8_t* resultPtr = reinterpret_cast<uint8_t*>(result);
@@ -37,14 +38,16 @@ void gatherBits(
   }
 
   int32_t i = 0;
-  for (; i + 8 < size; i += 8) {
-    *(resultPtr++) =
-        simd::gather8Bits(bits, xsimd::load_unaligned(indices + i), 8);
+  for (; i + kStep < size; i += kStep) {
+    uint16_t flags =
+        simd::gather8Bits(bits, xsimd::load_unaligned(indices + i), kStep);
+    bits::storeBitsToByte<kStep>(flags, resultPtr, i);
   }
   const auto bitsLeft = size - i;
   if (bitsLeft > 0) {
-    *resultPtr =
+    uint16_t flags =
         simd::gather8Bits(bits, xsimd::load_unaligned(indices + i), bitsLeft);
+    bits::storeBitsToByte<kStep>(flags, resultPtr, i);
   }
 }
 
