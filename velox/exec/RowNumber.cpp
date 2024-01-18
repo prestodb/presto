@@ -314,6 +314,7 @@ RowVectorPtr RowNumber::getOutput() {
     } else {
       input_ = nullptr;
       spillInputReader_ = nullptr;
+      table_->clear();
       restoreNextSpillPartition();
     }
   } else {
