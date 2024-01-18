@@ -32,19 +32,6 @@
 namespace facebook::velox {
 namespace {
 
-exec::TypeSignature typeToTypeSignature(std::shared_ptr<const Type> type) {
-  std::vector<exec::TypeSignature> children;
-  if (type->size()) {
-    children.reserve(type->size());
-    for (auto i = 0; i < type->size(); i++) {
-      children.emplace_back(typeToTypeSignature(type->childAt(i)));
-    }
-  }
-  const std::string& kindName = type->kindName();
-  return exec::TypeSignature(
-      boost::algorithm::to_lower_copy(kindName), std::move(children));
-}
-
 void populateSimpleFunctionSignatures(FunctionSignatureMap& map) {
   const auto& simpleFunctions = exec::simpleFunctions();
   for (const auto& functionName : simpleFunctions.getFunctionNames()) {
