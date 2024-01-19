@@ -23,6 +23,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.operator.PageBufferClient.PagesResponse;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -47,6 +48,7 @@ import static com.facebook.airlift.http.client.ResponseHandlerUtils.propagate;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_GRACEFUL_SHUTDOWN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
@@ -68,17 +70,22 @@ public final class HttpRpcShuffleClient
     private final HttpClient httpClient;
     private final URI location;
     private final Optional<URI> asyncPageTransportLocation;
+    private final boolean isEnableGracefulShutdown;
+    private final boolean isEnableRetryForFailedSplits;
 
+    @VisibleForTesting
     public HttpRpcShuffleClient(HttpClient httpClient, URI location)
     {
-        this(httpClient, location, Optional.empty());
+        this(httpClient, location, Optional.empty(), false, false);
     }
 
-    public HttpRpcShuffleClient(HttpClient httpClient, URI location, Optional<URI> asyncPageTransportLocation)
+    public HttpRpcShuffleClient(HttpClient httpClient, URI location, Optional<URI> asyncPageTransportLocation, boolean isEnableGracefulShutdown, boolean isEnableRetryForFailedSplits)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.location = requireNonNull(location, "location is null");
         this.asyncPageTransportLocation = requireNonNull(asyncPageTransportLocation, "asyncPageTransportLocation is null");
+        this.isEnableGracefulShutdown = isEnableGracefulShutdown;
+        this.isEnableRetryForFailedSplits = isEnableRetryForFailedSplits;
     }
 
     @Override
@@ -90,7 +97,7 @@ public final class HttpRpcShuffleClient
                 prepareGet()
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri).build(),
-                new PageResponseHandler());
+                new PageResponseHandler(isEnableGracefulShutdown, isEnableRetryForFailedSplits));
     }
 
     @Override
@@ -135,6 +142,15 @@ public final class HttpRpcShuffleClient
     public static class PageResponseHandler
             implements ResponseHandler<PagesResponse, RuntimeException>
     {
+        private final boolean isEnableGracefulShutdown;
+        private final boolean isEnableRetryForFailedSplits;
+
+        public PageResponseHandler(boolean isEnableGracefulShutdown, boolean isEnableRetryForFailedSplits)
+        {
+            this.isEnableGracefulShutdown = isEnableGracefulShutdown;
+            this.isEnableRetryForFailedSplits = isEnableRetryForFailedSplits;
+        }
+
         @Override
         public PagesResponse handleException(Request request, Exception exception)
         {
@@ -152,7 +168,8 @@ public final class HttpRpcShuffleClient
                             getTaskInstanceId(request, response),
                             getToken(request, response),
                             getNextToken(request, response),
-                            getComplete(request, response));
+                            getComplete(request, response),
+                            getGracefulShutdown(request, response, isEnableGracefulShutdown, isEnableGracefulShutdown));
                 }
 
                 // otherwise we must have gotten an OK response, everything else is considered fatal
@@ -197,10 +214,11 @@ public final class HttpRpcShuffleClient
                 long token = getToken(request, response);
                 long nextToken = getNextToken(request, response);
                 boolean complete = getComplete(request, response);
+                boolean gracefulShutdown = getGracefulShutdown(request, response, isEnableGracefulShutdown, isEnableRetryForFailedSplits);
 
                 try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
                     List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
-                    return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
+                    return createPagesResponse(taskInstanceId, token, nextToken, pages, complete, gracefulShutdown);
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
@@ -248,6 +266,20 @@ public final class HttpRpcShuffleClient
                 throw new PageTransportErrorException(HostAddress.fromUri(request.getUri()), format("Expected %s header", PRESTO_BUFFER_COMPLETE));
             }
             return Boolean.parseBoolean(bufferComplete);
+        }
+
+        private static boolean getGracefulShutdown(Request request, Response response, boolean isEnableGracefulShutdown, boolean isEnableRetryForFailedSplits)
+        {
+            if (isEnableGracefulShutdown || isEnableRetryForFailedSplits) {
+                String gracefulShutdown = response.getHeader(PRESTO_GRACEFUL_SHUTDOWN);
+                if (gracefulShutdown == null) {
+                    throw new PageTransportErrorException(HostAddress.fromUri(request.getUri()), format("Expected %s header", PRESTO_GRACEFUL_SHUTDOWN));
+                }
+                return Boolean.parseBoolean(gracefulShutdown);
+            }
+            else {
+                return false;
+            }
         }
 
         private static boolean mediaTypeMatches(String value, MediaType range)

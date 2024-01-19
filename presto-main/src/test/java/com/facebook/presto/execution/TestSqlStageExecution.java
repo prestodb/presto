@@ -108,7 +108,7 @@ public class TestSqlStageExecution
                 executor,
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()), false, false);
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
         // add listener that fetches stage info when the final status is available

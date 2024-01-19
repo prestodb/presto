@@ -56,6 +56,9 @@ public class SimpleHttpResponseHandler<T>
             else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
                 callback.failed(new ServiceUnavailableException(uri));
             }
+            else if (response.getStatusCode() == HttpStatus.GONE.code()) {
+                callback.failed(new ServiceGoneException(uri));
+            }
             else {
                 // Something is broken in the server or the client, so fail immediately (includes 500 errors)
                 Exception cause = response.getException();

@@ -66,6 +66,7 @@ public class StageLinkage
                 break;
             case FINISHED_TASK_SCHEDULING:
             case SCHEDULING_SPLITS:
+            case SCHEDULING_RETRIED_SPLITS:
             case SCHEDULED:
             case RUNNING:
             case FINISHED:

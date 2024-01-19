@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpUriBuilder;
+import com.facebook.airlift.log.Logger;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -53,6 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.UNRECOVERABLE_HOST_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -80,6 +82,7 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeClient
         implements Closeable
 {
+    private static final Logger log = Logger.get(ExchangeClient.class);
     private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0, 0);
     private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
@@ -124,6 +127,8 @@ public class ExchangeClient
 
     private final LocalMemoryContext systemMemoryContext;
     private final Executor pageBufferClientCallbackExecutor;
+    private final boolean isEnableGracefulShutdown;
+    private final boolean isEnableRetryForFailedSplits;
 
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
@@ -139,7 +144,9 @@ public class ExchangeClient
             DriftClient<ThriftTaskClient> driftClient,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            boolean isEnableGracefulShutdown,
+            boolean isEnableRetryForFailedSplits)
     {
         checkArgument(responseSizeExponentialMovingAverageDecayingAlpha >= 0.0 && responseSizeExponentialMovingAverageDecayingAlpha <= 1.0, "responseSizeExponentialMovingAverageDecayingAlpha must be between 0 and 1: %s", responseSizeExponentialMovingAverageDecayingAlpha);
         this.bufferCapacity = bufferCapacity.toBytes();
@@ -155,6 +162,8 @@ public class ExchangeClient
         this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.responseSizeExponentialMovingAverage = new ExponentialMovingAverage(responseSizeExponentialMovingAverageDecayingAlpha, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        this.isEnableGracefulShutdown = isEnableGracefulShutdown;
+        this.isEnableRetryForFailedSplits = isEnableRetryForFailedSplits;
     }
 
     public ExchangeClientStatus getStatus()
@@ -203,7 +212,7 @@ public class ExchangeClient
         switch (location.getScheme().toLowerCase(Locale.ENGLISH)) {
             case "http":
             case "https":
-                resultClient = new HttpRpcShuffleClient(httpClient, location, asyncPageTransportLocation);
+                resultClient = new HttpRpcShuffleClient(httpClient, location, asyncPageTransportLocation, isEnableGracefulShutdown, isEnableRetryForFailedSplits);
                 break;
             case "thrift":
                 resultClient = new ThriftRpcShuffleClient(driftClient, location);
@@ -472,6 +481,13 @@ public class ExchangeClient
         if (!queuedClients.contains(client)) {
             queuedClients.add(client);
         }
+
+        if (allClients.values().stream().allMatch(PageBufferClient::isServerGracefulShutdown)) {
+            String errorMessage = String.format("all of the upstream tasks are graceful shutdown, unable to recover the query");
+            failure.compareAndSet(null, new PrestoException(UNRECOVERABLE_HOST_SHUTTING_DOWN, errorMessage));
+            throwIfFailed();
+        }
+
         scheduleRequestIfNecessary();
     }
 
@@ -540,7 +556,7 @@ public class ExchangeClient
         {
             requireNonNull(client, "client is null");
             requireNonNull(cause, "cause is null");
-
+            log.error(cause, "Exchange client failed");
             ExchangeClient.this.clientFailed(client, cause);
         }
     }

@@ -21,6 +21,7 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.PartialResultQueryManager;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.RemoteTask;
@@ -146,6 +147,7 @@ public class LegacySqlQueryScheduler
     private final AtomicBoolean scheduling = new AtomicBoolean();
 
     private final PartialResultQueryTaskTracker partialResultQueryTaskTracker;
+    private final QueryManagerConfig queryManagerConfig;
 
     public static LegacySqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
@@ -168,7 +170,8 @@ public class LegacySqlQueryScheduler
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,
-            PartialResultQueryManager partialResultQueryManager)
+            PartialResultQueryManager partialResultQueryManager,
+            QueryManagerConfig queryManagerConfig)
     {
         LegacySqlQueryScheduler sqlQueryScheduler = new LegacySqlQueryScheduler(
                 locationFactory,
@@ -191,7 +194,8 @@ public class LegacySqlQueryScheduler
                 planChecker,
                 metadata,
                 sqlParser,
-                partialResultQueryManager);
+                partialResultQueryManager,
+                queryManagerConfig);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -217,7 +221,8 @@ public class LegacySqlQueryScheduler
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,
-            PartialResultQueryManager partialResultQueryManager)
+            PartialResultQueryManager partialResultQueryManager,
+            QueryManagerConfig queryManagerConfig)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -239,6 +244,7 @@ public class LegacySqlQueryScheduler
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
         this.sectionedPlan = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
+        this.queryManagerConfig = queryManagerConfig;
 
         OutputBufferId rootBufferId = getOnlyElement(rootOutputBuffers.getBuffers().keySet());
         List<StageExecutionAndScheduler> stageExecutions = createStageExecutions(
@@ -431,8 +437,8 @@ public class LegacySqlQueryScheduler
                         stageExecution.beginScheduling();
 
                         // perform some scheduling work
-                        ScheduleResult result = stageExecutionAndScheduler.getStageScheduler()
-                                .schedule();
+                        StageScheduler stageScheduler = stageExecutionAndScheduler.getStageScheduler();
+                        ScheduleResult result = stageScheduler.schedule();
 
                         // Track leaf tasks if partial results are enabled
                         if (isPartialResultsEnabled(session) && stageExecutionAndScheduler.getStageExecution().getFragment().isLeaf()) {
@@ -468,6 +474,9 @@ public class LegacySqlQueryScheduler
                                     break;
                                 case NO_ACTIVE_DRIVER_GROUP:
                                     schedulerStats.getNoActiveDriverGroup().update(1);
+                                    break;
+                                case WAITING_FOR_SPLIT_RETRY:
+                                    schedulerStats.getWaitingForSplitRetry().update(1);
                                     break;
                                 default:
                                     throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());

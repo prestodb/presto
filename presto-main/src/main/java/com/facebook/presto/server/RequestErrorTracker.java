@@ -20,6 +20,8 @@ import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
+import com.google.common.base.Ticker;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
@@ -31,6 +33,7 @@ import java.io.EOFException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -44,6 +47,7 @@ import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -51,7 +55,17 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class RequestErrorTracker
 {
     private static final Logger log = Logger.get(RequestErrorTracker.class);
-
+    private static final List<Duration> LEAF_BACKOFF_DELAY_INTERVALS = ImmutableList.<Duration>builder()
+            .add(new Duration(0, MILLISECONDS))
+            .add(new Duration(10, MILLISECONDS))
+            .add(new Duration(20, MILLISECONDS))
+            .add(new Duration(30, MILLISECONDS))
+            .add(new Duration(40, MILLISECONDS))
+            .add(new Duration(50, MILLISECONDS))
+            .add(new Duration(60, MILLISECONDS))
+            .add(new Duration(100, MILLISECONDS))
+            .add(new Duration(500, MILLISECONDS))
+            .build();
     private final Object id;
     private final URI uri;
     private ErrorCodeSupplier errorCode;
@@ -59,23 +73,38 @@ public class RequestErrorTracker
     private final ScheduledExecutorService scheduledExecutor;
     private final String jobDescription;
     private final Backoff backoff;
-
+    public boolean isLeaf;
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
     public RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    {
+        this(id, uri, errorCode, nodeErrorMessage, maxErrorDuration, scheduledExecutor, jobDescription, false);
+    }
+
+    private RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription, boolean isLeaf)
     {
         this.id = requireNonNull(id, "id is null");
         this.uri = requireNonNull(uri, "uri is null");
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
         this.nodeErrorMessage = requireNonNull(nodeErrorMessage, "nodeErrorMessage is null");
         this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
-        this.backoff = new Backoff(requireNonNull(maxErrorDuration, "maxErrorDuration is null"));
+        this.backoff = initBackoff(maxErrorDuration, isLeaf);
         this.jobDescription = requireNonNull(jobDescription, "jobDescription is null");
+        this.isLeaf = isLeaf;
     }
 
-    public static RequestErrorTracker taskRequestErrorTracker(TaskId taskId, URI taskUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    private Backoff initBackoff(Duration maxErrorDuration, boolean isLeaf)
     {
-        return new RequestErrorTracker(taskId, taskUri, REMOTE_TASK_ERROR, WORKER_NODE_ERROR, maxErrorDuration, scheduledExecutor, jobDescription);
+        if (!isLeaf) {
+            return new Backoff(requireNonNull(maxErrorDuration, "maxErrorDuration is null"));
+        }
+        Duration duration = new Duration(maxErrorDuration.toMillis() * 2, MILLISECONDS);
+        return new Backoff(5, duration, Ticker.systemTicker(), LEAF_BACKOFF_DELAY_INTERVALS);
+    }
+
+    public static RequestErrorTracker taskRequestErrorTracker(TaskId taskId, URI taskUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription, boolean isLeaf)
+    {
+        return new RequestErrorTracker(taskId, taskUri, REMOTE_TASK_ERROR, WORKER_NODE_ERROR, maxErrorDuration, scheduledExecutor, jobDescription, isLeaf);
     }
 
     public ListenableFuture<?> acquireRequestPermit()
@@ -112,6 +141,11 @@ public class RequestErrorTracker
     {
         // cancellation is not a failure
         if (reason instanceof CancellationException) {
+            return;
+        }
+
+        // Graceful shutdown is not a failure
+        if (reason instanceof ServiceGoneException) {
             return;
         }
 

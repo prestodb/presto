@@ -11,24 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.operator;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
+import com.facebook.presto.spi.PrestoException;
 
-import java.io.Closeable;
+import static com.facebook.presto.spi.StandardErrorCode.HOST_SHUTTING_DOWN;
 
-public interface SplitRunner
-        extends Closeable
+public class HostShuttingDownException
+        extends PrestoException
 {
-    boolean isFinished();
+    private final long shutdownTimeInNanos;
 
-    ListenableFuture<?> processFor(Duration duration);
+    public HostShuttingDownException(String message, long shutdownTimeInNanos)
+    {
+        super(HOST_SHUTTING_DOWN, message);
+        this.shutdownTimeInNanos = shutdownTimeInNanos;
+    }
 
-    String getInfo();
-
-    @Override
-    void close();
-
-    ScheduledSplit getScheduledSplit();
+    public long getShutdownTimeInNanos()
+    {
+        return shutdownTimeInNanos;
+    }
 }

@@ -11,24 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.server;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
+import java.net.URI;
 
-import java.io.Closeable;
-
-public interface SplitRunner
-        extends Closeable
+public class ServiceGoneException
+        extends RuntimeException
 {
-    boolean isFinished();
-
-    ListenableFuture<?> processFor(Duration duration);
-
-    String getInfo();
-
-    @Override
-    void close();
-
-    ScheduledSplit getScheduledSplit();
+    public ServiceGoneException(URI uri)
+    {
+        super("Server returned SERVICE_GONE: " + uri);
+    }
 }

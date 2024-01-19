@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
@@ -58,6 +59,7 @@ import static java.util.Objects.requireNonNull;
 
 public class NodePartitioningManager
 {
+    private static final Logger log = Logger.get(NodePartitioningManager.class);
     private final NodeScheduler nodeScheduler;
     private final PartitioningProviderManager partitioningProviderManager;
     private final NodeSelectionStats nodeSelectionStats;
@@ -148,7 +150,7 @@ public class NodePartitioningManager
                 break;
             case NO_PREFERENCE:
                 bucketToNode = createArbitraryBucketToNode(
-                        nodeScheduler.createNodeSelector(session, connectorId).selectRandomNodes(getMaxTasksPerStage(session)),
+                        nodeScheduler.createNodeSelector(session, connectorId, nodePredicate).selectRandomNodes(getMaxTasksPerStage(session)),
                         connectorBucketNodeMap.getBucketCount());
                 cacheable = false;
                 break;
@@ -176,7 +178,7 @@ public class NodePartitioningManager
         return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle), cacheable);
     }
 
-    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, boolean preferDynamic)
+    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, boolean preferDynamic, Optional<Predicate<Node>> nodePredicate)
     {
         ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle, Optional.empty());
 
@@ -196,7 +198,7 @@ public class NodePartitioningManager
                 return new FixedBucketNodeMap(
                         getSplitToBucket(session, partitioningHandle),
                         createArbitraryBucketToNode(
-                                nodeScheduler.createNodeSelector(session, partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session)),
+                                nodeScheduler.createNodeSelector(session, partitioningHandle.getConnectorId().get(), nodePredicate).selectRandomNodes(getMaxTasksPerStage(session)),
                                 connectorBucketNodeMap.getBucketCount()),
                         false);
             default:

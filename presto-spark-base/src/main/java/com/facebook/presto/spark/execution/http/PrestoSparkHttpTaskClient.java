@@ -117,7 +117,7 @@ public class PrestoSparkHttpTaskClient
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri)
                         .build(),
-                new HttpRpcShuffleClient.PageResponseHandler());
+                new HttpRpcShuffleClient.PageResponseHandler(false, false));
     }
 
     @Override

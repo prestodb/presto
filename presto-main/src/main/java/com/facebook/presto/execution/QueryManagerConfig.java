@@ -52,6 +52,8 @@ public class QueryManagerConfig
     private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
     private boolean useStreamingExchangeForMarkDistinct;
     private boolean enableWorkerIsolation;
+    private boolean enableRetryForFailedSplits;
+    private boolean enableGracefulShutdown;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -690,6 +692,30 @@ public class QueryManagerConfig
     public QueryManagerConfig setEnableWorkerIsolation(boolean enableWorkerIsolation)
     {
         this.enableWorkerIsolation = enableWorkerIsolation;
+        return this;
+    }
+
+    public boolean isEnableGracefulShutdown()
+    {
+        return enableGracefulShutdown;
+    }
+
+    @Config("query-manager.enable-graceful-shutdown")
+    public QueryManagerConfig setEnableGracefulShutdown(boolean enableGracefulShutdown)
+    {
+        this.enableGracefulShutdown = enableGracefulShutdown;
+        return this;
+    }
+
+    public boolean isEnableRetryForFailedSplits()
+    {
+        return enableRetryForFailedSplits;
+    }
+
+    @Config("query-manager.enable-retry-of-failed-splits")
+    public QueryManagerConfig setEnableRetryForFailedSplits(boolean enableRetryForFailedSplits)
+    {
+        this.enableRetryForFailedSplits = enableRetryForFailedSplits;
         return this;
     }
 

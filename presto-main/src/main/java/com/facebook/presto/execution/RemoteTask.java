@@ -39,13 +39,21 @@ public interface RemoteTask
 
     void start();
 
-    void addSplits(Multimap<PlanNodeId, Split> splits);
+    boolean addSplits(Multimap<PlanNodeId, Split> splits);
 
     void noMoreSplits(PlanNodeId sourceId);
 
     void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan);
 
     void setOutputBuffers(OutputBuffers outputBuffers);
+
+    void setIsRetried();
+
+    boolean isRetried();
+
+    boolean isTaskIdling();
+
+    boolean anyPendingSplitProcessed();
 
     ListenableFuture<?> removeRemoteSource(TaskId remoteSourceTaskId);
 
@@ -75,4 +83,6 @@ public interface RemoteTask
     PartitionedSplitsInfo getQueuedPartitionedSplitsInfo();
 
     int getUnacknowledgedPartitionedSplitCount();
+
+    void updateLastTaskStatus(TaskStatus taskStatus);
 }

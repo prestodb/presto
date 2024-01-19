@@ -50,7 +50,11 @@ public enum TaskState
     /**
      * Task execution failed.
      */
-    FAILED(5, true);
+    FAILED(5, true),
+    /**
+     * Graceful task execution failed.
+     */
+    GRACEFUL_SHUTDOWN(6, true);
 
     public static final Set<TaskState> TERMINAL_TASK_STATES = Stream.of(TaskState.values()).filter(TaskState::isDone).collect(toImmutableSet());
 

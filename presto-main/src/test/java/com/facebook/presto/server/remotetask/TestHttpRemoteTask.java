@@ -22,7 +22,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.json.smile.SmileModule;
-import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec;
 import com.facebook.drift.codec.utils.DurationToMillisThriftCodec;
@@ -300,8 +299,6 @@ public class TestHttpRemoteTask
                         jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);
                         jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionDeserializer.class);
-                        thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
-                        thriftCodecBinder(binder).bindThriftCodec(TaskInfo.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(JodaDateTimeToEpochMillisThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(DurationToMillisThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(DataSizeToBytesThriftCodec.class);
@@ -313,9 +310,7 @@ public class TestHttpRemoteTask
                             ThriftMapper thriftMapper,
                             JsonCodec<TaskStatus> taskStatusJsonCodec,
                             SmileCodec<TaskStatus> taskStatusSmileCodec,
-                            ThriftCodec<TaskStatus> taskStatusThriftCodec,
                             JsonCodec<TaskInfo> taskInfoJsonCodec,
-                            ThriftCodec<TaskInfo> taskInfoThriftCodec,
                             SmileCodec<TaskInfo> taskInfoSmileCodec,
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
                             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
@@ -334,10 +329,8 @@ public class TestHttpRemoteTask
                                 new TestSqlTaskManager.MockLocationFactory(),
                                 taskStatusJsonCodec,
                                 taskStatusSmileCodec,
-                                taskStatusThriftCodec,
                                 taskInfoJsonCodec,
                                 taskInfoSmileCodec,
-                                taskInfoThriftCodec,
                                 taskUpdateRequestJsonCodec,
                                 taskUpdateRequestSmileCodec,
                                 planFragmentJsonCodec,
@@ -585,7 +578,9 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getTotalCpuTimeInNanos(),
                     initialTaskStatus.getTaskAgeInMillis(),
                     initialTaskStatus.getQueuedPartitionedSplitsWeight(),
-                    initialTaskStatus.getRunningPartitionedSplitsWeight());
+                    initialTaskStatus.getRunningPartitionedSplitsWeight(),
+                    initialTaskStatus.getUnprocessedSplits(),
+                    initialTaskStatus.getIsTaskIdling());
         }
     }
 }
