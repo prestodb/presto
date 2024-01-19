@@ -20,6 +20,11 @@ workflows:
   version: 2
   dist-compile:
     jobs:
+      - native-specific-macos-conda:
+          executor: macos-arm
+      - native-specific-macos-conda:
+          executor: macos-intel
+      - linux-build-and-unit-test-conda
       - linux-build-and-unit-test
       - linux-presto-e2e-tests:
           requires:
@@ -64,12 +69,67 @@ executors:
   check:
     docker:
       - image: prestocpp/velox-check:mikesh-20210609
+  # https://circleci.com/docs/using-macos/
   macos-intel:
     macos:
       xcode: "14.3.0"
     resource_class: macos.x86.medium.gen2
+  macos-arm:
+    macos:
+      xcode: "14.3.1"
+    resource_class: macos.m1.medium.gen1
 
 jobs:
+  linux-build-and-unit-test-conda:
+    executor: build
+    steps:
+      - checkout
+      - run:
+          name: "Update velox"
+          command: |
+            cd presto-native-execution
+            make velox-submodule
+      - run:
+          name: "Calculate merge-base date for CCache"
+          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/master HEAD) | tee merge-base-date
+      - restore_cache:
+          name: "Restore CCache cache"
+          keys:
+            - native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+      - run:
+          name: "Configure CCache"
+          command: |
+            mkdir -p .ccache
+            export CCACHE_DIR=$(realpath .ccache)
+            ccache -sz -M 8Gi
+            source /opt/rh/gcc-toolset-9/enable
+      - run:
+          name: "Install dependencies"
+          command: |
+            cd presto-native-execution
+            make conda-install-deps
+      - run:
+          name: "Build"
+          command: |
+            cd presto-native-execution
+            make NUM_THREADS=8 conda-build
+            ccache -s
+      - save_cache:
+          name: "Save CCache cache"
+          key: native-exe-linux-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          paths:
+            - .ccache/
+      - run:
+          name: "Run Unit Tests"
+          command: |
+            cd presto-native-execution
+            make NUM_THREADS=8 conda-test
+      - persist_to_workspace:
+          root: presto-native-execution
+          paths:
+            - _build/debug/presto_cpp/main/presto_server
+            - _build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main
+
   linux-build-and-unit-test:
     executor: build
     steps:
@@ -278,6 +338,35 @@ jobs:
           command: |
             cd presto-native-execution
             make header-check
+
+  native-specific-macos-conda:
+    # https://circleci.com/docs/configuration-reference/#logic-statement-examples
+    parameters:
+      executor:
+        type: executor
+    executor: << parameters.executor >>
+    steps:
+      - checkout
+      - run:
+          name: "Update velox"
+          command: |
+            cd presto-native-execution
+            make velox-submodule
+      - run:
+          name: "Install dependencies"
+          command: |
+            cd presto-native-execution
+            make conda-install-deps
+      - run:
+          name: "Build"
+          command: |
+            cd presto-native-execution
+            make NUM_THREADS=8 conda-build
+      - run:
+          name: "Run Unit Tests"
+          command: |
+            cd presto-native-execution
+            make NUM_THREADS=8 conda-test
 
   native-specific-macos:
     executor: macos-intel

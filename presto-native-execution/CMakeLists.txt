@@ -35,6 +35,11 @@ endif()
 # Known warnings that are benign can be disabled.
 set(DISABLED_WARNINGS
     "-Wno-nullability-completeness -Wno-deprecated-declarations")
+if(APPLE)
+  # int-float conversion is disabled because of issues with clang on macOS.
+  set(DISABLED_WARNINGS
+      "${DISABLED_WARNINGS} -Wno-implicit-int-float-conversion")
+endif()
 
 # Important warnings that must be explicitly enabled.
 set(ENABLE_WARNINGS "-Wreorder")

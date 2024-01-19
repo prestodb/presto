@@ -9,7 +9,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-.PHONY: all cmake build clean debug release unittest submodules velox-submodule
+.PHONY: all cmake build clean debug release unittest submodules velox-submodule \
+	conda-install-deps conda-build conda-test
 
 BUILD_BASE_DIR=_build
 BUILD_DIR=release
@@ -38,6 +39,9 @@ CMAKE_FLAGS += -DPRESTO_ENABLE_HDFS=$(PRESTO_ENABLE_HDFS)
 CMAKE_FLAGS += -DPRESTO_ENABLE_REMOTE_FUNCTIONS=$(PRESTO_ENABLE_REMOTE_FUNCTIONS)
 CMAKE_FLAGS += -DPRESTO_ENABLE_JWT=$(PRESTO_ENABLE_JWT)
 
+CONDA_ENV_NAME=presto-dev
+CONDA_INSTALL_DIR=$$HOME/miniconda3
+
 SHELL := /bin/bash
 
 # Use Ninja if available. If Ninja is used, pass through parallelism control flags.
@@ -64,6 +68,32 @@ velox-submodule:		#: Check out code for velox submodule
 	git submodule update --init --recursive
 
 submodules: velox-submodule
+
+conda-install-deps: submodules
+	PRESTO_CONDA_ENV_NAME=$(CONDA_ENV_NAME) PRESTO_CONDA_INSTALL_DIR=$(CONDA_INSTALL_DIR) NUM_THREADS=$(NUM_THREADS) ./scripts/setup-conda.sh
+
+# -DPRESTO_ENABLE_PARQUET=ON doesn't work on Macs:
+# https://github.com/prestodb/presto/issues/20986
+conda-build:
+ifeq ($(shell uname),Darwin)
+	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
+		$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug TREAT_WARNINGS_AS_ERRORS=0 PRESTO_ENABLE_PARQUET=OFF
+else
+	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
+		$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug TREAT_WARNINGS_AS_ERRORS=0 PRESTO_ENABLE_PARQUET=ON
+endif
+	$(CONDA_INSTALL_DIR)/bin/conda run --no-capture-output -n $(CONDA_ENV_NAME) \
+		$(MAKE) build BUILD_DIR=debug
+
+# Needs DYLD_LIBRARY_PATH on Macs
+conda-test: conda-build
+ifeq ($(shell uname),Darwin)
+	$(CONDA_INSTALL_DIR)/bin/conda run --cwd $(BUILD_BASE_DIR)/debug --no-capture-output -n $(CONDA_ENV_NAME) \
+		bash -c 'DYLD_LIBRARY_PATH=$$CONDA_PREFIX/lib ctest -j $(NUM_THREADS) -VV --output-on-failure --exclude-regex 'velox.*''
+else
+	$(CONDA_INSTALL_DIR)/bin/conda run --cwd $(BUILD_BASE_DIR)/debug --no-capture-output -n $(CONDA_ENV_NAME) \
+		ctest -j $(NUM_THREADS) -VV --output-on-failure --exclude-regex 'velox.*'
+endif
 
 cmake: submodules		#: Use CMake to create a Makefile build system
 	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS)
