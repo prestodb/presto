@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
@@ -24,8 +25,11 @@ import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -55,6 +59,7 @@ public class PrestoSparkConfig
     private double hashPartitionCountScalingFactorOnOutOfMemory = 2.0;
     private Map<String, String> outOfMemoryRetryPrestoSessionProperties = ImmutableMap.of();
     private Map<String, String> outOfMemoryRetrySparkConfigs = ImmutableMap.of();
+    private List<String> retryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes = ImmutableList.of(EXCEEDED_LOCAL_MEMORY_LIMIT.name(), SPARK_EXECUTOR_OOM.name());
     private DataSize averageInputDataSizePerExecutor = new DataSize(10, GIGABYTE);
     private int maxExecutorCount = 600;
     private int minExecutorCount = 200;
@@ -302,6 +307,20 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setOutOfMemoryRetrySparkConfigs(String outOfMemoryRetrySparkConfigs)
     {
         this.outOfMemoryRetrySparkConfigs = MAP_SPLITTER.split(nullToEmpty(outOfMemoryRetrySparkConfigs));
+        return this;
+    }
+
+    public List<String> getRetryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes()
+    {
+        return retryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes;
+    }
+
+    @Config("spark.retry-on-out-of-memory-with-increased-memory-settings-error-codes")
+    @ConfigDescription("Error codes that will be retried with increased memory settings")
+    public PrestoSparkConfig setRetryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes(String retryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes)
+    {
+        this.retryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes =
+                Splitter.on(',').trimResults().omitEmptyStrings().splitToList(retryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes.toUpperCase());
         return this;
     }
 

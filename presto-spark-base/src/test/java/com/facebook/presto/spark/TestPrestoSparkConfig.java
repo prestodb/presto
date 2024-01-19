@@ -64,7 +64,8 @@ public class TestPrestoSparkConfig
                 .setExecutorAllocationStrategyEnabled(false)
                 .setHashPartitionCountAllocationStrategyEnabled(false)
                 .setNativeExecutionBroadcastBasePath(null)
-                .setNativeTriggerCoredumpWhenUnresponsiveEnabled(false));
+                .setNativeTriggerCoredumpWhenUnresponsiveEnabled(false)
+                .setRetryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes("EXCEEDED_LOCAL_MEMORY_LIMIT, SPARK_EXECUTOR_OOM"));
     }
 
     @Test
@@ -104,6 +105,7 @@ public class TestPrestoSparkConfig
                 .put("spark.hash-partition-count-allocation-strategy-enabled", "true")
                 .put("native-execution-broadcast-base-path", "/tmp/broadcast_path")
                 .put("native-trigger-coredump-when-unresponsive-enabled", "true")
+                .put("spark.retry-on-out-of-memory-with-increased-memory-settings-error-codes", "EXCEEDED_REVOCABLE_MEMORY_LIMIT")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -138,7 +140,8 @@ public class TestPrestoSparkConfig
                 .setHashPartitionCountAllocationStrategyEnabled(true)
                 .setExecutorAllocationStrategyEnabled(true)
                 .setNativeExecutionBroadcastBasePath("/tmp/broadcast_path")
-                .setNativeTriggerCoredumpWhenUnresponsiveEnabled(true);
+                .setNativeTriggerCoredumpWhenUnresponsiveEnabled(true)
+                .setRetryOnOutOfMemoryWithIncreasedMemorySettingsErrorCodes("EXCEEDED_REVOCABLE_MEMORY_LIMIT");
         assertFullMapping(properties, expected);
     }
 }
