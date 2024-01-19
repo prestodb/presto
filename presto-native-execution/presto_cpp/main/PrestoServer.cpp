@@ -227,6 +227,10 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
+  if(systemConfig->enableRuntimeStatsCollection()) {
+    // This flag must be set to register the counters.
+    facebook::velox::BaseStatsReporter::registered = true;
+  }
   registerStatsCounters();
   registerFileSinks();
   registerFileSystems();

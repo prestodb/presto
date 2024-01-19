@@ -22,6 +22,9 @@
 
 namespace facebook::presto {
 
+class MetricsSerializer {
+  facebook::velox::StringView getMetrics();
+};
 class StatsReporterImpl : public facebook::velox::BaseStatsReporter {
  public:
   StatsReporterImpl(
