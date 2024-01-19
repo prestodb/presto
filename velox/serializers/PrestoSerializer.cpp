@@ -91,10 +91,6 @@ bool isCompressedBitSet(int8_t codec) {
   return (codec & kCompressedBitMask) == kCompressedBitMask;
 }
 
-bool isEncryptedBit(int8_t codec) {
-  return (codec & kEncryptedBitMask) == kEncryptedBitMask;
-}
-
 bool isChecksumBitSet(int8_t codec) {
   return (codec & kCheckSumBitMask) == kCheckSumBitMask;
 }
