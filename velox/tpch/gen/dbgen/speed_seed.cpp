@@ -68,10 +68,8 @@ void NthElement(DSS_HUGE N, DSS_HUGE* StartSeed) {
   DSS_HUGE Z;
   DSS_HUGE Mult;
   static int ln = -1;
-  int i;
 
   if ((verbose > 0) && ++ln % 1000 == 0) {
-    i = ln % LN_CNT;
     fprintf(stderr, "%c\b", lnoise[i]);
   }
   Mult = Multiplier;
