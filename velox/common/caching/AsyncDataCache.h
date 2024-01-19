@@ -44,7 +44,7 @@ namespace facebook::velox::cache {
 class AsyncDataCache;
 class CacheShard;
 class SsdCache;
-class SsdCacheStats;
+struct SsdCacheStats;
 class SsdFile;
 
 // Type for tracking last access. This is based on CPU clock and
