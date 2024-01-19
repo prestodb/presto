@@ -1595,7 +1595,7 @@ public final class SystemSessionProperties
                         NATIVE_SPILL_COMPRESSION_CODEC,
                         "Native Execution only. The compression algorithm type to compress the spilled data.\n " +
                                 "Supported compression codecs are: ZLIB, SNAPPY, LZO, ZSTD, LZ4 and GZIP. NONE means no compression.",
-                        "none",
+                        "snappy",
                         false),
                 longProperty(
                         NATIVE_SPILL_WRITE_BUFFER_SIZE,
