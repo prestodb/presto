@@ -83,26 +83,4 @@ DwrfStreamIdentifier EncodingKey::forKind(const proto::Stream_Kind kind) const {
   return DwrfStreamIdentifier(node_, sequence_, 0, kind);
 }
 
-namespace {
-using common::CompressionKind;
-
-CompressionKind orcCompressionToCompressionKind(
-    proto::orc::CompressionKind compression) {
-  switch (compression) {
-    case proto::orc::CompressionKind::NONE:
-      return CompressionKind::CompressionKind_NONE;
-    case proto::orc::CompressionKind::ZLIB:
-      return CompressionKind::CompressionKind_ZLIB;
-    case proto::orc::CompressionKind::SNAPPY:
-      return CompressionKind::CompressionKind_SNAPPY;
-    case proto::orc::CompressionKind::LZO:
-      return CompressionKind::CompressionKind_LZO;
-    case proto::orc::CompressionKind::LZ4:
-      return CompressionKind::CompressionKind_LZ4;
-    case proto::orc::CompressionKind::ZSTD:
-      return CompressionKind::CompressionKind_ZSTD;
-  }
-  return CompressionKind::CompressionKind_NONE;
-}
-} // namespace
 } // namespace facebook::velox::dwrf
