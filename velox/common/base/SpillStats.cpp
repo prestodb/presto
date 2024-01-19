@@ -101,7 +101,6 @@ SpillStats SpillStats::operator-(const SpillStats& other) const {
 }
 
 bool SpillStats::operator<(const SpillStats& other) const {
-  uint32_t eqCount{0};
   uint32_t gtCount{0};
   uint32_t ltCount{0};
 #define UPDATE_COUNTER(counter)           \
@@ -110,8 +109,6 @@ bool SpillStats::operator<(const SpillStats& other) const {
       ++ltCount;                          \
     } else if (counter > other.counter) { \
       ++gtCount;                          \
-    } else {                              \
-      ++eqCount;                          \
     }                                     \
   } while (0);
 
