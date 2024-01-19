@@ -163,6 +163,7 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayMinMaxFunctions<Varchar>(prefix);
   registerArrayMinMaxFunctions<Timestamp>(prefix);
   registerArrayMinMaxFunctions<Date>(prefix);
+  registerArrayMinMaxFunctions<Orderable<T1>>(prefix);
 
   registerArrayJoinFunctions<int8_t>(prefix);
   registerArrayJoinFunctions<int16_t>(prefix);
