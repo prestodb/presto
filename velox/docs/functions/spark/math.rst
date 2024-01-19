@@ -101,6 +101,19 @@ Mathematical Functions
     Returns ``x`` rounded down to the nearest integer.
     Supported types are: BIGINT and DOUBLE.
 
+.. spark:function:: hex(x) -> varchar
+
+    Converts ``x`` to hexadecimal.
+    Supported types are: BIGINT, VARBINARY and VARCHAR.
+    If the argument is a VARCHAR or VARBINARY, the result is string where each input byte is represented using 2 hex characters.
+    If the argument is a positive BIGINT, the result is a hex representation of the number (up to 16 characters),
+    if the argument is a negative BIGINT, the result is a hex representation of the number which will be treated as two's complement. ::
+
+        SELECT hex("Spark SQL"); -- 537061726B2053514C
+        SELECT hex(17); -- 11
+        SELECT hex(-1); -- FFFFFFFFFFFFFFFF
+
+
 .. spark:function:: hypot(a, b) -> double
 
     Returns the square root of `a` squared plus `b` squared.

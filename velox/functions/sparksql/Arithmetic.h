@@ -22,6 +22,7 @@
 #include <type_traits>
 
 #include "velox/functions/Macros.h"
+#include "velox/functions/lib/ToHex.h"
 
 namespace facebook::velox::functions::sparksql {
 
@@ -316,6 +317,39 @@ struct IsNanFunction {
     } else {
       result = false;
     }
+  }
+};
+
+template <typename T>
+struct ToHexVarbinaryFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varbinary>& input) {
+    ToHexUtil::toHex(input, result);
+  }
+};
+
+template <typename T>
+struct ToHexVarcharFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input) {
+    ToHexUtil::toHex(input, result);
+  }
+};
+
+template <typename T>
+struct ToHexBigintFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<int64_t>& input) {
+    ToHexUtil::toHex(input, result);
   }
 };
 } // namespace facebook::velox::functions::sparksql
