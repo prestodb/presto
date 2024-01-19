@@ -227,7 +227,7 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
-  if(systemConfig->enableRuntimeStatsCollection()) {
+  if (systemConfig->enableRuntimeMetricsCollection()) {
     // This flag must be set to register the counters.
     facebook::velox::BaseStatsReporter::registered = true;
   }
@@ -1109,7 +1109,13 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 void PrestoServer::reportHealthMetrics(proxygen::ResponseHandler* downstream) {
   auto reporter = std::dynamic_pointer_cast<StatsReporterImpl>(
       folly::Singleton<facebook::velox::BaseStatsReporter>::try_get());
-  http::sendOkResponse(downstream, reporter->getMetricsForPrometheus());
+  auto nodeConfig = facebook::presto::NodeConfig::instance();
+  std::string cluster = nodeConfig->nodeEnvironment();
+  char* hostName = std::getenv("HOSTNAME");
+  std::string worker = !hostName ? "" : hostName;
+  prometheus::PrometheusSerializer serializer(
+      prometheus::Labels{{"cluster", cluster}, {"worker", worker}});
+  http::sendOkResponse(downstream, reporter->getMetrics(serializer));
 }
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));

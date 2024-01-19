@@ -30,12 +30,6 @@ void StatsReporterImpl::registerMetricExportType(
   metricsMap_.emplace(key, 0);
 }
 
-const uint64_t getCurrentEpochTimestamp() {
-  auto p1 = std::chrono::system_clock::now();
-  return std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch())
-      .count();
-}
-
 void StatsReporterImpl::addMetricValue(const char* key, size_t value) const {
   std::lock_guard<std::mutex> lock(mutex_);
   auto it = registeredStats_.find(key);
@@ -62,23 +56,10 @@ void StatsReporterImpl::addMetricValue(folly::StringPiece key, size_t value)
   addMetricValue(key.start(), value);
 }
 
-const std::string StatsReporterImpl::getMetricsForPrometheus() {
+const std::string StatsReporterImpl::getMetrics(
+    const MetricsSerializer& serializer) {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::stringstream ss;
-  for (const auto metric : metricsMap_) {
-    auto metricName = metric.first;
-    std::replace(metricName.begin(), metricName.end(), '.', '_');
-    auto statType = registeredStats_[metric.first];
-    ss << "# HELP " << metricName << std::endl;
-    std::string statTypeStr = "gauge";
-    if (statType == facebook::velox::StatType::COUNT) {
-      statTypeStr = "counter";
-    }
-    ss << "# TYPE " << metricName << " " << statTypeStr << std::endl;
-    ss << metricName << "{cluster=\"" << cluster_ << "\""
-       << ",worker=\"" << workerPod_ << "\"} " << metric.second << std::endl;
-  }
-  return ss.str();
+  return serializer.serialize(registeredStats_, metricsMap_);
 }
 
 // Initialize singleton for the reporter

@@ -23,8 +23,60 @@
 namespace facebook::presto {
 
 class MetricsSerializer {
-  facebook::velox::StringView getMetrics();
+ public:
+  virtual std::string serialize(
+      const std::unordered_map<std::string, facebook::velox::StatType>&
+          metricStatTypes,
+      const std::unordered_map<std::string, size_t>& metricValues) const = 0;
 };
+
+namespace prometheus {
+using Labels = std::unordered_map<std::string, std::string>;
+class PrometheusSerializer : public MetricsSerializer {
+ public:
+  explicit PrometheusSerializer(const Labels& labels) : labels_(labels) {}
+
+  std::string serialize(
+      const std::unordered_map<std::string, facebook::velox::StatType>&
+          metricStatTypes,
+      const std::unordered_map<std::string, size_t>& metricValues) const {
+    std::stringstream ss;
+    for (const auto metric : metricValues) {
+      auto metricName = metric.first;
+      std::replace(metricName.begin(), metricName.end(), '.', '_');
+      auto statType = metricStatTypes.find(metric.first)->second;
+      ss << "# HELP " << metricName << std::endl;
+      std::string statTypeStr = "gauge";
+      if (statType == facebook::velox::StatType::COUNT) {
+        statTypeStr = "counter";
+      }
+      ss << "# TYPE " << metricName << " " << statTypeStr << std::endl;
+      int i = 0;
+      ss << metricName << "{";
+      for (auto& label : labels_) {
+        ss << label.first << "=\"" << label.second << "\"";
+        if (i < labels_.size() - 1) {
+          // Comma separated labels.
+          ss << ",";
+        }
+        ++i;
+      }
+      ss << "} " << metric.second << std::endl;
+    }
+    return ss.str();
+  }
+
+ private:
+  // A map of labels assigned to each metric which helps in filtering at client
+  // end.
+  const Labels labels_;
+};
+} // namespace prometheus.
+
+/// An implementation of BaseStatsReporter which gathers runtime metrics and
+/// and maintains them in-memory. Users can call
+/// StatsReporterImpl::getMetrics(MetricSerializer) to get metrics in custom
+/// formatted string.
 class StatsReporterImpl : public facebook::velox::BaseStatsReporter {
  public:
   StatsReporterImpl(
@@ -106,14 +158,14 @@ class StatsReporterImpl : public facebook::velox::BaseStatsReporter {
    * Above info is from:
    * https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
    */
-  const std::string getMetricsForPrometheus();
+  const std::string getMetrics(const MetricsSerializer& serializer);
 
  private:
   /// Mapping of registered stats key to StatType.
   mutable std::unordered_map<std::string, facebook::velox::StatType>
       registeredStats_;
   /// A mapping from stats key of type COUNT to value.
-  mutable std::unordered_map<std::string, int64_t> metricsMap_;
+  mutable std::unordered_map<std::string, size_t> metricsMap_;
   // Mutex to control access to registeredStats_ and metricMap_ members.
   mutable std::mutex mutex_;
   std::string cluster_;

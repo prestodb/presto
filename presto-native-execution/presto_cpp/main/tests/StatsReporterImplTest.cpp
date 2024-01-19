@@ -25,7 +25,7 @@ class StatsReporterImplTest : public testing::Test {
 };
 
 /// Tests addStatType and addStats functions.
-TEST_F(StatsReporterImplTest, addStats) {
+TEST_F(StatsReporterImplTest, prometheusSerializer) {
   auto reporter =
       std::make_shared<StatsReporterImpl>("test_cluster", "test_worker_pod");
 
@@ -45,7 +45,9 @@ TEST_F(StatsReporterImplTest, addStats) {
   }
   // Uses default value of 1 for second parameter.
   reporter->addMetricValue("key1");
-  auto prometheusFormat = reporter->getMetricsForPrometheus();
+  prometheus::PrometheusSerializer serializer(prometheus::Labels{
+      {"cluster", "test_cluster"}, {"worker", "test_worker_pod"}});
+  auto prometheusFormat = reporter->getMetrics(serializer);
   const std::string expected[] = {
       "# HELP key2",
       "# TYPE key2 gauge",
