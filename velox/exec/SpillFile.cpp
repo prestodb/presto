@@ -181,7 +181,7 @@ uint64_t SpillWriter::write(
     MicrosecondTimer timer(&timeUs);
     if (batch_ == nullptr) {
       serializer::presto::PrestoVectorSerde::PrestoOptions options = {
-          kDefaultUseLosslessTimestamp, compressionKind_};
+          kDefaultUseLosslessTimestamp, compressionKind_, true};
       batch_ = std::make_unique<VectorStreamGroup>(pool_);
       batch_->createStreamTree(
           std::static_pointer_cast<const RowType>(rows->type()),
@@ -297,7 +297,7 @@ SpillReadFile::SpillReadFile(
       numSortKeys_(numSortKeys),
       sortCompareFlags_(sortCompareFlags),
       compressionKind_(compressionKind),
-      readOptions_{kDefaultUseLosslessTimestamp, compressionKind_},
+      readOptions_{kDefaultUseLosslessTimestamp, compressionKind_, true},
       pool_(pool) {
   constexpr uint64_t kMaxReadBufferSize =
       (1 << 20) - AlignedBuffer::kPaddedSize; // 1MB - padding.

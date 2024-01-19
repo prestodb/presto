@@ -29,19 +29,29 @@ class PrestoVectorSerde : public VectorSerde {
 
     PrestoOptions(
         bool _useLosslessTimestamp,
-        common::CompressionKind _compressionKind)
+        common::CompressionKind _compressionKind,
+        bool _nullsFirst = false)
         : useLosslessTimestamp(_useLosslessTimestamp),
-          compressionKind(_compressionKind) {}
+          compressionKind(_compressionKind),
+          nullsFirst(_nullsFirst) {}
 
     /// Currently presto only supports millisecond precision and the serializer
     /// converts velox native timestamp to that resulting in loss of precision.
     /// This option allows it to serialize with nanosecond precision and is
     /// currently used for spilling. Is false by default.
     bool useLosslessTimestamp{false};
+
     common::CompressionKind compressionKind{
         common::CompressionKind::CompressionKind_NONE};
     /// Specifies the encoding for each of the top-level child vector.
     std::vector<VectorEncoding::Simple> encodings;
+
+    /// Serializes nulls of structs before the columns. Used to allow
+    /// single pass reading of in spilling.
+    ///
+    /// TODO: Make Presto also serialize nulls before columns of
+    /// structs.
+    bool nullsFirst{false};
   };
 
   /// Adds the serialized sizes of the rows of 'vector' in 'ranges[i]' to
@@ -98,15 +108,6 @@ class PrestoVectorSerde : public VectorSerde {
 
   static void registerVectorSerde();
 };
-
-// Testing function for nested encodings. See comments in scatterStructNulls().
-void testingScatterStructNulls(
-    vector_size_t size,
-    vector_size_t scatterSize,
-    const vector_size_t* scatter,
-    const uint64_t* incomingNulls,
-    RowVector& row,
-    vector_size_t rowOffset);
 
 class PrestoOutputStreamListener : public OutputStreamListener {
  public:
