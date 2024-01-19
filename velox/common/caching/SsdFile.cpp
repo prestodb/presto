@@ -363,11 +363,9 @@ void SsdFile::write(std::vector<CachePin>& pins) {
   // Sorts the pins by their file/offset. In this way what is adjacent in
   // storage is likely adjacent on SSD.
   std::sort(pins.begin(), pins.end());
-  uint64_t total = 0;
   for (const auto& pin : pins) {
     auto* entry = pin.checkedEntry();
     VELOX_CHECK_NULL(entry->ssdFile());
-    total += entry->size();
   }
 
   int32_t storeIndex = 0;
