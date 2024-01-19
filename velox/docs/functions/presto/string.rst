@@ -102,7 +102,12 @@ String Functions
 .. function:: reverse(string) -> varchar
     :noindex:
 
-    Reverses ``string``.
+    Returns input string with characters in reverse order.
+
+.. function:: reverse(varbinary) -> varbinary
+    :noindex:
+
+    Returns input binary with bytes in reversed order.
 
 .. function:: rpad(string, size, padstring) -> varchar
 

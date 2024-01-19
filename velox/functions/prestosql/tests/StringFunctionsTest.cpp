@@ -1415,6 +1415,27 @@ TEST_F(StringFunctionsTest, reverse) {
   EXPECT_EQ(reverse(invalidIncompleteString), "\xa0\xed");
 }
 
+TEST_F(StringFunctionsTest, varbinaryReverse) {
+  // Reversing binary string with multi-byte unicode characters doesn't preserve
+  // the characters.
+  auto input =
+      makeFlatVector<std::string>({"hi", "", "\u4FE1 \u7231"}, VARBINARY());
+
+  // \u4FE1 character is 3 bytes: \xE4\xBF\xA1
+  // \u7231 character is 3 bytes: \xE7\x88\xB1
+  auto expected = makeFlatVector<std::string>(
+      {"ih", "", "\xB1\x88\xE7 \xA1\xBF\xE4"}, VARBINARY());
+  auto result = evaluate("reverse(c0)", makeRowVector({input}));
+  test::assertEqualVectors(expected, result);
+
+  // Reversing same string as varchar preserves the characters.
+  input = makeFlatVector<std::string>({"hi", "", "\u4FE1 \u7231"}, VARCHAR());
+  expected = makeFlatVector<std::string>(
+      {"ih", "", "\xE7\x88\xB1 \xE4\xBF\xA1"}, VARCHAR());
+  result = evaluate("reverse(c0)", makeRowVector({input}));
+  test::assertEqualVectors(expected, result);
+}
+
 TEST_F(StringFunctionsTest, toUtf8) {
   const auto toUtf8 = [&](std::optional<std::string> value) {
     return evaluateOnce<std::string>("to_utf8(c0)", value);

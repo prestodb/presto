@@ -35,20 +35,23 @@ bool prepareFlatResultsVector(
     VectorPtr& result,
     const SelectivityVector& rows,
     exec::EvalCtx& context,
-    VectorPtr& argToReuse) {
+    VectorPtr& argToReuse,
+    const TypePtr& resultType) {
+  VELOX_CHECK(resultType->isVarbinary() || resultType->isVarchar())
+
   if (!result && BaseVector::isVectorWritable(argToReuse) &&
       argToReuse->isFlatEncoding() &&
       hasSingleReferencedBuffers(*argToReuse->asFlatVector<StringView>())) {
     // Move input vector to result
     VELOX_CHECK(
         VectorEncoding::isFlat(argToReuse.get()->encoding()) &&
-        argToReuse.get()->typeKind() == TypeKind::VARCHAR);
+        argToReuse.get()->typeKind() == resultType->kind());
 
     result = std::move(argToReuse);
     return true;
   }
   // This will allocate results if not allocated
-  BaseVector::ensureWritable(rows, VARCHAR(), context.pool(), result);
+  BaseVector::ensureWritable(rows, resultType, context.pool(), result);
 
   VELOX_CHECK(VectorEncoding::isFlat(result->encoding()));
   return false;

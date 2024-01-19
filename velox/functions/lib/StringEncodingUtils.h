@@ -24,11 +24,14 @@ namespace facebook::velox::functions {
 /// Helper function that prepares a string result vector and initializes it.
 /// It will use the input argToReuse vector instead of creating new one when
 /// possible. Returns true if argToReuse vector was moved to results
+///
+/// @param resultType VARCHAR() or VARBINARY().
 bool prepareFlatResultsVector(
     VectorPtr& result,
     const SelectivityVector& rows,
     exec::EvalCtx& context,
-    VectorPtr& argToReuse);
+    VectorPtr& argToReuse,
+    const TypePtr& resultType = VARCHAR());
 
 /// Return the string encoding of a vector, if not set UTF8 is returned
 static bool isAscii(BaseVector* vector, const SelectivityVector& rows) {

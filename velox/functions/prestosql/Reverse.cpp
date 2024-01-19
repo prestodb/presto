@@ -26,7 +26,12 @@ namespace facebook::velox::functions {
 ///  Takes any array as an input and returns the reversed array.
 ///
 ///  reverse(Varchar) -> Varchar
-///  Takes any Varchar as an input and returns the reversed varchar.
+///  Takes any string as an input and returns a string with characters in
+///  reverse order.
+///
+///  reverse(Varbinary) -> Varbinary
+///  Takes any binary as an input and returns a binary with bytes in reverse
+///  order.
 class ReverseFunction : public exec::VectorFunction {
  private:
   /// String encoding wrappable function
@@ -35,9 +40,9 @@ class ReverseFunction : public exec::VectorFunction {
     static void apply(
         const SelectivityVector& rows,
         const FlatVector<StringView>* input,
-        FlatVector<StringView>* results) {
+        FlatVector<StringView>* result) {
       rows.applyToSelected([&](int row) {
-        auto proxy = exec::StringWriter<>(results, row);
+        auto proxy = exec::StringWriter<>(result, row);
         stringImpl::reverse<isAscii>(proxy, input->valueAt(row).getString());
         proxy.finalize();
       });
@@ -53,38 +58,50 @@ class ReverseFunction : public exec::VectorFunction {
       VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
 
+    auto& arg = args[0];
+
     switch (args[0]->typeKind()) {
       case TypeKind::ARRAY:
-        applyArray(rows, args, context, result);
+        applyArray(rows, arg, context, result);
         return;
-      case TypeKind::VARCHAR:
-        applyVarchar(rows, args, context, result);
+      case TypeKind::VARCHAR: {
+        const auto ascii = isAscii(arg.get(), rows);
+        applyVarchar(rows, arg, ascii, context, result);
+        return;
+      }
+      case TypeKind::VARBINARY:
+        // The only difference betwen VARCHAR and VARBINARY input is that
+        // VARBINARY is reversed byte-by-byte, while VARCHAR is reversed
+        // character-by-character. Hence, VARINARY behavior is the same as
+        // VARCHAR with ascii flag set to true.
+        applyVarchar(rows, arg, true /*isAscii*/, context, result);
         return;
       default:
         VELOX_FAIL(
             "Unsupported input type for 'reverse' function: {}",
-            args[0]->type()->toString());
+            arg->type()->toString());
     }
   }
 
   void applyVarchar(
       const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
+      VectorPtr& arg,
+      bool isAscii,
       exec::EvalCtx& context,
       VectorPtr& result) const {
-    auto* arg = args[0].get();
+    // Capture the pointer to input argument. prepareFlatResultsVector may move
+    // it into result.
+    auto* originalArg = arg.get();
 
-    auto ascii = isAscii(arg, rows);
-
-    prepareFlatResultsVector(result, rows, context, args[0]);
+    prepareFlatResultsVector(result, rows, context, arg, arg->type());
     auto* flatResult = result->as<FlatVector<StringView>>();
 
     // Input can be constant or flat.
-    if (arg->isConstantEncoding()) {
-      auto value = arg->as<ConstantVector<StringView>>()->valueAt(0);
+    if (originalArg->isConstantEncoding()) {
+      auto value = originalArg->as<ConstantVector<StringView>>()->valueAt(0);
 
       auto proxy = exec::StringWriter<>(flatResult, rows.begin());
-      if (ascii) {
+      if (isAscii) {
         stringImpl::reverse<true>(proxy, value.str());
       } else {
         stringImpl::reverse<false>(proxy, value.str());
@@ -96,10 +113,10 @@ class ReverseFunction : public exec::VectorFunction {
 
       rows.applyToSelected([&](auto row) { rawResults[row] = reversedValue; });
     } else {
-      auto flatInput = arg->as<FlatVector<StringView>>();
+      auto flatInput = originalArg->as<FlatVector<StringView>>();
 
       StringEncodingTemplateWrapper<ApplyVarcharInternal>::apply(
-          ascii, rows, flatInput, flatResult);
+          isAscii, rows, flatInput, flatResult);
     }
   }
 
@@ -113,11 +130,9 @@ class ReverseFunction : public exec::VectorFunction {
 
   void applyArray(
       const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
+      VectorPtr& arg,
       exec::EvalCtx& context,
       VectorPtr& result) const {
-    auto& arg = args[0];
-
     VectorPtr localResult;
 
     // Input can be constant or flat.
@@ -188,6 +203,11 @@ class ReverseFunction : public exec::VectorFunction {
         exec::FunctionSignatureBuilder()
             .returnType("varchar")
             .argumentType("varchar")
+            .build(),
+        // varbinary -> varbinary
+        exec::FunctionSignatureBuilder()
+            .returnType("varbinary")
+            .argumentType("varbinary")
             .build(),
     };
   }
