@@ -365,6 +365,30 @@ TEST_F(MapAggTest, selectiveMaskWithDuplicates) {
   assertQuery(plan, {expectedResult});
 }
 
+TEST_F(MapAggTest, unknownKey) {
+  auto data = makeRowVector({
+      makeFlatVector<int8_t>({1, 2, 1, 2, 1, 2, 1, 2, 1, 2}),
+      makeAllNullFlatVector<UnknownValue>(10),
+      makeConstant<int32_t>(123, 10),
+  });
+
+  testAggregations(
+      {data},
+      {"c0"},
+      {"map_agg(c1, c2)"},
+      "VALUES (1, NULL), (2, NULL)",
+      {},
+      false /*testWithTableScan*/);
+
+  testAggregations(
+      {data},
+      {},
+      {"map_agg(c1, c2)"},
+      "VALUES (NULL)",
+      {},
+      false /*testWithTableScan*/);
+}
+
 TEST_F(MapAggTest, stringLifeCycle) {
   vector_size_t num = 10;
   std::vector<std::string> s(num);

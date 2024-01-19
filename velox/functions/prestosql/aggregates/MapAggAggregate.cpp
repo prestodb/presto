@@ -150,7 +150,7 @@ class MapAggAggregate : public MapAggregateBase<K> {
 void registerMapAggAggregate(const std::string& prefix) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
-          .knownTypeVariable("K")
+          .typeVariable("K")
           .typeVariable("V")
           .returnType("map(K,V)")
           .intermediateType("map(K,V)")
