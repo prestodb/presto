@@ -58,14 +58,14 @@ std::optional<protocol::Duration> getMaxWait(proxygen::HTTPMessage* message) {
 
 void TaskResource::registerUris(http::HttpServer& server) {
   server.registerDelete(
-      R"(/v1/task/(.+)/results/(.+))",
+      R"(/v1/task/async/(.+)/results/(.+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return abortResults(message, pathMatch);
       });
 
   server.registerGet(
-      R"(/v1/task/(.+)/results/([0-9]+)/([0-9]+)/acknowledge)",
+      R"(/v1/task/async/(.+)/results/([0-9]+)/([0-9]+)/acknowledge)",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return acknowledgeResults(message, pathMatch);
@@ -74,35 +74,35 @@ void TaskResource::registerUris(http::HttpServer& server) {
   // task/(.+)/batch must come before the /v1/task/(.+) as it's more specific
   // otherwise all requests will be matched with /v1/task/(.+)
   server.registerPost(
-      R"(/v1/task/(.+)/batch)",
+      R"(/v1/task/async/(.+)/batch)",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return createOrUpdateBatchTask(message, pathMatch);
       });
 
   server.registerPost(
-      R"(/v1/task/(.+))",
+      R"(/v1/task/async(.+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return createOrUpdateTask(message, pathMatch);
       });
 
   server.registerDelete(
-      R"(/v1/task/(.+)/remote-source/(.+))",
+      R"(/v1/task/async(.+)/remote-source/(.+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return removeRemoteSource(message, pathMatch);
       });
 
   server.registerDelete(
-      R"(/v1/task/(.+))",
+      R"(/v1/task/async(.+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return deleteTask(message, pathMatch);
       });
 
   server.registerGet(
-      R"(/v1/task/(.+)/status)",
+      R"(/v1/task/async/(.+)/status)",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return getTaskStatus(message, pathMatch);
@@ -116,14 +116,14 @@ void TaskResource::registerUris(http::HttpServer& server) {
       });
 
   server.registerGet(
-      R"(/v1/task/(.+)/results/([0-9]+)/([0-9]+))",
+      R"(/v1/task/async(.+)/results/([0-9]+)/([0-9]+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return getResults(message, pathMatch);
       });
 
   server.registerGet(
-      R"(/v1/task/(.+))",
+      R"(/v1/task/async/(.+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return getTaskInfo(message, pathMatch);
