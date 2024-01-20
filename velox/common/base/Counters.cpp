@@ -30,26 +30,33 @@ void registerVeloxMetrics() {
   // Tracks hive handle generation latency in range of [0, 100s] and reports
   // P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricHiveFileHandleGenerateLatencyMs, 10, 0, 100000, 50, 90, 99, 100);
+      kMetricHiveFileHandleGenerateLatencyMs,
+      10'000,
+      0,
+      100'000,
+      50,
+      90,
+      99,
+      100);
 
   DEFINE_METRIC(kMetricCacheShrinkCount, facebook::velox::StatType::COUNT);
 
   // Tracks cache shrink latency in range of [0, 100s] with 10 buckets and
   // reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricCacheShrinkTimeMs, 10, 0, 100'000, 50, 90, 99, 100);
+      kMetricCacheShrinkTimeMs, 10'000, 0, 100'000, 50, 90, 99, 100);
 
   /// ================== Memory Arbitration Counters =================
 
   // Tracks memory reclaim exec time in range of [0, 600s] with 20 buckets and
   // reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricMemoryReclaimExecTimeMs, 20, 0, 600'000, 50, 90, 99, 100);
+      kMetricMemoryReclaimExecTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
   // Tracks memory reclaim task wait time in range of [0, 60s] with 10 buckets
   // and reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricMemoryReclaimWaitTimeMs, 10, 0, 60'000, 50, 90, 99, 100);
+      kMetricMemoryReclaimWaitTimeMs, 6'000, 0, 60'000, 50, 90, 99, 100);
 
   // Tracks memory reclaim bytes.
   DEFINE_METRIC(kMetricMemoryReclaimedBytes, facebook::velox::StatType::SUM);
@@ -89,14 +96,14 @@ void registerVeloxMetrics() {
   // in range of [0, 600s] with 20 buckets. It is configured to report the
   // latency at P50, P90, P99, and P100 percentiles.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricArbitratorQueueTimeMs, 20, 0, 600'000, 50, 90, 99, 100);
+      kMetricArbitratorQueueTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
   // The distribution of the amount of time it take to complete a single
   // arbitration request stays queued in range of [0, 600s] with 20
   // buckets. It is configured to report the latency at P50, P90, P99,
   // and P100 percentiles.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricArbitratorArbitrationTimeMs, 20, 0, 600'000, 50, 90, 99, 100);
+      kMetricArbitratorArbitrationTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
   // Tracks the average of free memory capacity managed by the arbitrator in
   // bytes.
@@ -130,19 +137,19 @@ void registerVeloxMetrics() {
   // in range of [0, 600s] with 20 buckets. It is configured to report the
   // latency at P50, P90, P99, and P100 percentiles.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricSpillFillTimeMs, 20, 0, 600'000, 50, 90, 99, 100);
+      kMetricSpillFillTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
   // The distribution of the amount of time spent on sorting rows for spilling
   // in range of [0, 600s] with 20 buckets. It is configured to report the
   // latency at P50, P90, P99, and P100 percentiles.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricSpillSortTimeMs, 20, 0, 600'000, 50, 90, 99, 100);
+      kMetricSpillSortTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
   // The distribution of the amount of time spent on serializing rows for
   // spilling in range of [0, 600s] with 20 buckets. It is configured to report
   // the latency at P50, P90, P99, and P100 percentiles.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricSpillSerializationTimeMs, 20, 0, 600'000, 50, 90, 99, 100);
+      kMetricSpillSerializationTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
   // The number of disk writes to spill rows.
   DEFINE_METRIC(kMetricSpillDiskWritesCount, facebook::velox::StatType::COUNT);
@@ -152,13 +159,13 @@ void registerVeloxMetrics() {
   // to report the latency at P50, P90, P99, and P100 percentiles. Note:  If
   // compression is enabled, this includes the compression time.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricSpillFlushTimeMs, 20, 0, 600'000, 50, 90, 99, 100);
+      kMetricSpillFlushTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
   // The distribution of the amount of time spent on writing spilled rows to
   // disk in range of [0, 600s] with 20 buckets. It is configured to report the
   // latency at P50, P90, P99, and P100 percentiles.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricSpillWriteTimeMs, 20, 0, 600'000, 50, 90, 99, 100);
+      kMetricSpillWriteTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
   // Tracks the number of times that we hit the max spill level limit.
   DEFINE_METRIC(
