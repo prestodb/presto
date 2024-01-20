@@ -445,7 +445,7 @@ void PrestoServer::run() {
     PRESTO_STARTUP_LOG(INFO) << "Spill executor was not configured.";
   }
 
-  PRESTO_STARTUP_LOG(INFO) << "Starting all periodic tasks...";
+  PRESTO_STARTUP_LOG(INFO) << "Starting all periodic tasks";
 
   auto* memoryAllocator = velox::memory::memoryManager()->allocator();
   auto* asyncDataCache = cache::AsyncDataCache::getInstance();
@@ -474,18 +474,18 @@ void PrestoServer::run() {
     heartbeatManager_->stop();
   }
 
-  PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks";
   periodicTaskManager_->stop();
 
   stopAdditionalPeriodicTasks();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
-  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Resource...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Resource";
   taskResource_.reset();
-  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Manager...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Manager";
   taskManager_.reset();
-  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server";
   httpServer_.reset();
 
   unregisterConnectors();
@@ -863,13 +863,25 @@ std::vector<std::string> PrestoServer::registerConnectors(
 void PrestoServer::unregisterConnectors() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Unregistering connectors";
   auto connectors = facebook::velox::connector::getAllConnectors();
-  std::unordered_set<std::string> connectorIds;
-  connectorIds.reserve(connectors.size());
-  for (const auto& connectorEntry : connectors) {
-    facebook::velox::connector::unregisterConnector(connectorEntry.first);
+  if (connectors.empty()) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "No connectors to unregister";
+    return;
   }
+
   PRESTO_SHUTDOWN_LOG(INFO)
-      << "Unregistered connectors: " << folly::join(',', connectorIds);
+      << "Unregistering " << connectors.size() << " connectors";
+  for (const auto& connectorEntry : connectors) {
+    if (facebook::velox::connector::unregisterConnector(connectorEntry.first)) {
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "Unregistered connector: " << connectorEntry.first;
+    } else {
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "Unable to unregister connector: " << connectorEntry.first;
+    }
+  }
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Unregistered " << connectors.size() << " connectors";
 }
 
 void PrestoServer::registerShuffleInterfaceFactories() {
