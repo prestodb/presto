@@ -54,7 +54,7 @@ import static org.testng.Assert.assertTrue;
 public class IcebergDistributedSmokeTestBase
         extends AbstractTestIntegrationSmokeTest
 {
-    private final CatalogType catalogType;
+    protected final CatalogType catalogType;
 
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
