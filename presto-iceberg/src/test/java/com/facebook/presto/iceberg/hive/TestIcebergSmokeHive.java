@@ -151,12 +151,12 @@ public class TestIcebergSmokeHive
     public void testSuccessfulConcurrentInsertFailure()
     {
         final Session session = getSession();
-        int concurrency = 2;
+        int concurrency = 4;
 //        assertUpdate(session, "CREATE TABLE test_concurrent_insert (col0 INTEGER, col1 VARCHAR, col2 TIMESTAMP) WITH (format = 'ORC', commit_retries = " + concurrency + ")");
         assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail WITH (format = 'ORC', commit_retries = " + concurrency + ") AS SELECT * FROM tpch.tiny.lineitem", 60175);
 
         int commitRetries = concurrency + 1;
-        int numberOfSubmittedQueries = commitRetries + 1;
+        int numberOfSubmittedQueries = commitRetries + 3;
 //        final String[] strings = {"one", "two", "three", "four", "five"};
         final CountDownLatch countDownLatch = new CountDownLatch(numberOfSubmittedQueries);
         AtomicInteger value = new AtomicInteger(0);
