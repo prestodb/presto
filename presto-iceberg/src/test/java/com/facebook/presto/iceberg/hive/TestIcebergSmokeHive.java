@@ -153,7 +153,7 @@ public class TestIcebergSmokeHive
         final Session session = getSession();
         int concurrency = 2;
 //        assertUpdate(session, "CREATE TABLE test_concurrent_insert (col0 INTEGER, col1 VARCHAR, col2 TIMESTAMP) WITH (format = 'ORC', commit_retries = " + concurrency + ")");
-        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail WITH (format = 'ORC', commit_retries = " + concurrency + ") AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail WITH (format = 'ORC', commit_retries = " + concurrency + ") AS SELECT * FROM tpch.tiny.lineitem", 60175);
 
         int commitRetries = concurrency + 1;
         int numberOfSubmittedQueries = commitRetries + 1;
@@ -165,7 +165,7 @@ public class TestIcebergSmokeHive
             int i = value.getAndIncrement();
             try {
 //                getQueryRunner().execute(session, format("INSERT INTO test_concurrent_insert VALUES(%s, '%s', cast(current_timestamp as timestamp))", i + 1, strings[i]));
-                getQueryRunner().execute(session, "insert into test_concurrent_insert_fail select * from tpch.tiny.nation");
+                getQueryRunner().execute(session, "insert into test_concurrent_insert_fail select * from tpch.tiny.lineitem");
             }
             catch (Throwable throwable) {
                 errors.add(throwable);
