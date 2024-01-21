@@ -49,9 +49,9 @@ class MetadataFilter {
   std::string toString() const;
 
  private:
-  class Node;
-  class AndNode;
-  class OrNode;
+  struct Node;
+  struct AndNode;
+  struct OrNode;
 
   std::shared_ptr<Node> root_;
 };

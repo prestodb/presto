@@ -27,7 +27,7 @@ class JoinBridge;
 class LocalExchangeMemoryManager;
 class MergeSource;
 class MergeJoinSource;
-class Split;
+struct Split;
 class SpillOperatorGroup;
 
 /// Corresponds to Presto TaskState, needed for reporting query completion.
