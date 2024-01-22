@@ -96,8 +96,7 @@ public class NativeExecutionTaskFactory
                 taskInfoCodec,
                 planFragmentCodec,
                 taskUpdateRequestCodec,
-                taskManagerConfig.getInfoRefreshMaxWait(),
-                session.getIdentity().getExtraAuthenticators());
+                taskManagerConfig.getInfoRefreshMaxWait());
         return new NativeExecutionTask(
                 session,
                 workerClient,

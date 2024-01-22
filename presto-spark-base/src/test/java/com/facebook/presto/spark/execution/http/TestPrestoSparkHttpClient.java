@@ -76,7 +76,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -173,8 +172,7 @@ public class TestPrestoSparkHttpClient
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.SECONDS),
-                new HashMap<>());
+                new Duration(1, TimeUnit.SECONDS));
     }
 
     HttpNativeExecutionTaskResultFetcher createResultFetcher(PrestoSparkHttpTaskClient workerClient)
@@ -585,7 +583,8 @@ public class TestPrestoSparkHttpClient
     }
 
     @Test
-    public void testResultFetcherTransportErrorFail() throws InterruptedException
+    public void testResultFetcherTransportErrorFail()
+            throws InterruptedException
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
 
