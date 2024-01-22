@@ -12,29 +12,27 @@
  * limitations under the License.
  */
 
-// HiveColumnHandle is special since it needs an implementation of
+// IcebergColumnHandle is special since it needs an implementation of
 // operator<().
 
 namespace facebook::presto::protocol {
 
-struct HiveColumnHandle : public ColumnHandle {
-  String name = {};
-  HiveType hiveType = {};
-  TypeSignature typeSignature = {};
-  int hiveColumnIndex = {};
-  ColumnType columnType = {};
+struct IcebergColumnHandle : public ColumnHandle {
+  ColumnIdentity columnIdentity = {};
+  Type type = {};
   std::shared_ptr<String> comment = {};
+  ColumnType columnType = {};
   List<Subfield> requiredSubfields = {};
-  std::shared_ptr<Aggregation> partialAggregation = {};
 
-  HiveColumnHandle() noexcept;
+  IcebergColumnHandle() noexcept;
 
   bool operator<(const ColumnHandle& o) const override {
-    return name < dynamic_cast<const HiveColumnHandle&>(o).name;
+    return columnIdentity.name <
+        dynamic_cast<const IcebergColumnHandle&>(o).columnIdentity.name;
   }
 };
 
-void to_json(json& j, const HiveColumnHandle& p);
-void from_json(const json& j, HiveColumnHandle& p);
+void to_json(json& j, const IcebergColumnHandle& p);
+void from_json(const json& j, IcebergColumnHandle& p);
 
 } // namespace facebook::presto::protocol
