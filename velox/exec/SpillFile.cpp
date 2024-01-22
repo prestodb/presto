@@ -73,13 +73,8 @@ uint64_t SpillWriteFile::size() const {
 }
 
 uint64_t SpillWriteFile::write(std::unique_ptr<folly::IOBuf> iobuf) {
-  uint64_t writtenBytes{0};
-  // TODO: extend velox file system to support write with a chained io buffers.
-  for (auto& range : *iobuf) {
-    writtenBytes += range.size();
-    file_->append(std::string_view(
-        reinterpret_cast<const char*>(range.data()), range.size()));
-  }
+  auto writtenBytes = iobuf->computeChainDataLength();
+  file_->append(std::move(iobuf));
   return writtenBytes;
 }
 
