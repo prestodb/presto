@@ -1983,6 +1983,28 @@ TaskStats Task::taskStats() const {
   return taskStats;
 }
 
+void Task::getLongRunningOpCalls(
+    size_t thresholdDurationMs,
+    std::vector<OpCallInfo>& out) const {
+  std::lock_guard<std::mutex> l(mutex_);
+  for (const auto& driver : drivers_) {
+    if (driver) {
+      const auto opCallStatus = driver->opCallStatus();
+      if (!opCallStatus.empty()) {
+        auto callDurationMs = opCallStatus.callDuration();
+        if (callDurationMs > thresholdDurationMs) {
+          out.push_back({
+              .durationMs = callDurationMs,
+              .tid = driver->state().tid,
+              .opId = opCallStatus.opId,
+              .taskId = taskId_,
+          });
+        }
+      }
+    }
+  }
+}
+
 uint64_t Task::timeSinceStartMs() const {
   std::lock_guard<std::mutex> l(mutex_);
   return timeSinceStartMsLocked();

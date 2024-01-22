@@ -254,6 +254,19 @@ class Task : public std::enable_shared_from_this<Task> {
   /// structure.
   TaskStats taskStats() const;
 
+  /// Information about an operator call that helps debugging stuck calls.
+  struct OpCallInfo {
+    size_t durationMs;
+    int32_t tid;
+    int32_t opId;
+    std::string taskId;
+  };
+
+  /// Collect long running operator calls across all drivers in this task.
+  void getLongRunningOpCalls(
+      size_t thresholdDurationMs,
+      std::vector<OpCallInfo>& out) const;
+
   /// Returns time (ms) since the task execution started or zero, if not
   /// started.
   uint64_t timeSinceStartMs() const;
