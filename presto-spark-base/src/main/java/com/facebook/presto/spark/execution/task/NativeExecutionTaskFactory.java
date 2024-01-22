@@ -96,7 +96,9 @@ public class NativeExecutionTaskFactory
                 taskInfoCodec,
                 planFragmentCodec,
                 taskUpdateRequestCodec,
-                taskManagerConfig.getInfoRefreshMaxWait());
+                taskManagerConfig.getInfoRefreshMaxWait(),
+                errorRetryScheduledExecutor,
+                queryManagerConfig.getRemoteTaskMaxErrorDuration());
         return new NativeExecutionTask(
                 session,
                 workerClient,

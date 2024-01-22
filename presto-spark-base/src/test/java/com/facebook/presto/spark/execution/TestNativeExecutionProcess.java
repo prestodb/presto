@@ -94,6 +94,7 @@ public class TestNativeExecutionProcess
                 new NativeExecutionVeloxConfig());
         NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(
                 new TestPrestoSparkHttpClient.TestingHttpClient(
+                        errorScheduler,
                         new TestPrestoSparkHttpClient.TestingResponseManager(taskId.toString(), new TestPrestoSparkHttpClient.FailureRetryResponseManager(5))),
                 newSingleThreadExecutor(),
                 errorScheduler,
