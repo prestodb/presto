@@ -5996,6 +5996,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testApproxMostFrequentWithNullGroupBy()
+    {
+        MaterializedResult actual1 = computeActual("select k, approx_most_frequent(2, v, 10) from (values (1, null), (2, 3)) t(k, v) group by k order by k");
+
+        assertEquals(actual1.getRowCount(), 2);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), 1);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), null);
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), 2);
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of(3, 1L));
+    }
+
+    @Test
     public void testUnknownMaxBy()
     {
         assertQuery("select max_by(x, y) from (select 1 x, null y)", "select null");
