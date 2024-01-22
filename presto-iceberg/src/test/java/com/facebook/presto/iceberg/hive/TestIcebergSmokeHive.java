@@ -151,21 +151,21 @@ public class TestIcebergSmokeHive
     public void testSuccessfulConcurrentInsertFailure()
     {
         final Session session = getSession();
-        int concurrency = 7;
-//        assertUpdate(session, "CREATE TABLE test_concurrent_insert (col0 INTEGER, col1 VARCHAR, col2 TIMESTAMP) WITH (format = 'ORC', commit_retries = " + concurrency + ")");
-        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail WITH (format = 'ORC', commit_retries = " + concurrency + ") AS SELECT * FROM tpch.tiny.lineitem", 60175);
+        int concurrency = 3;
+        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail (col0 INTEGER, col1 VARCHAR, col2 TIMESTAMP, col3 TIMESTAMP, col4 TIME, col5 BIGINT) WITH (format = 'ORC', commit_retries = " + concurrency + ")");
+//        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail WITH (format = 'ORC', commit_retries = " + concurrency + ") AS SELECT * FROM tpch.tiny.lineitem", 60175);
 
         int commitRetries = concurrency + 1;
         int numberOfSubmittedQueries = commitRetries + 5;
-//        final String[] strings = {"one", "two", "three", "four", "five"};
+        final String[] strings = {"one", "two", "three", "four", "five"};
         final CountDownLatch countDownLatch = new CountDownLatch(numberOfSubmittedQueries);
         AtomicInteger value = new AtomicInteger(0);
         Set<Throwable> errors = new CopyOnWriteArraySet<>();
         List<Thread> threads = Stream.generate(() -> new Thread(() -> {
             int i = value.getAndIncrement();
             try {
-//                getQueryRunner().execute(session, format("INSERT INTO test_concurrent_insert VALUES(%s, '%s', cast(current_timestamp as timestamp))", i + 1, strings[i]));
-                getQueryRunner().execute(session, "insert into test_concurrent_insert_fail select * from tpch.tiny.lineitem");
+                getQueryRunner().execute(session, format("INSERT INTO test_concurrent_insert_fail VALUES(%s, '%s', cast(current_timestamp as timestamp), cast(current_timestamp as timestamp), cast(current_timestamp as time), 34567)", i + 1, strings[i % 5]));
+//                getQueryRunner().execute(session, "insert into test_concurrent_insert_fail select * from tpch.tiny.lineitem");
             }
             catch (Throwable throwable) {
                 errors.add(throwable);
@@ -178,12 +178,11 @@ public class TestIcebergSmokeHive
         threads.forEach(Thread::start);
 
         try {
-            final int seconds = 10;
+            final int seconds = 15;
             if (!countDownLatch.await(seconds, TimeUnit.SECONDS)) {
                 fail(format("Failed to insert in %s seconds", seconds));
             }
             assertFalse(errors.isEmpty());
-            //java.lang.RuntimeException: Metadata location [file:/var/folders/m7/q52nj1ps419cwjyrlk8qfbmw0000gn/T/PrestoTest3079397910048226681/catalog/tpch/test_concurrent_insert_fail/metadata/00003-5d8cbbfc-08b4-4468-9d2e-0cb2bb1fde26.metadata.json] is not same as table metadata location [file:/var/folders/m7/q52nj1ps419cwjyrlk8qfbmw0000gn/T/PrestoTest3079397910048226681/catalog/tpch/test_concurrent_insert_fail/metadata/00004-384c1abf-869d-4a5f-9d8b-7772e6734276.metadata.json] for tpch.test_concurrent_insert_fail
             String msgRegex = "^java\\.lang\\.RuntimeException: Metadata location \\[.*\\] is not same as table metadata location \\[.*\\] for tpch.test_concurrent_insert_fail$";
             assertTrue(errors.stream().findAny().filter(t -> {
                 Pattern pattern = Pattern.compile(msgRegex);
