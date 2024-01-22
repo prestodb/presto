@@ -50,6 +50,7 @@ AbstractClasses:
       comparable: true
       subclasses:
         - { name: HiveColumnHandle,         key: hive }
+        - { name: IcebergColumnHandle,      key: hive-iceberg }
         - { name: TpchColumnHandle,         key: tpch }
 
     ConnectorPartitioningHandle:
@@ -63,6 +64,7 @@ AbstractClasses:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveTableHandle,          key: hive }
+        - { name: IcebergTableHandle,       key: hive-iceberg }
         - { name: TpchTableHandle,          key: tpch }
 
     ConnectorOutputTableHandle:
@@ -85,6 +87,7 @@ AbstractClasses:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveTableLayoutHandle,    key: hive }
+        - { name: IcebergTableLayoutHandle, key: hive-iceberg }
         - { name: TpchTableLayoutHandle,    key: tpch }
 
     ConnectorMetadataUpdateHandle:
@@ -96,6 +99,7 @@ AbstractClasses:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveSplit,            key: hive }
+        - { name: IcebergSplit,         key: hive-iceberg }
         - { name: TpchSplit,            key: tpch }
         - { name: RemoteSplit,          key: $remote }
         - { name: EmptySplit,           key: $empty }
@@ -177,6 +181,7 @@ JavaClasses:
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/BucketFunctionType.java
   - presto-hive-common/src/main/java/com/facebook/presto/hive/CacheQuotaRequirement.java
   - presto-hive-common/src/main/java/com/facebook/presto/hive/CacheQuotaScope.java
+  - presto-hive-common/src/main/java/com/facebook/presto/hive/BaseHiveColumnHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/CallExpression.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/Column.java
   - presto-verifier/src/main/java/com/facebook/presto/verifier/framework/Column.java
@@ -233,6 +238,18 @@ JavaClasses:
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/HiveTableHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveTableLayoutHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveTransactionHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/FileContent.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/FileFormat.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergSplit.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableName.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableType.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableLayoutHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergColumnHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/ColumnIdentity.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/delete/DeleteFile.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogOperation.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogSplitInfo.java
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchSplit.java
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchTableHandle.java
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchTableLayoutHandle.java
@@ -322,4 +339,3 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinType.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinDistributionType.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/EquiJoinClause.java
-  - presto-hive-common/src/main/java/com/facebook/presto/hive/BaseHiveColumnHandle.java
