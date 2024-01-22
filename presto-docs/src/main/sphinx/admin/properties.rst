@@ -849,6 +849,18 @@ The following properties allow tuning the :doc:`/functions/regexp`.
 CTE Materialization Properties
 --------------------------------------
 
+``cte-materialization-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Allowed values:** ``ALL``, ``NONE``
+    * **Default value:** ``NONE``
+
+    Specifies the strategy to use for materializing Common Table Expressions (CTEs) in queries.
+    ``NONE`` indicates that no CTEs will be materialized.
+    ``ALL`` indicates that all CTEs in the query will be materialized.
+    This can also be specified on a per-query basis using the ``cte_materialization_strategy`` session property.
+
 ``query.cte-hash-partition-count``
 ^^^^^^^^^^^^^^^^^^^^
 
