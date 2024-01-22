@@ -39,7 +39,7 @@ namespace facebook::velox::connector::hive {
 namespace {
 
 // Returns the type of non-partition keys.
-static RowTypePtr getNonPartitionTypes(
+RowTypePtr getNonPartitionTypes(
     const std::vector<column_index_t>& dataCols,
     const RowTypePtr& inputType) {
   std::vector<std::string> childNames;
@@ -58,7 +58,7 @@ static RowTypePtr getNonPartitionTypes(
 }
 
 // Filters out partition columns if there is any.
-static RowVectorPtr makeDataInput(
+RowVectorPtr makeDataInput(
     const std::vector<column_index_t>& dataCols,
     const RowVectorPtr& input) {
   std::vector<VectorPtr> childVectors;
@@ -79,7 +79,7 @@ static RowVectorPtr makeDataInput(
 }
 
 // Returns a subset of column indices corresponding to partition keys.
-static std::vector<column_index_t> getPartitionChannels(
+std::vector<column_index_t> getPartitionChannels(
     const std::shared_ptr<const HiveInsertTableHandle>& insertTableHandle) {
   std::vector<column_index_t> channels;
 
@@ -94,7 +94,7 @@ static std::vector<column_index_t> getPartitionChannels(
 }
 
 // Returns the column indices of non-partition keys.
-static std::vector<column_index_t> getNonPartitionChannels(
+std::vector<column_index_t> getNonPartitionChannels(
     const std::vector<column_index_t>& partitionChannels,
     const column_index_t childrenSize) {
   std::vector<column_index_t> dataChannels;
@@ -187,6 +187,7 @@ std::shared_ptr<memory::MemoryPool> createSortPool(
 #define WRITER_NON_RECLAIMABLE_SECTION_GUARD(index)     \
   exec::NonReclaimableSectionGuard nonReclaimableGuard( \
       writerInfo_[(index)]->nonReclaimableSectionHolder.get())
+
 } // namespace
 
 const HiveWriterId& HiveWriterId::unpartitionedId() {
