@@ -492,7 +492,6 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     allowInputShuffle();
-    AggregationTestBase::disableTestIncremental();
   }
 
   template <typename T>
@@ -765,6 +764,39 @@ TEST_F(MinMaxNTest, real) {
 TEST_F(MinMaxNTest, double) {
   testNumericGlobal<double>();
   testNumericGroupBy<double>();
+}
+
+TEST_F(MinMaxNTest, incrementalWindow) {
+  // SELECT
+  //  c0, c1, c2, c3,
+  //  max(c0, c1) over (partition by c2 order by c3 asc)
+  // FROM (
+  //  VALUES
+  //      (1, 10, false, 0),
+  //      (2, 10, false, 1)
+  // ) AS t(c0, c1, c2, c3)
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2}),
+      makeFlatVector<int64_t>({10, 10}),
+      makeFlatVector<bool>({false, false}),
+      makeFlatVector<int64_t>({0, 1}),
+  });
+
+  auto plan =
+      PlanBuilder()
+          .values({data})
+          .window({"max(c0, c1) over (partition by c2 order by c3 asc)"})
+          .planNode();
+
+  // Expected result: {1, 10, false, 0, [1]}, {2, 10, false, 1, [2, 1]}.
+  auto expected = makeRowVector({
+      makeFlatVector<int64_t>({1, 2}),
+      makeFlatVector<int64_t>({10, 10}),
+      makeFlatVector<bool>({false, false}),
+      makeFlatVector<int64_t>({0, 1}),
+      makeArrayVector<int64_t>({{1}, {2, 1}}),
+  });
+  AssertQueryBuilder(plan).assertResults(expected);
 }
 
 } // namespace

@@ -545,17 +545,17 @@ std::pair<vector_size_t*, vector_size_t*> rawOffsetAndSizes(
 template <typename T, typename Compare>
 struct MinMaxNAccumulator {
   int64_t n{0};
-  std::priority_queue<T, std::vector<T, StlAllocator<T>>, Compare> topValues;
+  std::vector<T, StlAllocator<T>> heapValues;
 
   explicit MinMaxNAccumulator(HashStringAllocator* allocator)
-      : topValues{Compare{}, StlAllocator<T>(allocator)} {}
+      : heapValues{StlAllocator<T>(allocator)} {}
 
   int64_t getN() const {
     return n;
   }
 
   size_t size() const {
-    return topValues.size();
+    return heapValues.size();
   }
 
   void checkAndSetN(DecodedVector& decodedN, vector_size_t row) {
@@ -584,25 +584,27 @@ struct MinMaxNAccumulator {
   }
 
   void compareAndAdd(T value, Compare& comparator) {
-    if (topValues.size() < n) {
-      topValues.push(value);
+    if (heapValues.size() < n) {
+      heapValues.push_back(value);
+      std::push_heap(heapValues.begin(), heapValues.end(), comparator);
     } else {
-      const auto& topValue = topValues.top();
+      const auto& topValue = heapValues.front();
       if (comparator(value, topValue)) {
-        topValues.pop();
-        topValues.push(value);
+        std::pop_heap(heapValues.begin(), heapValues.end(), comparator);
+        heapValues.back() = value;
+        std::push_heap(heapValues.begin(), heapValues.end(), comparator);
       }
     }
   }
 
-  /// Moves all values from 'topValues' into 'rawValues' buffer. The queue of
-  /// 'topValues' will be empty after this call.
-  void extractValues(T* rawValues, vector_size_t offset) {
-    const vector_size_t size = topValues.size();
-    for (auto i = size - 1; i >= 0; --i) {
-      rawValues[offset + i] = topValues.top();
-      topValues.pop();
+  /// Copy all values from 'topValues' into 'rawValues' buffer. The heap remains
+  /// unchanged after the call.
+  void extractValues(T* rawValues, vector_size_t offset, Compare& comparator) {
+    std::sort_heap(heapValues.begin(), heapValues.end(), comparator);
+    for (int64_t i = heapValues.size() - 1; i >= 0; --i) {
+      rawValues[offset + i] = heapValues[i];
     }
+    std::make_heap(heapValues.begin(), heapValues.end(), comparator);
   }
 };
 
@@ -775,7 +777,7 @@ class MinMaxNAggregateBase : public exec::Aggregate {
         if (rawNs != nullptr) {
           rawNs[i] = accumulator->n;
         }
-        accumulator->extractValues(rawValues, offset);
+        accumulator->extractValues(rawValues, offset, comparator_);
 
         offset += size;
       }
