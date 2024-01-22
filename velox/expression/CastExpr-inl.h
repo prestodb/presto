@@ -261,16 +261,25 @@ void CastExpr::applyDecimalCastKernel(
 
   applyToSelectedNoThrowLocal(
       context, rows, castResult, [&](vector_size_t row) {
-        auto rescaledValue = DecimalUtil::rescaleWithRoundUp<TInput, TOutput>(
+        TOutput rescaledValue;
+        const auto status = DecimalUtil::rescaleWithRoundUp<TInput, TOutput>(
             sourceVector->valueAt(row),
             fromPrecisionScale.first,
             fromPrecisionScale.second,
             toPrecisionScale.first,
-            toPrecisionScale.second);
-        if (rescaledValue.has_value()) {
-          castResultRawBuffer[row] = rescaledValue.value();
+            toPrecisionScale.second,
+            rescaledValue);
+        if (status.ok()) {
+          castResultRawBuffer[row] = rescaledValue;
         } else {
-          castResult->setNull(row, true);
+          if (setNullInResultAtError()) {
+            castResult->setNull(row, true);
+          } else {
+            context.setVeloxExceptionError(
+                row,
+                std::make_exception_ptr(VeloxUserError(
+                    std::current_exception(), status.message(), false)));
+          }
         }
       });
 }

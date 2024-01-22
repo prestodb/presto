@@ -20,6 +20,7 @@
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Nulls.h"
+#include "velox/common/base/Status.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -146,12 +147,13 @@ class DecimalUtil {
   }
 
   template <typename TInput, typename TOutput>
-  inline static std::optional<TOutput> rescaleWithRoundUp(
+  inline static Status rescaleWithRoundUp(
       TInput inputValue,
       int fromPrecision,
       int fromScale,
       int toPrecision,
-      int toScale) {
+      int toScale,
+      TOutput& output) {
     int128_t rescaledValue = inputValue;
     auto scaleDifference = toScale - fromScale;
     bool isOverflow = false;
@@ -173,13 +175,14 @@ class DecimalUtil {
     }
     // Check overflow.
     if (!valueInPrecisionRange(rescaledValue, toPrecision) || isOverflow) {
-      VELOX_USER_FAIL(
+      return Status::UserError(
           "Cannot cast DECIMAL '{}' to DECIMAL({}, {})",
           DecimalUtil::toString(inputValue, DECIMAL(fromPrecision, fromScale)),
           toPrecision,
           toScale);
     }
-    return static_cast<TOutput>(rescaledValue);
+    output = static_cast<TOutput>(rescaledValue);
+    return Status::OK();
   }
 
   template <typename TInput, typename TOutput>

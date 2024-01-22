@@ -43,6 +43,7 @@ target_link_libraries(
   velox_exception
   velox_serialization
   velox_external_date
+  velox_status
   Boost::headers
   Folly::folly
   re2::re2)

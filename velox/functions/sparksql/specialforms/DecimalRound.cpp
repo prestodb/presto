@@ -91,15 +91,16 @@ class DecimalRoundFunction : public exec::VectorFunction {
  private:
   inline TResult applyRound(const TInput& input) const {
     if (scale_ >= 0) {
-      const auto rescaledValue =
-          DecimalUtil::rescaleWithRoundUp<TInput, TResult>(
-              input,
-              inputPrecision_,
-              inputScale_,
-              resultPrecision_,
-              resultScale_);
-      VELOX_DCHECK(rescaledValue.has_value());
-      return rescaledValue.value();
+      TResult rescaledValue;
+      const auto status = DecimalUtil::rescaleWithRoundUp<TInput, TResult>(
+          input,
+          inputPrecision_,
+          inputScale_,
+          resultPrecision_,
+          resultScale_,
+          rescaledValue);
+      VELOX_DCHECK(status.ok());
+      return rescaledValue;
     } else {
       TResult rescaledValue;
       DecimalUtil::divideWithRoundUp<TResult, TInput, int128_t>(
