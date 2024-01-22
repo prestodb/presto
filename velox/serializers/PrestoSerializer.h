@@ -21,6 +21,24 @@
 
 namespace facebook::velox::serializer::presto {
 
+/// There are two ways to serialize data using PrestoVectorSerde:
+///
+/// 1. In order to append multiple RowVectors into the same serialized payload,
+/// one can first create a VectorSerializer using createSerializer(), then
+/// append successive RowVectors using VectorSerializer::append(). In this case,
+/// since different RowVector might encode columns differently, data is always
+/// flattened in the serialized payload.
+///
+/// Note that there are two flavors of append(), one that takes a range of rows,
+/// and one that takes a list of row ids. The former is useful when serializing
+/// large sections of the input vector (or the full vector); the latter is
+/// efficient for a selective subset, e.g. when splitting a vector to a large
+/// number of output shuffle destinations.
+///
+/// 2. To serialize a single RowVector, one can use the serializeEncoded()
+/// method. Since it serializes a single RowVector, it tries to preserve the
+/// encodings of the input data. Check the method documentation below to learn
+/// about the cases in which encodings are preserved.
 class PrestoVectorSerde : public VectorSerde {
  public:
   // Input options that the serializer recognizes.
@@ -43,6 +61,7 @@ class PrestoVectorSerde : public VectorSerde {
 
     common::CompressionKind compressionKind{
         common::CompressionKind::CompressionKind_NONE};
+
     /// Specifies the encoding for each of the top-level child vector.
     std::vector<VectorEncoding::Simple> encodings;
 
@@ -74,11 +93,16 @@ class PrestoVectorSerde : public VectorSerde {
       StreamArena* streamArena,
       const Options* options) override;
 
-  /// Serializes a flat RowVector with possibly encoded children. Preserves
-  /// first level of encodings. Dictionary vectors must not have nulls added by
-  /// the dictionary.
+  /// Serializes a single RowVector with possibly encoded children, preserving
+  /// their encodings. Encodings are preserved recursively for any RowVector
+  /// children, but not for children of other nested vectors such as Array, Map,
+  /// and Dictionary.
   ///
-  /// Used for testing.
+  /// PrestoPage does not support serialization of Dictionaries with nulls;
+  /// in case dictionaries contain null they are serialized as flat buffers.
+  ///
+  /// In order to override the encodings of top-level columns in the RowVector,
+  /// you can specifiy the encodings using PrestoOptions.encodings
   void serializeEncoded(
       const RowVectorPtr& vector,
       StreamArena* streamArena,

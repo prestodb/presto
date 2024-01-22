@@ -276,6 +276,21 @@ class PrestoSerializerTest
     serde_->serializeEncoded(rowVector, &arena, &paramOptions, &out);
   }
 
+  void assertEqualEncoding(
+      const RowVectorPtr& expected,
+      const RowVectorPtr& actual) {
+    for (auto i = 0; i < expected->childrenSize(); ++i) {
+      VELOX_CHECK_EQ(
+          actual->childAt(i)->encoding(), expected->childAt(i)->encoding());
+
+      if (expected->childAt(i)->encoding() == VectorEncoding::Simple::ROW) {
+        assertEqualEncoding(
+            std::dynamic_pointer_cast<RowVector>(expected->childAt(i)),
+            std::dynamic_pointer_cast<RowVector>(actual->childAt(i)));
+      }
+    }
+  }
+
   void testEncodedRoundTrip(
       const RowVectorPtr& data,
       const serializer::presto::PrestoVectorSerde::PrestoOptions* serdeOptions =
@@ -288,11 +303,7 @@ class PrestoSerializerTest
     auto deserialized = deserialize(rowType, serialized, serdeOptions);
 
     assertEqualVectors(data, deserialized);
-
-    for (auto i = 0; i < data->childrenSize(); ++i) {
-      VELOX_CHECK_EQ(
-          data->childAt(i)->encoding(), deserialized->childAt(i)->encoding());
-    }
+    assertEqualEncoding(data, deserialized);
 
     // Deserialize 3 times while appending to a single vector.
     auto paramOptions = getParamSerdeOptions(serdeOptions);
@@ -569,6 +580,8 @@ TEST_P(PrestoSerializerTest, longDecimal) {
   testRoundTrip(vector);
 }
 
+// Test that hierarchically encoded columns (rows) have their encodings
+// preserved.
 TEST_P(PrestoSerializerTest, encodings) {
   auto baseNoNulls = makeFlatVector<int64_t>({1, 2, 3, 4});
   auto baseWithNulls = makeNullableFlatVector<int32_t>({1, std::nullopt, 2, 3});
@@ -584,6 +597,20 @@ TEST_P(PrestoSerializerTest, encodings) {
       BaseVector::createNullConstant(VARCHAR(), 8, pool_.get()),
       BaseVector::wrapInConstant(8, 1, baseArray),
       BaseVector::wrapInConstant(8, 2, baseArray),
+      makeRowVector({
+          BaseVector::wrapInDictionary(nullptr, indices, 8, baseNoNulls),
+          BaseVector::wrapInDictionary(nullptr, indices, 8, baseWithNulls),
+          BaseVector::wrapInDictionary(nullptr, indices, 8, baseArray),
+          BaseVector::createConstant(INTEGER(), 123, 8, pool_.get()),
+          BaseVector::createNullConstant(VARCHAR(), 8, pool_.get()),
+          BaseVector::wrapInConstant(8, 1, baseArray),
+          BaseVector::wrapInConstant(8, 2, baseArray),
+          makeRowVector({
+              BaseVector::wrapInDictionary(nullptr, indices, 8, baseWithNulls),
+              BaseVector::createConstant(INTEGER(), 123, 8, pool_.get()),
+              BaseVector::wrapInConstant(8, 2, baseArray),
+          }),
+      }),
   });
 
   testEncodedRoundTrip(data);
@@ -670,12 +697,15 @@ TEST_P(PrestoSerializerTest, encodedConcatenation) {
   }
 
   std::vector<TypePtr> types = {ROW({{"s0", VARCHAR()}}), VARCHAR()};
-  VectorFuzzer::Options nonNullOpts{.nullRatio = 0};
+  VectorFuzzer::Options nonNullOpts{
+      .nullRatio = 0, .dictionaryHasNulls = false};
   VectorFuzzer nonNullFuzzer(nonNullOpts, pool_.get());
-  VectorFuzzer::Options nullOpts{.nullRatio = 1};
+  VectorFuzzer::Options nullOpts{.nullRatio = 1, .dictionaryHasNulls = false};
   VectorFuzzer nullFuzzer(nullOpts, pool_.get());
-  VectorFuzzer::Options mixedOpts{.nullRatio = 0.5};
+  VectorFuzzer::Options mixedOpts{
+      .nullRatio = 0.5, .dictionaryHasNulls = false};
   VectorFuzzer mixedFuzzer(mixedOpts, pool_.get());
+
   for (const auto& type : types) {
     auto flatNull = nullFuzzer.fuzzFlat(type, 12);
     auto flatNonNull = nonNullFuzzer.fuzzFlat(type, 13);
@@ -687,7 +717,9 @@ TEST_P(PrestoSerializerTest, encodedConcatenation) {
         flatNull,
         nonNullFuzzer.fuzzDictionary(flatNonNull),
         nonNullFuzzer.fuzzDictionary(flatNull),
-        nullFuzzer.fuzzDictionary(flatNull)};
+        nullFuzzer.fuzzDictionary(flatNull),
+    };
+
     if (type->isRow()) {
       auto& rowType = type->as<TypeKind::ROW>();
       auto row = makeRowVector(
