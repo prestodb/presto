@@ -270,7 +270,7 @@ OutputBuffer::OutputBuffer(
     uint32_t numDrivers)
     : task_(std::move(task)),
       kind_(kind),
-      maxSize_(task_->queryCtx()->queryConfig().maxArbitraryBufferSize()),
+      maxSize_(task_->queryCtx()->queryConfig().maxOutputBufferSize()),
       continueSize_((maxSize_ * kContinuePct) / 100),
       arbitraryBuffer_(
           isArbitrary() ? std::make_unique<ArbitraryBuffer>() : nullptr),

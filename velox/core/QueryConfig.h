@@ -137,9 +137,11 @@ class QueryConfig {
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "max_page_partitioning_buffer_size";
 
-  /// TODO Rename configuration property to remove 'arbitrary' from the name.
+  /// Deprecated. Use kMaxOutputBufferSize instead.
   static constexpr const char* kMaxArbitraryBufferSize =
       "max_arbitrary_buffer_size";
+
+  static constexpr const char* kMaxOutputBufferSize = "max_output_buffer_size";
 
   /// Preferred size of batches in bytes to be returned by operators from
   /// Operator::getOutput. It is used when an estimate of average row size is
@@ -415,19 +417,27 @@ class QueryConfig {
     return get<uint64_t>(kMaxSpillBytes, kDefault);
   }
 
-  /// Returns the maximum size in bytes for the task's buffered output when
-  /// output is partitioned using hash of partitioning keys. See
-  /// PartitionedOutputNode::Kind::kPartitioned.
+  /// Returns the maximum number of bytes to buffer in PartitionedOutput
+  /// operator to avoid creating tiny SerializedPages.
   ///
-  /// The producer Drivers are blocked when the buffered size exceeds
-  /// this. The Drivers are resumed when the buffered size goes below
-  /// OutputBufferManager::kContinuePct % of this.
+  /// For PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator
+  /// would buffer up to that number of bytes / number of destinations for each
+  /// destination before producing a SerializedPage.
   uint64_t maxPartitionedOutputBufferSize() const {
     static constexpr uint64_t kDefault = 32UL << 20;
     return get<uint64_t>(kMaxPartitionedOutputBufferSize, kDefault);
   }
 
   /// Returns the maximum size in bytes for the task's buffered output.
+  ///
+  /// The producer Drivers are blocked when the buffered size exceeds
+  /// this. The Drivers are resumed when the buffered size goes below
+  /// OutputBufferManager::kContinuePct % of this.
+  uint64_t maxOutputBufferSize() const {
+    return get<uint64_t>(kMaxOutputBufferSize, maxArbitraryBufferSize());
+  }
+
+  /// Deprecated. Use maxBufferSize() instead.
   uint64_t maxArbitraryBufferSize() const {
     static constexpr uint64_t kDefault = 32UL << 20;
     return get<uint64_t>(kMaxArbitraryBufferSize, kDefault);
