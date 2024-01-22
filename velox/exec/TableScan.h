@@ -27,6 +27,8 @@ class TableScan : public SourceOperator {
       DriverCtx* driverCtx,
       std::shared_ptr<const core::TableScanNode> tableScanNode);
 
+  std::string toJsonString() const override;
+
   RowVectorPtr getOutput() override;
 
   BlockingReason isBlocked(ContinueFuture* future) override {
@@ -116,6 +118,10 @@ class TableScan : public SourceOperator {
 
   // String shown in ExceptionContext inside DataSource and LazyVector loading.
   std::string debugString_;
+
+  // Holds the current status of the operator. Used when debugging to understand
+  // what operator is doing.
+  std::atomic<const char*> curStatus_{""};
 
   // The last value of the IO wait time of 'this' that has been added to the
   // global static 'ioWaitNanos_'.

@@ -458,6 +458,11 @@ class Operator : public BaseRuntimeStatWriter {
 
   virtual std::string toString() const;
 
+  /// Used in debug ednpoints.
+  virtual std::string toJsonString() const {
+    return toString();
+  }
+
   velox::memory::MemoryPool* pool() const {
     return operatorCtx_->pool();
   }

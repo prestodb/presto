@@ -978,9 +978,9 @@ std::string Driver::toJsonString() const {
   folly::dynamic operatorsObj = folly::dynamic::object;
   int index = 0;
   for (auto& op : operators_) {
-    operatorsObj[std::to_string(index++)] = op->toString();
+    operatorsObj[std::to_string(index++)] = op->toJsonString();
   }
-  obj["operatorsObj"] = operatorsObj;
+  obj["operators"] = operatorsObj;
 
   return folly::toPrettyJson(obj);
 }
