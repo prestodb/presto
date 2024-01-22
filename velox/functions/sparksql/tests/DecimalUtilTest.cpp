@@ -30,7 +30,7 @@ class DecimalUtilTest : public testing::Test {
       R expectedResult,
       bool expectedOverflow) {
     R r;
-    bool overflow;
+    bool overflow = false;
     DecimalUtil::divideWithRoundUp<R, A, B>(r, a, b, aRescale, overflow);
     ASSERT_EQ(overflow, expectedOverflow);
     ASSERT_EQ(r, expectedResult);
