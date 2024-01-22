@@ -436,7 +436,7 @@ public class TestingPrestoServer
         serverProperties.put("catalog-server", String.valueOf(catalogServer));
         serverProperties.put("catalog-server-enabled", String.valueOf(catalogServerEnabled));
         serverProperties.put("presto.version", "testversion");
-        serverProperties.put("task.concurrency", "4");
+        serverProperties.put("task.concurrency", "16");
         serverProperties.put("task.max-worker-threads", "4");
         serverProperties.put("exchange.client-threads", "4");
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
