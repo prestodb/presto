@@ -302,8 +302,13 @@ public class TaskExecutor
                             log.info("Output buffer for task %s= %s", taskId, taskHandle.getOutputBuffer().get().getInfo());
 
                             while (!taskHandle.isTotalRunningSplitEmpty()) {
-                                eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_RUNNING_SPLITS);
                                 checkState(!taskHandle.isTaskDone(), "Task is done while waiting for total running split empty");
+                                if (blockedSplits.size() > 0) {
+                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_BLOCKED_SPLITS);
+                                }
+                                else {
+                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_RUNNING_SPLITS);
+                                }
                                 try {
                                     long currentTime = System.currentTimeMillis();
                                     if (currentTime - lastLogTime >= logFrequencyMillis) {
