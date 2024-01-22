@@ -1077,10 +1077,10 @@
   resolved "https://registry.yarnpkg.com/@leichtgewicht/ip-codec/-/ip-codec-2.0.4.tgz#b2ac626d6cb9c8718ab459166d4bb405b8ffa78b"
   integrity sha512-Hcv+nVC0kZnQ3tD9GVu5xSMR4VVYOteQIr/hwFPVEvPdlXqgGEuRjiheChHgdM+JyqdgNcmzZOX/tnl0JOiI7A==
 
-"@prestodb/presto-js-client@^0.1.1":
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/@prestodb/presto-js-client/-/presto-js-client-0.1.1.tgz#ce5280ac41e02c8f9dc03d8269561198c0d4de39"
-  integrity sha512-C/tFU/VF6yiY+oOXN0Oe0XRHD00bFZcYGzx3vIYsGYCQSVCwhxBIxdLjelSmv/d+1hvDlYWKFCYVIOpsJIhv+Q==
+"@prestodb/presto-js-client@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@prestodb/presto-js-client/-/presto-js-client-1.0.0.tgz#fa458866581a6ec4e0b9be7f8ab5bae3097f8c8a"
+  integrity sha512-B8d0Wl8XMrtqotRTTM45GVk6bV7GER1Pbt4vUb2Ex5dUP1/WkqKMuD0LMWoO9zaiSS70DtBpvwu372BS1GjNgQ==
 
 "@types/body-parser@*":
   version "1.19.4"
@@ -1661,6 +1661,11 @@ clone-deep@^4.0.1:
     is-plain-object "^2.0.4"
     kind-of "^6.0.2"
     shallow-clone "^3.0.0"
+
+clsx@^2.1.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/clsx/-/clsx-2.1.0.tgz#e851283bcb5c80ee7608db18487433f7b23f77cb"
+  integrity sha512-m3iNNWpd9rl3jvvcBnu70ylMdrXt8Vlq4HYadnU5fwcOtvkSQWPmj7amUcDT2qYI7risszBjI5AUIUox9D16pg==
 
 color-convert@^1.9.0:
   version "1.9.3"
