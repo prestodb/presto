@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Storage;
@@ -122,7 +123,8 @@ public class TestHudiDirectoryLister
                     IGNORED,
                     false,
                     new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
-                    ImmutableMap.of()));
+                    ImmutableMap.of(),
+                    new RuntimeStats()));
             assertTrue(fileInfoIterator.hasNext());
             HiveFileInfo fileInfo = fileInfoIterator.next();
             assertEquals(fileInfo.getPath().getName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");
@@ -148,7 +150,8 @@ public class TestHudiDirectoryLister
                     IGNORED,
                     false,
                     new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
-                    ImmutableMap.of()));
+                    ImmutableMap.of(),
+                    new RuntimeStats()));
             assertTrue(fileInfoIterator.hasNext());
             HiveFileInfo fileInfo = fileInfoIterator.next();
             assertEquals(fileInfo.getPath().getName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");
