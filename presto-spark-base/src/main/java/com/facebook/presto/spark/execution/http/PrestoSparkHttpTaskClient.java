@@ -19,19 +19,16 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
-import com.facebook.presto.operator.HttpRpcShuffleClient;
-import com.facebook.presto.operator.PageBufferClient;
-import com.facebook.presto.operator.RpcShuffleClient;
+import com.facebook.presto.operator.HttpRpcShuffleClient.PageResponseHandler;
+import com.facebook.presto.operator.PageBufferClient.PagesResponse;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -41,7 +38,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.http.client.HttpStatus.familyForStatusCode;
@@ -64,20 +60,16 @@ import static java.util.Objects.requireNonNull;
  */
 @ThreadSafe
 public class PrestoSparkHttpTaskClient
-        implements RpcShuffleClient
 {
-    private static final Logger log = Logger.get(PrestoSparkHttpTaskClient.class);
     private static final String TASK_URI = "/v1/task/";
 
     private final HttpClient httpClient;
     private final URI location;
     private final URI taskUri;
-    private final TaskId taskId;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration infoRefreshMaxWait;
-    private final Map<String, TokenAuthenticator> tokenAuthenticator;
 
     public PrestoSparkHttpTaskClient(
             HttpClient httpClient,
@@ -86,25 +78,21 @@ public class PrestoSparkHttpTaskClient
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
             JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
-            Duration infoRefreshMaxWait,
-            Map<String, TokenAuthenticator> tokenAuthenticators)
+            Duration infoRefreshMaxWait)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.taskId = requireNonNull(taskId, "taskId is null");
         this.location = requireNonNull(location, "location is null");
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         this.taskUri = createTaskUri(location, taskId);
         this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
-        this.tokenAuthenticator = requireNonNull(tokenAuthenticators, "tokenAuthenticator is null");
     }
 
     /**
      * Get results from a native engine task that ends with none shuffle operator. It always fetches from a single buffer.
      */
-    @Override
-    public ListenableFuture<PageBufferClient.PagesResponse> getResults(
+    public ListenableFuture<PagesResponse> getResults(
             long token,
             DataSize maxResponseSize)
     {
@@ -117,10 +105,9 @@ public class PrestoSparkHttpTaskClient
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri)
                         .build(),
-                new HttpRpcShuffleClient.PageResponseHandler());
+                new PageResponseHandler());
     }
 
-    @Override
     public void acknowledgeResultsAsync(long nextToken)
     {
         URI uri = uriBuilderFrom(taskUri)
@@ -131,7 +118,6 @@ public class PrestoSparkHttpTaskClient
         httpExecuteAsync(prepareGet().setUri(uri).build(), null);
     }
 
-    @Override
     public ListenableFuture<?> abortResults()
     {
         return httpClient.executeAsync(
@@ -141,12 +127,6 @@ public class PrestoSparkHttpTaskClient
                                         .build())
                         .build(),
                 createStatusResponseHandler());
-    }
-
-    @Override
-    public Throwable rewriteException(Throwable throwable)
-    {
-        return null;
     }
 
     public ListenableFuture<BaseResponse<TaskInfo>> getTaskInfo()
@@ -237,10 +217,5 @@ public class PrestoSparkHttpTaskClient
                 .appendPath(TASK_URI)
                 .appendPath(taskId.toString())
                 .build();
-    }
-
-    public Map<String, TokenAuthenticator> getTokenAuthenticator()
-    {
-        return tokenAuthenticator;
     }
 }
