@@ -20,8 +20,9 @@
     "webpack-dev-server": "^4.15.1"
   },
   "dependencies": {
-    "@prestodb/presto-js-client": "^0.1.1",
+    "@prestodb/presto-js-client": "^1.0.0",
     "antlr4": "^4.13.1-patch-1",
+    "clsx": "^2.1.0",
     "d3": "^5.7.0",
     "dagre-d3": "^0.6.1",
     "prismjs": "^1.29.0",
