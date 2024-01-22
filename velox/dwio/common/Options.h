@@ -361,7 +361,7 @@ class RowReaderOptions {
     skipRows_ = skipRows;
   }
 
-  bool getSkipRows() const {
+  uint64_t getSkipRows() const {
     return skipRows_;
   }
 
