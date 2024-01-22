@@ -354,6 +354,17 @@ The similarity of any two sets is estimated by comparing their signatures.
 
 SetDigests are additive, meaning they can be merged together.
 
+SFM Sketch
+-----------
+
+.. _sfmsketch_type:
+
+``SfmSketch``
+^^^^^^^^^^^^^
+
+The Sketch-Flip-Merge (SFM) data sketch is a noisy, random distinct-counting
+sketch similar to :ref:`hyperloglog_type`. See :func:`noisy_approx_set_sfm`.
+
 Quantile Digest
 ---------------
 
