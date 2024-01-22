@@ -152,8 +152,8 @@ public class TestIcebergSmokeHive
     {
         final Session session = getSession();
         int concurrency = 3;
-        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail (col0 INTEGER, col1 VARCHAR, col2 TIMESTAMP, col3 TIMESTAMP, col4 TIME, col5 BIGINT) WITH (format = 'ORC', commit_retries = " + concurrency + ")");
-//        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail WITH (format = 'ORC', commit_retries = " + concurrency + ") AS SELECT * FROM tpch.tiny.lineitem", 60175);
+//        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail (col0 INTEGER, col1 VARCHAR, col2 TIMESTAMP, col3 TIMESTAMP, col4 TIME, col5 BIGINT) WITH (format = 'ORC', commit_retries = " + concurrency + ")");
+        assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail WITH (format = 'ORC', commit_retries = " + concurrency + ") AS SELECT * FROM tpch.sf100.lineitem", 600037902);
 
         int commitRetries = concurrency + 1;
         int numberOfSubmittedQueries = commitRetries + 5;
@@ -164,8 +164,8 @@ public class TestIcebergSmokeHive
         List<Thread> threads = Stream.generate(() -> new Thread(() -> {
             int i = value.getAndIncrement();
             try {
-                getQueryRunner().execute(session, format("INSERT INTO test_concurrent_insert_fail VALUES(%s, '%s', cast(current_timestamp as timestamp), cast(current_timestamp as timestamp), cast(current_timestamp as time), 34567)", i + 1, strings[i % 5]));
-//                getQueryRunner().execute(session, "insert into test_concurrent_insert_fail select * from tpch.tiny.lineitem");
+//                getQueryRunner().execute(session, format("INSERT INTO test_concurrent_insert_fail VALUES(%s, '%s', cast(current_timestamp as timestamp), cast(current_timestamp as timestamp), cast(current_timestamp as time), 34567)", i + 1, strings[i % 5]));
+                getQueryRunner().execute(session, "insert into test_concurrent_insert_fail select * from tpch.sf100.lineitem");
             }
             catch (Throwable throwable) {
                 errors.add(throwable);
@@ -178,7 +178,7 @@ public class TestIcebergSmokeHive
         threads.forEach(Thread::start);
 
         try {
-            final int seconds = 15;
+            final int seconds = 10;
             if (!countDownLatch.await(seconds, TimeUnit.SECONDS)) {
                 fail(format("Failed to insert in %s seconds", seconds));
             }
