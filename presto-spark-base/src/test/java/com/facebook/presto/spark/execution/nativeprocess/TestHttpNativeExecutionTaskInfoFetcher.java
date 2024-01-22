@@ -20,7 +20,6 @@ import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spark.execution.http.TestPrestoSparkHttpClient;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -56,8 +55,8 @@ public class TestHttpNativeExecutionTaskInfoFetcher
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.MILLISECONDS), // very low tolerance for error for unit testing
-                ImmutableMap.of());
+                // very low tolerance for error for unit testing
+                new Duration(1, TimeUnit.MILLISECONDS));
 
         Object taskFinishedOrLostSignal = new Object();
 
