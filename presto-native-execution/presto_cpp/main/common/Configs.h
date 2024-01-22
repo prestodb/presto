@@ -300,6 +300,9 @@ class SystemConfig : public ConfigBase {
       "cache.velox.ttl-check-interval"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
 
+  static constexpr std::string_view kEnableRuntimeMetricsCollection{
+      "runtime-metrics-collection-enabled"};
+
   /// Specifies the memory arbitrator kind. If it is empty, then there is no
   /// memory arbitration.
   static constexpr std::string_view kMemoryArbitratorKind{
@@ -655,6 +658,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> cacheVeloxTtlThreshold() const;
 
   std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
+
+  bool enableRuntimeMetricsCollection() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
