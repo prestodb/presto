@@ -810,6 +810,11 @@ TEST_F(JsonCastTest, toInteger) {
       {"\"NaN\""_sv},
       "The JSON element does not have the requested type");
   testThrow<JsonNativeType>(JSON(), TINYINT(), {""_sv}, "no JSON found");
+  testThrow<JsonNativeType>(
+      JSON(),
+      BIGINT(),
+      {"233897314173811950000"_sv},
+      "Problem while parsing a number");
 }
 
 TEST_F(JsonCastTest, toDouble) {
@@ -827,6 +832,7 @@ TEST_F(JsonCastTest, toDouble) {
        R"("-Infinity")"_sv,
        R"("NaN")"_sv,
        R"("-NaN")"_sv,
+       "233897314173811950000"_sv,
        std::nullopt},
       {1.1,
        2.0001,
@@ -839,6 +845,7 @@ TEST_F(JsonCastTest, toDouble) {
        -HUGE_VAL,
        std::numeric_limits<double>::quiet_NaN(),
        std::numeric_limits<double>::quiet_NaN(),
+       233897314173811950000.0,
        std::nullopt});
   testCast<JsonNativeType, double>(
       JSON(),
@@ -936,6 +943,10 @@ TEST_F(JsonCastTest, toArray) {
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 
   testCast(JSON(), ARRAY(BIGINT()), data, expected);
+
+  data = makeNullableFlatVector<JsonNativeType>({"[233897314173811950000]"_sv});
+  expected = makeArrayVector<double>({{233897314173811950000.0}});
+  testCast(JSON(), ARRAY(DOUBLE()), data, expected);
 }
 
 TEST_F(JsonCastTest, toMap) {

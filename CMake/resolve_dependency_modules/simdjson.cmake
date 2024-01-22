@@ -13,9 +13,9 @@
 # limitations under the License.
 include_guard(GLOBAL)
 
-set(VELOX_SIMDJSON_VERSION 3.1.5)
+set(VELOX_SIMDJSON_VERSION 3.2.0)
 set(VELOX_SIMDJSON_BUILD_SHA256_CHECKSUM
-    5b916be17343324426fc467a4041a30151e481700d60790acfd89716ecc37076)
+    75a684dbbe38cf72b8b3bdbdc430764813f3615899a6029931c26ddd89812da4)
 set(VELOX_SIMDJSON_SOURCE_URL
     "https://github.com/simdjson/simdjson/archive/refs/tags/v${VELOX_SIMDJSON_VERSION}.tar.gz"
 )

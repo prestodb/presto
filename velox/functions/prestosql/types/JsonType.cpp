@@ -524,8 +524,7 @@ simdjson::simdjson_result<T> fromString(const std::string_view& s) {
 // following cases are supported:
 //
 // Signed Integer -> Signed Integer
-// Unsigned Integer -> Unsigned Integer
-// Signed Integer / Float / Double -> Float/Double
+// Float | Double -> Float | Double | Signed Integer
 template <typename To, typename From>
 simdjson::error_code convertIfInRange(From x, exec::GenericWriter& writer) {
   static_assert(std::is_signed_v<From> && std::is_signed_v<To>);
@@ -891,8 +890,8 @@ struct CastFromJsonTypedImpl {
     SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
     switch (type) {
       case simdjson::ondemand::json_type::number: {
-        SIMDJSON_ASSIGN_OR_RAISE(auto num, value.get_number());
-        return convertIfInRange<T>(num.as_double(), writer);
+        SIMDJSON_ASSIGN_OR_RAISE(auto num, value.get_double());
+        return convertIfInRange<T>(num, writer);
       }
       case simdjson::ondemand::json_type::boolean: {
         writer.castTo<T>() = value.get_bool();
