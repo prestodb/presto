@@ -236,7 +236,7 @@ class CastBaseTest : public FunctionBaseTest {
     testCast(fromType, toType, inputVector, expectedVector);
   }
 
-  template <typename TFrom, typename TTo>
+  template <typename TFrom>
   void testThrow(
       const TypePtr& fromType,
       const TypePtr& toType,
