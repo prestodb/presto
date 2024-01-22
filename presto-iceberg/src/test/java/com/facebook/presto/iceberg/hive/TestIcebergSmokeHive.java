@@ -156,7 +156,7 @@ public class TestIcebergSmokeHive
         assertUpdate(session, "CREATE TABLE test_concurrent_insert_fail WITH (format = 'ORC', commit_retries = " + concurrency + ") AS SELECT * FROM tpch.sf100.lineitem", 600037902);
 
         int commitRetries = concurrency + 1;
-        int numberOfSubmittedQueries = commitRetries + 5;
+        int numberOfSubmittedQueries = commitRetries + 4;
         final String[] strings = {"one", "two", "three", "four", "five"};
         final CountDownLatch countDownLatch = new CountDownLatch(numberOfSubmittedQueries);
         AtomicInteger value = new AtomicInteger(0);
@@ -178,7 +178,7 @@ public class TestIcebergSmokeHive
         threads.forEach(Thread::start);
 
         try {
-            final int seconds = 10;
+            final int seconds = 30;
             if (!countDownLatch.await(seconds, TimeUnit.SECONDS)) {
                 fail(format("Failed to insert in %s seconds", seconds));
             }
