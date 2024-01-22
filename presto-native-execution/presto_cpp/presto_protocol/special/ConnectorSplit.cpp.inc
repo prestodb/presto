@@ -31,6 +31,11 @@ void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
     return;
   }
 
+  if (getConnectorKey(type) == "hive-iceberg") {
+    j = *std::static_pointer_cast<IcebergSplit>(p);
+    return;
+  }
+
   if (getConnectorKey(type) == "tpch") {
     j = *std::static_pointer_cast<TpchSplit>(p);
     return;
@@ -61,6 +66,13 @@ void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p) {
   }
   if (getConnectorKey(type) == "hive") {
     auto k = std::make_shared<HiveSplit>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+
+  if (getConnectorKey(type) == "hive-iceberg") {
+    auto k = std::make_shared<IcebergSplit>();
     j.get_to(*k);
     p = k;
     return;
