@@ -143,6 +143,10 @@ void PrestoServer::run() {
     baseVeloxQueryConfig->initialize(
         fmt::format("{}/velox.properties", configDirectoryPath_));
 
+    if (systemConfig->enableRuntimeMetricsCollection()) {
+      enableRuntimeMetricReporting();
+    }
+
     httpPort = systemConfig->httpServerHttpPort();
     if (systemConfig->httpServerHttpsEnabled()) {
       httpsPort = systemConfig->httpServerHttpsPort();
@@ -985,6 +989,12 @@ std::string PrestoServer::getLocalIp() const {
 
 std::string PrestoServer::getBaseSpillDirectory() const {
   return SystemConfig::instance()->spillerSpillPath().value_or("");
+}
+
+void PrestoServer::enableRuntimeMetricReporting() {
+  // This flag must be set to register the counters.
+  facebook::velox::BaseStatsReporter::registered = true;
+  registerStatsCounters();
 }
 
 void PrestoServer::populateMemAndCPUInfo() {
