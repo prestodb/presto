@@ -175,10 +175,11 @@ void CastExpr::applyToSelectedNoThrowLocal(
 /// The per-row level Kernel
 /// @tparam ToKind The cast target type
 /// @tparam FromKind The expression type
+/// @tparam TPolicy The policy used by the cast
 /// @param row The index of the current row
 /// @param input The input vector (of type FromKind)
 /// @param result The output vector (of type ToKind)
-template <TypeKind ToKind, TypeKind FromKind, bool Truncate, bool LegacyCast>
+template <TypeKind ToKind, TypeKind FromKind, typename TPolicy>
 void CastExpr::applyCastKernel(
     vector_size_t row,
     EvalCtx& context,
@@ -222,8 +223,7 @@ void CastExpr::applyCastKernel(
       }
     }
 
-    auto output = util::Converter<ToKind, void, Truncate, LegacyCast>::cast(
-        inputRowValue);
+    auto output = util::Converter<ToKind, void, TPolicy>::cast(inputRowValue);
 
     if constexpr (
         ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY) {
@@ -317,7 +317,7 @@ VectorPtr CastExpr::applyDecimalToFloatCast(
   const auto simpleInput = input.as<SimpleVector<FromNativeType>>();
   const auto scaleFactor = DecimalUtil::kPowersOfTen[precisionScale.second];
   applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-    auto output = util::Converter<ToKind, void, false, false>::cast(
+    auto output = util::Converter<ToKind, void, util::DefaultCastPolicy>::cast(
         simpleInput->valueAt(row));
     resultBuffer[row] = output / scaleFactor;
   });
@@ -507,24 +507,24 @@ void CastExpr::applyCastPrimitives(
   if (!hooks_->truncate()) {
     if (!hooks_->legacy()) {
       applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-        applyCastKernel<ToKind, FromKind, false /*truncate*/, false /*legacy*/>(
+        applyCastKernel<ToKind, FromKind, util::DefaultCastPolicy>(
             row, context, inputSimpleVector, resultFlatVector);
       });
     } else {
       applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-        applyCastKernel<ToKind, FromKind, false /*truncate*/, true /*legacy*/>(
+        applyCastKernel<ToKind, FromKind, util::LegacyCastPolicy>(
             row, context, inputSimpleVector, resultFlatVector);
       });
     }
   } else {
     if (!hooks_->legacy()) {
       applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-        applyCastKernel<ToKind, FromKind, true /*truncate*/, false /*legacy*/>(
+        applyCastKernel<ToKind, FromKind, util::TruncateCastPolicy>(
             row, context, inputSimpleVector, resultFlatVector);
       });
     } else {
       applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-        applyCastKernel<ToKind, FromKind, true /*truncate*/, true /*legacy*/>(
+        applyCastKernel<ToKind, FromKind, util::TruncateLegacyCastPolicy>(
             row, context, inputSimpleVector, resultFlatVector);
       });
     }

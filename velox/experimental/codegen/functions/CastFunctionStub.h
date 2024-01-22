@@ -27,11 +27,16 @@ struct CodegenConversionStub {
 
   template <typename T>
   static ReturnType<T> cast(const T& arg) {
+    using CastPolicy = typename std::conditional<
+        castByTruncate,
+        util::TTruncateCastPolicy,
+        util::TDefaultCastPolicy>::type;
+
     if constexpr (std::is_same_v<codegen::TempString<TempsAllocator>, T>) {
-      return util::Converter<kind, void, castByTruncate>::cast(
+      return util::Converter<kind, void, CastPolicy>::cast(
           folly::StringPiece(arg.data(), arg.size()));
     } else {
-      return util::Converter<kind, void, castByTruncate>::cast(arg);
+      return util::Converter<kind, void, CastPolicy>::cast(arg);
     }
   }
 };

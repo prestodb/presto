@@ -33,10 +33,10 @@ void PrestoCastHooks::castTimestampToString(
     StringWriter<false>& out) const {
   out.copy_from(
       legacyCast_
-          ? util::Converter<TypeKind::VARCHAR, void, false, true>::cast(
-                timestamp)
-          : util::Converter<TypeKind::VARCHAR, void, false, false>::cast(
-                timestamp));
+          ? util::Converter<TypeKind::VARCHAR, void, util::LegacyCastPolicy>::
+                cast(timestamp)
+          : util::Converter<TypeKind::VARCHAR, void, util::DefaultCastPolicy>::
+                cast(timestamp));
   out.finalize();
 }
 

@@ -166,10 +166,11 @@ class CastExpr : public SpecialForm {
   /// The per-row level Kernel
   /// @tparam ToKind The cast target type
   /// @tparam FromKind The expression type
+  /// @tparam TPolicy The policy used by the cast
   /// @param row The index of the current row
   /// @param input The input vector (of type FromKind)
   /// @param result The output vector (of type ToKind)
-  template <TypeKind ToKind, TypeKind FromKind, bool Truncate, bool LegacyCast>
+  template <TypeKind ToKind, TypeKind FromKind, typename TPolicy>
   void applyCastKernel(
       vector_size_t row,
       EvalCtx& context,
