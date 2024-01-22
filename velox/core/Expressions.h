@@ -667,10 +667,20 @@ class TypedExprs {
     return dynamic_cast<const ConstantTypedExpr*>(expr.get()) != nullptr;
   }
 
-  /// Returns 'expr' as ConstantTypedExprPtr or null if not field access
+  /// Returns 'expr' as ConstantTypedExprPtr or null if not a constant
   /// expression.
   static ConstantTypedExprPtr asConstant(const TypedExprPtr& expr) {
     return std::dynamic_pointer_cast<const ConstantTypedExpr>(expr);
+  }
+
+  /// Returns true if 'expr' is a lambda expression.
+  static bool isLambda(const TypedExprPtr& expr) {
+    return dynamic_cast<const LambdaTypedExpr*>(expr.get()) != nullptr;
+  }
+
+  /// Returns 'expr' as LambdaTypedExprPtr or null if not a lambda expression.
+  static LambdaTypedExprPtr asLambda(const TypedExprPtr& expr) {
+    return std::dynamic_pointer_cast<const LambdaTypedExpr>(expr);
   }
 };
 } // namespace facebook::velox::core

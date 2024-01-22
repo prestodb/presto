@@ -208,6 +208,10 @@ class Aggregate {
   // 'result' and its parts are expected to be singly referenced. If
   // other threads or operators hold references that they would use
   // after 'result' has been updated by this, effects will be unpredictable.
+  // This method should not have side effects, i.e., calling this method
+  // doesn't change the content of the accumulators. This is needed for an
+  // optimization in Window operator where aggregations for expanding frames are
+  // computed incrementally.
   virtual void
   extractValues(char** groups, int32_t numGroups, VectorPtr* result) = 0;
 
@@ -216,7 +220,7 @@ class Aggregate {
   // @param numGroups Number of groups to extract results from.
   // @param result The result vector to store the results in.
   //
-  // See comment on 'result' in extractValues().
+  // See comment on 'result' and side effects in extractValues().
   virtual void
   extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result) = 0;
 

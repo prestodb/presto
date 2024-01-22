@@ -33,6 +33,9 @@ class FirstAggregateTest : public AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     registerAggregateFunctions("spark_");
+    // Disable incremental aggregation tests because the boolean field in
+    // intermediate result of spark_first is unset and has undefined value.
+    AggregationTestBase::disableTestIncremental();
   }
 
   template <typename T>

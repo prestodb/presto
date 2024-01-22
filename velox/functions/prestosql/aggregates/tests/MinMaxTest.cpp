@@ -492,6 +492,7 @@ class MinMaxNTest : public functions::aggregate::test::AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     allowInputShuffle();
+    AggregationTestBase::disableTestIncremental();
   }
 
   template <typename T>

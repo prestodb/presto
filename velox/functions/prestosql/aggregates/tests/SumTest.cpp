@@ -111,6 +111,11 @@ TEST_F(SumTest, sumDoubleAndFloat) {
 }
 
 TEST_F(SumTest, sumDecimal) {
+  // Disable incremental aggregation tests because DecimalAggregate doesn't set
+  // StringView::prefix when extracting accumulators, leaving the prefix field
+  // undefined that fails the test.
+  AggregationTestBase::disableTestIncremental();
+
   // Skip testing with TableScan because decimal is not supported in writers.
   std::vector<std::optional<int64_t>> shortDecimalRawVector;
   std::vector<std::optional<int128_t>> longDecimalRawVector;
@@ -172,9 +177,13 @@ TEST_F(SumTest, sumDecimal) {
       expectedResult,
       /*config*/ {},
       /*testWithTableScan*/ false);
+
+  AggregationTestBase::enableTestIncremental();
 }
 
 TEST_F(SumTest, sumDecimalOverflow) {
+  AggregationTestBase::disableTestIncremental();
+
   // Short decimals do not overflow easily.
   std::vector<int64_t> shortDecimalInput;
   for (int i = 0; i < 10'000; ++i) {
@@ -255,6 +264,8 @@ TEST_F(SumTest, sumDecimalOverflow) {
   VELOX_ASSERT_THROW(
       decimalSumOverflow(longDecimalInput, longDecimalOutput),
       "Value '-100000000000000000000000000000000000000' is not in the range of Decimal Type");
+
+  AggregationTestBase::enableTestIncremental();
 }
 
 TEST_F(SumTest, sumWithMask) {

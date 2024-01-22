@@ -1370,6 +1370,7 @@ class MinMaxByNTest : public AggregationTestBase {
     AggregationTestBase::SetUp();
     AggregationTestBase::allowInputShuffle();
     AggregationTestBase::enableTestStreaming();
+    AggregationTestBase::disableTestIncremental();
   }
 };
 

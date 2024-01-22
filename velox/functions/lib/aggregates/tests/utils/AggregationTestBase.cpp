@@ -26,6 +26,7 @@
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
+#include "velox/expression/Expr.h"
 #include "velox/expression/SignatureBinder.h"
 
 using facebook::velox::exec::Spiller;
@@ -621,6 +622,35 @@ void AggregationTestBase::testAggregations(
       testWithTableScan);
 }
 
+namespace {
+
+std::vector<VectorPtr> extractArgColumns(
+    const core::CallTypedExprPtr& aggregateExpr,
+    const RowVectorPtr& input,
+    memory::MemoryPool* pool) {
+  auto type = input->type()->asRow();
+  std::vector<VectorPtr> columns;
+  for (const auto& arg : aggregateExpr->inputs()) {
+    if (auto field = core::TypedExprs::asFieldAccess(arg)) {
+      columns.push_back(input->childAt(field->name()));
+    }
+    if (core::TypedExprs::isConstant(arg)) {
+      auto constant = core::TypedExprs::asConstant(arg);
+      columns.push_back(constant->toConstantVector(pool));
+    }
+    if (auto lambda = core::TypedExprs::asLambda(arg)) {
+      for (const auto& name : lambda->signature()->names()) {
+        if (auto captureIndex = type.getChildIdxIfExists(name)) {
+          columns.push_back(input->childAt(captureIndex.value()));
+        }
+      }
+    }
+  }
+  return columns;
+}
+
+} // namespace
+
 RowVectorPtr AggregationTestBase::validateStreamingInTestAggregations(
     const std::function<void(PlanBuilder&)>& makeSource,
     const std::vector<std::string>& aggregates,
@@ -921,6 +951,11 @@ void AggregationTestBase::testAggregations(
       assertResults,
       config);
 
+  if (testIncremental_) {
+    SCOPED_TRACE("testIncrementalAggregation");
+    testIncrementalAggregation(makeSource, aggregates, config);
+  }
+
   if (testWithTableScan) {
     SCOPED_TRACE("Test reading input from table scan");
     testReadFromFiles(
@@ -975,6 +1010,112 @@ VectorPtr AggregationTestBase::testStreaming(
       config);
 }
 
+namespace {
+
+constexpr int kRowSizeOffset = 8;
+constexpr int kOffset = kRowSizeOffset + 8;
+
+std::unique_ptr<exec::Aggregate> createAggregateFunction(
+    const std::string& functionName,
+    const std::vector<TypePtr>& inputTypes,
+    HashStringAllocator& allocator,
+    const std::unordered_map<std::string, std::string>& config) {
+  auto [intermediateType, finalType] = getResultTypes(functionName, inputTypes);
+  core::QueryConfig queryConfig({config});
+  auto func = exec::Aggregate::create(
+      functionName,
+      core::AggregationNode::Step::kSingle,
+      inputTypes,
+      finalType,
+      queryConfig);
+  func->setAllocator(&allocator);
+  func->setOffsets(kOffset, 0, 1, kRowSizeOffset);
+
+  VELOX_CHECK(intermediateType->equivalent(
+      *func->intermediateType(functionName, inputTypes)));
+  VELOX_CHECK(finalType->equivalent(*func->resultType()));
+
+  return func;
+}
+
+} // namespace
+
+void AggregationTestBase::testIncrementalAggregation(
+    const std::function<void(exec::test::PlanBuilder&)>& makeSource,
+    const std::vector<std::string>& aggregates,
+    const std::unordered_map<std::string, std::string>& config) {
+  PlanBuilder builder(pool());
+  makeSource(builder);
+  auto data = AssertQueryBuilder(builder.planNode())
+                  .configs(config)
+                  .copyResults(pool());
+  auto inputSize = data->size();
+  if (inputSize == 0) {
+    return;
+  }
+
+  auto& aggregationNode = static_cast<const core::AggregationNode&>(
+      *builder.singleAggregation({}, aggregates).planNode());
+  for (int i = 0; i < aggregationNode.aggregates().size(); ++i) {
+    const auto& aggregate = aggregationNode.aggregates()[i];
+    const auto& aggregateExpr = aggregate.call;
+    const auto& functionName = aggregateExpr->name();
+    auto input = extractArgColumns(aggregateExpr, data, pool());
+
+    HashStringAllocator allocator(pool());
+    std::vector<core::LambdaTypedExprPtr> lambdas;
+    for (const auto& arg : aggregate.call->inputs()) {
+      if (auto lambda =
+              std::dynamic_pointer_cast<const core::LambdaTypedExpr>(arg)) {
+        lambdas.push_back(lambda);
+      }
+    }
+    auto queryCtxConfig = config;
+    auto func = createAggregateFunction(
+        functionName, aggregate.rawInputTypes, allocator, config);
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        nullptr, core::QueryConfig{queryCtxConfig});
+
+    std::shared_ptr<core::ExpressionEvaluator> expressionEvaluator;
+    if (!lambdas.empty()) {
+      expressionEvaluator = std::make_shared<exec::SimpleExpressionEvaluator>(
+          queryCtx.get(), allocator.pool());
+      func->setLambdaExpressions(lambdas, expressionEvaluator);
+    }
+
+    std::vector<char> group(kOffset + func->accumulatorFixedWidthSize());
+    std::vector<char*> groups(inputSize, group.data());
+    std::vector<vector_size_t> indices(1, 0);
+    func->initializeNewGroups(groups.data(), indices);
+    func->addSingleGroupRawInput(
+        group.data(), SelectivityVector(inputSize), input, false);
+
+    // Extract intermediate result from the same accumulator twice and expect
+    // results to be the same.
+    auto intermediateType =
+        func->intermediateType(functionName, aggregate.rawInputTypes);
+    auto intermediateResult1 = BaseVector::create(intermediateType, 1, pool());
+    auto intermediateResult2 = BaseVector::create(intermediateType, 1, pool());
+    func->extractAccumulators(groups.data(), 1, &intermediateResult1);
+    func->extractAccumulators(groups.data(), 1, &intermediateResult2);
+    velox::test::assertEqualVectors(intermediateResult1, intermediateResult2);
+
+    // Extract values from the same accumulator twice and expect results to be
+    // the same.
+    auto result1 = BaseVector::create(func->resultType(), 1, pool());
+    auto result2 = BaseVector::create(func->resultType(), 1, pool());
+    func->extractValues(groups.data(), 1, &result1);
+    func->extractValues(groups.data(), 1, &result2);
+
+    // Destroy accumulators to avoid memory leak.
+    if (func->accumulatorUsesExternalMemory()) {
+      func->destroy(folly::Range(groups.data(), 1));
+    }
+
+    velox::test::assertEqualVectors(result1, result2);
+  }
+}
+
 VectorPtr AggregationTestBase::testStreaming(
     const std::string& functionName,
     bool testGlobal,
@@ -983,28 +1124,16 @@ VectorPtr AggregationTestBase::testStreaming(
     const std::vector<VectorPtr>& rawInput2,
     vector_size_t rawInput2Size,
     const std::unordered_map<std::string, std::string>& config) {
-  constexpr int kRowSizeOffset = 8;
-  constexpr int kOffset = kRowSizeOffset + 8;
+  std::vector<TypePtr> rawInputTypes(rawInput1.size());
+  std::transform(
+      rawInput1.begin(),
+      rawInput1.end(),
+      rawInputTypes.begin(),
+      [](const VectorPtr& vec) { return vec->type(); });
+
   HashStringAllocator allocator(pool());
-  std::vector<TypePtr> rawInputTypes;
-  for (auto& vec : rawInput1) {
-    rawInputTypes.push_back(vec->type());
-  }
-  auto [intermediateType, finalType] =
-      getResultTypes(functionName, rawInputTypes);
-  auto createFunction = [&, &finalType = finalType] {
-    core::QueryConfig queryConfig({config});
-    auto func = exec::Aggregate::create(
-        functionName,
-        core::AggregationNode::Step::kSingle,
-        rawInputTypes,
-        finalType,
-        queryConfig);
-    func->setAllocator(&allocator);
-    func->setOffsets(kOffset, 0, 1, kRowSizeOffset);
-    return func;
-  };
-  auto func = createFunction();
+  auto func =
+      createAggregateFunction(functionName, rawInputTypes, allocator, config);
   int maxRowCount = std::max(rawInput1Size, rawInput2Size);
   std::vector<char> group(kOffset + func->accumulatorFixedWidthSize());
   std::vector<char*> groups(maxRowCount, group.data());
@@ -1017,6 +1146,7 @@ VectorPtr AggregationTestBase::testStreaming(
     func->addRawInput(
         groups.data(), SelectivityVector(rawInput1Size), rawInput1, false);
   }
+  auto intermediateType = func->intermediateType(functionName, rawInputTypes);
   auto intermediate = BaseVector::create(intermediateType, 1, pool());
   func->extractAccumulators(groups.data(), 1, &intermediate);
   // Destroy accumulators to avoid memory leak.
@@ -1025,7 +1155,8 @@ VectorPtr AggregationTestBase::testStreaming(
   }
 
   // Create a new function picking up the intermediate result.
-  auto func2 = createFunction();
+  auto func2 =
+      createAggregateFunction(functionName, rawInputTypes, allocator, config);
   func2->initializeNewGroups(groups.data(), indices);
   if (testGlobal) {
     func2->addSingleGroupIntermediateResults(
@@ -1042,7 +1173,7 @@ VectorPtr AggregationTestBase::testStreaming(
     func2->addRawInput(
         groups.data(), SelectivityVector(rawInput2Size), rawInput2, false);
   }
-  auto result = BaseVector::create(finalType, 1, pool());
+  auto result = BaseVector::create(func2->resultType(), 1, pool());
   func2->extractValues(groups.data(), 1, &result);
   // Destroy accumulators to avoid memory leak.
   if (func2->accumulatorUsesExternalMemory()) {

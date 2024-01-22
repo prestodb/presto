@@ -245,8 +245,19 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
     testStreaming_ = true;
   }
 
+  void disableTestIncremental() {
+    testIncremental_ = false;
+  }
+
+  void enableTestIncremental() {
+    testIncremental_ = true;
+  }
+
   /// Whether testStreaming should be called in testAggregations.
   bool testStreaming_{true};
+
+  /// Whether testIncrementalAggregation should be called in testAggregations.
+  bool testIncremental_{true};
 
  private:
   // Test streaming use case where raw inputs are added after intermediate
@@ -263,6 +274,15 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       vector_size_t rawInput1Size,
       const std::vector<VectorPtr>& rawInput2,
       vector_size_t rawInput2Size,
+      const std::unordered_map<std::string, std::string>& config = {});
+
+  // Test to ensure that when extractValues() or extractAccumulators() is called
+  // twice on the same accumulator, the extracted results are the same. This
+  // ensures that extractValues() and extractAccumulators() are free of side
+  // effects.
+  void testIncrementalAggregation(
+      const std::function<void(exec::test::PlanBuilder&)>& makeSource,
+      const std::vector<std::string>& aggregates,
       const std::unordered_map<std::string, std::string>& config = {});
 
   void testAggregationsImpl(
