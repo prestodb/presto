@@ -892,3 +892,29 @@ TEST_F(ParquetReaderTest, prefetchRowGroups) {
     }
   }
 }
+
+TEST_F(ParquetReaderTest, testEmptyRowGroups) {
+  // empty_row_groups.parquet contains empty row groups
+  const std::string sample(getExampleFilePath("empty_row_groups.parquet"));
+
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->numberOfRows(), 5ULL);
+
+  auto rowType = reader->typeWithId();
+  EXPECT_EQ(rowType->type()->kind(), TypeKind::ROW);
+  EXPECT_EQ(rowType->size(), 1ULL);
+
+  auto integerType = rowType->childAt(0);
+  EXPECT_EQ(integerType->type()->kind(), TypeKind::INTEGER);
+
+  auto fileSchema = ROW({"a"}, {INTEGER()});
+  auto rowReaderOpts = getReaderOpts(fileSchema);
+  auto scanSpec = makeScanSpec(fileSchema);
+  rowReaderOpts.setScanSpec(scanSpec);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  auto expected = makeRowVector({makeFlatVector<int32_t>({0, 3, 3, 3, 3})});
+
+  assertReadWithReaderAndExpected(fileSchema, *rowReader, expected, *leafPool_);
+}

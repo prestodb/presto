@@ -698,14 +698,16 @@ void ParquetRowReader::filterRowGroups() {
     auto rowGroupInRange =
         (fileOffset >= options_.getOffset() &&
          fileOffset < options_.getLimit());
-    // A skipped row group is one that is in range and is in the excluded list.
-    if (rowGroupInRange) {
-      if (i < res.totalCount && bits::isBitSet(res.filterResult.data(), i)) {
-        ++skippedRowGroups_;
-      } else {
-        rowGroupIds_.push_back(i);
-        firstRowOfRowGroup_.push_back(rowNumber);
-      }
+
+    auto isExcluded =
+        (i < res.totalCount && bits::isBitSet(res.filterResult.data(), i));
+    auto isEmpty = rowGroups_[i].num_rows == 0;
+
+    // Add a row group to read if it is within range and not empty and not in
+    // the excluded list.
+    if (rowGroupInRange && !isExcluded && !isEmpty) {
+      rowGroupIds_.push_back(i);
+      firstRowOfRowGroup_.push_back(rowNumber);
     }
     rowNumber += rowGroups_[i].num_rows;
   }
@@ -762,7 +764,7 @@ bool ParquetRowReader::advanceToNextRowGroup() {
 
 void ParquetRowReader::updateRuntimeStats(
     dwio::common::RuntimeStatistics& stats) const {
-  stats.skippedStrides += skippedRowGroups_;
+  stats.skippedStrides += rowGroups_.size() - rowGroupIds_.size();
 }
 
 void ParquetRowReader::resetFilterCaches() {

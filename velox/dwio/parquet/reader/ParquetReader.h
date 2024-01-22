@@ -97,9 +97,6 @@ class ParquetRowReader : public dwio::common::RowReader {
   uint64_t rowsInCurrentRowGroup_;
   uint64_t currentRowInGroup_;
 
-  // Number of row groups skipped based on stats.
-  int32_t skippedRowGroups_{0};
-
   std::unique_ptr<dwio::common::SelectiveColumnReader> columnReader_;
 
   RowTypePtr requestedType_;
