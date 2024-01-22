@@ -499,6 +499,9 @@ void writeToFile(
 }
 } // namespace
 
+// Sometimes we generate zero-column input of type ROW({}) or a column of type
+// UNKNOWN(). Such data cannot be written to a file and therefore cannot
+// be tested with TableScan.
 bool isTableScanSupported(const TypePtr& type) {
   if (type->kind() == TypeKind::ROW && type->size() == 0) {
     return false;
@@ -565,11 +568,18 @@ void printStats(const AggregationFuzzerBase::FunctionsStats& stats) {
 std::string makeFunctionCall(
     const std::string& name,
     const std::vector<std::string>& argNames,
-    bool sortedInputs) {
+    bool sortedInputs,
+    bool distinctInputs) {
   std::ostringstream call;
-  call << name << "(" << folly::join(", ", argNames);
+  call << name << "(";
+
+  const auto args = folly::join(", ", argNames);
   if (sortedInputs) {
-    call << " ORDER BY " << folly::join(", ", argNames);
+    call << args << " ORDER BY " << args;
+  } else if (distinctInputs) {
+    call << "distinct " << args;
+  } else {
+    call << args;
   }
   call << ")";
 

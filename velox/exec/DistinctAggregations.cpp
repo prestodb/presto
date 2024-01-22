@@ -237,6 +237,8 @@ std::unique_ptr<DistinctAggregations> DistinctAggregations::create(
     case TypeKind::TIMESTAMP:
       return std::make_unique<TypedDistinctAggregations<Timestamp>>(
           aggregates, inputType, pool);
+    case TypeKind::VARBINARY:
+      [[fallthrough]];
     case TypeKind::VARCHAR:
       return std::make_unique<TypedDistinctAggregations<StringView>>(
           aggregates, inputType, pool);

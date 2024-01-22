@@ -264,7 +264,8 @@ std::string printPercentageStat(size_t n, size_t total);
 std::string makeFunctionCall(
     const std::string& name,
     const std::vector<std::string>& argNames,
-    bool sortedInputs);
+    bool sortedInputs = false,
+    bool distinctInputs = false);
 
 // Returns a list of column names from c0 to cn.
 std::vector<std::string> makeNames(size_t n);
