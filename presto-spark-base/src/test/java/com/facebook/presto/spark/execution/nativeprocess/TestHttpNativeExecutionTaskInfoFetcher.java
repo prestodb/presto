@@ -47,16 +47,20 @@ public class TestHttpNativeExecutionTaskInfoFetcher
     public void testNativeExecutionTaskFailsWhenProcessCrashes()
     {
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
-                new TestPrestoSparkHttpClient.TestingHttpClient(new TestPrestoSparkHttpClient.TestingResponseManager(
-                        TEST_TASK_ID.toString(),
-                        new TestPrestoSparkHttpClient.TestingResponseManager.CrashingTaskInfoResponseManager(1))),
+                new TestPrestoSparkHttpClient.TestingHttpClient(
+                        updateScheduledExecutor,
+                        new TestPrestoSparkHttpClient.TestingResponseManager(
+                                TEST_TASK_ID.toString(),
+                                new TestPrestoSparkHttpClient.TestingResponseManager.CrashingTaskInfoResponseManager(1))),
                 TEST_TASK_ID,
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
                 // very low tolerance for error for unit testing
-                new Duration(1, TimeUnit.MILLISECONDS));
+                new Duration(1, TimeUnit.MILLISECONDS),
+                updateScheduledExecutor,
+                new Duration(1, TimeUnit.SECONDS));
 
         Object taskFinishedOrLostSignal = new Object();
 

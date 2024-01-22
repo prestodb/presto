@@ -27,10 +27,14 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.operator.HttpRpcShuffleClient.PageResponseHandler;
 import com.facebook.presto.operator.PageBufferClient.PagesResponse;
+import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -39,6 +43,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.http.client.HttpStatus.familyForStatusCode;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -52,6 +57,9 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
+import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
+import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -70,6 +78,8 @@ public class PrestoSparkHttpTaskClient
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration infoRefreshMaxWait;
+    private final ScheduledExecutorService errorRetryScheduledExecutor;
+    private final Duration remoteTaskMaxErrorDuration;
 
     public PrestoSparkHttpTaskClient(
             HttpClient httpClient,
@@ -78,7 +88,9 @@ public class PrestoSparkHttpTaskClient
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
             JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
-            Duration infoRefreshMaxWait)
+            Duration infoRefreshMaxWait,
+            ScheduledExecutorService errorRetryScheduledExecutor,
+            Duration remoteTaskMaxErrorDuration)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.location = requireNonNull(location, "location is null");
@@ -87,25 +99,78 @@ public class PrestoSparkHttpTaskClient
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         this.taskUri = createTaskUri(location, taskId);
         this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
+        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        this.remoteTaskMaxErrorDuration = requireNonNull(remoteTaskMaxErrorDuration, "remoteTaskMaxErrorDuration is null");
     }
 
     /**
      * Get results from a native engine task that ends with none shuffle operator. It always fetches from a single buffer.
      */
-    public ListenableFuture<PagesResponse> getResults(
-            long token,
-            DataSize maxResponseSize)
+    public ListenableFuture<PagesResponse> getResults(long token, DataSize maxResponseSize)
     {
-        URI uri = uriBuilderFrom(taskUri)
-                .appendPath("/results/0")
-                .appendPath(String.valueOf(token))
+        RequestErrorTracker errorTracker = new RequestErrorTracker(
+                "NativeExecution",
+                location,
+                NATIVE_EXECUTION_TASK_ERROR,
+                "getResults encountered too many errors talking to native process",
+                remoteTaskMaxErrorDuration,
+                errorRetryScheduledExecutor,
+                "sending update request to native process");
+        SettableFuture<PagesResponse> result = SettableFuture.create();
+        scheduleGetResultsRequest(token, maxResponseSize, errorTracker, result);
+        return result;
+    }
+
+    private void scheduleGetResultsRequest(
+            long token,
+            DataSize maxResponseSize,
+            RequestErrorTracker errorTracker,
+            SettableFuture<PagesResponse> result)
+    {
+        ListenableFuture<PagesResponse> responseFuture = transformAsync(
+                errorTracker.acquireRequestPermit(),
+                ignored -> {
+                    errorTracker.startRequest();
+                    return httpClient.executeAsync(prepareGetResultsRequest(token, maxResponseSize), new PageResponseHandler());
+                },
+                errorRetryScheduledExecutor);
+        addCallback(responseFuture, new FutureCallback<PagesResponse>()
+        {
+            @Override
+            public void onSuccess(PagesResponse response)
+            {
+                errorTracker.requestSucceeded();
+                result.set(response);
+            }
+
+            @Override
+            public void onFailure(Throwable failure)
+            {
+                if (failure instanceof PrestoException) {
+                    // do not retry on PrestoException
+                    result.setException(failure);
+                    return;
+                }
+                try {
+                    errorTracker.requestFailed(failure);
+                    scheduleGetResultsRequest(token, maxResponseSize, errorTracker, result);
+                }
+                catch (Throwable t) {
+                    result.setException(t);
+                }
+            }
+        }, errorRetryScheduledExecutor);
+    }
+
+    private Request prepareGetResultsRequest(long token, DataSize maxResponseSize)
+    {
+        return prepareGet()
+                .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
+                .setUri(uriBuilderFrom(taskUri)
+                        .appendPath("/results/0")
+                        .appendPath(String.valueOf(token))
+                        .build())
                 .build();
-        return httpClient.executeAsync(
-                prepareGet()
-                        .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
-                        .setUri(uri)
-                        .build(),
-                new PageResponseHandler());
     }
 
     public void acknowledgeResultsAsync(long nextToken)

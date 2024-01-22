@@ -28,7 +28,6 @@ import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskInfoFetcher;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
@@ -78,7 +77,6 @@ public class NativeExecutionTask
     // Results will be fetched only if not written to shuffle.
     private final Optional<HttpNativeExecutionTaskResultFetcher> taskResultFetcher;
     private final Object taskFinishedOrHasResult = new Object();
-    private Optional<TokenAuthenticator> tokenAuthenticator;
 
     public NativeExecutionTask(
             Session session,
@@ -119,10 +117,7 @@ public class NativeExecutionTask
         if (!shuffleWriteInfo.isPresent()) {
             this.taskResultFetcher = Optional.of(new HttpNativeExecutionTaskResultFetcher(
                     updateScheduledExecutor,
-                    errorRetryScheduledExecutor,
                     this.workerClient,
-                    this.executor,
-                    remoteTaskMaxErrorDuration,
                     taskFinishedOrHasResult));
         }
         else {
