@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static java.util.Objects.requireNonNull;
@@ -40,6 +41,7 @@ public class DetachedNativeExecutionProcess
     public DetachedNativeExecutionProcess(
             Session session,
             HttpClient httpClient,
+            ExecutorService executorService,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
@@ -48,6 +50,7 @@ public class DetachedNativeExecutionProcess
     {
         super(session,
                 httpClient,
+                executorService,
                 errorRetryScheduledExecutor,
                 serverInfoCodec,
                 maxErrorDuration,

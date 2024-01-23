@@ -191,6 +191,7 @@ public class TestPrestoSparkHttpClient
                 TASK_UPDATE_REQUEST_JSON_CODEC,
                 new Duration(1, TimeUnit.SECONDS),
                 scheduledExecutorService,
+                scheduledExecutorService,
                 new Duration(1, TimeUnit.SECONDS));
     }
 
@@ -848,7 +849,6 @@ public class TestPrestoSparkHttpClient
                     new TestingHttpClient(
                             scheduledExecutorService,
                             new TestingResponseManager(taskId.toString(), new TimeoutResponseManager(0, 10, 0))),
-                    scheduledExecutorService,
                     scheduledExecutorService,
                     scheduledExecutorService,
                     TASK_INFO_JSON_CODEC,

@@ -58,6 +58,7 @@ public class TestHttpNativeExecutionTaskInfoFetcher
                 // very low tolerance for error for unit testing
                 new Duration(1, TimeUnit.MILLISECONDS),
                 updateScheduledExecutor,
+                updateScheduledExecutor,
                 new Duration(1, TimeUnit.SECONDS));
 
         Object taskFinishedOrLostSignal = new Object();

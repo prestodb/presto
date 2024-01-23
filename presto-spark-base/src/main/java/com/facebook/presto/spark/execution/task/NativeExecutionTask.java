@@ -74,8 +74,7 @@ public class NativeExecutionTask
             TableWriteInfo tableWriteInfo,
             Optional<String> shuffleWriteInfo,
             Optional<String> broadcastBasePath,
-            ScheduledExecutorService updateScheduledExecutor,
-            ScheduledExecutorService errorRetryScheduledExecutor,
+            ScheduledExecutorService scheduledExecutorService,
             TaskManagerConfig taskManagerConfig)
     {
         this.session = requireNonNull(session, "session is null");
@@ -87,16 +86,15 @@ public class NativeExecutionTask
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.outputBuffers = createInitialEmptyOutputBuffers(planFragment.getPartitioningScheme().getPartitioning().getHandle()).withNoMoreBufferIds();
         requireNonNull(taskManagerConfig, "taskManagerConfig is null");
-        requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
-        requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
         this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
-                updateScheduledExecutor,
+                scheduledExecutorService,
                 this.workerClient,
                 taskManagerConfig.getInfoUpdateInterval(),
                 taskFinishedOrHasResult);
         if (!shuffleWriteInfo.isPresent()) {
             this.taskResultFetcher = Optional.of(new HttpNativeExecutionTaskResultFetcher(
-                    updateScheduledExecutor,
+                    scheduledExecutorService,
                     this.workerClient,
                     taskFinishedOrHasResult));
         }
