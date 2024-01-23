@@ -207,26 +207,26 @@ std::string PrestoServerOperations::taskOperation(
     }
     case ServerOperation::Action::kListAll: {
       uint32_t limit;
+      const auto& limitStr = message->getQueryParam("limit");
       try {
-        const auto& limitStr = message->getQueryParam("limit");
         limit = limitStr == proxygen::empty_string
             ? std::numeric_limits<uint32_t>::max()
             : stoi(limitStr);
       } catch (std::exception& ex) {
-        VELOX_USER_FAIL(ex.what());
+        VELOX_USER_FAIL("Invalid limit provided '{}'.", limitStr);
       }
       std::stringstream oss;
       oss << "[";
       uint32_t count = 0;
-      for (const auto& task : taskMap) {
-        const auto& veloxTask = task.second->task;
+      for (auto taskItr = taskMap.begin(); taskItr != taskMap.end();
+           ++taskItr) {
+        const auto& veloxTask = taskItr->second->task;
         if (++count > limit) {
           oss << "... " << (taskMap.size() - limit) << " more tasks ...\n";
           break;
         }
-        oss << task.first << "("
-            << (veloxTask == nullptr ? "null" : veloxTask->toShortJsonString())
-            << "),\n";
+        oss << (veloxTask == nullptr ? "null" : veloxTask->toShortJsonString())
+            << (taskItr != std::prev(taskMap.end()) ? ",\n" : "\n");
       }
       oss << "]";
       return oss.str();
