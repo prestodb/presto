@@ -496,7 +496,7 @@ Each query can override the config by setting corresponding query session proper
      - Description
    * - hive.s3.use-instance-credentials
      - bool
-     - true
+     - false
      - Use the EC2 metadata service to retrieve API credentials. This works with IAM roles in EC2.
    * - hive.s3.aws-access-key
      - string
