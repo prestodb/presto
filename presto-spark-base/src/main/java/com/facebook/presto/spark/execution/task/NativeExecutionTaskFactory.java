@@ -47,8 +47,7 @@ public class NativeExecutionTaskFactory
     private final HttpClient httpClient;
     private final ExecutorService coreExecutor;
     private final Executor executor;
-    private final ScheduledExecutorService updateScheduledExecutor;
-    private final ScheduledExecutorService errorRetryScheduledExecutor;
+    private final ScheduledExecutorService scheduledExecutorService;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
@@ -59,8 +58,7 @@ public class NativeExecutionTaskFactory
     public NativeExecutionTaskFactory(
             @ForNativeExecutionTask HttpClient httpClient,
             ExecutorService coreExecutor,
-            ScheduledExecutorService updateScheduledExecutor,
-            ScheduledExecutorService errorRetryScheduledExecutor,
+            ScheduledExecutorService scheduledExecutorService,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
             JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
@@ -70,8 +68,7 @@ public class NativeExecutionTaskFactory
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
         this.executor = new BoundedExecutor(coreExecutor, MAX_THREADS);
-        this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
-        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        this.scheduledExecutorService = requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
@@ -97,7 +94,8 @@ public class NativeExecutionTaskFactory
                 planFragmentCodec,
                 taskUpdateRequestCodec,
                 taskManagerConfig.getInfoRefreshMaxWait(),
-                errorRetryScheduledExecutor,
+                executor,
+                scheduledExecutorService,
                 queryManagerConfig.getRemoteTaskMaxErrorDuration());
         return new NativeExecutionTask(
                 session,
@@ -107,8 +105,7 @@ public class NativeExecutionTaskFactory
                 tableWriteInfo,
                 shuffleWriteInfo,
                 broadcastBasePath,
-                updateScheduledExecutor,
-                errorRetryScheduledExecutor,
+                scheduledExecutorService,
                 taskManagerConfig);
     }
 
@@ -116,7 +113,7 @@ public class NativeExecutionTaskFactory
     public void stop()
     {
         coreExecutor.shutdownNow();
-        updateScheduledExecutor.shutdownNow();
+        scheduledExecutorService.shutdownNow();
     }
 
     public HttpClient getHttpClient()
@@ -134,14 +131,9 @@ public class NativeExecutionTaskFactory
         return executor;
     }
 
-    public ScheduledExecutorService getUpdateScheduledExecutor()
+    public ScheduledExecutorService getScheduledExecutorService()
     {
-        return updateScheduledExecutor;
-    }
-
-    public ScheduledExecutorService getErrorRetryScheduledExecutor()
-    {
-        return errorRetryScheduledExecutor;
+        return scheduledExecutorService;
     }
 
     public JsonCodec<TaskInfo> getTaskInfoCodec()

@@ -76,6 +76,7 @@ public class NativeExecutionProcessFactory
             return new NativeExecutionProcess(
                     session,
                     httpClient,
+                    coreExecutor,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
                     maxErrorDuration,

@@ -54,6 +54,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -88,7 +89,7 @@ public class NativeExecutionProcess
     private final PrestoSparkHttpServerClient serverClient;
     private final URI location;
     private final int port;
-    private final ScheduledExecutorService errorRetryScheduledExecutor;
+    private final Executor executor;
     private final RequestErrorTracker errorTracker;
     private final HttpClient httpClient;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
@@ -99,7 +100,8 @@ public class NativeExecutionProcess
     public NativeExecutionProcess(
             Session session,
             HttpClient httpClient,
-            ScheduledExecutorService errorRetryScheduledExecutor,
+            Executor executor,
+            ScheduledExecutorService scheduledExecutorService,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
             WorkerProperty<?, ?, ?, ?> workerProperty)
@@ -118,14 +120,14 @@ public class NativeExecutionProcess
                 this.httpClient,
                 location,
                 serverInfoCodec);
-        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.errorTracker = new RequestErrorTracker(
                 "NativeExecution",
                 location,
                 NATIVE_EXECUTION_TASK_ERROR,
                 NATIVE_EXECUTION_TASK_ERROR_MESSAGE,
                 maxErrorDuration,
-                errorRetryScheduledExecutor,
+                scheduledExecutorService,
                 "getting native process status");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
@@ -378,7 +380,7 @@ public class NativeExecutionProcess
                     doGetServerInfo(future);
                 }
                 else {
-                    errorRateLimit.addListener(() -> doGetServerInfo(future), errorRetryScheduledExecutor);
+                    errorRateLimit.addListener(() -> doGetServerInfo(future), executor);
                 }
             }
         }, directExecutor());

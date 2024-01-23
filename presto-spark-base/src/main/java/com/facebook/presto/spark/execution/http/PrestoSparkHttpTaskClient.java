@@ -52,6 +52,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
@@ -87,7 +88,8 @@ public class PrestoSparkHttpTaskClient
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration infoRefreshMaxWait;
-    private final ScheduledExecutorService errorRetryScheduledExecutor;
+    private final Executor executor;
+    private final ScheduledExecutorService scheduledExecutorService;
     private final Duration remoteTaskMaxErrorDuration;
 
     public PrestoSparkHttpTaskClient(
@@ -98,7 +100,8 @@ public class PrestoSparkHttpTaskClient
             JsonCodec<PlanFragment> planFragmentCodec,
             JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
             Duration infoRefreshMaxWait,
-            ScheduledExecutorService errorRetryScheduledExecutor,
+            Executor executor,
+            ScheduledExecutorService scheduledExecutorService,
             Duration remoteTaskMaxErrorDuration)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -108,7 +111,8 @@ public class PrestoSparkHttpTaskClient
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         this.taskUri = createTaskUri(location, taskId);
         this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
-        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.scheduledExecutorService = requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
         this.remoteTaskMaxErrorDuration = requireNonNull(remoteTaskMaxErrorDuration, "remoteTaskMaxErrorDuration is null");
     }
 
@@ -123,7 +127,7 @@ public class PrestoSparkHttpTaskClient
                 NATIVE_EXECUTION_TASK_ERROR,
                 "getResults encountered too many errors talking to native process",
                 remoteTaskMaxErrorDuration,
-                errorRetryScheduledExecutor,
+                scheduledExecutorService,
                 "sending update request to native process");
         SettableFuture<PagesResponse> result = SettableFuture.create();
         scheduleGetResultsRequest(prepareGetResultsRequest(token, maxResponseSize), errorTracker, result);
@@ -141,7 +145,7 @@ public class PrestoSparkHttpTaskClient
                     errorTracker.startRequest();
                     return httpClient.executeAsync(request, new PageResponseHandler());
                 },
-                errorRetryScheduledExecutor);
+                executor);
         addCallback(responseFuture, new FutureCallback<PagesResponse>()
         {
             @Override
@@ -167,7 +171,7 @@ public class PrestoSparkHttpTaskClient
                     result.setException(t);
                 }
             }
-        }, errorRetryScheduledExecutor);
+        }, executor);
     }
 
     private Request prepareGetResultsRequest(long token, DataSize maxResponseSize)
@@ -215,7 +219,8 @@ public class PrestoSparkHttpTaskClient
                 .build();
         ListenableFuture<TaskInfo> future = executeWithRetries(
                 "getTaskInfo",
-                "get remote task info", request,
+                "get remote task info",
+                request,
                 createAdaptingJsonResponseHandler(taskInfoCodec));
         return getFutureValue(future);
     }
@@ -284,7 +289,7 @@ public class PrestoSparkHttpTaskClient
                 NATIVE_EXECUTION_TASK_ERROR,
                 name + " encountered too many errors talking to native process",
                 remoteTaskMaxErrorDuration,
-                errorRetryScheduledExecutor,
+                scheduledExecutorService,
                 description);
         SettableFuture<T> result = SettableFuture.create();
         scheduleRequest(request, responseHandler, errorTracker, result);
@@ -303,7 +308,7 @@ public class PrestoSparkHttpTaskClient
                     errorTracker.startRequest();
                     return httpClient.executeAsync(request, responseHandler);
                 },
-                errorRetryScheduledExecutor);
+                executor);
         SimpleHttpResponseCallback<T> callback = new SimpleHttpResponseCallback<T>()
         {
             @Override
@@ -342,7 +347,7 @@ public class PrestoSparkHttpTaskClient
                         location,
                         new SimpleHttpResponseHandlerStats(),
                         REMOTE_TASK_ERROR),
-                errorRetryScheduledExecutor);
+                executor);
     }
 
     private static class BytesResponseHandler
