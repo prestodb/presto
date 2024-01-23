@@ -356,8 +356,7 @@ public class CteProjectionAndPredicatePushDown
                             newConsumerColumns.add(pair.getValue());
                         }
                     });
-
-            return new CteConsumerNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), newConsumerColumns, node.getCteName());
+            return new CteConsumerNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), newConsumerColumns, node.getCteName(), node.getOriginalSource());
         }
 
         public boolean isPlanRewritten()

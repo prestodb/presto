@@ -263,7 +263,8 @@ public class TestFeaturesConfig
                 .setKHyperLogLogAggregationGroupNumberLimit(0)
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(true)
                 .setGenerateDomainFilters(false)
-                .setRewriteExpressionWithConstantVariable(true));
+                .setRewriteExpressionWithConstantVariable(true)
+                .setDefaultWriterReplicationCoefficient(3.0));
     }
 
     @Test
@@ -473,6 +474,7 @@ public class TestFeaturesConfig
                 .put("limit-khyperloglog-agg-group-number-enabled", "false")
                 .put("optimizer.generate-domain-filters", "true")
                 .put("optimizer.rewrite-expression-with-constant-variable", "false")
+                .put("optimizer.default-writer-replication-coefficient", "5.0")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -679,7 +681,8 @@ public class TestFeaturesConfig
                 .setKHyperLogLogAggregationGroupNumberLimit(1000)
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(false)
                 .setGenerateDomainFilters(true)
-                .setRewriteExpressionWithConstantVariable(false);
+                .setRewriteExpressionWithConstantVariable(false)
+                .setDefaultWriterReplicationCoefficient(5.0);
         assertFullMapping(properties, expected);
     }
 

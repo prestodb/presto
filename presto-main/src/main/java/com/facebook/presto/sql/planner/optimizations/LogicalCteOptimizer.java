@@ -159,7 +159,7 @@ public class LogicalCteOptimizer
                     node.getCteName(),
                     variableAllocator.newVariable("rows", BIGINT), node.getOutputVariables());
             context.get().addProducer(node.getCteName(), cteProducerSource);
-            return new CteConsumerNode(node.getSourceLocation(), idAllocator.getNextId(), actualSource.getOutputVariables(), node.getCteName());
+            return new CteConsumerNode(node.getSourceLocation(), idAllocator.getNextId(), Optional.of(actualSource), actualSource.getOutputVariables(), node.getCteName(), actualSource);
         }
 
         @Override
