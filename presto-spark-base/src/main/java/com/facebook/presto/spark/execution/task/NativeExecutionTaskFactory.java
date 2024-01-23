@@ -107,11 +107,9 @@ public class NativeExecutionTaskFactory
                 tableWriteInfo,
                 shuffleWriteInfo,
                 broadcastBasePath,
-                executor,
                 updateScheduledExecutor,
                 errorRetryScheduledExecutor,
-                taskManagerConfig,
-                queryManagerConfig);
+                taskManagerConfig);
     }
 
     @PreDestroy
