@@ -102,6 +102,7 @@ import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCom
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -665,7 +666,7 @@ public class PrestoSparkNativeTaskExecutorFactory
             boolean terminateWithCoreWhenUnresponsive,
             Duration terminateWithCoreTimeout)
     {
-        if (failure instanceof PrestoTransportException) {
+        if (isCommunicationLoss(failure)) {
             PrestoTransportException transportException = (PrestoTransportException) failure;
             String message;
             // lost communication with the native execution process
@@ -691,5 +692,14 @@ public class PrestoSparkNativeTaskExecutorFactory
                     failure);
         }
         return failure;
+    }
+
+    private static boolean isCommunicationLoss(RuntimeException failure)
+    {
+        if (!(failure instanceof PrestoTransportException)) {
+            return false;
+        }
+        PrestoTransportException transportException = (PrestoTransportException) failure;
+        return TOO_MANY_REQUESTS_FAILED.toErrorCode().equals(transportException.getErrorCode());
     }
 }

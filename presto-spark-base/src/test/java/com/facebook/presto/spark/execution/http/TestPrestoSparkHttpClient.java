@@ -22,7 +22,6 @@ import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -46,7 +45,6 @@ import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.task.NativeExecutionTask;
 import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
-import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.page.PageCodecMarker;
@@ -92,7 +90,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
-import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -604,7 +601,7 @@ public class TestPrestoSparkHttpClient
     private static class PrestoExceptionResponseManager
             extends TestingResponseManager.TestingResultResponseManager
     {
-        private int requestCount = 0;
+        private int requestCount;
 
         @Override
         public Response createResultResponse(String taskId)
@@ -1282,7 +1279,7 @@ public class TestPrestoSparkHttpClient
             public Response createTaskInfoResponse(HttpStatus httpStatus, String taskId)
                     throws PrestoException
             {
-                throw new RuntimeException( "Server refused connection");
+                throw new RuntimeException("Server refused connection");
             }
         }
     }
