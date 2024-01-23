@@ -172,7 +172,7 @@ public class HttpNativeExecutionTaskResultFetcher
         }
         token = nextToken;
         if (pagesResponse.isClientComplete()) {
-            workerClient.abortResults();
+            workerClient.abortResultsAsync();
             scheduledFuture.cancel(false);
         }
         if (!pages.isEmpty()) {
@@ -184,7 +184,7 @@ public class HttpNativeExecutionTaskResultFetcher
 
     private void onFailure(Throwable t)
     {
-        workerClient.abortResults();
+        workerClient.abortResultsAsync();
         stop(false);
         lastException.set(t);
         synchronized (taskHasResult) {
