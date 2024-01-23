@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spark.execution.http;
 
+import com.facebook.airlift.http.client.HeaderName;
 import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
@@ -28,11 +28,18 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.operator.HttpRpcShuffleClient.PageResponseHandler;
 import com.facebook.presto.operator.PageBufferClient.PagesResponse;
 import com.facebook.presto.server.RequestErrorTracker;
+import com.facebook.presto.server.SimpleHttpResponseCallback;
+import com.facebook.presto.server.SimpleHttpResponseHandler;
+import com.facebook.presto.server.SimpleHttpResponseHandlerStats;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
@@ -40,27 +47,29 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.airlift.http.client.HttpStatus.familyForStatusCode;
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.ResponseHandlerUtils.propagate;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.transformAsync;
-import static java.lang.String.format;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -117,13 +126,12 @@ public class PrestoSparkHttpTaskClient
                 errorRetryScheduledExecutor,
                 "sending update request to native process");
         SettableFuture<PagesResponse> result = SettableFuture.create();
-        scheduleGetResultsRequest(token, maxResponseSize, errorTracker, result);
+        scheduleGetResultsRequest(prepareGetResultsRequest(token, maxResponseSize), errorTracker, result);
         return result;
     }
 
     private void scheduleGetResultsRequest(
-            long token,
-            DataSize maxResponseSize,
+            Request request,
             RequestErrorTracker errorTracker,
             SettableFuture<PagesResponse> result)
     {
@@ -131,7 +139,7 @@ public class PrestoSparkHttpTaskClient
                 errorTracker.acquireRequestPermit(),
                 ignored -> {
                     errorTracker.startRequest();
-                    return httpClient.executeAsync(prepareGetResultsRequest(token, maxResponseSize), new PageResponseHandler());
+                    return httpClient.executeAsync(request, new PageResponseHandler());
                 },
                 errorRetryScheduledExecutor);
         addCallback(responseFuture, new FutureCallback<PagesResponse>()
@@ -153,7 +161,7 @@ public class PrestoSparkHttpTaskClient
                 }
                 try {
                     errorTracker.requestFailed(failure);
-                    scheduleGetResultsRequest(token, maxResponseSize, errorTracker, result);
+                    scheduleGetResultsRequest(request, errorTracker, result);
                 }
                 catch (Throwable t) {
                     result.setException(t);
@@ -180,62 +188,39 @@ public class PrestoSparkHttpTaskClient
                 .appendPath(String.valueOf(nextToken))
                 .appendPath("acknowledge")
                 .build();
-        httpExecuteAsync(prepareGet().setUri(uri).build(), null);
+        Request request = prepareGet().setUri(uri).build();
+        executeWithRetries("acknowledgeResults", "acknowledge task results are received", request, new BytesResponseHandler());
     }
 
-    public ListenableFuture<?> abortResults()
+    public ListenableFuture<Void> abortResultsAsync()
     {
-        return httpClient.executeAsync(
-                prepareDelete().setUri(
-                                uriBuilderFrom(taskUri)
-                                        .appendPath("/results/0")
-                                        .build())
-                        .build(),
-                createStatusResponseHandler());
+        Request request = prepareDelete().setUri(
+                        uriBuilderFrom(taskUri)
+                                .appendPath("/results/0")
+                                .build())
+                .build();
+        return asVoidFuture(executeWithRetries("abortResults", "abort task results", request, new BytesResponseHandler()));
     }
 
-    public ListenableFuture<BaseResponse<TaskInfo>> getTaskInfo()
+    private static ListenableFuture<Void> asVoidFuture(ListenableFuture<?> future)
+    {
+        return Futures.transform(future, (ignored) -> null, directExecutor());
+    }
+
+    public TaskInfo getTaskInfo()
     {
         Request request = setContentTypeHeaders(false, prepareGet())
                 .setHeader(PRESTO_MAX_WAIT, infoRefreshMaxWait.toString())
                 .setUri(taskUri)
                 .build();
-
-        return httpExecuteAsync(request, taskInfoCodec);
+        ListenableFuture<TaskInfo> future = executeWithRetries(
+                "getTaskInfo",
+                "get remote task info", request,
+                createAdaptingJsonResponseHandler(taskInfoCodec));
+        return getFutureValue(future);
     }
 
-    private <T> ListenableFuture<BaseResponse<T>> httpExecuteAsync(Request request, JsonCodec<T> codec)
-    {
-        return httpClient.executeAsync(request, new ResponseHandler<BaseResponse<T>, RuntimeException>()
-        {
-            @Override
-            public BaseResponse<T> handleException(Request request, Exception exception)
-            {
-                throw propagate(request, exception);
-            }
-
-            @Override
-            public BaseResponse<T> handle(Request request, Response response)
-            {
-                if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
-                    throw new RuntimeException(format("Unexpected http response code: %s", response.getStatusCode()));
-                }
-
-                if (codec == null) {
-                    return null;
-                }
-
-                try {
-                    return createAdaptingJsonResponseHandler(codec).handle(request, response);
-                }
-                catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-    }
-
-    public BaseResponse<TaskInfo> updateTask(
+    public TaskInfo updateTask(
             List<TaskSource> sources,
             PlanFragment planFragment,
             TableWriteInfo tableWriteInfo,
@@ -255,15 +240,18 @@ public class PrestoSparkHttpTaskClient
                 writeInfo);
         BatchTaskUpdateRequest batchTaskUpdateRequest = new BatchTaskUpdateRequest(updateRequest, shuffleWriteInfo, broadcastBasePath);
 
-        URI batchTaskUri = uriBuilderFrom(taskUri)
-                .appendPath("batch")
+        Request request = setContentTypeHeaders(false, preparePost())
+                .setUri(uriBuilderFrom(taskUri)
+                        .appendPath("batch")
+                        .build())
+                .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestCodec.toBytes(batchTaskUpdateRequest)))
                 .build();
-        return httpClient.execute(
-                setContentTypeHeaders(false, preparePost())
-                        .setUri(batchTaskUri)
-                        .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestCodec.toBytes(batchTaskUpdateRequest)))
-                        .build(),
+        ListenableFuture<TaskInfo> future = executeWithRetries(
+                "updateTask",
+                "create or update remote task",
+                request,
                 createAdaptingJsonResponseHandler(taskInfoCodec));
+        return getFutureValue(future);
     }
 
     public URI getLocation()
@@ -282,5 +270,191 @@ public class PrestoSparkHttpTaskClient
                 .appendPath(TASK_URI)
                 .appendPath(taskId.toString())
                 .build();
+    }
+
+    private <T> ListenableFuture<T> executeWithRetries(
+            String name,
+            String description,
+            Request request,
+            ResponseHandler<BaseResponse<T>, RuntimeException> responseHandler)
+    {
+        RequestErrorTracker errorTracker = new RequestErrorTracker(
+                "NativeExecution",
+                location,
+                NATIVE_EXECUTION_TASK_ERROR,
+                name + " encountered too many errors talking to native process",
+                remoteTaskMaxErrorDuration,
+                errorRetryScheduledExecutor,
+                description);
+        SettableFuture<T> result = SettableFuture.create();
+        scheduleRequest(request, responseHandler, errorTracker, result);
+        return result;
+    }
+
+    private <T> void scheduleRequest(
+            Request request,
+            ResponseHandler<BaseResponse<T>, RuntimeException> responseHandler,
+            RequestErrorTracker errorTracker,
+            SettableFuture<T> result)
+    {
+        ListenableFuture<BaseResponse<T>> responseFuture = transformAsync(
+                errorTracker.acquireRequestPermit(),
+                ignored -> {
+                    errorTracker.startRequest();
+                    return httpClient.executeAsync(request, responseHandler);
+                },
+                errorRetryScheduledExecutor);
+        SimpleHttpResponseCallback<T> callback = new SimpleHttpResponseCallback<T>()
+        {
+            @Override
+            public void success(T value)
+            {
+                result.set(value);
+            }
+
+            @Override
+            public void failed(Throwable failure)
+            {
+                if (failure instanceof PrestoException) {
+                    // do not retry on PrestoException
+                    result.setException(failure);
+                    return;
+                }
+                try {
+                    errorTracker.requestFailed(failure);
+                    scheduleRequest(request, responseHandler, errorTracker, result);
+                }
+                catch (Throwable t) {
+                    result.setException(t);
+                }
+            }
+
+            @Override
+            public void fatal(Throwable cause)
+            {
+                result.setException(cause);
+            }
+        };
+        addCallback(
+                responseFuture,
+                new SimpleHttpResponseHandler<>(
+                        callback,
+                        location,
+                        new SimpleHttpResponseHandlerStats(),
+                        REMOTE_TASK_ERROR),
+                errorRetryScheduledExecutor);
+    }
+
+    private static class BytesResponseHandler
+            implements ResponseHandler<BaseResponse<byte[]>, RuntimeException>
+    {
+        @Override
+        public BaseResponse<byte[]> handleException(Request request, Exception exception)
+        {
+            throw propagate(request, exception);
+        }
+
+        @Override
+        public BaseResponse<byte[]> handle(Request request, Response response)
+        {
+
+            return new BytesResponse(
+                    response.getStatusCode(),
+                    response.getStatusMessage(),
+                    response.getHeaders(),
+                    readResponseBytes(response));
+        }
+
+        private static byte[] readResponseBytes(Response response)
+        {
+            try {
+                InputStream inputStream = response.getInputStream();
+                if (inputStream == null) {
+                    return new byte[] {};
+                }
+                return ByteStreams.toByteArray(inputStream);
+            }
+            catch (IOException e) {
+                throw new RuntimeException("Error reading response from server", e);
+            }
+        }
+    }
+
+    private static class BytesResponse
+            implements BaseResponse<byte[]>
+    {
+        private final int statusCode;
+        private final String statusMessage;
+        private final ListMultimap<HeaderName, String> headers;
+        private final byte[] bytes;
+
+        public BytesResponse(int statusCode, String statusMessage, ListMultimap<HeaderName, String> headers, byte[] bytes)
+        {
+            this.statusCode = statusCode;
+            this.statusMessage = requireNonNull(statusMessage, "statusMessage is null");
+            this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
+            this.bytes = bytes;
+        }
+
+        @Override
+        public int getStatusCode()
+        {
+            return statusCode;
+        }
+
+        @Override
+        public String getStatusMessage()
+        {
+            return statusMessage;
+        }
+
+        @Override
+        public String getHeader(String name)
+        {
+            List<String> values = getHeaders().get(HeaderName.of(name));
+            return values.isEmpty() ? null : values.get(0);
+        }
+
+        @Override
+        public List<String> getHeaders(String name)
+        {
+            return headers.get(HeaderName.of(name));
+        }
+
+        @Override
+        public ListMultimap<HeaderName, String> getHeaders()
+        {
+            return headers;
+        }
+
+        @Override
+        public boolean hasValue()
+        {
+            return true;
+        }
+
+        @Override
+        public byte[] getValue()
+        {
+            return bytes;
+        }
+
+        @Override
+        public int getResponseSize()
+        {
+            return bytes.length;
+        }
+
+        @Override
+        public byte[] getResponseBytes()
+        {
+            return bytes;
+        }
+
+        @Override
+        public Exception getException()
+        {
+            return null;
+        }
     }
 }
