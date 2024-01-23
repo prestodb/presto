@@ -55,6 +55,20 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT endswith('js SQL', 'js'); -- false
         SELECT endswith('js SQL', NULL); -- NULL
 
+.. spark:function:: find_in_set(str, strArray) -> integer
+
+    Returns 1-based index of the given string ``str`` in the comma-delimited list ``strArray``.
+    Returns 0, if the string was not found or if the given string ``str`` contains a comma. ::
+
+        SELECT find_in_set('ab', 'abc,b,ab,c,def'); -- 3
+        SELECT find_in_set('ab,', 'abc,b,ab,c,def'); -- 0
+        SELECT find_in_set('dfg', 'abc,b,ab,c,def'); -- 0
+        SELECT find_in_set('', ''); -- 1
+        SELECT find_in_set('', '123,'); -- 2
+        SELECT find_in_set('', ',123'); -- 1
+        SELECT find_in_set(NULL, ',123'); -- NULL
+        SELECT find_in_set("abc", NULL); -- NULL
+
 .. spark:function:: instr(string, substring) -> integer
 
     Returns the starting position of the first instance of ``substring`` in

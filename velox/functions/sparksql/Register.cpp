@@ -248,6 +248,9 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<ReplaceFunction, Varchar, Varchar, Varchar, Varchar>(
       {prefix + "replace"});
 
+  registerFunction<FindInSetFunction, int32_t, Varchar, Varchar>(
+      {prefix + "find_in_set"});
+
   // Register array sort functions.
   exec::registerStatefulVectorFunction(
       prefix + "array_sort", arraySortSignatures(), makeArraySort);
