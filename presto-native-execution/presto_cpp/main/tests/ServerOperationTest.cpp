@@ -13,15 +13,24 @@
  */
 #include "presto_cpp/main/ServerOperation.h"
 #include <gtest/gtest.h>
+#include "presto_cpp/main/PrestoServerOperations.h"
+#include "presto_cpp/main/TaskManager.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/memory/Memory.h"
+#include "velox/connectors/hive/HiveConnector.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
+
+using namespace facebook::velox;
 
 namespace facebook::presto {
 
 class ServerOperationTest : public testing::Test {
   void SetUp() override {
     FLAGS_velox_memory_leak_check_enabled = true;
+    memory::MemoryManager::testingSetInstance({});
   }
 };
 
@@ -124,6 +133,102 @@ TEST_F(ServerOperationTest, buildServerOp) {
   EXPECT_THROW(
       op = buildServerOpFromHttpMsgPath("/v1/operation/whatzit/setProperty"),
       velox::VeloxUserError);
+}
+
+TEST_F(ServerOperationTest, taskEndpoint) {
+  // Setup environment for TaskManager
+  auto hiveConnector =
+      connector::getConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)
+          ->newConnector("test-hive", std::make_shared<core::MemConfig>());
+  connector::registerConnector(hiveConnector);
+
+  const auto driverExecutor = std::make_shared<folly::CPUThreadPoolExecutor>(
+      4, std::make_shared<folly::NamedThreadFactory>("Driver"));
+  const auto httpSrvCpuExecutor =
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          4, std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
+  auto taskManager = std::make_unique<TaskManager>(
+      driverExecutor.get(), httpSrvCpuExecutor.get(), nullptr);
+
+  const std::function<void(const std::string& taskId)> addDummyTask =
+      [taskManager = taskManager.get()](const std::string& taskId) {
+        protocol::TaskUpdateRequest updateRequest;
+        auto planFragment =
+            exec::test::PlanBuilder()
+                .tableScan(ROW({"c0", "c1"}, {INTEGER(), VARCHAR()}))
+                .partitionedOutput({}, 1, {"c0", "c1"})
+                .planFragment();
+
+        taskManager->createOrUpdateTask(
+            taskId,
+            {},
+            planFragment,
+            taskManager->getQueryContextManager()->findOrCreateQueryCtx(
+                taskId, updateRequest.session),
+            0);
+      };
+  std::vector<std::string> taskIds = {"task_0.0.0.0.0", "task_1.0.0.0.0"};
+  for (const auto& taskId : taskIds) {
+    addDummyTask(taskId);
+  }
+  EXPECT_EQ(2, taskManager->tasks().size());
+
+  // Test body
+  PrestoServerOperations serverOperation(taskManager.get());
+
+  proxygen::HTTPMessage httpMessage;
+  auto listAllResponse = serverOperation.taskOperation(
+      {.target = ServerOperation::Target::kTask,
+       .action = ServerOperation::Action::kListAll},
+      &httpMessage);
+  nlohmann::json j = nlohmann::json::parse(listAllResponse);
+  EXPECT_EQ(2, j.size());
+
+  httpMessage.setQueryParam("limit", "1");
+  listAllResponse = serverOperation.taskOperation(
+      {.target = ServerOperation::Target::kTask,
+       .action = ServerOperation::Action::kListAll},
+      &httpMessage);
+  EXPECT_EQ(listAllResponse.substr(0, 19), "Showing 1/2 tasks:\n");
+  j = nlohmann::json::parse(listAllResponse.substr(19));
+  EXPECT_EQ(1, j.size());
+
+  httpMessage.setQueryParam("limit", "abc");
+  VELOX_ASSERT_THROW(
+      serverOperation.taskOperation(
+          {.target = ServerOperation::Target::kTask,
+           .action = ServerOperation::Action::kListAll},
+          &httpMessage),
+      "Invalid limit provided 'abc'.");
+
+  // Cleanup and shutdown
+  for (const auto& taskId : taskIds) {
+    taskManager->deleteTask(taskId, true);
+  }
+  taskManager->shutdown();
+  connector::unregisterConnector("test-hive");
+  driverExecutor->join();
+  httpSrvCpuExecutor->join();
+}
+
+TEST_F(ServerOperationTest, systemConfigEndpoint) {
+  PrestoServerOperations serverOperation(nullptr);
+  proxygen::HTTPMessage httpMessage;
+  httpMessage.setQueryParam("name", "foo");
+  VELOX_ASSERT_THROW(
+      serverOperation.systemConfigOperation(
+          {.target = ServerOperation::Target::kSystemConfig,
+           .action = ServerOperation::Action::kGetProperty},
+          &httpMessage),
+      "Could not find property 'foo'\n");
+
+  httpMessage.setQueryParam("name", "task.max-drivers-per-task");
+  auto getPropertyResponse = serverOperation.systemConfigOperation(
+      {.target = ServerOperation::Target::kSystemConfig,
+       .action = ServerOperation::Action::kGetProperty},
+      &httpMessage);
+  EXPECT_EQ(getPropertyResponse, "16\n");
 }
 
 } // namespace facebook::presto

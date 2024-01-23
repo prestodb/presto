@@ -140,10 +140,11 @@ std::string PrestoServerOperations::systemConfigOperation(
           "Missing 'name' parameter for '{}.{}' operation",
           ServerOperation::targetString(op.target),
           ServerOperation::actionString(op.action));
-      return fmt::format(
-          "{}\n",
-          SystemConfig::instance()->optionalProperty(name).value_or(
-              "<default>"));
+      auto valueOpt = SystemConfig::instance()->optionalProperty(name);
+      VELOX_USER_CHECK(
+          valueOpt.has_value(),
+          fmt::format("Could not find property '{}'\n", name));
+      return fmt::format("{}\n", valueOpt.value());
     }
     default:
       break;
@@ -207,28 +208,30 @@ std::string PrestoServerOperations::taskOperation(
     }
     case ServerOperation::Action::kListAll: {
       uint32_t limit;
+      const auto& limitStr = message->getQueryParam("limit");
       try {
-        const auto& limitStr = message->getQueryParam("limit");
         limit = limitStr == proxygen::empty_string
             ? std::numeric_limits<uint32_t>::max()
             : stoi(limitStr);
       } catch (std::exception& ex) {
-        VELOX_USER_FAIL(ex.what());
+        VELOX_USER_FAIL("Invalid limit provided '{}'.", limitStr);
       }
       std::stringstream oss;
+      if (limit < taskMap.size()) {
+        oss << "Showing " << limit << "/" << taskMap.size() << " tasks:\n";
+      }
       oss << "[";
       uint32_t count = 0;
-      for (const auto& task : taskMap) {
-        const auto& veloxTask = task.second->task;
-        if (++count > limit) {
-          oss << "... " << (taskMap.size() - limit) << " more tasks ...\n";
+      for (auto taskItr = taskMap.begin(); taskItr != taskMap.end();
+           ++taskItr) {
+        const auto& veloxTask = taskItr->second->task;
+        bool atLimit = ++count >= limit;
+        oss << (veloxTask == nullptr ? "null" : veloxTask->toShortJsonString())
+            << (std::next(taskItr) == taskMap.end() || atLimit ? "]\n" : ",\n");
+        if (atLimit) {
           break;
         }
-        oss << task.first << "("
-            << (veloxTask == nullptr ? "null" : veloxTask->toShortJsonString())
-            << "),\n";
       }
-      oss << "]";
       return oss.str();
     }
     default:
