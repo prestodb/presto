@@ -13,8 +13,16 @@
  */
 package com.facebook.presto.execution.executor;
 
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TestSqlTaskExecution;
 import com.facebook.presto.execution.executor.SimulationController.TaskSpecification;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
@@ -23,6 +31,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
+import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 abstract class SimulationTask
@@ -129,6 +139,8 @@ abstract class SimulationTask
             extends SimulationTask
     {
         private final TaskSpecification taskSpecification;
+        private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
+        private static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create();
 
         public LeafTask(TaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
         {
@@ -136,11 +148,19 @@ abstract class SimulationTask
             this.taskSpecification = specification;
         }
 
+        private ScheduledSplit newScheduledSplit(int sequenceId, PlanNodeId planNodeId, Lifespan lifespan, int begin, int count)
+        {
+            return new ScheduledSplit(sequenceId, planNodeId, new Split(CONNECTOR_ID, TRANSACTION_HANDLE, new TestSqlTaskExecution.TestingSplit(begin, begin + count), lifespan, NON_CACHEABLE));
+        }
+
         public void schedule(TaskExecutor taskExecutor, int numSplits)
         {
             ImmutableList.Builder<SimulationSplit> splits = ImmutableList.builder();
+            ImmutableList.Builder<ScheduledSplit> scheduledSplits = ImmutableList.builder();
             for (int i = 0; i < numSplits; i++) {
                 splits.add(taskSpecification.nextSpecification().instantiate(this));
+                // Simulation would not check the content of the scheduledSplit, just put placeholder data.
+                scheduledSplits.add(newScheduledSplit(0, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 100000, 123));
             }
             super.runningSplits.addAll(splits.build());
             taskExecutor.enqueueSplits(getTaskHandle(), false, splits.build());

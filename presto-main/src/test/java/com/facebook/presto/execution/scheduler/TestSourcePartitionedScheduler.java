@@ -548,7 +548,7 @@ public class TestSourcePartitionedScheduler
                 queryExecutor,
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()), false, false);
 
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)
                 .withBuffer(OUT, 0)
@@ -557,7 +557,7 @@ public class TestSourcePartitionedScheduler
         return stage;
     }
 
-    private static class QueuedSplitSource
+    static class QueuedSplitSource
             implements ConnectorSplitSource
     {
         private final Supplier<ConnectorSplit> splitFactory;

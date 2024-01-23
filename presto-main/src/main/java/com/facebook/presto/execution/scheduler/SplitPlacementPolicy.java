@@ -21,7 +21,7 @@ import java.util.Set;
 
 public interface SplitPlacementPolicy
 {
-    SplitPlacementResult computeAssignments(Set<Split> splits);
+    SplitPlacementResult computeAssignments(Set<Split> splits, boolean gracefulRetry);
 
     void lockDownNodes();
 

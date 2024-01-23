@@ -14,12 +14,14 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.executor.TaskHandle;
+import com.facebook.presto.execution.executor.TaskShutdownManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -108,6 +110,7 @@ public class SqlTaskExecution
     // In this case,
     // * a driver could belong to pipeline 1 and driver life cycle 42.
     // * another driver could belong to pipeline 3 and task-wide driver life cycle.
+    private static final Logger log = Logger.get(SqlTaskExecution.class);
 
     private final TaskId taskId;
     private final TaskStateMachine taskStateMachine;
@@ -259,12 +262,15 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor)
     {
+        TaskShutdownManager taskShutdownManager = new TaskShutdownManager(taskStateMachine, taskContext);
         TaskHandle taskHandle = taskExecutor.addTask(
                 taskStateMachine.getTaskId(),
                 outputBuffer::getUtilization,
                 getInitialSplitsPerNode(taskContext.getSession()),
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
-                getMaxDriversPerTask(taskContext.getSession()));
+                getMaxDriversPerTask(taskContext.getSession()),
+                Optional.of(taskShutdownManager),
+                Optional.of(outputBuffer));
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 taskExecutor.removeTask(taskHandle);
@@ -606,6 +612,28 @@ public class SqlTaskExecution
         }
     }
 
+    public List<ScheduledSplit> getUnprocessedSplits()
+    {
+        if (taskHandle == null) {
+            // This could be called by createTaskStatus before a TaskHandle is created.
+            return ImmutableList.of();
+        }
+        else {
+            return taskHandle.getUnprocessedSplits();
+        }
+    }
+
+    public boolean isTaskIdling()
+    {
+        if (taskHandle == null) {
+            // This could be called by createTaskStatus before a TaskHandle is created.
+            return false;
+        }
+        else {
+            return taskHandle.isTaskIdling();
+        }
+    }
+
     public synchronized Set<PlanNodeId> getNoMoreSplits()
     {
         ImmutableSet.Builder<PlanNodeId> noMoreSplits = ImmutableSet.builder();
@@ -647,8 +675,15 @@ public class SqlTaskExecution
             return;
         }
 
-        // Cool! All done!
-        taskStateMachine.finished();
+        if (taskHandle.isEnableGracefulShutdownOrSplitRetry()) {
+            if (!taskHandle.isShutdownInProgress()) {
+                taskStateMachine.finished();
+            }
+        }
+        else {
+            // Cool! All done!
+            taskStateMachine.finished();
+        }
     }
 
     @Override
@@ -1097,6 +1132,12 @@ public class SqlTaskExecution
             if (driver != null) {
                 driver.close();
             }
+        }
+
+        @Override
+        public ScheduledSplit getScheduledSplit()
+        {
+            return partitionedSplit;
         }
     }
 

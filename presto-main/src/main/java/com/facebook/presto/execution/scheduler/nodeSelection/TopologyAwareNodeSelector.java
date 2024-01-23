@@ -234,6 +234,14 @@ public class TopologyAwareNodeSelector
         return new SplitPlacementResult(blocked, assignment);
     }
 
+    @Override
+    public SplitPlacementResult randomizedComputeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
+    {
+        Multimap<InternalNode, Split> assignment = HashMultimap.create();
+        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
+        return new SplitPlacementResult(blocked, assignment);
+    }
+
     /**
      * Computes how much of the queue can be filled by splits with the network topology distance to a node given by
      * splitAffinity. A split with zero affinity can only fill half the queue, whereas one that matches

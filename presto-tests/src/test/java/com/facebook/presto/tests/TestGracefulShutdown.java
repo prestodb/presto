@@ -44,6 +44,8 @@ import static org.testng.Assert.assertTrue;
 public class TestGracefulShutdown
 {
     private static final long SHUTDOWN_TIMEOUT_MILLIS = 240_000;
+    private static final long SHUTDOWN_LEAF_TIMEOUT_MILLIS = 600_000;
+
     private static final Session TINY_SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema("tiny")
@@ -84,7 +86,7 @@ public class TestGracefulShutdown
         };
     }
 
-    @Test(timeOut = SHUTDOWN_TIMEOUT_MILLIS, dataProvider = "testServerInfo")
+    @Test(timeOut = SHUTDOWN_LEAF_TIMEOUT_MILLIS, dataProvider = "testServerInfo")
     public void testShutdown(String serverInstanceType, Map<String, String> properties)
             throws Exception
     {
@@ -141,7 +143,7 @@ public class TestGracefulShutdown
     public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 2, properties);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 3, properties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());

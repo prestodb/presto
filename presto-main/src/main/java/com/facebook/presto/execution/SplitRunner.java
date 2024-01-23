@@ -29,4 +29,6 @@ public interface SplitRunner
 
     @Override
     void close();
+
+    ScheduledSplit getScheduledSplit();
 }

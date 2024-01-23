@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -29,12 +30,15 @@ import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -61,35 +65,42 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxFailedTaskPercentage;
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
+import static com.facebook.presto.failureDetector.FailureDetector.State.GONE_INTERMEDIATE;
+import static com.facebook.presto.failureDetector.FailureDetector.State.GONE_LEAF;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_RECOVERY_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE_INTERMEDIATE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.spi.StandardErrorCode.UNRECOVERABLE_HOST_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public final class SqlStageExecution
 {
+    private static final Logger log = Logger.get(SqlStageExecution.class);
     public static final Set<ErrorCode> RECOVERABLE_ERROR_CODES = ImmutableSet.of(
             TOO_MANY_REQUESTS_FAILED.toErrorCode(),
             PAGE_TRANSPORT_ERROR.toErrorCode(),
             PAGE_TRANSPORT_TIMEOUT.toErrorCode(),
             REMOTE_TASK_MISMATCH.toErrorCode(),
             REMOTE_TASK_ERROR.toErrorCode());
-
     public static final int DEFAULT_TASK_ATTEMPT_NUMBER = 0;
 
     private final Session session;
@@ -136,8 +147,16 @@ public final class SqlStageExecution
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
 
+    private final boolean isEnableGracefulShutdown;
+    private final boolean isRetryOfFailedSplitsEnabled;
+
+    private SettableFuture<?> whenNoMoreRetry = SettableFuture.create();
+
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
+
+    @GuardedBy("this")
+    private Optional<StageTaskRecoveryCallback> taskGracefulShutdownCallback = Optional.empty();
 
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
@@ -149,7 +168,9 @@ public final class SqlStageExecution
             ExecutorService executor,
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            boolean isEnableGracefulShutdown,
+            boolean isRetryOfFailedSplitsEnabled)
     {
         requireNonNull(stageExecutionId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
@@ -171,7 +192,9 @@ public final class SqlStageExecution
                 executor,
                 failureDetector,
                 getMaxFailedTaskPercentage(session),
-                tableWriteInfo);
+                tableWriteInfo,
+                isEnableGracefulShutdown,
+                isRetryOfFailedSplitsEnabled);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
@@ -186,7 +209,9 @@ public final class SqlStageExecution
             Executor executor,
             FailureDetector failureDetector,
             double maxFailedTaskPercentage,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            boolean isEnableGracefulShutdown,
+            boolean isRetryOfFailedSplitsEnabled)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -207,6 +232,8 @@ public final class SqlStageExecution
         }
         this.exchangeSources = fragmentToExchangeSource.build();
         this.totalLifespans = planFragment.getStageExecutionDescriptor().getTotalLifespans();
+        this.isEnableGracefulShutdown = isEnableGracefulShutdown;
+        this.isRetryOfFailedSplitsEnabled = isRetryOfFailedSplitsEnabled;
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -255,10 +282,18 @@ public final class SqlStageExecution
         completedLifespansChangeListeners.addListener(newlyCompletedDriverGroupConsumer);
     }
 
+    // This method is used only for recoverable grouped execution
     public synchronized void registerStageTaskRecoveryCallback(StageTaskRecoveryCallback stageTaskRecoveryCallback)
     {
         checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
         this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
+    }
+
+    // This method is used for opec split retry.
+    public synchronized void registerTaskGracefulShutdownCallback(StageTaskRecoveryCallback taskGracefulShutdownCallback)
+    {
+        checkState(!this.taskGracefulShutdownCallback.isPresent(), "taskGracefulShutdownCallback should be registered only once");
+        this.taskGracefulShutdownCallback = Optional.of(requireNonNull(taskGracefulShutdownCallback, "taskGracefulShutdownCallback is null"));
     }
 
     public PlanFragment getFragment()
@@ -284,6 +319,11 @@ public final class SqlStageExecution
     public synchronized void transitionToSchedulingSplits()
     {
         stateMachine.transitionToSchedulingSplits();
+    }
+
+    public synchronized void transitionToSchedulingRetriedSplits()
+    {
+        stateMachine.transitionToSchedulingRetriedSplits();
     }
 
     public synchronized void schedulingComplete()
@@ -459,7 +499,7 @@ public final class SqlStageExecution
         return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition, DEFAULT_TASK_ATTEMPT_NUMBER), ImmutableMultimap.of()));
     }
 
-    public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
+    public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Set<InternalNode> nodes, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
     {
         requireNonNull(node, "node is null");
         requireNonNull(splits, "splits is null");
@@ -483,8 +523,15 @@ public final class SqlStageExecution
         }
         else {
             task = tasks.iterator().next();
-            task.addSplits(splits);
+            boolean nodeNotShutDown = task.addSplits(splits);
+
+            if (isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled) {
+                if (!nodeNotShutDown) {
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "node is shutting down when scheduleSplits is called");
+                }
+            }
         }
+
         if (noMoreSplitsNotification.size() > 1) {
             // The assumption that `noMoreSplitsNotification.size() <= 1` currently holds.
             // If this assumption no longer holds, we should consider calling task.noMoreSplits with multiple entries in one shot.
@@ -549,7 +596,12 @@ public final class SqlStageExecution
 
     public Set<InternalNode> getScheduledNodes()
     {
-        return ImmutableSet.copyOf(tasks.keySet());
+        if (isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled) {
+            return tasks.entrySet().stream().filter(entry -> entry.getValue().stream().noneMatch(remoteTask -> remoteTask.getTaskStatus().getState() == TaskState.GRACEFUL_SHUTDOWN)).map(entry -> entry.getKey()).collect(toImmutableSet());
+        }
+        else {
+            return ImmutableSet.copyOf(tasks.keySet());
+        }
     }
 
     public void recordGetSplitTime(long start)
@@ -572,10 +624,41 @@ public final class SqlStageExecution
         }
 
         TaskState taskState = taskStatus.getState();
-        if (taskState == TaskState.FAILED) {
+        if ((isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled) && taskState == TaskState.GRACEFUL_SHUTDOWN) {
             // no matter if it is possible to recover - the task is failed
             failedTasks.add(taskId);
 
+            // Update the unprocessedSplits to make sure the completedSplits are removed before reassignment.
+            RemoteTask failedTask = getAllTasks().stream()
+                    .filter(task -> task.getTaskId().equals(taskId))
+                    .collect(onlyElement());
+            failedTask.updateLastTaskStatus(taskStatus);
+            if (isFailedTasksBelowThreshold()) {
+                try {
+                    taskGracefulShutdownCallback.get().recover(taskId);
+                    checkState(failedTask.getTaskStatus().getState() == TaskState.GRACEFUL_SHUTDOWN, "TaskStatus in the HttpRemoteTask not yet updated");
+                    failedTask.setIsRetried();
+
+                    finishedTasks.add(taskId);
+                }
+                catch (Throwable t) {
+                    // In an ideal world, this exception is not supposed to happen.
+                    // However, it could happen, for example, if connector throws exception.
+                    // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
+                    RuntimeException failure = new RuntimeException("taskGracefulShutdownCallback run into error");
+                    failure.addSuppressed(new PrestoException(UNRECOVERABLE_HOST_SHUTTING_DOWN, format("Encountered error when trying to recover task %s", taskId), t));
+                    stateMachine.transitionToFailed(failure);
+                }
+            }
+            else {
+                RuntimeException failure = new RuntimeException("FailedTasks exceed the threshold");
+                failure.addSuppressed(new PrestoException(UNRECOVERABLE_HOST_SHUTTING_DOWN, format("The Failed Tasks exceeds the threshold", taskId)));
+                stateMachine.transitionToFailed(failure);
+            }
+        }
+        else if (taskState == TaskState.FAILED) {
+            // no matter if it is possible to recover - the task is failed
+            failedTasks.add(taskId);
             RuntimeException failure = taskStatus.getFailures().stream()
                     .findFirst()
                     .map(this::rewriteTransportFailure)
@@ -608,10 +691,19 @@ public final class SqlStageExecution
 
         // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
         stageExecutionState = getState();
+        if ((isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled) && planFragment.isLeaf() && stageExecutionState == StageExecutionState.SCHEDULING_RETRIED_SPLITS) {
+            if (!isFailedTasksBelowThreshold() || noMoreRetry()) {
+                log.info("QueryId = %s, whenNoMoreRetry is triggered.", taskId.getQueryId());
+                whenNoMoreRetry.set(null);
+                return;
+            }
+        }
+
         if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
             if (taskState == TaskState.RUNNING) {
                 stateMachine.transitionToRunning();
             }
+
             if (finishedTasks.size() == allTasks.size()) {
                 stateMachine.transitionToFinished();
             }
@@ -625,8 +717,79 @@ public final class SqlStageExecution
                 return false;
             }
         }
-        return stageTaskRecoveryCallback.isPresent() &&
-                failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+
+        return stageTaskRecoveryCallback.isPresent() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+    }
+
+    public ListenableFuture<?> getBlocked()
+    {
+        checkState(isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled, "isEnableGracefulShutdown or isRetryOfFailedSplitsEnabled should be true");
+        return whenNoMoreRetry;
+    }
+
+    @VisibleForTesting
+    public void triggerWhenNoMoreRetryForTest()
+    {
+        whenNoMoreRetry.set(null);
+    }
+
+    public synchronized boolean noMoreRetry()
+    {
+        checkState(isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled, "isEnableGracefulShutdown or isRetryOfFailedSplitsEnabled should be true");
+        checkState(planFragment.isLeaf());
+        if (failedTasks.isEmpty()) {
+            checkState(finishedTasks.isEmpty());
+            List<RemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
+                    .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                    .filter(task -> task.isTaskIdling())
+                    .collect(toList());
+            boolean result = idleRunningHttpRemoteTasks.size() == allTasks.size();
+
+            if (result) {
+                log.info("QueryId = %s, noMoreRetry in failedTasks empty branch. idleRunningHttpRemoteTasks = %s, allTasks = %s", getStageExecutionId().getStageId().getQueryId(), idleRunningHttpRemoteTasks.size(), allTasks.size());
+            }
+            return result;
+        }
+
+        return noMoreRetryWithFailedTasks();
+    }
+
+    private boolean noMoreRetryWithFailedTasks()
+    {
+        checkState(isEnableGracefulShutdown || isRetryOfFailedSplitsEnabled, "isEnableGracefulShutdown or isRetryOfFailedSplitsEnabled should be true");
+        checkState(finishedTasks.size() != allTasks.size());
+
+        if (!isFailedTasksBelowThreshold()) {
+            log.info("QueryId = %s, noMoreRetry in noMoreRetryWithFailedTasks. isFailedTasksBelowThreshold exceeds the threshold: failedTasks = %s, allTasks = %s", getStageExecutionId().getStageId().getQueryId(), failedTasks.size(), allTasks.size());
+            return true;
+        }
+
+        List<RemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
+                .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                .filter(task -> task.isTaskIdling())
+                .collect(toList());
+
+        long retriedFailedTaskCount = getAllTasks().stream()
+                .filter(task -> task.getTaskStatus().getState() == TaskState.GRACEFUL_SHUTDOWN)
+                .filter(RemoteTask::isRetried)
+                .count();
+
+        boolean isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks;
+        synchronized (this) {
+            isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks = (idleRunningHttpRemoteTasks.size() == allTasks.size() - failedTasks.size() && retriedFailedTaskCount == failedTasks.size());
+        }
+
+        if (isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks) {
+            log.info("QueryId = %s, noMoreRetry in isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks. idleRunningHttpRemoteTasks = %s, allTasks = %s, failedTask = %s, retriedFailedTaskCount = %s", getStageExecutionId().getStageId().getQueryId(), idleRunningHttpRemoteTasks.size(), allTasks.size(), failedTasks.size(), retriedFailedTaskCount);
+        }
+
+        return isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks;
+    }
+
+    private synchronized boolean isFailedTasksBelowThreshold()
+    {
+        // Even though failedTasks and allTasks are marked as Guard, the whole expression need to be evaluated synchronously to avoid failedTasks and allTasks are updated from the callback thread in the middle of the expression evaluation.
+        return failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
@@ -656,7 +819,9 @@ public final class SqlStageExecution
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
     {
-        if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {
+        FailureDetector.State state = failureDetector.getState(executionFailureInfo.getRemoteHost());
+        boolean isRemoteHostGone = (state == GONE || state == GONE_LEAF || state == GONE_INTERMEDIATE);
+        if (executionFailureInfo.getRemoteHost() == null || !isRemoteHostGone) {
             return executionFailureInfo;
         }
 
@@ -667,7 +832,7 @@ public final class SqlStageExecution
                 executionFailureInfo.getSuppressed(),
                 executionFailureInfo.getStack(),
                 executionFailureInfo.getErrorLocation(),
-                REMOTE_HOST_GONE.toErrorCode(),
+                state == GONE_INTERMEDIATE ? REMOTE_HOST_GONE_INTERMEDIATE.toErrorCode() : REMOTE_HOST_GONE.toErrorCode(),
                 executionFailureInfo.getRemoteHost(),
                 executionFailureInfo.getErrorCause());
     }

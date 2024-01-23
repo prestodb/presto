@@ -17,6 +17,8 @@ import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.buffer.ArbitraryOutputBuffer;
+import com.facebook.presto.execution.buffer.BroadcastOutputBuffer;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -76,6 +78,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -95,6 +98,7 @@ import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracki
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;
+import static com.facebook.presto.execution.buffer.BufferState.FAILED;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
@@ -111,6 +115,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -143,7 +148,7 @@ public class TestSqlTaskExecution
 
         try {
             TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
-            PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
+            PartitionedOutputBuffer outputBuffer = newTestingPartitionedOutputBuffer(taskNotificationExecutor);
             OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
 
             //
@@ -319,7 +324,7 @@ public class TestSqlTaskExecution
 
         try {
             TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
-            PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
+            PartitionedOutputBuffer outputBuffer = newTestingPartitionedOutputBuffer(taskNotificationExecutor);
             OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
 
             // test initialization: complex test with 4 pipelines
@@ -642,7 +647,7 @@ public class TestSqlTaskExecution
                 false);
     }
 
-    private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
+    private PartitionedOutputBuffer newTestingPartitionedOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
     {
         return new PartitionedOutputBuffer(
                 "queryId.0.0",
@@ -650,6 +655,26 @@ public class TestSqlTaskExecution
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),
+                new DataSize(1, MEGABYTE),
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                taskNotificationExecutor);
+    }
+
+    private ArbitraryOutputBuffer newTestingArbitraryOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
+    {
+        return new ArbitraryOutputBuffer(
+                "queryId.0.0",
+                new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new DataSize(1, MEGABYTE),
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                taskNotificationExecutor);
+    }
+
+    private BroadcastOutputBuffer newTestingBroadcastOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
+    {
+        return new BroadcastOutputBuffer(
+                "queryId.0.0",
+                new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 new DataSize(1, MEGABYTE),
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 taskNotificationExecutor);
@@ -716,6 +741,11 @@ public class TestSqlTaskExecution
                 }
                 sequenceId += results.getSerializedPages().size();
             }
+        }
+
+        public void assertBufferFail()
+        {
+            assertEquals(outputBuffer.getInfo().getState(), BufferState.FAILED);
         }
 
         public void abort()
@@ -1381,6 +1411,336 @@ public class TestSqlTaskExecution
         public int getEnd()
         {
             return end;
+        }
+    }
+
+    @DataProvider
+    public static Object[][] outputBuffers()
+    {
+        return new Object[][] {{"PartitionedOutputBuffer"}, {"ArbitraryOutputBuffer"}, {"BroadcastOutputBuffer"}};
+    }
+
+    @Test(dataProvider = "outputBuffers", invocationCount = 10)
+    public void testGracefulShutdownForSimpleCase(String outputBufferType)
+            throws Exception
+    {
+        PipelineExecutionStrategy executionStrategy = UNGROUPED_EXECUTION;
+        ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%s"));
+
+        ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
+        ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
+        TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, 4, TASK_FAIR, Ticker.systemTicker());
+        taskExecutor.start();
+
+        try {
+            TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
+
+            OutputBuffer outputBuffer;
+            if (outputBufferType.equals("PartitionedOutputBuffer")) {
+                outputBuffer = newTestingPartitionedOutputBuffer(taskNotificationExecutor);
+            }
+            else if (outputBufferType.equals("ArbitraryOutputBuffer")) {
+                outputBuffer = newTestingArbitraryOutputBuffer(taskNotificationExecutor);
+            }
+            else {
+                outputBuffer = newTestingBroadcastOutputBuffer(taskNotificationExecutor);
+            }
+
+            OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
+
+            TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID, ImmutableList.of(VARCHAR));
+            TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
+                    1,
+                    TABLE_SCAN_NODE_ID,
+                    outputBuffer,
+                    Function.identity(),
+                    new PagesSerdeFactory(new BlockEncodingManager(), false));
+            LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
+                    ImmutableList.of(new DriverFactory(
+                            0,
+                            true,
+                            true,
+                            ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory),
+                            OptionalInt.empty(),
+                            executionStrategy,
+                            Optional.empty())),
+                    ImmutableList.of(TABLE_SCAN_NODE_ID),
+                    StageExecutionDescriptor.ungroupedExecution());
+            TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
+            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
+                    taskStateMachine,
+                    taskContext,
+                    outputBuffer,
+                    ImmutableList.of(),
+                    localExecutionPlan,
+                    taskExecutor,
+                    taskNotificationExecutor,
+                    createTestSplitMonitor());
+
+            //
+            // test body
+            assertEquals(taskStateMachine.getState(), TaskState.RUNNING);
+
+            // add source for pipeline
+            sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    TABLE_SCAN_NODE_ID,
+                    ImmutableSet.of(newScheduledSplit(0, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 100000, 123)),
+                    false)));
+            // assert that partial task result is produced
+            outputBufferConsumer.consume(123, ASSERT_WAIT_TIMEOUT);
+
+            // pause operator execution to make sure that
+            // * operatorFactory will be closed even though operator can't execute
+            // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
+            testingScanOperatorFactory.getPauser().pause();
+            Random rand = new Random();
+            int upperBound = 500;
+            int lowerBound = 100;
+            int pageCountForSplit1 = rand.nextInt(upperBound - lowerBound) + lowerBound;
+            int pageCountForSplit2 = rand.nextInt(upperBound - lowerBound) + lowerBound;
+
+            // add source for pipeline, mark as no more splits
+            sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    TABLE_SCAN_NODE_ID,
+                    ImmutableSet.of(
+                            newScheduledSplit(1, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 200000, pageCountForSplit1),
+                            newScheduledSplit(2, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 300000, pageCountForSplit2)),
+                    true)));
+            // assert that pipeline will have no more drivers
+            waitUntilEquals(testingScanOperatorFactory::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            // assert that no DriverGroup is fully completed
+            assertEquals(taskContext.getCompletedDriverGroups(), ImmutableSet.of());
+
+            shutdownHandler.schedule(() -> {
+                taskExecutor.gracefulShutdown();
+            }, 1, MILLISECONDS);
+
+            waitUntilEquals(taskExecutor::isShuttingDownStarted, true, ASSERT_WAIT_TIMEOUT);
+
+            // resume operator execution
+            testingScanOperatorFactory.getPauser().resume();
+
+            // assert that task result is produced
+            outputBufferConsumer.consume(pageCountForSplit1 + pageCountForSplit2, ASSERT_WAIT_TIMEOUT);
+            outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
+
+            if (outputBuffer.forceNoMoreBufferIfPossibleOrKill()) {
+                outputBufferConsumer.abort(); // complete the task by calling abort on it
+            }
+            else {
+                while (true) {
+                    // wait for the outputBuffer to be failed
+                    if (outputBuffer.getInfo().getState().equals(FAILED)) {
+                        return;
+                    }
+                    try {
+                        Thread.sleep(10);
+                    }
+                    catch (InterruptedException e) {
+                        // do nothing
+                    }
+                }
+            }
+            waitUntilEquals(taskExecutor::getIsGracefulShutdownFinished, true, ASSERT_WAIT_TIMEOUT);
+
+            TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
+            assertEquals(taskState, TaskState.GRACEFUL_SHUTDOWN);
+        }
+        finally {
+            taskExecutor.stop();
+            taskNotificationExecutor.shutdownNow();
+            driverYieldExecutor.shutdown();
+        }
+    }
+
+    @Test(dataProvider = "outputBuffers", invocationCount = 10)
+    public void testGracefulShutdownForComplexCase(String outputBufferType)
+            throws Exception
+    {
+        ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%s"));
+        PipelineExecutionStrategy executionStrategy = UNGROUPED_EXECUTION;
+        ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
+        ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
+        TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, 4, TASK_FAIR, Ticker.systemTicker());
+        taskExecutor.start();
+
+        try {
+            TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
+            OutputBuffer outputBuffer;
+            if (outputBufferType.equals("PartitionedOutputBuffer")) {
+                outputBuffer = newTestingPartitionedOutputBuffer(taskNotificationExecutor);
+            }
+            else if (outputBufferType.equals("ArbitraryOutputBuffer")) {
+                outputBuffer = newTestingArbitraryOutputBuffer(taskNotificationExecutor);
+            }
+            else {
+                outputBuffer = newTestingBroadcastOutputBuffer(taskNotificationExecutor);
+            }
+            OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
+
+            PlanNodeId scan0NodeId = new PlanNodeId("scan-0");
+            PlanNodeId values1NodeId = new PlanNodeId("values-1");
+            PlanNodeId scan2NodeId = new PlanNodeId("scan-2");
+            PlanNodeId values3NodeId = new PlanNodeId("values-3");
+            PlanNodeId joinANodeId = new PlanNodeId("join-a");
+            PlanNodeId joinBNodeId = new PlanNodeId("join-b");
+            PlanNodeId joinCNodeId = new PlanNodeId("join-c");
+            BuildStates buildStatesA = new BuildStates(executionStrategy);
+            BuildStates buildStatesB = new BuildStates(executionStrategy);
+            BuildStates buildStatesC = new BuildStates(UNGROUPED_EXECUTION);
+            TestingScanOperatorFactory scanOperatorFactory0 = new TestingScanOperatorFactory(1, scan0NodeId, ImmutableList.of(VARCHAR));
+            ValuesOperatorFactory valuesOperatorFactory1 = new ValuesOperatorFactory(
+                    101,
+                    values1NodeId,
+                    ImmutableList.of(new Page(createStringsBlock("multiplier1"))));
+            TestingScanOperatorFactory scanOperatorFactory2 = new TestingScanOperatorFactory(201, scan2NodeId, ImmutableList.of(VARCHAR));
+            ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(
+                    301,
+                    values3NodeId,
+                    ImmutableList.of(new Page(createStringsBlock("x", "y", "multiplier3"))));
+            TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
+                    4,
+                    joinCNodeId,
+                    outputBuffer,
+                    Function.identity(),
+                    new PagesSerdeFactory(new BlockEncodingManager(), false));
+            TestingCrossJoinOperatorFactory joinOperatorFactoryA = new TestingCrossJoinOperatorFactory(2, joinANodeId, buildStatesA);
+            TestingCrossJoinOperatorFactory joinOperatorFactoryB = new TestingCrossJoinOperatorFactory(102, joinBNodeId, buildStatesB);
+            TestingCrossJoinOperatorFactory joinOperatorFactoryC = new TestingCrossJoinOperatorFactory(3, joinCNodeId, buildStatesC);
+            TestingBuildOperatorFactory buildOperatorFactoryA = new TestingBuildOperatorFactory(103, joinANodeId, buildStatesA);
+            TestingBuildOperatorFactory buildOperatorFactoryB = new TestingBuildOperatorFactory(202, joinBNodeId, buildStatesB);
+            TestingBuildOperatorFactory buildOperatorFactoryC = new TestingBuildOperatorFactory(302, joinCNodeId, buildStatesC);
+
+            LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
+                    ImmutableList.of(
+                            new DriverFactory(
+                                    0,
+                                    true,
+                                    true,
+                                    ImmutableList.of(scanOperatorFactory0, joinOperatorFactoryA, joinOperatorFactoryC, taskOutputOperatorFactory),
+                                    OptionalInt.empty(),
+                                    executionStrategy,
+                                    Optional.empty()),
+                            new DriverFactory(
+                                    1,
+                                    false,
+                                    false,
+                                    ImmutableList.of(valuesOperatorFactory1, joinOperatorFactoryB, buildOperatorFactoryA),
+                                    OptionalInt.empty(),
+                                    executionStrategy,
+                                    Optional.empty()),
+                            new DriverFactory(
+                                    2,
+                                    true,
+                                    false,
+                                    ImmutableList.of(scanOperatorFactory2, buildOperatorFactoryB),
+                                    OptionalInt.empty(),
+                                    executionStrategy,
+                                    Optional.empty()),
+                            new DriverFactory(
+                                    3,
+                                    false,
+                                    false,
+                                    ImmutableList.of(valuesOperatorFactory3, buildOperatorFactoryC),
+                                    OptionalInt.empty(),
+                                    UNGROUPED_EXECUTION,
+                                    Optional.empty())),
+                    ImmutableList.of(scan2NodeId, scan0NodeId),
+                    executionStrategy == GROUPED_EXECUTION
+                            ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId), 4)
+                            : StageExecutionDescriptor.ungroupedExecution());
+            TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
+            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
+                    taskStateMachine,
+                    taskContext,
+                    outputBuffer,
+                    ImmutableList.of(),
+                    localExecutionPlan,
+                    taskExecutor,
+                    taskNotificationExecutor,
+                    createTestSplitMonitor());
+
+            //
+            // test body
+            assertEquals(taskStateMachine.getState(), TaskState.RUNNING);
+
+            // assert that pipeline 1 and pipeline 3 will have no more drivers
+            // (Unpartitioned ungrouped pipelines can have all driver instance created up front.)
+            waitUntilEquals(joinOperatorFactoryB::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(buildOperatorFactoryA::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(buildOperatorFactoryC::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+
+            // add source for pipeline 2, and mark as no more splits
+            sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    scan2NodeId,
+                    ImmutableSet.of(
+                            newScheduledSplit(0, scan2NodeId, Lifespan.taskWide(), 100000, 1),
+                            newScheduledSplit(1, scan2NodeId, Lifespan.taskWide(), 300000, 2)),
+                    false)));
+            sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    scan2NodeId,
+                    ImmutableSet.of(newScheduledSplit(2, scan2NodeId, Lifespan.taskWide(), 300000, 2)),
+                    true)));
+            // assert that pipeline 2 will have no more drivers
+            waitUntilEquals(scanOperatorFactory2::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(buildOperatorFactoryB::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+
+            // pause operator execution to make sure that
+            // * operatorFactory will be closed even though operator can't execute
+            // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
+            scanOperatorFactory0.getPauser().pause();
+
+            // add source for pipeline 0, mark as no more splits
+            sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    scan0NodeId,
+                    ImmutableSet.of(newScheduledSplit(3, scan0NodeId, Lifespan.taskWide(), 400000, 100)),
+                    true)));
+            // assert that pipeline 0 will have no more drivers
+            waitUntilEquals(scanOperatorFactory0::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(joinOperatorFactoryA::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            waitUntilEquals(joinOperatorFactoryC::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
+            // assert that no DriverGroup is fully completed
+            assertEquals(taskContext.getCompletedDriverGroups(), ImmutableSet.of());
+
+            shutdownHandler.schedule(() -> {
+                taskExecutor.gracefulShutdown();
+            }, 1, MILLISECONDS);
+
+            waitUntilEquals(taskExecutor::isShuttingDownStarted, true, ASSERT_WAIT_TIMEOUT);
+
+            // resume operator execution
+            scanOperatorFactory0.getPauser().resume();
+            // assert that task result is produced
+            outputBufferConsumer.consume(100 * 5 * 3, ASSERT_WAIT_TIMEOUT);
+            outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
+
+            if (outputBuffer.forceNoMoreBufferIfPossibleOrKill()) {
+                outputBufferConsumer.abort(); // complete the task by calling abort on it
+            }
+            else {
+                while (true) {
+                    // wait for the outputBuffer to be failed
+                    if (outputBuffer.getInfo().getState().equals(FAILED)) {
+                        return;
+                    }
+                    try {
+                        Thread.sleep(10);
+                    }
+                    catch (InterruptedException e) {
+                        // do nothing
+                    }
+                }
+            }
+
+            waitUntilEquals(taskExecutor::getIsGracefulShutdownFinished, true, ASSERT_WAIT_TIMEOUT);
+
+            TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
+            assertEquals(taskState, TaskState.GRACEFUL_SHUTDOWN);
+        }
+        finally {
+            taskExecutor.stop();
+            taskNotificationExecutor.shutdownNow();
+            driverYieldExecutor.shutdown();
         }
     }
 }

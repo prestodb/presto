@@ -407,4 +407,16 @@ public class LazyOutputBuffer
             }
         }
     }
+
+    @Override
+    public boolean isAllPagesConsumed()
+    {
+        return delegate.isAllPagesConsumed();
+    }
+
+    @Override
+    public boolean forceNoMoreBufferIfPossibleOrKill()
+    {
+        return delegate.forceNoMoreBufferIfPossibleOrKill();
+    }
 }

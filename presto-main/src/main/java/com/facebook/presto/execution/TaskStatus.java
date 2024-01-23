@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.execution.TaskState.PLANNED;
@@ -78,6 +79,8 @@ public class TaskStatus
 
     private final long totalCpuTimeInNanos;
     private final long taskAgeInMillis;
+    private final Optional<List<ScheduledSplit>> unprocessedSplits;
+    private final Optional<Boolean> isTaskIdling;
 
     @JsonCreator
     @ThriftConstructor
@@ -102,7 +105,9 @@ public class TaskStatus
             @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
             @JsonProperty("taskAgeInMillis") long taskAgeInMillis,
             @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
-            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight)
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
+            @JsonProperty("unprocessedSplits") Optional<List<ScheduledSplit>> unprocessedSplits,
+            @JsonProperty("isTaskIdling") Optional<Boolean> isTaskIdling)
     {
         this.taskInstanceIdLeastSignificantBits = taskInstanceIdLeastSignificantBits;
         this.taskInstanceIdMostSignificantBits = taskInstanceIdMostSignificantBits;
@@ -137,6 +142,8 @@ public class TaskStatus
         this.fullGcTimeInMillis = fullGcTimeInMillis;
         this.totalCpuTimeInNanos = totalCpuTimeInNanos;
         this.taskAgeInMillis = taskAgeInMillis;
+        this.unprocessedSplits = unprocessedSplits;
+        this.isTaskIdling = isTaskIdling;
     }
 
     @JsonProperty
@@ -286,6 +293,20 @@ public class TaskStatus
         return runningPartitionedSplitsWeight;
     }
 
+    @JsonProperty
+    @ThriftField(22)
+    public Optional<List<ScheduledSplit>> getUnprocessedSplits()
+    {
+        return unprocessedSplits;
+    }
+
+    @JsonProperty
+    @ThriftField(23)
+    public Optional<Boolean> getIsTaskIdling()
+    {
+        return isTaskIdling;
+    }
+
     @Override
     public String toString()
     {
@@ -317,7 +338,9 @@ public class TaskStatus
                 0,
                 0,
                 0L,
-                0L);
+                0L,
+                Optional.empty(),
+                Optional.empty());
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -343,6 +366,8 @@ public class TaskStatus
                 taskStatus.getTotalCpuTimeInNanos(),
                 taskStatus.getTaskAgeInMillis(),
                 taskStatus.getQueuedPartitionedSplitsWeight(),
-                taskStatus.getRunningPartitionedSplitsWeight());
+                taskStatus.getRunningPartitionedSplitsWeight(),
+                taskStatus.getUnprocessedSplits(),
+                taskStatus.getIsTaskIdling());
     }
 }

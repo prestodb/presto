@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler.nodeSelection;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.InternalNodeInfo;
 import com.facebook.presto.execution.scheduler.ModularHashingNodeProvider;
@@ -226,6 +227,58 @@ public class SimpleNodeSelector
     }
 
     @Override
+    public SplitPlacementResult randomizedComputeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
+    {
+        Multimap<InternalNode, Split> assignment = HashMultimap.create();
+        NodeMap nodeMap = this.nodeMap.get().get();
+        List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
+        NodeSelection randomNodeSelection = new RandomNodeSelection(eligibleNodes, minCandidates);
+
+        NodeProvider nodeProvider = nodeMap.getActiveNodeProvider(nodeSelectionHashStrategy);
+        for (Split split : splits) {
+            List<InternalNode> candidateNodes;
+            switch (split.getNodeSelectionStrategy()) {
+                case HARD_AFFINITY:
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
+                    break;
+                case SOFT_AFFINITY:
+                    // Using all nodes for soft affinity scheduling with modular hashing because otherwise temporarily down nodes would trigger too much rehashing
+                    if (nodeSelectionHashStrategy == MODULAR_HASHING) {
+                        nodeProvider = new ModularHashingNodeProvider(nodeMap.getAllNodes());
+                    }
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
+                    candidateNodes = ImmutableList.<InternalNode>builder()
+                            .addAll(candidateNodes)
+                            .addAll(randomNodeSelection.pickNodes(split))
+                            .build();
+                    break;
+                case NO_PREFERENCE:
+                    candidateNodes = randomNodeSelection.pickNodes(split);
+                    break;
+                default:
+                    throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", split.getNodeSelectionStrategy()));
+            }
+
+            if (candidateNodes.isEmpty()) {
+                log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getActiveNodes());
+                throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+            }
+
+            split = new Split(
+                    split.getConnectorId(),
+                    split.getTransactionHandle(),
+                    split.getConnectorSplit(),
+                    split.getLifespan(),
+                    new SplitContext(false));
+
+            InternalNode chosenNode = candidateNodes.get(0);
+            assignment.put(chosenNode, split);
+        }
+        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
+        return new SplitPlacementResult(blocked, assignment);
+    }
+
+    @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
@@ -277,15 +330,18 @@ public class SimpleNodeSelector
     private List<InternalNode> getEligibleNodes(int limit, NodeMap nodeMap, List<RemoteTask> existingTasks)
     {
         List<InternalNode> existingNodes = existingTasks.stream()
+                .filter(remoteTask -> remoteTask.getTaskStatus().getState() != TaskState.GRACEFUL_SHUTDOWN)
                 .map(remoteTask -> nodeMap.getActiveNodesByNodeId().get(remoteTask.getNodeId()))
                 // nodes may sporadically disappear from the nodeMap if the announcement is delayed
                 .filter(Objects::nonNull)
                 .collect(toList());
 
+        boolean anyGracefulFailedTask = existingTasks.stream().anyMatch(remoteTask -> remoteTask.getTaskStatus().getState() == TaskState.GRACEFUL_SHUTDOWN);
+
         int alreadySelectedNodeCount = existingNodes.size();
         int nodeCount = nodeMap.getActiveNodesByNodeId().size();
 
-        if (alreadySelectedNodeCount < limit && alreadySelectedNodeCount < nodeCount) {
+        if (!anyGracefulFailedTask && alreadySelectedNodeCount < limit && alreadySelectedNodeCount < nodeCount) {
             List<InternalNode> moreNodes = selectNodes(limit - alreadySelectedNodeCount, randomizedNodes(nodeMap, includeCoordinator, newHashSet(existingNodes)));
             existingNodes.addAll(moreNodes);
         }

@@ -14,15 +14,19 @@
 package com.facebook.presto.eventlistener;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.executor.QueryRecoveryState;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.facebook.presto.spi.eventlistener.GracefulPreemptionEvent;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import org.joda.time.DateTime;
 
 import java.io.File;
 import java.util.HashMap;
@@ -119,5 +123,12 @@ public class EventListenerManager
     {
         configuredEventListener.get()
                 .ifPresent(eventListener -> eventListener.splitCompleted(splitCompletedEvent));
+    }
+
+    public void trackPreemptionLifeCycle(TaskId taskId, QueryRecoveryState queryRecoveryState)
+    {
+        if (configuredEventListener.get().isPresent()) {
+            configuredEventListener.get().get().trackGracefulPreemption(new GracefulPreemptionEvent(taskId.getQueryId().toString(), taskId.toString(), DateTime.now().getMillis(), queryRecoveryState.name()));
+        }
     }
 }

@@ -34,4 +34,8 @@ public interface EventListener
     default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
     }
+
+    default void trackGracefulPreemption(GracefulPreemptionEvent gracefulPreemptionEvent)
+    {
+    }
 }

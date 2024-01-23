@@ -19,14 +19,18 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeDistribution;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.eventlistener.EventListenerManager;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking;
+import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.testing.TestingEventListenerManager;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -34,6 +38,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -51,16 +56,20 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
@@ -74,6 +83,7 @@ import static com.facebook.presto.util.MoreMath.min;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.lang.System.lineSeparator;
 import static java.util.Arrays.asList;
@@ -94,12 +104,11 @@ public class TaskExecutor
     private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(600, SECONDS);
     // Interrupt a split if it is running longer than this AND it's blocked on something known
     private static final Predicate<List<StackTraceElement>> DEFAULT_INTERRUPTIBLE_SPLIT_PREDICATE = elements ->
-                    elements.stream()
-                            .anyMatch(element -> element.getClassName().equals(JoniRegexpFunctions.class.getName()));
+            elements.stream()
+                    .anyMatch(element -> element.getClassName().equals(JoniRegexpFunctions.class.getName()));
     private static final Duration DEFAULT_INTERRUPT_SPLIT_INTERVAL = new Duration(60, SECONDS);
 
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
-
     private final ExecutorService executor;
     private final ThreadPoolExecutorMBean executorMBean;
 
@@ -159,6 +168,7 @@ public class TaskExecutor
     private final TimeStat splitQueuedTime = new TimeStat(NANOSECONDS);
     private final TimeStat splitWallTime = new TimeStat(NANOSECONDS);
 
+    private final TimeDistribution leafSplitExecutionTime = new TimeDistribution(MICROSECONDS);
     private final TimeDistribution leafSplitWallTime = new TimeDistribution(MICROSECONDS);
     private final TimeDistribution intermediateSplitWallTime = new TimeDistribution(MICROSECONDS);
 
@@ -178,13 +188,22 @@ public class TaskExecutor
 
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
-
+    private final TimeStat taskExecutorShutdownTime = new TimeStat(NANOSECONDS);
+    private final TimeStat outputBufferEmptyWaitTime = new TimeStat(NANOSECONDS);
+    private final TimeStat waitForRunningSplitTime = new TimeStat(NANOSECONDS);
+    private final EventListenerManager eventListenerManager;
     private volatile boolean closed;
-
+    private final ExecutorService taskShutdownExecutor = newCachedThreadPool(daemonThreadsNamed("task-shutdown-%s"));
+    private final AtomicBoolean isGracefulShutdownStarted = new AtomicBoolean(false);
+    private final AtomicBoolean isGracefulShutdownFinished = new AtomicBoolean(false);
     private volatile boolean lowMemory;
+    private AtomicInteger pendingUpdateTasks = new AtomicInteger(0);
+    private AtomicBoolean noTaskAtGracefulShutdown = new AtomicBoolean(false);
+    private boolean enableGracefulShutdown;
+    private boolean enableRetryForFailedSplits;
 
     @Inject
-    public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue)
+    public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue, QueryManagerConfig queryManagerConfig, EventListenerManager eventListenerManager)
     {
         this(requireNonNull(config, "config is null").getMaxWorkerThreads(),
                 config.getMinDrivers(),
@@ -196,7 +215,158 @@ public class TaskExecutor
                 DEFAULT_INTERRUPT_SPLIT_INTERVAL,
                 embedVersion,
                 splitQueue,
-                Ticker.systemTicker());
+                Ticker.systemTicker(),
+                queryManagerConfig.isEnableGracefulShutdown(),
+                queryManagerConfig.isEnableRetryForFailedSplits(),
+                eventListenerManager);
+    }
+
+    public void gracefulShutdown()
+    {
+        checkState(enableGracefulShutdown || enableRetryForFailedSplits, "gracefulShutdown should only be called when enableGracefulShutdown or enableRetryForFailedSplits is set to true");
+        isGracefulShutdownStarted.set(true);
+        waitForPendingTaskUpdated();
+        long shutdownStartTime = System.nanoTime();
+        //TODO throw error for new task creation instead of looping here.
+        List<TaskHandle> activeTaskSnapshot = getActiveTasks();
+        if (activeTaskSnapshot.size() > 0) {
+            while (activeTaskSnapshot.size() > 0) {
+                gracefulShutdown(activeTaskSnapshot);
+                activeTaskSnapshot = getActiveTasks();
+            }
+            Duration shutdownTime = Duration.nanosSince(shutdownStartTime);
+            log.info("Waiting for shutdown of all tasks over in %s milli sec", shutdownTime.toMillis());
+            taskExecutorShutdownTime.add(shutdownTime);
+            isGracefulShutdownFinished.set(true);
+        }
+        else {
+            log.info("No active task, make any taskstatus call to return HostShutdown to make sure it triggers callback on the coordinator");
+            noTaskAtGracefulShutdown.set(true);
+        }
+    }
+
+    public AtomicBoolean getNoTaskAtGracefulShutdown()
+    {
+        checkState(enableGracefulShutdown || enableRetryForFailedSplits, "getNoTaskAtGracefulShutdown should only be called when enableGracefulShutdown or enableRetryForFailedSplits is set to true");
+        return noTaskAtGracefulShutdown;
+    }
+
+    private synchronized ImmutableList<TaskHandle> getActiveTasks()
+    {
+        return tasks.stream().filter(taskHandle -> !taskHandle.isDestroyed() && !taskHandle.isShutdownInProgress()).collect(toImmutableList());
+    }
+
+    public void waitForPendingTaskUpdated()
+    {
+        long waitTimeMillis = 5;
+        try {
+            // wait for the updateTask to update the queuedLeafSplits
+            while (pendingUpdateTasks.get() > 0) {
+                Thread.sleep(waitTimeMillis);
+            }
+        }
+        catch (InterruptedException ex) {
+            log.error(ex, "GracefulShutdown got interrupted while waiting for pendingUpdateTasks turning to 0");
+        }
+    }
+
+    private void gracefulShutdown(List<TaskHandle> currentTasksSnapshot)
+    {
+        //FIXME this is just to test scribe
+        checkState(enableGracefulShutdown || enableRetryForFailedSplits, "gracefulShutdown should only be called when enableGracefulShutdown or enableRetryForFailedSplits is set to true");
+        currentTasksSnapshot.stream().forEach(taskHandle -> taskHandle.gracefulShutdown());
+        //wait for running splits to be over
+        long waitTimeMillis = 5; // Wait for 5 milliseconds between checks to avoid cpu spike
+        //before killing the tasks,  make sure output buffer data is consumed.
+        CountDownLatch latch = new CountDownLatch(currentTasksSnapshot.size());
+        log.warn("GracefulShutdown:: Going to shutdown %s tasks", currentTasksSnapshot.size());
+        for (TaskHandle taskHandle : currentTasksSnapshot) {
+            taskShutdownExecutor.execute(
+                    () -> {
+                        TaskId taskId = taskHandle.getTaskId();
+                        log.info("Before trackPreemptionLifeCycle test");
+                        eventListenerManager.trackPreemptionLifeCycle(taskId, QueryRecoveryState.INIT_GRACEFUL_PREEMPTION);
+                        log.info("After trackPreemptionLifeCycle test");
+                        if (!taskHandle.getOutputBuffer().isPresent()) {
+                            log.info("No output buffer for task %s", taskId);
+                            taskHandle.forceFailure("No output buffer for task");
+                            return;
+                        }
+
+                        OutputBuffer outputBuffer = taskHandle.getOutputBuffer().get();
+                        try {
+                            long logFrequencyMillis = 30_000;
+                            long lastLogTime = System.currentTimeMillis();  // to track when we last logged
+                            long startTime = System.nanoTime();
+
+                            log.info("Output buffer for task %s= %s", taskId, taskHandle.getOutputBuffer().get().getInfo());
+
+                            while (!taskHandle.isTotalRunningSplitEmpty()) {
+                                checkState(!taskHandle.isTaskDone(), "Task is done while waiting for total running split empty");
+                                if (blockedSplits.size() > 0) {
+                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_BLOCKED_SPLITS);
+                                }
+                                else {
+                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_RUNNING_SPLITS);
+                                }
+                                try {
+                                    long currentTime = System.currentTimeMillis();
+                                    if (currentTime - lastLogTime >= logFrequencyMillis) {
+                                        log.info("Num running splits for task %s = %s, Num blocked splits = %s", taskId, runningSplits.size(), blockedSplits.size());
+                                    }
+                                    Thread.sleep(waitTimeMillis);
+                                }
+                                catch (InterruptedException ex) {
+                                    log.error(ex, "GracefulShutdown got interrupted while waiting for split completion for task %s", taskId);
+                                }
+                            }
+
+                            waitForRunningSplitTime.add(Duration.nanosSince(startTime));
+
+                            log.info("Sending no more pages to output buffer for task %s= %s", taskId, outputBuffer.getInfo());
+                            outputBuffer.setNoMorePages();
+                            log.info("After Sending no more pages to output buffer for task %s= %s", taskId, outputBuffer.getInfo());
+
+                            if (!outputBuffer.forceNoMoreBufferIfPossibleOrKill()) {
+                                log.info("The output buffer for task %s is not drainable, fail the output buffer to notify downstream.", taskId);
+                                outputBuffer.fail();
+                                taskHandle.forceFailure(String.format("The output buffer for task %s is not drainable. outputBuffer type: %s", taskId, outputBuffer.getInfo().getType()));
+                                return;
+                            }
+
+                            //wait for output buffer to be empty
+                            startTime = System.nanoTime();
+                            while (!taskHandle.isOutputBufferEmpty()) {
+                                try {
+                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_OUTPUT_BUFFER);
+                                    log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s, outputbuffer info = %s", taskId, outputBuffer.getInfo());
+                                    Thread.sleep(waitTimeMillis);
+                                }
+                                catch (InterruptedException e) {
+                                    log.error(e, "GracefulShutdown got interrupted for task %s", taskId);
+                                }
+                            }
+                            outputBufferEmptyWaitTime.add(Duration.nanosSince(startTime));
+                            log.warn("GracefulShutdown:: calling handleShutDown for task- %s, buffer info : %s", taskId, outputBuffer.getInfo());
+                            eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.INITIATE_HANDLE_SHUTDOWN);
+                            taskHandle.handleShutDown();
+                        }
+                        catch (Throwable ex) {
+                            log.error("Exception while doing graceful preemption for task %s", taskId, ex);
+                        }
+                        finally {
+                            latch.countDown();
+                        }
+                    });
+        }
+
+        try {
+            log.info("Waiting for shutdown of all tasks");
+            latch.await();
+        }
+        catch (InterruptedException e) {
+            // TODO Handle interruption
+        }
     }
 
     @VisibleForTesting
@@ -218,7 +388,11 @@ public class TaskExecutor
                 DEFAULT_INTERRUPTIBLE_SPLIT_PREDICATE,
                 DEFAULT_INTERRUPT_SPLIT_INTERVAL,
                 new EmbedVersion(new ServerConfig()),
-                new MultilevelSplitQueue(2), ticker);
+                new MultilevelSplitQueue(2),
+                ticker,
+                false,
+                false,
+                new TestingEventListenerManager());
     }
 
     @VisibleForTesting
@@ -242,7 +416,10 @@ public class TaskExecutor
                 DEFAULT_INTERRUPT_SPLIT_INTERVAL,
                 new EmbedVersion(new ServerConfig()),
                 splitQueue,
-                ticker);
+                ticker,
+                false,
+                false,
+                new TestingEventListenerManager());
     }
 
     @VisibleForTesting
@@ -257,7 +434,10 @@ public class TaskExecutor
             Duration interruptSplitInterval,
             EmbedVersion embedVersion,
             MultilevelSplitQueue splitQueue,
-            Ticker ticker)
+            Ticker ticker,
+            boolean enableGracefulShutdown,
+            boolean enableRetryForFailedSplits,
+            EventListenerManager eventListenerManager)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
         checkArgument(guaranteedNumberOfDriversPerTask > 0, "guaranteedNumberOfDriversPerTask must be at least 1");
@@ -297,6 +477,9 @@ public class TaskExecutor
         this.interruptRunawaySplitsTimeout = interruptRunawaySplitsTimeout;
         this.interruptibleSplitPredicate = interruptibleSplitPredicate;
         this.interruptSplitInterval = interruptSplitInterval;
+        this.enableGracefulShutdown = enableGracefulShutdown;
+        this.enableRetryForFailedSplits = enableRetryForFailedSplits;
+        this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
     }
 
     @PostConstruct
@@ -317,6 +500,7 @@ public class TaskExecutor
     {
         closed = true;
         executor.shutdownNow();
+        taskShutdownExecutor.shutdownNow();
         splitMonitorExecutor.shutdownNow();
     }
 
@@ -349,6 +533,18 @@ public class TaskExecutor
             Duration splitConcurrencyAdjustFrequency,
             OptionalInt maxDriversPerTask)
     {
+        return addTask(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask, Optional.empty(), Optional.empty());
+    }
+
+    public synchronized TaskHandle addTask(
+            TaskId taskId,
+            DoubleSupplier utilizationSupplier,
+            int initialSplitConcurrency,
+            Duration splitConcurrencyAdjustFrequency,
+            OptionalInt maxDriversPerTask,
+            Optional<TaskShutDownListener> taskKillListener,
+            Optional<OutputBuffer> outputBuffer)
+    {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
         checkArgument(!maxDriversPerTask.isPresent() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
@@ -362,9 +558,13 @@ public class TaskExecutor
                 utilizationSupplier,
                 initialSplitConcurrency,
                 splitConcurrencyAdjustFrequency,
-                maxDriversPerTask);
-
+                maxDriversPerTask,
+                taskKillListener,
+                outputBuffer,
+                enableGracefulShutdown,
+                enableRetryForFailedSplits);
         tasks.add(taskHandle);
+
         return taskHandle;
     }
 
@@ -373,7 +573,6 @@ public class TaskExecutor
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskHandle.getTaskId())) {
             doRemoveTask(taskHandle);
         }
-
         // replace blocked splits that were terminated
         addNewEntrants();
     }
@@ -441,7 +640,6 @@ public class TaskExecutor
                         splitsToDestroy.add(prioritizedSplitRunner);
                     }
                 }
-
                 finishedFutures.add(prioritizedSplitRunner.getFinishedFuture());
             }
         }
@@ -460,6 +658,7 @@ public class TaskExecutor
             long wallNanos = System.nanoTime() - split.getCreatedNanos();
             splitWallTime.add(Duration.succinctNanos(wallNanos));
 
+            long splitExecutionTimeNanos = System.nanoTime() - split.getStartNanos();
             if (intermediateSplits.remove(split)) {
                 intermediateSplitWallTime.add(wallNanos);
                 intermediateSplitScheduledTime.add(split.getScheduledNanos());
@@ -467,8 +666,15 @@ public class TaskExecutor
                 intermediateSplitCpuTime.add(split.getCpuTimeNanos());
             }
             else {
+                leafSplitExecutionTime.add(splitExecutionTimeNanos);
+
+                // Time when the SplitRunner was created to time when it is finished. So end to end time
                 leafSplitWallTime.add(wallNanos);
+
+                // Time after we are done schedule run for the split by calling split.processFor(SPLIT_RUN_QUANTA) -  time when we start to process the split
                 leafSplitScheduledTime.add(split.getScheduledNanos());
+
+                // Time when the PrioritizedSplitRunner instance was created to time before it was scheduled to run. Its kind of wait time in the split queue
                 leafSplitWaitTime.add(split.getWaitNanos());
                 leafSplitCpuTime.add(split.getCpuTimeNanos());
             }
@@ -627,9 +833,6 @@ public class TaskExecutor
 
                         if (split.isFinished()) {
                             // Avoid calling split.getInfo() when debug logging is not enabled
-                            if (log.isDebugEnabled()) {
-                                log.debug("%s is finished", split.getInfo());
-                            }
                             splitFinished(split);
                         }
                         else {
@@ -639,10 +842,10 @@ public class TaskExecutor
                             else {
                                 blockedSplits.put(split, blocked);
                                 blocked.addListener(() -> {
-                                    blockedSplits.remove(split);
                                     // reset the level priority to prevent previously-blocked splits from starving existing splits
                                     split.resetLevelPriority();
                                     waitingSplits.offer(split);
+                                    blockedSplits.remove(split);
                                 }, executor);
                             }
                         }
@@ -652,12 +855,13 @@ public class TaskExecutor
                         if (!split.isDestroyed()) {
                             if (t instanceof PrestoException) {
                                 PrestoException e = (PrestoException) t;
-                                log.error("Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
+                                log.error("Error processing split of task %s, %s: %s: %s", split.getTaskHandle().getTaskId(), split.getSplitSequenceID(), e.getErrorCode().getName(), e.getMessage());
                             }
                             else {
-                                log.error(t, "Error processing %s", split.getInfo());
+                                log.error(t, "Error processing split of task %s -> %s", split.getTaskHandle().getTaskId(), split.getSplitSequenceID());
                             }
                         }
+                        log.error("Error occurred, marking split %s of task %s as finished, error =%s", split.getSplitSequenceID(), split.getTaskHandle().getTaskId(), t);
                         splitFinished(split);
                     }
                     finally {
@@ -929,6 +1133,27 @@ public class TaskExecutor
         return splitSkippedDueToMemoryPressure;
     }
 
+    @Managed
+    @Nested
+    public TimeStat getTaskExecutorShutdownTime()
+    {
+        return taskExecutorShutdownTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getOutputBufferEmptyWaitTime()
+    {
+        return outputBufferEmptyWaitTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getWaitForRunningSplitTime()
+    {
+        return waitForRunningSplitTime;
+    }
+
     private synchronized int getRunningTasksForLevel(int level)
     {
         int count = 0;
@@ -1066,5 +1291,25 @@ public class TaskExecutor
     public boolean isLowMemory()
     {
         return this.lowMemory;
+    }
+
+    public boolean isShuttingDownStarted()
+    {
+        return isGracefulShutdownStarted.get();
+    }
+
+    public boolean getIsGracefulShutdownFinished()
+    {
+        return isGracefulShutdownFinished.get();
+    }
+
+    public void incrementPendingUpdateTaskCount()
+    {
+        pendingUpdateTasks.addAndGet(1);
+    }
+
+    public void decrementPendingUpdateTaskCount()
+    {
+        pendingUpdateTasks.addAndGet(-1);
     }
 }

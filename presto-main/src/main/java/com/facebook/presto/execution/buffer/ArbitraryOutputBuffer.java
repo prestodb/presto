@@ -533,4 +533,23 @@ public class ArbitraryOutputBuffer
     {
         return memoryManager;
     }
+
+    @Override
+    public boolean isAllPagesConsumed()
+    {
+        for (ClientBuffer partition : buffers.values()) {
+            if (!partition.isEmptyPages()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public boolean forceNoMoreBufferIfPossibleOrKill()
+    {
+        this.state.compareAndSet(NO_MORE_PAGES, FLUSHING);
+
+        return state.get() == FLUSHING || state.get() == FINISHED;
+    }
 }
