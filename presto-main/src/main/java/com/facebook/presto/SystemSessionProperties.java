@@ -195,6 +195,7 @@ public final class SystemSessionProperties
     public static final String CTE_MATERIALIZATION_STRATEGY = "cte_materialization_strategy";
     public static final String CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED = "cte_filter_and_projection_pushdown_enabled";
     public static final String DEFAULT_JOIN_SELECTIVITY_COEFFICIENT = "default_join_selectivity_coefficient";
+    public static final String DEFAULT_WRITER_REPLICATION_COEFFICIENT = "default_writer_replication_coefficient";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String OPTIMIZE_CONSTANT_GROUPING_KEYS = "optimize_constant_grouping_keys";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
@@ -1091,6 +1092,11 @@ public final class SystemSessionProperties
                         false,
                         value -> validateDoubleValueWithinSelectivityRange(value, DEFAULT_JOIN_SELECTIVITY_COEFFICIENT),
                         object -> object),
+                doubleProperty(
+                        DEFAULT_WRITER_REPLICATION_COEFFICIENT,
+                        "Replication coefficient for costing write operations",
+                        featuresConfig.getDefaultWriterReplicationCoefficient(),
+                        false),
                 booleanProperty(
                         PUSH_LIMIT_THROUGH_OUTER_JOIN,
                         "push limits to the outer side of an outer join",
@@ -2427,6 +2433,11 @@ public final class SystemSessionProperties
     public static boolean getCteFilterAndProjectionPushdownEnabled(Session session)
     {
         return session.getSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static double getCteProducerReplicationCoefficient(Session session)
+    {
+        return session.getSystemProperty(DEFAULT_WRITER_REPLICATION_COEFFICIENT, Double.class);
     }
 
     public static int getFilterAndProjectMinOutputPageRowCount(Session session)

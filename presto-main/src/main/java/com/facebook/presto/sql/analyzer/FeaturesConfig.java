@@ -163,6 +163,7 @@ public class FeaturesConfig
     // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
     // which could result in syntactic join order. Set it to 0 to disable this feature
     private double defaultJoinSelectivityCoefficient;
+    private double defaultWriterReplicationCoefficient = 3;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -1498,6 +1499,19 @@ public class FeaturesConfig
     public double getDefaultJoinSelectivityCoefficient()
     {
         return defaultJoinSelectivityCoefficient;
+    }
+
+    @Config("optimizer.default-writer-replication-coefficient")
+    @ConfigDescription("Replication coefficient for costing write operations")
+    public FeaturesConfig setDefaultWriterReplicationCoefficient(double defaultJoinSelectivityCoefficient)
+    {
+        this.defaultWriterReplicationCoefficient = defaultJoinSelectivityCoefficient;
+        return this;
+    }
+
+    public double getDefaultWriterReplicationCoefficient()
+    {
+        return defaultWriterReplicationCoefficient;
     }
 
     public DataSize getTopNOperatorUnspillMemoryLimit()
