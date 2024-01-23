@@ -357,7 +357,6 @@ public class PrestoSparkHttpTaskClient
         @Override
         public BaseResponse<byte[]> handle(Request request, Response response)
         {
-
             return new BytesResponse(
                     response.getStatusCode(),
                     response.getStatusMessage(),
