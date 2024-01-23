@@ -39,6 +39,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -54,6 +55,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -178,19 +180,63 @@ public class TestIcebergLogicalPlanner
                         filter("r.a=10",
                                 strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
 
-        // Predicates with identity partition column and normal column, would not be enforced by tableScan
-        // TODO: The predicate could be enforced partially by tableScan, so the filterNode could drop it's filter condition `id=10`
-        assertPlan(sessionWithoutFilterPushdown, "SELECT name, r FROM test_filters_with_pushdown_disable WHERE id = 10 and name = 'adam'",
+        // Predicates with identity partition column and normal column
+        // The predicate was enforced partially by tableScan, so the filterNode drop it's filter condition `id=10`
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, r FROM test_filters_with_pushdown_disable WHERE id = 10 and name = 'adam'",
                 output(exchange(project(
-                        filter("id=10 AND name='adam'",
+                        ImmutableMap.of("id", expression("10")),
+                        filter("name='adam'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "r")))))));
+
+        // Predicates with identity partition column and subfield column
+        // The predicate was enforced partially by tableScan, so the filterNode drop it's filter condition `id=10`
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, name FROM test_filters_with_pushdown_disable WHERE id = 10 and r.b = 'adam'",
+                output(exchange(project(
+                        ImmutableMap.of("id", expression("10")),
+                        filter("r.b='adam'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "r")))))));
+
+        // Predicates expression `in` for identity partition columns could be enforced by iceberg table as well
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, name FROM test_filters_with_pushdown_disable WHERE id in (1, 3, 5, 7, 9) and r.b = 'adam'",
+                output(exchange(project(
+                        filter("r.b='adam'",
                                 strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
 
-        // Predicates with identity partition column and subfield column, would not be enforced by tableScan
-        assertPlan(sessionWithoutFilterPushdown, "SELECT name FROM test_filters_with_pushdown_disable WHERE id = 10 and r.b = 'adam'",
+        // When predicate simplification causing changes in the predicate, it could not be enforced by iceberg table
+        String params = "(" + Joiner.on(", ").join(IntStream.rangeClosed(1, 50).mapToObj(i -> String.valueOf(2 * i + 1)).toArray()) + ")";
+        assertPlan(sessionWithoutFilterPushdown, "SELECT name FROM test_filters_with_pushdown_disable WHERE id in " + params + " and r.b = 'adam'",
                 output(exchange(project(
-                        filter("id=10 AND r.b='adam'",
+                        filter("r.b='adam' AND id in " + params,
                                 strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
 
+        // Add a new identity partitioned column for iceberg table
+        assertUpdate("ALTER TABLE test_filters_with_pushdown_disable add column newpart bigint with (partitioning = 'identity')");
+
+        // Predicates with originally present identity partition column and newly added identity partition column
+        // Only the predicate on originally present identity partition column could be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, name FROM test_filters_with_pushdown_disable WHERE id = 10 and newpart = 1001",
+                output(exchange(project(
+                        ImmutableMap.of("id", expression("10")),
+                        filter("newpart=1001",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "newpart")))))));
+
+        assertUpdate("DROP TABLE test_filters_with_pushdown_disable");
+
+        assertUpdate("CREATE TABLE test_filters_with_pushdown_disable(id int, name varchar, r row(a int, b varchar)) with (partitioning = ARRAY['id', 'truncate(name, 2)'])");
+
+        // Predicates with non-identity partitioned column could not be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id FROM test_filters_with_pushdown_disable WHERE name = 'hd001'",
+                output(exchange(project(
+                        filter("name='hd001'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name")))))));
+
+        // Predicates with identity partition column and non-identity partitioned column
+        // Only the predicate on identity partition column could be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, r FROM test_filters_with_pushdown_disable WHERE id = 10 and name = 'hd001'",
+                output(exchange(project(
+                        ImmutableMap.of("id", expression("10")),
+                        filter("name='hd001'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "r")))))));
         assertUpdate("DROP TABLE test_filters_with_pushdown_disable");
     }
 

@@ -522,8 +522,11 @@ public final class RowExpressionVerifier
             SpecialFormExpression actualLogicalBinary = (SpecialFormExpression) actual;
             if ((expected.getOperator() == OR && actualLogicalBinary.getForm() == SpecialFormExpression.Form.OR) ||
                     (expected.getOperator() == AND && actualLogicalBinary.getForm() == SpecialFormExpression.Form.AND)) {
-                return process(expected.getLeft(), actualLogicalBinary.getArguments().get(0)) &&
-                        process(expected.getRight(), actualLogicalBinary.getArguments().get(1));
+                // `Logical AND` and `Logical OR` both satisfy the commutative property
+                return process(expected.getLeft(), actualLogicalBinary.getArguments().get(0)) ?
+                        process(expected.getRight(), actualLogicalBinary.getArguments().get(1)) :
+                        process(expected.getLeft(), actualLogicalBinary.getArguments().get(1)) &&
+                                process(expected.getRight(), actualLogicalBinary.getArguments().get(0));
             }
         }
         return false;
