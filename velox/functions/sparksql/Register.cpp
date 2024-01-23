@@ -277,7 +277,12 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<AddMonthsFunction, Date, Date, int32_t>(
       {prefix + "add_months"});
 
+  registerFunction<DateAddFunction, Date, Date, int8_t>({prefix + "date_add"});
+  registerFunction<DateAddFunction, Date, Date, int16_t>({prefix + "date_add"});
   registerFunction<DateAddFunction, Date, Date, int32_t>({prefix + "date_add"});
+
+  registerFunction<DateSubFunction, Date, Date, int8_t>({prefix + "date_sub"});
+  registerFunction<DateSubFunction, Date, Date, int16_t>({prefix + "date_sub"});
   registerFunction<DateSubFunction, Date, Date, int32_t>({prefix + "date_sub"});
 
   registerFunction<DayFunction, int32_t, Date>(

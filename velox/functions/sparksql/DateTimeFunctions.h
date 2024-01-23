@@ -320,11 +320,12 @@ template <typename T>
 struct DateAddFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
+  template <typename TInput>
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Date>& date,
-      const int32_t value) {
-    result = addToDate(date, DateTimeUnit::kDay, value);
+      const TInput& value) {
+    __builtin_add_overflow(date, value, &result);
   }
 };
 
@@ -332,21 +333,12 @@ template <typename T>
 struct DateSubFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
+  template <typename TInput>
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Date>& date,
-      const int32_t value) {
-    constexpr int32_t kMin = std::numeric_limits<int32_t>::min();
-    if (value > kMin) {
-      int32_t subValue = 0 - value;
-      result = addToDate(date, DateTimeUnit::kDay, subValue);
-    } else {
-      // If input values is kMin,  0 - value overflows.
-      // Subtract kMin in 2 steps to avoid overflow: -(-(kMin+1)), then -1.
-      int32_t subValue = 0 - (kMin + 1);
-      result = addToDate(date, DateTimeUnit::kDay, subValue);
-      result = addToDate(result, DateTimeUnit::kDay, 1);
-    }
+      const TInput& value) {
+    __builtin_sub_overflow(date, value, &result);
   }
 };
 
