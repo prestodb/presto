@@ -27,6 +27,7 @@
 #include <type_traits>
 
 #include "folly/CPortability.h"
+#include "velox/common/base/Doubles.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/ArithmeticImpl.h"
@@ -95,9 +96,10 @@ struct IntervalMultiplyFunction {
     } else {
       resultDouble = sanitizeInput(b) * a;
     }
+
     if LIKELY (
         std::isfinite(resultDouble) && resultDouble >= kLongMin &&
-        resultDouble <= kLongMax) {
+        resultDouble <= kMaxDoubleBelowInt64Max) {
       result = int64_t(resultDouble);
     } else {
       result = resultDouble > 0 ? kLongMax : kLongMin;
@@ -139,7 +141,7 @@ struct IntervalDivideFunction {
     double resultDouble = a / b;
     if LIKELY (
         std::isfinite(resultDouble) && resultDouble >= kLongMin &&
-        resultDouble <= kLongMax) {
+        resultDouble <= kMaxDoubleBelowInt64Max) {
       result = int64_t(resultDouble);
     } else {
       result = resultDouble > 0 ? kLongMax : kLongMin;

@@ -17,6 +17,8 @@
 
 #include <chrono>
 #include <optional>
+
+#include "velox/common/base/Doubles.h"
 #include "velox/external/date/date.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/TimestampConversion.h"
@@ -39,14 +41,9 @@ FOLLY_ALWAYS_INLINE std::optional<Timestamp> fromUnixtime(double unixtime) {
     return Timestamp(0, 0);
   }
 
-  static const int64_t kMax = std::numeric_limits<int64_t>::max();
   static const int64_t kMin = std::numeric_limits<int64_t>::min();
 
-  // On some compilers if we cast kMax to a double, we can get a number larger
-  // than 'kMax'. This will allow 'unixtime' values > 'kMax'. The workaround
-  // here is to use uint64_t to represent ('kMax' + 1), which can be represented
-  // exactly as double. We then check if the difference with 'unixtime' <= 1.
-  if (FOLLY_UNLIKELY((static_cast<uint64_t>(kMax) + 1) - unixtime <= 1)) {
+  if (FOLLY_UNLIKELY(unixtime >= kMinDoubleAboveInt64Max)) {
     return Timestamp::maxMillis();
   }
 
