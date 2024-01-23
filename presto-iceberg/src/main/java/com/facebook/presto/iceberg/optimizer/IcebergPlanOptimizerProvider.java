@@ -47,7 +47,7 @@ public class IcebergPlanOptimizerProvider
         requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         requireNonNull(typeManager, "typeManager is null");
         this.planOptimizers = ImmutableSet.of(
-                new IcebergPlanOptimizer(functionResolution, rowExpressionService, transactionManager),
+                new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
                 new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
                 new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager));
         this.logicalPlanOptimizers = ImmutableSet.<ConnectorPlanOptimizer>builder()
