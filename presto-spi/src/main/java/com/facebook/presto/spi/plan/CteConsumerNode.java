@@ -32,15 +32,17 @@ public final class CteConsumerNode
 {
     private final String cteName;
     private final List<VariableReferenceExpression> originalOutputVariables;
+    private final PlanNode originalSource;
 
     @JsonCreator
     public CteConsumerNode(
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputvars") List<VariableReferenceExpression> originalOutputVariables,
-            @JsonProperty("cteName") String cteName)
+            @JsonProperty("cteName") String cteName,
+            @JsonProperty("originalSource") PlanNode originalSource)
     {
-        this(sourceLocation, id, Optional.empty(), originalOutputVariables, cteName);
+        this(sourceLocation, id, Optional.empty(), originalOutputVariables, cteName, originalSource);
     }
 
     public CteConsumerNode(
@@ -48,11 +50,13 @@ public final class CteConsumerNode
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
             List<VariableReferenceExpression> originalOutputVariables,
-            String cteName)
+            String cteName,
+            PlanNode originalSource)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.cteName = requireNonNull(cteName, "cteName must not be null");
         this.originalOutputVariables = requireNonNull(originalOutputVariables, "originalOutputVariables must not be null");
+        this.originalSource = originalSource;
     }
 
     @Override
@@ -73,13 +77,19 @@ public final class CteConsumerNode
     {
         // this function expects a new instance
         checkArgument(newChildren.size() == 0, "expected newChildren to contain 0 node");
-        return new CteConsumerNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), originalOutputVariables, cteName);
+        return new CteConsumerNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), originalOutputVariables, cteName, originalSource);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new CteConsumerNode(getSourceLocation(), getId(), statsEquivalentPlanNode, originalOutputVariables, cteName);
+        return new CteConsumerNode(getSourceLocation(), getId(),
+                statsEquivalentPlanNode, originalOutputVariables, cteName, originalSource);
+    }
+
+    public PlanNode getOriginalSource()
+    {
+        return originalSource;
     }
 
     @Override
