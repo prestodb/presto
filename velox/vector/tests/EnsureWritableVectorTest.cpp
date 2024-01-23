@@ -817,22 +817,47 @@ TEST_F(EnsureWritableVectorTest, allNullMap) {
 }
 
 TEST_F(EnsureWritableVectorTest, booleanFlatVector) {
-  VectorPtr vector =
-      makeFlatVector<bool>(100, [](auto /*row*/) { return true; });
+  auto testEnsureWritable = [this](VectorPtr& vector, SelectivityVector& rows) {
+    // Make sure vector::values_ buffer is not uniquely referenced so that
+    // the branch in the FlatVector::ensureWritable() that copy old values
+    // to new buffer is executed.
+    auto another = vector->asFlatVector<bool>()->values();
 
-  // Make sure vector::values_ buffer is not uniquely referenced so that the
-  // branch in the FlatVector::ensureWritable() that copy old values to new
-  // buffer is executed.
-  auto another = vector->asFlatVector<bool>()->values();
+    auto vectorPtr = vector.get();
+    ASSERT_NO_THROW(
+        BaseVector::ensureWritable(rows, BOOLEAN(), pool(), vector));
+    ASSERT_EQ(vectorPtr, vector.get());
+    ASSERT_NE(another->as<void>(), vector->valuesAsVoid());
+  };
 
-  SelectivityVector rows{200, false};
-  rows.setValidRange(16, 32, true);
-  rows.updateBounds();
+  {
+    VectorPtr vector =
+        makeFlatVector<bool>(100, [](auto /*row*/) { return true; });
 
-  auto vectorPtr = vector.get();
-  ASSERT_NO_THROW(BaseVector::ensureWritable(rows, BOOLEAN(), pool(), vector));
-  ASSERT_EQ(vectorPtr, vector.get());
-  ASSERT_NE(another->as<void>(), vector->valuesAsVoid());
+    SelectivityVector rows{200, false};
+    rows.setValidRange(16, 32, true);
+    rows.updateBounds();
+
+    testEnsureWritable(vector, rows);
+  }
+
+  {
+    auto value = AlignedBuffer::allocate<bool>(1000, pool(), true);
+    // Create a FlatVector with a length smaller than the value buffer.
+    VectorPtr vector = std::make_shared<FlatVector<bool>>(
+        pool(),
+        BOOLEAN(),
+        nullptr,
+        100,
+        std::move(value),
+        std::vector<BufferPtr>());
+
+    // Create rows with a length smaller than the value buffer to ensure that
+    // the newly created vector is also smaller.
+    SelectivityVector rows{100, true};
+
+    testEnsureWritable(vector, rows);
+  }
 }
 
 TEST_F(EnsureWritableVectorTest, dataDependentFlags) {
