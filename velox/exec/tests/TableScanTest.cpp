@@ -1146,7 +1146,7 @@ TEST_F(TableScanTest, count) {
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
 
   cursor->task()->addSplit("0", makeHiveSplit(filePath->path));
   cursor->task()->noMoreSplits("0");
@@ -1245,7 +1245,7 @@ TEST_F(TableScanTest, sequentialSplitNoDoubleRead) {
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   // Add the same split with the same sequence id twice. The second should be
   // ignored.
   EXPECT_TRUE(cursor->task()->addSplitWithSequence(
@@ -1275,7 +1275,7 @@ TEST_F(TableScanTest, outOfOrderSplits) {
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
 
   // Add splits out of order (1, 0). Both of them should be processed.
   EXPECT_TRUE(cursor->task()->addSplitWithSequence(
@@ -1306,7 +1306,7 @@ TEST_F(TableScanTest, splitDoubleRead) {
   params.planNode = tableScanNode(ROW({}, {}));
 
   for (size_t i = 0; i < 2; ++i) {
-    auto cursor = std::make_unique<TaskCursor>(params);
+    auto cursor = TaskCursor::create(params);
 
     // Add the same split twice - we should read twice the size.
     cursor->task()->addSplit("0", makeHiveSplit(filePath->path));
@@ -1391,7 +1391,7 @@ TEST_F(TableScanTest, fileNotFound) {
   CursorParameters params;
   params.planNode = tableScanNode();
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   cursor->task()->addSplit("0", makeHiveSplit("/path/to/nowhere.orc"));
   EXPECT_THROW(cursor->moveNext(), VeloxRuntimeError);
 }
@@ -2929,17 +2929,17 @@ TEST_F(TableScanTest, interleaveLazyEager) {
                         .assignments(assignments)
                         .endTableScan()
                         .planNode();
-  TaskCursor cursor(params);
-  cursor.task()->addSplit("0", makeHiveSplit(lazyFile->path));
-  cursor.task()->addSplit("0", makeHiveSplit(eagerFile->path));
-  cursor.task()->addSplit("0", makeHiveSplit(lazyFile->path));
-  cursor.task()->noMoreSplits("0");
+  auto cursor = TaskCursor::create(params);
+  cursor->task()->addSplit("0", makeHiveSplit(lazyFile->path));
+  cursor->task()->addSplit("0", makeHiveSplit(eagerFile->path));
+  cursor->task()->addSplit("0", makeHiveSplit(lazyFile->path));
+  cursor->task()->noMoreSplits("0");
   for (int i = 0; i < 3; ++i) {
-    ASSERT_TRUE(cursor.moveNext());
-    auto result = cursor.current();
+    ASSERT_TRUE(cursor->moveNext());
+    auto result = cursor->current();
     ASSERT_EQ(result->size(), i % 2 == 0 ? kSize : numNonNull);
   }
-  ASSERT_FALSE(cursor.moveNext());
+  ASSERT_FALSE(cursor->moveNext());
 }
 
 TEST_F(TableScanTest, lazyVectorAccessTwiceWithDifferentRows) {
@@ -3025,7 +3025,7 @@ TEST_F(TableScanTest, addSplitsToFailedTask) {
                         .project({"5 / c0"})
                         .planNode();
 
-  auto cursor = std::make_unique<exec::test::TaskCursor>(params);
+  auto cursor = exec::test::TaskCursor::create(params);
   cursor->task()->addSplit(scanNodeId, makeHiveSplit(filePath->path));
 
   EXPECT_THROW(while (cursor->moveNext()){}, VeloxUserError);

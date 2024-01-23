@@ -346,9 +346,9 @@ TEST_F(FilterProjectTest, nestedFieldReference) {
   params.planNode =
       PlanBuilder().values({vector}).project({"(c0).c0.c0.c0"}).planNode();
   params.copyResult = false;
-  TaskCursor cursor(params);
-  ASSERT_TRUE(cursor.moveNext());
-  auto result = cursor.current();
+  auto cursor = TaskCursor::create(params);
+  ASSERT_TRUE(cursor->moveNext());
+  auto result = cursor->current();
   auto* actual = result->as<RowVector>()->childAt(0).get();
   const BaseVector* expected = vector.get();
   for (int i = 0; i < 4; ++i) {

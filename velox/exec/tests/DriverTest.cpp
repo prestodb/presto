@@ -980,7 +980,7 @@ TEST_F(DriverTest, driverCreationThrow) {
   CursorParameters params;
   params.planNode = plan;
   params.maxDrivers = 5;
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   auto task = cursor->task();
   // Ensure execution threw correct error.
   VELOX_ASSERT_THROW(cursor->moveNext(), "Too many drivers");

@@ -660,7 +660,7 @@ TEST_F(TaskTest, testTerminateDeadlock) {
           .project({"c0"})
           .planNode();
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
 
   folly::via(cursor->task()->queryCtx()->executor(), [&]() {
     // We abort after all but last join bridges finish execution. We do this
@@ -1023,7 +1023,7 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
       {{core::QueryConfig::kPreferredOutputBatchRows, "1"}});
 
   {
-    auto cursor = std::make_unique<TaskCursor>(params);
+    auto cursor = TaskCursor::create(params);
     std::vector<RowVectorPtr> result;
     auto* task = cursor->task().get();
     while (cursor->moveNext()) {
@@ -1068,7 +1068,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kPreferredOutputBatchRows, "1"}});
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   std::vector<RowVectorPtr> result;
   task = cursor->task().get();
   while (cursor->moveNext()) {
@@ -1147,7 +1147,7 @@ TEST_F(TaskTest, outputBufferSize) {
 
   // Produce the results to output buffer manager but not consuming them to
   // check the buffer utilization in test.
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   std::vector<RowVectorPtr> result;
   Task* task = cursor->task().get();
   while (cursor->moveNext()) {
@@ -1204,7 +1204,7 @@ DEBUG_ONLY_TEST_F(TaskTest, findPeerOperators) {
     params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
     params.maxDrivers = numDriver;
 
-    auto cursor = std::make_unique<TaskCursor>(params);
+    auto cursor = TaskCursor::create(params);
     auto* task = cursor->task().get();
 
     // Set up a testvalue to trigger task abort when hash build tries to reserve
@@ -1255,7 +1255,7 @@ DEBUG_ONLY_TEST_F(TaskTest, raceBetweenTaskPauseAndTerminate) {
   params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
   params.maxDrivers = 1;
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   auto* task = cursor->task().get();
   folly::EventCount taskPauseWait;
   std::atomic<bool> taskPaused{false};
@@ -1364,7 +1364,7 @@ TEST_F(TaskTest, spillDirectoryLifecycleManagement) {
        {core::QueryConfig::kTestingSpillPct, "100"}});
   params.maxDrivers = 1;
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   std::shared_ptr<Task> task = cursor->task();
   auto rootTempDir = exec::test::TempDirectoryPath::create();
   auto tmpDirectoryPath =
@@ -1421,7 +1421,7 @@ TEST_F(TaskTest, spillDirNotCreated) {
        {core::QueryConfig::kTestingSpillPct, "0"}});
   params.maxDrivers = 1;
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   auto* task = cursor->task().get();
   auto rootTempDir = exec::test::TempDirectoryPath::create();
   auto tmpDirectoryPath = rootTempDir->path + "/spillDirNotCreated";

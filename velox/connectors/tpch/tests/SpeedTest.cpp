@@ -92,14 +92,14 @@ class TpchSpeedTest {
     params.planNode = plan;
     params.maxDrivers = FLAGS_max_drivers;
 
-    TaskCursor taskCursor(params);
-    taskCursor.start();
+    auto taskCursor = TaskCursor::create(params);
+    taskCursor->start();
 
-    auto task = taskCursor.task();
+    auto task = taskCursor->task();
     addSplits(*task, scanId, numSplits);
 
-    while (taskCursor.moveNext()) {
-      processBatch(taskCursor.current());
+    while (taskCursor->moveNext()) {
+      processBatch(taskCursor->current());
     }
 
     // Wait for the task to finish.

@@ -5001,7 +5001,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, buildReservationReleaseCheck) {
        {core::QueryConfig::kJoinSpillEnabled, "true"}});
   params.maxDrivers = 1;
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   auto* task = cursor->task().get();
 
   // Set up a testvalue to trigger task abort when hash build tries to reserve

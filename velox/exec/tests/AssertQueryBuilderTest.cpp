@@ -34,6 +34,19 @@ TEST_F(AssertQueryBuilderTest, basic) {
       .assertResults(data);
 }
 
+TEST_F(AssertQueryBuilderTest, singleThreaded) {
+  auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
+
+  PlanBuilder builder;
+  const auto& plan = builder.values({data}).planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .singleThreaded(true)
+      .assertResults("VALUES (1), (2), (3)");
+
+  AssertQueryBuilder(plan).singleThreaded(true).assertResults(data);
+}
+
 TEST_F(AssertQueryBuilderTest, orderedResults) {
   auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
 

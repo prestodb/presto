@@ -180,7 +180,7 @@ class CodegenTestCore {
     CursorParameters params;
     params.planNode = planNode;
 
-    taskCursor = std::make_unique<TaskCursor>(params);
+    taskCursor = TaskCursor::create(params);
 
     std::vector<RowVectorPtr> actualResults;
     while (taskCursor->moveNext()) {

@@ -310,17 +310,17 @@ TEST_F(LocalPartitionTest, indicesBufferCapacity) {
                         .planNode();
   params.copyResult = false;
   params.maxDrivers = 2;
-  TaskCursor cursor(params);
+  auto cursor = TaskCursor::create(params);
   for (auto i = 0; i < filePaths.size(); ++i) {
     auto id = scanNodeIds[i % 3];
-    cursor.task()->addSplit(
+    cursor->task()->addSplit(
         id, Split(makeHiveConnectorSplit(filePaths[i]->path)));
-    cursor.task()->noMoreSplits(id);
+    cursor->task()->noMoreSplits(id);
   }
   int numRows = 0;
   int capacity = 0;
-  while (cursor.moveNext()) {
-    auto* batch = cursor.current()->as<RowVector>();
+  while (cursor->moveNext()) {
+    auto* batch = cursor->current()->as<RowVector>();
     ASSERT_EQ(batch->childrenSize(), 1);
     auto& column = batch->childAt(0);
     ASSERT_EQ(column->encoding(), VectorEncoding::Simple::DICTIONARY);
@@ -503,7 +503,7 @@ TEST_F(LocalPartitionTest, earlyCancelation) {
   // Make sure results are queued one batch at a time.
   params.bufferedBytes = 100;
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   const auto& task = cursor->task();
 
   // Fetch first batch of data.
@@ -553,7 +553,7 @@ TEST_F(LocalPartitionTest, producerError) {
   CursorParameters params;
   params.planNode = plan;
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   const auto& task = cursor->task();
 
   // Expect division by zero error.

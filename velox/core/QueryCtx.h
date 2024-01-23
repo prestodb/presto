@@ -78,12 +78,15 @@ class QueryCtx {
   }
 
   folly::Executor* executor() const {
+    VELOX_CHECK(isExecutorSupplied(), "Executor was not supplied.");
     if (executor_ != nullptr) {
       return executor_;
     }
-    auto executor = executorKeepalive_.get();
-    VELOX_CHECK(executor, "Executor was not supplied.");
-    return executor;
+    return executorKeepalive_.get();
+  }
+
+  bool isExecutorSupplied() const {
+    return executor_ != nullptr || executorKeepalive_.get() != nullptr;
   }
 
   const QueryConfig& queryConfig() const {

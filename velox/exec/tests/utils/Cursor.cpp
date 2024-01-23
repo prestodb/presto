@@ -125,113 +125,247 @@ bool TaskQueue::hasNext() {
   return !queue_.empty();
 }
 
-std::atomic<int32_t> TaskCursor::serial_;
+class TaskCursorBase : public TaskCursor {
+ public:
+  TaskCursorBase(
+      const CursorParameters& params,
+      const std::shared_ptr<folly::Executor>& executor) {
+    static std::atomic<int32_t> cursorId;
+    taskId_ = fmt::format("test_cursor {}", ++cursorId);
 
-TaskCursor::TaskCursor(const CursorParameters& params)
-    : maxDrivers_{params.maxDrivers},
-      numConcurrentSplitGroups_{params.numConcurrentSplitGroups},
-      numSplitGroups_{params.numSplitGroups} {
-  std::shared_ptr<core::QueryCtx> queryCtx;
-  if (params.queryCtx) {
-    queryCtx = params.queryCtx;
-  } else {
-    // NOTE: the destructor of 'executor_' will wait for all the async task
-    // activities to finish on TaskCursor destruction.
-    executor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
-        std::thread::hardware_concurrency());
-    static std::atomic<uint64_t> cursorQueryId{0};
-    queryCtx = std::make_shared<core::QueryCtx>(
-        executor_.get(),
-        core::QueryConfig({}),
-        std::unordered_map<std::string, std::shared_ptr<Config>>{},
-        cache::AsyncDataCache::getInstance(),
-        nullptr,
-        nullptr,
-        fmt::format("TaskCursorQuery_{}", cursorQueryId++));
-  }
-
-  if (!params.queryConfigs.empty()) {
-    auto configCopy = params.queryConfigs;
-    queryCtx->testingOverrideConfigUnsafe(std::move(configCopy));
-  }
-
-  queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);
-  // Captured as a shared_ptr by the consumer callback of task_.
-  auto queue = queue_;
-  core::PlanFragment planFragment{
-      params.planNode,
-      params.executionStrategy,
-      params.numSplitGroups,
-      params.groupedExecutionLeafNodeIds};
-  const std::string taskId = fmt::format("test_cursor {}", ++serial_);
-
-  task_ = Task::create(
-      taskId,
-      std::move(planFragment),
-      params.destination,
-      std::move(queryCtx),
-      // consumer
-      [queue, copyResult = params.copyResult](
-          RowVectorPtr vector, velox::ContinueFuture* future) {
-        if (!vector || !copyResult) {
-          return queue->enqueue(vector, future);
-        }
-        // Make sure to load lazy vector if not loaded already.
-        for (auto& child : vector->children()) {
-          child->loadedVector();
-        }
-        auto copy = BaseVector::create<RowVector>(
-            vector->type(), vector->size(), queue->pool());
-        copy->copy(vector.get(), 0, 0, vector->size());
-        return queue->enqueue(std::move(copy), future);
-      });
-
-  if (!params.spillDirectory.empty()) {
-    std::string taskSpillDirectory = params.spillDirectory + "/" + taskId;
-    auto fileSystem =
-        velox::filesystems::getFileSystem(taskSpillDirectory, nullptr);
-    VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
-    try {
-      fileSystem->mkdir(taskSpillDirectory);
-    } catch (...) {
-      LOG(ERROR) << "Faield to create task spill directory "
-                 << taskSpillDirectory << " base director "
-                 << params.spillDirectory << " exists["
-                 << std::filesystem::exists(taskSpillDirectory) << "]";
-
-      std::rethrow_exception(std::current_exception());
+    if (params.queryCtx) {
+      queryCtx_ = params.queryCtx;
+    } else {
+      // NOTE: the destructor of 'executor_' will wait for all the async task
+      // activities to finish on TaskCursor destruction.
+      executor_ = executor;
+      static std::atomic<uint64_t> cursorQueryId{0};
+      queryCtx_ = std::make_shared<core::QueryCtx>(
+          executor_.get(),
+          core::QueryConfig({}),
+          std::unordered_map<std::string, std::shared_ptr<Config>>{},
+          cache::AsyncDataCache::getInstance(),
+          nullptr,
+          nullptr,
+          fmt::format("TaskCursorQuery_{}", cursorQueryId++));
     }
 
-    LOG(INFO) << "Task spill directory[" << taskSpillDirectory << "] created";
-    task_->setSpillDirectory(taskSpillDirectory);
-  }
-}
+    if (!params.queryConfigs.empty()) {
+      auto configCopy = params.queryConfigs;
+      queryCtx_->testingOverrideConfigUnsafe(std::move(configCopy));
+    }
 
-void TaskCursor::start() {
-  if (!started_) {
-    started_ = true;
-    task_->start(maxDrivers_, numConcurrentSplitGroups_);
-    queue_->setNumProducers(numSplitGroups_ * task_->numOutputDrivers());
-  }
-}
+    planFragment_ = {
+        params.planNode,
+        params.executionStrategy,
+        params.numSplitGroups,
+        params.groupedExecutionLeafNodeIds};
 
-bool TaskCursor::moveNext() {
-  start();
-  current_ = queue_->dequeue();
-  if (task_->error()) {
-    // Wait for all task drivers to finish to avoid destroying the executor_
-    // before task_ finished using it and causing a crash.
-    waitForTaskDriversToFinish(task_.get());
-    std::rethrow_exception(task_->error());
-  }
-  if (!current_) {
-    atEnd_ = true;
-  }
-  return current_ != nullptr;
-}
+    if (!params.spillDirectory.empty()) {
+      taskSpillDirectory_ = params.spillDirectory + "/" + taskId_;
+      auto fileSystem =
+          velox::filesystems::getFileSystem(taskSpillDirectory_, nullptr);
+      VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
+      try {
+        fileSystem->mkdir(taskSpillDirectory_);
+      } catch (...) {
+        LOG(ERROR) << "Faield to create task spill directory "
+                   << taskSpillDirectory_ << " base director "
+                   << params.spillDirectory << " exists["
+                   << std::filesystem::exists(taskSpillDirectory_) << "]";
 
-bool TaskCursor::hasNext() {
-  return queue_->hasNext();
+        std::rethrow_exception(std::current_exception());
+      }
+
+      LOG(INFO) << "Task spill directory[" << taskSpillDirectory_
+                << "] created";
+    }
+  }
+
+ protected:
+  std::string taskId_;
+  std::shared_ptr<core::QueryCtx> queryCtx_;
+  core::PlanFragment planFragment_;
+  std::string taskSpillDirectory_;
+
+ private:
+  std::shared_ptr<folly::Executor> executor_;
+};
+
+class MultiThreadedTaskCursor : public TaskCursorBase {
+ public:
+  explicit MultiThreadedTaskCursor(const CursorParameters& params)
+      : TaskCursorBase(
+            params,
+            std::make_shared<folly::CPUThreadPoolExecutor>(
+                std::thread::hardware_concurrency())),
+        maxDrivers_{params.maxDrivers},
+        numConcurrentSplitGroups_{params.numConcurrentSplitGroups},
+        numSplitGroups_{params.numSplitGroups} {
+    VELOX_CHECK(!params.singleThreaded)
+    VELOX_CHECK(
+        queryCtx_->isExecutorSupplied(),
+        "Executor should be set in multi-threaded task cursor")
+
+    queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);
+    // Captured as a shared_ptr by the consumer callback of task_.
+    auto queue = queue_;
+    task_ = Task::create(
+        taskId_,
+        std::move(planFragment_),
+        params.destination,
+        std::move(queryCtx_),
+        // consumer
+        [queue, copyResult = params.copyResult](
+            const RowVectorPtr& vector, velox::ContinueFuture* future) {
+          if (!vector || !copyResult) {
+            return queue->enqueue(vector, future);
+          }
+          // Make sure to load lazy vector if not loaded already.
+          for (auto& child : vector->children()) {
+            child->loadedVector();
+          }
+          auto copy = BaseVector::create<RowVector>(
+              vector->type(), vector->size(), queue->pool());
+          copy->copy(vector.get(), 0, 0, vector->size());
+          return queue->enqueue(std::move(copy), future);
+        });
+
+    if (!taskSpillDirectory_.empty()) {
+      task_->setSpillDirectory(taskSpillDirectory_);
+    }
+  }
+
+  ~MultiThreadedTaskCursor() override {
+    queue_->close();
+    if (task_ && !atEnd_) {
+      task_->requestCancel();
+    }
+  }
+
+  /// Starts the task if not started yet.
+  void start() override {
+    if (!started_) {
+      started_ = true;
+      task_->start(maxDrivers_, numConcurrentSplitGroups_);
+      queue_->setNumProducers(numSplitGroups_ * task_->numOutputDrivers());
+    }
+  }
+
+  /// Fetches another batch from the task queue.
+  /// Starts the task if not started yet.
+  bool moveNext() override {
+    start();
+    current_ = queue_->dequeue();
+    if (task_->error()) {
+      // Wait for all task drivers to finish to avoid destroying the executor_
+      // before task_ finished using it and causing a crash.
+      waitForTaskDriversToFinish(task_.get());
+      std::rethrow_exception(task_->error());
+    }
+    if (!current_) {
+      atEnd_ = true;
+    }
+    return current_ != nullptr;
+  }
+
+  bool hasNext() override {
+    return queue_->hasNext();
+  }
+
+  RowVectorPtr& current() override {
+    return current_;
+  }
+
+  const std::shared_ptr<Task>& task() override {
+    return task_;
+  }
+
+ private:
+  const int32_t maxDrivers_;
+  const int32_t numConcurrentSplitGroups_;
+  const int32_t numSplitGroups_;
+
+  bool started_{false};
+  std::shared_ptr<TaskQueue> queue_;
+  std::shared_ptr<exec::Task> task_;
+  RowVectorPtr current_;
+  bool atEnd_{false};
+};
+
+class SingleThreadedTaskCursor : public TaskCursorBase {
+ public:
+  explicit SingleThreadedTaskCursor(const CursorParameters& params)
+      : TaskCursorBase(params, nullptr) {
+    VELOX_CHECK(params.singleThreaded)
+    VELOX_CHECK(
+        !queryCtx_->isExecutorSupplied(),
+        "Executor should not be set in single-threaded task cursor")
+
+    task_ = Task::create(
+        taskId_,
+        std::move(planFragment_),
+        params.destination,
+        std::move(queryCtx_));
+
+    if (!taskSpillDirectory_.empty()) {
+      task_->setSpillDirectory(taskSpillDirectory_);
+    }
+
+    VELOX_CHECK(
+        task_->supportsSingleThreadedExecution(),
+        "Plan doesn't support single-threaded execution")
+  }
+
+  ~SingleThreadedTaskCursor() override {
+    if (task_ && !SingleThreadedTaskCursor::hasNext()) {
+      task_->requestCancel().wait();
+    }
+  }
+
+  void start() override {
+    // no-op
+  }
+
+  bool moveNext() override {
+    if (!hasNext()) {
+      return false;
+    }
+    current_ = next_;
+    next_ = nullptr;
+    return true;
+  };
+
+  bool hasNext() override {
+    if (next_) {
+      return true;
+    }
+    if (!task_->isRunning()) {
+      return false;
+    }
+    next_ = task_->next();
+    return next_ != nullptr;
+  };
+
+  RowVectorPtr& current() override {
+    return current_;
+  }
+
+  const std::shared_ptr<Task>& task() override {
+    return task_;
+  }
+
+ private:
+  std::shared_ptr<exec::Task> task_;
+  RowVectorPtr current_;
+  RowVectorPtr next_;
+};
+
+std::unique_ptr<TaskCursor> TaskCursor::create(const CursorParameters& params) {
+  if (params.singleThreaded) {
+    return std::make_unique<SingleThreadedTaskCursor>(params);
+  }
+  return std::make_unique<MultiThreadedTaskCursor>(params);
 }
 
 bool RowCursor::next() {

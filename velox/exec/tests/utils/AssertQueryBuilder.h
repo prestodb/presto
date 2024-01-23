@@ -39,6 +39,10 @@ class AssertQueryBuilder {
   /// Default is 0.
   AssertQueryBuilder& destination(int32_t destination);
 
+  /// Use single-threaded execution to execute the Velox plan.
+  /// Default is false.
+  AssertQueryBuilder& singleThreaded(bool singleThreaded);
+
   /// Set configuration property. May be called multiple times to set multiple
   /// properties.
   AssertQueryBuilder& config(const std::string& key, const std::string& value);

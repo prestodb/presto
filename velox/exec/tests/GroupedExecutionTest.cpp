@@ -468,7 +468,7 @@ TEST_F(GroupedExecutionTest, groupedExecution) {
   params.numConcurrentSplitGroups = 2;
 
   // Create the cursor with the task underneath. It is not started yet.
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   auto task = cursor->task();
 
   // Add one splits before start to ensure we can handle such cases.

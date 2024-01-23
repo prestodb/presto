@@ -62,6 +62,11 @@ AssertQueryBuilder& AssertQueryBuilder::destination(int32_t destination) {
   return *this;
 }
 
+AssertQueryBuilder& AssertQueryBuilder::singleThreaded(bool singleThreaded) {
+  params_.singleThreaded = singleThreaded;
+  return *this;
+}
+
 AssertQueryBuilder& AssertQueryBuilder::config(
     const std::string& key,
     const std::string& value) {

@@ -1413,7 +1413,7 @@ TEST_F(MultiFragmentTest, customPlanNodeWithExchangeClient) {
           .capturePlanNodeId(testNodeId)
           .planNode();
 
-  auto cursor = std::make_unique<TaskCursor>(params);
+  auto cursor = TaskCursor::create(params);
   auto task = cursor->task();
   addRemoteSplits(task, {leafTaskId});
   while (cursor->moveNext()) {
