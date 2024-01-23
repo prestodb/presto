@@ -301,9 +301,11 @@ public class PlannerUtils
         }
 
         return new ProjectNode(
+                projectNode.getSourceLocation(),
                 idAllocator.getNextId(),
                 newSource,
-                newAssignments.build());
+                newAssignments.build(),
+                projectNode.getLocality());
     }
 
     private static TableScanNode cloneTableScan(TableScanNode scanNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)

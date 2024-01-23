@@ -44,6 +44,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferen
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -259,6 +260,8 @@ public class FeaturesConfig
     private boolean nativeExecutionProcessReuseEnabled = true;
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
+    private PayloadJoinOptimizationStrategy payloadJoinOptimizationStrategy = PayloadJoinOptimizationStrategy.DISABLED;
+    private DataSize joinMinPayloadSize = new DataSize(1, GIGABYTE);
     private ShardedJoinStrategy shardedJoinStrategy = ShardedJoinStrategy.DISABLED;
     private int joinShardCount = 100;
     private boolean isOptimizeConditionalAggregationEnabled;
@@ -391,6 +394,13 @@ public class FeaturesConfig
     {
         DISABLED,
         KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
+        COST_BASED,
+        ALWAYS
+    }
+
+    public enum PayloadJoinOptimizationStrategy
+    {
+        DISABLED,
         COST_BASED,
         ALWAYS
     }
@@ -2580,6 +2590,32 @@ public class FeaturesConfig
     public FeaturesConfig setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy)
     {
         this.randomizeOuterJoinNullKeyStrategy = randomizeOuterJoinNullKeyStrategy;
+        return this;
+    }
+
+    public PayloadJoinOptimizationStrategy getPayloadJoinOptimizationStrategy()
+    {
+        return payloadJoinOptimizationStrategy;
+    }
+
+    @Config("optimizer.join-min-payload-size")
+    @ConfigDescription("Minimal size of payload to trigger payload join optimization")
+    public FeaturesConfig setJoinMinPayloadSize(DataSize joinMinPayloadSize)
+    {
+        this.joinMinPayloadSize = joinMinPayloadSize;
+        return this;
+    }
+
+    public DataSize getJoinMinPayloadSize()
+    {
+        return joinMinPayloadSize;
+    }
+
+    @Config("optimizer.payload-join-optimization-strategy")
+    @ConfigDescription("When to apply payload join optimization")
+    public FeaturesConfig setPayloadJoinOptimizationStrategy(PayloadJoinOptimizationStrategy payloadJoinOptimizationStrategy)
+    {
+        this.payloadJoinOptimizationStrategy = payloadJoinOptimizationStrategy;
         return this;
     }
 

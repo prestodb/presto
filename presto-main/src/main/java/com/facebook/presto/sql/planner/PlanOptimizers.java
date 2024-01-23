@@ -570,7 +570,6 @@ public class PlanOptimizers
                 inlineProjections,
                 simplifyRowExpressionOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
-                new PayloadJoinOptimizer(metadata),
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()), // Run again because predicate pushdown and projection pushdown might add more projections
                 new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
@@ -695,7 +694,6 @@ public class PlanOptimizers
         // We do a single pass, and assign `statsEquivalentPlanNode` to each node.
         // After this step, nodes with same `statsEquivalentPlanNode` will share same history based statistics.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
-
         builder.add(new IterativeOptimizer(
                 metadata,
                 // Because ReorderJoins runs only once,
@@ -711,6 +709,7 @@ public class PlanOptimizers
         // We run it again to mark this for intermediate join nodes.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
 
+        builder.add(new PayloadJoinOptimizer(metadata, statsCalculator));
         // Run this set of join transformations after ReorderJoins, but before DetermineJoinDistributionType
         builder.add(new IterativeOptimizer(
                 metadata,
