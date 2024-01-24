@@ -26,6 +26,7 @@
 #include <folly/Conv.h>
 #include <folly/Exception.h>
 #include <folly/Preprocessor.h>
+#include "FmtStdFormatters.h"
 #include "velox/common/base/VeloxException.h"
 
 namespace facebook::velox {

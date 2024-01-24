@@ -69,10 +69,6 @@ jobs:
           fetch-depth: 0
           submodules: 'recursive'
 
-      - name: "Install dependencies"
-        if: ${{ github.event_name == 'pull_request' }}
-        run: source velox/scripts/setup-ubuntu.sh
-
       - name: "Checkout Merge Base"
         if: ${{ github.event_name == 'pull_request' }}
         working-directory: velox
@@ -89,6 +85,10 @@ jobs:
           git checkout $merge_base
           git submodule update --init --recursive
           echo $(git log -n 1)
+
+      - name: "Install dependencies"
+        if: ${{ github.event_name == 'pull_request' }}
+        run: source velox/scripts/setup-ubuntu.sh
 
       - name: Build Baseline Benchmarks
         if: ${{ github.event_name == 'pull_request' }}

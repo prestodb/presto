@@ -188,3 +188,14 @@ inline std::ostream& operator<<(
 }
 
 } // namespace facebook::velox::exec
+
+template <>
+struct fmt::formatter<facebook::velox::exec::SpillOperatorGroup::State>
+    : formatter<std::string> {
+  auto format(
+      facebook::velox::exec::SpillOperatorGroup::State s,
+      format_context& ctx) {
+    return formatter<std::string>::format(
+        facebook::velox::exec::SpillOperatorGroup::stateName(s), ctx);
+  }
+};

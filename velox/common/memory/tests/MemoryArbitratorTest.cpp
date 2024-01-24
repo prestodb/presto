@@ -417,7 +417,7 @@ class MockLeafMemoryReclaimer : public MemoryReclaimer {
   void free(const Allocation& allocation) {
     pool_->free(allocation.buffer, allocation.size);
     totalUsedBytes_ -= allocation.size;
-    VELOX_CHECK_GE(totalUsedBytes_, 0);
+    VELOX_CHECK_GE(static_cast<int>(totalUsedBytes_), 0);
   }
 
   uint64_t reclaimableBytes() const {

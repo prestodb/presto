@@ -766,3 +766,12 @@ class SourceOperator : public Operator {
   }
 };
 } // namespace facebook::velox::exec
+
+template <>
+struct fmt::formatter<std::thread::id> : formatter<std::string> {
+  auto format(std::thread::id s, format_context& ctx) {
+    std::ostringstream oss;
+    oss << s;
+    return formatter<std::string>::format(oss.str(), ctx);
+  }
+};

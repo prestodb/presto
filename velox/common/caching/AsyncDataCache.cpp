@@ -19,6 +19,7 @@
 #include "velox/common/caching/SsdCache.h"
 
 #include "velox/common/base/Counters.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/FileIds.h"

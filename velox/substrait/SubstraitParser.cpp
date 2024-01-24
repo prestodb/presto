@@ -15,6 +15,7 @@
  */
 
 #include "velox/substrait/SubstraitParser.h"
+#include <string>
 #include "velox/common/base/Exceptions.h"
 #include "velox/substrait/TypeUtils.h"
 #include "velox/substrait/VeloxSubstraitSignature.h"
@@ -103,7 +104,7 @@ int32_t SubstraitParser::parseReferenceSegment(
     default:
       VELOX_NYI(
           "Substrait conversion not supported for ReferenceSegment '{}'",
-          typeCase);
+          std::to_string(typeCase));
   }
 }
 

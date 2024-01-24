@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#include <fmt/format.h>
 #include <gtest/gtest.h>
+#include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include "velox/common/base/VeloxException.h"
@@ -567,8 +569,8 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    std::vector<bool> contiguousAllocations = {false, true};
-    for (const auto& contiguousAlloc : contiguousAllocations) {
+    const std::vector<bool> contiguousAllocations = {false, true};
+    for (const auto contiguousAlloc : contiguousAllocations) {
       SCOPED_TRACE(fmt::format("contiguousAlloc {}", contiguousAlloc));
       const int alignment = 32;
       MemoryManagerOptions options;

@@ -16,8 +16,10 @@
 
 #include <gtest/gtest.h>
 
+#include <fmt/format.h>
 #include <re2/re2.h>
 #include <deque>
+#include <vector>
 #include "folly/experimental/EventCount.h"
 #include "folly/futures/Barrier.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -879,7 +881,7 @@ TEST_F(MockSharedArbitrationTest, failedArbitration) {
 }
 
 TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
-  std::vector<bool> isLeafReclaimables = {true, false};
+  const std::vector<bool> isLeafReclaimables = {true, false};
   for (const auto isLeafReclaimable : isLeafReclaimables) {
     SCOPED_TRACE(fmt::format("isLeafReclaimable {}", isLeafReclaimable));
     setupMemory();
@@ -920,7 +922,7 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
 }
 
 TEST_F(MockSharedArbitrationTest, arbitrateWithCapacityShrink) {
-  std::vector<bool> isLeafReclaimables = {true, false};
+  const std::vector<bool> isLeafReclaimables = {true, false};
   for (const auto isLeafReclaimable : isLeafReclaimables) {
     SCOPED_TRACE(fmt::format("isLeafReclaimable {}", isLeafReclaimable));
     setupMemory();
@@ -955,7 +957,7 @@ TEST_F(MockSharedArbitrationTest, arbitrateWithCapacityShrink) {
 TEST_F(MockSharedArbitrationTest, arbitrateWithMemoryReclaim) {
   const uint64_t memoryCapacity = 256 * MB;
   const uint64_t minPoolCapacity = 8 * MB;
-  const std::vector<bool> isLeafReclaimables = {true, false};
+  const std::vector<char> isLeafReclaimables = {true, false};
   for (const auto isLeafReclaimable : isLeafReclaimables) {
     SCOPED_TRACE(fmt::format("isLeafReclaimable {}", isLeafReclaimable));
     setupMemory(memoryCapacity, minPoolCapacity);

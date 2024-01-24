@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-
+#include <fmt/format.h>
 #include "velox/connectors/Connector.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/QueryConfig.h"
@@ -2386,3 +2386,21 @@ class TopNRowNumberNode : public PlanNode {
 };
 
 } // namespace facebook::velox::core
+
+template <>
+struct fmt::formatter<facebook::velox::core::PartitionedOutputNode::Kind>
+    : formatter<std::string> {
+  auto format(
+      facebook::velox::core::PartitionedOutputNode::Kind s,
+      format_context& ctx) {
+    return formatter<std::string>::format(
+        facebook::velox::core::PartitionedOutputNode::kindString(s), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<facebook::velox::core::JoinType> : formatter<int> {
+  auto format(facebook::velox::core::JoinType s, format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

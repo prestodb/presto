@@ -30,7 +30,7 @@ function dnf_install {
 
 dnf_install epel-release dnf-plugins-core # For ccache, ninja
 dnf config-manager --set-enabled powertools
-dnf_install ninja-build ccache gcc-toolset-9 git wget which libevent-devel \
+dnf_install ninja-build cmake curl ccache gcc-toolset-9 git wget which libevent-devel \
   openssl-devel re2-devel libzstd-devel lz4-devel double-conversion-devel \
   libdwarf-devel curl-devel libicu-devel
 
@@ -58,29 +58,34 @@ function wget_and_untar {
   local URL=$1
   local DIR=$2
   mkdir -p "${DIR}"
-  wget -q --max-redirect 3 -O - "${URL}" | tar -xz -C "${DIR}" --strip-components=1
+  pushd "${DIR}"
+  curl -L "${URL}" > $2.tar.gz
+  tar -xz --strip-components=1 -f $2.tar.gz
+  popd
 }
 
 # untar cmake binary release directly to /usr.
 wget_and_untar https://github.com/Kitware/CMake/releases/download/v3.17.5/cmake-3.17.5-Linux-x86_64.tar.gz /usr &
 
 # Fetch sources.
-wget_and_untar https://github.com/gflags/gflags/archive/v2.2.2.tar.gz gflags &
-wget_and_untar https://github.com/google/glog/archive/v0.4.0.tar.gz glog &
-wget_and_untar http://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz lzo &
-wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.72.0/source/boost_1_72_0.tar.gz boost &
-wget_and_untar https://github.com/google/snappy/archive/1.1.8.tar.gz snappy &
-wget_and_untar https://github.com/fmtlib/fmt/archive/8.0.1.tar.gz fmt &
-#  wget_and_untar https://github.com/ericniebler/range-v3/archive/0.11.0.tar.gz ranges-v3 &
+wget_and_untar https://github.com/gflags/gflags/archive/v2.2.2.tar.gz gflags
+wget_and_untar https://github.com/google/glog/archive/v0.4.0.tar.gz glog
+wget_and_untar http://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz lzo
+wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.72.0/source/boost_1_72_0.tar.gz boost
+wget_and_untar https://github.com/google/snappy/archive/1.1.8.tar.gz snappy
+wget_and_untar https://github.com/fmtlib/fmt/archive/10.1.1.tar.gz fmt
+
+#  wget_and_untar https://github.com/ericniebler/range-v3/archive/0.11.0.tar.gz ranges-v3
 wget_and_untar https://archive.apache.org/dist/hadoop/common/hadoop-2.10.1/hadoop-2.10.1.tar.gz hadoop
-wget_and_untar https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protobuf-all-21.4.tar.gz protobuf &
+wget_and_untar https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protobuf-all-21.4.tar.gz protobuf
 
-FB_OS_VERSION="v2022.11.14.00"
+FB_OS_VERSION="v2023.12.04.00"
 
-wget_and_untar https://github.com/facebook/folly/archive/${FB_OS_VERSION}.tar.gz folly &
-wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz &
-wget_and_untar https://github.com/facebook/wangle/archive/refs/tags/${FB_OS_VERSION}.tar.gz wangle &
-wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift &
+wget_and_untar https://github.com/facebookincubator/fizz/archive/refs/tags/${FB_OS_VERSION}.tar.gz fizz
+wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
+wget_and_untar https://github.com/facebook/wangle/archive/refs/tags/${FB_OS_VERSION}.tar.gz wangle
+wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift
+wget_and_untar https://github.com/facebook/mvfst/archive/refs/tags/${FB_OS_VERSION}.tar.gz mvfst
 
 wait  # For cmake and source downloads to complete.
 
@@ -113,9 +118,13 @@ cmake_install glog -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr
 cmake_install snappy -DSNAPPY_BUILD_TESTS=OFF
 cmake_install fmt -DFMT_TEST=OFF
 cmake_install folly -DFOLLY_HAVE_INT128_T=ON
+# remove in #7700
+sed -i 's/\[\[deprecated.*\]\]//g' /usr/local/include/folly/init/Init.h
+
 
 cmake_install fizz/fizz -DBUILD_TESTS=OFF
 cmake_install wangle/wangle -DBUILD_TESTS=OFF
+cmake_install mvfst -DBUILD_TESTS=OFF
 cmake_install fbthrift -Denable_tests=OFF
 # cmake_install ranges-v3
 

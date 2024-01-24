@@ -528,7 +528,10 @@ RowVectorPtr Task::next(ContinueFuture* future) {
     }
   }
 
-  VELOX_CHECK_EQ(state_, kRunning, "Task has already finished processing.");
+  VELOX_CHECK_EQ(
+      static_cast<int>(state_),
+      static_cast<int>(kRunning),
+      "Task has already finished processing.");
 
   // On first call, create the drivers.
   if (driverFactories_.empty()) {

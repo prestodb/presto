@@ -23,6 +23,7 @@
 
 #include <folly/Random.h>
 #include <gtest/gtest.h>
+#include "velox/common/compression/Compression.h"
 
 #include <algorithm>
 
@@ -398,8 +399,10 @@ TEST_P(CompressionTest, getCompressionBufferOOM) {
       {true, true}, {true, false}, {false, true}, {false, false}};
 
   for (const auto& testData : testSettings) {
-    SCOPED_TRACE(
-        fmt::format("{} compression {}", testData.debugString(), kind_));
+    SCOPED_TRACE(fmt::format(
+        "{} compression {}",
+        testData.debugString(),
+        compressionKindToString(kind_)));
 
     auto config = std::make_shared<Config>();
     config->set<CompressionKind>(Config::COMPRESSION, kind_);

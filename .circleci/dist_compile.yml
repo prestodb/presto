@@ -150,7 +150,7 @@ commands:
 executors:
   build:
     docker:
-      - image : ghcr.io/facebookincubator/velox-dev:circleci-avx
+      - image : ghcr.io/facebookincubator/velox-dev:new-cci
     resource_class: 2xlarge
     environment:
       CC:  /opt/rh/gcc-toolset-9/root/bin/gcc

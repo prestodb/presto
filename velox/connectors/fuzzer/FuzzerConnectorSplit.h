@@ -28,3 +28,25 @@ struct FuzzerConnectorSplit : public connector::ConnectorSplit {
 };
 
 } // namespace facebook::velox::connector::fuzzer
+
+template <>
+struct fmt::formatter<facebook::velox::connector::fuzzer::FuzzerConnectorSplit>
+    : formatter<std::string> {
+  auto format(
+      facebook::velox::connector::fuzzer::FuzzerConnectorSplit s,
+      format_context& ctx) {
+    return formatter<std::string>::format(s.toString(), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<
+    std::shared_ptr<facebook::velox::connector::fuzzer::FuzzerConnectorSplit>>
+    : formatter<std::string> {
+  auto format(
+      std::shared_ptr<facebook::velox::connector::fuzzer::FuzzerConnectorSplit>
+          s,
+      format_context& ctx) {
+    return formatter<std::string>::format(s->toString(), ctx);
+  }
+};

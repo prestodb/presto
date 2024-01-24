@@ -953,3 +953,14 @@ class HashTable : public BaseHashTable {
 };
 
 } // namespace facebook::velox::exec
+
+template <>
+struct fmt::formatter<facebook::velox::exec::BaseHashTable::HashMode>
+    : formatter<std::string> {
+  auto format(
+      facebook::velox::exec::BaseHashTable::HashMode s,
+      format_context& ctx) {
+    return formatter<std::string>::format(
+        facebook::velox::exec::BaseHashTable::modeString(s), ctx);
+  }
+};

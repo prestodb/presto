@@ -318,3 +318,10 @@ class Spiller {
   std::vector<SpillRun> spillRuns_;
 };
 } // namespace facebook::velox::exec
+
+template <>
+struct fmt::formatter<facebook::velox::exec::Spiller::Type> : formatter<int> {
+  auto format(facebook::velox::exec::Spiller::Type s, format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

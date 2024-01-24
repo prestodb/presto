@@ -16,6 +16,7 @@
 #include "velox/common/caching/SsdCache.h"
 #include <folly/Executor.h>
 #include <folly/portability/SysUio.h>
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/testutil/TestValue.h"

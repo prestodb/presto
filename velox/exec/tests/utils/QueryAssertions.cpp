@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <chrono>
 
+#include "duckdb/common/types.hpp" // @manual
 #include "velox/duckdb/conversion/DuckConversion.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
@@ -1514,3 +1515,10 @@ void printResults(const RowVectorPtr& result, std::ostream& out) {
 }
 
 } // namespace facebook::velox::exec::test
+
+template <>
+struct fmt::formatter<::duckdb::LogicalTypeId> : formatter<int> {
+  auto format(::duckdb::LogicalTypeId s, format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

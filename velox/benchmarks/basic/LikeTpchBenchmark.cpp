@@ -44,7 +44,16 @@ enum class TpchBenchmarkCase {
   TpchQuery16Supplier,
   TpchQuery20,
 };
+}
 
+template <>
+struct fmt::formatter<TpchBenchmarkCase> : fmt::formatter<int> {
+  auto format(const TpchBenchmarkCase& s, format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};
+
+namespace {
 class LikeFunctionsBenchmark : public FunctionBaseTest,
                                public FunctionBenchmarkBase {
  public:

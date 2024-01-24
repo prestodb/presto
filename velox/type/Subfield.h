@@ -16,6 +16,7 @@
 #pragma once
 
 #include <boost/algorithm/string/replace.hpp>
+#include <fmt/format.h>
 #include <ostream>
 
 #include "velox/common/base/Exceptions.h"
@@ -313,3 +314,22 @@ struct hash<::facebook::velox::common::Subfield> {
   }
 };
 } // namespace std
+
+template <>
+struct fmt::formatter<::facebook::velox::common::Subfield>
+    : formatter<std::string> {
+  auto format(const ::facebook::velox::common::Subfield& s, format_context& ctx)
+      const {
+    return formatter<std::string>::format(s.toString(), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<::facebook::velox::common::SubfieldKind>
+    : formatter<int> {
+  auto format(
+      const ::facebook::velox::common::SubfieldKind& s,
+      format_context& ctx) const {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

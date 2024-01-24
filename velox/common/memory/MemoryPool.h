@@ -22,6 +22,7 @@
 #include <optional>
 #include <queue>
 
+#include <fmt/format.h>
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Portability.h"
@@ -1066,3 +1067,14 @@ class StlAllocator {
   }
 };
 } // namespace facebook::velox::memory
+
+template <>
+struct fmt::formatter<facebook::velox::memory::MemoryPool::Kind>
+    : formatter<std::string> {
+  auto format(
+      facebook::velox::memory::MemoryPool::Kind s,
+      format_context& ctx) {
+    return formatter<std::string>::format(
+        facebook::velox::memory::MemoryPool::kindString(s), ctx);
+  }
+};

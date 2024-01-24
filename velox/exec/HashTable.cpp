@@ -16,6 +16,7 @@
 
 #include "velox/exec/HashTable.h"
 #include "velox/common/base/AsyncSource.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Portability.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/process/ProcessBase.h"

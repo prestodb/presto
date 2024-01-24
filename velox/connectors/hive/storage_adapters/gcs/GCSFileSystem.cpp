@@ -15,6 +15,7 @@
  */
 
 #include "velox/connectors/hive/storage_adapters/gcs/GCSFileSystem.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/file/File.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/storage_adapters/gcs/GCSUtil.h"

@@ -205,3 +205,23 @@ std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
     const std::string_view& format);
 
 } // namespace facebook::velox::functions
+
+template <>
+struct fmt::formatter<facebook::velox::functions::DateTimeFormatterType>
+    : formatter<int> {
+  auto format(
+      facebook::velox::functions::DateTimeFormatterType s,
+      format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<facebook::velox::functions::DateTimeFormatSpecifier>
+    : formatter<int> {
+  auto format(
+      facebook::velox::functions::DateTimeFormatSpecifier s,
+      format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

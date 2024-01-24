@@ -155,8 +155,8 @@ class LocalFileSystem : public FileSystem {
         0,
         ec.value(),
         "Mkdir {} failed: {}, message: {}",
-        path,
-        ec,
+        std::string(path),
+        ec.value(),
         ec.message());
     VLOG(1) << "LocalFileSystem::mkdir " << path;
   }
@@ -168,8 +168,8 @@ class LocalFileSystem : public FileSystem {
         0,
         ec.value(),
         "Rmdir {} failed: {}, message: {}",
-        path,
-        ec,
+        std::string(path),
+        ec.value(),
         ec.message());
     VLOG(1) << "LocalFileSystem::rmdir " << path;
   }

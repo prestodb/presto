@@ -447,3 +447,11 @@ struct hash<::facebook::velox::exec::SpillPartitionId> {
   }
 };
 } // namespace std
+
+template <>
+struct fmt::formatter<facebook::velox::exec::SpillPartitionId>
+    : formatter<std::string> {
+  auto format(facebook::velox::exec::SpillPartitionId s, format_context& ctx) {
+    return formatter<std::string>::format(s.toString(), ctx);
+  }
+};

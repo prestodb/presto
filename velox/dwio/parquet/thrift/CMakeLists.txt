@@ -13,4 +13,5 @@
 # limitations under the License.
 
 add_library(velox_dwio_parquet_thrift ParquetThriftTypes.cpp)
-target_link_libraries(velox_dwio_parquet_thrift arrow thrift Boost::headers)
+target_link_libraries(velox_dwio_parquet_thrift arrow thrift Boost::headers
+                      fmt::fmt)

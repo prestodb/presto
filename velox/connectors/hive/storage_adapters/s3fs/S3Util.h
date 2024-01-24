@@ -163,7 +163,7 @@ inline std::string getRequestID(
           errorMsgPrefix,                                                                                                      \
           getErrorStringFromS3Error(error),                                                                                    \
           s3URI(bucket, key),                                                                                                  \
-          error.GetErrorType(),                                                                                                \
+          static_cast<int>(error.GetErrorType()),                                                                              \
           error.GetResponseCode(),                                                                                             \
           getS3BackendService(error.GetResponseHeaders()),                                                                     \
           error.GetMessage(),                                                                                                  \
@@ -172,3 +172,10 @@ inline std::string getRequestID(
   }
 
 } // namespace facebook::velox
+
+template <>
+struct fmt::formatter<Aws::Http::HttpResponseCode> : formatter<int> {
+  auto format(Aws::Http::HttpResponseCode s, format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

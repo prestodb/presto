@@ -56,7 +56,8 @@ CompressionKind codecTypeToCompressionKind(folly::io::CodecType type) {
     case folly::io::CodecType::GZIP:
       return CompressionKind_GZIP;
     default:
-      VELOX_UNSUPPORTED("Not support folly codec type {}", type);
+      VELOX_UNSUPPORTED(
+          "Not support folly codec type {}", folly::to<std::string>(type));
   }
 }
 

@@ -32,6 +32,7 @@
 
 #include <re2/re2.h>
 #include <string>
+#include "velox/dwio/common/Options.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::core;
@@ -187,10 +188,10 @@ struct TestParam {
   std::string toString() const {
     return fmt::format(
         "FileFormat[{}] TestMode[{}] commitStrategy[{}] bucketKind[{}] bucketSort[{}] multiDrivers[{}] compression[{}]",
-        fileFormat(),
-        testMode(),
-        commitStrategy(),
-        bucketKind(),
+        dwio::common::toString((fileFormat())),
+        testModeString(testMode()),
+        commitStrategyToString(commitStrategy()),
+        HiveBucketProperty::kindString(bucketKind()),
         bucketSort(),
         multiDrivers(),
         compressionKindToString(compressionKind()));
@@ -2572,7 +2573,7 @@ TEST_P(AllTableWriterTest, tableWriteOutputCheck) {
     if (!commitContextVector->isNullAt(i)) {
       ASSERT_TRUE(RE2::FullMatch(
           commitContextVector->valueAt(i).getString(),
-          fmt::format(".*{}.*", commitStrategy_)))
+          fmt::format(".*{}.*", commitStrategyToString(commitStrategy_))))
           << commitContextVector->valueAt(i);
     }
   }

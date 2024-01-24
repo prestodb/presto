@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <fmt/format.h>
 #include <folly/compression/Compression.h>
 #include <string>
 
@@ -46,3 +47,14 @@ CompressionKind stringToCompressionKind(const std::string& kind);
 constexpr uint64_t DEFAULT_COMPRESSION_BLOCK_SIZE = 256 * 1024;
 
 } // namespace facebook::velox::common
+
+template <>
+struct fmt::formatter<facebook::velox::common::CompressionKind>
+    : fmt::formatter<std::string> {
+  auto format(
+      const facebook::velox::common::CompressionKind& s,
+      format_context& ctx) {
+    return formatter<std::string>::format(
+        facebook::velox::common::compressionKindToString(s), ctx);
+  }
+};

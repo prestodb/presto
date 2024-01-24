@@ -671,3 +671,12 @@ class ScopedDriverThreadContext {
 DriverThreadContext* driverThreadContext();
 
 } // namespace facebook::velox::exec
+
+template <>
+struct fmt::formatter<facebook::velox::exec::StopReason>
+    : formatter<std::string> {
+  auto format(facebook::velox::exec::StopReason s, format_context& ctx) {
+    return formatter<std::string>::format(
+        facebook::velox::exec::stopReasonString(s), ctx);
+  }
+};

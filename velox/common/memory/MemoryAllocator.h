@@ -23,6 +23,7 @@
 #include <mutex>
 #include <unordered_set>
 
+#include <fmt/format.h>
 #include <gflags/gflags.h>
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
@@ -503,3 +504,12 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
 std::ostream& operator<<(std::ostream& out, const MemoryAllocator::Kind& kind);
 } // namespace facebook::velox::memory
+template <>
+struct fmt::formatter<facebook::velox::memory::MemoryAllocator::InjectedFailure>
+    : fmt::formatter<int> {
+  auto format(
+      facebook::velox::memory::MemoryAllocator::InjectedFailure s,
+      format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

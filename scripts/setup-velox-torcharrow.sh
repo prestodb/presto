@@ -80,7 +80,7 @@ wget_and_untar https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz 
 wget_and_untar https://ftp.openssl.org/source/openssl-1.1.1k.tar.gz openssl &
 wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.69.0/source/boost_1_69_0.tar.gz boost &
 wget_and_untar https://github.com/facebook/folly/archive/v2022.11.14.00.tar.gz folly &
-wget_and_untar https://github.com/fmtlib/fmt/archive/refs/tags/8.0.1.tar.gz fmt &
+wget_and_untar https://github.com/fmtlib/fmt/archive/refs/tags/10.1.1.tar.gz fmt &
 
 wait
 

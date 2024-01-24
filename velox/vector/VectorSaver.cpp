@@ -779,3 +779,10 @@ SelectivityVector restoreSelectivityVector(std::istream& in) {
 }
 
 } // namespace facebook::velox
+
+template <>
+struct fmt::formatter<facebook::velox::Encoding> : formatter<int> {
+  auto format(facebook::velox::Encoding s, format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

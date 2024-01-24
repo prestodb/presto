@@ -495,3 +495,10 @@ class FooterWrapper : public ProtoWrapperBase {
 };
 
 } // namespace facebook::velox::dwrf
+
+template <>
+struct fmt::formatter<facebook::velox::dwrf::DwrfFormat> : formatter<int> {
+  auto format(facebook::velox::dwrf::DwrfFormat s, format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

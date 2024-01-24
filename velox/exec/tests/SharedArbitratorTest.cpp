@@ -24,6 +24,7 @@
 #include <optional>
 #include "folly/experimental/EventCount.h"
 #include "folly/futures/Barrier.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/Memory.h"
@@ -174,7 +175,7 @@ class FakeMemoryOperator : public Operator {
       VELOX_CHECK_GE(totalBytes_, 0);
     }
     allocations_.clear();
-    VELOX_CHECK_EQ(totalBytes_, 0);
+    VELOX_CHECK_EQ(totalBytes_.load(), 0);
   }
 
   const bool canReclaim_;

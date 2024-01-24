@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/writer/WriterContext.h"
+#include "velox/common/compression/Compression.h"
 #include "velox/exec/MemoryReclaimer.h"
 
 namespace facebook::velox::dwrf {
@@ -61,7 +62,8 @@ WriterContext::WriterContext(
     handler_ = std::make_unique<encryption::EncryptionHandler>();
   }
   validateConfigs();
-  VLOG(2) << fmt::format("Compression config: {}", compression_);
+  VLOG(2) << fmt::format(
+      "Compression config: {}", common::compressionKindToString(compression_));
 }
 
 WriterContext::~WriterContext() {

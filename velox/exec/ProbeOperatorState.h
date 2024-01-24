@@ -55,3 +55,13 @@ enum class ProbeOperatorState {
 std::string probeOperatorStateName(ProbeOperatorState state);
 
 } // namespace facebook::velox::exec
+
+template <>
+struct fmt::formatter<facebook::velox::exec::ProbeOperatorState>
+    : formatter<int> {
+  auto format(
+      facebook::velox::exec::ProbeOperatorState s,
+      format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

@@ -220,3 +220,11 @@ struct Re2RegexpReplace {
 };
 
 } // namespace facebook::velox::functions
+
+template <>
+struct fmt::formatter<facebook::velox::functions::PatternKind>
+    : formatter<int> {
+  auto format(facebook::velox::functions::PatternKind s, format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

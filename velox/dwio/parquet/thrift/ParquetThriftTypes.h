@@ -28,6 +28,7 @@
 #include <thrift/protocol/TProtocol.h>
 #include <thrift/transport/TTransport.h>
 
+#include <fmt/format.h>
 #include <functional>
 #include <iosfwd>
 #include <memory>
@@ -3742,3 +3743,81 @@ void swap(FileCryptoMetaData& a, FileCryptoMetaData& b);
 std::ostream& operator<<(std::ostream& out, const FileCryptoMetaData& obj);
 
 } // namespace facebook::velox::parquet::thrift
+
+template <>
+struct fmt::formatter<facebook::velox::parquet::thrift::Type::type>
+    : fmt::formatter<std::string_view> {
+  auto format(
+      const facebook::velox::parquet::thrift::Type::type& s,
+      format_context& ctx) {
+    return formatter<std::string_view>::format(
+        facebook::velox::parquet::thrift::to_string(s), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<facebook::velox::parquet::thrift::CompressionCodec::type>
+    : fmt::formatter<std::string_view> {
+  auto format(
+      const facebook::velox::parquet::thrift::CompressionCodec::type& s,
+      format_context& ctx) {
+    return formatter<std::string_view>::format(
+        facebook::velox::parquet::thrift::to_string(s), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<facebook::velox::parquet::thrift::ConvertedType::type>
+    : fmt::formatter<std::string_view> {
+  auto format(
+      const facebook::velox::parquet::thrift::ConvertedType::type& s,
+      format_context& ctx) {
+    return formatter<std::string_view>::format(
+        facebook::velox::parquet::thrift::to_string(s), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<
+    facebook::velox::parquet::thrift::FieldRepetitionType::type>
+    : fmt::formatter<std::string_view> {
+  auto format(
+      const facebook::velox::parquet::thrift::FieldRepetitionType::type& s,
+      format_context& ctx) {
+    return formatter<std::string_view>::format(
+        facebook::velox::parquet::thrift::to_string(s), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<facebook::velox::parquet::thrift::Encoding::type>
+    : fmt::formatter<std::string_view> {
+  auto format(
+      const facebook::velox::parquet::thrift::Encoding::type& s,
+      format_context& ctx) {
+    return formatter<std::string_view>::format(
+        facebook::velox::parquet::thrift::to_string(s), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<facebook::velox::parquet::thrift::PageType::type>
+    : fmt::formatter<std::string_view> {
+  auto format(
+      const facebook::velox::parquet::thrift::PageType::type& s,
+      format_context& ctx) {
+    return formatter<std::string_view>::format(
+        facebook::velox::parquet::thrift::to_string(s), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<facebook::velox::parquet::thrift::BoundaryOrder::type>
+    : fmt::formatter<std::string_view> {
+  auto format(
+      const facebook::velox::parquet::thrift::BoundaryOrder::type& s,
+      format_context& ctx) {
+    return formatter<std::string_view>::format(
+        facebook::velox::parquet::thrift::to_string(s), ctx);
+  }
+};

@@ -435,6 +435,8 @@ class HiveDataSink : public DataSink {
 
  private:
   enum class State { kRunning = 0, kAborted = 1, kClosed = 2 };
+  friend struct fmt::formatter<
+      facebook::velox::connector::hive::HiveDataSink::State>;
 
   static std::string stateString(State state);
 
@@ -585,3 +587,24 @@ class HiveDataSink : public DataSink {
 };
 
 } // namespace facebook::velox::connector::hive
+
+template <>
+struct fmt::formatter<facebook::velox::connector::hive::HiveDataSink::State>
+    : formatter<int> {
+  auto format(
+      facebook::velox::connector::hive::HiveDataSink::State s,
+      format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<
+    facebook::velox::connector::hive::LocationHandle::TableType>
+    : formatter<int> {
+  auto format(
+      facebook::velox::connector::hive::LocationHandle::TableType s,
+      format_context& ctx) {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

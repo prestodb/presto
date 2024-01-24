@@ -336,3 +336,12 @@ inline std::ostream& operator<<(std::ostream& os, HashBuild::State state) {
   return os;
 }
 } // namespace facebook::velox::exec
+
+template <>
+struct fmt::formatter<facebook::velox::exec::HashBuild::State>
+    : formatter<std::string> {
+  auto format(facebook::velox::exec::HashBuild::State s, format_context& ctx) {
+    return formatter<std::string>::format(
+        facebook::velox::exec::HashBuild::stateName(s), ctx);
+  }
+};

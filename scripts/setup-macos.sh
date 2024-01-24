@@ -88,7 +88,7 @@ function install_build_prerequisites {
 }
 
 function install_fmt {
-  github_checkout fmtlib/fmt 8.0.1
+  github_checkout fmtlib/fmt 10.1.1
   cmake_install -DFMT_TEST=OFF
 }
 
