@@ -760,6 +760,8 @@ public class ServerMainModule
         driftServerBinder(binder).bindService(ThriftServerInfoService.class);
 
         // Async page transport
+        binder.bind(AsyncPageTransportServlet.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(AsyncPageTransportServlet.class).withGeneratedName();
         newMapBinder(binder, String.class, Servlet.class, TheServlet.class)
                 .addBinding("/v1/task/async/*")
                 .to(AsyncPageTransportServlet.class)
