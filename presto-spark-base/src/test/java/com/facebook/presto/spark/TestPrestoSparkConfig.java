@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -25,6 +26,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestPrestoSparkConfig
 {
@@ -64,7 +66,8 @@ public class TestPrestoSparkConfig
                 .setExecutorAllocationStrategyEnabled(false)
                 .setHashPartitionCountAllocationStrategyEnabled(false)
                 .setNativeExecutionBroadcastBasePath(null)
-                .setNativeTriggerCoredumpWhenUnresponsiveEnabled(false));
+                .setNativeTerminateWithCoreWhenUnresponsiveEnabled(false)
+                .setNativeTerminateWithCoreTimeout(new Duration(5, MINUTES)));
     }
 
     @Test
@@ -103,7 +106,8 @@ public class TestPrestoSparkConfig
                 .put("spark.executor-allocation-strategy-enabled", "true")
                 .put("spark.hash-partition-count-allocation-strategy-enabled", "true")
                 .put("native-execution-broadcast-base-path", "/tmp/broadcast_path")
-                .put("native-trigger-coredump-when-unresponsive-enabled", "true")
+                .put("native-terminate-with-core-when-unresponsive-enabled", "true")
+                .put("native-terminate-with-core-timeout", "1m")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -138,7 +142,8 @@ public class TestPrestoSparkConfig
                 .setHashPartitionCountAllocationStrategyEnabled(true)
                 .setExecutorAllocationStrategyEnabled(true)
                 .setNativeExecutionBroadcastBasePath("/tmp/broadcast_path")
-                .setNativeTriggerCoredumpWhenUnresponsiveEnabled(true);
+                .setNativeTerminateWithCoreWhenUnresponsiveEnabled(true)
+                .setNativeTerminateWithCoreTimeout(new Duration(1, MINUTES));
         assertFullMapping(properties, expected);
     }
 }
