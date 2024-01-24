@@ -60,6 +60,8 @@ namespace facebook::presto {
 /// Three states server can be in.
 enum class NodeState : int8_t { kActive, kInActive, kShuttingDown };
 
+std::string nodeState2String(NodeState nodeState);
+
 class Announcer;
 class SignalHandler;
 class TaskManager;
@@ -84,6 +86,10 @@ class PrestoServer {
   void setNodeState(NodeState nodeState) {
     nodeState_ = nodeState;
   }
+
+  /// Enable/disable announcer (process notifying coordinator about this
+  /// worker).
+  void enableAnnouncer(bool enable);
 
  protected:
   /// Hook for derived PrestoServer implementations to add/stop additional

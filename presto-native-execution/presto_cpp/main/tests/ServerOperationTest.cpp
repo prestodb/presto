@@ -175,7 +175,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
   EXPECT_EQ(2, taskManager->tasks().size());
 
   // Test body
-  PrestoServerOperations serverOperation(taskManager.get());
+  PrestoServerOperations serverOperation(taskManager.get(), nullptr);
 
   proxygen::HTTPMessage httpMessage;
   auto listAllResponse = serverOperation.taskOperation(
@@ -213,7 +213,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
 }
 
 TEST_F(ServerOperationTest, systemConfigEndpoint) {
-  PrestoServerOperations serverOperation(nullptr);
+  PrestoServerOperations serverOperation(nullptr, nullptr);
   proxygen::HTTPMessage httpMessage;
   httpMessage.setQueryParam("name", "foo");
   VELOX_ASSERT_THROW(
