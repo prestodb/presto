@@ -117,6 +117,7 @@ struct Timestamp {
     return nanos_;
   }
 
+  // Keep it in header for getting inlined.
   int64_t toNanos() const {
     // int64 can store around 292 years in nanos ~ till 2262-04-12.
     // When an integer overflow occurs in the calculation,
@@ -133,6 +134,7 @@ struct Timestamp {
     }
   }
 
+  // Keep it in header for getting inlined.
   int64_t toMillis() const {
     // We use int128_t to make sure the computation does not overflows since
     // there are cases such that seconds*1000 does not fit in int64_t,
@@ -151,6 +153,15 @@ struct Timestamp {
     return result;
   }
 
+  // Keep it in header for getting inlined.
+  int64_t toMillisAllowOverflow() const {
+    // Similar to the above toMillis() except that overflowed integer is allowed
+    // as result.
+    auto result = seconds_ * 1'000 + (int64_t)(nanos_ / 1'000'000);
+    return result;
+  }
+
+  // Keep it in header for getting inlined.
   int64_t toMicros() const {
     // When an integer overflow occurs in the calculation,
     // an exception will be thrown.
@@ -169,8 +180,10 @@ struct Timestamp {
 
   /// Due to the limit of std::chrono, throws if timestamp is outside of
   /// [-32767-01-01, 32767-12-31] range.
+  /// If allowOverflow is true, integer overflow is allowed in converting
+  /// timestmap to milliseconds.
   std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
-  toTimePoint() const;
+  toTimePoint(bool allowOverflow = false) const;
 
   static Timestamp fromMillis(int64_t millis) {
     if (millis >= 0 || millis % 1'000 == 0) {

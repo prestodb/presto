@@ -108,9 +108,10 @@ void validateTimePoint(const std::chrono::time_point<
 } // namespace
 
 std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
-Timestamp::toTimePoint() const {
+Timestamp::toTimePoint(bool allowOverflow) const {
   using namespace std::chrono;
-  auto tp = time_point<system_clock, milliseconds>(milliseconds(toMillis()));
+  auto tp = time_point<system_clock, milliseconds>(
+      milliseconds(allowOverflow ? toMillisAllowOverflow() : toMillis()));
   validateTimePoint(tp);
   return tp;
 }

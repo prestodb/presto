@@ -696,5 +696,66 @@ TEST_F(DateTimeFunctionsTest, hour) {
   EXPECT_EQ(2, hour("1969-01-01 13:23:00.001"));
 }
 
+TEST_F(DateTimeFunctionsTest, fromUnixtime) {
+  const auto getUnixTime = [&](const StringView& str) {
+    Timestamp t = util::fromTimestampString(str);
+    return t.getSeconds();
+  };
+
+  const auto fromUnixTime = [&](const std::optional<int64_t>& unixTime,
+                                const std::optional<std::string>& timeFormat) {
+    return evaluateOnce<std::string>(
+        "from_unixtime(c0, c1)", unixTime, timeFormat);
+  };
+
+  EXPECT_EQ(fromUnixTime(0, "yyyy-MM-dd HH:mm:ss"), "1970-01-01 00:00:00");
+  EXPECT_EQ(fromUnixTime(100, "yyyy-MM-dd"), "1970-01-01");
+  EXPECT_EQ(fromUnixTime(120, "yyyy-MM-dd HH:mm"), "1970-01-01 00:02");
+  EXPECT_EQ(fromUnixTime(100, "yyyy-MM-dd HH:mm:ss"), "1970-01-01 00:01:40");
+  EXPECT_EQ(fromUnixTime(-59, "yyyy-MM-dd HH:mm:ss"), "1969-12-31 23:59:01");
+  EXPECT_EQ(fromUnixTime(3600, "yyyy"), "1970");
+  EXPECT_EQ(
+      fromUnixTime(getUnixTime("2020-06-30 11:29:59"), "yyyy-MM-dd HH:mm:ss"),
+      "2020-06-30 11:29:59");
+  EXPECT_EQ(
+      fromUnixTime(getUnixTime("2020-06-30 11:29:59"), "yyyy-MM-dd"),
+      "2020-06-30");
+  EXPECT_EQ(fromUnixTime(getUnixTime("2020-06-30 11:29:59"), "MM-dd"), "06-30");
+  EXPECT_EQ(
+      fromUnixTime(getUnixTime("2020-06-30 11:29:59"), "HH:mm:ss"), "11:29:59");
+  EXPECT_EQ(
+      fromUnixTime(getUnixTime("2020-06-30 23:59:59"), "yyyy-MM-dd HH:mm:ss"),
+      "2020-06-30 23:59:59");
+
+// In debug mode, Timestamp constructor will throw exception if range check
+// fails.
+#ifdef NDEBUG
+  // Integer overflow in the internal conversion from seconds to milliseconds.
+  EXPECT_EQ(
+      fromUnixTime(std::numeric_limits<int64_t>::max(), "yyyy-MM-dd HH:mm:ss"),
+      "1969-12-31 23:59:59");
+#endif
+
+  // 8 hours ahead UTC.
+  setQueryTimeZone("Asia/Shanghai");
+  EXPECT_EQ(fromUnixTime(0, "yyyy-MM-dd HH:mm:ss"), "1970-01-01 08:00:00");
+  EXPECT_EQ(fromUnixTime(120, "yyyy-MM-dd HH:mm"), "1970-01-01 08:02");
+  EXPECT_EQ(fromUnixTime(-59, "yyyy-MM-dd HH:mm:ss"), "1970-01-01 07:59:01");
+  EXPECT_EQ(
+      fromUnixTime(getUnixTime("2014-07-21 16:00:00"), "yyyy-MM-dd"),
+      "2014-07-22");
+  EXPECT_EQ(
+      fromUnixTime(getUnixTime("2020-06-30 23:59:59"), "yyyy-MM-dd HH:mm:ss"),
+      "2020-07-01 07:59:59");
+
+  // Invalid format.
+  VELOX_ASSERT_THROW(
+      fromUnixTime(0, "yyyy-AA"), "Specifier A is not supported.");
+  VELOX_ASSERT_THROW(
+      fromUnixTime(0, "FF/MM/dd"), "Specifier F is not supported");
+  VELOX_ASSERT_THROW(
+      fromUnixTime(0, "yyyy-MM-dd HH:II"), "Specifier I is not supported");
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

@@ -309,6 +309,21 @@ TEST(TimestampTest, outOfRange) {
       t.toTimezone(*timezone), "Timestamp is outside of supported range");
 }
 
+// In debug mode, Timestamp constructor will throw exception if range check
+// fails.
+#ifdef NDEBUG
+TEST(TimestampTest, overflow) {
+  Timestamp t(std::numeric_limits<int64_t>::max(), 0);
+  VELOX_ASSERT_THROW(
+      t.toTimePoint(false),
+      fmt::format(
+          "Could not convert Timestamp({}, {}) to milliseconds",
+          std::numeric_limits<int64_t>::max(),
+          0));
+  ASSERT_NO_THROW(t.toTimePoint(true));
+}
+#endif
+
 void checkTm(const std::tm& actual, const std::tm& expected) {
   ASSERT_EQ(expected.tm_year, actual.tm_year);
   ASSERT_EQ(expected.tm_yday, actual.tm_yday);

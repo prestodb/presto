@@ -185,11 +185,16 @@ class DateTimeFormatter {
 
   /// Result buffer is pre-allocated according to maxResultSize.
   /// Returns actual size.
+  ///
+  /// The timestamp will be firstly converted to millisecond then to
+  /// std::chrono::time_point. If allowOverflow is true, integer overflow is
+  /// allowed in converting to milliseconds.
   int32_t format(
       const Timestamp& timestamp,
       const date::time_zone* timezone,
       const uint32_t maxResultSize,
-      char* result) const;
+      char* result,
+      bool allowOverflow = false) const;
 
  private:
   std::unique_ptr<char[]> literalBuf_;

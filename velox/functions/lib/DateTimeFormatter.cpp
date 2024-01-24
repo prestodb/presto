@@ -1014,12 +1014,13 @@ int32_t DateTimeFormatter::format(
     const Timestamp& timestamp,
     const date::time_zone* timezone,
     const uint32_t maxResultSize,
-    char* result) const {
+    char* result,
+    bool allowOverflow) const {
   Timestamp t = timestamp;
   if (timezone != nullptr) {
     t.toTimezone(*timezone);
   }
-  const auto timePoint = t.toTimePoint();
+  const auto timePoint = t.toTimePoint(allowOverflow);
   const auto daysTimePoint = date::floor<date::days>(timePoint);
 
   const auto durationInTheDay = date::make_time(timePoint - daysTimePoint);

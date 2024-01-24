@@ -207,6 +207,50 @@ struct UnixTimestampParseWithFormatFunction
   bool invalidFormat_{false};
 };
 
+// Parses unix time in seconds to a formatted string.
+template <typename T>
+struct FromUnixtimeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<int64_t>* /*unixtime*/,
+      const arg_type<Varchar>* format) {
+    sessionTimeZone_ = getTimeZoneFromConfig(config);
+    if (format != nullptr) {
+      setFormatter(*format);
+      isConstantTimeFormat_ = true;
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<int64_t>& second,
+      const arg_type<Varchar>& format) {
+    if (!isConstantTimeFormat_) {
+      setFormatter(format);
+    }
+    const Timestamp timestamp{second, 0};
+    result.reserve(maxResultSize_);
+    int32_t resultSize;
+    resultSize = formatter_->format(
+        timestamp, sessionTimeZone_, maxResultSize_, result.data(), true);
+    result.resize(resultSize);
+  }
+
+ private:
+  FOLLY_ALWAYS_INLINE void setFormatter(const arg_type<Varchar>& format) {
+    formatter_ = buildJodaDateTimeFormatter(
+        std::string_view(format.data(), format.size()));
+    maxResultSize_ = formatter_->maxResultSize(sessionTimeZone_);
+  }
+
+  const date::time_zone* sessionTimeZone_{nullptr};
+  std::shared_ptr<DateTimeFormatter> formatter_;
+  uint32_t maxResultSize_;
+  bool isConstantTimeFormat_{false};
+};
+
 /// Converts date string to Timestmap type.
 template <typename T>
 struct GetTimestampFunction {
