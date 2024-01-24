@@ -46,7 +46,6 @@ public class ExchangeClientFactory
     private final DriftClient<ThriftTaskClient> driftClient;
     private final DataSize maxResponseSize;
     private final boolean acknowledgePages;
-    private final boolean asyncPageTransportEnabled;
     private final double responseSizeExponentialMovingAverageDecayingAlpha;
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
@@ -65,7 +64,6 @@ public class ExchangeClientFactory
                 config.getConcurrentRequestMultiplier(),
                 config.getMaxErrorDuration(),
                 config.isAcknowledgePages(),
-                config.isAsyncPageTransportEnabled(),
                 config.getPageBufferClientMaxCallbackThreads(),
                 config.getResponseSizeExponentialMovingAverageDecayingAlpha(),
                 httpClient,
@@ -79,7 +77,6 @@ public class ExchangeClientFactory
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
             boolean acknowledgePages,
-            boolean asyncPageTransportEnabled,
             int pageBufferClientMaxCallbackThreads,
             double responseSizeExponentialMovingAverageDecayingAlpha,
             HttpClient httpClient,
@@ -90,7 +87,6 @@ public class ExchangeClientFactory
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         this.acknowledgePages = acknowledgePages;
-        this.asyncPageTransportEnabled = asyncPageTransportEnabled;
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.driftClient = requireNonNull(driftClient, "driftClient is null");
 
@@ -135,7 +131,6 @@ public class ExchangeClientFactory
                 concurrentRequestMultiplier,
                 maxErrorDuration,
                 acknowledgePages,
-                asyncPageTransportEnabled,
                 responseSizeExponentialMovingAverageDecayingAlpha,
                 httpClient,
                 driftClient,

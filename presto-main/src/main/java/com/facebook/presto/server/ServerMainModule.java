@@ -226,6 +226,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Singleton;
+import javax.servlet.Filter;
 import javax.servlet.Servlet;
 
 import java.util.List;
@@ -535,7 +536,6 @@ public class ServerMainModule
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
         thriftCodecBinder(binder).bindThriftCodec(TaskInfo.class);
-        jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
         binder.bind(ExchangeClientSupplier.class).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
@@ -760,6 +760,8 @@ public class ServerMainModule
         driftServerBinder(binder).bindService(ThriftServerInfoService.class);
 
         // Async page transport
+        newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
+                .to(AsyncPageTransportForwardFilter.class).in(Scopes.SINGLETON);
         binder.bind(AsyncPageTransportServlet.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AsyncPageTransportServlet.class).withGeneratedName();
         newMapBinder(binder, String.class, Servlet.class, TheServlet.class)
