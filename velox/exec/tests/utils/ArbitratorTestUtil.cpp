@@ -45,13 +45,17 @@ std::shared_ptr<core::QueryCtx> newQueryCtx(
   return queryCtx;
 }
 
-std::unique_ptr<memory::MemoryManager> createMemoryManager() {
+std::unique_ptr<memory::MemoryManager> createMemoryManager(
+    int64_t allocatorCapacity,
+    uint64_t memoryPoolInitCapacity,
+    uint64_t memoryPoolTransferCapacity,
+    uint64_t maxReclaimWaitMs) {
   memory::MemoryManagerOptions options;
-  options.allocatorCapacity = kMemoryCapacity;
+  options.allocatorCapacity = allocatorCapacity;
   options.arbitratorKind = "SHARED";
-  options.memoryPoolInitCapacity = kMemoryPoolInitCapacity;
-  options.memoryPoolTransferCapacity = kMemoryPoolTransferCapacity;
-  options.memoryReclaimWaitMs = 0;
+  options.memoryPoolInitCapacity = memoryPoolInitCapacity;
+  options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
+  options.memoryReclaimWaitMs = maxReclaimWaitMs;
   options.checkUsageLeak = true;
   options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
   return std::make_unique<memory::MemoryManager>(options);

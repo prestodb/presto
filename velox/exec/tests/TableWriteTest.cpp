@@ -32,7 +32,11 @@
 
 #include <re2/re2.h>
 #include <string>
+#include "folly/experimental/EventCount.h"
+#include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/dwio/common/Options.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::core;
@@ -3347,3 +3351,862 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     BucketSortOnlyTableWriterTest,
     testing::ValuesIn(BucketSortOnlyTableWriterTest::getTestParams()));
+
+class TableWriterArbitrationTest : public HiveConnectorTestBase {
+ protected:
+  void SetUp() override {
+    HiveConnectorTestBase::SetUp();
+    filesystems::registerLocalFileSystem();
+    if (!isRegisteredVectorSerde()) {
+      this->registerVectorSerde();
+    }
+
+    rowType_ = ROW(
+        {{"c0", INTEGER()},
+         {"c1", INTEGER()},
+         {"c2", VARCHAR()},
+         {"c3", VARCHAR()}});
+    fuzzerOpts_.vectorSize = 1024;
+    fuzzerOpts_.nullRatio = 0;
+    fuzzerOpts_.stringVariableLength = false;
+    fuzzerOpts_.stringLength = 1024;
+    fuzzerOpts_.allowLazyVector = false;
+  }
+
+  folly::Random::DefaultGenerator rng_;
+  RowTypePtr rowType_;
+  VectorFuzzer::Options fuzzerOpts_;
+};
+
+DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromTableWriter) {
+  VectorFuzzer::Options options;
+  const int batchSize = 1'000;
+  options.vectorSize = batchSize;
+  options.stringVariableLength = false;
+  options.stringLength = 1'000;
+  VectorFuzzer fuzzer(options, pool());
+  const int numBatches = 20;
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  for (int i = 0; i < numBatches; ++i) {
+    numRows += batchSize;
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+  }
+  createDuckDbTable(vectors);
+
+  for (bool writerSpillEnabled : {false, true}) {
+    {
+      SCOPED_TRACE(fmt::format("writerSpillEnabled: {}", writerSpillEnabled));
+      auto memoryManager = createMemoryManager();
+      auto arbitrator = memoryManager->arbitrator();
+      auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+      ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
+
+      std::atomic<int> numInputs{0};
+      SCOPED_TESTVALUE_SET(
+          "facebook::velox::exec::Driver::runInternal::addInput",
+          std::function<void(Operator*)>(([&](Operator* op) {
+            if (op->operatorType() != "TableWrite") {
+              return;
+            }
+            // We reclaim memory from table writer connector memory pool which
+            // connects to the memory pools inside the hive connector.
+            ASSERT_FALSE(op->canReclaim());
+            if (++numInputs != numBatches) {
+              return;
+            }
+
+            const auto fakeAllocationSize =
+                arbitrator->stats().maxCapacityBytes -
+                op->pool()->parent()->reservedBytes();
+            if (writerSpillEnabled) {
+              auto* buffer = op->pool()->allocate(fakeAllocationSize);
+              op->pool()->free(buffer, fakeAllocationSize);
+            } else {
+              VELOX_ASSERT_THROW(
+                  op->pool()->allocate(fakeAllocationSize),
+                  "Exceeded memory pool");
+            }
+          })));
+
+      auto spillDirectory = exec::test::TempDirectoryPath::create();
+      auto outputDirectory = TempDirectoryPath::create();
+      auto writerPlan =
+          PlanBuilder()
+              .values(vectors)
+              .tableWrite(outputDirectory->path)
+              .project({TableWriteTraits::rowCountColumnName()})
+              .singleAggregation(
+                  {},
+                  {fmt::format(
+                      "sum({})", TableWriteTraits::rowCountColumnName())})
+              .planNode();
+
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .queryCtx(queryCtx)
+          .maxDrivers(1)
+          .spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, writerSpillEnabled)
+          .config(core::QueryConfig::kWriterSpillEnabled, writerSpillEnabled)
+          // Set 0 file writer flush threshold to always trigger flush in test.
+          .config(core::QueryConfig::kWriterFlushThresholdBytes, 0)
+          .plan(std::move(writerPlan))
+          .assertResults(fmt::format("SELECT {}", numRows));
+
+      ASSERT_EQ(arbitrator->stats().numFailures, writerSpillEnabled ? 0 : 1);
+      ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 0);
+      waitForAllTasksToBeDeleted(3'000'000);
+    }
+  }
+}
+
+DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromSortTableWriter) {
+  VectorFuzzer::Options options;
+  const int batchSize = 1'000;
+  options.vectorSize = batchSize;
+  options.stringVariableLength = false;
+  options.stringLength = 1'000;
+  VectorFuzzer fuzzer(options, pool());
+  const int numBatches = 20;
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  const auto partitionKeyVector = makeFlatVector<int32_t>(
+      batchSize, [&](vector_size_t /*unused*/) { return 0; });
+  for (int i = 0; i < numBatches; ++i) {
+    numRows += batchSize;
+    vectors.push_back(fuzzer.fuzzInputRow(rowType_));
+    vectors.back()->childAt(0) = partitionKeyVector;
+  }
+  createDuckDbTable(vectors);
+
+  for (bool writerSpillEnabled : {false, true}) {
+    {
+      SCOPED_TRACE(fmt::format("writerSpillEnabled: {}", writerSpillEnabled));
+      auto memoryManager = createMemoryManager();
+      auto arbitrator = memoryManager->arbitrator();
+      auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+      ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
+
+      const auto spillStats = common::globalSpillStats();
+      std::atomic<int> numInputs{0};
+      SCOPED_TESTVALUE_SET(
+          "facebook::velox::exec::Driver::runInternal::addInput",
+          std::function<void(Operator*)>(([&](Operator* op) {
+            if (op->operatorType() != "TableWrite") {
+              return;
+            }
+            // We reclaim memory from table writer connector memory pool which
+            // connects to the memory pools inside the hive connector.
+            ASSERT_FALSE(op->canReclaim());
+            if (++numInputs != numBatches) {
+              return;
+            }
+
+            const auto fakeAllocationSize =
+                arbitrator->stats().maxCapacityBytes -
+                op->pool()->parent()->reservedBytes();
+            if (writerSpillEnabled) {
+              auto* buffer = op->pool()->allocate(fakeAllocationSize);
+              op->pool()->free(buffer, fakeAllocationSize);
+            } else {
+              VELOX_ASSERT_THROW(
+                  op->pool()->allocate(fakeAllocationSize),
+                  "Exceeded memory pool");
+            }
+          })));
+
+      auto spillDirectory = exec::test::TempDirectoryPath::create();
+      auto outputDirectory = TempDirectoryPath::create();
+      auto writerPlan =
+          PlanBuilder()
+              .values(vectors)
+              .tableWrite(outputDirectory->path, {"c0"}, 4, {"c1"}, {"c2"})
+              .project({TableWriteTraits::rowCountColumnName()})
+              .singleAggregation(
+                  {},
+                  {fmt::format(
+                      "sum({})", TableWriteTraits::rowCountColumnName())})
+              .planNode();
+
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .queryCtx(queryCtx)
+          .maxDrivers(1)
+          .spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, writerSpillEnabled)
+          .config(core::QueryConfig::kWriterSpillEnabled, writerSpillEnabled)
+          // Set 0 file writer flush threshold to always trigger flush in test.
+          .config(core::QueryConfig::kWriterFlushThresholdBytes, 0)
+          .plan(std::move(writerPlan))
+          .assertResults(fmt::format("SELECT {}", numRows));
+
+      ASSERT_EQ(arbitrator->stats().numFailures, writerSpillEnabled ? 0 : 1);
+      ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 0);
+      waitForAllTasksToBeDeleted(3'000'000);
+      const auto updatedSpillStats = common::globalSpillStats();
+      if (writerSpillEnabled) {
+        ASSERT_GT(updatedSpillStats.spilledBytes, spillStats.spilledBytes);
+        ASSERT_GT(
+            updatedSpillStats.spilledPartitions, spillStats.spilledPartitions);
+      } else {
+        ASSERT_EQ(updatedSpillStats, spillStats);
+      }
+    }
+  }
+}
+
+DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
+  VectorFuzzer::Options options;
+  const int batchSize = 1'000;
+  options.vectorSize = batchSize;
+  options.stringVariableLength = false;
+  options.stringLength = 1'000;
+  VectorFuzzer fuzzer(options, pool());
+  const int numBatches = 20;
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  for (int i = 0; i < numBatches; ++i) {
+    numRows += batchSize;
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+  }
+  createDuckDbTable(vectors);
+
+  const std::vector<uint64_t> writerFlushThresholds{0, 1UL << 30};
+  for (uint64_t writerFlushThreshold : writerFlushThresholds) {
+    {
+      SCOPED_TRACE(fmt::format(
+          "writerFlushThreshold: {}", succinctBytes(writerFlushThreshold)));
+
+      auto memoryManager = createMemoryManager();
+      auto arbitrator = memoryManager->arbitrator();
+      auto numAddedPools = 0;
+      {
+        auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+        ++numAddedPools;
+        ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
+
+        std::atomic<int> numInputs{0};
+        SCOPED_TESTVALUE_SET(
+            "facebook::velox::exec::Driver::runInternal::addInput",
+            std::function<void(Operator*)>(([&](Operator* op) {
+              if (op->operatorType() != "TableWrite") {
+                return;
+              }
+              if (++numInputs != numBatches) {
+                return;
+              }
+
+              const auto fakeAllocationSize =
+                  arbitrator->stats().maxCapacityBytes -
+                  op->pool()->parent()->reservedBytes();
+              if (writerFlushThreshold == 0) {
+                auto* buffer = op->pool()->allocate(fakeAllocationSize);
+                op->pool()->free(buffer, fakeAllocationSize);
+              } else {
+                // The injected memory allocation fail if we set very high
+                // memory flush threshold.
+                VELOX_ASSERT_THROW(
+                    op->pool()->allocate(fakeAllocationSize),
+                    "Exceeded memory pool");
+              }
+            })));
+
+        auto spillDirectory = exec::test::TempDirectoryPath::create();
+        auto outputDirectory = TempDirectoryPath::create();
+        auto writerPlan =
+            PlanBuilder()
+                .values(vectors)
+                .tableWrite(outputDirectory->path)
+                .project({TableWriteTraits::rowCountColumnName()})
+                .singleAggregation(
+                    {},
+                    {fmt::format(
+                        "sum({})", TableWriteTraits::rowCountColumnName())})
+                .planNode();
+
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .queryCtx(queryCtx)
+            .maxDrivers(1)
+            .spillDirectory(spillDirectory->path)
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .config(core::QueryConfig::kWriterSpillEnabled, true)
+            .config(
+                core::QueryConfig::kWriterFlushThresholdBytes,
+                writerFlushThreshold)
+            .plan(std::move(writerPlan))
+            .assertResults(fmt::format("SELECT {}", numRows));
+
+        ASSERT_EQ(
+            arbitrator->stats().numFailures, writerFlushThreshold == 0 ? 0 : 1);
+        ASSERT_EQ(
+            arbitrator->stats().numNonReclaimableAttempts,
+            writerFlushThreshold == 0 ? 0 : 1);
+        waitForAllTasksToBeDeleted(3'000'000);
+      }
+      ASSERT_EQ(arbitrator->stats().numReserves, numAddedPools);
+      ASSERT_EQ(arbitrator->stats().numReleases, numAddedPools);
+    }
+  }
+}
+
+DEBUG_ONLY_TEST_F(
+    TableWriterArbitrationTest,
+    reclaimFromNonReclaimableTableWriter) {
+  VectorFuzzer::Options options;
+  const int batchSize = 1'000;
+  options.vectorSize = batchSize;
+  options.stringVariableLength = false;
+  options.stringLength = 1'000;
+  VectorFuzzer fuzzer(options, pool());
+  const int numBatches = 20;
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  for (int i = 0; i < numBatches; ++i) {
+    numRows += batchSize;
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+  }
+
+  createDuckDbTable(vectors);
+
+  auto memoryManager = createMemoryManager();
+  auto arbitrator = memoryManager->arbitrator();
+  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
+
+  std::atomic<bool> injectFakeAllocationOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::write",
+      std::function<void(dwrf::Writer*)>(([&](dwrf::Writer* writer) {
+        if (!injectFakeAllocationOnce.exchange(false)) {
+          return;
+        }
+        auto& pool = writer->getContext().getMemoryPool(
+            dwrf::MemoryUsageCategory::GENERAL);
+        const auto fakeAllocationSize =
+            arbitrator->stats().maxCapacityBytes - pool.reservedBytes();
+        VELOX_ASSERT_THROW(
+            pool.allocate(fakeAllocationSize), "Exceeded memory pool");
+      })));
+
+  auto outputDirectory = TempDirectoryPath::create();
+  auto writerPlan =
+      PlanBuilder()
+          .values(vectors)
+          .tableWrite(outputDirectory->path)
+          .project({TableWriteTraits::rowCountColumnName()})
+          .singleAggregation(
+              {},
+              {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())})
+          .planNode();
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .queryCtx(queryCtx)
+      .maxDrivers(1)
+      .spillDirectory(spillDirectory->path)
+      .config(core::QueryConfig::kSpillEnabled, true)
+      .config(core::QueryConfig::kWriterSpillEnabled, true)
+      // Set file writer flush threshold of zero to always trigger flush in
+      // test.
+      .config(core::QueryConfig::kWriterFlushThresholdBytes, 0)
+      // Set large stripe and dictionary size thresholds to avoid writer
+      // internal stripe flush.
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxStripeSizeSession,
+          "1GB")
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxDictionaryMemorySession,
+          "1GB")
+      .plan(std::move(writerPlan))
+      .assertResults(fmt::format("SELECT {}", numRows));
+
+  ASSERT_EQ(arbitrator->stats().numFailures, 1);
+  ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 1);
+  ASSERT_EQ(arbitrator->stats().numReserves, 1);
+}
+
+DEBUG_ONLY_TEST_F(
+    TableWriterArbitrationTest,
+    arbitrationFromTableWriterWithNoMoreInput) {
+  VectorFuzzer::Options options;
+  const int batchSize = 1'000;
+  options.vectorSize = batchSize;
+  options.stringVariableLength = false;
+  options.stringLength = 1'000;
+  VectorFuzzer fuzzer(options, pool());
+  const int numBatches = 10;
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  for (int i = 0; i < numBatches; ++i) {
+    numRows += batchSize;
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+  }
+
+  createDuckDbTable(vectors);
+  auto memoryManager = createMemoryManager();
+  auto arbitrator = memoryManager->arbitrator();
+  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
+
+  std::atomic<bool> writerNoMoreInput{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "TableWrite") {
+          return;
+        }
+        writerNoMoreInput = true;
+      })));
+
+  std::atomic<bool> injectGetOutputOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::getOutput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "TableWrite") {
+          return;
+        }
+        if (!writerNoMoreInput) {
+          return;
+        }
+        if (!injectGetOutputOnce.exchange(false)) {
+          return;
+        }
+        const auto fakeAllocationSize = arbitrator->stats().maxCapacityBytes -
+            op->pool()->parent()->reservedBytes();
+        auto* buffer = op->pool()->allocate(fakeAllocationSize);
+        op->pool()->free(buffer, fakeAllocationSize);
+      })));
+
+  auto outputDirectory = TempDirectoryPath::create();
+  auto writerPlan =
+      PlanBuilder()
+          .values(vectors)
+          .tableWrite(outputDirectory->path)
+          .project({TableWriteTraits::rowCountColumnName()})
+          .singleAggregation(
+              {},
+              {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())})
+          .planNode();
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .queryCtx(queryCtx)
+      .maxDrivers(1)
+      .spillDirectory(spillDirectory->path)
+      .config(core::QueryConfig::kSpillEnabled, true)
+      .config(core::QueryConfig::kWriterSpillEnabled, true)
+      // Set 0 file writer flush threshold to always trigger flush in test.
+      .config(core::QueryConfig::kWriterFlushThresholdBytes, 0)
+      // Set large stripe and dictionary size thresholds to avoid writer
+      // internal stripe flush.
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxStripeSizeSession,
+          "1GB")
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxDictionaryMemorySession,
+          "1GB")
+      .plan(std::move(writerPlan))
+      .assertResults(fmt::format("SELECT {}", numRows));
+
+  ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 0);
+  ASSERT_EQ(arbitrator->stats().numFailures, 0);
+  ASSERT_GT(arbitrator->stats().numReclaimedBytes, 0);
+  ASSERT_EQ(arbitrator->stats().numReserves, 1);
+}
+
+DEBUG_ONLY_TEST_F(
+    TableWriterArbitrationTest,
+    reclaimFromNonReclaimableSortTableWriter) {
+  VectorFuzzer::Options options;
+  const int batchSize = 1'000;
+  options.vectorSize = batchSize;
+  options.stringVariableLength = false;
+  options.stringLength = 1'000;
+  VectorFuzzer fuzzer(options, pool());
+  const int numBatches = 20;
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  const auto partitionKeyVector = makeFlatVector<int32_t>(
+      batchSize, [&](vector_size_t /*unused*/) { return 0; });
+  for (int i = 0; i < numBatches; ++i) {
+    numRows += batchSize;
+    vectors.push_back(fuzzer.fuzzInputRow(rowType_));
+    vectors.back()->childAt(0) = partitionKeyVector;
+  }
+
+  createDuckDbTable(vectors);
+
+  auto memoryManager = createMemoryManager();
+  auto arbitrator = memoryManager->arbitrator();
+  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
+
+  std::atomic<bool> injectFakeAllocationOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
+      std::function<void(memory::MemoryPool*)>(([&](memory::MemoryPool* pool) {
+        const std::string re(".*sort");
+        if (!RE2::FullMatch(pool->name(), re)) {
+          return;
+        }
+        const int writerMemoryUsage = 4L << 20;
+        if (pool->parent()->reservedBytes() < writerMemoryUsage) {
+          return;
+        }
+        if (!injectFakeAllocationOnce.exchange(false)) {
+          return;
+        }
+        const auto fakeAllocationSize = arbitrator->stats().maxCapacityBytes -
+            pool->parent()->reservedBytes();
+        VELOX_ASSERT_THROW(
+            pool->allocate(fakeAllocationSize), "Exceeded memory pool");
+      })));
+
+  auto outputDirectory = TempDirectoryPath::create();
+  auto writerPlan =
+      PlanBuilder()
+          .values(vectors)
+          .tableWrite(outputDirectory->path, {"c0"}, 4, {"c1"}, {"c2"})
+          .project({TableWriteTraits::rowCountColumnName()})
+          .singleAggregation(
+              {},
+              {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())})
+          .planNode();
+
+  const auto spillStats = common::globalSpillStats();
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .queryCtx(queryCtx)
+      .maxDrivers(1)
+      .spillDirectory(spillDirectory->path)
+      .config(core::QueryConfig::kSpillEnabled, "true")
+      .config(core::QueryConfig::kWriterSpillEnabled, "true")
+      // Set file writer flush threshold of zero to always trigger flush in
+      // test.
+      .config(core::QueryConfig::kWriterFlushThresholdBytes, "0")
+      // Set large stripe and dictionary size thresholds to avoid writer
+      // internal stripe flush.
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxStripeSizeSession,
+          "1GB")
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxDictionaryMemorySession,
+          "1GB")
+      .plan(std::move(writerPlan))
+      .assertResults(fmt::format("SELECT {}", numRows));
+
+  ASSERT_EQ(arbitrator->stats().numFailures, 1);
+  ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 1);
+  ASSERT_EQ(arbitrator->stats().numReserves, 1);
+  const auto updatedSpillStats = common::globalSpillStats();
+  ASSERT_EQ(updatedSpillStats, spillStats);
+}
+
+DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableFileWriteError) {
+  const uint64_t memoryCapacity = 32 * MB;
+  VectorFuzzer::Options options;
+  const int batchSize = 1'000;
+  options.vectorSize = batchSize;
+  options.stringVariableLength = false;
+  options.stringLength = 1'000;
+  VectorFuzzer fuzzer(options, pool());
+  const int numBatches = 20;
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  for (int i = 0; i < numBatches; ++i) {
+    numRows += batchSize;
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+  }
+
+  createDuckDbTable(vectors);
+
+  auto memoryManager =
+      createMemoryManager(memoryCapacity, kMemoryPoolInitCapacity);
+  auto arbitrator = memoryManager->arbitrator();
+  auto queryCtx = newQueryCtx(memoryManager, executor_, memoryCapacity);
+  ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
+  std::atomic<bool> injectWriterErrorOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::write",
+      std::function<void(dwrf::Writer*)>(([&](dwrf::Writer* writer) {
+        auto& context = writer->getContext();
+        auto& pool =
+            context.getMemoryPool(dwrf::MemoryUsageCategory::OUTPUT_STREAM);
+        if (static_cast<memory::MemoryPoolImpl*>(&pool)
+                ->testingMinReservationBytes() == 0) {
+          return;
+        }
+        if (!injectWriterErrorOnce.exchange(false)) {
+          return;
+        }
+        VELOX_FAIL("inject writer error");
+      })));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto writerPlan = PlanBuilder()
+                        .values(vectors)
+                        .tableWrite(outputDirectory->path)
+                        .planNode();
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .queryCtx(queryCtx)
+          .maxDrivers(1)
+          .spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kWriterSpillEnabled, true)
+          // Set 0 file writer flush threshold to always reclaim memory from
+          // file writer.
+          .config(core::QueryConfig::kWriterFlushThresholdBytes, 0)
+          // Set stripe size to extreme large to avoid writer internal triggered
+          // flush.
+          .connectorSessionProperty(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::kOrcWriterMaxStripeSizeSession,
+              "1GB")
+          .connectorSessionProperty(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::kOrcWriterMaxDictionaryMemorySession,
+              "1GB")
+          .plan(std::move(writerPlan))
+          .copyResults(pool()),
+      "inject writer error");
+
+  waitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteSpillUseMoreMemory) {
+  const uint64_t memoryCapacity = 256 * MB;
+  // Create a large number of vectors to trigger writer spill.
+  fuzzerOpts_.vectorSize = 1000;
+  fuzzerOpts_.stringLength = 2048;
+  fuzzerOpts_.stringVariableLength = false;
+  VectorFuzzer fuzzer(fuzzerOpts_, pool());
+
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < 10; ++i) {
+    vectors.push_back(fuzzer.fuzzInputRow(rowType_));
+  }
+
+  auto memoryManager =
+      createMemoryManager(memoryCapacity, kMemoryPoolInitCapacity);
+  auto arbitrator = memoryManager->arbitrator();
+
+  std::shared_ptr<core::QueryCtx> queryCtx =
+      newQueryCtx(memoryManager, executor_, memoryCapacity / 8);
+  std::shared_ptr<core::QueryCtx> fakeQueryCtx =
+      newQueryCtx(memoryManager, executor_, memoryCapacity);
+  auto fakePool = fakeQueryCtx->pool()->addLeafChild(
+      "fakePool", true, FakeMemoryReclaimer::create());
+  TestAllocation injectedFakeAllocation{
+      fakePool.get(),
+      fakePool->allocate(memoryCapacity * 3 / 4),
+      memoryCapacity * 3 / 4};
+
+  void* allocatedBuffer;
+  TestAllocation injectedWriterAllocation;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::flushInternal",
+      std::function<void(dwrf::Writer*)>(([&](dwrf::Writer* writer) {
+        ASSERT_TRUE(memory::underMemoryArbitration());
+        injectedFakeAllocation.free();
+        auto& pool = writer->getContext().getMemoryPool(
+            dwrf::MemoryUsageCategory::GENERAL);
+        injectedWriterAllocation.pool = &pool;
+        injectedWriterAllocation.size = memoryCapacity / 8;
+        injectedWriterAllocation.buffer =
+            pool.allocate(injectedWriterAllocation.size);
+      })));
+
+  // Free the extra fake memory allocations to make memory pool state consistent
+  // at the end of test.
+  std::atomic<bool> clearAllocationOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::setError",
+      std::function<void(Task*)>(([&](Task* task) {
+        if (!clearAllocationOnce.exchange(false)) {
+          return;
+        }
+        ASSERT_EQ(injectedWriterAllocation.size, memoryCapacity / 8);
+        injectedWriterAllocation.free();
+      })));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto writerPlan = PlanBuilder()
+                        .values(vectors)
+                        .tableWrite(outputDirectory->path)
+                        .planNode();
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .queryCtx(queryCtx)
+          .maxDrivers(1)
+          .spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kWriterSpillEnabled, true)
+          // Set 0 file writer flush threshold to always trigger flush in test.
+          .config(core::QueryConfig::kWriterFlushThresholdBytes, 0)
+          // Set stripe size to extreme large to avoid writer internal triggered
+          // flush.
+          .connectorSessionProperty(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::kOrcWriterMaxStripeSizeSession,
+              "1GB")
+          .connectorSessionProperty(
+              kHiveConnectorId,
+              connector::hive::HiveConfig::kOrcWriterMaxDictionaryMemorySession,
+              "1GB")
+          .plan(std::move(writerPlan))
+          .copyResults(pool()),
+      "Unexpected memory growth after memory reclaim");
+
+  waitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteReclaimOnClose) {
+  // Create a large number of vectors to trigger writer spill.
+  fuzzerOpts_.vectorSize = 1000;
+  fuzzerOpts_.stringLength = 1024;
+  fuzzerOpts_.stringVariableLength = false;
+  VectorFuzzer fuzzer(fuzzerOpts_, pool());
+  std::vector<RowVectorPtr> vectors;
+  int numRows{0};
+  for (int i = 0; i < 10; ++i) {
+    vectors.push_back(fuzzer.fuzzInputRow(rowType_));
+    numRows += vectors.back()->size();
+  }
+
+  auto memoryManager = createMemoryManager();
+  auto arbitrator = memoryManager->arbitrator();
+  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  auto fakeQueryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  auto fakePool = fakeQueryCtx->pool()->addLeafChild(
+      "fakePool", true, FakeMemoryReclaimer::create());
+
+  std::atomic<bool> writerNoMoreInput{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "TableWrite") {
+          return;
+        }
+        writerNoMoreInput = true;
+      })));
+
+  std::atomic<bool> maybeReserveInjectOnce{true};
+  TestAllocation fakeAllocation;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
+      std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool* pool) {
+        if (!writerNoMoreInput) {
+          return;
+        }
+        if (!maybeReserveInjectOnce.exchange(false)) {
+          return;
+        }
+        // The injection memory allocation to cause maybeReserve on writer close
+        // to trigger memory arbitration. The latter tries to reclaim memory
+        // from this file writer.
+        const size_t injectAllocationSize =
+            pool->freeBytes() + arbitrator->stats().freeCapacityBytes;
+        fakeAllocation = TestAllocation{
+            .pool = fakePool.get(),
+            .buffer = fakePool->allocate(injectAllocationSize),
+            .size = injectAllocationSize};
+      }));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::flushStripe",
+      std::function<void(dwrf::Writer*)>(
+          [&](dwrf::Writer* writer) { fakeAllocation.free(); }));
+
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto writerPlan =
+      PlanBuilder()
+          .values(vectors)
+          .tableWrite(outputDirectory->path)
+          .singleAggregation(
+              {},
+              {fmt::format("sum({})", TableWriteTraits::rowCountColumnName())})
+          .planNode();
+
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .queryCtx(queryCtx)
+      .maxDrivers(1)
+      .spillDirectory(spillDirectory->path)
+      .config(core::QueryConfig::kSpillEnabled, true)
+      .config(core::QueryConfig::kWriterSpillEnabled, true)
+      // Set 0 file writer flush threshold to always trigger flush in test.
+      .config(core::QueryConfig::kWriterFlushThresholdBytes, 0)
+      // Set stripe size to extreme large to avoid writer internal triggered
+      // flush.
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxStripeSizeSession,
+          "1GB")
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kOrcWriterMaxDictionaryMemorySession,
+          "1GB")
+      .plan(std::move(writerPlan))
+      .assertResults(fmt::format("SELECT {}", numRows));
+
+  waitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(
+    TableWriterArbitrationTest,
+    raceBetweenWriterCloseAndTaskReclaim) {
+  const uint64_t memoryCapacity = 512 * MB;
+  std::vector<RowVectorPtr> vectors =
+      createVectors(rowType_, memoryCapacity / 8, fuzzerOpts_);
+  const auto expectedResult =
+      runWriteTask(vectors, nullptr, 1, pool(), kHiveConnectorId, false).data;
+
+  auto memoryManager = createMemoryManager(memoryCapacity);
+  auto arbitrator = memoryManager->arbitrator();
+  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+
+  std::atomic_bool writerCloseWaitFlag{true};
+  folly::EventCount writerCloseWait;
+  std::atomic_bool taskReclaimWaitFlag{true};
+  folly::EventCount taskReclaimWait;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::dwrf::Writer::flushStripe",
+      std::function<void(dwrf::Writer*)>(([&](dwrf::Writer* writer) {
+        writerCloseWaitFlag = false;
+        writerCloseWait.notifyAll();
+        taskReclaimWait.await([&]() { return !taskReclaimWaitFlag.load(); });
+      })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>(([&](Task* /*unused*/) {
+        taskReclaimWaitFlag = false;
+        taskReclaimWait.notifyAll();
+      })));
+
+  std::thread queryThread([&]() {
+    const auto result = runWriteTask(
+        vectors, queryCtx, 1, pool(), kHiveConnectorId, true, expectedResult);
+  });
+
+  writerCloseWait.await([&]() { return !writerCloseWaitFlag.load(); });
+
+  // Creates a fake pool to trigger memory arbitration.
+  auto fakePool = queryCtx->pool()->addLeafChild(
+      "fakePool", true, FakeMemoryReclaimer::create());
+  ASSERT_TRUE(memoryManager->testingGrowPool(
+      fakePool.get(),
+      arbitrator->stats().freeCapacityBytes +
+          queryCtx->pool()->capacity() / 2));
+
+  queryThread.join();
+  waitForAllTasksToBeDeleted();
+}

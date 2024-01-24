@@ -93,7 +93,11 @@ std::shared_ptr<core::QueryCtx> newQueryCtx(
     int64_t memoryCapacity = facebook::velox::memory::kMaxMemory,
     std::unique_ptr<MemoryReclaimer>&& reclaimer = nullptr);
 
-std::unique_ptr<memory::MemoryManager> createMemoryManager();
+std::unique_ptr<memory::MemoryManager> createMemoryManager(
+    int64_t allocatorCapacity = kMemoryCapacity,
+    uint64_t memoryPoolInitCapacity = kMemoryPoolInitCapacity,
+    uint64_t memoryPoolTransferCapacity = kMemoryPoolTransferCapacity,
+    uint64_t maxReclaimWaitMs = 0);
 
 // Contains the query result.
 struct QueryTestResult {

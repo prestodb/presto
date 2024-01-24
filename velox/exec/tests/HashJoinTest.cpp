@@ -6980,4 +6980,302 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringJoinTableBuild) {
   memThread.join();
   waitForAllTasksToBeDeleted();
 }
+
+// This test is to reproduce a race condition that memory arbitrator tries to
+// reclaim from a set of hash build operators in which the last hash build
+// operator has finished.
+DEBUG_ONLY_TEST_F(HashJoinTest, raceBetweenRaclaimAndJoinFinish) {
+  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  const auto& arbitrator = memoryManager->arbitrator();
+  auto rowType = ROW({
+      {"c0", INTEGER()},
+      {"c1", INTEGER()},
+      {"c2", VARCHAR()},
+  });
+  // Build a large vector to trigger memory arbitration.
+  fuzzerOpts_.vectorSize = 10'000;
+  std::vector<RowVectorPtr> vectors = createVectors(2, rowType, fuzzerOpts_);
+  createDuckDbTable(vectors);
+
+  std::shared_ptr<core::QueryCtx> joinQueryCtx =
+      newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId planNodeId;
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(vectors, false)
+                  .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(vectors, true)
+                          .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                          .planNode(),
+                      "",
+                      {"t1"},
+                      core::JoinType::kAnti)
+                  .capturePlanNodeId(planNodeId)
+                  .planNode();
+
+  std::atomic<bool> waitForBuildFinishFlag{true};
+  folly::EventCount waitForBuildFinishEvent;
+  std::atomic<Driver*> lastBuildDriver{nullptr};
+  std::atomic<Task*> task{nullptr};
+  std::atomic<bool> isLastBuildFirstChildPool{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::HashBuild::finishHashBuild",
+      std::function<void(exec::HashBuild*)>([&](exec::HashBuild* buildOp) {
+        lastBuildDriver = buildOp->testingOperatorCtx()->driver();
+        // Checks if the last build memory pool is the first build pool in its
+        // parent node pool. It is used to check the test result.
+        int buildPoolIndex{0};
+        buildOp->pool()->parent()->visitChildren([&](memory::MemoryPool* pool) {
+          if (pool == buildOp->pool()) {
+            return false;
+          }
+          if (isHashBuildMemoryPool(*pool)) {
+            ++buildPoolIndex;
+          }
+          return true;
+        });
+        isLastBuildFirstChildPool = (buildPoolIndex == 0);
+        task = lastBuildDriver.load()->task().get();
+        waitForBuildFinishFlag = false;
+        waitForBuildFinishEvent.notifyAll();
+      }));
+
+  std::atomic<bool> waitForReclaimFlag{true};
+  folly::EventCount waitForReclaimEvent;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal",
+      std::function<void(Driver*)>([&](Driver* driver) {
+        auto* op = driver->findOperator(planNodeId);
+        if (op->operatorType() != "HashBuild" &&
+            op->operatorType() != "HashProbe") {
+          return;
+        }
+
+        // Suspend hash probe driver to wait for the test triggered reclaim to
+        // finish.
+        if (op->operatorType() == "HashProbe") {
+          op->pool()->reclaimer()->enterArbitration();
+          waitForReclaimEvent.await(
+              [&]() { return !waitForReclaimFlag.load(); });
+          op->pool()->reclaimer()->leaveArbitration();
+        }
+
+        // Check if we have reached to the last hash build operator or not. The
+        // testvalue callback will set the last build driver.
+        if (lastBuildDriver == nullptr) {
+          return;
+        }
+
+        // Suspend all the remaining hash build drivers until the test triggered
+        // reclaim finish.
+        op->pool()->reclaimer()->enterArbitration();
+        waitForReclaimEvent.await([&]() { return !waitForReclaimFlag.load(); });
+        op->pool()->reclaimer()->leaveArbitration();
+      }));
+
+  const int numDrivers = 4;
+  std::thread queryThread([&]() {
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .maxDrivers(numDrivers)
+        .queryCtx(joinQueryCtx)
+        .spillDirectory(spillDirectory->path)
+        .config(core::QueryConfig::kSpillEnabled, true)
+        .config(core::QueryConfig::kJoinSpillEnabled, true)
+        .assertResults(
+            "SELECT c1 FROM tmp WHERE c0 NOT IN (SELECT c0 FROM tmp)");
+  });
+
+  // Wait for the last hash build operator to start building the hash table.
+  waitForBuildFinishEvent.await([&] { return !waitForBuildFinishFlag.load(); });
+  ASSERT_TRUE(lastBuildDriver != nullptr);
+  ASSERT_TRUE(task != nullptr);
+
+  // Wait until the last build driver gets removed from the task after finishes.
+  while (task.load()->numFinishedDrivers() != 1) {
+    bool foundLastBuildDriver{false};
+    task.load()->testingVisitDrivers([&](Driver* driver) {
+      if (driver == lastBuildDriver) {
+        foundLastBuildDriver = true;
+      }
+    });
+    if (!foundLastBuildDriver) {
+      break;
+    }
+  }
+
+  // Reclaim from the task, and we can't reclaim anything as we don't support
+  // spill after hash table built.
+  memory::MemoryReclaimer::Stats stats;
+  const uint64_t oldCapacity = joinQueryCtx->pool()->capacity();
+  task.load()->pool()->shrink();
+  task.load()->pool()->reclaim(1'000, 0, stats);
+  // If the last build memory pool is first child of its parent memory pool,
+  // then memory arbitration (or join node memory pool) will reclaim from the
+  // last build operator first which simply quits as the driver has gone. If
+  // not, we expect to get numNonReclaimableAttempts from any one of the
+  // remaining hash build operator.
+  if (isLastBuildFirstChildPool) {
+    ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
+  } else {
+    ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
+  }
+  // Make sure we don't leak memory capacity since we reclaim from task pool
+  // directly.
+  static_cast<memory::MemoryPoolImpl*>(task.load()->pool())
+      ->testingSetCapacity(oldCapacity);
+  waitForReclaimFlag = false;
+  waitForReclaimEvent.notifyAll();
+
+  queryThread.join();
+
+  waitForAllTasksToBeDeleted();
+  ASSERT_EQ(arbitrator->stats().numFailures, 0);
+  ASSERT_EQ(arbitrator->stats().numReclaimedBytes, 0);
+  ASSERT_EQ(arbitrator->stats().numReserves, 1);
+}
+
+DEBUG_ONLY_TEST_F(HashJoinTest, joinBuildSpillError) {
+  const int kMemoryCapacity = 32 << 20;
+  // Set a small memory capacity to trigger spill.
+  std::unique_ptr<memory::MemoryManager> memoryManager =
+      createMemoryManager(kMemoryCapacity, 0);
+  const auto& arbitrator = memoryManager->arbitrator();
+  auto rowType = ROW(
+      {{"c0", INTEGER()},
+       {"c1", INTEGER()},
+       {"c2", VARCHAR()},
+       {"c3", VARCHAR()}});
+
+  std::vector<RowVectorPtr> vectors = createVectors(16, rowType, fuzzerOpts_);
+  createDuckDbTable(vectors);
+
+  std::shared_ptr<core::QueryCtx> joinQueryCtx =
+      newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+
+  const int numDrivers = 4;
+  std::atomic<int> numAppends{0};
+  const std::string injectedErrorMsg("injected spillError");
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::SpillState::appendToPartition",
+      std::function<void(exec::SpillState*)>([&](exec::SpillState* state) {
+        if (++numAppends != numDrivers) {
+          return;
+        }
+        VELOX_FAIL(injectedErrorMsg);
+      }));
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(vectors)
+                  .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(vectors)
+                          .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                          .planNode(),
+                      "",
+                      {"t1"},
+                      core::JoinType::kAnti)
+                  .planNode();
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan)
+          .queryCtx(joinQueryCtx)
+          .spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kJoinSpillEnabled, true)
+          .copyResults(pool()),
+      injectedErrorMsg);
+
+  waitForAllTasksToBeDeleted();
+  ASSERT_EQ(arbitrator->stats().numFailures, 1);
+  ASSERT_EQ(arbitrator->stats().numReserves, 1);
+}
+
+DEBUG_ONLY_TEST_F(HashJoinTest, taskWaitTimeout) {
+  const int queryMemoryCapacity = 128 << 20;
+  // Creates a large number of vectors based on the query capacity to trigger
+  // memory arbitration.
+  fuzzerOpts_.vectorSize = 10'000;
+  auto rowType = ROW(
+      {{"c0", INTEGER()},
+       {"c1", INTEGER()},
+       {"c2", VARCHAR()},
+       {"c3", VARCHAR()}});
+  const auto vectors =
+      createVectors(rowType, queryMemoryCapacity / 2, fuzzerOpts_);
+  const int numDrivers = 4;
+  const auto expectedResult =
+      runHashJoinTask(vectors, nullptr, numDrivers, pool(), false).data;
+
+  for (uint64_t timeoutMs : {0, 1'000, 30'000}) {
+    SCOPED_TRACE(fmt::format("timeout {}", succinctMillis(timeoutMs)));
+    auto memoryManager = createMemoryManager(512 << 20, 0, 0, timeoutMs);
+    auto queryCtx = newQueryCtx(memoryManager, executor_, queryMemoryCapacity);
+
+    // Set test injection to block one hash build operator to inject delay when
+    // memory reclaim waits for task to pause.
+    folly::EventCount buildBlockWait;
+    std::atomic<bool> buildBlockWaitFlag{true};
+    std::atomic<bool> blockOneBuild{true};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve",
+        std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool* pool) {
+          const std::string re(".*HashBuild");
+          if (!RE2::FullMatch(pool->name(), re)) {
+            return;
+          }
+          if (!blockOneBuild.exchange(false)) {
+            return;
+          }
+          buildBlockWait.await([&]() { return !buildBlockWaitFlag.load(); });
+        }));
+
+    folly::EventCount taskPauseWait;
+    std::atomic<bool> taskPauseWaitFlag{false};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Task::requestPauseLocked",
+        std::function<void(Task*)>(([&](Task* /*unused*/) {
+          taskPauseWaitFlag = true;
+          taskPauseWait.notifyAll();
+        })));
+
+    std::thread queryThread([&]() {
+      // We expect failure on short time out.
+      if (timeoutMs == 1'000) {
+        VELOX_ASSERT_THROW(
+            runHashJoinTask(
+                vectors, queryCtx, numDrivers, pool(), true, expectedResult),
+            "Memory reclaim failed to wait");
+      } else {
+        // We expect succeed on large time out or no timeout.
+        const auto result = runHashJoinTask(
+            vectors, queryCtx, numDrivers, pool(), true, expectedResult);
+        auto taskStats = exec::toPlanStats(result.task->taskStats());
+        auto& planStats = taskStats.at(result.planNodeId);
+        ASSERT_GT(planStats.spilledBytes, 0);
+      }
+    });
+
+    // Wait for task pause to reach, and then delay for a while before unblock
+    // the blocked hash build operator.
+    taskPauseWait.await([&]() { return taskPauseWaitFlag.load(); });
+    // Wait for two seconds and expect the short reclaim wait timeout.
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    // Unblock the blocked build operator to let memory reclaim proceed.
+    buildBlockWaitFlag = false;
+    buildBlockWait.notifyAll();
+
+    queryThread.join();
+    waitForAllTasksToBeDeleted();
+  }
+}
 } // namespace
