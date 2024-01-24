@@ -341,7 +341,7 @@ class ExchangeBenchmark : public VectorTestBase {
 
 int32_t ExchangeBenchmark::iteration_;
 
-ExchangeBenchmark bm;
+std::unique_ptr<ExchangeBenchmark> bm;
 
 std::vector<RowVectorPtr> flat10k;
 std::vector<RowVectorPtr> deep10k;
@@ -357,27 +357,27 @@ Counters localFlat10kCounters;
 Counters struct1kCounters;
 
 BENCHMARK(exchangeFlat10k) {
-  bm.run(flat10k, FLAGS_width, FLAGS_task_width, flat10kCounters);
+  bm->run(flat10k, FLAGS_width, FLAGS_task_width, flat10kCounters);
 }
 
 BENCHMARK_RELATIVE(exchangeFlat50) {
-  bm.run(flat50, FLAGS_width, FLAGS_task_width, flat50Counters);
+  bm->run(flat50, FLAGS_width, FLAGS_task_width, flat50Counters);
 }
 
 BENCHMARK(exchangeDeep10k) {
-  bm.run(deep10k, FLAGS_width, FLAGS_task_width, deep10kCounters);
+  bm->run(deep10k, FLAGS_width, FLAGS_task_width, deep10kCounters);
 }
 
 BENCHMARK_RELATIVE(exchangeDeep50) {
-  bm.run(deep50, FLAGS_width, FLAGS_task_width, deep50Counters);
+  bm->run(deep50, FLAGS_width, FLAGS_task_width, deep50Counters);
 }
 
 BENCHMARK(exchangeStruct1K) {
-  bm.run(struct1k, FLAGS_width, FLAGS_task_width, struct1kCounters);
+  bm->run(struct1k, FLAGS_width, FLAGS_task_width, struct1kCounters);
 }
 
 BENCHMARK(localFlat10k) {
-  bm.runLocal(
+  bm->runLocal(
       flat10k, FLAGS_width, FLAGS_num_local_tasks, localFlat10kCounters);
 }
 
@@ -444,11 +444,12 @@ int main(int argc, char** argv) {
             MAP(BIGINT(),
                 ROW({{"s2_int", INTEGER()}, {"s2_string", VARCHAR()}})))}});
 
-  flat10k = bm.makeRows(flatType, 10, 10000, FLAGS_dict_pct);
-  deep10k = bm.makeRows(deepType, 10, 10000, FLAGS_dict_pct);
-  flat50 = bm.makeRows(flatType, 2000, 50, FLAGS_dict_pct);
-  deep50 = bm.makeRows(deepType, 2000, 50, FLAGS_dict_pct);
-  struct1k = bm.makeRows(structType, 100, 1000, FLAGS_dict_pct);
+  bm = std::make_unique<ExchangeBenchmark>();
+  flat10k = bm->makeRows(flatType, 10, 10000, FLAGS_dict_pct);
+  deep10k = bm->makeRows(deepType, 10, 10000, FLAGS_dict_pct);
+  flat50 = bm->makeRows(flatType, 2000, 50, FLAGS_dict_pct);
+  deep50 = bm->makeRows(deepType, 2000, 50, FLAGS_dict_pct);
+  struct1k = bm->makeRows(structType, 100, 1000, FLAGS_dict_pct);
 
   folly::runBenchmarks();
   std::cout << "flat10k: " << flat10kCounters.toString() << std::endl
