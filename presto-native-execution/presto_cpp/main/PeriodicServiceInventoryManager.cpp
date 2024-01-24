@@ -46,6 +46,11 @@ void PeriodicServiceInventoryManager::stop() {
   eventBaseThread_.stop();
 }
 
+void PeriodicServiceInventoryManager::enableRequest(bool enable) {
+  LOG(INFO) << (enable ? "Enabling " : "Disabling ") << id_;
+  requestEnabled_ = enable;
+}
+
 void PeriodicServiceInventoryManager::sendRequest() {
   // stop() calls EventBase's destructor which executed all pending callbacks;
   // make sure not to do anything if that's the case
@@ -75,6 +80,12 @@ void PeriodicServiceInventoryManager::sendRequest() {
   } catch (const std::exception& ex) {
     LOG(WARNING) << "Error occurred during updating service address: "
                  << ex.what();
+    scheduleNext();
+    return;
+  }
+
+  if (!requestEnabled_) {
+    LOG(INFO) << id_ << " skipped (it is disabled).";
     scheduleNext();
     return;
   }

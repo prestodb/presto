@@ -33,6 +33,9 @@ class PeriodicServiceInventoryManager {
 
   void stop();
 
+  /// If disabled then won't send any requests, but keeps itself running.
+  void enableRequest(bool enable);
+
  protected:
   // Denotes whether we retry failed requests due to network errors.
   virtual bool retryFailed() {
@@ -69,6 +72,7 @@ class PeriodicServiceInventoryManager {
   folly::SocketAddress serviceAddress_;
   std::shared_ptr<http::HttpClient> client_;
   std::atomic_bool stopped_{true};
+  std::atomic_bool requestEnabled_{true};
   uint64_t failedAttempts_{0};
   uint64_t attempts_{0};
 

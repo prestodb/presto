@@ -15,6 +15,7 @@
 #include <velox/common/base/Exceptions.h>
 #include <velox/common/base/VeloxException.h>
 #include <velox/common/process/TraceContext.h>
+#include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/ServerOperation.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpServer.h"
@@ -243,15 +244,73 @@ std::string PrestoServerOperations::taskOperation(
 
 std::string PrestoServerOperations::serverOperation(
     const ServerOperation& op,
-    proxygen::HTTPMessage* /* unused */) {
+    proxygen::HTTPMessage* message) {
   switch (op.action) {
-    case ServerOperation::Action::kTrace: {
-      return velox::process::TraceContext::statusLine();
-    }
+    case ServerOperation::Action::kTrace:
+      return serverOperationTrace();
+    case ServerOperation::Action::kSetState:
+      return serverOperationSetState(message);
+    case ServerOperation::Action::kAnnouncer:
+      return serverOperationAnnouncer(message);
     default:
       break;
   }
   return unsupportedAction(op);
+}
+
+std::string PrestoServerOperations::serverOperationTrace() {
+  return velox::process::TraceContext::statusLine();
+}
+
+std::string PrestoServerOperations::serverOperationSetState(
+    proxygen::HTTPMessage* message) {
+  if (server_) {
+    const auto& stateStr = message->getQueryParam("state");
+    const auto prevState = server_->nodeState();
+    NodeState newNodeState{NodeState::kActive};
+    if (stateStr == "active") {
+      newNodeState = NodeState::kActive;
+    } else if (stateStr == "inactive") {
+      newNodeState = NodeState::kInActive;
+    } else if (stateStr == "shutting_down") {
+      newNodeState = NodeState::kShuttingDown;
+    } else {
+      return fmt::format(
+          "Invalid state '{}'. "
+          "Supported states are: 'active', 'inactive', 'shutting_down'. "
+          "Example: server/setState?state=shutting_down",
+          stateStr);
+    }
+    if (newNodeState != prevState) {
+      LOG(INFO) << "Setting node state to " << nodeState2String(newNodeState);
+      server_->setNodeState(newNodeState);
+    }
+    return fmt::format(
+        "New node state: '{}', previous state: '{}'.",
+        nodeState2String(newNodeState),
+        nodeState2String(prevState));
+  }
+  return "No PrestoServer to change state of (it is nullptr).";
+}
+
+std::string PrestoServerOperations::serverOperationAnnouncer(
+    proxygen::HTTPMessage* message) {
+  if (server_) {
+    const auto& actionStr = message->getQueryParam("action");
+    if (actionStr == "enable") {
+      server_->enableAnnouncer(true);
+      return "Announcer enabled";
+    } else if (actionStr == "disable") {
+      server_->enableAnnouncer(false);
+      return "Announcer disabled";
+    }
+    return fmt::format(
+        "Invalid action '{}'. "
+        "Supported actions are: 'enable', 'disable'. "
+        "Example: server/announcer?action=disable",
+        actionStr);
+  }
+  return "No PrestoServer to change announcer of (it is nullptr).";
 }
 
 } // namespace facebook::presto

@@ -113,6 +113,18 @@ bool isCacheTtlEnabled() {
 
 } // namespace
 
+std::string nodeState2String(NodeState nodeState) {
+  switch (nodeState) {
+    case presto::NodeState::kActive:
+      return "active";
+    case presto::NodeState::kInActive:
+      return "inactive";
+    case presto::NodeState::kShuttingDown:
+      return "shutting_down";
+  }
+  return fmt::format("<unknown>:{}>", static_cast<int>(nodeState));
+}
+
 PrestoServer::PrestoServer(const std::string& configDirectoryPath)
     : configDirectoryPath_(configDirectoryPath),
       signalHandler_(std::make_unique<SignalHandler>(this)),
@@ -426,7 +438,7 @@ void PrestoServer::run() {
     }
   }
   prestoServerOperations_ =
-      std::make_unique<PrestoServerOperations>(taskManager_.get());
+      std::make_unique<PrestoServerOperations>(taskManager_.get(), this);
 
   // The endpoint used by operation in production.
   httpServer_->registerGet(
@@ -731,6 +743,12 @@ void PrestoServer::stop() {
       httpServer_->stop();
       PRESTO_SHUTDOWN_LOG(INFO) << "HTTP Server stopped.";
     }
+  }
+}
+
+void PrestoServer::enableAnnouncer(bool enable) {
+  if (announcer_ != nullptr) {
+    announcer_->enableRequest(enable);
   }
 }
 
