@@ -154,7 +154,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     };
   }
 
-  std::string toJsonString() override {
+  folly::dynamic toJson() override {
     folly::dynamic obj = folly::dynamic::object;
     obj["taskId"] = taskId_;
     obj["destination"] = destination_;
@@ -167,7 +167,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     obj["closed"] = std::to_string(closed_);
     obj["abortResultsIssued"] = std::to_string(abortResultsIssued_);
     obj["atEnd"] = atEnd_;
-    return folly::toPrettyJson(obj);
+    return obj;
   }
 
   int testingFailedAttempts() const {
