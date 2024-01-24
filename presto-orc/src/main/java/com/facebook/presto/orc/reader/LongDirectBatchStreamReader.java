@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
@@ -84,7 +85,7 @@ public class LongDirectBatchStreamReader
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
+        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType || t instanceof TimeType);
         this.type = type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -168,6 +169,12 @@ public class LongDirectBatchStreamReader
             dataStream.next(values, nextBatchSize);
             return new ShortArrayBlock(nextBatchSize, Optional.empty(), values);
         }
+        if (type instanceof TimeType) {
+            long[] values = new long[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            maybeTransformValues(values, nextBatchSize);
+            return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
         throw new VerifyError("Unsupported type " + type);
     }
 
@@ -183,8 +190,13 @@ public class LongDirectBatchStreamReader
         if (type instanceof SmallintType) {
             return shortReadNullBlock(isNull, nonNullCount);
         }
+        if (type instanceof TimeType) {
+            return longReadNullBlock(isNull, nonNullCount);
+        }
         throw new VerifyError("Unsupported type " + type);
     }
+
+    protected void maybeTransformValues(long[] values, int nextBatchSize) {}
 
     private Block longReadNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException

@@ -288,6 +288,9 @@ public final class TypeConverter
             TypeInfo valueType = toHiveTypeInfo(type.getTypeParameters().get(1));
             return getMapTypeInfo(keyType, valueType);
         }
+        if (TimeType.TIME.equals(type)) {
+            return HIVE_INT.getTypeInfo();
+        }
         if (isRowType(type)) {
             ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
             for (TypeSignatureParameter parameter : type.getTypeSignature().getParameters()) {
