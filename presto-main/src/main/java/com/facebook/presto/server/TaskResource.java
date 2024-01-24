@@ -16,31 +16,22 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.smile.SmileCodec;
-import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.Page;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
-import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -55,13 +46,10 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.container.AsyncResponse;
-import javax.ws.rs.container.CompletionCallback;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
@@ -74,18 +62,11 @@ import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICA
 import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_FB_COMPACT;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
-import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
 import static com.facebook.presto.server.TaskResourceUtils.isThriftRequest;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
-import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -107,8 +88,6 @@ public class TaskResource
     private final SessionPropertyManager sessionPropertyManager;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
-    private final TimeStat readFromOutputBufferTime = new TimeStat();
-    private final TimeStat resultsRequestTime = new TimeStat();
     private final Codec<PlanFragment> planFragmentCodec;
     private final HandleResolver handleResolver;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
@@ -120,8 +99,6 @@ public class TaskResource
             @ForAsyncRpc BoundedExecutor responseExecutor,
             @ForAsyncRpc ScheduledExecutorService timeoutExecutor,
             JsonCodec<PlanFragment> planFragmentJsonCodec,
-            SmileCodec<PlanFragment> planFragmentSmileCodec,
-            InternalCommunicationConfig communicationConfig,
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager)
     {
@@ -299,65 +276,6 @@ public class TaskResource
     }
 
     @GET
-    @Path("{taskId}/results/{bufferId}/{token}")
-    @Produces(PRESTO_PAGES)
-    public void getResults(
-            @PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token,
-            @HeaderParam(PRESTO_MAX_SIZE) DataSize maxSize,
-            @Suspended AsyncResponse asyncResponse)
-    {
-        requireNonNull(taskId, "taskId is null");
-        requireNonNull(bufferId, "bufferId is null");
-
-        long start = System.nanoTime();
-        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
-        Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
-        bufferResultFuture = addTimeout(
-                bufferResultFuture,
-                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
-                waitTime,
-                timeoutExecutor);
-
-        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, result -> {
-            List<SerializedPage> serializedPages = result.getSerializedPages();
-
-            GenericEntity<?> entity = null;
-            Status status;
-            if (serializedPages.isEmpty()) {
-                status = Status.NO_CONTENT;
-            }
-            else {
-                entity = new GenericEntity<>(serializedPages, new TypeToken<List<Page>>() {}.getType());
-                status = Status.OK;
-            }
-
-            return Response.status(status)
-                    .entity(entity)
-                    .header(PRESTO_TASK_INSTANCE_ID, result.getTaskInstanceId())
-                    .header(PRESTO_PAGE_TOKEN, result.getToken())
-                    .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
-                    .header(PRESTO_BUFFER_COMPLETE, result.isBufferComplete())
-                    .build();
-        }, directExecutor());
-
-        // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
-        Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
-                .withTimeout(timeout,
-                        Response.status(Status.NO_CONTENT)
-                                .header(PRESTO_TASK_INSTANCE_ID, taskManager.getTaskInstanceId(taskId))
-                                .header(PRESTO_PAGE_TOKEN, token)
-                                .header(PRESTO_PAGE_NEXT_TOKEN, token)
-                                .header(PRESTO_BUFFER_COMPLETE, false)
-                                .build());
-
-        responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
-        asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
-    }
-
-    @GET
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
     public void acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
@@ -389,20 +307,6 @@ public class TaskResource
         requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
 
         taskManager.removeRemoteSource(taskId, remoteSourceTaskId);
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getReadFromOutputBufferTime()
-    {
-        return readFromOutputBufferTime;
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getResultsRequestTime()
-    {
-        return resultsRequestTime;
     }
 
     private static boolean shouldSummarize(UriInfo uriInfo)
