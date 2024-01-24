@@ -15,8 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
-import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;

@@ -13,10 +13,66 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.ColumnHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public interface BaseHiveColumnHandle
-        extends ColumnHandle
+import java.util.List;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
+
+public class BaseHiveColumnHandle
+        implements ColumnHandle
 {
-    String getName();
+    public enum ColumnType
+    {
+        PARTITION_KEY,
+        REGULAR,
+        SYNTHESIZED,
+        AGGREGATED,
+    }
+
+    private final String name;
+    private final Optional<String> comment;
+    private final ColumnType columnType;
+    private final List<Subfield> requiredSubfields;
+
+    @JsonCreator
+    public BaseHiveColumnHandle(
+            @JsonProperty("name") String name,
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("columnType") ColumnType columnType,
+            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields)
+    {
+        this.name = requireNonNull(name, "name is null");
+        this.comment = requireNonNull(comment, "comment is null");
+        this.columnType = requireNonNull(columnType, "columnType is null");
+        this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
+    }
+
+    @JsonProperty
+    public String getName()
+    {
+        return name;
+    }
+
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
+    @JsonProperty
+    public ColumnType getColumnType()
+    {
+        return columnType;
+    }
+
+    @JsonProperty
+    public List<Subfield> getRequiredSubfields()
+    {
+        return requiredSubfields;
+    }
 }

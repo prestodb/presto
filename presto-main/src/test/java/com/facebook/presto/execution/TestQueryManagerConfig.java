@@ -53,6 +53,7 @@ public class TestQueryManagerConfig
                 .setMaxQueuedQueries(5000)
                 .setHashPartitionCount(100)
                 .setPartitioningProviderCatalog("system")
+                .setCtePartitioningProviderCatalog("system")
                 .setExchangeMaterializationStrategy(ExchangeMaterializationStrategy.NONE)
                 .setQueryManagerExecutorPoolSize(5)
                 .setRemoteTaskMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
@@ -77,6 +78,7 @@ public class TestQueryManagerConfig
                 .setGlobalQueryRetryFailureLimit(150)
                 .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES))
                 .setRateLimiterBucketMaxSize(100)
+                .setCteHashPartitionCount(100)
                 .setRateLimiterCacheLimit(1000)
                 .setRateLimiterCacheWindowMinutes(5)
                 .setEnableWorkerIsolation(false));
@@ -129,6 +131,8 @@ public class TestQueryManagerConfig
                 .put("query-manager.rate-limiter-bucket-max-size", "200")
                 .put("query-manager.rate-limiter-cache-limit", "10000")
                 .put("query-manager.rate-limiter-cache-window-minutes", "60")
+                .put("query.cte-hash-partition-count", "128")
+                .put("query.cte-partitioning-provider-catalog", "hive")
                 .put("query-manager.enable-worker-isolation", "true")
                 .build();
 
@@ -150,6 +154,7 @@ public class TestQueryManagerConfig
                 .setMaxQueuedQueries(15)
                 .setHashPartitionCount(16)
                 .setPartitioningProviderCatalog("hive")
+                .setCtePartitioningProviderCatalog("hive")
                 .setExchangeMaterializationStrategy(ExchangeMaterializationStrategy.ALL)
                 .setQueryManagerExecutorPoolSize(11)
                 .setRemoteTaskMinErrorDuration(new Duration(60, SECONDS))
@@ -176,6 +181,8 @@ public class TestQueryManagerConfig
                 .setRateLimiterBucketMaxSize(200)
                 .setRateLimiterCacheLimit(10000)
                 .setRateLimiterCacheWindowMinutes(60)
+                .setCteHashPartitionCount(128)
+                .setCtePartitioningProviderCatalog("hive")
                 .setEnableWorkerIsolation(true);
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -110,6 +110,8 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PRO
 import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
+import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
@@ -123,8 +125,6 @@ import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName
 import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
-import static com.facebook.presto.iceberg.TableType.CHANGELOG;
-import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFromColumnMeta;
@@ -198,7 +198,7 @@ public abstract class IcebergAbstractMetadata
         ConnectorTableLayout layout = getTableLayout(
                 session,
                 new IcebergTableLayoutHandle.Builder()
-                        .setPartitionColumns(getPartitionKeyColumnHandles(icebergTable, typeManager))
+                        .setPartitionColumns(ImmutableList.copyOf(getPartitionKeyColumnHandles(icebergTable, typeManager)))
                         .setDataColumns(toHiveColumns(icebergTable.schema().columns()))
                         .setDomainPredicate(constraint.getSummary().transform(IcebergAbstractMetadata::toSubfield))
                         .setRemainingPredicate(TRUE_CONSTANT)
@@ -328,7 +328,7 @@ public abstract class IcebergAbstractMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
-        return getTableMetadata(session, icebergTableHandle.getSchemaTableName(), icebergTableHandle.getTableName());
+        return getTableMetadata(session, icebergTableHandle.getSchemaTableName(), icebergTableHandle.getIcebergTableName());
     }
 
     protected ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table, IcebergTableName icebergTableName)
@@ -395,7 +395,7 @@ public abstract class IcebergAbstractMetadata
 
         return new IcebergWritableTableHandle(
                 table.getSchemaName(),
-                table.getTableName(),
+                table.getIcebergTableName(),
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
@@ -561,7 +561,7 @@ public abstract class IcebergAbstractMetadata
         }
 
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        verify(handle.getTableName().getTableType() == DATA, "only the data table can have columns added");
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         Transaction transaction = icebergTable.newTransaction();
         transaction.updateSchema().addColumn(column.getName(), columnType, column.getComment()).commit();
@@ -578,7 +578,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
-        verify(icebergTableHandle.getTableName().getTableType() == DATA, "only the data table can have columns dropped");
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns dropped");
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
 
         // Currently drop partition column used in any partition specs of a table would introduce some problems in Iceberg.
@@ -598,7 +598,7 @@ public abstract class IcebergAbstractMetadata
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        verify(icebergTableHandle.getTableName().getTableType() == DATA, "only the data table can have columns renamed");
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns renamed");
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
         Transaction transaction = icebergTable.newTransaction();
@@ -613,7 +613,7 @@ public abstract class IcebergAbstractMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        verify(table.getTableName().getTableType() == DATA, "only the data table can have data inserted");
+        verify(table.getIcebergTableName().getTableType() == DATA, "only the data table can have data inserted");
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
         validateTableMode(session, icebergTable);
 
@@ -626,7 +626,7 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
         Schema schema;
-        if (table.getTableName().getTableType() == CHANGELOG) {
+        if (table.getIcebergTableName().getTableType() == CHANGELOG) {
             schema = ChangelogUtil.changelogTableSchema(getRowTypeFromColumnMeta(getColumnMetadatas(icebergTable)));
         }
         else {

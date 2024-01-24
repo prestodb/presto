@@ -46,8 +46,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -286,7 +286,7 @@ public class TestIcebergHiveStatistics
                         ((IcebergColumnHandle) handle).getType(),
                         ((IcebergColumnHandle) handle).getComment(),
                         REGULAR,
-                        ((IcebergColumnHandle) handle).getRequiredSubfields());
+                        handle.getRequiredSubfields());
             }
             ColumnStatistics actual = actualStats.get(handle);
             assertEquals(actual.getRange(), expected.getRange(), "range for col: " + handle);

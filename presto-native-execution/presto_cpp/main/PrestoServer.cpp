@@ -69,11 +69,11 @@ constexpr char const* kConnectorName = "connector.name";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
-    case presto::NodeState::ACTIVE:
+    case presto::NodeState::kActive:
       return protocol::NodeState::ACTIVE;
-    case presto::NodeState::INACTIVE:
+    case presto::NodeState::kInActive:
       return protocol::NodeState::INACTIVE;
-    case presto::NodeState::SHUTTING_DOWN:
+    case presto::NodeState::kShuttingDown:
       return protocol::NodeState::SHUTTING_DOWN;
   }
   return protocol::NodeState::ACTIVE; // For gcc build.
@@ -142,6 +142,10 @@ void PrestoServer::run() {
         fmt::format("{}/node.properties", configDirectoryPath_));
     baseVeloxQueryConfig->initialize(
         fmt::format("{}/velox.properties", configDirectoryPath_));
+
+    if (systemConfig->enableRuntimeMetricsCollection()) {
+      enableRuntimeMetricReporting();
+    }
 
     httpPort = systemConfig->httpServerHttpPort();
     if (systemConfig->httpServerHttpsEnabled()) {
@@ -445,7 +449,7 @@ void PrestoServer::run() {
     PRESTO_STARTUP_LOG(INFO) << "Spill executor was not configured.";
   }
 
-  PRESTO_STARTUP_LOG(INFO) << "Starting all periodic tasks...";
+  PRESTO_STARTUP_LOG(INFO) << "Starting all periodic tasks";
 
   auto* memoryAllocator = velox::memory::memoryManager()->allocator();
   auto* asyncDataCache = cache::AsyncDataCache::getInstance();
@@ -474,18 +478,18 @@ void PrestoServer::run() {
     heartbeatManager_->stop();
   }
 
-  PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks";
   periodicTaskManager_->stop();
 
   stopAdditionalPeriodicTasks();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
-  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Resource...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Resource";
   taskResource_.reset();
-  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Manager...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Manager";
   taskManager_.reset();
-  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server";
   httpServer_.reset();
 
   unregisterConnectors();
@@ -696,7 +700,7 @@ void PrestoServer::stop() {
   if (!shuttingDown_.exchange(true)) {
     PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown has been requested. "
                                  "Setting node state to 'shutting down'.";
-    setNodeState(NodeState::SHUTTING_DOWN);
+    setNodeState(NodeState::kShuttingDown);
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waiting for " << shutdownOnsetSec
         << " second(s) before proceeding with the shutdown...";
@@ -863,13 +867,25 @@ std::vector<std::string> PrestoServer::registerConnectors(
 void PrestoServer::unregisterConnectors() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Unregistering connectors";
   auto connectors = facebook::velox::connector::getAllConnectors();
-  std::unordered_set<std::string> connectorIds;
-  connectorIds.reserve(connectors.size());
-  for (const auto& connectorEntry : connectors) {
-    facebook::velox::connector::unregisterConnector(connectorEntry.first);
+  if (connectors.empty()) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "No connectors to unregister";
+    return;
   }
+
   PRESTO_SHUTDOWN_LOG(INFO)
-      << "Unregistered connectors: " << folly::join(',', connectorIds);
+      << "Unregistering " << connectors.size() << " connectors";
+  for (const auto& connectorEntry : connectors) {
+    if (facebook::velox::connector::unregisterConnector(connectorEntry.first)) {
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "Unregistered connector: " << connectorEntry.first;
+    } else {
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "Unable to unregister connector: " << connectorEntry.first;
+    }
+  }
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Unregistered " << connectors.size() << " connectors";
 }
 
 void PrestoServer::registerShuffleInterfaceFactories() {
@@ -973,6 +989,12 @@ std::string PrestoServer::getLocalIp() const {
 
 std::string PrestoServer::getBaseSpillDirectory() const {
   return SystemConfig::instance()->spillerSpillPath().value_or("");
+}
+
+void PrestoServer::enableRuntimeMetricReporting() {
+  // This flag must be set to register the counters.
+  facebook::velox::BaseStatsReporter::registered = true;
+  registerStatsCounters();
 }
 
 void PrestoServer::populateMemAndCPUInfo() {

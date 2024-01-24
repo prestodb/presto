@@ -103,6 +103,8 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
@@ -122,8 +124,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMME
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
@@ -189,7 +189,7 @@ public final class IcebergUtil
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
                 metastore,
-                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER),
+                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector()),
                 hdfsEnvironment,
                 hdfsContext,
                 table.getSchemaName(),
@@ -227,7 +227,7 @@ public final class IcebergUtil
             return name.getSnapshotId();
         }
 
-        if (name.getTableType() == TableType.CHANGELOG) {
+        if (name.getTableType() == IcebergTableType.CHANGELOG) {
             return Optional.ofNullable(SnapshotUtil.oldestAncestor(table)).map(Snapshot::snapshotId);
         }
 
@@ -549,7 +549,7 @@ public final class IcebergUtil
             Constraint<ColumnHandle> constraint,
             List<IcebergColumnHandle> partitionColumns)
     {
-        IcebergTableName name = ((IcebergTableHandle) tableHandle).getTableName();
+        IcebergTableName name = ((IcebergTableHandle) tableHandle).getIcebergTableName();
 
         // Empty iceberg table would cause `snapshotId` not present
         Optional<Long> snapshotId = resolveSnapshotIdByName(icebergTable, name);

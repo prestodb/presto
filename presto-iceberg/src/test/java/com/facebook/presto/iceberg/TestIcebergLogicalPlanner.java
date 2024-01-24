@@ -69,8 +69,8 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.isEntireColumn;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getSynthesizedIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -85,6 +85,7 @@ import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
@@ -219,7 +220,8 @@ public class TestIcebergLogicalPlanner
 
         assertPlan(sessionWithFilterPushdown, "SELECT partkey, linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(
-                        strictTableScan("lineitem", identityMap("partkey", "linenumber")))),
+                        project(ImmutableMap.of("partkey", expression("10")),
+                                strictTableScan("lineitem", identityMap("linenumber"))))),
                 plan -> assertTableLayout(
                         plan,
                         "lineitem",
@@ -361,7 +363,8 @@ public class TestIcebergLogicalPlanner
 
         assertPlan(sessionWithFilterPushdown, "SELECT partkey, orderkey, linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
                 output(exchange(
-                        strictTableScan("lineitem", identityMap("partkey", "orderkey", "linenumber")))),
+                        project(ImmutableMap.of("partkey", expression("10")),
+                                strictTableScan("lineitem", identityMap("orderkey", "linenumber"))))),
                 plan -> assertTableLayout(
                         plan,
                         "lineitem",
@@ -690,7 +693,7 @@ public class TestIcebergLogicalPlanner
 
     private static boolean isTableScanNode(PlanNode node, String tableName)
     {
-        return node instanceof TableScanNode && ((IcebergTableHandle) ((TableScanNode) node).getTable().getConnectorHandle()).getTableName().getTableName().equals(tableName);
+        return node instanceof TableScanNode && ((IcebergTableHandle) ((TableScanNode) node).getTable().getConnectorHandle()).getIcebergTableName().getTableName().equals(tableName);
     }
 
     private Session pushdownFilterEnabled()

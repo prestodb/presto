@@ -35,8 +35,8 @@ import static com.facebook.presto.hive.rule.FilterPushdownUtils.isEntireColumn;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
-import static com.facebook.presto.iceberg.TableType.CHANGELOG;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -63,7 +63,7 @@ public class IcebergSplitManager
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout;
         IcebergTableHandle table = layoutHandle.getTable();
 
-        if (!table.getTableName().getSnapshotId().isPresent()) {
+        if (!table.getIcebergTableName().getSnapshotId().isPresent()) {
             return new FixedSplitSource(ImmutableList.of());
         }
 
@@ -77,10 +77,10 @@ public class IcebergSplitManager
 
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
-        if (table.getTableName().getTableType() == CHANGELOG) {
+        if (table.getIcebergTableName().getTableType() == CHANGELOG) {
             // if the snapshot isn't specified, grab the oldest available version of the table
-            long fromSnapshot = table.getTableName().getSnapshotId().orElseGet(() -> SnapshotUtil.oldestAncestor(icebergTable).snapshotId());
-            long toSnapshot = table.getTableName().getChangelogEndSnapshot().orElse(icebergTable.currentSnapshot().snapshotId());
+            long fromSnapshot = table.getIcebergTableName().getSnapshotId().orElseGet(() -> SnapshotUtil.oldestAncestor(icebergTable).snapshotId());
+            long toSnapshot = table.getIcebergTableName().getChangelogEndSnapshot().orElse(icebergTable.currentSnapshot().snapshotId());
             IncrementalChangelogScan scan = icebergTable.newIncrementalChangelogScan()
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);
@@ -89,7 +89,7 @@ public class IcebergSplitManager
         else {
             TableScan tableScan = icebergTable.newScan()
                     .filter(toIcebergExpression(predicate))
-                    .useSnapshot(table.getTableName().getSnapshotId().get());
+                    .useSnapshot(table.getIcebergTableName().getSnapshotId().get());
 
             // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
             //      propagate it at split level so the parquet pushdown can leverage it.

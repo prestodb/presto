@@ -58,7 +58,7 @@ struct MemoryInfo;
 namespace facebook::presto {
 
 /// Three states server can be in.
-enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
+enum class NodeState : int8_t { kActive, kInActive, kShuttingDown };
 
 class Announcer;
 class SignalHandler;
@@ -126,8 +126,6 @@ class PrestoServer {
 
   virtual void registerMemoryArbitrators();
 
-  virtual void registerStatsCounters();
-
   /// Invoked after creating global (singleton) config objects (SystemConfig and
   /// NodeConfig) and before loading their properties from the file.
   /// In the implementation any extra config properties can be registered.
@@ -143,6 +141,9 @@ class PrestoServer {
   /// Invoked to get the spill directory.
   virtual std::string getBaseSpillDirectory() const;
 
+  /// Invoked to enable stats reporting and register counters.
+  virtual void enableRuntimeMetricReporting();
+
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getHttpServerFilters();
@@ -150,6 +151,8 @@ class PrestoServer {
   void initializeVeloxMemory();
 
   void initializeThreadPools();
+
+  void registerStatsCounters();
 
  protected:
   void addServerPeriodicTasks();
@@ -204,7 +207,7 @@ class PrestoServer {
   std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
-  std::atomic<NodeState> nodeState_{NodeState::ACTIVE};
+  std::atomic<NodeState> nodeState_{NodeState::kActive};
   std::atomic_bool shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;

@@ -41,6 +41,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Field;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -69,9 +70,12 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -80,8 +84,10 @@ import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.forEachPair;
 import static java.util.Arrays.asList;
+import static java.util.function.Function.identity;
 
 public class PlannerUtils
 {
@@ -183,6 +189,19 @@ public class PlannerUtils
                 source,
                 assignments.build(),
                 LOCAL);
+    }
+
+    // Add a projection node, which assignment new value if output exists in variableMap, otherwise identity assignment
+    public static PlanNode addOverrideProjection(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, Map<VariableReferenceExpression, ? extends RowExpression> variableMap)
+    {
+        // When source node output duplicate variables (at least possible for LateralJoin node), it will fail the assignment builder, skip here
+        if (variableMap.isEmpty() || source.getOutputVariables().stream().noneMatch(variableMap::containsKey)
+                || source.getOutputVariables().stream().distinct().count() != source.getOutputVariables().size()) {
+            return source;
+        }
+        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        assignmentsBuilder.putAll(source.getOutputVariables().stream().collect(toImmutableMap(identity(), x -> variableMap.containsKey(x) ? variableMap.get(x) : x)));
+        return new ProjectNode(source.getSourceLocation(), planNodeIdAllocator.getNextId(), source, assignmentsBuilder.build(), LOCAL);
     }
 
     public static PlanNode restrictOutput(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> outputVariables)
@@ -471,5 +490,17 @@ public class PlannerUtils
     public static boolean isBroadcastJoin(JoinNode joinNode)
     {
         return joinNode.getDistributionType().isPresent() && joinNode.getDistributionType().get() == REPLICATED;
+    }
+
+    public static boolean containsSystemTableScan(PlanNode plan)
+    {
+        return containsSystemTableScan(plan, noLookup());
+    }
+
+    public static boolean containsSystemTableScan(PlanNode plan, Lookup lookup)
+    {
+        return searchFrom(plan, lookup)
+                .where(planNode -> planNode instanceof TableScanNode && isInternalSystemConnector(((TableScanNode) planNode).getTable().getConnectorId()))
+                .matches();
     }
 }

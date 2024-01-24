@@ -118,9 +118,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;
@@ -737,7 +737,7 @@ public class IcebergPageSourceProvider
                 .forEach(regularColumns::add);
 
         // TODO: pushdownFilter for icebergLayout
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName().getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getIcebergTableName().getTableName());
         ConnectorPageSourceWithRowPositions connectorPageSourceWithRowPositions = createDataPageSource(
                 session,
                 hdfsContext,

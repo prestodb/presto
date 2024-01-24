@@ -49,10 +49,10 @@ import java.util.Optional;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
+import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
-import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -207,7 +207,7 @@ public class IcebergNativeMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        verify(icebergTableHandle.getTableName().getTableType() == DATA, "only the data table can be dropped");
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be dropped");
         TableIdentifier tableIdentifier = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
         resourceFactory.getCatalog(session).dropTable(tableIdentifier);
     }
@@ -216,7 +216,7 @@ public class IcebergNativeMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        verify(icebergTableHandle.getTableName().getTableType() == DATA, "only the data table can be renamed");
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be renamed");
         TableIdentifier from = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
         TableIdentifier to = toIcebergTableIdentifier(newTable);
         resourceFactory.getCatalog(session).renameTable(from, to);

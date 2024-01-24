@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeConstantGroupingKeys;
+import static com.facebook.presto.SystemSessionProperties.isRewriteExpressionWithConstantEnabled;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
@@ -62,7 +63,7 @@ public class PullConstantsAboveGroupBy
     @Override
     public boolean isEnabled(Session session)
     {
-        return isOptimizeConstantGroupingKeys(session);
+        return isOptimizeConstantGroupingKeys(session) || isRewriteExpressionWithConstantEnabled(session);
     }
 
     @Override

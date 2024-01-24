@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
+import com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.collect.ImmutableMap;
 

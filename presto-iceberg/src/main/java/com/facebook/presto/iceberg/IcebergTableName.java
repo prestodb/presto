@@ -23,14 +23,14 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.iceberg.TableType.CHANGELOG;
-import static com.facebook.presto.iceberg.TableType.DATA;
-import static com.facebook.presto.iceberg.TableType.FILES;
-import static com.facebook.presto.iceberg.TableType.HISTORY;
-import static com.facebook.presto.iceberg.TableType.MANIFESTS;
-import static com.facebook.presto.iceberg.TableType.PARTITIONS;
-import static com.facebook.presto.iceberg.TableType.PROPERTIES;
-import static com.facebook.presto.iceberg.TableType.SNAPSHOTS;
+import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
+import static com.facebook.presto.iceberg.IcebergTableType.DATA;
+import static com.facebook.presto.iceberg.IcebergTableType.FILES;
+import static com.facebook.presto.iceberg.IcebergTableType.HISTORY;
+import static com.facebook.presto.iceberg.IcebergTableType.MANIFESTS;
+import static com.facebook.presto.iceberg.IcebergTableType.PARTITIONS;
+import static com.facebook.presto.iceberg.IcebergTableType.PROPERTIES;
+import static com.facebook.presto.iceberg.IcebergTableType.SNAPSHOTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
@@ -45,22 +45,22 @@ public class IcebergTableName
             "(?:\\$(?<type>[^@]+)(?:@(?<ver2>[0-9]+))?)?");
 
     private final String tableName;
-    private final TableType tableType;
+    private final IcebergTableType icebergTableType;
     private final Optional<Long> snapshotId;
 
     private final Optional<Long> changelogEndSnapshot;
 
-    private static final Set<TableType> SYSTEM_TABLES = Sets.immutableEnumSet(FILES, MANIFESTS, PARTITIONS, HISTORY, SNAPSHOTS, PROPERTIES);
+    private static final Set<IcebergTableType> SYSTEM_TABLES = Sets.immutableEnumSet(FILES, MANIFESTS, PARTITIONS, HISTORY, SNAPSHOTS, PROPERTIES);
 
     @JsonCreator
     public IcebergTableName(
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("tableType") TableType tableType,
+            @JsonProperty("tableType") IcebergTableType icebergTableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
             @JsonProperty("changelogEndSnapshot") Optional<Long> changelogEndSnapshot)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableType = requireNonNull(tableType, "tableType is null");
+        this.icebergTableType = requireNonNull(icebergTableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.changelogEndSnapshot = requireNonNull(changelogEndSnapshot, "changelogEndSnapshot is null");
     }
@@ -72,9 +72,9 @@ public class IcebergTableName
     }
 
     @JsonProperty
-    public TableType getTableType()
+    public IcebergTableType getTableType()
     {
-        return tableType;
+        return icebergTableType;
     }
 
     @JsonProperty
@@ -85,7 +85,7 @@ public class IcebergTableName
 
     public boolean isSystemTable()
     {
-        return SYSTEM_TABLES.contains(tableType);
+        return SYSTEM_TABLES.contains(icebergTableType);
     }
 
     @JsonProperty
@@ -96,7 +96,7 @@ public class IcebergTableName
 
     public String getTableNameWithType()
     {
-        return tableName + "$" + tableType.name().toLowerCase(ROOT);
+        return tableName + "$" + icebergTableType.name().toLowerCase(ROOT);
     }
 
     @Override
@@ -117,10 +117,10 @@ public class IcebergTableName
         String version1 = match.group("ver1");
         String version2 = match.group("ver2");
 
-        TableType type = DATA;
+        IcebergTableType type = DATA;
         if (typeString != null) {
             try {
-                type = TableType.valueOf(typeString.toUpperCase(ROOT));
+                type = IcebergTableType.valueOf(typeString.toUpperCase(ROOT));
             }
             catch (IllegalArgumentException e) {
                 throw new PrestoException(NOT_SUPPORTED, format("Invalid Iceberg table name (unknown type '%s'): %s", typeString, name));

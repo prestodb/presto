@@ -45,9 +45,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getCteHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getCteMaterializationStrategy;
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
+import static com.facebook.presto.SystemSessionProperties.getCtePartitioningProviderCatalog;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignTemporaryTableColumnNames;
@@ -133,11 +133,11 @@ public class PhysicalCteOptimizer
             VariableReferenceExpression partitionVariable = actualSource.getOutputVariables()
                     .get(getCtePartitionIndex(actualSource.getOutputVariables()));
             List<Type> partitioningTypes = Arrays.asList(partitionVariable.getType());
-            String partitioningProviderCatalog = getPartitioningProviderCatalog(session);
+            String partitioningProviderCatalog = getCtePartitioningProviderCatalog(session);
             // First column is taken as the partitioning column
             Partitioning partitioning = Partitioning.create(
                     metadata.getPartitioningHandleForExchange(session, partitioningProviderCatalog,
-                            getHashPartitionCount(session), partitioningTypes),
+                            getCteHashPartitionCount(session), partitioningTypes),
                     Arrays.asList(partitionVariable));
             BasePlanFragmenter.PartitioningVariableAssignments partitioningVariableAssignments
                     = assignPartitioningVariables(variableAllocator, partitioning);
