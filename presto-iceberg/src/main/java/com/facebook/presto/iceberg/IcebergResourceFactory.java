@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.SupportsNamespaces;
+import org.apache.iceberg.io.FileIO;
 
 import javax.inject.Inject;
 
@@ -60,6 +61,7 @@ public class IcebergResourceFactory
     private final List<String> hadoopConfigResources;
     private final NessieConfig nessieConfig;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
+    private final FileIO fileIO;
     private final GcsConfigurationInitializer gcsConfigurationInitialize;
 
     private final IcebergConfig icebergConfig;
@@ -78,13 +80,32 @@ public class IcebergResourceFactory
         catalogCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getCatalogCacheSize())
                 .build();
+        this.fileIO = initializeFileIO();
+    }
+
+    private FileIO initializeFileIO()
+    {
+        Map<String, String> properties = getCatalogProperties();
+        String fileIOImpl = icebergConfig.getFileIOImpl();
+        Configuration conf = getHadoopConfiguration();
+
+        FileIO fileIO;
+        fileIO = CatalogUtil.loadFileIO(fileIOImpl, properties, conf);
+        return fileIO;
+    }
+
+    public FileIO io()
+    {
+        return fileIO;
     }
 
     public Catalog getCatalog(ConnectorSession session)
     {
+        Map<String, String> catalogProperties = getCatalogProperties();
+        catalogProperties.putAll(getCatalogSessiopProperties(session));
         try {
             return catalogCache.get(getCatalogCacheKey(session), () -> CatalogUtil.loadCatalog(
-                    catalogType.getCatalogImpl(), catalogName, getCatalogProperties(session), getHadoopConfiguration()));
+                    catalogType.getCatalogImpl(), catalogName, catalogProperties, getHadoopConfiguration()));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -138,7 +159,7 @@ public class IcebergResourceFactory
         return configuration;
     }
 
-    public Map<String, String> getCatalogProperties(ConnectorSession session)
+    public Map<String, String> getCatalogProperties()
     {
         Map<String, String> properties = new HashMap<>();
         if (icebergConfig.getManifestCachingEnabled()) {
@@ -150,6 +171,12 @@ public class IcebergResourceFactory
         if (catalogWarehouse != null) {
             properties.put(WAREHOUSE_LOCATION, catalogWarehouse);
         }
+        return properties;
+    }
+
+    public Map<String, String> getCatalogSessiopProperties(ConnectorSession session)
+    {
+        Map<String, String> properties = new HashMap<>();
         if (catalogType == NESSIE) {
             properties.put("ref", getNessieReferenceName(session));
             properties.put("uri", nessieConfig.getServerUri().orElseThrow(() -> new IllegalStateException("iceberg.nessie.uri must be set for Nessie")));
