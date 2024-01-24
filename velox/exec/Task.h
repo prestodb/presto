@@ -221,7 +221,7 @@ class Task : public std::enable_shared_from_this<Task> {
 
   /// Returns current state of execution.
   TaskState state() const {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     return state_;
   }
 
@@ -242,7 +242,7 @@ class Task : public std::enable_shared_from_this<Task> {
 
   /// Returns task execution error or nullptr if no error occurred.
   std::exception_ptr error() const {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     return exception_;
   }
 
@@ -263,7 +263,10 @@ class Task : public std::enable_shared_from_this<Task> {
   };
 
   /// Collect long running operator calls across all drivers in this task.
-  void getLongRunningOpCalls(
+  /// Return false when the lock cannot be taken within the timeout, in that
+  /// case the result is not populated.  Return true if everything works well.
+  bool getLongRunningOpCalls(
+      std::chrono::nanoseconds lockTimeout,
       size_t thresholdDurationMs,
       std::vector<OpCallInfo>& out) const;
 
@@ -286,19 +289,19 @@ class Task : public std::enable_shared_from_this<Task> {
 
   /// Returns the number of running drivers.
   uint32_t numRunningDrivers() const {
-    std::lock_guard<std::mutex> taskLock(mutex_);
+    std::lock_guard<std::timed_mutex> taskLock(mutex_);
     return numRunningDrivers_;
   }
 
   /// Returns the total number of drivers the task needs to run.
   uint32_t numTotalDrivers() const {
-    std::lock_guard<std::mutex> taskLock(mutex_);
+    std::lock_guard<std::timed_mutex> taskLock(mutex_);
     return numTotalDrivers_;
   }
 
   /// Returns the number of finished drivers so far.
   uint32_t numFinishedDrivers() const {
-    std::lock_guard<std::mutex> taskLock(mutex_);
+    std::lock_guard<std::timed_mutex> taskLock(mutex_);
     return numFinishedDrivers_;
   }
 
@@ -554,7 +557,7 @@ class Task : public std::enable_shared_from_this<Task> {
   }
 
   void requestYield() {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     toYield_ = numThreads_;
   }
 
@@ -570,7 +573,7 @@ class Task : public std::enable_shared_from_this<Task> {
     return pauseRequested_;
   }
 
-  std::mutex& mutex() {
+  std::timed_mutex& mutex() {
     return mutex_;
   }
 
@@ -845,7 +848,7 @@ class Task : public std::enable_shared_from_this<Task> {
   // executing for 'this'. 'comment' is used as a debugging label on
   // the promise/future pair.
   ContinueFuture makeFinishFuture(const char* comment) {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     return makeFinishFutureLocked(comment);
   }
 
@@ -872,7 +875,7 @@ class Task : public std::enable_shared_from_this<Task> {
   // created for 'planNodeId' in 'exchangeClientByPlanNode_'.
   std::shared_ptr<ExchangeClient> getExchangeClient(
       const core::PlanNodeId& planNodeId) const {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     return getExchangeClientLocked(planNodeId);
   }
 
@@ -940,7 +943,7 @@ class Task : public std::enable_shared_from_this<Task> {
   // Set if terminated by an error. This is the first error reported
   // by any of the instances.
   std::exception_ptr exception_ = nullptr;
-  mutable std::mutex mutex_;
+  mutable std::timed_mutex mutex_;
 
   // Exchange clients. One per pipeline / source. Null for pipelines, which
   // don't need it.

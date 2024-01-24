@@ -194,7 +194,7 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
         auto& driver = state->driver_;
         auto& task = driver->task();
 
-        std::lock_guard<std::mutex> l(task->mutex());
+        std::lock_guard<std::timed_mutex> l(task->mutex());
         if (!driver->state().isTerminated) {
           state->operator_->recordBlockingTime(
               state->sinceMicros_, state->reason_);

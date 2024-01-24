@@ -472,7 +472,7 @@ velox::memory::MemoryPool* Task::addMergeSourcePool(
     const core::PlanNodeId& planNodeId,
     uint32_t pipelineId,
     uint32_t sourceId) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   auto* nodePool = getOrAddNodePool(planNodeId);
   childPools_.push_back(nodePool->addLeafChild(
       fmt::format(
@@ -644,7 +644,7 @@ void Task::start(uint32_t maxDrivers, uint32_t concurrentSplitGroups) {
         "concurrentSplitGroups parameter must be greater then or equal to 1");
 
     {
-      std::unique_lock<std::mutex> l(mutex_);
+      std::unique_lock<std::timed_mutex> l(mutex_);
       taskStats_.executionStartTimeMs = getCurrentTimeMs();
       if (!isRunningLocked()) {
         LOG(WARNING) << "Task " << taskId_
@@ -665,7 +665,7 @@ void Task::start(uint32_t maxDrivers, uint32_t concurrentSplitGroups) {
         // NOTE: the async task error might be triggered in the middle of task
         // start processing, and we need to mark all the drivers have been
         // finished.
-        std::unique_lock<std::mutex> l(mutex_);
+        std::unique_lock<std::timed_mutex> l(mutex_);
         VELOX_CHECK_EQ(numRunningDrivers_, 0);
         VELOX_CHECK_EQ(numFinishedDrivers_, 0);
         numFinishedDrivers_ = numTotalDrivers_;
@@ -705,7 +705,7 @@ void Task::createDriverFactoriesLocked(uint32_t maxDrivers) {
 }
 
 void Task::createAndStartDrivers(uint32_t concurrentSplitGroups) {
-  std::unique_lock<std::mutex> l(mutex_);
+  std::unique_lock<std::timed_mutex> l(mutex_);
   VELOX_CHECK(
       isRunningLocked(),
       "Task {} has already been terminated before start: {}",
@@ -793,7 +793,7 @@ void Task::initializePartitionOutput() {
       nullptr};
   int numOutputDrivers{0};
   {
-    std::unique_lock<std::mutex> l(mutex_);
+    std::unique_lock<std::timed_mutex> l(mutex_);
     const auto numPipelines = driverFactories_.size();
     exchangeClients_.resize(numPipelines);
 
@@ -843,7 +843,7 @@ void Task::initializePartitionOutput() {
 void Task::resume(std::shared_ptr<Task> self) {
   std::vector<std::shared_ptr<Driver>> offThreadDrivers;
   {
-    std::lock_guard<std::mutex> l(self->mutex_);
+    std::lock_guard<std::timed_mutex> l(self->mutex_);
     // Setting pause requested must be atomic with the resuming so that
     // suspended sections do not go back on thread during resume.
     self->pauseRequested_ = false;
@@ -1041,7 +1041,7 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
   bool allFinished = true;
   EventCompletionNotifier stateChangeNotifier;
   {
-    std::lock_guard<std::mutex> taskLock(self->mutex_);
+    std::lock_guard<std::timed_mutex> taskLock(self->mutex_);
     for (auto& driverPtr : self->drivers_) {
       if (driverPtr.get() != driver) {
         continue;
@@ -1135,7 +1135,7 @@ void Task::ensureSplitGroupsAreBeingProcessedLocked() {
 void Task::setMaxSplitSequenceId(
     const core::PlanNodeId& planNodeId,
     long maxSequenceId) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   if (isRunningLocked()) {
     auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
     // We could have been sent an old split again, so only change max id, when
@@ -1153,7 +1153,7 @@ bool Task::addSplitWithSequence(
   bool added = false;
   bool isTaskRunning;
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     isTaskRunning = isRunningLocked();
     if (isTaskRunning) {
       // The same split can be added again in some systems. The systems that
@@ -1182,7 +1182,7 @@ void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
   bool isTaskRunning;
   std::unique_ptr<ContinuePromise> promise;
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     isTaskRunning = isRunningLocked();
     if (isTaskRunning) {
       promise = addSplitLocked(
@@ -1261,7 +1261,7 @@ void Task::noMoreSplitsForGroup(
   std::vector<ContinuePromise> promises;
   EventCompletionNotifier stateChangeNotifier;
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
 
     auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
     auto& splitsStore = splitsState.groupSplitsStores[splitGroupId];
@@ -1286,7 +1286,7 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
   bool allFinished;
   std::shared_ptr<ExchangeClient> exchangeClient;
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
 
     // Global 'no more splits' for a plan node comes in case of ungrouped
     // execution when no more splits will arrive. For grouped execution it
@@ -1362,7 +1362,7 @@ BlockingReason Task::getSplitOrFuture(
     ContinueFuture& future,
     int32_t maxPreloadSplits,
     std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   return getSplitOrFutureLocked(
       getPlanNodeSplitsStateLocked(planNodeId).groupSplitsStores[splitGroupId],
       split,
@@ -1427,7 +1427,7 @@ exec::Split Task::getSplitLocked(
 }
 
 void Task::splitFinished() {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   ++taskStats_.numFinishedSplits;
   --taskStats_.numRunningSplits;
   if (isAllSplitsFinishedLocked()) {
@@ -1436,7 +1436,7 @@ void Task::splitFinished() {
 }
 
 void Task::multipleSplitsFinished(int32_t numSplits) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   taskStats_.numFinishedSplits += numSplits;
   taskStats_.numRunningSplits -= numSplits;
   if (isAllSplitsFinishedLocked()) {
@@ -1453,12 +1453,12 @@ bool Task::isUngroupedExecution() const {
 }
 
 bool Task::isRunning() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   return isRunningLocked();
 }
 
 bool Task::isFinished() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   return isFinishedLocked();
 }
 
@@ -1477,7 +1477,7 @@ bool Task::updateOutputBuffers(int numBuffers, bool noMoreBuffers) {
       "Unable to initialize task. "
       "OutputBufferManager was already destructed");
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     if (noMoreOutputBuffers_) {
       // Ignore messages received after no-more-buffers message.
       return false;
@@ -1502,7 +1502,7 @@ int Task::getOutputPipelineId() const {
 void Task::setAllOutputConsumed() {
   bool allFinished;
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     partitionedOutputConsumed_ = true;
     allFinished = checkIfFinishedLocked();
   }
@@ -1557,7 +1557,7 @@ std::vector<Operator*> Task::findPeerOperators(
   std::vector<Operator*> peers;
   const auto operatorId = caller->operatorId();
   const auto& operatorType = caller->operatorType();
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   for (auto& driver : drivers_) {
     if (driver == nullptr) {
       continue;
@@ -1578,7 +1578,7 @@ bool Task::allPeersFinished(
     ContinueFuture* future,
     std::vector<ContinuePromise>& promises,
     std::vector<std::shared_ptr<Driver>>& peers) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   if (exception_) {
     VELOX_FAIL(
         "Task is terminating because of error: {}",
@@ -1679,7 +1679,7 @@ template <class TBridgeType>
 std::shared_ptr<TBridgeType> Task::getJoinBridgeInternal(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   return getJoinBridgeInternalLocked<TBridgeType>(splitGroupId, planNodeId);
 }
 
@@ -1743,7 +1743,7 @@ ContinueFuture Task::terminate(TaskState terminalState) {
   EventCompletionNotifier stateChangeNotifier;
   std::vector<std::shared_ptr<ExchangeClient>> exchangeClients;
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     if (taskStats_.executionEndTimeMs == 0) {
       taskStats_.executionEndTimeMs = getCurrentTimeMs();
     }
@@ -1828,7 +1828,7 @@ ContinueFuture Task::terminate(TaskState terminalState) {
       unordered_map<core::PlanNodeId, std::pair<std::vector<exec::Split>, bool>>
           remainingRemoteSplits;
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     // Collect all the join bridges to clear them.
     for (auto& splitGroupState : splitGroupStates_) {
       for (auto& pair : splitGroupState.second.bridges) {
@@ -1914,7 +1914,7 @@ ContinueFuture Task::makeFinishFutureLocked(const char* comment) {
 }
 
 void Task::addOperatorStats(OperatorStats& stats) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   VELOX_CHECK(
       stats.pipelineId >= 0 &&
       stats.pipelineId < taskStats_.pipelineStats.size());
@@ -1930,7 +1930,7 @@ void Task::addOperatorStats(OperatorStats& stats) {
 }
 
 TaskStats Task::taskStats() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
 
   // 'taskStats_' contains task stats plus stats for the completed drivers
   // (their operators).
@@ -1986,10 +1986,14 @@ TaskStats Task::taskStats() const {
   return taskStats;
 }
 
-void Task::getLongRunningOpCalls(
+bool Task::getLongRunningOpCalls(
+    std::chrono::nanoseconds lockTimeout,
     size_t thresholdDurationMs,
     std::vector<OpCallInfo>& out) const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::unique_lock<std::timed_mutex> l(mutex_, lockTimeout);
+  if (!l.owns_lock()) {
+    return false;
+  }
   for (const auto& driver : drivers_) {
     if (driver) {
       const auto opCallStatus = driver->opCallStatus();
@@ -2006,15 +2010,16 @@ void Task::getLongRunningOpCalls(
       }
     }
   }
+  return true;
 }
 
 uint64_t Task::timeSinceStartMs() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   return timeSinceStartMsLocked();
 }
 
 uint64_t Task::timeSinceEndMs() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   if (taskStats_.executionEndTimeMs == 0UL) {
     return 0UL;
   }
@@ -2022,7 +2027,7 @@ uint64_t Task::timeSinceEndMs() const {
 }
 
 uint64_t Task::timeSinceTerminationMs() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   if (taskStats_.terminationTimeMs == 0UL) {
     return 0UL;
   }
@@ -2039,7 +2044,7 @@ void Task::onTaskCompletion() {
     TaskState state;
     std::exception_ptr exception;
     {
-      std::lock_guard<std::mutex> l(mutex_);
+      std::lock_guard<std::timed_mutex> l(mutex_);
       stats = taskStats_;
       state = state_;
       exception = exception_;
@@ -2052,7 +2057,7 @@ void Task::onTaskCompletion() {
 }
 
 ContinueFuture Task::stateChangeFuture(uint64_t maxWaitMicros) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   // If 'this' is running, the future is realized on timeout or when
   // this no longer is running.
   if (not isRunningLocked()) {
@@ -2068,7 +2073,7 @@ ContinueFuture Task::stateChangeFuture(uint64_t maxWaitMicros) {
 }
 
 ContinueFuture Task::taskCompletionFuture(uint64_t maxWaitMicros) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   // If 'this' is running, the future is realized on timeout or when
   // this no longer is running.
   if (not isRunningLocked()) {
@@ -2085,7 +2090,7 @@ ContinueFuture Task::taskCompletionFuture(uint64_t maxWaitMicros) {
 }
 
 std::string Task::toString() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   std::stringstream out;
   out << "{Task " << shortId(taskId_) << " (" << taskId_ << ")";
 
@@ -2108,7 +2113,7 @@ std::string Task::toString() const {
 }
 
 std::string Task::toShortJsonString() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   folly::dynamic obj = folly::dynamic::object;
   obj["shortId"] = shortId(taskId_);
   obj["id"] = taskId_;
@@ -2123,7 +2128,7 @@ std::string Task::toShortJsonString() const {
 }
 
 std::string Task::toJsonString() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   folly::dynamic obj = folly::dynamic::object;
   obj["shortId"] = shortId(taskId_);
   obj["id"] = taskId_;
@@ -2286,7 +2291,7 @@ Task::getLocalExchangeQueues(
 void Task::setError(const std::exception_ptr& exception) {
   TestValue::adjust("facebook::velox::exec::Task::setError", this);
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     if (not isRunningLocked()) {
       return;
     }
@@ -2316,13 +2321,13 @@ std::string Task::errorMessageLocked() const {
 }
 
 std::string Task::errorMessage() const {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   return errorMessageLocked();
 }
 
 StopReason Task::enter(ThreadState& state, uint64_t nowMicros) {
   TestValue::adjust("facebook::velox::exec::Task::enter", &state);
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   VELOX_CHECK(state.isEnqueued);
   state.isEnqueued = false;
   if (state.isTerminated) {
@@ -2372,7 +2377,7 @@ void Task::leave(
   });
   StopReason reason;
   {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     if (!state.isTerminated) {
       reason = shouldStopLocked();
       if (reason == StopReason::kTerminate) {
@@ -2396,7 +2401,7 @@ void Task::leave(
   // the driver and remove it from the task.
   driverCb(reason);
 
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   if (--numThreads_ == 0) {
     threadFinishPromises = allThreadsFinishedLocked();
   }
@@ -2413,7 +2418,7 @@ StopReason Task::enterSuspended(ThreadState& state) {
       promise.setValue();
     }
   });
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   if (state.isTerminated) {
     return StopReason::kAlreadyTerminated;
   }
@@ -2442,7 +2447,7 @@ StopReason Task::leaveSuspended(ThreadState& state) {
 
   for (;;) {
     {
-      std::lock_guard<std::mutex> l(mutex_);
+      std::lock_guard<std::timed_mutex> l(mutex_);
       ++numThreads_;
       state.isSuspended = false;
       if (state.isTerminated) {
@@ -2475,7 +2480,7 @@ StopReason Task::shouldStop() {
     return StopReason::kTerminate;
   }
   if (toYield_) {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     return shouldStopLocked();
   }
   return StopReason::kNone;
@@ -2483,7 +2488,7 @@ StopReason Task::shouldStop() {
 
 int32_t Task::yieldIfDue(uint64_t startTimeMicros) {
   if (onThreadSince_ < startTimeMicros) {
-    std::lock_guard<std::mutex> l(mutex_);
+    std::lock_guard<std::timed_mutex> l(mutex_);
     // Reread inside the mutex
     if (onThreadSince_ < startTimeMicros && numThreads_ && !toYield_ &&
         !terminateRequested_ && !pauseRequested_) {
@@ -2515,7 +2520,7 @@ StopReason Task::shouldStopLocked() {
 }
 
 ContinueFuture Task::requestPause() {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   TestValue::adjust("facebook::velox::exec::Task::requestPauseLocked", this);
   pauseRequested_ = true;
   return makeFinishFutureLocked("Task::requestPause");
@@ -2575,7 +2580,7 @@ std::shared_ptr<SpillOperatorGroup> Task::getSpillOperatorGroupLocked(
 }
 
 void Task::testingVisitDrivers(const std::function<void(Driver*)>& callback) {
-  std::lock_guard<std::mutex> l(mutex_);
+  std::lock_guard<std::timed_mutex> l(mutex_);
   for (int i = 0; i < drivers_.size(); ++i) {
     if (drivers_[i] != nullptr) {
       callback(drivers_[i].get());
