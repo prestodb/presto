@@ -35,7 +35,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.Executor;
@@ -87,7 +86,6 @@ public final class PageBufferClient
     private final RpcShuffleClient resultClient;
     private final boolean acknowledgePages;
     private final URI location;
-    private final Optional<URI> asyncPageTransportLocation;
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduler;
     private final Backoff backoff;
@@ -124,12 +122,11 @@ public final class PageBufferClient
             Duration maxErrorDuration,
             boolean acknowledgePages,
             URI location,
-            Optional<URI> asyncPageTransportLocation,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(resultClient, maxErrorDuration, acknowledgePages, location, asyncPageTransportLocation, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(resultClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
     }
 
     public PageBufferClient(
@@ -137,7 +134,6 @@ public final class PageBufferClient
             Duration maxErrorDuration,
             boolean acknowledgePages,
             URI location,
-            Optional<URI> asyncPageTransportLocation,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
             Ticker ticker,
@@ -146,7 +142,6 @@ public final class PageBufferClient
         this.resultClient = requireNonNull(resultClient, "resultClient is null");
         this.acknowledgePages = acknowledgePages;
         this.location = requireNonNull(location, "location is null");
-        this.asyncPageTransportLocation = requireNonNull(asyncPageTransportLocation, "asyncPageTransportLocation is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
@@ -268,8 +263,7 @@ public final class PageBufferClient
 
     private synchronized void sendGetResults(DataSize maxResponseSize)
     {
-        URI uriBase = asyncPageTransportLocation.orElse(location);
-        URI uri = HttpUriBuilder.uriBuilderFrom(uriBase).appendPath(String.valueOf(token)).build();
+        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
 
         ListenableFuture<PagesResponse> resultFuture = resultClient.getResults(token, maxResponseSize);
 
