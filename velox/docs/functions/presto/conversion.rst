@@ -149,7 +149,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      -
      - Y
-     -
+     - Y
    * - timestamp
      -
      -
@@ -744,3 +744,43 @@ Invalid example
 
   SELECT cast(decimal '-1000.000' as decimal(6, 4)); -- Out of range
   SELECT cast(decimal '123456789' as decimal(9, 1)); -- Out of range
+
+From varchar
+^^^^^^^^^^^^
+
+Casting varchar to a decimal of given precision and scale is allowed
+if the input value can be represented by the precision and scale. When casting from
+a larger scale to a smaller one, the fraction part is rounded. Casting from invalid input value throws.
+
+Valid example
+
+::
+
+  SELECT cast('9999999999.99' as decimal(12, 2)); -- decimal '9999999999.99'
+  SELECT cast('1.556' as decimal(12, 2)); -- decimal '1.56'
+  SELECT cast('1.554' as decimal(12, 2)); -- decimal '1.55'
+  SELECT cast('-1.554' as decimal(12, 2)); -- decimal '-1.55'
+  SELECT cast('+09' as decimal(12, 2)); -- decimal '9.00'
+  SELECT cast('9.' as decimal(12, 2)); -- decimal '9.00'
+  SELECT cast('.9' as decimal(12, 2)); -- decimal '0.90'
+  SELECT cast('3E+2' as decimal(12, 2)); -- decimal '300.00'
+  SELECT cast('3E+00002' as decimal(12, 2)); -- decimal '300.00'
+  SELECT cast('3e+2' as decimal(12, 2)); -- decimal '300.00'
+  SELECT cast('31.423e+2' as decimal(12, 2)); -- decimal '3142.30'
+  SELECT cast('1.2e-2' as decimal(12, 2)); -- decimal '0.01'
+  SELECT cast('1.2e-5' as decimal(12, 2)); -- decimal '0.00'
+  SELECT cast('0000.123' as decimal(12, 2)); -- decimal '0.12'
+  SELECT cast('.123000000' as decimal(12, 2)); -- decimal '0.12'
+
+Invalid example
+
+::
+
+  SELECT cast('1.23e67' as decimal(38, 0)); -- Value too large
+  SELECT cast('0.0446a' as decimal(9, 1)); -- Value is not a number
+  SELECT cast('' as decimal(9, 1)); -- Value is not a number
+  SELECT cast('23e-5d' as decimal(9, 1)); -- Value is not a number
+  SELECT cast('1.23 ' as decimal(38, 0)); -- Value is not a number
+  SELECT cast(' -3E+2' as decimal(12, 2)); -- Value is not a number
+  SELECT cast('-3E+2.1' as decimal(12, 2)); -- Value is not a number
+  SELECT cast('3E+' as decimal(12, 2)); -- Value is not a number

@@ -162,3 +162,23 @@ Invalid examples
   SELECT cast('2012-Oct-23' as date); -- Invalid argument
   SELECT cast('2012/10/23' as date); -- Invalid argument
   SELECT cast('2012.10.23' as date); -- Invalid argument
+
+Cast to Decimal
+---------------
+
+From varchar
+^^^^^^^^^^^^
+
+Casting varchar to a decimal of given precision and scale is allowed.
+The behavior is similar with Presto except Spark allows leading and trailing white-spaces in input varchars.
+
+Valid example
+
+::
+
+  SELECT cast(' 1.23' as decimal(38, 0)); -- 1
+  SELECT cast('1.23 ' as decimal(38, 0)); -- 1
+  SELECT cast('  1.23  ' as decimal(38, 0)); -- 1
+  SELECT cast(' -3E+2' as decimal(12, 2)); -- -300.00
+  SELECT cast('-3E+2 ' as decimal(12, 2)); -- -300.00
+  SELECT cast('  -3E+2  ' as decimal(12, 2)); -- -300.00

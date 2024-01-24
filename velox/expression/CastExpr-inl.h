@@ -114,6 +114,150 @@ StringView convertToStringView(
 
 } // namespace
 
+namespace detail {
+
+/// Represent the varchar fragment.
+///
+/// For example:
+/// | value | wholeDigits | fractionalDigits | exponent | sign |
+/// | 9999999999.99 | 9999999999 | 99 | nullopt | 1 |
+/// | 15 | 15 |  | nullopt | 1 |
+/// | 1.5 | 1 | 5 | nullopt | 1 |
+/// | -1.5 | 1 | 5 | nullopt | -1 |
+/// | 31.523e-2 | 31 | 523 | -2 | 1 |
+struct DecimalComponents {
+  std::string_view wholeDigits;
+  std::string_view fractionalDigits;
+  std::optional<int32_t> exponent = std::nullopt;
+  int8_t sign = 1;
+};
+
+// Extract a string view of continuous digits.
+std::string_view extractDigits(const char* s, size_t start, size_t size);
+
+/// Parse decimal components, including whole digits, fractional digits,
+/// exponent and sign, from input chars. Returns error status if input chars
+/// do not represent a valid value.
+Status
+parseDecimalComponents(const char* s, size_t size, DecimalComponents& out);
+
+/// Parse huge int from decimal components. The fractional part is scaled up by
+/// required power of 10, and added with the whole part. Returns error status if
+/// overflows.
+Status parseHugeInt(const DecimalComponents& decimalComponents, int128_t& out);
+
+/// Converts string view to decimal value of given precision and scale.
+/// Derives from Arrow function DecimalFromString. Arrow implementation:
+/// https://github.com/apache/arrow/blob/main/cpp/src/arrow/util/decimal.cc#L637.
+///
+/// Firstly, it parses the varchar to DecimalComponents which contains the
+/// message that can represent a decimal value. Secondly, processes the exponent
+/// to get the scale. Thirdly, compute the rescaled value. Returns status for
+/// the outcome of computing.
+template <typename T>
+Status toDecimalValue(
+    const StringView s,
+    int toPrecision,
+    int toScale,
+    T& decimalValue) {
+  DecimalComponents decimalComponents;
+  if (auto status =
+          parseDecimalComponents(s.data(), s.size(), decimalComponents);
+      !status.ok()) {
+    return Status::UserError("Value is not a number. " + status.message());
+  }
+
+  // Count number of significant digits (without leading zeros).
+  const size_t firstNonZero =
+      decimalComponents.wholeDigits.find_first_not_of('0');
+  size_t significantDigits = decimalComponents.fractionalDigits.size();
+  if (firstNonZero != std::string::npos) {
+    significantDigits += decimalComponents.wholeDigits.size() - firstNonZero;
+  }
+  int32_t parsedPrecision = static_cast<int32_t>(significantDigits);
+
+  int32_t parsedScale = 0;
+  bool roundUp = false;
+  const int32_t fractionSize = decimalComponents.fractionalDigits.size();
+  if (!decimalComponents.exponent.has_value()) {
+    if (fractionSize > toScale) {
+      if (decimalComponents.fractionalDigits[toScale] >= '5') {
+        roundUp = true;
+      }
+      parsedScale = toScale;
+      decimalComponents.fractionalDigits =
+          std::string_view(decimalComponents.fractionalDigits.data(), toScale);
+    } else {
+      parsedScale = fractionSize;
+    }
+  } else {
+    const auto exponent = decimalComponents.exponent.value();
+    parsedScale = -exponent + fractionSize;
+    // Truncate the fractionalDigits.
+    if (parsedScale > toScale) {
+      if (-exponent >= toScale) {
+        // The fractional digits could be dropped.
+        if (fractionSize > 0 && decimalComponents.fractionalDigits[0] >= '5') {
+          roundUp = true;
+        }
+        decimalComponents.fractionalDigits = "";
+        parsedScale -= fractionSize;
+      } else {
+        const auto reduceDigits = exponent + toScale;
+        if (fractionSize > reduceDigits &&
+            decimalComponents.fractionalDigits[reduceDigits] >= '5') {
+          roundUp = true;
+        }
+        decimalComponents.fractionalDigits = std::string_view(
+            decimalComponents.fractionalDigits.data(),
+            std::min(reduceDigits, fractionSize));
+        parsedScale -= fractionSize - decimalComponents.fractionalDigits.size();
+      }
+    }
+  }
+
+  int128_t out = 0;
+  if (auto status = parseHugeInt(decimalComponents, out); !status.ok()) {
+    return status;
+  }
+
+  if (roundUp) {
+    bool overflow = __builtin_add_overflow(out, 1, &out);
+    if (UNLIKELY(overflow)) {
+      return Status::UserError("Value too large.");
+    }
+  }
+  out *= decimalComponents.sign;
+
+  if (parsedScale < 0) {
+    /// Force the scale to be zero, to avoid negative scales (due to
+    /// compatibility issues with external systems such as databases).
+    if (-parsedScale + toScale > LongDecimalType::kMaxPrecision) {
+      return Status::UserError("Value too large.");
+    }
+
+    bool overflow = __builtin_mul_overflow(
+        out, DecimalUtil::kPowersOfTen[-parsedScale + toScale], &out);
+    if (UNLIKELY(overflow)) {
+      return Status::UserError("Value too large.");
+    }
+    parsedPrecision -= parsedScale;
+    parsedScale = toScale;
+  }
+  const auto status = DecimalUtil::rescaleWithRoundUp<int128_t, T>(
+      out,
+      std::min((uint8_t)parsedPrecision, LongDecimalType::kMaxPrecision),
+      parsedScale,
+      toPrecision,
+      toScale,
+      decimalValue);
+  if (!status.ok()) {
+    return Status::UserError("Value too large.");
+  }
+  return status;
+}
+} // namespace detail
+
 template <bool adjustForTimeZone>
 void CastExpr::castTimestampToDate(
     const SelectivityVector& rows,
@@ -307,6 +451,37 @@ void CastExpr::applyIntToDecimalCastKernel(
           castResult->setNull(row, true);
         }
       });
+}
+
+template <typename T>
+void CastExpr::applyVarcharToDecimalCastKernel(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const TypePtr& toType,
+    VectorPtr& result) {
+  auto sourceVector = input.as<SimpleVector<StringView>>();
+  auto rawBuffer = result->asUnchecked<FlatVector<T>>()->mutableRawValues();
+  const auto toPrecisionScale = getDecimalPrecisionScale(*toType);
+
+  rows.applyToSelected([&](auto row) {
+    T decimalValue;
+    const auto status = detail::toDecimalValue<T>(
+        hooks_->removeWhiteSpaces(sourceVector->valueAt(row)),
+        toPrecisionScale.first,
+        toPrecisionScale.second,
+        decimalValue);
+    if (status.ok()) {
+      rawBuffer[row] = decimalValue;
+    } else {
+      if (setNullInResultAtError()) {
+        result->setNull(row, true);
+      } else {
+        context.setVeloxExceptionError(
+            row, makeBadCastException(toType, input, row, status.message()));
+      }
+    }
+  });
 }
 
 template <typename FromNativeType, TypeKind ToKind>

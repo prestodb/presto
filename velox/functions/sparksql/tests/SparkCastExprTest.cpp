@@ -504,6 +504,7 @@ TEST_F(SparkCastExprTest, timestampToString) {
 }
 
 TEST_F(SparkCastExprTest, fromString) {
+  // String with leading and trailing whitespaces.
   testCast<std::string, int8_t>(
       "tinyint", {"\n\f\r\t\n\u001F 123\u000B\u001C\u001D\u001E"}, {123});
   testCast<std::string, int32_t>(
@@ -524,6 +525,23 @@ TEST_F(SparkCastExprTest, fromString) {
       "timestamp",
       {"\n\f\r\t\n\u001F 2000-01-01 12:21:56\u000B\u001C\u001D\u001E"},
       {Timestamp(946729316, 0)});
+  testComplexCast(
+      "c0",
+      makeFlatVector<StringView>(
+          {" 9999999999.99",
+           "9999999999.99 ",
+           "\n\f\r\t\n\u001F 9999999999.99\u000B\u001C\u001D\u001E",
+           " -3E+2",
+           "-3E+2 ",
+           "\u000B\u001C\u001D-3E+2\u001E\n\f\r\t\n\u001F "}),
+      makeFlatVector<int64_t>(
+          {999'999'999'999,
+           999'999'999'999,
+           999'999'999'999,
+           -30000,
+           -30000,
+           -30000},
+          DECIMAL(12, 2)));
 }
 } // namespace
 } // namespace facebook::velox::test
