@@ -3305,6 +3305,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregation) {
         })));
 
     std::thread aggregationThread([&]() {
+      core::PlanNodeId aggrNodeId;
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .spillDirectory(spillDirectory->path)
@@ -3314,11 +3315,14 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregation) {
               .plan(PlanBuilder()
                         .values(vectors)
                         .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                        .capturePlanNodeId(aggrNodeId)
                         .planNode())
               .assertResults(
                   "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
-      auto stats = task->taskStats().pipelineStats;
-      ASSERT_GT(stats[0].operatorStats[1].spilledBytes, 0);
+      auto taskStats = exec::toPlanStats(task->taskStats());
+      auto& planStats = taskStats.at(aggrNodeId);
+      ASSERT_GT(planStats.spilledBytes, 0);
+      ASSERT_GT(planStats.customStats["memoryArbitrationWallNanos"].sum, 0);
     });
 
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
