@@ -689,10 +689,10 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   return str;
 }
 
-std::string PrestoTask::toJsonString() const {
+folly::dynamic PrestoTask::toJson() const {
   std::lock_guard<std::mutex> l(mutex);
   folly::dynamic obj = folly::dynamic::object;
-  obj["task"] = task ? task->toJsonString() : "null";
+  obj["task"] = task ? task->toJson() : "null";
   obj["taskStarted"] = taskStarted;
   obj["lastHeartbeatMs"] = lastHeartbeatMs;
   obj["lastTaskStatsUpdateMs"] = lastTaskStatsUpdateMs;
@@ -700,8 +700,8 @@ std::string PrestoTask::toJsonString() const {
 
   json j;
   to_json(j, info);
-  obj["taskInfo"] = to_string(j);
-  return folly::toPrettyJson(obj);
+  obj["taskInfo"] = folly::parseJson(to_string(j));
+  return obj;
 }
 
 protocol::RuntimeMetric toRuntimeMetric(
