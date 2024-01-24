@@ -204,7 +204,7 @@ std::string PrestoServerOperations::taskOperation(
       if (task == taskMap.end()) {
         return fmt::format("No task found with id {}", id);
       }
-      return task->second->toJsonString();
+      return folly::toPrettyJson(task->second->toJson());
     }
     case ServerOperation::Action::kListAll: {
       uint32_t limit;
@@ -220,18 +220,19 @@ std::string PrestoServerOperations::taskOperation(
       if (limit < taskMap.size()) {
         oss << "Showing " << limit << "/" << taskMap.size() << " tasks:\n";
       }
-      oss << "[";
-      uint32_t count = 0;
+      folly::dynamic arrayObj = folly::dynamic::array;
+      uint32_t index = 0;
       for (auto taskItr = taskMap.begin(); taskItr != taskMap.end();
            ++taskItr) {
         const auto& veloxTask = taskItr->second->task;
-        bool atLimit = ++count >= limit;
-        oss << (veloxTask == nullptr ? "null" : veloxTask->toShortJsonString())
-            << (std::next(taskItr) == taskMap.end() || atLimit ? "]\n" : ",\n");
+        const bool atLimit = ++index >= limit;
+        arrayObj.push_back(
+            (veloxTask == nullptr ? "null" : veloxTask->toShortJson()));
         if (atLimit) {
           break;
         }
       }
+      oss << folly::toPrettyJson(arrayObj);
       return oss.str();
     }
     default:

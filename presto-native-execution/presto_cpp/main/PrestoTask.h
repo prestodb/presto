@@ -137,7 +137,7 @@ struct PrestoTask {
   protocol::TaskInfo updateInfoLocked();
   void updateOutputBufferInfoLocked(const velox::exec::TaskStats& taskStats);
 
-  std::string toJsonString() const;
+  folly::dynamic toJson() const;
 
  private:
   void recordProcessCpuTime();
