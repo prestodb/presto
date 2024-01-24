@@ -98,6 +98,15 @@ public class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testTimeORC()
+    {
+        assertUpdate("CREATE TABLE test_time_orc (x time) with (format='ORC')");
+        assertUpdate("INSERT INTO test_time_orc VALUES (time '10:12:34')", 1);
+        assertQuery("SELECT * FROM test_time_orc", "SELECT CAST('10:12:34' AS TIME)");
+        dropTable(getSession(), "test_time_orc");
+    }
+
+    @Test
     @Override
     public void testDescribeTable()
     {
