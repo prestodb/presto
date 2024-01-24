@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.buffer.BufferResult;
@@ -26,6 +27,8 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -56,6 +59,7 @@ import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.net.HttpHeaders.CONTENT_LENGTH;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -73,6 +77,9 @@ public class AsyncPageTransportServlet
     private final TaskManager taskManager;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
+
+    private final TimeStat readFromOutputBufferTime = new TimeStat();
+    private final TimeStat resultsRequestTime = new TimeStat();
 
     @Inject
     public AsyncPageTransportServlet(
@@ -150,6 +157,7 @@ public class AsyncPageTransportServlet
             HttpServletRequest request, HttpServletResponse response)
             throws IOException
     {
+        long start = System.nanoTime();
         DataSize maxSize = DataSize.valueOf(request.getHeader(PRESTO_MAX_SIZE));
 
         AsyncContext asyncContext = request.startAsync(request, response);
@@ -162,6 +170,7 @@ public class AsyncPageTransportServlet
         {
             public void onComplete(AsyncEvent event)
             {
+                resultsRequestTime.add(Duration.nanosSince(start));
             }
 
             public void onError(AsyncEvent event)
@@ -191,6 +200,8 @@ public class AsyncPageTransportServlet
                 () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
                 waitTime,
                 timeoutExecutor);
+
+        bufferResultFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
 
         ServletOutputStream out = response.getOutputStream();
         addCallback(bufferResultFuture, new FutureCallback<BufferResult>()
@@ -238,5 +249,19 @@ public class AsyncPageTransportServlet
     @Override
     public void destroy()
     {
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getReadFromOutputBufferTime()
+    {
+        return readFromOutputBufferTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getResultsRequestTime()
+    {
+        return resultsRequestTime;
     }
 }
