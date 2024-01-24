@@ -70,6 +70,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class NativeExecutionProcess
         implements AutoCloseable
@@ -175,31 +176,51 @@ public class NativeExecutionProcess
     /**
      * Triggers coredump (also terminates the process)
      */
-    public void sendCoreSignal()
+    public void terminateWithCore(Duration timeout)
     {
         // chosen as the least likely core signal to occur naturally (invalid sys call)
         // https://man7.org/linux/man-pages/man7/signal.7.html
-        sendSignal(SIGSYS);
+        Process process = sendSignal(SIGSYS);
+        if (process == null) {
+            return;
+        }
+        try {
+            long pid = getPid(process);
+            log.info("Waiting %s for process %s to terminate", timeout, pid);
+            if (!process.waitFor(timeout.toMillis(), MILLISECONDS)) {
+                log.warn("Process %s did not terminate within %s", pid, timeout);
+                process.destroyForcibly();
+            }
+            else {
+                log.info("Process %s successfully terminated with status code %s", pid, process.exitValue());
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 
-    public void sendSignal(int signal)
+    private Process sendSignal(int signal)
     {
         Process process = this.process;
         if (process == null) {
             log.warn("Failure sending signal, process does not exist");
-            return;
+            return null;
         }
         long pid = getPid(process);
         if (!process.isAlive()) {
             log.warn("Failure sending signal, process is dead: %s", pid);
-            return;
+            return null;
         }
         try {
             log.info("Sending signal to process %s: %s", pid, signal);
             Runtime.getRuntime().exec(format("kill -%s %s", signal, pid));
+            return process;
         }
         catch (IOException e) {
             log.warn(e, "Failure sending signal to process %s", pid);
+            return null;
         }
     }
 
