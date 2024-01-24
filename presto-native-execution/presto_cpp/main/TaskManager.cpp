@@ -1061,6 +1061,28 @@ std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
 }
 
 void TaskManager::shutdown() {
+  PRESTO_SHUTDOWN_LOG(WARNING) << "Shutting down TaskManager";
+  std::vector<TaskId> taskIds;
+  taskMap_.withRLock([&](const TaskMap& taskMap) {
+    for (auto it = taskMap.begin(); it != taskMap.end(); ++it) {
+      if (it->second->task != nullptr && it->second->task->isRunning()) {
+        taskIds.push_back(it->first);
+      }
+    }
+  });
+
+  PRESTO_SHUTDOWN_LOG(WARNING) << "Aborting all running tasks";
+  for (auto& taskId : taskIds) {
+    PRESTO_SHUTDOWN_LOG(WARNING) << "Aborting " << taskId;
+    deleteTask(taskId, true);
+  }
+
+  taskMap_.withWLock([&](TaskMap& taskMap) {
+    for (auto& taskId : taskIds) {
+      taskMap.erase(taskId);
+    }
+  });
+
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
