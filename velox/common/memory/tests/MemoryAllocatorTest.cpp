@@ -1445,7 +1445,8 @@ TEST_P(MemoryAllocatorTest, allocatorCapacity) {
 TEST_P(MemoryAllocatorTest, allocatorCapacityWithThreads) {
   std::atomic<int64_t> numOps{0};
   const int64_t numMaxOps = 100000;
-  const int64_t nonContAllocPages = Allocation::PageRun::kMaxPagesInRun;
+  const int64_t nonContAllocPages =
+      Allocation::PageRun::kMaxPagesInRun / 256 * 256;
 
   std::function<void()> nonContiguousReserveFail = [&, this]() {
     while (numOps < numMaxOps) {

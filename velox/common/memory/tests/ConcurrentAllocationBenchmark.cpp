@@ -35,6 +35,10 @@ DEFINE_uint32(
     0,
     "The type of memory allocator. 0 is malloc allocator, 1 is mmap allocator");
 DEFINE_uint32(
+    memory_allocation_type,
+    1,
+    "The type of memory allocation. 0 is small allocation, 1 non-contiguous allocation");
+DEFINE_uint32(
     num_runs,
     32,
     "The number of benchmark runs and reports the average results");
@@ -67,10 +71,17 @@ class MemoryOperator {
   }
 
  private:
-  struct Allocation {
+  struct SmallAllocation {
     void* ptr;
 
-    explicit Allocation(void* _ptr) : ptr(_ptr) {}
+    explicit SmallAllocation(void* _ptr) : ptr(_ptr) {}
+  };
+
+  struct NonContiguousAllocation {
+    std::unique_ptr<memory::Allocation> allocation;
+
+    NonContiguousAllocation()
+        : allocation(std::make_unique<memory::Allocation>()) {}
   };
 
   bool full() const;
@@ -79,18 +90,26 @@ class MemoryOperator {
 
   void free();
 
+  int randomAllocationIndex() const;
+
   void cleanup();
+
+  void freeSmallAllocation(SmallAllocation& allocation);
+
+  void freeNonContiguousAllocation(NonContiguousAllocation& allocation);
 
   static inline int32_t poolId_{0};
 
   const uint64_t maxMemory_;
   const size_t allocationBytes_;
+  const uint32_t allocationType_{FLAGS_memory_allocation_type};
   const uint32_t maxOps_;
   const std::shared_ptr<MemoryPool> pool_;
 
-  folly::Random::DefaultGenerator rng_;
+  mutable folly::Random::DefaultGenerator rng_;
   uint64_t allocatedBytes_{0};
-  std::deque<Allocation> allocations_;
+  std::deque<SmallAllocation> smallAllocations_;
+  std::deque<NonContiguousAllocation> nonContiguousAllocations_;
   uint64_t clockCount_{0};
 };
 
@@ -107,29 +126,70 @@ void MemoryOperator::allocate() {
   }
   {
     ClockTimer cpuTimer(clockCount_);
-    allocations_.emplace_back(pool_->allocate(allocationBytes_));
+    if (allocationType_ == 0) {
+      smallAllocations_.emplace_back(pool_->allocate(allocationBytes_));
+    } else {
+      NonContiguousAllocation nonContiguousAllocation;
+      pool_->allocateNonContiguous(
+          memory::AllocationTraits::numPages(allocationBytes_),
+          *nonContiguousAllocation.allocation);
+      nonContiguousAllocations_.emplace_back(
+          std::move(nonContiguousAllocation));
+    }
   }
   allocatedBytes_ += allocationBytes_;
 }
 
 void MemoryOperator::free() {
-  const int freeIdx = folly::Random::rand32(rng_) % allocations_.size();
-  Allocation freeAllocation = allocations_[freeIdx];
-  allocations_[freeIdx] = allocations_.back();
-  allocations_.pop_back();
+  const int freeIdx = randomAllocationIndex();
+  if (allocationType_ == 0) {
+    SmallAllocation allocation = smallAllocations_[freeIdx];
+    smallAllocations_[freeIdx] = smallAllocations_.back();
+    smallAllocations_.pop_back();
+
+    freeSmallAllocation(allocation);
+  } else {
+    NonContiguousAllocation allocation =
+        std::move(nonContiguousAllocations_[freeIdx]);
+    nonContiguousAllocations_[freeIdx] =
+        std::move(nonContiguousAllocations_.back());
+    nonContiguousAllocations_.pop_back();
+
+    freeNonContiguousAllocation(allocation);
+  }
+}
+
+int MemoryOperator::randomAllocationIndex() const {
+  const int randIdx = folly::Random::rand32(rng_);
+  if (allocationType_ == 0) {
+    return randIdx % smallAllocations_.size();
+  }
+  return randIdx % nonContiguousAllocations_.size();
+}
+
+void MemoryOperator::freeSmallAllocation(SmallAllocation& allocation) {
   {
     ClockTimer cpuTimer(clockCount_);
-    pool_->free(freeAllocation.ptr, allocationBytes_);
+    pool_->free(allocation.ptr, allocationBytes_);
+  }
+  allocatedBytes_ -= allocationBytes_;
+}
+
+void MemoryOperator::freeNonContiguousAllocation(
+    NonContiguousAllocation& alllocation) {
+  {
+    ClockTimer cpuTimer(clockCount_);
+    pool_->freeNonContiguous(*alllocation.allocation);
   }
   allocatedBytes_ -= allocationBytes_;
 }
 
 void MemoryOperator::cleanup() {
-  for (const auto& allocation : allocations_) {
-    {
-      ClockTimer cpuTimer(clockCount_);
-      pool_->free(allocation.ptr, allocationBytes_);
-    }
+  for (auto& allocation : smallAllocations_) {
+    freeSmallAllocation(allocation);
+  }
+  for (auto& allocation : nonContiguousAllocations_) {
+    freeNonContiguousAllocation(allocation);
   }
 }
 

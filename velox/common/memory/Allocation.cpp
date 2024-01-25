@@ -31,17 +31,16 @@ Allocation::~Allocation() {
 }
 
 void Allocation::append(uint8_t* address, MachinePageCount numPages) {
-  numPages_ += numPages;
   VELOX_CHECK(
       runs_.empty() || address != runs_.back().data(),
       "Appending a duplicate address into a PageRun");
-  // Split an allocation into multiple PageRuns if the number of pages are
-  // greater than 'PageRun::kMaxPagesInRun'.
-  while (numPages > PageRun::kMaxPagesInRun) {
-    runs_.emplace_back(address, PageRun::kMaxPagesInRun);
-    address += AllocationTraits::pageBytes(PageRun::kMaxPagesInRun);
-    numPages -= PageRun::kMaxPagesInRun;
+  if (FOLLY_UNLIKELY(numPages > Allocation::PageRun::kMaxPagesInRun)) {
+    VELOX_MEM_ALLOC_ERROR(fmt::format(
+        "The number of pages to append {} exceeds the PageRun limit {}",
+        numPages,
+        Allocation::PageRun::kMaxPagesInRun));
   }
+  numPages_ += numPages;
   runs_.emplace_back(address, numPages);
 }
 

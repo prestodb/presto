@@ -116,12 +116,12 @@ class MallocAllocator : public MemoryAllocator {
 
   void* allocateZeroFilledWithoutRetry(uint64_t bytes) override;
 
-  /// Increment current usage and check current allocator consistency to make
-  /// sure current usage does not go above 'capacity_'. If it goes above
-  /// 'capacity_', the increment will not be applied. Returns true if within
-  /// capacity, false otherwise.
-  ///
-  /// NOTE: This method should always be called BEFORE actual allocation.
+  // Increment current usage and check current allocator consistency to make
+  // sure current usage does not go above 'capacity_'. If it goes above
+  // 'capacity_', the increment will not be applied. Returns true if within
+  // capacity, false otherwise.
+  //
+  // NOTE: This method should always be called BEFORE actual allocation.
   inline bool incrementUsage(int64_t bytes) {
     const auto originalBytes = allocatedBytes_.fetch_add(bytes);
     // We don't do the check when capacity_ is 0, meaning unlimited capacity.
@@ -132,10 +132,10 @@ class MallocAllocator : public MemoryAllocator {
     return true;
   }
 
-  /// Decrement current usage and check current allocator consistency to make
-  /// sure current usage does not go below 0. Throws if usage goes below 0.
-  ///
-  /// NOTE: This method should always be called AFTER actual free.
+  // Decrement current usage and check current allocator consistency to make
+  // sure current usage does not go below 0. Throws if usage goes below 0.
+  //
+  // NOTE: This method should always be called AFTER actual free.
   inline void decrementUsage(int64_t bytes) {
     const auto originalBytes = allocatedBytes_.fetch_sub(bytes);
     if (originalBytes - bytes < 0) {
@@ -151,22 +151,12 @@ class MallocAllocator : public MemoryAllocator {
 
   const Kind kind_;
 
-  /// Capacity in bytes. Total allocation byte is not allowed to exceed this
-  /// value.
+  // Capacity in bytes. Total allocation byte is not allowed to exceed this
+  // value.
   const size_t capacity_;
 
-  /// Current total allocated bytes by this 'MallocAllocator'.
+  // Current total allocated bytes by this 'MallocAllocator'.
   std::atomic<int64_t> allocatedBytes_{0};
-
-  /// Mutex for 'nonContiguousMallocs_'.
-  std::mutex nonContiguousMallocsMutex_;
-
-  /// Tracks malloc'd pointers and the corresponding MachinePageCount in
-  /// non-contiguous allocations to detect bad frees.
-  /// Since an allocation can span across multiple PageRuns, we need to store
-  /// the MachinePageCount for each allocation to identify allocation boundaries
-  /// across the PageRuns.
-  std::unordered_map<void*, MachinePageCount> nonContiguousMallocs_;
 
   std::shared_ptr<Cache> cache_;
 };

@@ -193,7 +193,7 @@ class Allocation {
   VELOX_FRIEND_TEST(MemoryAllocatorTest, allocationClass2);
   VELOX_FRIEND_TEST(AllocationTest, append);
   VELOX_FRIEND_TEST(AllocationTest, appendMove);
-  VELOX_FRIEND_TEST(AllocationTest, multiplePageRuns);
+  VELOX_FRIEND_TEST(AllocationTest, maxPageRunLimit);
 };
 
 /// Represents a run of contiguous pages that do not belong to any size class.

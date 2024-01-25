@@ -85,25 +85,27 @@ TEST_F(AllocationTest, appendMove) {
   allocation.clear();
 }
 
-TEST_F(AllocationTest, multiplePageRuns) {
+TEST_F(AllocationTest, maxPageRunLimit) {
   Allocation allocation;
-  const uint64_t startBufAddrValue = 4096;
-  uint8_t* const firstBufAddr = reinterpret_cast<uint8_t*>(startBufAddrValue);
-  allocation.append(firstBufAddr, Allocation::PageRun::kMaxPagesInRun + 100);
-  ASSERT_EQ(allocation.numPages(), Allocation::PageRun::kMaxPagesInRun + 100);
-  ASSERT_EQ(allocation.numRuns(), 2);
+  const uint64_t vaildBufAddrValue = 4096;
+  uint8_t* validBufAddr = reinterpret_cast<uint8_t*>(vaildBufAddrValue);
+  allocation.append(validBufAddr, Allocation::PageRun::kMaxPagesInRun);
+  ASSERT_EQ(allocation.numPages(), Allocation::PageRun::kMaxPagesInRun);
+  ASSERT_EQ(allocation.numRuns(), 1);
 
-  uint8_t* const secondBufAddr = reinterpret_cast<uint8_t*>(
-      startBufAddrValue + AllocationTraits::pageBytes(allocation.numPages()));
-  allocation.append(secondBufAddr, Allocation::PageRun::kMaxPagesInRun - 100);
-  ASSERT_EQ(allocation.numPages(), Allocation::PageRun::kMaxPagesInRun * 2);
-  ASSERT_EQ(allocation.numRuns(), 3);
-
-  uint8_t* const thirdBufAddr = reinterpret_cast<uint8_t*>(
-      firstBufAddr + 2 * AllocationTraits::pageBytes(allocation.numPages()));
-  allocation.append(thirdBufAddr, Allocation::PageRun::kMaxPagesInRun * 2);
-  ASSERT_EQ(allocation.numPages(), Allocation::PageRun::kMaxPagesInRun * 4);
-  ASSERT_EQ(allocation.numRuns(), 5);
+  const uint64_t invaildBufAddrValue = 4096 * 1024;
+  uint8_t* invalidBufAddr = reinterpret_cast<uint8_t*>(invaildBufAddrValue);
+  VELOX_ASSERT_THROW(
+      allocation.append(
+          invalidBufAddr, Allocation::PageRun::kMaxPagesInRun + 1),
+      "The number of pages to append 65536 exceeds the PageRun limit 65535");
+  VELOX_ASSERT_THROW(
+      allocation.append(
+          invalidBufAddr, Allocation::PageRun::kMaxPagesInRun * 2),
+      "The number of pages to append 131070 exceeds the PageRun limit 65535");
+  ASSERT_EQ(allocation.numPages(), Allocation::PageRun::kMaxPagesInRun);
+  ASSERT_EQ(allocation.numRuns(), 1);
+  LOG(ERROR) << "here";
   allocation.clear();
 }
 

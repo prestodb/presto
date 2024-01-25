@@ -75,34 +75,43 @@ MemoryAllocator::SizeMix MemoryAllocator::allocationSize(
       "Requesting minimum size {} larger than largest size class {}",
       minSizeClass,
       sizeClassSizes_.back());
-
   MemoryAllocator::SizeMix mix;
-  int32_t needed = numPages;
-  int32_t pagesToAlloc = 0;
+  int32_t neededPages = numPages;
+  MachinePageCount pagesToAlloc{0};
   for (int32_t sizeIndex = sizeClassSizes_.size() - 1; sizeIndex >= 0;
        --sizeIndex) {
-    const int32_t size = sizeClassSizes_[sizeIndex];
+    const MachinePageCount classPageSize = sizeClassSizes_[sizeIndex];
     const bool isSmallest =
         sizeIndex == 0 || sizeClassSizes_[sizeIndex - 1] < minSizeClass;
     // If the size is less than 1/8 of the size from the next larger,
     // use the next larger size.
-    if (size > (needed + (needed / 8)) && !isSmallest) {
+    if (classPageSize > (neededPages + (neededPages / 8)) && !isSmallest) {
       continue;
     }
-    int32_t numUnits = std::max(1, needed / size);
-    needed -= numUnits * size;
-    if (isSmallest && needed > 0) {
-      // If needed / size had a remainder, add one more unit. Do this
-      // if the present size class is the smallest or 'minSizeClass'
-      // size.
-      ++numUnits;
-      needed -= size;
+    const MachinePageCount maxNumClassPages =
+        Allocation::PageRun::kMaxPagesInRun / classPageSize;
+    MachinePageCount numClassPages = std::min<int32_t>(
+        maxNumClassPages,
+        std::max<MachinePageCount>(1, neededPages / classPageSize));
+    neededPages -= numClassPages * classPageSize;
+    if (isSmallest && neededPages > 0 && numClassPages < maxNumClassPages) {
+      // If needed / size had a remainder, add one more unit. Do this if the
+      // present size class is the smallest or 'minSizeClass' size.
+      ++numClassPages;
+      neededPages -= classPageSize;
     }
-    mix.sizeCounts[mix.numSizes] = numUnits;
-    pagesToAlloc += numUnits * size;
-    mix.sizeIndices[mix.numSizes++] = sizeIndex;
-    if (needed <= 0) {
+    VELOX_CHECK_LE(
+        classPageSize * numClassPages, Allocation::PageRun::kMaxPagesInRun);
+
+    mix.sizeCounts.push_back(numClassPages);
+    mix.sizeIndices.push_back(sizeIndex);
+    ++mix.numSizes;
+    pagesToAlloc += numClassPages * classPageSize;
+    if (neededPages <= 0) {
       break;
+    }
+    if (FOLLY_UNLIKELY(numClassPages == maxNumClassPages)) {
+      ++sizeIndex;
     }
   }
   mix.totalPages = pagesToAlloc;
