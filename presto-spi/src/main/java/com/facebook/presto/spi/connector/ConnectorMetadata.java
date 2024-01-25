@@ -203,6 +203,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Provides partitioning handle for CTE Materialization.
+     */
+    default ConnectorPartitioningHandle getPartitioningHandleForCteMaterialization(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support custom partitioning");
+    }
+
+    /**
      * Return the metadata for the specified table handle.
      *
      * @throws RuntimeException if table handle is no longer valid

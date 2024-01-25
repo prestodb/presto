@@ -54,7 +54,6 @@ import static com.facebook.presto.sql.TemporaryTableUtil.assignTemporaryTableCol
 import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableScan;
 import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableWriteWithoutExchanges;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.ALL;
-import static com.facebook.presto.sql.planner.optimizations.CteUtils.getCtePartitionIndex;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -130,13 +129,14 @@ public class PhysicalCteOptimizer
             isPlanRewritten = true;
             // Create Table Metadata
             PlanNode actualSource = node.getSource();
+            // The cte will be bucketed on the first column currently
             VariableReferenceExpression partitionVariable = actualSource.getOutputVariables()
-                    .get(getCtePartitionIndex(actualSource.getOutputVariables()));
+                    .get(0);
             List<Type> partitioningTypes = Arrays.asList(partitionVariable.getType());
             String partitioningProviderCatalog = getCtePartitioningProviderCatalog(session);
             // First column is taken as the partitioning column
             Partitioning partitioning = Partitioning.create(
-                    metadata.getPartitioningHandleForExchange(session, partitioningProviderCatalog,
+                    metadata.getPartitioningHandleForCteMaterialization(session, partitioningProviderCatalog,
                             getCteHashPartitionCount(session), partitioningTypes),
                     Arrays.asList(partitionVariable));
             BasePlanFragmenter.PartitioningVariableAssignments partitioningVariableAssignments
