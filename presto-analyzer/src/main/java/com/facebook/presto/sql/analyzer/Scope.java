@@ -37,6 +37,8 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class Scope
 {
+    public static final String INSERT_SINGLE_ROW_TYPE_COLUMN = "insert_single_row_type_column";
+
     private final Optional<Scope> parent;
     private final boolean queryBoundary;
     private final RelationId relationId;
