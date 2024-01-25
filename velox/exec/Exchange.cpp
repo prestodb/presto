@@ -18,6 +18,14 @@
 
 namespace facebook::velox::exec {
 
+void Exchange::addTaskIds(std::vector<std::string>& taskIds) {
+  std::shuffle(std::begin(taskIds), std::end(taskIds), rng_);
+  for (const std::string& taskId : taskIds) {
+    exchangeClient_->addRemoteTaskId(taskId);
+  }
+  stats_.wlock()->numSplits += taskIds.size();
+}
+
 bool Exchange::getSplits(ContinueFuture* future) {
   if (!processSplits_) {
     return false;
@@ -25,6 +33,7 @@ bool Exchange::getSplits(ContinueFuture* future) {
   if (noMoreSplits_) {
     return false;
   }
+  std::vector<std::string> taskIds;
   for (;;) {
     exec::Split split;
     auto reason = operatorCtx_->task()->getSplitOrFuture(
@@ -34,9 +43,9 @@ bool Exchange::getSplits(ContinueFuture* future) {
         auto remoteSplit = std::dynamic_pointer_cast<RemoteConnectorSplit>(
             split.connectorSplit);
         VELOX_CHECK(remoteSplit, "Wrong type of split");
-        exchangeClient_->addRemoteTaskId(remoteSplit->taskId);
-        ++stats_.wlock()->numSplits;
+        taskIds.push_back(remoteSplit->taskId);
       } else {
+        addTaskIds(taskIds);
         exchangeClient_->noMoreRemoteTasks();
         noMoreSplits_ = true;
         if (atEnd_) {
@@ -47,6 +56,7 @@ bool Exchange::getSplits(ContinueFuture* future) {
         return false;
       }
     } else {
+      addTaskIds(taskIds);
       return true;
     }
   }
