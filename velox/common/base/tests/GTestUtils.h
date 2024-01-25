@@ -54,6 +54,15 @@
   VELOX_ASSERT_THROW_IMPL(                                     \
       facebook::velox::VeloxRuntimeError, _expression, _errorMessage)
 
+#define VELOX_ASSERT_ERROR_STATUS(_expression, _statusCode, _errorMessage) \
+  const auto status = (_expression);                                       \
+  ASSERT_TRUE(status.code() == _statusCode)                                \
+      << "Expected error code to be '" << toString(_statusCode)            \
+      << "', but received '" << toString(status.code()) << "'.";           \
+  ASSERT_TRUE(status.message().find(_errorMessage) != std::string::npos)   \
+      << "Expected error message to contain '" << (_errorMessage)          \
+      << "', but received '" << status.message() << "'."
+
 #ifndef NDEBUG
 #define DEBUG_ONLY_TEST(test_fixture, test_name) TEST(test_fixture, test_name)
 #define DEBUG_ONLY_TEST_F(test_fixture, test_name) \

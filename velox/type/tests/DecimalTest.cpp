@@ -40,12 +40,10 @@ void assertRescaleDoubleFail(
     const std::string& expectedErrorMessage) {
   const auto [precision, scale] = getDecimalPrecisionScale(*type);
   T actualValue;
-  const auto status =
-      DecimalUtil::rescaleDouble<T>(value, precision, scale, actualValue);
-  ASSERT_TRUE(!status.ok());
-  ASSERT_TRUE(status.message().find(expectedErrorMessage) != std::string::npos)
-      << "Expected error message to contain '" << expectedErrorMessage
-      << "', but received '" << status.message() << "'.";
+  VELOX_ASSERT_ERROR_STATUS(
+      DecimalUtil::rescaleDouble<T>(value, precision, scale, actualValue),
+      StatusCode::kUserError,
+      expectedErrorMessage);
 }
 
 void testToByteArray(int128_t value, int8_t* expected, int32_t size) {
@@ -325,6 +323,10 @@ TEST(DecimalTest, rescaleDouble) {
       std::numeric_limits<double>::max(), DECIMAL(38, 38), "Result overflows.");
   assertRescaleDouble<int128_t>(
       std::numeric_limits<double>::min(), DECIMAL(38, 2), 0);
+  assertRescaleDoubleFail<int128_t>(
+      std::numeric_limits<double>::lowest(),
+      DECIMAL(38, 2),
+      "Result overflows.");
 
   assertRescaleDoubleFail<int64_t>(
       NAN, DECIMAL(10, 2), "The input value should be finite.");

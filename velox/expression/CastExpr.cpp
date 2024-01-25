@@ -576,6 +576,10 @@ VectorPtr CastExpr::applyDecimal(
       applyIntToDecimalCastKernel<int32_t, toDecimalType>(
           rows, input, context, toType, castResult);
       break;
+    case TypeKind::DOUBLE:
+      applyDoubleToDecimalCastKernel<toDecimalType>(
+          rows, input, context, toType, castResult);
+      break;
     case TypeKind::BIGINT: {
       if (fromType->isShortDecimal()) {
         applyDecimalCastKernel<int64_t, toDecimalType>(

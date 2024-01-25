@@ -206,6 +206,14 @@ class CastExpr : public SpecialForm {
       const TypePtr& toType,
       VectorPtr& castResult);
 
+  template <typename TOutput>
+  void applyDoubleToDecimalCastKernel(
+      const SelectivityVector& rows,
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const TypePtr& toType,
+      VectorPtr& castResult);
+
   template <typename T>
   void applyVarcharToDecimalCastKernel(
       const SelectivityVector& rows,

@@ -453,6 +453,38 @@ void CastExpr::applyIntToDecimalCastKernel(
       });
 }
 
+template <typename TOutput>
+void CastExpr::applyDoubleToDecimalCastKernel(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const TypePtr& toType,
+    VectorPtr& result) {
+  const auto doubleInput = input.as<SimpleVector<double>>();
+  auto rawResults =
+      result->asUnchecked<FlatVector<TOutput>>()->mutableRawValues();
+  const auto toPrecisionScale = getDecimalPrecisionScale(*toType);
+
+  applyToSelectedNoThrowLocal(context, rows, result, [&](vector_size_t row) {
+    TOutput output;
+    const auto status = DecimalUtil::rescaleDouble<TOutput>(
+        doubleInput->valueAt(row),
+        toPrecisionScale.first,
+        toPrecisionScale.second,
+        output);
+    if (status.ok()) {
+      rawResults[row] = output;
+    } else {
+      if (setNullInResultAtError()) {
+        result->setNull(row, true);
+      } else {
+        context.setVeloxExceptionError(
+            row, makeBadCastException(toType, input, row, status.message()));
+      }
+    }
+  });
+}
+
 template <typename T>
 void CastExpr::applyVarcharToDecimalCastKernel(
     const SelectivityVector& rows,

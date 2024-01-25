@@ -1992,6 +1992,106 @@ TEST_F(CastExprTest, castInTry) {
       ARRAY(ARRAY(VARCHAR())), ARRAY(ARRAY(BIGINT())), nested, nestedExpected);
 }
 
+TEST_F(CastExprTest, doubleToDecimal) {
+  // Double to short decimal.
+  const auto input =
+      makeFlatVector<double>({-3333.03, -2222.02, -1.0, 0.00, 100, 99999.99});
+  testComplexCast(
+      "c0",
+      input,
+      makeFlatVector<int64_t>(
+          {-33'330'300, -22'220'200, -10'000, 0, 1'000'000, 999'999'900},
+          DECIMAL(10, 4)));
+
+  // Double to long decimal.
+  testComplexCast(
+      "c0",
+      input,
+      makeFlatVector<int128_t>(
+          {-33'330'300'000'000,
+           -22'220'200'000'000,
+           -10'000'000'000,
+           0,
+           1'000'000'000'000,
+           999'999'900'000'000},
+          DECIMAL(20, 10)));
+  testComplexCast(
+      "c0",
+      input,
+      makeFlatVector<int128_t>(
+          {-33'330, -22'220, -10, 0, 1'000, 1'000'000}, DECIMAL(20, 1)));
+  testComplexCast(
+      "c0",
+      makeNullableFlatVector<double>(
+          {0.13456789,
+           0.00000015,
+           0.000000000000001,
+           0.999999999999999,
+           0.123456789123123,
+           std::nullopt}),
+      makeNullableFlatVector<int128_t>(
+          {134'567'890'000'000'000,
+           150'000'000'000,
+           1'000,
+           999'999'999'999'999'000,
+           123'456'789'123'123'000,
+           std::nullopt},
+          DECIMAL(38, 18)));
+
+  testThrow<double>(
+      DOUBLE(),
+      DECIMAL(10, 2),
+      {9999999999999999999999.99},
+      "Cannot cast DOUBLE '1E22' to DECIMAL(10, 2). Result overflows.");
+  testThrow<double>(
+      DOUBLE(),
+      DECIMAL(10, 2),
+      {static_cast<double>(
+          static_cast<int128_t>(std::numeric_limits<int64_t>::max()) + 1)},
+      "Cannot cast DOUBLE '9223372036854776000' to DECIMAL(10, 2). Result overflows.");
+  testThrow<double>(
+      DOUBLE(),
+      DECIMAL(10, 2),
+      {static_cast<double>(
+          static_cast<int128_t>(std::numeric_limits<int64_t>::min()) - 1)},
+      "Cannot cast DOUBLE '-9223372036854776000' to DECIMAL(10, 2). Result overflows.");
+  testThrow<double>(
+      DOUBLE(),
+      DECIMAL(20, 2),
+      {static_cast<double>(DecimalUtil::kLongDecimalMax)},
+      "Cannot cast DOUBLE '1E38' to DECIMAL(20, 2). Result overflows.");
+  testThrow<double>(
+      DOUBLE(),
+      DECIMAL(20, 2),
+      {static_cast<double>(DecimalUtil::kLongDecimalMin)},
+      "Cannot cast DOUBLE '-1E38' to DECIMAL(20, 2). Result overflows.");
+  testThrow<double>(
+      DOUBLE(),
+      DECIMAL(38, 2),
+      {std::numeric_limits<double>::max()},
+      "Cannot cast DOUBLE '1.7976931348623157E308' to DECIMAL(38, 2). Result overflows.");
+  testThrow<double>(
+      DOUBLE(),
+      DECIMAL(38, 2),
+      {std::numeric_limits<double>::lowest()},
+      "Cannot cast DOUBLE '-1.7976931348623157E308' to DECIMAL(38, 2). Result overflows.");
+  testComplexCast(
+      "c0",
+      makeConstant<double>(std::numeric_limits<double>::min(), 1),
+      makeConstant<int128_t>(0, 1, DECIMAL(38, 2)));
+
+  testThrow<double>(
+      DOUBLE(),
+      DECIMAL(38, 2),
+      {INFINITY},
+      "Cannot cast DOUBLE 'Infinity' to DECIMAL(38, 2). The input value should be finite.");
+  testThrow<double>(
+      DOUBLE(),
+      DECIMAL(38, 2),
+      {NAN},
+      "Cannot cast DOUBLE 'NaN' to DECIMAL(38, 2). The input value should be finite.");
+}
+
 TEST_F(CastExprTest, primitiveNullConstant) {
   // Evaluate cast(NULL::double as bigint).
   auto cast =

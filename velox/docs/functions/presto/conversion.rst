@@ -136,7 +136,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      -
-     -
+     - Y
    * - varchar
      - Y
      - Y
@@ -723,6 +723,31 @@ Invalid examples
 
   SELECT cast(123 as decimal(6, 4)); -- Out of range
   SELECT cast(123 as decimal(4, 2)); -- Out of range
+
+From double type
+^^^^^^^^^^^^^^^^
+
+Casting a double number to a decimal of given precision and scale is allowed
+if the input value can be represented by the precision and scale. When the
+given scale is less than the number of decimal places, the double value is
+rounded. The conversion precision is up to 15 as double provides 16(±1)
+significant decimal digits precision. Casting from invalid input values throws.
+
+Valid example
+
+::
+
+  SELECT cast(0.12 as decimal(4, 4)); -- decimal '0.1200'
+  SELECT cast(0.12 as decimal(4, 1)); -- decimal '0.1'
+  SELECT cast(0.19 as decimal(4, 1)); -- decimal '0.2'
+  SELECT cast(0.123456789123123 as decimal(38, 18)); -- decimal '0.123456789123123000'
+
+Invalid example
+
+::
+
+  SELECT cast(123.12 as decimal(6, 4)); -- Out of range
+  SELECT cast(99999.99 as decimal(6, 2)); -- Out of range
 
 From decimal
 ^^^^^^^^^^^^
