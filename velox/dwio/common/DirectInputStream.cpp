@@ -190,9 +190,6 @@ void DirectInputStream::loadPosition() {
     loadedRegion_.length = (offsetInRegion_ + loadQuantum_ <= region_.length)
         ? loadQuantum_
         : (region_.length - offsetInRegion_);
-
-    // Since the loadSync method updates the metric, but it is conditionally
-    // executed, we also need to update the metric in the loadData method.
     loadSync();
   }
 

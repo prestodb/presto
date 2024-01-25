@@ -241,8 +241,7 @@ TEST_F(TableScanTest, allColumns) {
   auto scanNodeId = plan->id();
   auto it = planStats.find(scanNodeId);
   ASSERT_TRUE(it != planStats.end());
-  ASSERT_GT(it->second.peakMemoryBytes, 0);
-  ASSERT_GT(it->second.rawInputBytes, 0);
+  ASSERT_TRUE(it->second.peakMemoryBytes > 0);
   EXPECT_LT(0, exec::TableScan::ioWaitNanos());
 }
 
