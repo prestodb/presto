@@ -66,6 +66,7 @@ public class TestNativeExecutionSystemConfig
                 .setEnableVeloxExpressionLogging(false)
                 .setEnableVeloxTaskLogging(true)
                 .setHttpServerReusePort(true)
+                .setHttpServerBindToNodeInternalAddressOnlyEnabled(true)
                 .setHttpServerPort(7777)
                 .setHttpServerNumIoThreadsHwMultiplier(1.0)
                 .setHttpsServerPort(7778)
@@ -103,6 +104,7 @@ public class TestNativeExecutionSystemConfig
                 .setEnableVeloxExpressionLogging(true)
                 .setEnableVeloxTaskLogging(false)
                 .setHttpServerReusePort(false)
+                .setHttpServerBindToNodeInternalAddressOnlyEnabled(false)
                 .setHttpServerPort(8080)
                 .setHttpServerNumIoThreadsHwMultiplier(3.0)
                 .setHttpsServerPort(8081)
@@ -142,7 +144,7 @@ public class TestNativeExecutionSystemConfig
         assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionNodeConfig.class)
                 .setNodeEnvironment("spark-velox")
                 .setNodeLocation("/dummy/location")
-                .setNodeIp("0.0.0.0")
+                .setNodeInternalAddress("127.0.0.1")
                 .setNodeId(0)
                 .setNodeMemoryGb(10));
 
@@ -151,7 +153,7 @@ public class TestNativeExecutionSystemConfig
                 .setNodeEnvironment("next-gen-spark")
                 .setNodeId(1)
                 .setNodeLocation("/extra/dummy/location")
-                .setNodeIp("1.1.1.1")
+                .setNodeInternalAddress("1.1.1.1")
                 .setNodeMemoryGb(40);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);

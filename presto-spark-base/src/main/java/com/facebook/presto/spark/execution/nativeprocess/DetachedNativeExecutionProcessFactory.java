@@ -24,7 +24,6 @@ import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -57,23 +56,17 @@ public class DetachedNativeExecutionProcessFactory
     }
 
     @Override
-    public NativeExecutionProcess getNativeExecutionProcess(
-            Session session,
-            URI location)
+    public NativeExecutionProcess getNativeExecutionProcess(Session session)
     {
-        return createNativeExecutionProcess(session, location, new Duration(2, TimeUnit.MINUTES));
+        return createNativeExecutionProcess(session, new Duration(2, TimeUnit.MINUTES));
     }
 
     @Override
-    public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
-            URI location,
-            Duration maxErrorDuration)
+    public NativeExecutionProcess createNativeExecutionProcess(Session session, Duration maxErrorDuration)
     {
         try {
             return new DetachedNativeExecutionProcess(
                     session,
-                    location,
                     httpClient,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
