@@ -37,6 +37,21 @@ namespace facebook::presto {
 constexpr uint32_t kMaxConcurrentLifespans{16};
 
 namespace {
+// We request cancellation for tasks which haven't been accessed by coordinator
+// for a considerable time.
+void cancelAbandonedTasksInternal(const TaskMap& taskMap, int32_t abandonedMs) {
+  for (const auto& [id, prestoTask] : taskMap) {
+    if (prestoTask->task != nullptr) {
+      if (prestoTask->task->isRunning()) {
+        if (prestoTask->timeSinceLastHeartbeatMs() >= abandonedMs) {
+          LOG(INFO) << "Cancelling abandoned task '" << id << "'.";
+          prestoTask->task->requestCancel();
+        }
+      }
+    }
+  }
+}
+
 // If spilling is enabled and the given Task can spill, then this helper
 // generates the spilling directory path for the Task, and sets the path to it
 // in the Task.
@@ -693,6 +708,8 @@ size_t TaskManager::cleanOldTasks() {
         taskIdsToClean.emplace(id);
       }
     }
+
+    cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
   }
 
   const auto elapsedMs = (getCurrentTimeMs() - startTimeMs);
@@ -728,6 +745,13 @@ size_t TaskManager::cleanOldTasks() {
   RECORD_METRIC_VALUE(
       kCounterNumTasksWithStuckOperator, numTasksWithStuckOperator);
   return taskIdsToClean.size();
+}
+
+void TaskManager::cancelAbandonedTasks() {
+  // We copy task map locally to avoid locking task map for a potentially long
+  // time. We also lock for 'read'.
+  const TaskMap taskMap = *(taskMap_.rlock());
+  cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
 }
 
 folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
@@ -1119,6 +1143,7 @@ void TaskManager::shutdown() {
         << " seconds so far) for 'Running' tasks to complete. " << numTasks
         << " tasks left: " << PrestoTask::taskNumbersToString(taskNumbers);
     std::this_thread::sleep_for(std::chrono::seconds(1));
+    cancelAbandonedTasks();
     taskNumbers = getTaskNumbers(numTasks);
     ++seconds;
   }
