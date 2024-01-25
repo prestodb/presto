@@ -538,7 +538,7 @@ class HiveDataSink : public DataSink {
   }
 
   // Invoked to write 'input' to the specified file writer.
-  void write(size_t index, const VectorPtr& input);
+  void write(size_t index, RowVectorPtr input);
 
   void closeInternal();
 
@@ -550,6 +550,7 @@ class HiveDataSink : public DataSink {
   const uint32_t maxOpenWriters_;
   const std::vector<column_index_t> partitionChannels_;
   const std::unique_ptr<PartitionIdGenerator> partitionIdGenerator_;
+  // Indices of dataChannel are stored in ascending order
   const std::vector<column_index_t> dataChannels_;
   const int32_t bucketCount_{0};
   const std::unique_ptr<core::PartitionFunction> bucketFunction_;

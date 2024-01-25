@@ -38,7 +38,7 @@ namespace facebook::velox::connector::hive {
 
 namespace {
 
-// Returns the type of non-partition keys.
+// Returns the type of non-partition data columns.
 RowTypePtr getNonPartitionTypes(
     const std::vector<column_index_t>& dataCols,
     const RowTypePtr& inputType) {
@@ -47,11 +47,9 @@ RowTypePtr getNonPartitionTypes(
   const auto& dataSize = dataCols.size();
   childNames.reserve(dataSize);
   childTypes.reserve(dataSize);
-  for (uint32_t i = 0; i < inputType->size(); i++) {
-    if (std::find(dataCols.cbegin(), dataCols.cend(), i) != dataCols.cend()) {
-      childNames.push_back(inputType->nameOf(i));
-      childTypes.push_back(inputType->childAt(i));
-    }
+  for (int dataCol : dataCols) {
+    childNames.push_back(inputType->nameOf(dataCol));
+    childTypes.push_back(inputType->childAt(dataCol));
   }
 
   return ROW(std::move(childNames), std::move(childTypes));
@@ -63,10 +61,8 @@ RowVectorPtr makeDataInput(
     const RowVectorPtr& input) {
   std::vector<VectorPtr> childVectors;
   childVectors.reserve(dataCols.size());
-  for (uint32_t i = 0; i < input->childrenSize(); i++) {
-    if (std::find(dataCols.cbegin(), dataCols.cend(), i) != dataCols.cend()) {
-      childVectors.push_back(input->childAt(i));
-    }
+  for (int dataCol : dataCols) {
+    childVectors.push_back(input->childAt(dataCol));
   }
 
   return std::make_shared<RowVector>(
@@ -93,7 +89,7 @@ std::vector<column_index_t> getPartitionChannels(
   return channels;
 }
 
-// Returns the column indices of non-partition keys.
+// Returns the column indices of non-partition data columns.
 std::vector<column_index_t> getNonPartitionChannels(
     const std::vector<column_index_t>& partitionChannels,
     const column_index_t childrenSize) {
@@ -465,10 +461,9 @@ void HiveDataSink::appendData(RowVectorPtr input) {
   }
 }
 
-void HiveDataSink::write(size_t index, const VectorPtr& input) {
+void HiveDataSink::write(size_t index, RowVectorPtr input) {
   WRITER_NON_RECLAIMABLE_SECTION_GUARD(index);
-  auto dataInput =
-      makeDataInput(dataChannels_, std::dynamic_pointer_cast<RowVector>(input));
+  auto dataInput = makeDataInput(dataChannels_, input);
 
   writers_[index]->write(dataInput);
   writerInfo_[index]->numWrittenRows += dataInput->size();
