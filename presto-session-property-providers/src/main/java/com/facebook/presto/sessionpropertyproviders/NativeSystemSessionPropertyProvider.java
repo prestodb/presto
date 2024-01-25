@@ -14,42 +14,68 @@
 
 package com.facebook.presto.sessionpropertyproviders;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
-import com.google.common.collect.ImmutableList;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
 import java.util.List;
-
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
 
 public class NativeSystemSessionPropertyProvider
         implements SystemSessionPropertyProvider
 {
+    public static final String SESSION_PROPERTY_ENDPOINT = "/v1/sessionProperties";
+
+    private final Logger log = Logger.get(NativeSystemSessionPropertyProvider.class);
+
+    private final OkHttpClient httpClient = new OkHttpClient.Builder().build();
+
+    private final URL sessionPropertiesUrl;
+
+    public NativeSystemSessionPropertyProvider(URI nodeUri)
+    {
+        this.sessionPropertiesUrl = getSessionPropertiesUrl(nodeUri);
+    }
+
+    private URL getSessionPropertiesUrl(URI nodeUri)
+    {
+        try {
+            // endpoint to retrieve session properties from native worker
+            return new URL(nodeUri.toString() + SESSION_PROPERTY_ENDPOINT);
+        }
+        catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+    }
     @Override
     public List<SessionPropertyMetadata> getSessionProperties()
     {
-        // TODO: Make RPC call and get session properties from prestissimo.
-        // Lets return hardcoded list of properties for validation
-        return ImmutableList.of(
-                new SessionPropertyMetadata(
-                        "property_name_1",
-                        "description of property 1",
-                        BOOLEAN,
-                        "false",
-                        false),
-                new SessionPropertyMetadata(
-                        "property_name_2",
-                        "description of property 2",
-                        INTEGER,
-                        "0",
-                        false),
-                new SessionPropertyMetadata(
-                        "property_name_3",
-                        "description of property 3",
-                        BIGINT,
-                        "100000",
-                        false));
+        // Make RPC call and get session properties from prestissimo.
+        try {
+            Request request = new Request.Builder()
+                    .url(sessionPropertiesUrl)
+                    .addHeader("CONTENT_TYPE", "APPLICATION_JSON")
+                    .build();
+            String responseBody = httpClient.newCall(request).execute().body().string();
+
+            if (responseBody.contains("sessionProperties")) {
+                log.info("Native session properties from HTTP call: %s", responseBody);
+            }
+
+            JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
+            JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
+            JsonCodec<List<SessionPropertyMetadata>> sessionPropertiesJsonCodec = codecFactory.listJsonCodec(SessionPropertyMetadata.class);
+            return sessionPropertiesJsonCodec.fromJson(responseBody);
+        }
+        catch (Exception e) {
+            throw new IllegalStateException("Failed to get function definition for NativeSystemSessionPropertyProvider." + e.getMessage());
+        }
     }
 }

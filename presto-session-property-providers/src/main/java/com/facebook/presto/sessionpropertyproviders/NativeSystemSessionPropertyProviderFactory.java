@@ -16,6 +16,7 @@ package com.facebook.presto.sessionpropertyproviders;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.spi.session.SystemSessionPropertyProviderFactory;
 
+import java.net.URI;
 import java.util.Map;
 
 public class NativeSystemSessionPropertyProviderFactory
@@ -28,8 +29,8 @@ public class NativeSystemSessionPropertyProviderFactory
     }
 
     @Override
-    public SystemSessionPropertyProvider create(Map<String, String> config)
+    public SystemSessionPropertyProvider create(Map<String, String> config, URI nodeUri)
     {
-        return new NativeSystemSessionPropertyProvider();
+        return new NativeSystemSessionPropertyProvider(nodeUri);
     }
 }

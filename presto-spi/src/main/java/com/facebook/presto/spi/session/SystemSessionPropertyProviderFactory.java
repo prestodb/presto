@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.spi.session;
 
+import java.net.URI;
 import java.util.Map;
 
 public interface SystemSessionPropertyProviderFactory
 {
     String getName();
 
-    SystemSessionPropertyProvider create(Map<String, String> config);
+    SystemSessionPropertyProvider create(Map<String, String> config, URI nodeUri);
 }

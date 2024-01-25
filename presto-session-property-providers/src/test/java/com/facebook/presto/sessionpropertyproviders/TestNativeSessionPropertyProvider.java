@@ -15,14 +15,19 @@ package com.facebook.presto.sessionpropertyproviders;
 
 import org.testng.annotations.Test;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 import static org.testng.Assert.assertEquals;
 
 public class TestNativeSessionPropertyProvider
 {
     @Test
     public void testGetSessionProperties()
+            throws URISyntaxException
     {
+        URI uri = new URI("http://localhost:7777");
         // Validate size of session properties for now.
-        assertEquals(new NativeSystemSessionPropertyProvider().getSessionProperties().size(), 3);
+        assertEquals(new NativeSystemSessionPropertyProvider(uri).getSessionProperties().size(), 3);
     }
 }

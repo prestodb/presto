@@ -511,7 +511,7 @@ public class LocalQueryRunner
                 historyBasedPlanStatisticsManager,
                 new TracerProviderManager(new TracingConfig()),
                 new NodeStatusNotificationManager(),
-                new SystemSessionPropertyProviderManager());
+                new SystemSessionPropertyProviderManager(nodeManager));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
