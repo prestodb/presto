@@ -100,6 +100,7 @@ public final class HiveSessionProperties
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
     public static final String USE_LIST_DIRECTORY_CACHE = "use_list_directory_cache";
     private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
+    private static final String BUCKET_FUNCTION_TYPE_FOR_CTE_MATERIALIZATON = "bucket_function_type_for_cte_materialization";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
     public static final String IGNORE_UNREADABLE_PARTITION = "ignore_unreadable_partition";
     public static final String PARTIAL_AGGREGATION_PUSHDOWN_ENABLED = "partial_aggregation_pushdown_enabled";
@@ -442,6 +443,15 @@ public final class HiveSessionProperties
                         VARCHAR,
                         BucketFunctionType.class,
                         hiveClientConfig.getBucketFunctionTypeForExchange(),
+                        false,
+                        value -> BucketFunctionType.valueOf((String) value),
+                        BucketFunctionType::toString),
+                new PropertyMetadata<>(
+                        BUCKET_FUNCTION_TYPE_FOR_CTE_MATERIALIZATON,
+                        "hash function type for bucketed table for cte materialization",
+                        VARCHAR,
+                        BucketFunctionType.class,
+                        hiveClientConfig.getBucketFunctionTypeForCteMaterialization(),
                         false,
                         value -> BucketFunctionType.valueOf((String) value),
                         BucketFunctionType::toString),
@@ -900,6 +910,11 @@ public final class HiveSessionProperties
     public static BucketFunctionType getBucketFunctionTypeForExchange(ConnectorSession session)
     {
         return session.getProperty(BUCKET_FUNCTION_TYPE_FOR_EXCHANGE, BucketFunctionType.class);
+    }
+
+    public static BucketFunctionType getBucketFunctionTypeForCteMaterialization(ConnectorSession session)
+    {
+        return session.getProperty(BUCKET_FUNCTION_TYPE_FOR_CTE_MATERIALIZATON, BucketFunctionType.class);
     }
 
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)

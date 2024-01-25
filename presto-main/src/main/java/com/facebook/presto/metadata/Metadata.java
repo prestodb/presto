@@ -132,6 +132,11 @@ public interface Metadata
      */
     PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes);
 
+    /**
+     * Provides partitioning handle for cte Materialization.
+     */
+    PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes);
+
     Optional<Object> getInfo(Session session, TableHandle handle);
 
     /**

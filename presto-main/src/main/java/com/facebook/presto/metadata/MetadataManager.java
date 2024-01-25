@@ -454,6 +454,18 @@ public class MetadataManager
     }
 
     @Override
+    public PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
+    {
+        CatalogMetadata catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalogName)
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Catalog '%s' does not exist", catalogName)));
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        ConnectorPartitioningHandle connectorPartitioningHandle = metadata.getPartitioningHandleForCteMaterialization(session.toConnectorSession(connectorId), partitionCount, partitionTypes);
+        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
+        return new PartitioningHandle(Optional.of(connectorId), Optional.of(transaction), connectorPartitioningHandle);
+    }
+
+    @Override
     public Optional<Object> getInfo(Session session, TableHandle handle)
     {
         ConnectorId connectorId = handle.getConnectorId();

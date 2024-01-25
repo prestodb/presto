@@ -199,6 +199,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<Object> getInfo(Session session, TableHandle handle)
     {
         throw new UnsupportedOperationException();
