@@ -3049,6 +3049,7 @@ class StatementAnalyzer
                 // parent scope represents local query scope hierarchy. Local query scope
                 // hierarchy should have outer query scope as ancestor already.
                 scopeBuilder.withParent(parentScope.get());
+                scopeBuilder.withExtraMessages(parentScope.get().getExtraMessage());
             }
             else if (outerQueryScope.isPresent()) {
                 scopeBuilder.withOuterQueryParent(outerQueryScope.get());
