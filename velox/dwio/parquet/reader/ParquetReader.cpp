@@ -16,11 +16,11 @@
 
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 
+#include <thrift/protocol/TCompactProtocol.h> //@manual
+
 #include "velox/dwio/parquet/reader/ParquetColumnReader.h"
 #include "velox/dwio/parquet/reader/StructColumnReader.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
-
-#include <thrift/protocol/TCompactProtocol.h> //@manual
 
 namespace facebook::velox::parquet {
 
@@ -47,12 +47,12 @@ class ReaderBase {
     return fileLength_;
   }
 
-  uint64_t fileNumRows() const {
-    return fileMetaData_->num_rows;
+  const thrift::FileMetaData& thriftFileMetaData() const {
+    return *fileMetaData_;
   }
 
-  const thrift::FileMetaData& fileMetaData() const {
-    return *fileMetaData_;
+  FileMetaDataPtr fileMetaData() const {
+    return FileMetaDataPtr(reinterpret_cast<const void*>(fileMetaData_.get()));
   }
 
   const std::shared_ptr<const RowType>& schema() const {
@@ -639,7 +639,7 @@ class ParquetRowReader::Impl {
       : pool_(readerBase->getMemoryPool()),
         readerBase_(readerBase),
         options_(options),
-        rowGroups_(readerBase_->fileMetaData().row_groups),
+        rowGroups_(readerBase_->thriftFileMetaData().row_groups),
         nextRowGroupIdsIdx_(0),
         currentRowGroupPtr_(nullptr),
         rowsInCurrentRowGroup_(0),
@@ -661,7 +661,7 @@ class ParquetRowReader::Impl {
       return; // TODO
     }
     ParquetParams params(
-        pool_, columnReaderStats_, readerBase_->fileMetaData());
+        pool_, columnReaderStats_, readerBase_->thriftFileMetaData());
     auto columnSelector = std::make_shared<ColumnSelector>(
         ColumnSelector::apply(options_.getSelector(), readerBase_->schema()));
     columnReader_ = ParquetColumnReader::build(
@@ -792,7 +792,6 @@ class ParquetRowReader::Impl {
 
   // All row groups from file metadata.
   const std::vector<thrift::RowGroup>& rowGroups_;
-
   // Indices of row groups where stats match filters.
   std::vector<uint32_t> rowGroupIds_;
   std::vector<uint64_t> firstRowOfRowGroup_;
@@ -856,7 +855,7 @@ ParquetReader::ParquetReader(
     : readerBase_(std::make_shared<ReaderBase>(std::move(input), options)) {}
 
 std::optional<uint64_t> ParquetReader::numberOfRows() const {
-  return readerBase_->fileNumRows();
+  return readerBase_->thriftFileMetaData().num_rows;
 }
 
 const velox::RowTypePtr& ParquetReader::rowType() const {
@@ -868,12 +867,13 @@ ParquetReader::typeWithId() const {
   return readerBase_->schemaWithId();
 }
 
-size_t ParquetReader::numberOfRowGroups() const {
-  return readerBase_->fileMetaData().row_groups.size();
-}
-
 std::unique_ptr<dwio::common::RowReader> ParquetReader::createRowReader(
     const dwio::common::RowReaderOptions& options) const {
   return std::make_unique<ParquetRowReader>(readerBase_, options);
 }
+
+FileMetaDataPtr ParquetReader::fileMetaData() const {
+  return readerBase_->fileMetaData();
+}
+
 } // namespace facebook::velox::parquet

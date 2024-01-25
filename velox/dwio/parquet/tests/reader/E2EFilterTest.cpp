@@ -628,7 +628,7 @@ TEST_F(E2EFilterTest, combineRowGroup) {
       std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());
   auto reader = makeReader(readerOpts, std::move(input));
   auto parquetReader = dynamic_cast<ParquetReader&>(*reader.get());
-  EXPECT_EQ(parquetReader.numberOfRowGroups(), 1);
+  EXPECT_EQ(parquetReader.fileMetaData().numRowGroups(), 1);
   EXPECT_EQ(parquetReader.numberOfRows(), 5);
 }
 
