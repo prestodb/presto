@@ -170,8 +170,10 @@ class OutputBuffer {
         bool _finished,
         int64_t _bufferedBytes,
         int64_t _bufferedPages,
+        int64_t _totalBytesSent,
         int64_t _totalRowsSent,
         int64_t _totalPagesSent,
+        int64_t _averageBufferTimeMs,
         const std::vector<DestinationBuffer::Stats>& _buffersStats)
         : kind(_kind),
           noMoreBuffers(_noMoreBuffers),
@@ -179,8 +181,10 @@ class OutputBuffer {
           finished(_finished),
           bufferedBytes(_bufferedBytes),
           bufferedPages(_bufferedPages),
+          totalBytesSent(_totalBytesSent),
           totalRowsSent(_totalRowsSent),
           totalPagesSent(_totalPagesSent),
+          averageBufferTimeMs(_averageBufferTimeMs),
           buffersStats(_buffersStats) {}
 
     core::PartitionedOutputNode::Kind kind;
@@ -194,9 +198,13 @@ class OutputBuffer {
     int64_t bufferedBytes{0};
     int64_t bufferedPages{0};
 
-    /// The total number of rows/pages sent this output buffer.
+    /// The total number of bytes/rows/pages sent via this output buffer.
+    int64_t totalBytesSent{0};
     int64_t totalRowsSent{0};
     int64_t totalPagesSent{0};
+
+    /// Average time each piece of data has been buffered for in milliseconds.
+    int64_t averageBufferTimeMs{0};
 
     /// Stats of the OutputBuffer's destinations.
     std::vector<DestinationBuffer::Stats> buffersStats;
@@ -276,6 +284,10 @@ class OutputBuffer {
 
   void updateStatsWithFreedPagesLocked(int numPages, int64_t pageBytes);
 
+  void updateTotalBufferedBytesMsLocked();
+
+  int64_t getAverageBufferTimeMsLocked() const;
+
   // If this is called due to a driver processed all its data (no more data),
   // we increment the number of finished drivers. If it is called due to us
   // updating the total number of drivers, we don't.
@@ -347,7 +359,8 @@ class OutputBuffer {
   int64_t bufferedBytes_{0};
   // The number of buffered pages which corresponds to 'bufferedBytes_'.
   int64_t bufferedPages_{0};
-  // The total number of output rows and pages.
+  // The total number of output bytes, rows and pages.
+  uint64_t numOutputBytes_{0};
   uint64_t numOutputRows_{0};
   uint64_t numOutputPages_{0};
   std::vector<ContinuePromise> promises_;
@@ -364,6 +377,13 @@ class OutputBuffer {
   // When this reaches buffers_.size(), 'this' can be freed.
   int numFinalAcknowledges_ = 0;
   bool atEnd_ = false;
+
+  // Time since last change in bufferedBytes_. Used to compute total time data
+  // is buffered. Ignored if bufferedBytes_ is zero.
+  uint64_t bufferStartMs_;
+
+  // Total time data is buffered as bytes * time.
+  double totalBufferedBytesMs_;
 };
 
 } // namespace facebook::velox::exec

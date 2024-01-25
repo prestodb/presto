@@ -988,6 +988,7 @@ TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
     ASSERT_FALSE(stats.finished);
     ASSERT_FALSE(stats.noMoreBuffers);
     ASSERT_EQ(stats.totalPagesSent, 0);
+    ASSERT_EQ(stats.totalBytesSent, 0);
     ASSERT_EQ(stats.totalRowsSent, 0);
     ASSERT_EQ(stats.bufferedPages, 0);
     ASSERT_EQ(stats.bufferedBytes, 0);
@@ -1016,6 +1017,7 @@ TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
       ASSERT_EQ(statsEnqueue.bufferedPages, 1);
       ASSERT_EQ(statsEnqueue.bufferedBytes, pageBytes);
     }
+    ASSERT_EQ(statsEnqueue.totalBytesSent, totalBytes);
     ASSERT_EQ(statsEnqueue.totalPagesSent, pageId + 1);
     ASSERT_EQ(statsEnqueue.totalRowsSent, totalNumRows);
 
@@ -1033,6 +1035,7 @@ TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
       ASSERT_EQ(statsAck.bufferedPages, 0);
       ASSERT_EQ(statsAck.bufferedBytes, 0);
     }
+    ASSERT_EQ(statsAck.totalBytesSent, totalBytes);
     ASSERT_EQ(statsAck.totalPagesSent, pageId + 1);
     ASSERT_EQ(statsAck.totalRowsSent, totalNumRows);
   }
@@ -1044,6 +1047,7 @@ TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
   ASSERT_FALSE(statsNoMoreBuffers.noMoreData);
   ASSERT_EQ(statsNoMoreBuffers.bufferedPages, 0);
   ASSERT_EQ(statsNoMoreBuffers.bufferedBytes, 0);
+  ASSERT_EQ(statsNoMoreBuffers.totalBytesSent, totalBytes);
   ASSERT_EQ(statsNoMoreBuffers.totalPagesSent, numPages);
   ASSERT_EQ(statsNoMoreBuffers.totalRowsSent, totalNumRows);
 
@@ -1060,6 +1064,7 @@ TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
   ASSERT_TRUE(statsDeleteResults.finished);
   ASSERT_EQ(statsNoMoreBuffers.bufferedPages, 0);
   ASSERT_EQ(statsNoMoreBuffers.bufferedBytes, 0);
+  ASSERT_EQ(statsNoMoreBuffers.totalBytesSent, totalBytes);
   ASSERT_EQ(statsNoMoreBuffers.totalPagesSent, numPages);
   ASSERT_EQ(statsNoMoreBuffers.totalRowsSent, totalNumRows);
 

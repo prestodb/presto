@@ -351,19 +351,35 @@ void OutputBuffer::addOutputBuffersLocked(int numBuffers) {
 void OutputBuffer::updateStatsWithEnqueuedPageLocked(
     int64_t pageBytes,
     int64_t pageRows) {
+  updateTotalBufferedBytesMsLocked();
+
   bufferedBytes_ += pageBytes;
   ++bufferedPages_;
+
   ++numOutputPages_;
   numOutputRows_ += pageRows;
+  numOutputBytes_ += pageBytes;
 }
 
 void OutputBuffer::updateStatsWithFreedPagesLocked(
     int numPages,
     int64_t pageBytes) {
+  updateTotalBufferedBytesMsLocked();
+
   bufferedBytes_ -= pageBytes;
   VELOX_CHECK_GE(bufferedBytes_, 0);
   bufferedPages_ -= numPages;
   VELOX_CHECK_GE(bufferedPages_, 0);
+}
+
+void OutputBuffer::updateTotalBufferedBytesMsLocked() {
+  const auto nowMs = getCurrentTimeMs();
+  if (bufferedBytes_ > 0) {
+    const auto deltaMs = nowMs - bufferStartMs_;
+    totalBufferedBytesMs_ += bufferedBytes_ * deltaMs;
+  }
+
+  bufferStartMs_ = nowMs;
 }
 
 bool OutputBuffer::enqueue(
@@ -704,6 +720,14 @@ bool OutputBuffer::isOverutilized() const {
   return (bufferedBytes_ > (0.5 * maxSize_)) || atEnd_;
 }
 
+int64_t OutputBuffer::getAverageBufferTimeMsLocked() const {
+  if (numOutputBytes_ > 0) {
+    return totalBufferedBytesMs_ / numOutputBytes_;
+  }
+
+  return 0;
+}
+
 OutputBuffer::Stats OutputBuffer::stats() {
   std::lock_guard<std::mutex> l(mutex_);
   std::vector<DestinationBuffer::Stats> bufferStats;
@@ -717,6 +741,9 @@ OutputBuffer::Stats OutputBuffer::stats() {
       bufferStats[i] = finishedBufferStats_[i];
     }
   }
+
+  updateTotalBufferedBytesMsLocked();
+
   return OutputBuffer::Stats(
       kind_,
       noMoreBuffers_,
@@ -724,8 +751,10 @@ OutputBuffer::Stats OutputBuffer::stats() {
       isFinishedLocked(),
       bufferedBytes_,
       bufferedPages_,
+      numOutputBytes_,
       numOutputRows_,
       numOutputPages_,
+      getAverageBufferTimeMsLocked(),
       bufferStats);
 }
 
