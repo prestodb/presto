@@ -1054,6 +1054,8 @@ std::string HashBuild::stateName(State state) {
   switch (state) {
     case State::kRunning:
       return "RUNNING";
+    case State::kYield:
+      return "YIELD";
     case State::kWaitForSpill:
       return "WAIT_FOR_SPILL";
     case State::kWaitForBuild:
@@ -1179,7 +1181,8 @@ void HashBuild::reclaim(
 }
 
 bool HashBuild::nonReclaimableState() const {
-  return ((state_ != State::kRunning) && (state_ != State::kWaitForBuild)) ||
+  return ((state_ != State::kRunning) && (state_ != State::kWaitForBuild) &&
+          (state_ != State::kYield)) ||
       nonReclaimableSection_ || spiller_->finalized();
 }
 
