@@ -600,7 +600,7 @@ void PeriodicTaskManager::updateSpillStatsTask() {
   REPORT_IF_NOT_ZERO(
       kCounterSpillSerializationTimeUs,
       deltaSpillStats.spillSerializationTimeUs);
-  REPORT_IF_NOT_ZERO(kCounterSpillDiskWrites, deltaSpillStats.spillDiskWrites);
+  REPORT_IF_NOT_ZERO(kCounterSpillWrites, deltaSpillStats.spillWrites);
   REPORT_IF_NOT_ZERO(
       kCounterSpillFlushTimeUs, deltaSpillStats.spillFlushTimeUs);
   REPORT_IF_NOT_ZERO(
