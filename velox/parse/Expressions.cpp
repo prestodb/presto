@@ -134,21 +134,6 @@ TypedExprPtr adjustLastNArguments(
   return nullptr;
 }
 
-std::string toString(
-    const std::shared_ptr<const core::CallExpr>& expr,
-    const std::vector<TypedExprPtr>& inputs) {
-  std::ostringstream signature;
-  signature << expr->getFunctionName() << "(";
-  for (auto i = 0; i < inputs.size(); i++) {
-    if (i > 0) {
-      signature << ", ";
-    }
-    signature << inputs[i]->type()->toString();
-  }
-  signature << ")";
-  return signature.str();
-}
-
 TypedExprPtr createWithImplicitCast(
     const std::shared_ptr<const core::CallExpr>& expr,
     const std::vector<TypedExprPtr>& inputs) {
