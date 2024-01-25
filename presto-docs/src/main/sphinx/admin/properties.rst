@@ -899,3 +899,69 @@ CTE Materialization Properties
     The name of the catalog to be used for Common Table Expressions (CTE) and which provides custom partitioning for Common Table Expression (CTE) materialization.
     This setting specifies which catalog should be used for CTE materialization and for determining how to partition the materialization of CTEs in queries.
     This can also be specified on a per-query basis using the ``cte_partitioning_provider_catalog`` session property.
+
+
+Logging Properties
+------------------
+
+``log.max-history``
+^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``30``
+
+    The ``log.max-history`` property controls the number of archive log periods that the application retains.
+    In Presto, one log period corresponds to one day. For instance, if ``log.max-history`` is set to 30, the system will keep logs for the
+    past 30 days.
+
+``log.max-size``
+^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``100MB``
+
+    The maximum file size for the general application log file.
+
+``http-server.log.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable logging for the HTTP server.
+
+``http-server.log.compression.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable compression of the log files of the HTTP server.
+
+``http-server.log.path``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``var/log/http-request.log``
+
+    The path to the log file used by the HTTP server. The path is relative to
+    the data directory, configured by the launcher script as detailed in
+    :ref:`running_presto`.
+
+``http-server.log.max-history``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``15``
+
+    The ``http-server.log.max-history`` property controls the number of archive log periods that the HTTP server retains.
+    In Presto, one log period corresponds to one day. For instance, if ``http-server.log.max-history`` is set to 15, the
+    system will keep logs for the past 15 days.
+
+``http-server.log.max-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``100MB``
+
+    The maximum file size for the log file of the HTTP server.
