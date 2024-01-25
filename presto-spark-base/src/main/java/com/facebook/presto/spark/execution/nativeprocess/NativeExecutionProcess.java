@@ -47,6 +47,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.lang.reflect.Field;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Paths;
@@ -59,7 +60,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.http.client.HttpStatus.OK;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_BINARY_NOT_EXIST;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
@@ -97,7 +98,6 @@ public class NativeExecutionProcess
 
     public NativeExecutionProcess(
             Session session,
-            URI uri,
             HttpClient httpClient,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
@@ -105,9 +105,14 @@ public class NativeExecutionProcess
             WorkerProperty<?, ?, ?, ?> workerProperty)
             throws IOException
     {
-        this.port = getAvailableTcpPort();
+        String nodeInternalAddress = workerProperty.getNodeConfig().getNodeInternalAddress();
+        this.port = getAvailableTcpPort(nodeInternalAddress);
         this.session = requireNonNull(session, "session is null");
-        this.location = getBaseUriWithPort(requireNonNull(uri, "uri is null"), getPort());
+        this.location = uriBuilder()
+                .scheme("http")
+                .host(nodeInternalAddress)
+                .port(getPort())
+                .build();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.serverClient = new PrestoSparkHttpServerClient(
                 this.httpClient,
@@ -116,7 +121,7 @@ public class NativeExecutionProcess
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.errorTracker = new RequestErrorTracker(
                 "NativeExecution",
-                uri,
+                location,
                 NATIVE_EXECUTION_TASK_ERROR,
                 NATIVE_EXECUTION_TASK_ERROR_MESSAGE,
                 maxErrorDuration,
@@ -301,17 +306,11 @@ public class NativeExecutionProcess
         return location;
     }
 
-    private static URI getBaseUriWithPort(URI baseUri, int port)
-    {
-        return uriBuilderFrom(baseUri)
-                .port(port)
-                .build();
-    }
-
-    private static int getAvailableTcpPort()
+    private static int getAvailableTcpPort(String nodeInternalAddress)
     {
         try {
-            ServerSocket socket = new ServerSocket(0);
+            ServerSocket socket = new ServerSocket();
+            socket.bind(new InetSocketAddress(nodeInternalAddress, 0));
             int port = socket.getLocalPort();
             socket.close();
             return port;

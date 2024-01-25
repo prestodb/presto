@@ -98,7 +98,6 @@ import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionBroadcastBasePath;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeTerminateWithCoreTimeout;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeTerminateWithCoreWhenUnresponsiveEnabled;
-import static com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory.DEFAULT_URI;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
@@ -412,9 +411,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         try {
             // create the CPP sidecar process if it doesn't exist.
             // We create this when the first task is scheduled
-            nativeExecutionProcess = nativeExecutionProcessFactory.getNativeExecutionProcess(
-                    session,
-                    DEFAULT_URI);
+            nativeExecutionProcess = nativeExecutionProcessFactory.getNativeExecutionProcess(session);
             nativeExecutionProcess.start();
         }
         catch (ExecutionException | InterruptedException | IOException e) {

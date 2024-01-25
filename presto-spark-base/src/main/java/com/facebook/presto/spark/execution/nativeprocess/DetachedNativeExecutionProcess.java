@@ -22,7 +22,6 @@ import com.facebook.presto.spark.execution.property.WorkerProperty;
 import io.airlift.units.Duration;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -40,15 +39,14 @@ public class DetachedNativeExecutionProcess
 
     public DetachedNativeExecutionProcess(
             Session session,
-            URI uri,
             HttpClient httpClient,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            WorkerProperty<?, ?, ?, ?> workerProperty) throws IOException
+            WorkerProperty<?, ?, ?, ?> workerProperty)
+            throws IOException
     {
         super(session,
-                uri,
                 httpClient,
                 errorRetryScheduledExecutor,
                 serverInfoCodec,
@@ -57,7 +55,8 @@ public class DetachedNativeExecutionProcess
     }
 
     @Override
-    public void start() throws ExecutionException, InterruptedException
+    public void start()
+            throws ExecutionException, InterruptedException
     {
         log.info("Please use port " + getPort() + " for detached native process launching.");
         // getServerInfoWithRetry will return a Future on the getting the ServerInfo from the native process, we
@@ -69,6 +68,7 @@ public class DetachedNativeExecutionProcess
     /**
      * The port Spark native is going to use instead of dynamically generate. Since this class is for local debugging
      * only, there is no need to make this port configurable.
+     *
      * @return a fixed port.
      */
     @Override

@@ -228,8 +228,14 @@ void PrestoServer::run() {
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
 
+  const bool bindToNodeInternalAddressOnly =
+      systemConfig->httpServerBindToNodeInternalAddressOnlyEnabled();
   folly::SocketAddress httpSocketAddress;
-  httpSocketAddress.setFromLocalPort(httpPort);
+  if (bindToNodeInternalAddressOnly) {
+    httpSocketAddress.setFromHostPort(address_, httpPort);
+  } else {
+    httpSocketAddress.setFromLocalPort(httpPort);
+  }
   PRESTO_STARTUP_LOG(INFO) << fmt::format(
       "Starting server at {}:{} ({})",
       httpSocketAddress.getIPAddress().str(),
@@ -272,7 +278,11 @@ void PrestoServer::run() {
   std::unique_ptr<http::HttpsConfig> httpsConfig;
   if (httpsPort.has_value()) {
     folly::SocketAddress httpsSocketAddress;
-    httpsSocketAddress.setFromLocalPort(httpsPort.value());
+    if (bindToNodeInternalAddressOnly) {
+      httpSocketAddress.setFromHostPort(address_, httpsPort.value());
+    } else {
+      httpSocketAddress.setFromLocalPort(httpsPort.value());
+    }
 
     httpsConfig = std::make_unique<http::HttpsConfig>(
         httpsSocketAddress, certPath, keyPath, ciphers, reusePort);

@@ -29,11 +29,9 @@ import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_EXECUTABLE_PATH;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -46,18 +44,13 @@ import static org.testng.Assert.expectThrows;
 public class TestNativeExecutionProcess
 {
     private static final JsonCodec<ServerInfo> SERVER_INFO_JSON_CODEC = JsonCodec.jsonCodec(ServerInfo.class);
-    private static final URI BASE_URI = uriBuilder()
-            .scheme("http")
-            .host("localhost")
-            .port(8080)
-            .build();
 
     @Test
     public void testNativeProcessIsAlive()
     {
         Session session = testSessionBuilder().build();
         NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
-        NativeExecutionProcess process = factory.getNativeExecutionProcess(session, BASE_URI);
+        NativeExecutionProcess process = factory.getNativeExecutionProcess(session);
         // Simulate the process is closed (crashed)
         process.close();
         assertFalse(process.isAlive());
@@ -68,11 +61,11 @@ public class TestNativeExecutionProcess
     {
         Session session = testSessionBuilder().build();
         NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
-        NativeExecutionProcess process = factory.getNativeExecutionProcess(session, BASE_URI);
+        NativeExecutionProcess process = factory.getNativeExecutionProcess(session);
         // Simulate the process is closed (crashed)
         process.close();
         assertFalse(process.isAlive());
-        NativeExecutionProcess process2 = factory.getNativeExecutionProcess(session, BASE_URI);
+        NativeExecutionProcess process2 = factory.getNativeExecutionProcess(session);
         // Expecting the factory re-created a new process object so that the process and process2
         // should be two different objects
         assertNotSame(process2, process);
@@ -84,7 +77,7 @@ public class TestNativeExecutionProcess
         Session session = testSessionBuilder().setSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, "/bin/echo").build();
         NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
         // Set the maxRetryDuration to 0 ms to allow the RequestErrorTracker failing immediately
-        NativeExecutionProcess process = factory.createNativeExecutionProcess(session, BASE_URI, new Duration(0, TimeUnit.MILLISECONDS));
+        NativeExecutionProcess process = factory.createNativeExecutionProcess(session, new Duration(0, TimeUnit.MILLISECONDS));
         Throwable exception = expectThrows(PrestoSparkFatalException.class, process::start);
         assertTrue(exception.getMessage().contains("Native process launch failed with multiple retries"));
         assertFalse(process.isAlive());

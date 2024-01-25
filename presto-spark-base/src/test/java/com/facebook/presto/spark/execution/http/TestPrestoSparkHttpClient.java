@@ -784,10 +784,7 @@ public class TestPrestoSparkHttpClient
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
                 workerProperty);
-        return factory.createNativeExecutionProcess(
-                testSessionBuilder().build(),
-                BASE_URI,
-                maxErrorDuration);
+        return factory.createNativeExecutionProcess(testSessionBuilder().build(), maxErrorDuration);
     }
 
     private HttpNativeExecutionTaskInfoFetcher createTaskInfoFetcher(TaskId taskId, TestingResponseManager testingResponseManager)

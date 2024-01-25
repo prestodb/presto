@@ -231,6 +231,11 @@ bool SystemConfig::httpServerReusePort() const {
   return optionalProperty<bool>(kHttpServerReusePort).value();
 }
 
+bool SystemConfig::httpServerBindToNodeInternalAddressOnlyEnabled() const {
+  return optionalProperty<bool>(kHttpServerBindToNodeInternalAddressOnlyEnabled)
+      .value_or(false);
+}
+
 int SystemConfig::httpServerHttpsPort() const {
   return requiredProperty<int>(kHttpServerHttpsPort);
 }

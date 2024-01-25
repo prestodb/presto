@@ -168,6 +168,12 @@ class SystemConfig : public ConfigBase {
   /// startup.
   static constexpr std::string_view kHttpServerReusePort{
       "http-server.reuse-port"};
+  /// By default the server binds to 0.0.0.0
+  /// With this option enabled the server will bind strictly to the
+  /// address set in node.internal-address property
+  static constexpr std::string_view
+      kHttpServerBindToNodeInternalAddressOnlyEnabled{
+          "http-server.bind-to-node-internal-address-only-enabled"};
   static constexpr std::string_view kDiscoveryUri{"discovery.uri"};
   static constexpr std::string_view kMaxDriversPerTask{
       "task.max-drivers-per-task"};
@@ -486,6 +492,8 @@ class SystemConfig : public ConfigBase {
   int httpServerHttpPort() const;
 
   bool httpServerReusePort() const;
+
+  bool httpServerBindToNodeInternalAddressOnlyEnabled() const;
 
   bool httpServerHttpsEnabled() const;
 
