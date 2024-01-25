@@ -192,8 +192,8 @@ constexpr folly::StringPiece kCounterSpillSortTimeUs{
 constexpr folly::StringPiece kCounterSpillSerializationTimeUs{
     "presto_cpp.spill_serialization_time_us"};
 /// The number of disk writes to spill rows.
-constexpr folly::StringPiece kCounterSpillDiskWrites{
-    "presto_cpp.spill_disk_write_count"};
+constexpr folly::StringPiece kCounterSpillWrites{
+    "presto_cpp.spill_write_count"};
 /// The time spent on copy out serialized rows for disk write. If compression
 /// is enabled, this includes the compression time.
 constexpr folly::StringPiece kCounterSpillFlushTimeUs{
