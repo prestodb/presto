@@ -314,6 +314,9 @@ void CacheInputStream::loadPosition() {
     // 'region_'
     loadRegion.length = std::min<int32_t>(
         loadQuantum_, region_.length - (loadRegion.offset - region_.offset));
+
+    // There is no need to update the metric in the loadData method because
+    // loadSync is always executed regardless and updates the metric.
     loadSync(loadRegion);
   }
   auto* entry = pin_.checkedEntry();
