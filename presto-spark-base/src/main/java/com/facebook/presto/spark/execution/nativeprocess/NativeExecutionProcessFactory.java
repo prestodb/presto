@@ -26,7 +26,6 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -39,7 +38,6 @@ import static java.util.Objects.requireNonNull;
 public class NativeExecutionProcessFactory
 {
     private static final Duration MAX_ERROR_DURATION = new Duration(2, TimeUnit.MINUTES);
-    public static final URI DEFAULT_URI = URI.create("http://127.0.0.1");
     private final HttpClient httpClient;
     private final ExecutorService coreExecutor;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
@@ -64,25 +62,19 @@ public class NativeExecutionProcessFactory
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
 
-    public synchronized NativeExecutionProcess getNativeExecutionProcess(
-            Session session,
-            URI location)
+    public synchronized NativeExecutionProcess getNativeExecutionProcess(Session session)
     {
         if (!isNativeExecutionProcessReuseEnabled(session) || process == null || !process.isAlive()) {
-            process = createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
+            process = createNativeExecutionProcess(session, MAX_ERROR_DURATION);
         }
         return process;
     }
 
-    public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
-            URI location,
-            Duration maxErrorDuration)
+    public NativeExecutionProcess createNativeExecutionProcess(Session session, Duration maxErrorDuration)
     {
         try {
             return new NativeExecutionProcess(
                     session,
-                    location,
                     httpClient,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,

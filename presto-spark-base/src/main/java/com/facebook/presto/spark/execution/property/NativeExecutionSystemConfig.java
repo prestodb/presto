@@ -33,6 +33,7 @@ public class NativeExecutionSystemConfig
     // Port on which presto-native http server should run
     private static final String HTTP_SERVER_HTTP_PORT = "http-server.http.port";
     private static final String HTTP_SERVER_REUSE_PORT = "http-server.reuse-port";
+    private static final String HTTP_SERVER_BIND_TO_NODE_INTERNAL_ADDRESS_ONLY_ENABLED = "http-server.bind-to-node-internal-address-only-enabled";
     private static final String REGISTER_TEST_FUNCTIONS = "register-test-functions";
     // Number of I/O thread to use for serving http request on presto-native (proxygen server)
     // this excludes worker thread used by velox
@@ -107,6 +108,7 @@ public class NativeExecutionSystemConfig
     private boolean enableVeloxExpressionLogging;
     private boolean enableVeloxTaskLogging = true;
     private boolean httpServerReusePort = true;
+    private boolean httpServerBindToNodeInternalAddressOnlyEnabled = true;
     private int httpServerPort = 7777;
     private double httpServerNumIoThreadsHwMultiplier = 1.0;
     private int httpsServerPort = 7778;
@@ -149,6 +151,7 @@ public class NativeExecutionSystemConfig
                 .put(ENABLE_VELOX_TASK_LOGGING, String.valueOf(isEnableVeloxTaskLogging()))
                 .put(HTTP_SERVER_HTTP_PORT, String.valueOf(getHttpServerPort()))
                 .put(HTTP_SERVER_REUSE_PORT, String.valueOf(isHttpServerReusePort()))
+                .put(HTTP_SERVER_BIND_TO_NODE_INTERNAL_ADDRESS_ONLY_ENABLED, String.valueOf(isHttpServerBindToNodeInternalAddressOnlyEnabled()))
                 .put(REGISTER_TEST_FUNCTIONS, String.valueOf(isRegisterTestFunctions()))
                 .put(HTTP_SERVER_HTTPS_PORT, String.valueOf(getHttpsServerPort()))
                 .put(HTTP_SERVER_HTTPS_ENABLED, String.valueOf(isEnableHttpsCommunication()))
@@ -249,6 +252,18 @@ public class NativeExecutionSystemConfig
     public boolean isHttpServerReusePort()
     {
         return httpServerReusePort;
+    }
+
+    public boolean isHttpServerBindToNodeInternalAddressOnlyEnabled()
+    {
+        return httpServerBindToNodeInternalAddressOnlyEnabled;
+    }
+
+    @Config(HTTP_SERVER_BIND_TO_NODE_INTERNAL_ADDRESS_ONLY_ENABLED)
+    public NativeExecutionSystemConfig setHttpServerBindToNodeInternalAddressOnlyEnabled(boolean httpServerBindToNodeInternalAddressOnlyEnabled)
+    {
+        this.httpServerBindToNodeInternalAddressOnlyEnabled = httpServerBindToNodeInternalAddressOnlyEnabled;
+        return this;
     }
 
     @Config(REGISTER_TEST_FUNCTIONS)
