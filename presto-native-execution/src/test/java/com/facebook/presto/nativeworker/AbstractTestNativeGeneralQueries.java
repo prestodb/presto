@@ -907,6 +907,8 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT quantity_by_linenumber[2] FROM orders_ex WHERE cardinality(quantities) >= 2");
         assertQuery("SELECT element_at(quantity_by_linenumber, 2) FROM orders_ex");
         assertQuery("SELECT cast(zip(quantities, map_values(quantity_by_linenumber)) as array(row(a double, b integer))) FROM orders_ex");
+
+        assertQuery("select ngrams(quantities, 2) from orders_ex where orderkey <= 10");
     }
 
     @Test
