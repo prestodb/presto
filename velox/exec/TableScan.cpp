@@ -53,10 +53,9 @@ TableScan::TableScan(
   connector_ = connector::getConnector(tableHandle_->connectorId());
 }
 
-std::string TableScan::toJsonString() const {
-  auto ret = SourceOperator::toJsonString();
-  ret += ", status: ";
-  ret += curStatus_;
+folly::dynamic TableScan::toJson() const {
+  auto ret = SourceOperator::toJson();
+  ret["status"] = curStatus_.load();
   return ret;
 }
 

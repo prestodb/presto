@@ -2112,30 +2112,38 @@ std::string Task::toString() const {
   return out.str();
 }
 
+// TODO(jtan6): remove after toJson() is landed on presto native side
 std::string Task::toShortJsonString() const {
-  std::lock_guard<std::timed_mutex> l(mutex_);
-  folly::dynamic obj = folly::dynamic::object;
-  obj["shortId"] = shortId(taskId_);
-  obj["id"] = taskId_;
-  obj["state"] = taskStateString(state_);
-  obj["numRunningDrivers"] = numRunningDrivers_;
-  obj["numTotalDrivers_"] = numTotalDrivers_;
-  obj["numFinishedDrivers"] = numFinishedDrivers_;
-  obj["numThreads"] = numThreads_;
-  obj["terminateRequested_"] = std::to_string(terminateRequested_);
-  obj["pauseRequested_"] = std::to_string(pauseRequested_);
-  return folly::toPrettyJson(obj);
+  return folly::toPrettyJson(toShortJson());
 }
 
+// TODO(jtan6): remove after toJson() is landed on presto native side
 std::string Task::toJsonString() const {
-  std::lock_guard<std::timed_mutex> l(mutex_);
+  return folly::toPrettyJson(toJson());
+}
+
+folly::dynamic Task::toShortJsonLocked() const {
   folly::dynamic obj = folly::dynamic::object;
   obj["shortId"] = shortId(taskId_);
   obj["id"] = taskId_;
   obj["state"] = taskStateString(state_);
   obj["numRunningDrivers"] = numRunningDrivers_;
-  obj["numTotalDrivers_"] = numTotalDrivers_;
+  obj["numTotalDrivers"] = numTotalDrivers_;
   obj["numFinishedDrivers"] = numFinishedDrivers_;
+  obj["numThreads"] = numThreads_;
+  obj["terminateRequested"] = terminateRequested_.load();
+  obj["pauseRequested"] = pauseRequested_.load();
+  return obj;
+}
+
+folly::dynamic Task::toShortJson() const {
+  std::lock_guard<std::timed_mutex> l(mutex_);
+  return toShortJsonLocked();
+}
+
+folly::dynamic Task::toJson() const {
+  std::lock_guard<std::timed_mutex> l(mutex_);
+  auto obj = toShortJsonLocked();
   obj["numDriversPerSplitGroup"] = numDriversPerSplitGroup_;
   obj["numDriversUngrouped"] = numDriversUngrouped_;
   obj["groupedPartitionedOutput"] = groupedPartitionedOutput_;
@@ -2144,23 +2152,20 @@ std::string Task::toJsonString() const {
   obj["numDriversUngrouped"] = numDriversUngrouped_;
   obj["partitionedOutputConsumed"] = partitionedOutputConsumed_;
   obj["noMoreOutputBuffers"] = noMoreOutputBuffers_;
-  obj["numThreads"] = numThreads_;
-  obj["onThreadSince"] = std::to_string(onThreadSince_);
-  obj["terminateRequested_"] = std::to_string(terminateRequested_);
+  obj["onThreadSince"] = onThreadSince_;
 
   if (exception_) {
     obj["exception"] = errorMessageLocked();
   }
 
   if (planFragment_.planNode) {
-    obj["plan"] = planFragment_.planNode->toString();
+    obj["plan"] = planFragment_.planNode->toString(true, true);
   }
 
-  folly::dynamic driverObj = folly::dynamic::object;
+  folly::dynamic driverObj = folly::dynamic::array;
   int index = 0;
   for (auto& driver : drivers_) {
-    driverObj[std::to_string(index++)] =
-        driver ? driver->toJsonString() : "null";
+    driverObj[std::to_string(index++)] = driver ? driver->toJson() : "null";
   }
   obj["drivers"] = driverObj;
 
@@ -2172,11 +2177,11 @@ std::string Task::toJsonString() const {
 
   folly::dynamic exchangeClients = folly::dynamic::object;
   for (const auto& [id, client] : exchangeClientByPlanNode_) {
-    exchangeClients[id] = client->toJsonString();
+    exchangeClients[id] = client->toJson();
   }
   obj["exchangeClientByPlanNode"] = exchangeClients;
 
-  return folly::toPrettyJson(obj);
+  return obj;
 }
 
 std::shared_ptr<MergeSource> Task::addLocalMergeSource(

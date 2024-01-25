@@ -27,7 +27,7 @@ class TableScan : public SourceOperator {
       DriverCtx* driverCtx,
       std::shared_ptr<const core::TableScanNode> tableScanNode);
 
-  std::string toJsonString() const override;
+  folly::dynamic toJson() const override;
 
   RowVectorPtr getOutput() override;
 

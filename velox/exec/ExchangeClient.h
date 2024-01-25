@@ -94,7 +94,7 @@ class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
 
   std::string toString() const;
 
-  std::string toJsonString() const;
+  folly::dynamic toJson() const;
 
  private:
   // A list of sources to request data from and how much to request from each

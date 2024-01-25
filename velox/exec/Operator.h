@@ -459,8 +459,10 @@ class Operator : public BaseRuntimeStatWriter {
   virtual std::string toString() const;
 
   /// Used in debug ednpoints.
-  virtual std::string toJsonString() const {
-    return toString();
+  virtual folly::dynamic toJson() const {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["operator"] = toString();
+    return obj;
   }
 
   velox::memory::MemoryPool* pool() const {

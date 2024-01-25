@@ -252,16 +252,17 @@ std::string ExchangeClient::toString() const {
   return out.str();
 }
 
-std::string ExchangeClient::toJsonString() const {
+folly::dynamic ExchangeClient::toJson() const {
   folly::dynamic obj = folly::dynamic::object;
   obj["taskId"] = taskId_;
   obj["closed"] = closed_;
   folly::dynamic clientsObj = folly::dynamic::object;
   int index = 0;
   for (auto& source : sources_) {
-    clientsObj[std::to_string(index++)] = source->toJsonString();
+    clientsObj[std::to_string(index++)] = source->toJson();
   }
-  return folly::toPrettyJson(obj);
+  obj["clients"] = clientsObj;
+  return obj;
 }
 
 } // namespace facebook::velox::exec

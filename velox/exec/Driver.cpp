@@ -958,10 +958,10 @@ std::string Driver::toString() const {
   return out.str();
 }
 
-std::string Driver::toJsonString() const {
+folly::dynamic Driver::toJson() const {
   folly::dynamic obj = folly::dynamic::object;
   obj["blockingReason"] = blockingReasonToString(blockingReason_);
-  obj["state"] = state_.toJsonString();
+  obj["state"] = state_.toJson();
   obj["closed"] = closed_.load();
   obj["queueTimeStartMicros"] = queueTimeStartMicros_;
   const auto ocs = opCallStatus();
@@ -974,11 +974,11 @@ std::string Driver::toJsonString() const {
   folly::dynamic operatorsObj = folly::dynamic::object;
   int index = 0;
   for (auto& op : operators_) {
-    operatorsObj[std::to_string(index++)] = op->toJsonString();
+    operatorsObj[std::to_string(index++)] = op->toJson();
   }
   obj["operators"] = operatorsObj;
 
-  return folly::toPrettyJson(obj);
+  return obj;
 }
 
 SuspendedSection::SuspendedSection(Driver* driver) : driver_(driver) {

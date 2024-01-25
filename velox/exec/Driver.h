@@ -141,7 +141,7 @@ struct ThreadState {
     return getCurrentTimeMs() - startExecTimeMs;
   }
 
-  std::string toJsonString() const {
+  folly::dynamic toJson() const {
     folly::dynamic obj = folly::dynamic::object;
     obj["onThread"] = std::to_string(isOnThread());
     obj["tid"] = tid.load();
@@ -150,7 +150,7 @@ struct ThreadState {
     obj["hasBlockingFuture"] = hasBlockingFuture;
     obj["isSuspended"] = isSuspended;
     obj["startExecTime"] = startExecTimeMs;
-    return folly::toPrettyJson(obj);
+    return obj;
   }
 };
 
@@ -391,7 +391,7 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
   std::string toString() const;
 
-  std::string toJsonString() const;
+  folly::dynamic toJson() const;
 
   OpCallStatusRaw opCallStatus() const {
     return opCallStatus_();
