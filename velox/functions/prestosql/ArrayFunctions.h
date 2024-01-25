@@ -757,7 +757,7 @@ struct ArrayNGramsFunction {
 
   // Fast path for primitives.
   template <typename Out, typename In>
-  void call(Out& out, const In& input, int64_t n) {
+  void call(Out& out, const In& input, int32_t n) {
     VELOX_USER_CHECK_GT(n, 0, "N must be greater than zero.");
 
     if (n > input.size()) {
@@ -783,7 +783,7 @@ struct ArrayNGramsFunction {
   void call(
       out_type<Array<Array<Generic<T1>>>>& out,
       const arg_type<Array<Generic<T1>>>& input,
-      int64_t n) {
+      int32_t n) {
     VELOX_USER_CHECK_GT(n, 0, "N must be greater than zero.");
 
     if (n > input.size()) {
@@ -807,7 +807,7 @@ struct ArrayNGramsFunction {
 };
 
 template <typename T>
-struct ArrayNGramsFunctionFunctionString {
+struct ArrayNGramsFunctionString {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   static constexpr int32_t reuse_strings_from_arg = 0;
@@ -816,7 +816,7 @@ struct ArrayNGramsFunctionFunctionString {
   void call(
       out_type<Array<Array<Varchar>>>& out,
       const arg_type<Array<Varchar>>& input,
-      int64_t n) {
+      int32_t n) {
     VELOX_USER_CHECK_GT(n, 0, "N must be greater than zero.");
 
     if (n > input.size()) {

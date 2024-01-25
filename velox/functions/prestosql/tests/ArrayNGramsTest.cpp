@@ -26,14 +26,14 @@ class ArrayNGramsTest : public test::FunctionBaseTest {
   template <typename T>
   void testNgram(
       const std::vector<std::optional<T>>& inputArray,
-      int64_t n,
+      int32_t n,
       const std::vector<std::optional<std::vector<std::optional<T>>>>&
           expectedOutput) {
     std::vector<std::optional<std::vector<std::optional<T>>>> inputVec(
         {inputArray});
     auto input = makeNullableArrayVector<T>(inputVec);
-    auto result =
-        evaluate(fmt::format("ngrams(c0, {})", n), makeRowVector({input}));
+    auto result = evaluate(
+        fmt::format("ngrams(c0, {}::INTEGER)", n), makeRowVector({input}));
 
     auto expected = makeNullableNestedArrayVector<T>({expectedOutput});
     assertEqualVectors(expected, result);
@@ -48,10 +48,6 @@ TEST_F(ArrayNGramsTest, integers) {
   testNgram<int64_t>({1, 2, 3, 4}, 5, {{{1, 2, 3, 4}}});
   testNgram<int64_t>(
       {1, 2, 3, 4}, std::numeric_limits<int32_t>::max(), {{{1, 2, 3, 4}}});
-  testNgram<int64_t>(
-      {1, 2, 3, 4},
-      std::numeric_limits<int32_t>::max() + (int64_t)(1000),
-      {{{1, 2, 3, 4}}});
   testNgram<int64_t>({}, 1, {{{}}});
   testNgram<int64_t>({}, 10, {{{}}});
 }
@@ -59,14 +55,14 @@ TEST_F(ArrayNGramsTest, integers) {
 TEST_F(ArrayNGramsTest, invalidN) {
   auto input = makeArrayVector<int64_t>({{1, 2, 3, 4}});
   VELOX_ASSERT_THROW(
-      evaluate("ngrams(c0, 0)", makeRowVector({input})),
+      evaluate("ngrams(c0, 0::INTEGER)", makeRowVector({input})),
       "(0 vs. 0) N must be greater than zero");
   VELOX_ASSERT_THROW(
-      evaluate("ngrams(c0, -5)", makeRowVector({input})),
-      "(-5 vs. 0) N must be greater than zero");
+      evaluate("ngrams(c0, -5::INTEGER)", makeRowVector({input})),
+      "Scalar function signature is not supported");
   input = makeArrayVector<int64_t>({{}});
   VELOX_ASSERT_THROW(
-      evaluate("ngrams(c0, 0)", makeRowVector({input})),
+      evaluate("ngrams(c0, 0::INTEGER)", makeRowVector({input})),
       "(0 vs. 0) N must be greater than zero");
 }
 

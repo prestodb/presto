@@ -21,7 +21,7 @@ namespace facebook::velox::functions {
 namespace {
 template <typename T>
 inline void registerArrayNGramsFunctions(const std::string& prefix) {
-  registerFunction<ArrayNGramsFunction, Array<Array<T>>, Array<T>, int64_t>(
+  registerFunction<ArrayNGramsFunction, Array<Array<T>>, Array<T>, int32_t>(
       {prefix + "ngrams"});
 }
 
@@ -40,9 +40,9 @@ void registerArrayNGramsFunctions(const std::string& prefix) {
   registerArrayNGramsFunctions<Varbinary>(prefix);
   registerArrayNGramsFunctions<Generic<T1>>(prefix);
   registerFunction<
-      ArrayNGramsFunctionFunctionString,
+      ArrayNGramsFunctionString,
       Array<Array<Varchar>>,
       Array<Varchar>,
-      int64_t>({prefix + "ngrams"});
+      int32_t>({prefix + "ngrams"});
 }
 } // namespace facebook::velox::functions
