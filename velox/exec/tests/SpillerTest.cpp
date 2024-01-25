@@ -260,7 +260,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     ASSERT_GT(stats.spillFlushTimeUs, 0);
     ASSERT_GT(stats.spillFillTimeUs, 0);
     ASSERT_GT(stats.spillSerializationTimeUs, 0);
-    ASSERT_GT(stats.spillDiskWrites, 0);
+    ASSERT_GT(stats.spillWrites, 0);
 
     const auto newGStats = common::globalSpillStats();
     ASSERT_EQ(
@@ -290,8 +290,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         prevGStats.spillSerializationTimeUs + stats.spillSerializationTimeUs,
         newGStats.spillSerializationTimeUs);
     ASSERT_EQ(
-        prevGStats.spillDiskWrites + stats.spillDiskWrites,
-        newGStats.spillDiskWrites);
+        prevGStats.spillWrites + stats.spillWrites, newGStats.spillWrites);
 
     spiller_.reset();
     // Verify the spilled files are still there after spiller destruction.
@@ -759,14 +758,14 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           ASSERT_EQ(stats.spillWriteTimeUs, 0);
           ASSERT_EQ(stats.spillFlushTimeUs, 0);
           ASSERT_EQ(stats.spillSerializationTimeUs, 0);
-          ASSERT_EQ(stats.spillDiskWrites, 0);
+          ASSERT_EQ(stats.spillWrites, 0);
         } else {
           ASSERT_GT(stats.spilledRows, 0);
           ASSERT_GT(stats.spilledBytes, 0);
           ASSERT_GT(stats.spillWriteTimeUs, 0);
           ASSERT_GT(stats.spillFlushTimeUs, 0);
           ASSERT_GT(stats.spillSerializationTimeUs, 0);
-          ASSERT_GT(stats.spillDiskWrites, 0);
+          ASSERT_GT(stats.spillWrites, 0);
         }
       } else {
         ASSERT_GT(stats.spilledRows, 0);
@@ -774,7 +773,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         ASSERT_GT(stats.spillWriteTimeUs, 0);
         ASSERT_GT(stats.spillFlushTimeUs, 0);
         ASSERT_GT(stats.spillSerializationTimeUs, 0);
-        ASSERT_GT(stats.spillDiskWrites, 0);
+        ASSERT_GT(stats.spillWrites, 0);
       }
       ASSERT_GT(stats.spilledPartitions, 0);
       ASSERT_EQ(stats.spillSortTimeUs, 0);
@@ -812,8 +811,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           prevGStats.spillSerializationTimeUs + stats.spillSerializationTimeUs,
           newGStats.spillSerializationTimeUs);
       ASSERT_EQ(
-          prevGStats.spillDiskWrites + stats.spillDiskWrites,
-          newGStats.spillDiskWrites);
+          prevGStats.spillWrites + stats.spillWrites, newGStats.spillWrites);
 
       spillers.push_back(std::move(spiller_));
     }
@@ -1172,7 +1170,7 @@ TEST_P(HashJoinBuildOnly, writeBufferSize) {
     setupSpiller(4'000'000'000, writeBufferSize, false);
     spiller_->spill();
     ASSERT_TRUE(spiller_->isAllSpilled());
-    const int numDiskWrites = spiller_->stats().spillDiskWrites;
+    const int numDiskWrites = spiller_->stats().spillWrites;
     if (writeBufferSize != 0) {
       ASSERT_EQ(numDiskWrites, 0);
     }
@@ -1216,10 +1214,10 @@ TEST_P(HashJoinBuildOnly, writeBufferSize) {
     if (writeBufferSize > 0) {
       // With disk write buffering, all the input merged into one disk write per
       // partition.
-      ASSERT_EQ(stats.spillDiskWrites, numNonEmptySpilledPartitions);
+      ASSERT_EQ(stats.spillWrites, numNonEmptySpilledPartitions);
     } else {
       // By disable write buffering, then each spill input causes a disk write.
-      ASSERT_EQ(stats.spillDiskWrites, numDiskWrites + spillInputVectorCount);
+      ASSERT_EQ(stats.spillWrites, numDiskWrites + spillInputVectorCount);
     }
   }
 }

@@ -112,7 +112,7 @@ void checkSpillStats(PlanNodeStats& stats, bool expectedSpill) {
     ASSERT_GT(stats.customStats["spillSortTime"].sum, 0);
     ASSERT_GT(stats.customStats["spillSerializationTime"].sum, 0);
     ASSERT_GT(stats.customStats["spillFlushTime"].sum, 0);
-    ASSERT_GT(stats.customStats["spillDiskWrites"].sum, 0);
+    ASSERT_GT(stats.customStats["spillWrites"].sum, 0);
     ASSERT_GT(stats.customStats["spillWriteTime"].sum, 0);
   } else {
     ASSERT_EQ(stats.spilledRows, 0);
@@ -125,14 +125,14 @@ void checkSpillStats(PlanNodeStats& stats, bool expectedSpill) {
     ASSERT_EQ(stats.customStats["spillSortTime"].sum, 0);
     ASSERT_EQ(stats.customStats["spillSerializationTime"].sum, 0);
     ASSERT_EQ(stats.customStats["spillFlushTime"].sum, 0);
-    ASSERT_EQ(stats.customStats["spillDiskWrites"].sum, 0);
+    ASSERT_EQ(stats.customStats["spillWrites"].sum, 0);
     ASSERT_EQ(stats.customStats["spillWriteTime"].sum, 0);
   }
   ASSERT_EQ(
       stats.customStats["spillSerializationTime"].count,
       stats.customStats["spillFlushTime"].count);
   ASSERT_EQ(
-      stats.customStats["spillDiskWrites"].count,
+      stats.customStats["spillWrites"].count,
       stats.customStats["spillWriteTime"].count);
 }
 

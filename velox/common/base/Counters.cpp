@@ -151,8 +151,9 @@ void registerVeloxMetrics() {
   DEFINE_HISTOGRAM_METRIC(
       kMetricSpillSerializationTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
 
-  // The number of disk writes to spill rows.
-  DEFINE_METRIC(kMetricSpillDiskWritesCount, facebook::velox::StatType::COUNT);
+  // The number of spill writes to storage, which is the number of write calls
+  // to velox filesystem.
+  DEFINE_METRIC(kMetricSpillWritesCount, facebook::velox::StatType::COUNT);
 
   // The distribution of the amount of time spent on copy out serialized
   // rows for disk write in range of [0, 600s] with 20 buckets. It is configured

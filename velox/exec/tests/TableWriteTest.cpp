@@ -3235,7 +3235,7 @@ TEST_P(BucketSortOnlyTableWriterTest, sortWriterSpill) {
   ASSERT_GT(stats.customStats["spillSortTime"].sum, 0);
   ASSERT_GT(stats.customStats["spillSerializationTime"].sum, 0);
   ASSERT_GT(stats.customStats["spillFlushTime"].sum, 0);
-  ASSERT_GT(stats.customStats["spillDiskWrites"].sum, 0);
+  ASSERT_GT(stats.customStats["spillWrites"].sum, 0);
   ASSERT_GT(stats.customStats["spillWriteTime"].sum, 0);
 }
 

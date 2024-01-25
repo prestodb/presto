@@ -108,7 +108,7 @@ void verifyTaskSpilledRuntimeStats(const exec::Task& task, bool expectedSpill) {
           ASSERT_EQ(op.runtimeStats["spillSortTime"].count, 0);
           ASSERT_EQ(op.runtimeStats["spillSerializationTime"].count, 0);
           ASSERT_EQ(op.runtimeStats["spillFlushTime"].count, 0);
-          ASSERT_EQ(op.runtimeStats["spillDiskWrites"].count, 0);
+          ASSERT_EQ(op.runtimeStats["spillWrites"].count, 0);
           ASSERT_EQ(op.runtimeStats["spillWriteTime"].count, 0);
         } else {
           if (op.operatorType == "HashBuild") {
@@ -125,11 +125,11 @@ void verifyTaskSpilledRuntimeStats(const exec::Task& task, bool expectedSpill) {
           ASSERT_GE(
               op.runtimeStats["spillSerializationTime"].count,
               op.runtimeStats["spillFlushTime"].count);
-          ASSERT_GT(op.runtimeStats["spillDiskWrites"].sum, 0);
+          ASSERT_GT(op.runtimeStats["spillWrites"].sum, 0);
           ASSERT_GE(op.runtimeStats["spillWriteTime"].sum, 0);
           // NOTE: spill flush might take less than one microsecond.
           ASSERT_GE(
-              op.runtimeStats["spillDiskWrites"].count,
+              op.runtimeStats["spillWrites"].count,
               op.runtimeStats["spillWriteTime"].count);
         }
       }

@@ -93,8 +93,8 @@ constexpr folly::StringPiece kMetricSpillSortTimeMs{"velox.spill_sort_time_ms"};
 constexpr folly::StringPiece kMetricSpillSerializationTimeMs{
     "velox.spill_serialization_time_ms"};
 
-constexpr folly::StringPiece kMetricSpillDiskWritesCount{
-    "velox.spill_disk_writes_count"};
+constexpr folly::StringPiece kMetricSpillWritesCount{
+    "velox.spill_writes_count"};
 
 constexpr folly::StringPiece kMetricSpillFlushTimeMs{
     "velox.spill_flush_time_ms"};

@@ -31,7 +31,7 @@ TEST(SpillTest, spillStats) {
   stats1.spilledFiles = 1023;
   stats1.spillWriteTimeUs = 1023;
   stats1.spillFlushTimeUs = 1023;
-  stats1.spillDiskWrites = 1023;
+  stats1.spillWrites = 1023;
   stats1.spillSortTimeUs = 1023;
   stats1.spillFillTimeUs = 1023;
   stats1.spilledRows = 1023;
@@ -46,7 +46,7 @@ TEST(SpillTest, spillStats) {
   stats2.spilledFiles = 1026;
   stats2.spillWriteTimeUs = 1026;
   stats2.spillFlushTimeUs = 1027;
-  stats2.spillDiskWrites = 1028;
+  stats2.spillWrites = 1028;
   stats2.spillSortTimeUs = 1029;
   stats2.spillFillTimeUs = 1030;
   stats2.spilledRows = 1031;
@@ -73,7 +73,7 @@ TEST(SpillTest, spillStats) {
   ASSERT_EQ(delta.spilledFiles, 3);
   ASSERT_EQ(delta.spillWriteTimeUs, 3);
   ASSERT_EQ(delta.spillFlushTimeUs, 4);
-  ASSERT_EQ(delta.spillDiskWrites, 5);
+  ASSERT_EQ(delta.spillWrites, 5);
   ASSERT_EQ(delta.spillSortTimeUs, 6);
   ASSERT_EQ(delta.spillFillTimeUs, 7);
   ASSERT_EQ(delta.spilledRows, 8);
@@ -85,7 +85,7 @@ TEST(SpillTest, spillStats) {
   ASSERT_EQ(delta.spilledFiles, -3);
   ASSERT_EQ(delta.spillWriteTimeUs, -3);
   ASSERT_EQ(delta.spillFlushTimeUs, -4);
-  ASSERT_EQ(delta.spillDiskWrites, -5);
+  ASSERT_EQ(delta.spillWrites, -5);
   ASSERT_EQ(delta.spillSortTimeUs, -6);
   ASSERT_EQ(delta.spillFillTimeUs, -7);
   ASSERT_EQ(delta.spilledRows, -8);
@@ -104,5 +104,5 @@ TEST(SpillTest, spillStats) {
   ASSERT_EQ(zeroStats, stats1);
   ASSERT_EQ(
       stats2.toString(),
-      "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] spillFillTimeUs[1.03ms] spillSortTime[1.03ms] spillSerializationTime[1.03ms] spillDiskWrites[1028] spillFlushTime[1.03ms] spillWriteTime[1.03ms] maxSpillExceededLimitCount[4]");
+      "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] spillFillTimeUs[1.03ms] spillSortTime[1.03ms] spillSerializationTime[1.03ms] spillWrites[1028] spillFlushTime[1.03ms] spillWriteTime[1.03ms] maxSpillExceededLimitCount[4]");
 }

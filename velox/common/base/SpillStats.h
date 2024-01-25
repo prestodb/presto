@@ -44,7 +44,10 @@ struct SpillStats {
   uint64_t spillSortTimeUs{0};
   /// The time spent on serializing rows for spilling.
   uint64_t spillSerializationTimeUs{0};
-  /// The number of disk writes to spill rows.
+  /// The number of spill writer flushes, equivalent to number of write calls to
+  /// underlying filesystem.
+  uint64_t spillWrites{0};
+  // TODO(jtan6): Remove after presto native lands
   uint64_t spillDiskWrites{0};
   /// The time spent on copy out serialized rows for disk write. If compression
   /// is enabled, this includes the compression time.
@@ -65,7 +68,7 @@ struct SpillStats {
       uint64_t _spillFillTimeUs,
       uint64_t _spillSortTimeUs,
       uint64_t _spillSerializationTimeUs,
-      uint64_t _spillDiskWrites,
+      uint64_t _spillWrites,
       uint64_t _spillFlushTimeUs,
       uint64_t _spillWriteTimeUs,
       uint64_t _spillMaxLevelExceededCount);

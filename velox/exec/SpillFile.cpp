@@ -209,7 +209,7 @@ void SpillWriter::updateWriteStats(
   statsLocked->spilledBytes += spilledBytes;
   statsLocked->spillFlushTimeUs += flushTimeUs;
   statsLocked->spillWriteTimeUs += fileWriteTimeUs;
-  ++statsLocked->spillDiskWrites;
+  ++statsLocked->spillWrites;
   common::updateGlobalSpillWriteStats(
       spilledBytes, flushTimeUs, fileWriteTimeUs);
 }

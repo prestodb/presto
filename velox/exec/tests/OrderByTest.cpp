@@ -516,10 +516,10 @@ TEST_F(OrderByTest, spill) {
   ASSERT_EQ(
       planStats.customStats["spillSerializationTime"].count,
       planStats.customStats["spillFlushTime"].count);
-  ASSERT_GT(planStats.customStats["spillDiskWrites"].sum, 0);
+  ASSERT_GT(planStats.customStats["spillWrites"].sum, 0);
   ASSERT_GT(planStats.customStats["spillWriteTime"].sum, 0);
   ASSERT_EQ(
-      planStats.customStats["spillDiskWrites"].count,
+      planStats.customStats["spillWrites"].count,
       planStats.customStats["spillWriteTime"].count);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }

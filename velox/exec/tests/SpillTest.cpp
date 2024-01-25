@@ -282,7 +282,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     ASSERT_EQ(stats.spilledPartitions, numPartitions);
     ASSERT_EQ(stats.spilledFiles, expectedNumSpilledFiles);
     ASSERT_GT(stats.spilledBytes, 0);
-    ASSERT_GT(stats.spillDiskWrites, 0);
+    ASSERT_GT(stats.spillWrites, 0);
     ASSERT_GT(stats.spillWriteTimeUs, 0);
     ASSERT_GE(stats.spillFlushTimeUs, 0);
     ASSERT_GT(stats.spilledRows, 0);
@@ -298,8 +298,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     ASSERT_EQ(
         prevGStats.spilledBytes + stats.spilledBytes, newGStats.spilledBytes);
     ASSERT_EQ(
-        prevGStats.spillDiskWrites + stats.spillDiskWrites,
-        newGStats.spillDiskWrites);
+        prevGStats.spillWrites + stats.spillWrites, newGStats.spillWrites);
     ASSERT_EQ(
         prevGStats.spillWriteTimeUs + stats.spillWriteTimeUs,
         newGStats.spillWriteTimeUs);
@@ -385,7 +384,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     ASSERT_EQ(
         finalStats.toString(),
         fmt::format(
-            "spillRuns[{}] spilledInputBytes[{}] spilledBytes[{}] spilledRows[{}] spilledPartitions[{}] spilledFiles[{}] spillFillTimeUs[{}] spillSortTime[{}] spillSerializationTime[{}] spillDiskWrites[{}] spillFlushTime[{}] spillWriteTime[{}] maxSpillExceededLimitCount[0]",
+            "spillRuns[{}] spilledInputBytes[{}] spilledBytes[{}] spilledRows[{}] spilledPartitions[{}] spilledFiles[{}] spillFillTimeUs[{}] spillSortTime[{}] spillSerializationTime[{}] spillWrites[{}] spillFlushTime[{}] spillWriteTime[{}] maxSpillExceededLimitCount[0]",
             finalStats.spillRuns,
             succinctBytes(finalStats.spilledInputBytes),
             succinctBytes(finalStats.spilledBytes),
@@ -395,7 +394,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
             succinctMicros(finalStats.spillFillTimeUs),
             succinctMicros(finalStats.spillSortTimeUs),
             succinctMicros(finalStats.spillSerializationTimeUs),
-            finalStats.spillDiskWrites,
+            finalStats.spillWrites,
             succinctMicros(finalStats.spillFlushTimeUs),
             succinctMicros(finalStats.spillWriteTimeUs)));
 
