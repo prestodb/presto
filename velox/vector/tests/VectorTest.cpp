@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <optional>
 
 #include "velox/common/base/tests/GTestUtils.h"
@@ -3637,6 +3638,13 @@ TEST_F(VectorTest, setType) {
                ROW({"ee", "ff"}, {VARCHAR(), BIGINT()})),
            BIGINT()});
   test(type, newType, invalidNewType);
+}
+
+TEST_F(VectorTest, getLargeStringBuffer) {
+  auto vector = makeFlatVector<StringView>({});
+  size_t size = size_t(std::numeric_limits<int32_t>::max()) + 1;
+  auto* buffer = vector->getBufferWithSpace(size);
+  EXPECT_GE(buffer->capacity(), size);
 }
 
 } // namespace

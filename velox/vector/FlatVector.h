@@ -46,11 +46,11 @@ class FlatVector final : public SimpleVector<T> {
   // Minimum size of a string buffer. 32 KB value is chosen to ensure that a
   // single buffer is sufficient for a "typical" vector: 1K rows, medium size
   // strings.
-  static constexpr vector_size_t kInitialStringSize =
+  static constexpr size_t kInitialStringSize =
       (32 * 1024) - sizeof(AlignedBuffer);
   /// Maximum size of a string buffer to re-use (see
   /// BaseVector::prepareForReuse): 1MB.
-  static constexpr vector_size_t kMaxStringSizeForReuse =
+  static constexpr size_t kMaxStringSizeForReuse =
       (1 << 20) - sizeof(AlignedBuffer);
 
   FlatVector(
@@ -454,7 +454,7 @@ class FlatVector final : public SimpleVector<T> {
   ///
   /// If allocates new buffer and 'exactSize' is true, allocates 'size' bytes.
   /// Otherwise, allocates at least kInitialStringSize bytes.
-  Buffer* getBufferWithSpace(int32_t /*size*/, bool exactSize = false) {
+  Buffer* getBufferWithSpace(size_t /*size*/, bool exactSize = false) {
     return nullptr;
   }
 
@@ -470,7 +470,7 @@ class FlatVector final : public SimpleVector<T> {
   ///
   /// If allocates new buffer and 'exactSize' is true, allocates 'size' bytes.
   /// Otherwise, allocates at least kInitialStringSize bytes.
-  char* getRawStringBufferWithSpace(int32_t /*size*/, bool exactSize = false) {
+  char* getRawStringBufferWithSpace(size_t /*size*/, bool exactSize = false) {
     return nullptr;
   }
 
@@ -582,13 +582,11 @@ void FlatVector<StringView>::validate(
     const VectorValidateOptions& options) const;
 
 template <>
-Buffer* FlatVector<StringView>::getBufferWithSpace(
-    int32_t size,
-    bool exactSize);
+Buffer* FlatVector<StringView>::getBufferWithSpace(size_t size, bool exactSize);
 
 template <>
 char* FlatVector<StringView>::getRawStringBufferWithSpace(
-    int32_t size,
+    size_t size,
     bool exactSize);
 
 template <>

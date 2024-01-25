@@ -50,7 +50,7 @@ void FlatVector<bool>::set(vector_size_t idx, bool value) {
 
 template <>
 Buffer* FlatVector<StringView>::getBufferWithSpace(
-    int32_t size,
+    size_t size,
     bool exactSize) {
   VELOX_DCHECK_GE(stringBuffers_.size(), stringBufferSet_.size());
 
@@ -63,7 +63,7 @@ Buffer* FlatVector<StringView>::getBufferWithSpace(
   }
 
   // Allocate a new buffer.
-  const int32_t newSize = exactSize ? size : std::max(kInitialStringSize, size);
+  const size_t newSize = exactSize ? size : std::max(kInitialStringSize, size);
   BufferPtr newBuffer = AlignedBuffer::allocate<char>(newSize, pool());
   newBuffer->setSize(0);
   addStringBuffer(newBuffer);
@@ -72,7 +72,7 @@ Buffer* FlatVector<StringView>::getBufferWithSpace(
 
 template <>
 char* FlatVector<StringView>::getRawStringBufferWithSpace(
-    int32_t size,
+    size_t size,
     bool exactSize) {
   Buffer* buffer = getBufferWithSpace(size, exactSize);
   char* rawBuffer = buffer->asMutable<char>() + buffer->size();
